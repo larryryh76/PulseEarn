@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Wallet, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { cn } from '../../utils';
 import LogoWrapper from '../ui/LogoWrapper';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress] = useState("0x71C...4f92");
+
+  const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,19 +71,36 @@ const Navbar: React.FC = () => {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <button
-            onClick={() => setIsConnected(!isConnected)}
-            className={cn(
-              "flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[13px] transition-all relative overflow-hidden group",
-              isConnected
-                ? "bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08]"
-                : "bg-primary text-white shadow-[0_4px_15px_rgba(0,112,255,0.3)] hover:shadow-primary/40"
-            )}
-          >
-            <Wallet size={16} />
-            {isConnected ? walletAddress : "Connect Wallet"}
-            {isConnected && <ChevronDown size={14} className="text-white/40" />}
-          </button>
+          {currentUser ? (
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[13px] bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08] transition-all"
+            >
+              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+              </div>
+              {userData?.username || 'Dashboard'}
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className="text-[13px] font-bold text-white/50 hover:text-white transition-colors">
+                Login
+              </Link>
+              <button
+                onClick={() => setIsConnected(!isConnected)}
+                className={cn(
+                  "flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[13px] transition-all relative overflow-hidden group",
+                  isConnected
+                    ? "bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08]"
+                    : "bg-primary text-white shadow-[0_4px_15px_rgba(0,112,255,0.3)] hover:shadow-primary/40"
+                )}
+              >
+                <Wallet size={16} />
+                {isConnected ? walletAddress : "Connect Wallet"}
+                {isConnected && <ChevronDown size={14} className="text-white/40" />}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -113,16 +133,26 @@ const Navbar: React.FC = () => {
                 </a>
               ))}
               <div className="pt-4 border-t border-white/[0.05]">
-                <button
-                  className="flex items-center justify-center gap-3 w-full bg-primary text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20"
-                  onClick={() => {
-                    setIsConnected(!isConnected);
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  <Wallet size={20} />
-                  {isConnected ? walletAddress : "Connect Wallet"}
-                </button>
+                {currentUser ? (
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-3 w-full bg-white/[0.03] border border-white/[0.08] text-white px-6 py-4 rounded-2xl font-bold text-lg"
+                  >
+                    Dashboard
+                  </Link>
+                ) : (
+                  <button
+                    className="flex items-center justify-center gap-3 w-full bg-primary text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20"
+                    onClick={() => {
+                      setIsConnected(!isConnected);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <Wallet size={20} />
+                    {isConnected ? walletAddress : "Connect Wallet"}
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

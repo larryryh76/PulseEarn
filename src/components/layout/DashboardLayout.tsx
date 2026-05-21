@@ -6,46 +6,51 @@ import Logo from '../ui/Logo';
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-[#050507] text-white">
+    <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30">
+      {/* Background Atmosphere */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/5 blur-[120px] rounded-full" />
+      </div>
+
       {/* Sidebar Desktop */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="lg:pl-72 flex flex-col min-h-screen">
+      <div className="lg:pl-72 flex flex-col min-h-screen relative z-10">
 
-        {/* Simplified Header */}
-        <header className="sticky top-0 z-30 bg-[#050507]/80 backdrop-blur-xl border-b border-white/[0.05] px-6 py-4">
-          <div className="container mx-auto flex items-center justify-between">
-            {/* Logo area - cleaner */}
+        {/* Compact Premium Header */}
+        <header className="sticky top-0 z-30 bg-[#050507]/60 backdrop-blur-xl border-b border-white/[0.03] h-16 flex items-center">
+          <div className="container mx-auto px-6 flex items-center justify-between">
+            {/* Logo Area */}
             <div className="flex items-center gap-4">
-              <div className="lg:hidden">
+              <div className="lg:hidden scale-90 origin-left">
                 <Logo />
               </div>
               <div className="hidden lg:flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
-                  <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-green-500 uppercase tracking-tighter">Live Protocol</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Mainnet v2.0</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Compact Notification Icon */}
-              <button className="relative w-8 h-8 rounded-lg bg-white/[0.02] border border-white/[0.05] flex items-center justify-center hover:bg-white/[0.08] transition-colors group">
-                <Bell size={16} className="text-white/30 group-hover:text-white" />
-                <div className="absolute top-2 right-2 w-1 h-1 bg-primary rounded-full" />
+            {/* Utility Area */}
+            <div className="flex items-center gap-2.5">
+              <button className="relative w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center hover:bg-white/[0.08] transition-all group">
+                <Bell size={16} className="text-white/40 group-hover:text-white transition-colors" />
+                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full border-2 border-[#050507]" />
               </button>
 
-              {/* Profile Avatar */}
-              <button className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center hover:bg-primary/20 transition-colors">
+              <button className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center hover:shadow-[0_0_15px_rgba(0,112,255,0.2)] transition-all">
                 <User size={16} className="text-primary" />
               </button>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 pb-28 lg:pb-10">
-          <div className="container mx-auto">
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 pb-32 lg:pb-12">
+          <div className="max-w-5xl mx-auto">
             {children}
           </div>
         </main>

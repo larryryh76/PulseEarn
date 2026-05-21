@@ -13,7 +13,11 @@ import {
   CheckCircle2,
   ArrowUpRight,
   Plus,
-  ArrowRight
+  ArrowRight,
+  Users,
+  Copy,
+  ChevronRight,
+  Star
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -25,234 +29,248 @@ const Dashboard: React.FC = () => {
   if (!userData) return (
     <DashboardLayout>
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
+          </div>
+          <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.3em]">Syncing Protocol</p>
+        </div>
       </div>
     </DashboardLayout>
   );
 
   return (
     <DashboardLayout>
-      {/* Wallet-First Hero Section */}
+      {/* Premium Wallet Hero */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <Card className="p-0 border-primary/20 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent overflow-hidden relative">
-          {/* Subtle Graph Overlay (Mock) */}
-          <div className="absolute bottom-0 right-0 left-0 h-32 opacity-20 pointer-events-none">
-            <svg viewBox="0 0 400 100" className="w-full h-full preserve-3d">
+        <Card className="p-0 border-white/[0.05] bg-[#0A0A0F] overflow-hidden relative group">
+          {/* Live Dynamic Chart Background */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <svg viewBox="0 0 400 150" className="w-full h-full opacity-40" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" x2="0%">
+                  <stop offset="0%" stopColor="#0070ff" stopOpacity="0" />
+                  <stop offset="50%" stopColor="#0070ff" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#00f2ff" stopOpacity="0.8" />
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              {/* Animated Glow Path */}
               <motion.path
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 2 }}
-                d="M0 80 Q 50 70, 100 85 T 200 60 T 300 40 T 400 20"
+                d="M-20 120 C 50 110, 80 130, 150 80 C 220 30, 280 100, 350 40 C 400 0, 450 20, 500 10"
                 fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="text-primary"
+                stroke="#0070ff"
+                strokeWidth="4"
+                filter="url(#glow)"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{
+                  pathLength: [0, 1],
+                  opacity: [0, 0.3, 0.3],
+                  d: [
+                    "M-20 120 C 50 110, 80 130, 150 80 C 220 30, 280 100, 350 40 C 400 0, 450 20, 500 10",
+                    "M-20 110 C 60 120, 90 110, 160 70 C 230 20, 290 90, 360 30 C 410 10, 460 30, 510 20",
+                    "M-20 120 C 50 110, 80 130, 150 80 C 220 30, 280 100, 350 40 C 400 0, 450 20, 500 10"
+                  ]
+                }}
+                transition={{
+                  pathLength: { duration: 2, ease: "easeOut" },
+                  opacity: { duration: 2 },
+                  d: { duration: 10, repeat: Infinity, ease: "linear" }
+                }}
               />
             </svg>
           </div>
 
-          <div className="p-6 md:p-8 relative z-10">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total Portfolio</p>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold">
-                    <ArrowUpRight size={10} />
-                    +4.2%
-                  </div>
+          <div className="p-7 md:p-10 relative z-10">
+            <div className="flex flex-col mb-10">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                  <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.2em]">Net Assets</span>
                 </div>
-                <h3 className="text-4xl md:text-5xl font-mono font-bold text-white tracking-tighter">
+                <div className="flex items-center gap-1 text-[#00ff88] text-[10px] font-bold bg-[#00ff88]/10 px-2 py-0.5 rounded-full">
+                  <ArrowUpRight size={10} strokeWidth={3} />
+                  4.28%
+                </div>
+              </div>
+
+              <div className="flex items-baseline gap-2.5">
+                <h3 className="text-5xl md:text-6xl font-mono font-bold text-white tracking-tighter drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
                   {userData.points.toLocaleString()}
-                  <span className="text-primary/60 text-2xl ml-2 font-heading tracking-normal">PTS</span>
                 </h3>
+                <span className="text-primary font-bold text-xl tracking-tight">PTS</span>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-[0_0_20px_rgba(0,112,255,0.15)] animate-pulse">
-                <Zap className="text-primary" size={24} />
-              </div>
+
+              <p className="text-white/20 text-[11px] font-bold mt-2 font-mono tracking-wider">≈ ${(userData.points * 0.12).toFixed(2)} USD</p>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              <Button size="sm" className="flex-1 min-w-[100px] h-10 bg-primary shadow-lg shadow-primary/20">
-                <Plus size={16} />
-                Earn
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 min-w-[100px] h-10 border-white/10 bg-white/[0.03]">
-                <TrendingUp size={16} />
-                Predict
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 min-w-[100px] h-10 border-white/10 bg-white/[0.03]">
-                <Share2 size={16} />
-                Invite
-              </Button>
+            {/* Quick Actions - Floating Feel */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: 'Earn', icon: Zap, color: 'bg-primary', glow: 'shadow-[0_10px_30px_rgba(0,112,255,0.4)]' },
+                { label: 'Predict', icon: TrendingUp, color: 'bg-[#15151F]', glow: '' },
+                { label: 'Invite', icon: Share2, color: 'bg-[#15151F]', glow: '' }
+              ].map((action, i) => (
+                <button
+                  key={i}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-2.5 h-20 rounded-2xl border border-white/[0.05] transition-all active:scale-95 group/btn",
+                    action.color,
+                    action.glow
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-xl transition-colors",
+                    action.color === 'bg-primary' ? 'bg-white/20' : 'bg-white/5 group-hover/btn:bg-white/10'
+                  )}>
+                    <action.icon size={20} className="text-white" />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-widest uppercase">{action.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </Card>
       </motion.div>
 
-      {/* Stats Grid - Compact */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05]">
-          <div className="flex justify-between items-start">
-            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Streak</p>
-            <Trophy className="text-secondary opacity-50" size={16} />
-          </div>
-          <div>
-            <h4 className="text-xl font-mono font-bold leading-none">{userData.streak} Days</h4>
-            <p className="text-[9px] text-white/20 mt-1 font-bold">Top 5% Users</p>
-          </div>
-        </Card>
-
-        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05]">
-          <div className="flex justify-between items-start">
-            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Referrals</p>
-            <Users className="text-accent opacity-50" size={16} />
-          </div>
-          <div>
-            <h4 className="text-xl font-mono font-bold leading-none">12 Users</h4>
-            <p className="text-[9px] text-accent mt-1 font-bold">+150 PTS Earned</p>
-          </div>
-        </Card>
-
-        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05] col-span-2 lg:col-span-1">
-          <div className="flex justify-between items-start">
-            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Global Rank</p>
-            <TrendingUp className="text-primary opacity-50" size={16} />
-          </div>
-          <div>
-            <h4 className="text-xl font-mono font-bold leading-none">#1,242</h4>
-            <div className="flex items-center gap-1 mt-1 text-[9px] text-green-500 font-bold">
-              <ArrowUpRight size={10} />
-              +15 today
+      {/* Stats Grid - High Density Micro-Widgets */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        {[
+          { label: 'Streak', val: userData.streak, unit: 'Days', icon: Trophy, color: 'text-orange-500', bg: 'bg-orange-500/10', sub: 'Top 5% Rank' },
+          { label: 'Squad', val: 12, unit: 'Users', icon: Users, color: 'text-accent', bg: 'bg-accent/10', sub: '+150 PTS Earned' },
+          { label: 'Global', val: '#1.2k', unit: '', icon: Star, color: 'text-yellow-500', bg: 'bg-yellow-500/10', sub: 'Rising Star' },
+          { label: 'Yield', val: '12.4', unit: '%', icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10', sub: 'Daily Avg' }
+        ].map((stat, i) => (
+          <Card key={i} className="p-4 border-white/[0.03] bg-white/[0.01] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border border-white/[0.05]", stat.bg)}>
+                <stat.icon size={14} className={stat.color} />
+              </div>
+              <span className="text-white/20 text-[9px] font-bold uppercase tracking-widest">{stat.label}</span>
             </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05] col-span-2 lg:col-span-1">
-          <div className="flex justify-between items-start">
-            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Promo Code</p>
-            <Share2 className="text-white/20" size={16} />
-          </div>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(userData.referralCode);
-              toast.success('Copied!');
-            }}
-            className="text-sm font-mono font-bold text-white/80 tracking-widest hover:text-primary transition-colors text-left"
-          >
-            {userData.referralCode}
-          </button>
-        </Card>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-mono font-bold text-white">{stat.val}</span>
+                <span className="text-[10px] text-white/30 font-bold uppercase">{stat.unit}</span>
+              </div>
+              <p className="text-[9px] font-bold text-white/20 mt-1 uppercase tracking-tighter">{stat.sub}</p>
+            </div>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Daily Challenges - Actionable Cards */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-white/60">
-              <Gift size={16} className="text-primary" />
-              Daily Earnings
-            </h2>
+      {/* Gamified Quests - Vertical addictive list */}
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-5 bg-primary rounded-full" />
+            <h2 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.25em]">Available Quests</h2>
           </div>
+          <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/40">
+            Progress: <span className="text-primary">1/3</span>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            <Card className="p-4 flex items-center justify-between group border-primary/10 bg-primary/[0.02]">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                  <CheckCircle2 className="text-primary" size={20} />
+        <div className="space-y-4">
+          {/* Task 1 - Completed */}
+          <Card className="p-5 border-primary/20 bg-primary/[0.04] relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
+               <CheckCircle2 size={80} className="text-primary" />
+             </div>
+             <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30 shadow-[0_0_20px_rgba(0,112,255,0.15)]">
+                  <CheckCircle2 className="text-primary" size={28} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-[13px]">Daily Login Bonus</h4>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] font-mono text-primary font-bold">+10 PTS</span>
-                    <div className="w-1 h-1 rounded-full bg-white/10" />
-                    <span className="text-[9px] font-bold uppercase tracking-tighter text-green-500">Collected</span>
+                  <h4 className="font-bold text-base tracking-tight">Daily Check-in</h4>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-[11px] font-mono font-bold text-primary">+10 PULSE</span>
+                    <div className="w-1 h-1 rounded-full bg-primary/30" />
+                    <span className="text-[9px] font-bold uppercase text-green-500">Collected</span>
                   </div>
                 </div>
               </div>
-              <ArrowRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
-            </Card>
+              <button className="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-[10px] font-bold text-primary uppercase tracking-widest">
+                Done
+              </button>
+            </div>
+          </Card>
 
-            {[
-              { title: 'BTC Prediction', desc: 'Predict next 1h move', points: '+50', icon: TrendingUp, color: 'text-accent', bg: 'bg-accent/10' },
-              { title: 'Market Sentiment', desc: 'Complete daily survey', points: '+25', icon: Clock, color: 'text-secondary', bg: 'bg-secondary/10' }
-            ].map((task, i) => (
-              <Card key={i} className="p-4 flex items-center justify-between group border-transparent hover:border-white/10 transition-all cursor-pointer">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl ${task.bg} flex items-center justify-center shrink-0 border border-white/[0.05]`}>
-                    <task.icon className={task.color} size={18} />
+          {/* Pending Tasks */}
+          {[
+            { title: 'Market Oracle', sub: 'Predict next BTC move', pts: '+50', icon: TrendingUp, color: 'text-accent', bg: 'bg-accent/10' },
+            { title: 'Social Pulse', sub: 'Share daily stats', pts: '+25', icon: Share2, color: 'text-secondary', bg: 'bg-secondary/10' }
+          ].map((task, i) => (
+            <Card key={i} className="p-5 border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/[0.05] group-hover:scale-110 transition-transform", task.bg)}>
+                    <task.icon className={task.color} size={28} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-[13px]">{task.title}</h4>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] font-mono text-white/60 font-bold">{task.points} PTS</span>
+                    <h4 className="font-bold text-base tracking-tight">{task.title}</h4>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-[11px] font-mono font-bold text-white/60">{task.pts} PULSE</span>
                       <div className="w-1 h-1 rounded-full bg-white/10" />
-                      <span className="text-[9px] text-white/30 font-medium">{task.desc}</span>
+                      <span className="text-[9px] text-white/20 font-bold uppercase tracking-tighter">{task.sub}</span>
                     </div>
                   </div>
                 </div>
-                <div className="px-3 py-1 rounded-lg bg-white/[0.05] text-[10px] font-bold group-hover:bg-primary group-hover:text-white transition-all">
-                  Claim
+                <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center group-hover:bg-primary group-hover:border-primary transition-all">
+                  <ChevronRight size={20} className="text-white/20 group-hover:text-white" />
                 </div>
-              </Card>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* High Density History */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-5 bg-white/10 rounded-full" />
+          <h2 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.25em]">Recent Events</h2>
+        </div>
+        <Card className="p-0 overflow-hidden border-white/[0.03] bg-white/[0.01]">
+          <div className="divide-y divide-white/[0.02]">
+            {[
+              { type: 'Check-in', val: '+10', time: 'Just now', positive: true },
+              { type: 'Referral', val: '+50', time: '2 hours ago', positive: true },
+              { type: 'Withdraw', val: '-100', time: 'Yesterday', positive: false }
+            ].map((ev, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    ev.positive ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-red-500"
+                  )} />
+                  <div>
+                    <p className="text-[13px] font-bold text-white/80">{ev.type}</p>
+                    <p className="text-[9px] text-white/20 font-bold uppercase tracking-tighter">{ev.time}</p>
+                  </div>
+                </div>
+                <span className={cn(
+                  "font-mono text-xs font-bold",
+                  ev.positive ? "text-green-500" : "text-white/40"
+                )}>
+                  {ev.val} PTS
+                </span>
+              </div>
             ))}
           </div>
-        </div>
-
-        {/* Recent Events - Compact */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-bold flex items-center gap-2 text-white/60 mb-2">
-            <Clock size={16} />
-            History
-          </h2>
-          <Card className="p-0 overflow-hidden border-white/[0.05]">
-            <div className="divide-y divide-white/[0.03]">
-              {[
-                { title: 'Daily Bonus', amount: '+10', time: 'Just now', up: true },
-                { title: 'Signup Bonus', amount: '+100', time: 'Yesterday', up: true },
-                { title: 'Stake Fee', amount: '-5', time: '2d ago', up: false }
-              ].map((activity, i) => (
-                <div key={i} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-1.5 h-1.5 rounded-full",
-                      activity.up ? "bg-green-500" : "bg-red-500"
-                    )} />
-                    <div>
-                      <p className="text-xs font-bold">{activity.title}</p>
-                      <p className="text-[9px] text-white/20 uppercase font-medium">{activity.time}</p>
-                    </div>
-                  </div>
-                  <p className={cn(
-                    "text-xs font-mono font-bold",
-                    activity.up ? "text-green-500" : "text-red-500"
-                  )}>
-                    {activity.amount}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <button className="w-full py-3 bg-white/[0.02] text-[9px] font-bold uppercase tracking-widest text-white/20 hover:text-white transition-colors">
-              View All
-            </button>
-          </Card>
-        </div>
+        </Card>
       </div>
     </DashboardLayout>
   );
 };
-
-const Users = ({ size, className }: { size?: number, className?: string }) => (
-  <svg width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
 
 export default Dashboard;

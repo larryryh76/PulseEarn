@@ -29,10 +29,21 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (loading) return null;
 
-  if (!currentUser || userData?.role !== 'admin') {
+  const hasAccess = currentUser && userData?.role === 'admin';
+
+  console.log(`[AdminRoute] Access Check:`, {
+    authenticated: !!currentUser,
+    email: currentUser?.email,
+    role: userData?.role,
+    granted: hasAccess
+  });
+
+  if (!hasAccess) {
+    console.warn(`[AdminRoute] Access Denied. Redirecting...`);
     return <Navigate to="/dashboard" replace />;
   }
 
+  console.log(`[AdminRoute] Access Granted.`);
   return <>{children}</>;
 };
 

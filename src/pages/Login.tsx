@@ -4,7 +4,6 @@ import Button from '../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast, { Toaster } from 'react-hot-toast';
-import { initializeAdmin } from '../firebase/adminInit';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -31,18 +30,6 @@ const Login: React.FC = () => {
       toast.error(error.message || 'Failed to login');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleAdminInit = async () => {
-    toast.loading('Initializing Protocol...', { id: 'admin-init' });
-    const result = await initializeAdmin();
-    if (result.success) {
-      setEmail(result.email || '');
-      setPassword(result.password || '');
-      toast.success('Admin Protocol Ready', { id: 'admin-init' });
-    } else {
-      toast.error('Initialization Failed', { id: 'admin-init' });
     }
   };
 
@@ -87,12 +74,6 @@ const Login: React.FC = () => {
           </p>
 
           <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4">
-            <button
-              onClick={handleAdminInit}
-              className="text-[10px] font-bold uppercase tracking-widest text-primary/40 hover:text-primary transition-colors underline"
-            >
-              Initialize Admin Node
-            </button>
             <Link to="/" className="text-white/40 hover:text-white transition-colors text-sm underline">Back to Home</Link>
           </div>
         </div>

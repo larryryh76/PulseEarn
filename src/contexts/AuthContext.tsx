@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = userCredential.user;
 
     // Admin Logic: Check for exact email
-    const isAdmin = email.toLowerCase() === 'admin01@gmail.con';
+    const isAdmin = email.toLowerCase() === 'admin@pulse.com';
     const role = isAdmin ? 'admin' : 'user';
 
     if (isAdmin) {
@@ -185,9 +185,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
+        console.log(`[Auth] Authenticated: ${user.email}`);
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
-            setUserData(docSnap.data() as UserData);
+            const data = docSnap.data() as UserData;
+            const isAdminEmail = user.email?.toLowerCase() === 'admin@pulse.com';
+
+            const resolvedData = {
+              ...data,
+              role: (isAdminEmail || data.role === 'admin') ? 'admin' : 'user'
+            };
+
+            console.log(`[Auth] Role Check:`, {
+              email: user.email,
+              firestoreRole: data.role,
+              finalRole: resolvedData.role
+            });
+
+            setUserData(resolvedData as UserData);
             checkDailyReward(user.uid);
           }
           setLoading(false);

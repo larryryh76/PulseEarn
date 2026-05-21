@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
+import { useNavigate } from 'react-router-dom';
 
 const Earn: React.FC = () => {
   const { userData } = useAuth();
+  const navigate = useNavigate();
 
   if (!userData) return null;
 
@@ -93,7 +95,7 @@ const Earn: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {featuredOpportunities.map((opp, i) => (
-            <Card key={i} className="p-6 border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer relative overflow-hidden">
+            <Card key={i} onClick={() => navigate('/tasks')} className="p-6 border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.03] transition-all group cursor-pointer relative overflow-hidden">
                <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
                  <opp.icon size={80} className={opp.color} />
                </div>
@@ -136,7 +138,10 @@ const Earn: React.FC = () => {
                <p className="text-white/40 text-sm font-medium">Join the Pulse Protocol Liquidity task to earn 2x multipliers on all social tasks.</p>
              </div>
            </div>
-           <button className="px-8 py-3 rounded-2xl bg-primary text-white text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(0,112,255,0.4)] relative z-10 flex items-center gap-2">
+           <button
+             onClick={() => navigate('/tasks')}
+             className="px-8 py-3 rounded-2xl bg-primary text-white text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(0,112,255,0.4)] relative z-10 flex items-center gap-2"
+           >
              Activate Boost
              <ArrowUpRight size={16} />
            </button>

@@ -60,7 +60,14 @@ const Hero: React.FC = () => {
               Get Started
               <ArrowRight size={18} />
             </Button>
-            <Button variant="outline" size="lg" className="px-10">
+            <Button
+              variant="outline"
+              size="lg"
+              className="px-10"
+              onClick={() => {
+                document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
               Explore Protocol
             </Button>
           </motion.div>

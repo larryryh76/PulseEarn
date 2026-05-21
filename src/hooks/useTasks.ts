@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  collection,
   onSnapshot,
   query,
   where,
@@ -9,6 +8,8 @@ import {
   serverTimestamp,
   orderBy,
   limit,
+  addDoc,
+  collection,
   increment as firestoreIncrement
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -133,6 +134,16 @@ export const useTasks = () => {
       });
 
       await logActivity(task.title, task.rewardPoints, `Completed quest: ${task.title}`);
+
+      // Add notification
+      await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
+        title: 'Mission Accomplished!',
+        description: `You earned +${task.rewardPoints} Pulse for completing: ${task.title}`,
+        type: 'task_completed',
+        read: false,
+        timestamp: serverTimestamp()
+      });
+
       toast.success(`+${task.rewardPoints} Pulse Earned!`, {
         icon: '⚡',
       });

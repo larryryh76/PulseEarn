@@ -4,8 +4,10 @@ import { Bitcoin, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { cn } from '../../utils';
+import { useNavigate } from 'react-router-dom';
 
 const PredictionPreview: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedDirection, setSelectedDirection] = useState<'up' | 'down' | null>(null);
 
   return (
@@ -42,7 +44,11 @@ const PredictionPreview: React.FC = () => {
                 ))}
               </ul>
 
-              <Button variant="outline" className="border-accent/30 text-accent hover:bg-accent/10">
+              <Button
+                variant="outline"
+                className="border-accent/30 text-accent hover:bg-accent/10"
+                onClick={() => navigate('/predict')}
+              >
                 Learn Prediction Rules
               </Button>
             </motion.div>
@@ -124,8 +130,12 @@ const PredictionPreview: React.FC = () => {
                       <span className="text-white/40">Amount</span>
                       <span className="text-white font-mono">100.00 PULSE</span>
                     </div>
-                    <Button glow disabled={!selectedDirection} className="w-full py-4 text-lg">
-                      Confirm Prediction
+                    <Button
+                      glow
+                      className="w-full py-4 text-lg"
+                      onClick={() => navigate('/predict')}
+                    >
+                      {selectedDirection ? 'Confirm Prediction' : 'Select Direction'}
                     </Button>
                   </div>
                 </div>

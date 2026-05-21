@@ -4,9 +4,15 @@ import MobileBottomNav from './MobileBottomNav';
 import { Bell, User } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { useNavigate } from 'react-router-dom';
+import NotificationCenter from '../ui/NotificationCenter';
+import { useState } from 'react';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const { unreadCount } = useNotifications();
+
   return (
     <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30">
       {/* Background Atmosphere */}
@@ -38,11 +44,23 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
             </div>
 
             {/* Utility Area */}
-            <div className="flex items-center gap-2.5">
-              <button className="relative w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center hover:bg-white/[0.08] transition-all group">
+            <div className="flex items-center gap-2.5 relative">
+              <button
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="relative w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center hover:bg-white/[0.08] transition-all group"
+              >
                 <Bell size={16} className="text-white/40 group-hover:text-white transition-colors" />
-                <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full border-2 border-[#050507]" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-primary rounded-full border-2 border-[#050507] flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  </div>
+                )}
               </button>
+
+              <NotificationCenter
+                isOpen={isNotifOpen}
+                onClose={() => setIsNotifOpen(false)}
+              />
 
               <button
                 onClick={() => navigate('/me')}

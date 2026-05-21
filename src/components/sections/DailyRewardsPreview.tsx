@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Gift, Zap, DollarSign, ChevronRight } from 'lucide-react';
 import Card from '../ui/Card';
 import { cn } from '../../utils';
+import { useNavigate } from 'react-router-dom';
 
 const DailyRewardsPreview: React.FC = () => {
+  const navigate = useNavigate();
   const rewards = [
     {
       title: 'USDT Rain',
@@ -69,7 +71,10 @@ const DailyRewardsPreview: React.FC = () => {
                         <span>{reward.participants} participants</span>
                       </div>
                     </div>
-                    <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white group-hover:bg-primary transition-all">
+                    <button
+                      onClick={() => navigate('/signup')}
+                      className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white group-hover:bg-primary transition-all"
+                    >
                       <ChevronRight size={20} />
                     </button>
                   </Card>

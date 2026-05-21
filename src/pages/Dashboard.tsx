@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
   const { tasks, activities, loading, claimTask, getTaskStatus } = useTasks();
+  const navigate = useNavigate();
 
   if (!userData || loading) return (
     <DashboardLayout>
@@ -109,12 +111,13 @@ const Dashboard: React.FC = () => {
 
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: 'Earn', icon: Zap, color: 'bg-primary', glow: 'shadow-[0_10px_30px_rgba(0,112,255,0.4)]' },
-                { label: 'Predict', icon: TrendingUp, color: 'bg-[#15151F]', glow: '' },
-                { label: 'Invite', icon: Share2, color: 'bg-[#15151F]', glow: '' }
+                { label: 'Earn', icon: Zap, color: 'bg-primary', glow: 'shadow-[0_10px_30px_rgba(0,112,255,0.4)]', href: '/tasks' },
+                { label: 'Predict', icon: TrendingUp, color: 'bg-[#15151F]', glow: '', href: '/predict' },
+                { label: 'Invite', icon: Share2, color: 'bg-[#15151F]', glow: '', href: '/referrals' }
               ].map((action, i) => (
                 <button
                   key={i}
+                  onClick={() => navigate(action.href)}
                   className={cn(
                     "flex flex-col items-center justify-center gap-2.5 h-20 rounded-2xl border border-white/[0.05] transition-all active:scale-95 group/btn",
                     action.color,

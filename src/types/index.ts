@@ -37,4 +37,14 @@ export interface UserData {
   totalEarnedToday: number;
   lastRewardDate?: Timestamp;
   createdAt: Timestamp;
+  role: 'admin' | 'user';
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result';
+  read: boolean;
+  timestamp: Timestamp;
 }

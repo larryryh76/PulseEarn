@@ -7,6 +7,8 @@ import Tasks from './pages/Tasks'
 import Earn from './pages/Earn'
 import Invite from './pages/Invite'
 import Profile from './pages/Profile'
+import Predict from './pages/Predict'
+import ControlCenter from './pages/ControlCenter'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -17,6 +19,18 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (!currentUser || userData?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -77,6 +91,9 @@ function App() {
         <Route path="/rewards" element={<ProtectedRoute><Earn /></ProtectedRoute>} />
         <Route path="/referrals" element={<ProtectedRoute><Invite /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/predict" element={<ProtectedRoute><Predict /></ProtectedRoute>} />
+
+        <Route path="/pulse-core" element={<AdminRoute><ControlCenter /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

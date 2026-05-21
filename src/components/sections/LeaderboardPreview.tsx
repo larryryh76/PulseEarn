@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
 import { cn } from '../../utils';
+import { useNavigate } from 'react-router-dom';
 
 const LeaderboardPreview: React.FC = () => {
+  const navigate = useNavigate();
   const leaders = [
     { rank: 1, name: 'CryptoWhale', earnings: '$45,230', winRate: '78%', avatar: 'CW' },
     { rank: 2, name: 'MoonWalker', earnings: '$32,150', winRate: '72%', avatar: 'MW' },
@@ -114,7 +116,10 @@ const LeaderboardPreview: React.FC = () => {
                 </table>
               </div>
               <div className="p-6 bg-white/[0.02] border-t border-white/5 text-center">
-                <button className="text-white/40 hover:text-white font-bold text-sm flex items-center gap-2 mx-auto transition-colors group">
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="text-white/40 hover:text-white font-bold text-sm flex items-center gap-2 mx-auto transition-colors group"
+                >
                   View Full Leaderboard
                   <ExternalLink size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>

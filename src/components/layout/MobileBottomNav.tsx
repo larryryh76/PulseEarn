@@ -27,7 +27,7 @@ const MobileBottomNav: React.FC = () => {
   ];
 
   const isDashboard = location.pathname.startsWith('/dashboard') ||
-                      ['/tasks', '/rewards', '/referrals', '/me'].includes(location.pathname);
+                      ['/tasks', '/rewards', '/referrals', '/me', '/predict', '/pulse-core'].includes(location.pathname);
 
   const tabs = isDashboard ? dashboardTabs : landingTabs;
 

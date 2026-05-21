@@ -17,7 +17,10 @@ import {
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc
+  addDoc,
+  getDocs,
+  query,
+  limit
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -92,6 +95,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await logActivity('Check-in', 10, 'Daily login reward claimed', uid);
 
+        // Send notification
+        await addDoc(collection(db, 'users', uid, 'notifications'), {
+          title: 'Daily Reward Claimed!',
+          description: 'You earned +10 Pulse for checking in today.',
+          type: 'reward_claimed',
+          read: false,
+          timestamp: serverTimestamp()
+        });
+
         toast.success('+10 Points Daily Reward Claimed!', {
           icon: '🎁',
           duration: 4000,
@@ -103,6 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function signup(email: string, password: string, username: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+
+    // Check if this is the first user to assign admin role
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, limit(1));
+    const querySnapshot = await getDocs(q);
+    const isFirstUser = querySnapshot.empty;
 
     const referralCode = generateReferralCode(user.uid);
     const today = new Date();
@@ -118,15 +136,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       streak: 1,
       totalEarnedToday: 10,
       lastRewardDate: Timestamp.fromDate(today),
-      createdAt: Timestamp.now(), // Use now() instead of serverTimestamp() for immediate local state consistency if needed, but Firestore will override with server timestamp if specified in setDoc
+      createdAt: Timestamp.now(),
+      role: isFirstUser ? 'admin' : 'user',
     };
 
     await setDoc(doc(db, 'users', user.uid), {
       ...newUserData,
-      createdAt: serverTimestamp() // Overwrite with server time
+      createdAt: serverTimestamp()
     });
 
     await logActivity('Signup', 10, 'Welcome to PulseEarn! Started with 10 bonus points.', user.uid);
+
+    // Send welcome notification
+    await addDoc(collection(db, 'users', user.uid, 'notifications'), {
+      title: 'Welcome to PulseEarn!',
+      description: 'Start completing missions to earn your first Pulse rewards.',
+      type: 'system',
+      read: false,
+      timestamp: serverTimestamp()
+    });
   }
 
   function login(email: string, password: string) {

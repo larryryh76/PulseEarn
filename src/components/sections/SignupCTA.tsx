@@ -36,7 +36,14 @@ const SignupCTA: React.FC = () => {
                 Create Account
                 <ArrowRight size={18} />
               </Button>
-              <Button variant="outline" size="lg" className="px-14">
+              <Button
+                variant="outline"
+                size="lg"
+                className="px-14"
+                onClick={() => {
+                  document.getElementById('rewards')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
                 <Sparkles size={18} className="text-accent" />
                 View Rewards
               </Button>

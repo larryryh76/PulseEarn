@@ -22,12 +22,14 @@ import {
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface MenuItem {
   label: string;
   icon: any;
   desc: string | null;
   status?: string;
+  action?: () => void;
 }
 
 interface MenuSection {
@@ -38,6 +40,7 @@ interface MenuSection {
 const Profile: React.FC = () => {
   const { userData, logout } = useAuth();
   const { activities } = useTasks();
+  const navigate = useNavigate();
 
   if (!userData) return null;
 
@@ -64,8 +67,8 @@ const Profile: React.FC = () => {
     {
       title: 'Rewards & Growth',
       items: [
-        { label: 'Reward History', icon: Trophy, desc: 'View all earned points' },
-        { label: 'Referral Program', icon: Users, desc: 'Invite friends & earn pulse' },
+        { label: 'Reward History', icon: Trophy, desc: 'View all earned points', action: () => navigate('/dashboard') },
+        { label: 'Referral Program', icon: Users, desc: 'Invite friends & earn pulse', action: () => navigate('/referrals') },
       ]
     },
     {
@@ -167,8 +170,12 @@ const Profile: React.FC = () => {
             <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.25em] ml-1">{section.title}</h3>
             <Card className="p-0 overflow-hidden border-white/[0.03] bg-white/[0.01]">
               <div className="divide-y divide-white/[0.02]">
-                {section.items.map((item, i) => (
-                  <button key={i} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors group">
+                {section.items.map((item: any, i) => (
+                  <button
+                    key={i}
+                    onClick={() => item.action && item.action()}
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors group"
+                  >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-white/40 group-hover:text-primary group-hover:border-primary/20 transition-all">
                         <item.icon size={18} />

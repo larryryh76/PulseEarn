@@ -7,11 +7,13 @@ interface CardProps {
   className?: string;
   glow?: boolean;
   hover?: boolean;
+  onClick?: () => void;
 }
 
-const Card: React.FC<CardProps> = ({ children, className, glow = false, hover = true }) => {
+const Card: React.FC<CardProps> = ({ children, className, glow = false, hover = true, onClick }) => {
   return (
     <motion.div
+      onClick={onClick}
       whileHover={hover ? { y: -4, transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] } } : {}}
       className={cn(
         "bg-[#0D0D12]/50 backdrop-blur-md rounded-2xl p-6 border border-white/[0.08] relative overflow-hidden group",

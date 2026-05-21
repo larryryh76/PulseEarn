@@ -15,22 +15,13 @@ import {
   increment,
   getDoc,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
-
-interface UserData {
-  uid: string;
-  email: string | null;
-  username: string;
-  points: number;
-  referralCode: string;
-  referredBy: string | null;
-  streak: number;
-  lastRewardDate?: Timestamp;
-  createdAt: Timestamp;
-}
+import { UserData } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -39,6 +30,7 @@ interface AuthContextType {
   signup: (email: string, password: string, username: string) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
+  logActivity: (type: string, points: number, description: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,6 +52,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return `PULSE-${uid.slice(0, 6).toUpperCase()}`;
   };
 
+  async function logActivity(type: string, points: number, description: string, uid?: string) {
+    const targetUid = uid || currentUser?.uid;
+    if (!targetUid) return;
+
+    try {
+      const activitiesCol = collection(db, 'users', targetUid, 'activities');
+      await addDoc(activitiesCol, {
+        type,
+        points,
+        description,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error logging activity:", error);
+    }
+  }
+
   async function checkDailyReward(uid: string) {
     const userDocRef = doc(db, 'users', uid);
     const userDoc = await getDoc(userDocRef);
@@ -73,11 +82,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isNotToday = !lastRewardDate || lastRewardDate < today;
 
       if (isNotToday) {
+        // Reset daily earnings if it's a new day
         await updateDoc(userDocRef, {
           points: increment(10),
           streak: increment(1),
+          totalEarnedToday: 10,
           lastRewardDate: Timestamp.fromDate(today)
         });
+
+        await logActivity('Check-in', 10, 'Daily login reward claimed', uid);
+
         toast.success('+10 Points Daily Reward Claimed!', {
           icon: '🎁',
           duration: 4000,
@@ -94,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const newUserData = {
+    const newUserData: UserData = {
       uid: user.uid,
       email: user.email,
       username,
@@ -102,11 +116,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       referralCode,
       referredBy: null,
       streak: 1,
+      totalEarnedToday: 10,
       lastRewardDate: Timestamp.fromDate(today),
-      createdAt: serverTimestamp(),
+      createdAt: Timestamp.now(), // Use now() instead of serverTimestamp() for immediate local state consistency if needed, but Firestore will override with server timestamp if specified in setDoc
     };
 
-    await setDoc(doc(db, 'users', user.uid), newUserData);
+    await setDoc(doc(db, 'users', user.uid), {
+      ...newUserData,
+      createdAt: serverTimestamp() // Overwrite with server time
+    });
+
+    await logActivity('Signup', 10, 'Welcome to PulseEarn! Started with 10 bonus points.', user.uid);
   }
 
   function login(email: string, password: string) {
@@ -157,7 +177,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signup,
     login,
-    logout
+    logout,
+    logActivity
   };
 
   return (

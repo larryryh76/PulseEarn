@@ -1,25 +1,18 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   Zap,
   Trophy,
   Share2,
   TrendingUp,
-  Clock,
-  Gift,
   CheckCircle2,
   ArrowUpRight,
-  Plus,
-  ArrowRight,
   Users,
-  Copy,
   ChevronRight,
   Star
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
 
@@ -53,7 +46,7 @@ const Dashboard: React.FC = () => {
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <svg viewBox="0 0 400 150" className="w-full h-full opacity-40" preserveAspectRatio="none">
               <defs>
-                <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" x2="0%">
+                <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#0070ff" stopOpacity="0" />
                   <stop offset="50%" stopColor="#0070ff" stopOpacity="0.5" />
                   <stop offset="100%" stopColor="#00f2ff" stopOpacity="0.8" />

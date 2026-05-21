@@ -3,10 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
-  Gift,
+  Zap,
   Users,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -19,8 +20,9 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
-    { name: 'Rewards', icon: Gift, href: '/rewards' },
-    { name: 'Referrals', icon: Users, href: '/referrals' },
+    { name: 'Earn', icon: Zap, href: '/rewards' },
+    { name: 'Invite', icon: Users, href: '/referrals' },
+    { name: 'Me', icon: User, href: '/me' },
   ];
 
   const handleLogout = async () => {

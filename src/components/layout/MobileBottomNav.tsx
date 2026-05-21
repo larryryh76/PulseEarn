@@ -22,7 +22,7 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Dash', icon: Home, href: '/dashboard' },
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { name: 'Earn', icon: Zap, href: '/rewards' },
-    { name: 'Invites', icon: Users, href: '/referrals' },
+    { name: 'Invite', icon: Users, href: '/referrals' },
     { name: 'Me', icon: User, href: '/me' },
   ];
 
@@ -34,7 +34,7 @@ const MobileBottomNav: React.FC = () => {
   const activeTab = tabs.find(tab => {
     if (tab.href.startsWith('/#')) return false;
     return location.pathname === tab.href;
-  })?.name || (isDashboard ? 'Dash' : 'Home');
+  })?.name || (isDashboard ? (location.pathname === '/dashboard' ? 'Dash' : '') : 'Home');
 
   const handleTabClick = (tab: any) => {
     if (tab.href.startsWith('/#')) {

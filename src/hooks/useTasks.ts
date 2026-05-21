@@ -8,7 +8,8 @@ import {
   runTransaction,
   serverTimestamp,
   orderBy,
-  limit
+  limit,
+  increment as firestoreIncrement
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -144,5 +145,3 @@ export const useTasks = () => {
 
   return { tasks, userTasks, activities, loading, claimTask, getTaskStatus };
 };
-
-import { increment as firestoreIncrement } from 'firebase/firestore';

@@ -3,6 +3,9 @@ import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Tasks from './pages/Tasks'
+import Earn from './pages/Earn'
+import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -70,9 +73,9 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="/tasks" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/rewards" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/referrals" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/rewards" element={<ProtectedRoute><Earn /></ProtectedRoute>} />
+        <Route path="/referrals" element={<ProtectedRoute><Invite /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />

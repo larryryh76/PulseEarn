@@ -13,7 +13,9 @@ import {
   onSnapshot,
   updateDoc,
   increment,
-  getDoc
+  getDoc,
+  Timestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -26,8 +28,8 @@ interface UserData {
   referralCode: string;
   referredBy: string | null;
   streak: number;
-  lastRewardDate?: any;
-  createdAt: any;
+  lastRewardDate?: Timestamp;
+  createdAt: Timestamp;
 }
 
 interface AuthContextType {
@@ -74,16 +76,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await updateDoc(userDocRef, {
           points: increment(10),
           streak: increment(1),
-          lastRewardDate: today
+          lastRewardDate: Timestamp.fromDate(today)
         });
         toast.success('+10 Points Daily Reward Claimed!', {
           icon: '🎁',
           duration: 4000,
-          style: {
-            background: '#0D0D12',
-            color: '#0070ff',
-            border: '1px solid rgba(0, 112, 255, 0.2)',
-          }
         });
       }
     }
@@ -97,16 +94,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const newUserData: UserData = {
+    const newUserData = {
       uid: user.uid,
       email: user.email,
       username,
-      points: 10, // Signup bonus + daily reward for day 1
+      points: 10,
       referralCode,
       referredBy: null,
       streak: 1,
-      lastRewardDate: today,
-      createdAt: new Date(),
+      lastRewardDate: Timestamp.fromDate(today),
+      createdAt: serverTimestamp(),
     };
 
     await setDoc(doc(db, 'users', user.uid), newUserData);
@@ -128,11 +125,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
-        // Real-time listener for user data
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
             setUserData(docSnap.data() as UserData);
-            // Check reward after data is loaded
             checkDailyReward(user.uid);
           }
           setLoading(false);

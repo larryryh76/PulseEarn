@@ -11,10 +11,13 @@ import {
   Clock,
   Gift,
   CheckCircle2,
-  ArrowUpRight
+  ArrowUpRight,
+  Plus,
+  ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { cn } from '../utils';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
@@ -22,187 +25,234 @@ const Dashboard: React.FC = () => {
   if (!userData) return (
     <DashboardLayout>
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
       </div>
     </DashboardLayout>
   );
 
   return (
     <DashboardLayout>
-      {/* Welcome Section */}
-      <div className="mb-10">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-2 text-primary font-bold text-[11px] uppercase tracking-widest mb-2"
-        >
-          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          Live Platform Stats
-        </motion.div>
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">
-          Pulse <span className="text-primary">Dashboard</span>
-        </h1>
-        <p className="text-white/40 font-medium">Hello, {userData.username}. Welcome back to the ecosystem.</p>
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {/* Main Points Card */}
-        <Card className="lg:col-span-2 border-primary/20 bg-gradient-to-br from-primary/[0.05] to-transparent p-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Available Balance</p>
-              <h3 className="text-5xl font-mono font-bold text-white tracking-tighter">
-                {userData.points.toLocaleString()}
-                <span className="text-primary ml-2">PTS</span>
-              </h3>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Zap className="text-primary" size={24} />
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <Button size="sm" className="w-full">Stake Points</Button>
-            <Button variant="outline" size="sm" className="w-full">History</Button>
-          </div>
-        </Card>
-
-        {/* Streak Card */}
-        <Card className="flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Daily Streak</p>
-              <h3 className="text-3xl font-mono font-bold text-white">{userData.streak} Days</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center border border-secondary/20">
-              <Trophy className="text-secondary" size={20} />
-            </div>
-          </div>
-          <div className="mt-6 pt-4 border-t border-white/[0.05]">
-            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-white/20 mb-2">
-              <span>Next Milestone</span>
-              <span>7 Days</span>
-            </div>
-            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-secondary transition-all duration-1000"
-                style={{ width: `${(userData.streak / 7) * 100}%` }}
+      {/* Wallet-First Hero Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <Card className="p-0 border-primary/20 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent overflow-hidden relative">
+          {/* Subtle Graph Overlay (Mock) */}
+          <div className="absolute bottom-0 right-0 left-0 h-32 opacity-20 pointer-events-none">
+            <svg viewBox="0 0 400 100" className="w-full h-full preserve-3d">
+              <motion.path
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 2 }}
+                d="M0 80 Q 50 70, 100 85 T 200 60 T 300 40 T 400 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-primary"
               />
+            </svg>
+          </div>
+
+          <div className="p-6 md:p-8 relative z-10">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total Portfolio</p>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold">
+                    <ArrowUpRight size={10} />
+                    +4.2%
+                  </div>
+                </div>
+                <h3 className="text-4xl md:text-5xl font-mono font-bold text-white tracking-tighter">
+                  {userData.points.toLocaleString()}
+                  <span className="text-primary/60 text-2xl ml-2 font-heading tracking-normal">PTS</span>
+                </h3>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-[0_0_20px_rgba(0,112,255,0.15)] animate-pulse">
+                <Zap className="text-primary" size={24} />
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              <Button size="sm" className="flex-1 min-w-[100px] h-10 bg-primary shadow-lg shadow-primary/20">
+                <Plus size={16} />
+                Earn
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 min-w-[100px] h-10 border-white/10 bg-white/[0.03]">
+                <TrendingUp size={16} />
+                Predict
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 min-w-[100px] h-10 border-white/10 bg-white/[0.03]">
+                <Share2 size={16} />
+                Invite
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* Stats Grid - Compact */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05]">
+          <div className="flex justify-between items-start">
+            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Streak</p>
+            <Trophy className="text-secondary opacity-50" size={16} />
+          </div>
+          <div>
+            <h4 className="text-xl font-mono font-bold leading-none">{userData.streak} Days</h4>
+            <p className="text-[9px] text-white/20 mt-1 font-bold">Top 5% Users</p>
+          </div>
+        </Card>
+
+        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05]">
+          <div className="flex justify-between items-start">
+            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Referrals</p>
+            <Users className="text-accent opacity-50" size={16} />
+          </div>
+          <div>
+            <h4 className="text-xl font-mono font-bold leading-none">12 Users</h4>
+            <p className="text-[9px] text-accent mt-1 font-bold">+150 PTS Earned</p>
+          </div>
+        </Card>
+
+        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05] col-span-2 lg:col-span-1">
+          <div className="flex justify-between items-start">
+            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Global Rank</p>
+            <TrendingUp className="text-primary opacity-50" size={16} />
+          </div>
+          <div>
+            <h4 className="text-xl font-mono font-bold leading-none">#1,242</h4>
+            <div className="flex items-center gap-1 mt-1 text-[9px] text-green-500 font-bold">
+              <ArrowUpRight size={10} />
+              +15 today
             </div>
           </div>
         </Card>
 
-        {/* Referral Card */}
-        <Card className="flex flex-col justify-between border-accent/20">
+        <Card className="p-4 flex flex-col justify-between h-32 border-white/[0.05] col-span-2 lg:col-span-1">
           <div className="flex justify-between items-start">
-            <div>
-              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Referral Code</p>
-              <h3 className="text-xl font-mono font-bold text-white tracking-widest uppercase">{userData.referralCode}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center border border-accent/20">
-              <Share2 className="text-accent" size={20} />
-            </div>
+            <p className="text-white/30 text-[9px] font-bold uppercase tracking-widest">Promo Code</p>
+            <Share2 className="text-white/20" size={16} />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full mt-6 border-accent/20 text-accent hover:bg-accent/10"
+          <button
             onClick={() => {
               navigator.clipboard.writeText(userData.referralCode);
-              toast.success('Copied to clipboard');
+              toast.success('Copied!');
             }}
+            className="text-sm font-mono font-bold text-white/80 tracking-widest hover:text-primary transition-colors text-left"
           >
-            Copy Invite Link
-          </Button>
+            {userData.referralCode}
+          </button>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-        {/* Daily Reward System Card */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Gift size={20} className="text-primary" />
-              Daily Challenges
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Daily Challenges - Actionable Cards */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-white/60">
+              <Gift size={16} className="text-primary" />
+              Daily Earnings
             </h2>
-            <button className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors">
-              Refresh Tasks
-            </button>
           </div>
 
-          <div className="space-y-4">
-            <Card className="p-5 flex items-center justify-between group border-primary/10">
-              <div className="flex items-center gap-5">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                  <CheckCircle2 className="text-primary" size={22} />
+          <div className="grid grid-cols-1 gap-3">
+            <Card className="p-4 flex items-center justify-between group border-primary/10 bg-primary/[0.02]">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                  <CheckCircle2 className="text-primary" size={20} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Daily Login Reward</h4>
-                  <p className="text-[11px] text-white/40">Claimed automatically on your first visit today.</p>
+                  <h4 className="font-bold text-[13px]">Daily Login Bonus</h4>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] font-mono text-primary font-bold">+10 PTS</span>
+                    <div className="w-1 h-1 rounded-full bg-white/10" />
+                    <span className="text-[9px] font-bold uppercase tracking-tighter text-green-500">Collected</span>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-col items-end">
-                <span className="text-primary font-mono font-bold">+10 PTS</span>
-                <span className="text-[9px] font-bold uppercase tracking-widest text-green-500">Completed</span>
-              </div>
+              <ArrowRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
             </Card>
 
             {[
-              { title: 'Market Prediction', desc: 'Make a correct price prediction on BTC.', points: '+50', icon: TrendingUp, color: 'text-accent', bg: 'bg-accent/10', border: 'border-accent/20' },
-              { title: 'Community Vote', desc: 'Vote on the next ecosystem improvement.', points: '+25', icon: Clock, color: 'text-secondary', bg: 'bg-secondary/10', border: 'border-secondary/20' }
+              { title: 'BTC Prediction', desc: 'Predict next 1h move', points: '+50', icon: TrendingUp, color: 'text-accent', bg: 'bg-accent/10' },
+              { title: 'Market Sentiment', desc: 'Complete daily survey', points: '+25', icon: Clock, color: 'text-secondary', bg: 'bg-secondary/10' }
             ].map((task, i) => (
-              <Card key={i} className={`p-5 flex items-center justify-between group border-transparent hover:${task.border}`}>
-                <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 rounded-2xl ${task.bg} flex items-center justify-center shrink-0 border border-white/[0.05]`}>
-                    <task.icon className={task.color} size={20} />
+              <Card key={i} className="p-4 flex items-center justify-between group border-transparent hover:border-white/10 transition-all cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl ${task.bg} flex items-center justify-center shrink-0 border border-white/[0.05]`}>
+                    <task.icon className={task.color} size={18} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm">{task.title}</h4>
-                    <p className="text-[11px] text-white/40">{task.desc}</p>
+                    <h4 className="font-bold text-[13px]">{task.title}</h4>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] font-mono text-white/60 font-bold">{task.points} PTS</span>
+                      <div className="w-1 h-1 rounded-full bg-white/10" />
+                      <span className="text-[9px] text-white/30 font-medium">{task.desc}</span>
+                    </div>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="px-5 border-white/[0.08] hover:border-primary/50 group-hover:bg-primary group-hover:text-white transition-all">
-                  Start
-                </Button>
+                <div className="px-3 py-1 rounded-lg bg-white/[0.05] text-[10px] font-bold group-hover:bg-primary group-hover:text-white transition-all">
+                  Claim
+                </div>
               </Card>
             ))}
           </div>
         </div>
 
-        {/* Activity Feed */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Clock size={20} className="text-white/40" />
-            Recent Activity
+        {/* Recent Events - Compact */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold flex items-center gap-2 text-white/60 mb-2">
+            <Clock size={16} />
+            History
           </h2>
-          <Card className="p-0 overflow-hidden">
-            <div className="divide-y divide-white/[0.05]">
+          <Card className="p-0 overflow-hidden border-white/[0.05]">
+            <div className="divide-y divide-white/[0.03]">
               {[
-                { type: 'Reward', title: 'Daily Login Bonus', amount: '+10 PTS', time: 'Just now' },
-                { type: 'Bonus', title: 'Welcome Package', amount: '+100 PTS', time: '1 day ago' }
+                { title: 'Daily Bonus', amount: '+10', time: 'Just now', up: true },
+                { title: 'Signup Bonus', amount: '+100', time: 'Yesterday', up: true },
+                { title: 'Stake Fee', amount: '-5', time: '2d ago', up: false }
               ].map((activity, i) => (
-                <div key={i} className="p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                  <div>
-                    <p className="text-xs font-bold mb-0.5">{activity.title}</p>
-                    <p className="text-[10px] text-white/30 uppercase tracking-widest font-medium">{activity.time}</p>
+                <div key={i} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      activity.up ? "bg-green-500" : "bg-red-500"
+                    )} />
+                    <div>
+                      <p className="text-xs font-bold">{activity.title}</p>
+                      <p className="text-[9px] text-white/20 uppercase font-medium">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-mono font-bold text-primary">{activity.amount}</p>
-                    <ArrowUpRight size={14} className="text-white/10 ml-auto" />
-                  </div>
+                  <p className={cn(
+                    "text-xs font-mono font-bold",
+                    activity.up ? "text-green-500" : "text-red-500"
+                  )}>
+                    {activity.amount}
+                  </p>
                 </div>
               ))}
             </div>
-            <div className="p-4 bg-white/[0.02] border-t border-white/[0.05]">
-              <button className="w-full text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white transition-colors">
-                Explore All History
-              </button>
-            </div>
+            <button className="w-full py-3 bg-white/[0.02] text-[9px] font-bold uppercase tracking-widest text-white/20 hover:text-white transition-colors">
+              View All
+            </button>
           </Card>
         </div>
       </div>
     </DashboardLayout>
   );
 };
+
+const Users = ({ size, className }: { size?: number, className?: string }) => (
+  <svg width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
 
 export default Dashboard;

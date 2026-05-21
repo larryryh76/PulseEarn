@@ -3,6 +3,7 @@ import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Profile from './pages/Profile'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -72,6 +73,7 @@ function App() {
         <Route path="/tasks" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/rewards" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/referrals" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

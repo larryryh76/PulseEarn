@@ -23,11 +23,11 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { name: 'Earn', icon: Zap, href: '/rewards' },
     { name: 'Invites', icon: Users, href: '/referrals' },
-    { name: 'Me', icon: User, href: '/dashboard' },
+    { name: 'Me', icon: User, href: '/me' },
   ];
 
   const isDashboard = location.pathname.startsWith('/dashboard') ||
-                      ['/tasks', '/rewards', '/referrals'].includes(location.pathname);
+                      ['/tasks', '/rewards', '/referrals', '/me'].includes(location.pathname);
 
   const tabs = isDashboard ? dashboardTabs : landingTabs;
 

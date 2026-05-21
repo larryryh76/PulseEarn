@@ -3,8 +3,10 @@ import Sidebar from './Sidebar';
 import MobileBottomNav from './MobileBottomNav';
 import { Bell, User } from 'lucide-react';
 import Logo from '../ui/Logo';
+import { useNavigate } from 'react-router-dom';
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30">
       {/* Background Atmosphere */}
@@ -42,7 +44,10 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full border-2 border-[#050507]" />
               </button>
 
-              <button className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center hover:shadow-[0_0_15px_rgba(0,112,255,0.2)] transition-all">
+              <button
+                onClick={() => navigate('/me')}
+                className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center hover:shadow-[0_0_15px_rgba(0,112,255,0.2)] transition-all"
+              >
                 <User size={16} className="text-primary" />
               </button>
             </div>

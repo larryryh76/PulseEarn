@@ -20,6 +20,8 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { cn } from '../utils';
+import SystemSettingsPanel from '../components/admin/SystemSettingsPanel';
+import UserManagementPanel from '../components/admin/UserManagementPanel';
 
 const ControlCenter: React.FC = () => {
   const [stats, setStats] = useState({
@@ -98,7 +100,9 @@ const ControlCenter: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-8">
+          <UserManagementPanel />
+
           <Card className="p-0 overflow-hidden border-white/[0.05] bg-white/[0.01]">
             <div className="p-5 border-b border-white/[0.05] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -133,6 +137,8 @@ const ControlCenter: React.FC = () => {
         </div>
 
         <div className="space-y-6">
+          <SystemSettingsPanel />
+
           <Card className="p-6 border-white/[0.05] bg-white/[0.02]">
             <h3 className="text-[11px] font-bold uppercase tracking-widest mb-6">Management Console</h3>
             <div className="space-y-3">

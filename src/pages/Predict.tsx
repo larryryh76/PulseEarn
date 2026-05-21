@@ -7,6 +7,7 @@ import { db } from '../firebase/config';
 import { collection, addDoc, serverTimestamp, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
+import { awardPoints } from '../utils/economy';
 
 interface Prediction {
   id: string;
@@ -50,6 +51,18 @@ const Predict: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      const result = await awardPoints(
+        currentUser.uid,
+        -amount,
+        'prediction_stake',
+        `Prediction: BTC/USD ${prediction.toUpperCase()}`
+      );
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to submit prediction');
+        return;
+      }
+
       await addDoc(collection(db, 'users', currentUser.uid, 'predictions'), {
         asset: 'BTC/USD',
         direction: prediction,
@@ -57,9 +70,6 @@ const Predict: React.FC = () => {
         status: 'pending',
         timestamp: serverTimestamp()
       });
-
-      // Deduct points would ideally be in a transaction, but keeping it simple for foundation
-      // In a real app, this would be handled by a cloud function or transaction
 
       toast.success('Prediction submitted!');
       setPrediction(null);

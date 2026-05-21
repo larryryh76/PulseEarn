@@ -38,6 +38,39 @@ export interface UserData {
   lastRewardDate?: Timestamp;
   createdAt: Timestamp;
   role: 'admin' | 'user';
+  isBanned?: boolean;
+  isFlagged?: boolean;
+  flagReason?: string;
+  lastActionTimestamp?: Timestamp;
+  actionsInLastMinute?: number;
+  earnedInLastHour?: number;
+  lastHourReset?: Timestamp;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment';
+  amount: number;
+  source: string; // e.g. "Mission: Twitter Follow"
+  timestamp: Timestamp;
+}
+
+export interface SystemSettings {
+  dailyPointsCap: number;
+  maintenanceMode: boolean;
+  announcement?: string;
+  minWithdrawal?: number; // for future
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'info' | 'warning' | 'urgent';
+  active: boolean;
+  createdAt: Timestamp;
+  expiresAt?: Timestamp;
 }
 
 export interface Notification {

@@ -16,6 +16,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, UserTask, Activity } from '../types';
 import toast from 'react-hot-toast';
+import { awardPoints } from '../utils/economy';
 
 export const useTasks = () => {
   const { currentUser, logActivity } = useAuth();
@@ -112,28 +113,30 @@ export const useTasks = () => {
     }
 
     try {
+      // Optimistic UI update could be handled here by locally updating userTasks
+      // But since we have a real-time listener, it's safer to just handle the points
+
+      const result = await awardPoints(
+        currentUser.uid,
+        task.rewardPoints,
+        'task_reward',
+        `Mission: ${task.title}`
+      );
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to claim reward');
+        return;
+      }
+
+      // Update user task record
+      const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
       await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
-
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw "User does not exist!";
-
-        // Update points
-        transaction.update(userRef, {
-          points: firestoreIncrement(task.rewardPoints),
-          totalEarnedToday: firestoreIncrement(task.rewardPoints)
-        });
-
-        // Update user task record
         transaction.set(userTaskRef, {
           taskId,
           lastCompleted: serverTimestamp(),
           status: 'completed'
         });
       });
-
-      await logActivity(task.title, task.rewardPoints, `Completed quest: ${task.title}`);
 
       // Add notification
       await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {

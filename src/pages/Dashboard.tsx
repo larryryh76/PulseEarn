@@ -16,25 +16,36 @@ import {
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
 import { useNavigate } from 'react-router-dom';
+import Skeleton from '../components/ui/Skeleton';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
   const { tasks, activities, loading, claimTask, getTaskStatus } = useTasks();
   const navigate = useNavigate();
 
-  if (!userData || loading) return (
+  if (loading) return (
     <DashboardLayout>
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
-          </div>
-          <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.3em]">Syncing Protocol</p>
-        </div>
+      {/* Wallet Skeleton */}
+      <Skeleton className="h-[300px] mb-8" />
+
+      {/* Stats Skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        {[1, 2, 3, 4].map(i => (
+          <Skeleton key={i} className="h-32" />
+        ))}
+      </div>
+
+      {/* Quests Skeleton */}
+      <div className="space-y-4 mb-10">
+        <Skeleton className="h-6 w-32 mb-6" />
+        {[1, 2, 3].map(i => (
+          <Skeleton key={i} className="h-24" />
+        ))}
       </div>
     </DashboardLayout>
   );
+
+  if (!userData) return null;
 
   return (
     <DashboardLayout>

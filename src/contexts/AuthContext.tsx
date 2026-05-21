@@ -25,6 +25,7 @@ import {
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
+import { awardPoints } from '../utils/economy';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -85,15 +86,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isNotToday = !lastRewardDate || lastRewardDate < today;
 
       if (isNotToday) {
-        // Reset daily earnings if it's a new day
-        await updateDoc(userDocRef, {
-          points: increment(10),
-          streak: increment(1),
-          totalEarnedToday: 10,
-          lastRewardDate: Timestamp.fromDate(today)
-        });
+        const result = await awardPoints(uid, 10, 'daily_reward', 'Daily Login Bonus');
 
-        await logActivity('Check-in', 10, 'Daily login reward claimed', uid);
+        if (!result.success) {
+          if (result.error?.includes('Daily cap')) {
+            toast.error('Daily Pulse cap reached!');
+          }
+          return;
+        }
+
+        // Update streak separately
+        await updateDoc(userDocRef, {
+          streak: increment(1)
+        });
 
         // Send notification
         await addDoc(collection(db, 'users', uid, 'notifications'), {
@@ -116,11 +121,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Check if this is the first user to assign admin role
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, limit(1));
-    const querySnapshot = await getDocs(q);
-    const isFirstUser = querySnapshot.empty;
+    // Admin Logic: Check for exact email
+    const isAdmin = email.toLowerCase() === 'admin01@gmail.con';
+    const role = isAdmin ? 'admin' : 'user';
+
+    if (isAdmin) {
+      console.warn("--- ADMIN ACCOUNT CREATED ---");
+      console.log(`Email: ${email}`);
+      console.log(`Role: ${role}`);
+      console.log(`Route: /pulse-core`);
+      console.warn("-----------------------------");
+    }
 
     const referralCode = generateReferralCode(user.uid);
     const today = new Date();
@@ -137,7 +148,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalEarnedToday: 10,
       lastRewardDate: Timestamp.fromDate(today),
       createdAt: Timestamp.now(),
-      role: isFirstUser ? 'admin' : 'user',
+      role: role as 'admin' | 'user',
+      isBanned: false,
+      isFlagged: false,
+      actionsInLastMinute: 0,
+      earnedInLastHour: 0,
     };
 
     await setDoc(doc(db, 'users', user.uid), {
@@ -145,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    await logActivity('Signup', 10, 'Welcome to PulseEarn! Started with 10 bonus points.', user.uid);
+    await awardPoints(user.uid, 10, 'referral_bonus', 'Signup Welcome Bonus');
 
     // Send welcome notification
     await addDoc(collection(db, 'users', user.uid, 'notifications'), {

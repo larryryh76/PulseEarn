@@ -5,6 +5,7 @@ import { Bell, User } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { useNavigate } from 'react-router-dom';
 import NotificationCenter from '../ui/NotificationCenter';
+import AnnouncementBanner from '../ui/AnnouncementBanner';
 import { useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
 
@@ -23,6 +24,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
       {/* Sidebar Desktop */}
       <Sidebar />
+
+      {/* Announcement Banner */}
+      <AnnouncementBanner />
 
       {/* Main Content Area */}
       <div className="lg:pl-72 flex flex-col min-h-screen relative z-10">

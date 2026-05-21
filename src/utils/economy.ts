@@ -3,12 +3,9 @@ import {
 } from '../firebase/config';
 import {
   doc,
-  updateDoc,
   increment,
   collection,
-  addDoc,
   serverTimestamp,
-  getDoc,
   Timestamp,
   runTransaction
 } from 'firebase/firestore';

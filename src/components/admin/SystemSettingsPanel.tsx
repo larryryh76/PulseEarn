@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../ui/Card';
 import { db } from '../../firebase/config';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { Settings, Save, AlertTriangle } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Settings, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SystemSettingsPanel: React.FC = () => {

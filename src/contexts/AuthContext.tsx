@@ -17,10 +17,7 @@ import {
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc,
-  getDocs,
-  query,
-  limit
+  addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';

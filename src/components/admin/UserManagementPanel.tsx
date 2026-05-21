@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../ui/Card';
 import { db } from '../../firebase/config';
-import { collection, getDocs, updateDoc, doc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, limit } from 'firebase/firestore';
 import { Users, ShieldAlert, Ban, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
 const UserManagementPanel: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
-    setLoading(true);
     const q = query(collection(db, 'users'), limit(50));
     const snap = await getDocs(q);
     setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    setLoading(false);
   };
 
   useEffect(() => {

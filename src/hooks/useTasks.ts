@@ -9,8 +9,7 @@ import {
   orderBy,
   limit,
   addDoc,
-  collection,
-  increment as firestoreIncrement
+  collection
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +18,7 @@ import toast from 'react-hot-toast';
 import { awardPoints } from '../utils/economy';
 
 export const useTasks = () => {
-  const { currentUser, logActivity } = useAuth();
+  const { currentUser } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [activities, setActivities] = useState<Activity[]>([]);

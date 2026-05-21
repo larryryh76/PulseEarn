@@ -186,20 +186,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (user) {
         console.log(`[Auth] Authenticated: ${user.email}`);
-        unsubscribeData = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+        unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
             const isAdminEmail = user.email?.toLowerCase() === 'admin@pulse.com';
+
+            // AUTOMATIC ELEVATION: If admin email but not admin role in DB, fix it.
+            if (isAdminEmail && data.role !== 'admin') {
+              console.log(`[Auth] Admin email detected without admin role. Upgrading document...`);
+              try {
+                await updateDoc(doc(db, 'users', user.uid), { role: 'admin' });
+              } catch (e) {
+                console.error("[Auth] Failed to auto-upgrade admin role:", e);
+              }
+            }
 
             const resolvedData = {
               ...data,
               role: (isAdminEmail || data.role === 'admin') ? 'admin' : 'user'
             };
 
-            console.log(`[Auth] Role Check:`, {
+            console.log(`[Auth] Role Verification:`, {
               email: user.email,
-              firestoreRole: data.role,
-              finalRole: resolvedData.role
+              dbRole: data.role,
+              activeRole: resolvedData.role,
+              isSystemAdmin: isAdminEmail
             });
 
             setUserData(resolvedData as UserData);

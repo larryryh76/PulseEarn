@@ -143,6 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       referredBy: null,
       streak: 1,
       totalEarnedToday: 10,
+      xp: 0,
+      level: 1,
       lastRewardDate: Timestamp.fromDate(today),
       createdAt: Timestamp.now(),
       role: role as 'admin' | 'user',

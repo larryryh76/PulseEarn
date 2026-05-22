@@ -17,6 +17,7 @@ import { motion } from 'framer-motion';
 import { cn } from '../utils';
 import { useNavigate } from 'react-router-dom';
 import Skeleton from '../components/ui/Skeleton';
+import { getXpProgress } from '../utils/progression';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
@@ -115,9 +116,26 @@ const Dashboard: React.FC = () => {
                 <span className="text-primary font-bold text-xl tracking-tight">PTS</span>
               </div>
 
-              <p className="text-white/20 text-[11px] font-bold mt-2 font-mono tracking-wider">
-                Today's Earnings: <span className="text-white/40">+{userData.totalEarnedToday || 0} PTS</span>
-              </p>
+              <div className="flex flex-col gap-2 mt-2">
+                <p className="text-white/20 text-[11px] font-bold font-mono tracking-wider">
+                  Today's Earnings: <span className="text-white/40">+{userData.totalEarnedToday || 0} PTS</span>
+                </p>
+
+                {/* XP Progress Bar Mini */}
+                <div className="max-w-[200px] mt-1">
+                   <div className="flex justify-between items-center mb-1">
+                      <span className="text-[9px] font-bold text-primary uppercase">Level {userData.level || 1}</span>
+                      <span className="text-[9px] font-mono text-white/20">{Math.round(getXpProgress(userData.xp || 0).currentLevelXp)} XP</span>
+                   </div>
+                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${getXpProgress(userData.xp || 0).progress}%` }}
+                        className="h-full bg-primary"
+                      />
+                   </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4">

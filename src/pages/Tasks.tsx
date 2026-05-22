@@ -2,22 +2,23 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import Card from '../components/ui/Card';
 import TaskCard from '../components/tasks/TaskCard';
 import {
-  Trophy,
   Target,
-  Flame,
   CheckCircle2,
   TrendingUp,
   Zap,
-  Star
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '../utils';
+import { getXpProgress } from '../utils/progression';
 
 const Tasks: React.FC = () => {
   const { userData } = useAuth();
   const { tasks, loading, claimTask, getTaskStatus } = useTasks();
+  const [activeTab, setActiveTab] = React.useState('All');
 
   if (!userData || loading) return (
     <DashboardLayout>
@@ -32,140 +33,141 @@ const Tasks: React.FC = () => {
     </DashboardLayout>
   );
 
-  // Group tasks by type or priority
-  const dailyTasks = tasks.filter(t => t.type === 'daily' || t.type === 'timer');
-  const specialMissions = tasks.filter(t => t.type === 'once' || t.type === 'referral');
+  const categories = ['All', 'Daily', 'Social', 'Growth', 'Game'];
+  const filteredTasks = activeTab === 'All'
+    ? tasks
+    : tasks.filter(t => t.category === activeTab);
 
-  const completedCount = tasks.filter(t => getTaskStatus(t).status === 'completed').length;
-  const progressPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+  const xpInfo = getXpProgress(userData.xp || 0);
 
   return (
     <DashboardLayout>
-      {/* Achievement Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <Card className="p-8 border-white/[0.05] bg-gradient-to-br from-[#0A0A0F] to-[#12121A] relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-5">
-            <Trophy size={120} className="text-primary" />
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+        <div>
+          <div className="flex items-center gap-2 text-primary mb-2">
+             <Sparkles size={16} />
+             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Protocol Directives</span>
           </div>
-
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
-                  <Target className="text-primary" size={20} />
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight">Mission Control</h1>
-              </div>
-              <p className="text-white/40 text-sm mb-6 max-w-md font-medium">
-                Complete your daily operations to maximize your Pulse yields and climb the ranks.
-              </p>
-
-              {/* Progress Bar */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">Daily Goal Progress</span>
-                  <span className="text-[10px] font-mono font-bold text-primary">{completedCount}/{tasks.length} DONE</span>
-                </div>
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressPercent}%` }}
-                    className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(0,112,255,0.5)]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Streak Counter */}
-            <div className="flex gap-4">
-              <div className="px-6 py-4 rounded-3xl bg-white/[0.02] border border-white/[0.05] flex flex-col items-center justify-center gap-1">
-                <Flame size={24} className="text-orange-500" />
-                <span className="text-2xl font-mono font-bold">{userData.streak}</span>
-                <span className="text-[9px] font-bold uppercase text-white/20 tracking-widest">Day Streak</span>
-              </div>
-              <div className="px-6 py-4 rounded-3xl bg-white/[0.02] border border-white/[0.05] flex flex-col items-center justify-center gap-1">
-                <Star size={24} className="text-yellow-500" />
-                <span className="text-2xl font-mono font-bold">120</span>
-                <span className="text-[9px] font-bold uppercase text-white/20 tracking-widest">Global Rank</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-
-      {/* Daily Quests Section */}
-      <div className="mb-10">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-1.5 h-5 bg-primary rounded-full" />
-          <h2 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.25em]">Daily Quests</h2>
+          <h1 className="text-4xl font-bold tracking-tight">Mission Hub</h1>
+          <p className="text-white/40 text-sm mt-1">Complete objectives to increase your capital and clearance level.</p>
         </div>
-        <div className="grid grid-cols-1 gap-4">
-          {dailyTasks.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              status={getTaskStatus(task).status}
-              nextAvailable={getTaskStatus(task).nextAvailable}
-              onClaim={claimTask}
-            />
-          ))}
+
+        <div className="lg:w-80 bg-[#0A0A0F] border border-white/[0.05] rounded-2xl p-5 relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+              <TrendingUp size={48} className="text-primary" />
+           </div>
+           <div className="flex justify-between items-center mb-2 relative z-10">
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Clearance Level {xpInfo.level}</span>
+              <span className="text-[10px] font-mono text-primary font-bold">{Math.round(xpInfo.currentLevelXp)} / {xpInfo.requiredXp} XP</span>
+           </div>
+           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative z-10">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${xpInfo.progress}%` }}
+                className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(0,112,255,0.3)]"
+              />
+           </div>
         </div>
       </div>
 
-      {/* Special Missions Section */}
-      <div className="mb-10">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-1.5 h-5 bg-accent rounded-full" />
-          <h2 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.25em]">One-Time Missions</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          {specialMissions.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              status={getTaskStatus(task).status}
-              nextAvailable={getTaskStatus(task).nextAvailable}
-              onClaim={claimTask}
-            />
-          ))}
-        </div>
+      {/* Category Filter */}
+      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 custom-scrollbar">
+         {categories.map(cat => (
+           <button
+             key={cat}
+             onClick={() => setActiveTab(cat)}
+             className={cn(
+               "px-5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all whitespace-nowrap border",
+               activeTab === cat
+                ? "bg-primary border-primary shadow-[0_4px_15px_rgba(0,112,255,0.2)]"
+                : "bg-white/[0.02] border-white/[0.05] text-white/40 hover:text-white"
+             )}
+           >
+             {cat}
+           </button>
+         ))}
       </div>
 
-      {/* Stats Summary Area */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <Card className="p-6 border-white/[0.03] bg-white/[0.01] flex items-center gap-5">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-            <Zap size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Pulse Power</p>
-            <p className="text-xl font-mono font-bold text-white">{userData.points.toLocaleString()}</p>
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+         <div className="lg:col-span-3 space-y-4">
+            <div className="flex items-center justify-between mb-4 px-2">
+               <h2 className="text-xs font-bold text-white/20 uppercase tracking-[0.2em]">Active Directives ({filteredTasks.length})</h2>
+               <div className="flex items-center gap-2 text-[10px] font-bold text-white/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  Live Feed
+               </div>
+            </div>
 
-        <Card className="p-6 border-white/[0.03] bg-white/[0.01] flex items-center gap-5">
-          <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Daily Yield</p>
-            <p className="text-xl font-mono font-bold text-white">+{userData.totalEarnedToday || 0}</p>
-          </div>
-        </Card>
+            {filteredTasks.length === 0 ? (
+               <div className="py-20 text-center border-2 border-dashed border-white/[0.03] rounded-3xl">
+                  <p className="text-white/20 font-bold uppercase tracking-widest text-xs">No tasks found in this sector</p>
+               </div>
+            ) : filteredTasks.map((task) => {
+              const { status, nextAvailable } = getTaskStatus(task);
+              return (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  status={status}
+                  nextAvailable={nextAvailable}
+                  onClaim={claimTask}
+                  userLevel={userData.level}
+                />
+              );
+            })}
+         </div>
 
-        <Card className="p-6 border-white/[0.03] bg-white/[0.01] flex items-center gap-5">
-          <div className="w-12 h-12 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-green-500">
-            <CheckCircle2 size={24} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Completed</p>
-            <p className="text-xl font-mono font-bold text-white">{completedCount}</p>
-          </div>
-        </Card>
+         <div className="space-y-6">
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                  <Target size={40} className="text-primary" />
+               </div>
+               <h3 className="text-xs font-bold uppercase tracking-widest mb-4">Sector Intel</h3>
+               <div className="space-y-4">
+                  {[
+                    { label: 'Avg Reward', val: '45 PTS', icon: Zap },
+                    { label: 'XP Yield', val: 'High', icon: Sparkles },
+                    { label: 'Efficiency', val: '94%', icon: TrendingUp }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                       <div className="flex items-center gap-2 text-[10px] text-white/40 font-bold uppercase">
+                          <item.icon size={12} />
+                          {item.label}
+                       </div>
+                       <span className="text-[11px] font-mono font-bold">{item.val}</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+
+            <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/[0.05]">
+               <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-4">Clearance Perks</h4>
+               <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
+                        <CheckCircle2 size={16} />
+                     </div>
+                     <p className="text-[10px] font-bold text-white/60">Lv. 2: Social Missions</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20">
+                        {userData.level >= 5 ? <CheckCircle2 size={16} className="text-green-500" /> : <Lock size={16} />}
+                     </div>
+                     <p className={cn("text-[10px] font-bold", userData.level >= 5 ? "text-white/60" : "text-white/20")}>
+                        Lv. 5: Oracle Protocol
+                     </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20">
+                        {userData.level >= 10 ? <CheckCircle2 size={16} className="text-green-500" /> : <Lock size={16} />}
+                     </div>
+                     <p className={cn("text-[10px] font-bold", userData.level >= 10 ? "text-white/60" : "text-white/20")}>
+                        Lv. 10: Elite Directives
+                     </p>
+                  </div>
+               </div>
+            </div>
+         </div>
       </div>
     </DashboardLayout>
   );

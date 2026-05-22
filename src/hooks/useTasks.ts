@@ -119,7 +119,8 @@ export const useTasks = () => {
         currentUser.uid,
         task.rewardPoints,
         'task_reward',
-        `Mission: ${task.title}`
+        `Mission: ${task.title}`,
+        task.rewardXp || 0
       );
 
       if (!result.success) {

@@ -5,7 +5,11 @@ export interface Task {
   title: string;
   description: string;
   rewardPoints: number;
-  type: 'daily' | 'once' | 'timer' | 'referral';
+  rewardXp: number;
+  type: 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'prediction' | 'premium';
+  tier: 'bronze' | 'silver' | 'gold' | 'elite';
+  category: string;
+  minLevel?: number;
   active: boolean;
   cooldown?: number; // in hours
   duration?: number; // for timer tasks, in seconds
@@ -35,6 +39,8 @@ export interface UserData {
   referredBy: string | null;
   streak: number;
   totalEarnedToday: number;
+  xp: number;
+  level: number;
   lastRewardDate?: Timestamp;
   createdAt: Timestamp;
   role: 'admin' | 'user';

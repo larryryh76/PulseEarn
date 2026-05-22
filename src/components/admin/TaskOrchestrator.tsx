@@ -31,7 +31,11 @@ const TaskOrchestrator: React.FC = () => {
     title: '',
     description: '',
     rewardPoints: 50,
+    rewardXp: 100,
     type: 'once',
+    tier: 'bronze',
+    category: 'Daily',
+    minLevel: 1,
     active: true,
     cooldown: 24
   });
@@ -191,21 +195,71 @@ const TaskOrchestrator: React.FC = () => {
                     type="number"
                     value={formData.rewardPoints}
                     onChange={e => setFormData({...formData, rewardPoints: Number(e.target.value)})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs"
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
                     required
                   />
                </div>
+               <div>
+                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Reward (XP)</label>
+                  <input
+                    type="number"
+                    value={formData.rewardXp}
+                    onChange={e => setFormData({...formData, rewardXp: Number(e.target.value)})}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
+                    required
+                  />
+               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
                <div>
                   <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Type</label>
                   <select
                     value={formData.type}
                     onChange={e => setFormData({...formData, type: e.target.value as any})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs appearance-none"
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs appearance-none focus:border-primary/50"
                   >
                     <option value="once">Once</option>
                     <option value="daily">Daily</option>
                     <option value="timer">Timer</option>
+                    <option value="social">Social</option>
+                    <option value="referral">Referral</option>
+                    <option value="prediction">Prediction</option>
                   </select>
+               </div>
+               <div>
+                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Tier</label>
+                  <select
+                    value={formData.tier}
+                    onChange={e => setFormData({...formData, tier: e.target.value as any})}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs appearance-none focus:border-primary/50"
+                  >
+                    <option value="bronze">Bronze</option>
+                    <option value="silver">Silver</option>
+                    <option value="gold">Gold</option>
+                    <option value="elite">Elite</option>
+                  </select>
+               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <div>
+                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Category</label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value})}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
+                    placeholder="e.g. Social"
+                    required
+                  />
+               </div>
+               <div>
+                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Min Level</label>
+                  <input
+                    type="number"
+                    value={formData.minLevel}
+                    onChange={e => setFormData({...formData, minLevel: Number(e.target.value)})}
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
+                  />
                </div>
             </div>
             {formData.type === 'timer' && (

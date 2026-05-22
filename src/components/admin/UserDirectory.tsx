@@ -100,9 +100,9 @@ const UserDirectory: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* User Table */}
-        <div className="lg:col-span-2">
-          <Card className="p-0 overflow-hidden border-white/[0.05] bg-[#0A0A0F]">
-            <table className="w-full text-left">
+        <div className="lg:col-span-2 overflow-hidden">
+          <Card className="p-0 overflow-x-auto border-white/[0.05] bg-[#0A0A0F] custom-scrollbar">
+            <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="border-b border-white/[0.03] bg-white/[0.01]">
                   <th className="p-4 text-[9px] font-bold uppercase text-white/20">Identity</th>

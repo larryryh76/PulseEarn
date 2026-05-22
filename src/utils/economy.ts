@@ -10,12 +10,14 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { Transaction } from '../types';
+import { calculateLevel } from './progression';
 
 export const awardPoints = async (
   userId: string,
   amount: number,
   type: Transaction['type'],
-  source: string
+  source: string,
+  xpReward: number = 0
 ) => {
   const userRef = doc(db, 'users', userId);
   const transactionsRef = collection(db, 'users', userId, 'transactions');
@@ -76,10 +78,16 @@ export const awardPoints = async (
         flagReason = "High earnings in one hour (>1000)";
       }
 
+      // Progression Calculation
+      const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
+      const newLevel = calculateLevel(newXp);
+
       // Update User
       transaction.update(userRef, {
         points: increment(amount),
         totalEarnedToday: isNewDay ? amount : increment(amount),
+        xp: newXp,
+        level: newLevel,
         lastRewardDate: Timestamp.fromDate(today),
         lastActionTimestamp: now,
         actionsInLastMinute,

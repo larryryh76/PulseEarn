@@ -5,292 +5,180 @@ import {
   collection,
   updateDoc,
   doc,
-  addDoc,
-  deleteDoc,
-  serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  increment
 } from 'firebase/firestore';
 import {
-  Plus,
-  Trash2,
-  Power,
-  Edit3,
-  Zap,
+  CheckCircle,
+  XCircle,
   Clock,
-  CheckSquare,
-  RefreshCw
+  ExternalLink,
+  Search,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
-import { Task } from '../../types';
+import { TaskSubmission } from '../../types';
 
 const TaskOrchestrator: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Task>>({
-    title: '',
-    description: '',
-    rewardPoints: 50,
-    rewardXp: 100,
-    type: 'once',
-    tier: 'bronze',
-    category: 'Daily',
-    minLevel: 1,
-    active: true,
-    cooldown: 24
-  });
+  const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
+  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      setTasks(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+    const q = query(
+      collection(db, 'taskSubmissions'),
+      where('status', '==', filter),
+      orderBy('submittedAt', 'desc')
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      setSubmissions(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TaskSubmission)));
     });
-    return () => unsubscribe();
-  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    return () => unsub();
+  }, [filter]);
+
+  const handleReview = async (submission: TaskSubmission, status: 'approved' | 'rejected', feedback?: string) => {
     try {
-      if (isEditing) {
-        await updateDoc(doc(db, 'tasks', isEditing), {
-          ...formData,
-          updatedAt: serverTimestamp()
+      const subRef = doc(db, 'taskSubmissions', submission.id);
+      await updateDoc(subRef, {
+        status,
+        adminFeedback: feedback || '',
+        reviewedAt: new Date(),
+      });
+
+      if (status === 'approved') {
+        const userRef = doc(db, 'users', submission.userId);
+        await updateDoc(userRef, {
+          points: increment(submission.rewardPoints),
+          xp: increment(submission.rewardXp)
         });
-        toast.success('Task updated');
-      } else {
-        await addDoc(collection(db, 'tasks'), {
-          ...formData,
-          createdAt: serverTimestamp(),
-          active: true
-        });
-        toast.success('New task deployed');
       }
-      setIsEditing(null);
-      setFormData({ title: '', description: '', rewardPoints: 50, type: 'once', active: true });
+
+      toast.success(`Submission ${status}`);
     } catch (e) {
-      toast.error('Operation failed');
-    }
-  };
-
-  const toggleStatus = async (task: Task) => {
-    await updateDoc(doc(db, 'tasks', task.id), { active: !task.active });
-  };
-
-  const deleteTask = async (id: string) => {
-    if (confirm('Permanently decommission this task?')) {
-      await deleteDoc(doc(db, 'tasks', id));
-      toast.success('Task decommissioned');
+      toast.error('Review operation failed');
     }
   };
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Task Orchestrator</h1>
-        <button
-          onClick={() => {
-            setIsEditing(null);
-            setFormData({ title: '', description: '', rewardPoints: 50, type: 'once', active: true });
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-xs font-bold uppercase tracking-widest hover:bg-primary/80 transition-all"
-        >
-          <Plus size={14} />
-          Create New Mission
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Task List */}
-        <div className="lg:col-span-2 space-y-4">
-          {tasks.map(task => (
-            <Card key={task.id} className={cn(
-              "p-5 border-white/[0.05] bg-[#0A0A0F] group",
-              !task.active && "opacity-60 grayscale-[0.5]"
-            )}>
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center border",
-                    task.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/5 border-white/10 text-white/20"
-                  )}>
-                    {task.type === 'timer' ? <Clock size={20} /> : <CheckSquare size={20} />}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm mb-1">{task.title}</h3>
-                    <p className="text-xs text-white/40 mb-3">{task.description}</p>
-                    <div className="flex items-center gap-4">
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-yellow-500 uppercase">
-                          <Zap size={10} />
-                          {task.rewardPoints} PTS
-                       </div>
-                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/20 uppercase tracking-tighter">
-                          <RefreshCw size={10} />
-                          {task.type}
-                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                   <button
-                    onClick={() => {
-                      setIsEditing(task.id);
-                      setFormData(task);
-                    }}
-                    className="p-2 rounded-lg bg-white/[0.03] text-white/20 hover:text-white transition-colors"
-                   >
-                      <Edit3 size={14} />
-                   </button>
-                   <button
-                    onClick={() => toggleStatus(task)}
-                    className={cn(
-                      "p-2 rounded-lg transition-colors",
-                      task.active ? "bg-green-500/10 text-green-500" : "bg-white/[0.03] text-white/20"
-                    )}
-                   >
-                      <Power size={14} />
-                   </button>
-                   <button
-                    onClick={() => deleteTask(task.id)}
-                    className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                   >
-                      <Trash2 size={14} />
-                   </button>
-                </div>
-              </div>
-            </Card>
-          ))}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+           <h1 className="text-3xl font-bold tracking-tight">Mission Moderator</h1>
+           <p className="text-white/40 text-sm mt-1">Review and verify manual proof submissions.</p>
         </div>
 
-        {/* Editor Panel */}
-        <Card className="p-6 border-white/[0.05] bg-[#0A0A0F] sticky top-24">
-          <h3 className="text-xs font-bold uppercase tracking-[0.2em] mb-6 text-white/20">
-            {isEditing ? 'Edit Mission Parameters' : 'Mission Deployment'}
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Mission Title</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={e => setFormData({...formData, title: e.target.value})}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:outline-none focus:border-primary/50"
-                placeholder="e.g. Follow Pulse on X"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={e => setFormData({...formData, description: e.target.value})}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:outline-none focus:border-primary/50 h-20 resize-none"
-                placeholder="Details of the mission..."
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Reward (PTS)</label>
-                  <input
-                    type="number"
-                    value={formData.rewardPoints}
-                    onChange={e => setFormData({...formData, rewardPoints: Number(e.target.value)})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
-                    required
-                  />
-               </div>
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Reward (XP)</label>
-                  <input
-                    type="number"
-                    value={formData.rewardXp}
-                    onChange={e => setFormData({...formData, rewardXp: Number(e.target.value)})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
-                    required
-                  />
-               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Type</label>
-                  <select
-                    value={formData.type}
-                    onChange={e => setFormData({...formData, type: e.target.value as any})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs appearance-none focus:border-primary/50"
-                  >
-                    <option value="once">Once</option>
-                    <option value="daily">Daily</option>
-                    <option value="timer">Timer</option>
-                    <option value="social">Social</option>
-                    <option value="referral">Referral</option>
-                    <option value="prediction">Prediction</option>
-                  </select>
-               </div>
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Tier</label>
-                  <select
-                    value={formData.tier}
-                    onChange={e => setFormData({...formData, tier: e.target.value as any})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs appearance-none focus:border-primary/50"
-                  >
-                    <option value="bronze">Bronze</option>
-                    <option value="silver">Silver</option>
-                    <option value="gold">Gold</option>
-                    <option value="elite">Elite</option>
-                  </select>
-               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Category</label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={e => setFormData({...formData, category: e.target.value})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
-                    placeholder="e.g. Social"
-                    required
-                  />
-               </div>
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Min Level</label>
-                  <input
-                    type="number"
-                    value={formData.minLevel}
-                    onChange={e => setFormData({...formData, minLevel: Number(e.target.value)})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs focus:border-primary/50"
-                  />
-               </div>
-            </div>
-            {formData.type === 'timer' && (
-               <div>
-                  <label className="block text-[9px] font-bold text-white/40 uppercase mb-2">Duration (Sec)</label>
-                  <input
-                    type="number"
-                    value={formData.duration || 30}
-                    onChange={e => setFormData({...formData, duration: Number(e.target.value)})}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-xs"
-                  />
-               </div>
-            )}
+        <div className="flex items-center gap-3">
+           <div className="flex bg-[#0A0A0F] border border-white/[0.05] rounded-xl p-1">
+              {(['pending', 'approved', 'rejected'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                    filter === s ? "bg-primary text-white" : "text-white/20 hover:text-white"
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+           </div>
+        </div>
+      </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-primary text-[10px] font-bold uppercase tracking-widest mt-4 shadow-[0_4px_15px_rgba(0,112,255,0.2)]"
-            >
-              {isEditing ? 'Confirm Update' : 'Deploy Mission'}
-            </button>
-            {isEditing && (
-              <button
-                type="button"
-                onClick={() => setIsEditing(null)}
-                className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-white transition-colors"
-              >
-                Cancel Edit
-              </button>
-            )}
-          </form>
-        </Card>
+      <div className="grid grid-cols-1 gap-4">
+        <div className="relative">
+           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+           <input
+             type="text"
+             placeholder="Search by User ID or Task ID..."
+             value={searchTerm}
+             onChange={e => setSearchTerm(e.target.value)}
+             className="w-full bg-[#0A0A0F] border border-white/[0.05] rounded-2xl pl-12 pr-4 py-4 text-sm focus:border-primary/50 outline-none transition-all"
+           />
+        </div>
+
+        {submissions.length === 0 ? (
+          <div className="py-20 text-center border border-dashed border-white/5 rounded-[2.5rem]">
+             <ShieldCheck className="mx-auto text-white/5 mb-4" size={48} />
+             <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.4em]">Queue Cleared</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+             {submissions.filter(s => s.userId.includes(searchTerm) || s.taskId.includes(searchTerm)).map(sub => (
+               <Card key={sub.id} className="bg-[#0A0A0F] border-white/[0.05] p-6 hover:bg-white/[0.01] transition-all">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+                     <div className="flex gap-6">
+                        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center shrink-0">
+                           <Clock size={24} className="text-white/20" />
+                        </div>
+                        <div>
+                           <div className="flex items-center gap-3 mb-1">
+                              <h3 className="font-bold text-white">Task: {sub.taskId.slice(0, 8)}...</h3>
+                              <span className="px-2 py-0.5 rounded bg-white/5 text-[8px] font-bold text-white/40 uppercase">User: {sub.userId.slice(0, 8)}</span>
+                           </div>
+                           <p className="text-[11px] text-white/40 font-medium mb-4">Submitted: {sub.submittedAt?.toDate().toLocaleString()}</p>
+
+                           <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between gap-10">
+                              <div>
+                                 <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Proof Provided</p>
+                                 <p className="text-xs font-mono text-primary break-all">{sub.proofData}</p>
+                              </div>
+                              {sub.proofData && (
+                                <a href={sub.proofData} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-white/5 hover:bg-primary/20 transition-all text-white/40 hover:text-primary">
+                                   <ExternalLink size={14} />
+                                </a>
+                              )}
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-4 mr-6 pr-6 border-r border-white/5">
+                           <div className="text-right">
+                              <p className="text-[9px] font-bold text-white/20 uppercase">Reward</p>
+                              <p className="text-xs font-bold text-primary">+{sub.rewardPoints} PTS</p>
+                           </div>
+                           <div className="text-right">
+                              <p className="text-[9px] font-bold text-white/20 uppercase">Protocol</p>
+                              <p className="text-xs font-bold text-accent">+{sub.rewardXp} XP</p>
+                           </div>
+                        </div>
+
+                        {sub.status === 'pending' ? (
+                          <>
+                             <button
+                               onClick={() => handleReview(sub, 'rejected')}
+                               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-500/20 transition-all"
+                             >
+                                <XCircle size={14} /> Decline
+                             </button>
+                             <button
+                               onClick={() => handleReview(sub, 'approved')}
+                               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-green-500 text-white text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 hover:scale-105 active:scale-95 transition-all"
+                             >
+                                <CheckCircle size={14} /> Verify Proof
+                             </button>
+                          </>
+                        ) : (
+                          <div className={cn(
+                             "px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest border",
+                             sub.status === 'approved' ? "bg-green-500/10 border-green-500/20 text-green-500" : "bg-red-500/10 border-red-500/20 text-red-500"
+                          )}>
+                             {sub.status}
+                          </div>
+                        )}
+                     </div>
+                  </div>
+               </Card>
+             ))}
+          </div>
+        )}
       </div>
     </div>
   );

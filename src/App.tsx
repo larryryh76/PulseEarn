@@ -13,6 +13,7 @@ import ControlCenter from './pages/ControlCenter'
 import AdminLayout from './components/layout/AdminLayout'
 import UserDirectory from './components/admin/UserDirectory'
 import TaskOrchestrator from './components/admin/TaskOrchestrator'
+import CampaignManager from './components/admin/CampaignManager'
 import EconomyConsole from './components/admin/EconomyConsole'
 import ProtocolAuditLogs from './components/admin/ProtocolAuditLogs'
 import SystemSettingsPanel from './components/admin/SystemSettingsPanel'
@@ -118,6 +119,7 @@ function App() {
           <Route index element={<ControlCenter />} />
           <Route path="users" element={<UserDirectory />} />
           <Route path="tasks" element={<TaskOrchestrator />} />
+          <Route path="campaigns" element={<CampaignManager />} />
           <Route path="economy" element={<EconomyConsole />} />
           <Route path="audit" element={<ProtocolAuditLogs />} />
           <Route path="settings" element={

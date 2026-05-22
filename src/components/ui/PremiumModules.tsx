@@ -6,14 +6,17 @@ export const CardPremium: React.FC<{
   children: React.ReactNode;
   className?: string;
   variant?: 'thin' | 'standard' | 'deep';
-}> = ({ children, className }) => {
+  onClick?: () => void;
+}> = ({ children, className, onClick }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
+      onClick={onClick}
       className={cn(
         'glass-card p-6 overflow-hidden relative group',
+        onClick && 'cursor-pointer',
         className
       )}
     >

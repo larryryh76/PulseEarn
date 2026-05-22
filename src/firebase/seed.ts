@@ -17,10 +17,12 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     rewardPoints: 10,
     rewardXp: 15,
     type: 'daily',
-    tier: 'bronze',
+    rarity: 'common',
+    difficulty: 'easy',
     category: 'Daily',
     active: true,
     cooldown: 24,
+    verificationType: 'automated'
   },
   {
     title: 'Terminal Surveillance',
@@ -28,11 +30,13 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     rewardPoints: 25,
     rewardXp: 40,
     type: 'timer',
-    tier: 'bronze',
+    rarity: 'common',
+    difficulty: 'easy',
     category: 'Daily',
     active: true,
     duration: 30,
     cooldown: 1,
+    verificationType: 'timer'
   },
   {
     title: 'X/Twitter Infiltration',
@@ -40,11 +44,14 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     rewardPoints: 50,
     rewardXp: 100,
     type: 'social',
-    tier: 'silver',
+    rarity: 'rare',
+    difficulty: 'medium',
     category: 'Social',
     minLevel: 2,
     active: true,
-    cooldown: 0
+    cooldown: 0,
+    verificationType: 'manual',
+    proofRequirements: 'Submit your X profile link'
   },
   {
     title: 'Squad Expansion',
@@ -52,9 +59,11 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     rewardPoints: 150,
     rewardXp: 300,
     type: 'referral',
-    tier: 'gold',
+    rarity: 'rare',
+    difficulty: 'hard',
     category: 'Growth',
     active: true,
+    verificationType: 'automated'
   },
   {
     title: 'Oracle Master',
@@ -62,10 +71,13 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     rewardPoints: 500,
     rewardXp: 1000,
     type: 'prediction',
-    tier: 'elite',
-    category: 'Game',
+    rarity: 'legendary',
+    difficulty: 'hard',
+    category: 'Featured',
     minLevel: 5,
     active: true,
+    isFeatured: true,
+    verificationType: 'automated'
   }
 ];
 

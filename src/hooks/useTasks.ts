@@ -14,15 +14,17 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import { Task, UserTask, Activity } from '../types';
+import { Task, UserTask, Activity, Campaign, TaskSubmission } from '../types';
 import toast from 'react-hot-toast';
 import { awardPoints } from '../utils/economy';
 
 export const useTasks = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,7 +37,13 @@ export const useTasks = () => {
       setTasks(tasksData);
     });
 
-    // Fetch user completions
+    // Fetch active campaigns
+    const campaignsQuery = query(collection(db, 'campaigns'), where('active', '==', true));
+    const unsubscribeCampaigns = onSnapshot(campaignsQuery, (snapshot) => {
+      setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
+    });
+
+    // Fetch user completions/submissions
     const userTasksQuery = query(collection(db, 'users', currentUser.uid, 'userTasks'));
     const unsubscribeUserTasks = onSnapshot(userTasksQuery, (snapshot) => {
       const userTasksData: Record<string, UserTask> = {};
@@ -45,6 +53,17 @@ export const useTasks = () => {
       setUserTasks(userTasksData);
     });
 
+    // Fetch user's own submissions
+    const submissionsQuery = query(
+      collection(db, 'taskSubmissions'),
+      where('userId', '==', currentUser.uid),
+      orderBy('submittedAt', 'desc'),
+      limit(20)
+    );
+    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
+      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskSubmission)));
+    });
+
     // Fetch recent activities
     const activitiesQuery = query(
       collection(db, 'users', currentUser.uid, 'activities'),
@@ -52,25 +71,29 @@ export const useTasks = () => {
       limit(10)
     );
     const unsubscribeActivities = onSnapshot(activitiesQuery, (snapshot) => {
-      const activitiesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity));
-      setActivities(activitiesData);
+      setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
       setLoading(false);
     });
 
     return () => {
       unsubscribeTasks();
+      unsubscribeCampaigns();
       unsubscribeUserTasks();
+      unsubscribeSubmissions();
       unsubscribeActivities();
     };
   }, [currentUser]);
 
-  const getTaskStatus = (task: Task): { status: 'available' | 'completed' | 'cooldown', nextAvailable?: Date } => {
+  const getTaskStatus = (task: Task): { status: 'available' | 'completed' | 'cooldown' | 'pending' | 'rejected', nextAvailable?: Date } => {
     const userTask = userTasks[task.id];
     if (!userTask) return { status: 'available' };
 
+    if (userTask.status === 'pending') return { status: 'pending' };
+    if (userTask.status === 'rejected') return { status: 'rejected' };
+
     if (task.type === 'once') return { status: 'completed' };
 
-    const lastCompleted = userTask.lastCompleted.toDate();
+    const lastCompleted = userTask.lastCompleted?.toDate() || new Date(0);
     const cooldownHours = task.cooldown || 24;
     const cooldownMs = cooldownHours * 60 * 60 * 1000;
     const now = new Date();
@@ -85,37 +108,74 @@ export const useTasks = () => {
     return { status: 'available' };
   };
 
+  const submitTask = async (taskId: string, proofData?: string) => {
+    if (!currentUser || !userData) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Check if user has sufficient level
+    if (task.minLevel && userData.level < task.minLevel) {
+       toast.error(`Clearance Level ${task.minLevel} required`);
+       return;
+    }
+
+    const { status } = getTaskStatus(task);
+    if (status !== 'available' && status !== 'rejected') {
+       toast.error(`Task currently ${status}`);
+       return;
+    }
+
+    // Fraud prevention: prevent rapid submissions
+    const now = Date.now();
+    const lastAction = userData.lastActionTimestamp?.toMillis() || 0;
+    if (now - lastAction < 2000) { // 2 second throttle
+       toast.error('Slow down! High activity detected.');
+       return;
+    }
+
+    try {
+      if (task.verificationType === 'automated' || task.verificationType === 'timer') {
+        // Direct claim for simple tasks
+        return await claimTask(taskId);
+      }
+
+      // Manual/Proof verification requires a submission record
+      const submissionRef = await addDoc(collection(db, 'taskSubmissions'), {
+        taskId,
+        userId: currentUser.uid,
+        username: userData.username,
+        status: 'pending',
+        proofData,
+        submittedAt: serverTimestamp(),
+        rewardPoints: task.rewardPoints,
+        rewardXp: task.rewardXp
+      });
+
+      const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
+      await runTransaction(db, async (transaction) => {
+        transaction.set(userTaskRef, {
+          taskId,
+          status: 'pending',
+          submissionId: submissionRef.id,
+          lastAttemptAt: serverTimestamp()
+        }, { merge: true });
+      });
+
+      toast.success('Mission proof submitted for review!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Submission failed');
+    }
+  };
+
   const claimTask = async (taskId: string) => {
     if (!currentUser) return;
 
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    const userTask = userTasks[taskId];
-    const now = new Date();
-
-    // Check cooldown for daily/repeatable tasks
-    if (userTask && task.type !== 'once') {
-      const lastCompleted = userTask.lastCompleted.toDate();
-      const cooldownHours = task.cooldown || 24;
-      const cooldownMs = cooldownHours * 60 * 60 * 1000;
-
-      if (now.getTime() - lastCompleted.getTime() < cooldownMs) {
-        toast.error('Task is on cooldown');
-        return;
-      }
-    }
-
-    // Prevent multiple claims for 'once' tasks
-    if (userTask && task.type === 'once') {
-       toast.error('Task already completed');
-       return;
-    }
-
     try {
-      // Optimistic UI update could be handled here by locally updating userTasks
-      // But since we have a real-time listener, it's safer to just handle the points
-
       const result = await awardPoints(
         currentUser.uid,
         task.rewardPoints,
@@ -129,7 +189,6 @@ export const useTasks = () => {
         return;
       }
 
-      // Update user task record
       const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
       const userRef = doc(db, 'users', currentUser.uid);
 
@@ -139,30 +198,39 @@ export const useTasks = () => {
           lastCompleted: serverTimestamp(),
           status: 'completed'
         });
-        // Update total completed tasks stat
         transaction.update(userRef, {
-          'stats.tasksCompleted': firestoreIncrement(1)
+          'stats.tasksCompleted': firestoreIncrement(1),
+          lastActionTimestamp: serverTimestamp()
         });
       });
 
-      // Add notification
       await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
         title: 'Mission Accomplished!',
-        description: `You earned +${task.rewardPoints} Pulse for completing: ${task.title}`,
+        description: `You earned +${task.rewardPoints} Pulse for: ${task.title}`,
         type: 'task_completed',
         read: false,
         timestamp: serverTimestamp()
       });
 
-      toast.success(`+${task.rewardPoints} Pulse Earned!`, {
-        icon: '⚡',
-      });
+      toast.success(`+${task.rewardPoints} Pulse Earned!`, { icon: '⚡' });
+      return true;
 
     } catch (error) {
-      console.error("Error claiming task:", error);
-      toast.error('Failed to claim reward');
+      console.error(error);
+      toast.error('Claim failed');
+      return false;
     }
   };
 
-  return { tasks, userTasks, activities, loading, claimTask, getTaskStatus };
+  return {
+    tasks,
+    userTasks,
+    campaigns,
+    submissions,
+    activities,
+    loading,
+    submitTask,
+    claimTask,
+    getTaskStatus
+  };
 };

@@ -23,6 +23,7 @@ import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
 import { awardPoints } from '../utils/economy';
+import { EcosystemBot } from '../utils/ecosystemBot';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -217,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // ADMIN SEPARATION: Only standard users get daily rewards
             if (resolvedData.role !== 'admin') {
               checkDailyReward(user.uid);
+              EcosystemBot.evaluateUserEngagement(resolvedData as UserData);
             }
           }
           setLoading(false);

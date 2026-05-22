@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   Zap,
   Menu,
-  X
+  X,
+  Layers
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -27,6 +28,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Overview', icon: BarChart3, href: '/pulse-core' },
     { name: 'User Directory', icon: Users, href: '/pulse-core/users' },
     { name: 'Task Engine', icon: ClipboardList, href: '/pulse-core/tasks' },
+    { name: 'Campaigns', icon: Layers, href: '/pulse-core/campaigns' },
     { name: 'Economy Control', icon: Zap, href: '/pulse-core/economy' },
     { name: 'Audit Logs', icon: Activity, href: '/pulse-core/audit' },
     { name: 'System Settings', icon: Settings, href: '/pulse-core/settings' },

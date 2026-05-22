@@ -4,11 +4,10 @@ import Card from '../ui/Card';
 import { Zap, Clock, CheckCircle2, ChevronRight, Play, Loader2, Star, Lock, Trophy } from 'lucide-react';
 import { cn } from '../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTierColor, getTierGlow } from '../../utils/progression';
 
 interface TaskCardProps {
   task: Task;
-  status: 'available' | 'completed' | 'cooldown';
+  status: 'available' | 'completed' | 'cooldown' | 'pending' | 'rejected';
   nextAvailable?: Date;
   onClaim: (taskId: string) => Promise<void>;
   userLevel?: number;
@@ -48,9 +47,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
     if (isLocked) return <Lock className="text-white/10" size={28} />;
     if (status === 'completed') return <CheckCircle2 className="text-primary" size={28} />;
     if (task.type === 'timer') return <Clock className="text-accent" size={28} />;
-    if (task.tier === 'elite') return <Trophy className="text-purple-400" size={28} />;
-    if (task.tier === 'gold') return <Star className="text-yellow-400" size={28} />;
-    return <Zap className={getTierColor(task.tier)} size={28} />;
+    if (task.rarity === 'legendary' || task.rarity === 'mythic') return <Trophy className="text-purple-400" size={28} />;
+    if (task.rarity === 'rare') return <Star className="text-yellow-400" size={28} />;
+    return <Zap className="text-primary" size={28} />;
   };
 
   return (
@@ -58,8 +57,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
       "p-5 border-white/[0.03] bg-white/[0.01] transition-all group overflow-hidden relative",
       status === 'completed' && "border-primary/20 bg-primary/[0.04]",
       status === 'available' && !isLocked && "hover:bg-white/[0.03] cursor-pointer",
-      isLocked && "opacity-50 grayscale select-none cursor-not-allowed",
-      !isLocked && status === 'available' && getTierGlow(task.tier)
+      isLocked && "opacity-50 grayscale select-none cursor-not-allowed"
     )}>
       {status === 'completed' && (
         <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
@@ -79,9 +77,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
           <div>
             <div className="flex items-center gap-2 mb-1">
                <h4 className="font-bold text-base tracking-tight">{task.title}</h4>
-               {task.tier !== 'bronze' && (
-                  <span className={cn("text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border border-white/5", getTierColor(task.tier))}>
-                     {task.tier}
+               {task.rarity !== 'common' && (
+                  <span className={cn(
+                    "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border border-white/5",
+                    task.rarity === 'legendary' ? "text-orange-400" : task.rarity === 'rare' ? "text-yellow-400" : "text-white/40"
+                  )}>
+                     {task.rarity}
                   </span>
                )}
             </div>
@@ -126,7 +127,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
 
               {status === 'available' && task.type !== 'timer' && (
                 <button
-                  onClick={() => handleClaim()}
+                  onClick={() => onClaim(task.id)}
                   disabled={isClaiming}
                   className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center group-hover:bg-primary group-hover:border-primary transition-all disabled:opacity-50"
                 >
@@ -141,6 +142,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
               {status === 'completed' && (
                 <span className="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-[10px] font-bold text-primary uppercase tracking-widest">
                   Done
+                </span>
+              )}
+
+              {status === 'pending' && (
+                <span className="px-5 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                  Pending
                 </span>
               )}
 

@@ -9,6 +9,12 @@ import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import Predict from './pages/Predict'
 import ControlCenter from './pages/ControlCenter'
+import AdminLayout from './components/layout/AdminLayout'
+import UserDirectory from './components/admin/UserDirectory'
+import TaskOrchestrator from './components/admin/TaskOrchestrator'
+import EconomyConsole from './components/admin/EconomyConsole'
+import ProtocolAuditLogs from './components/admin/ProtocolAuditLogs'
+import SystemSettingsPanel from './components/admin/SystemSettingsPanel'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -23,9 +29,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // If admin is trying to access restricted user-only routes
   const userOnlyRoutes = ['/dashboard', '/tasks', '/rewards', '/referrals', '/predict'];
-  const isUserOnlyRoute = userOnlyRoutes.includes(window.location.pathname);
+  const isUserOnlyRoute = userOnlyRoutes.some(route => window.location.pathname.startsWith(route));
 
-  if (userData?.role === 'admin' && isUserOnlyRoute) {
+  if (userData?.role === 'admin' && (isUserOnlyRoute || window.location.pathname === '/')) {
     console.log(`[ProtectedRoute] Admin detected on user-only route. Redirecting to Pulse Core.`);
     return <Navigate to="/pulse-core" replace />;
   }
@@ -116,7 +122,19 @@ function App() {
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/predict" element={<ProtectedRoute><Predict /></ProtectedRoute>} />
 
-        <Route path="/pulse-core" element={<AdminRoute><ControlCenter /></AdminRoute>} />
+        <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+          <Route index element={<ControlCenter />} />
+          <Route path="users" element={<UserDirectory />} />
+          <Route path="tasks" element={<TaskOrchestrator />} />
+          <Route path="economy" element={<EconomyConsole />} />
+          <Route path="audit" element={<ProtocolAuditLogs />} />
+          <Route path="settings" element={
+            <div className="max-w-2xl mx-auto space-y-8 py-8">
+              <h1 className="text-2xl font-bold mb-8 text-center">Global Protocol Configuration</h1>
+              <SystemSettingsPanel />
+            </div>
+          } />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const HelpCenter: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
 
   const faqs = [
     {
@@ -36,15 +37,116 @@ const HelpCenter: React.FC = () => {
     }
   ];
 
-  const guides = [
-    { title: "Quick Start Guide", icon: BookOpen, color: "text-blue-400" },
-    { title: "Earning Strategies", icon: Zap, color: "text-yellow-400" },
-    { title: "Oracle Protocol (Predictions)", icon: TrendingUp, color: "text-green-400" },
-    { title: "Security Best Practices", icon: ShieldCheck, color: "text-red-400" }
+  const articles = [
+    {
+      id: 'quickstart',
+      title: "Quick Start Guide",
+      icon: BookOpen,
+      color: "text-blue-400",
+      content: `
+        ### Welcome to PulseEarn
+        PulseEarn is a next-generation crypto rewards ecosystem designed for maximum capital yield.
+
+        #### How it Works
+        The protocol rewards nodes (users) for participating in network activities:
+        1. **Syncing:** Daily login bonuses maintain your uptime streak.
+        2. **Directives:** Complete micro-tasks in the Mission Hub to earn Pulse.
+        3. **Oracles:** Submit market forecasts to multiply your capital.
+
+        #### Clearance Levels
+        Your account level (Clearance) determines your reward multipliers. Earn XP by completing tasks to unlock Elite and Premium sectors.
+      `
+    },
+    {
+      id: 'earnings',
+      title: "Earning Strategies",
+      icon: Zap,
+      color: "text-yellow-400",
+      content: `
+        ### Maximize Your Yield
+        PulseEarn is optimized for consistent engagement. Follow these strategies to climb the leaderboard.
+
+        #### Maintain Streaks
+        Your Daily Protocol Ping grants increasing bonuses for consecutive days of uptime. Missing a day resets your streak multiplier.
+
+        #### Mission Stacking
+        Social and Growth missions often grant the highest XP-to-Time ratio. Complete these first to raise your clearance level quickly.
+
+        #### Referral Networks
+        Expand your squad by inviting new nodes. You receive a 10% lifetime commission on all points earned by your direct referrals.
+      `
+    },
+    {
+      id: 'oracle',
+      title: "Oracle Protocol",
+      icon: TrendingUp,
+      color: "text-green-400",
+      content: `
+        ### Advanced Forecasting
+        The Oracle Protocol allows users to stake Pulse on real-time market movements.
+
+        #### Settlement Logic
+        Orders are settled every 24 hours (00:00 UTC) based on Binance spot prices.
+        - **Long (Up):** Profit if the price at settlement is higher than your entry.
+        - **Short (Down):** Profit if the price at settlement is lower than your entry.
+
+        #### Risk Mitigation
+        Staking is high-risk. Incorrect forecasts result in the complete loss of staked Pulse. Only stake capital you are willing to risk.
+      `
+    },
+    {
+      id: 'security',
+      title: "Security Best Practices",
+      icon: ShieldCheck,
+      color: "text-red-400",
+      content: `
+        ### Protocol Integrity
+        Security is the highest priority for the Pulse ecosystem.
+
+        #### Wallet Safety
+        Never share your private keys or seed phrases. PulseEarn will only ever request a non-custodial signature to verify node ownership.
+
+        #### Anti-Fraud
+        Our system monitors for rapid-fire activity and multiple account usage. Suspicious nodes are automatically flagged and subject to termination.
+
+        #### Withdrawal Awareness
+        Legitimate settlements only occur through our official Liquidity Bridge. Beware of phishing sites claiming to offer "instant payouts."
+      `
+    }
   ];
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 relative">
+       <AnimatePresence>
+          {selectedArticle && (
+             <motion.div
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               exit={{ opacity: 0, x: -20 }}
+               className="absolute inset-0 bg-[#050507] z-20 min-h-[500px]"
+             >
+                <button
+                  onClick={() => setSelectedArticle(null)}
+                  className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest mb-6 hover:text-white transition-colors"
+                >
+                   <ChevronDown size={14} className="rotate-90" />
+                   Back to Documentation
+                </button>
+                <div className="flex items-center gap-4 mb-8">
+                   <div className={cn("p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]", selectedArticle.color)}>
+                      <selectedArticle.icon size={24} />
+                   </div>
+                   <h2 className="text-2xl font-bold">{selectedArticle.title}</h2>
+                </div>
+                <div className="prose prose-invert max-w-none">
+                   <div className="text-sm text-white/60 leading-relaxed whitespace-pre-line bg-white/[0.02] p-6 rounded-3xl border border-white/[0.05]">
+                      {selectedArticle.content}
+                   </div>
+                </div>
+             </motion.div>
+          )}
+       </AnimatePresence>
+
       {/* Search Header */}
       <div className="relative">
          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
@@ -59,12 +161,16 @@ const HelpCenter: React.FC = () => {
 
       {/* Popular Guides */}
       <div className="grid grid-cols-2 gap-4">
-         {guides.map((guide, i) => (
-           <Card key={i} className="p-4 border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] cursor-pointer group transition-all">
-              <div className={cn("w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform", guide.color)}>
-                 <guide.icon size={20} />
+         {articles.filter(a => a.title.toLowerCase().includes(searchTerm.toLowerCase())).map((article, i) => (
+           <Card
+            key={i}
+            onClick={() => setSelectedArticle(article)}
+            className="p-4 border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.02] cursor-pointer group transition-all"
+           >
+              <div className={cn("w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform", article.color)}>
+                 <article.icon size={20} />
               </div>
-              <h4 className="text-xs font-bold text-white/90 leading-tight mb-2">{guide.title}</h4>
+              <h4 className="text-xs font-bold text-white/90 leading-tight mb-2">{article.title}</h4>
               <div className="flex items-center gap-1 text-[8px] font-bold text-white/20 uppercase tracking-widest">
                  Read Guide <ExternalLink size={8} />
               </div>

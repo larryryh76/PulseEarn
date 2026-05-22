@@ -51,6 +51,8 @@ export interface UserData {
   actionsInLastMinute?: number;
   earnedInLastHour?: number;
   lastHourReset?: Timestamp;
+  walletAddress?: string;
+  totalWithdrawn?: number;
   avatarUrl?: string;
   stats?: {
     tasksCompleted: number;

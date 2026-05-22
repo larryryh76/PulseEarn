@@ -8,6 +8,7 @@ import Earn from './pages/Earn'
 import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import Predict from './pages/Predict'
+import Withdraw from './pages/Withdraw'
 import ControlCenter from './pages/ControlCenter'
 import AdminLayout from './components/layout/AdminLayout'
 import UserDirectory from './components/admin/UserDirectory'
@@ -32,7 +33,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isUserOnlyRoute = userOnlyRoutes.some(route => window.location.pathname.startsWith(route));
 
   if (userData?.role === 'admin' && (isUserOnlyRoute || window.location.pathname === '/')) {
-    console.log(`[ProtectedRoute] Admin detected on user-only route. Redirecting to Pulse Core.`);
     return <Navigate to="/pulse-core" replace />;
   }
 
@@ -46,19 +46,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const hasAccess = currentUser && userData?.role === 'admin';
 
-  console.log(`[AdminRoute] Access Check:`, {
-    authenticated: !!currentUser,
-    email: currentUser?.email,
-    role: userData?.role,
-    granted: hasAccess
-  });
-
   if (!hasAccess) {
-    console.warn(`[AdminRoute] Access Denied. Redirecting...`);
     return <Navigate to="/dashboard" replace />;
   }
 
-  console.log(`[AdminRoute] Access Granted.`);
   return <>{children}</>;
 };
 
@@ -121,6 +112,7 @@ function App() {
         <Route path="/referrals" element={<ProtectedRoute><Invite /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/predict" element={<ProtectedRoute><Predict /></ProtectedRoute>} />
+        <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<ControlCenter />} />

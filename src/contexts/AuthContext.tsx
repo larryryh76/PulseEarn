@@ -122,13 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdmin = email.toLowerCase() === 'admin@pulse.com';
     const role = isAdmin ? 'admin' : 'user';
 
-    if (isAdmin) {
-      console.warn("--- ADMIN ACCOUNT CREATED ---");
-      console.log(`Email: ${email}`);
-      console.log(`Role: ${role}`);
-      console.log(`Route: /pulse-core`);
-      console.warn("-----------------------------");
-    }
 
     const referralCode = generateReferralCode(user.uid);
     const today = new Date();
@@ -200,7 +193,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
-        console.log(`[Auth] Authenticated: ${user.email}`);
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
@@ -208,7 +200,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // AUTOMATIC ELEVATION: If admin email but not admin role in DB, fix it.
             if (isAdminEmail && data.role !== 'admin') {
-              console.log(`[Auth] Admin email detected without admin role. Upgrading document...`);
               try {
                 await updateDoc(doc(db, 'users', user.uid), { role: 'admin' });
               } catch (e) {
@@ -220,13 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...data,
               role: (isAdminEmail || data.role === 'admin') ? 'admin' : 'user'
             };
-
-            console.log(`[Auth] Role Verification:`, {
-              email: user.email,
-              dbRole: data.role,
-              activeRole: resolvedData.role,
-              isSystemAdmin: isAdminEmail
-            });
 
             setUserData(resolvedData as UserData);
 

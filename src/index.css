@@ -8,19 +8,18 @@
   --color-success: #00ffa3;
   --color-danger: #ff2e5b;
   --color-card: #0a0a0f;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
 
   --font-heading: "Space Grotesk", sans-serif;
   --font-body: "Inter", sans-serif;
-  --font-mono: "Rajdhani", sans-serif;
 }
 
 @layer base {
   body {
-    @apply bg-background text-white font-body antialiased selection:bg-primary/30;
+    @apply bg-background text-white font-body antialiased;
     overflow-x: hidden;
-    background-image:
-      radial-gradient(circle at 50% -20%, rgba(0, 112, 255, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 0% 100%, rgba(124, 58, 237, 0.05) 0%, transparent 40%);
+    /* Clean gradient, no more sci-fi atmospheric chaos */
+    background: radial-gradient(circle at 50% 0%, #0a0a14 0%, #030305 100%);
     background-attachment: fixed;
   }
 
@@ -30,38 +29,30 @@
 }
 
 @layer components {
-  /* High-End Glassmorphism Tiers */
-  .glass-thin {
-    @apply bg-white/[0.01] backdrop-blur-md border border-white/[0.03];
+  /* Clean Glassmorphism */
+  .glass-card {
+    @apply bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-2xl;
   }
 
-  .glass-standard {
-    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  .glass-nav {
+    @apply bg-background/80 backdrop-blur-2xl border-t border-white/[0.05];
   }
 
-  .glass-deep {
-    @apply bg-[#0A0A0F]/80 backdrop-blur-2xl border border-white/[0.1] shadow-[0_20px_50px_rgba(0,0,0,0.5)];
-  }
-
-  /* Premium Financial Utility */
-  .text-financial {
-    @apply font-mono font-bold tracking-tight;
+  /* Minimalist Utility */
+  .glow-sm {
+    @apply shadow-[0_0_20px_rgba(0,112,255,0.1)];
   }
 
   .glow-primary {
-    @apply shadow-[0_0_30px_rgba(0,112,255,0.2)];
+    @apply shadow-[0_0_30px_rgba(0,112,255,0.15)];
   }
 
-  .glow-accent {
-    @apply shadow-[0_0_30px_rgba(0,242,255,0.2)];
-  }
-
-  /* Advanced Animations */
+  /* Functional Animations */
   .animate-shimmer {
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.03) 50%,
+      rgba(255, 255, 255, 0.05) 50%,
       transparent 100%
     );
     background-size: 200% 100%;
@@ -73,50 +64,20 @@
     100% { background-position: -200% 0; }
   }
 
-  .floating {
-    animation: floating 6s ease-in-out infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-15px); }
-  }
-
-  .pulse-border {
-    animation: pulse-border 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-border {
-    0%, 100% { border-color: rgba(0, 112, 255, 0.1); }
-    50% { border-color: rgba(0, 112, 255, 0.4); }
-  }
-
-  /* Noise Texture Overlay */
-  .noise-overlay::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background: url("https://grainy-gradients.vercel.app/noise.svg");
-    filter: contrast(150%) brightness(1000%);
-    opacity: 0.03;
-    pointer-events: none;
-    z-index: 1;
+  /* Custom Transitions */
+  .transition-premium {
+    @apply transition-all duration-300 ease-out;
   }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 ::-webkit-scrollbar-track {
   background: #030305;
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }

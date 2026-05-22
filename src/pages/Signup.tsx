@@ -3,7 +3,7 @@ import MainLayout from '../layouts/MainLayout';
 import Button from '../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -40,7 +40,6 @@ const Signup: React.FC = () => {
 
   return (
     <MainLayout>
-      <Toaster position="top-right" />
       <div className="min-h-[80vh] flex items-center justify-center px-6">
         <div className="max-w-md w-full glass p-10 rounded-[2rem] border-white/10 text-center">
           <h1 className="text-4xl font-bold mb-6">Create Account</h1>

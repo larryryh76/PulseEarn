@@ -8,13 +8,13 @@ import {
   Activity,
   Globe,
   Shield,
-  Layers,
   ChevronRight,
   ArrowUpRight,
-  ArrowRight,
   Target,
   BarChart3,
-  Users
+  Users,
+  Trophy,
+  History
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
@@ -32,11 +32,9 @@ const Dashboard: React.FC = () => {
   if (loading) return (
     <DashboardLayout>
       <div className="space-y-6">
-        <Skeleton className="h-[400px] rounded-[3rem]" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Skeleton className="h-32 rounded-3xl" />
-          <Skeleton className="h-32 rounded-3xl" />
-          <Skeleton className="h-32 rounded-3xl" />
+        <Skeleton className="h-64 rounded-3xl" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
       </div>
     </DashboardLayout>
@@ -48,269 +46,156 @@ const Dashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-8 pb-20">
+      <div className="space-y-8 pb-10">
 
-        {/* SECTION 1: THE COMMAND CENTER HERO */}
-        <section className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-accent/20 to-secondary/20 rounded-[3rem] blur-2xl opacity-50 group-hover:opacity-75 transition duration-1000"></div>
+        {/* SECTION 1: CLEAN WALLET HERO */}
+        <section>
+          <CardPremium className="p-0 border-white/[0.05] bg-gradient-to-br from-[#0A0A0F] to-[#030305]">
+            <div className="relative p-8 md:p-12">
+              {/* Subtle Graph Background */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
+                <svg viewBox="0 0 1000 200" className="w-full h-full" preserveAspectRatio="none">
+                  <path d="M0 150 Q 150 140, 300 160 T 600 120 T 1000 80 L 1000 200 L 0 200 Z" fill="url(#hero-fill)" />
+                  <defs>
+                    <linearGradient id="hero-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#0070ff" stopOpacity="0.5" />
+                      <stop offset="100%" stopColor="#0070ff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
 
-          <CardPremium variant="deep" className="p-0 border-white/[0.08] bg-[#050507]/90 min-h-[450px]">
-            {/* Background Atmosphere */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-              <svg viewBox="0 0 1000 400" className="w-full h-full" preserveAspectRatio="none">
-                <motion.path
-                  d="M0 200 Q 250 100 500 200 T 1000 200"
-                  fill="none"
-                  stroke="url(#hero-grad)"
-                  strokeWidth="2"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1, d: ["M0 200 Q 250 100 500 200 T 1000 200", "M0 200 Q 250 300 500 200 T 1000 200", "M0 200 Q 250 100 500 200 T 1000 200"] }}
-                  transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <defs>
-                  <linearGradient id="hero-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#0070ff" />
-                    <stop offset="100%" stopColor="#00f2ff" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            <div className="relative z-10 p-8 md:p-14 h-full flex flex-col justify-between">
-              <div className="flex flex-col md:flex-row justify-between items-start gap-10">
-
-                {/* Left: Financial Hub */}
+              <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
                 <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.2em]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    Protocol Live: Node {userData.uid.slice(0, 4)}
-                  </div>
-
                   <div className="space-y-1">
-                    <p className="text-white/30 text-xs font-bold uppercase tracking-[0.3em]">Institutional Portfolio</p>
-                    <div className="flex items-baseline gap-4">
-                      <motion.h1
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="text-7xl md:text-8xl font-financial text-white tracking-tighter"
-                      >
+                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Current Balance</p>
+                    <div className="flex items-baseline gap-3">
+                      <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tight">
                         {userData.points.toLocaleString()}
-                      </motion.h1>
-                      <span className="text-primary text-3xl font-financial opacity-50">PTS</span>
+                      </h1>
+                      <span className="text-primary font-bold text-2xl">PTS</span>
                     </div>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.4 }}
-                      className="text-2xl font-financial text-white"
-                    >
+                    <p className="text-xl font-medium text-white/60">
                       ≈ {formatUSD(PTS_TO_USD(userData.points))}
-                    </motion.p>
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-6 pt-4">
+                  <div className="flex items-center gap-8">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">24H Yield</span>
-                      <span className="text-success text-financial text-lg flex items-center gap-1">
+                      <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">24h Earning</span>
+                      <span className="text-success font-bold text-lg flex items-center gap-1">
                         <ArrowUpRight size={16} />
                         +{userData.totalEarnedToday || 0}
                       </span>
                     </div>
                     <div className="w-[1px] h-8 bg-white/10" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Clearance</span>
-                      <span className="text-white/80 text-financial text-lg">Level {userData.level}</span>
+                      <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Level</span>
+                      <span className="text-white font-bold text-lg">Lvl {userData.level}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Operational XP Hub */}
-                <div className="relative w-full md:w-auto flex justify-center md:justify-end">
-                   <div className="relative w-48 h-48 md:w-56 md:h-56 flex items-center justify-center">
-                      <svg className="w-full h-full -rotate-90 transform">
-                         <circle
-                            cx="50%" cy="50%" r="45%"
-                            className="stroke-white/[0.03] fill-none"
-                            strokeWidth="4"
-                         />
-                         <motion.circle
-                            cx="50%" cy="50%" r="45%"
-                            className="stroke-primary fill-none"
-                            strokeWidth="4"
-                            strokeLinecap="round"
-                            strokeDasharray="100"
-                            initial={{ strokeDashoffset: 100 }}
-                            animate={{ strokeDashoffset: 100 - xp.progress }}
-                            transition={{ duration: 2, ease: "easeOut" }}
-                         />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                         <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-none mb-2">Progression</span>
-                         <span className="text-4xl font-financial text-white">{Math.round(xp.progress)}%</span>
-                         <span className="text-[10px] font-mono text-white/40 mt-1 uppercase">{Math.round(xp.currentLevelXp)} / {xp.requiredXp} XP</span>
-                      </div>
-
-                      {/* Floating Indicator */}
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 pointer-events-none"
-                      >
-                         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_15px_#0070ff]" />
-                      </motion.div>
-                   </div>
+                {/* Level Progress */}
+                <div className="w-full md:w-64 space-y-3">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">XP Progression</span>
+                    <span className="text-[10px] font-bold text-primary">{Math.round(xp.progress)}%</span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${xp.progress}%` }}
+                      className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.4)]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-white/20 text-right uppercase font-bold tracking-tighter">
+                    {Math.round(xp.currentLevelXp)} / {xp.requiredXp} XP
+                  </p>
                 </div>
               </div>
+            </div>
 
-              {/* Bottom Quick Actions */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
-                {[
-                  { label: 'Oracle Prediction', icon: Target, href: '/predict', color: 'text-primary' },
-                  { label: 'Asset Bridge', icon: Wallet, href: '/withdraw', color: 'text-accent' },
-                  { label: 'Node Missions', icon: Zap, href: '/tasks', color: 'text-secondary' },
-                  { label: 'Network Squad', icon: Users, href: '/referrals', color: 'text-white' },
-                ].map((action, i) => (
-                  <button
-                    key={i}
-                    onClick={() => navigate(action.href)}
-                    className="group/action flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05] transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-xl bg-white/5 group-hover/action:bg-white/10 transition-colors", action.color)}>
-                        <action.icon size={18} />
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 group-hover:text-white">{action.label}</span>
-                    </div>
-                    <ArrowRight size={14} className="text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
-                  </button>
-                ))}
-              </div>
+            {/* Quick Actions Bar */}
+            <div className="grid grid-cols-2 md:grid-cols-4 border-t border-white/[0.05]">
+              {[
+                { label: 'Tasks', icon: Zap, href: '/tasks', color: 'text-primary' },
+                { label: 'Predict', icon: Target, href: '/predict', color: 'text-accent' },
+                { label: 'Withdraw', icon: Wallet, href: '/withdraw', color: 'text-success' },
+                { label: 'Invite', icon: Users, href: '/referrals', color: 'text-white' },
+              ].map((action, i) => (
+                <button
+                  key={i}
+                  onClick={() => navigate(action.href)}
+                  className="flex flex-col items-center justify-center p-6 border-r last:border-r-0 border-white/[0.05] hover:bg-white/[0.02] transition-colors gap-2 group"
+                >
+                  <div className={cn("p-2 rounded-xl bg-white/5 transition-transform group-hover:scale-110", action.color)}>
+                    <action.icon size={20} />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white">{action.label}</span>
+                </button>
+              ))}
             </div>
           </CardPremium>
         </section>
 
-        {/* SECTION 2: SECTOR INTEL GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* SECTION 2: MARKET & ACTIVITY */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Market Intelligence */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-4 bg-primary rounded-full shadow-[0_0_10px_#0070ff]" />
-                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">Protocol Market Intelligence</h3>
-              </div>
-              <span className="text-[10px] font-mono text-white/20 uppercase">Real-time Feed</span>
+            <div className="flex items-center gap-2 px-1">
+              <BarChart3 size={16} className="text-white/20" />
+              <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Market Insights</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <CardPremium className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h4 className="text-white font-bold text-lg">BTC Oracle Strength</h4>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Current Sentiment</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-primary/20 text-primary">
-                    <Activity size={20} />
-                  </div>
-                </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-4">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "74%" }}
-                    className="h-full bg-primary shadow-[0_0_10px_#0070ff]"
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] font-bold uppercase">
-                  <span className="text-success">Bullish 74%</span>
-                  <span className="text-danger">Bearish 26%</span>
-                </div>
-              </CardPremium>
-
-              <CardPremium className="bg-gradient-to-br from-accent/10 to-transparent border-accent/20">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h4 className="text-white font-bold text-lg">Network Hashrate</h4>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">System Efficiency</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-accent/20 text-accent">
-                    <Globe size={20} />
-                  </div>
-                </div>
-                <div className="flex items-end gap-1 h-8">
-                  {[40, 70, 45, 90, 65, 80, 55, 75, 40, 85].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${h}%` }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex-1 bg-accent/40 rounded-t-sm"
-                    />
-                  ))}
-                </div>
-                <p className="text-[10px] font-bold text-white/40 mt-4 uppercase text-right tracking-widest">Optimized 99.8%</p>
-              </CardPremium>
-            </div>
-
-            {/* Sector Intel Widgets */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MarketWidget label="Pulse Dominance" value="42.5%" change="+1.2%" isPositive={true} icon={<BarChart3 size={18} />} />
-              <MarketWidget label="Yield Multiplier" value="x2.4" icon={<Zap size={18} />} />
-              <MarketWidget label="Liquidity Cap" value="$4.2M" icon={<Shield size={18} />} />
-              <MarketWidget label="Active Nodes" value="12,402" change="+14" isPositive={true} icon={<Layers size={18} />} />
+            <div className="grid grid-cols-2 gap-4">
+              <MarketWidget label="User Success" value="64.2%" change="+2.1%" isPositive={true} icon={<Activity size={18} />} />
+              <MarketWidget label="Network Load" value="Optimal" icon={<Globe size={18} />} />
+              <MarketWidget label="Leaderboard" value="#142" icon={<Trophy size={18} />} />
+              <MarketWidget label="System Auth" value="Verifed" icon={<Shield size={18} />} />
             </div>
           </div>
 
-          {/* Right Sidebar: Protocol Feed */}
           <div className="space-y-6">
-             <div className="flex items-center gap-2 px-2">
-                <div className="w-1 h-4 bg-white/20 rounded-full" />
-                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">Protocol Events</h3>
+             <div className="flex items-center gap-2 px-1">
+                <History size={16} className="text-white/20" />
+                <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Recent Activity</h3>
              </div>
 
-             <CardPremium variant="standard" className="p-0 border-white/[0.03]">
+             <CardPremium className="p-0 border-white/[0.05]">
                 <div className="divide-y divide-white/[0.03]">
                    {activities.length === 0 ? (
-                     <div className="p-12 text-center text-white/10 text-[10px] font-bold uppercase tracking-[0.2em]">
-                        Standby for network activity...
+                     <div className="p-10 text-center text-white/10 text-[10px] font-bold uppercase tracking-widest">
+                        No recent operations
                      </div>
-                   ) : activities.slice(0, 6).map((activity) => (
-                     <div key={activity.id} className="p-5 flex items-start gap-4 hover:bg-white/[0.01] transition-colors group">
-                        <div className={cn(
-                          "mt-1 w-2 h-2 rounded-full shrink-0 shadow-[0_0_8px]",
-                          activity.points > 0 ? "bg-success shadow-success/50" : "bg-primary shadow-primary/50"
-                        )} />
-                        <div className="flex-1">
-                           <div className="flex justify-between items-start">
-                              <p className="text-xs font-bold text-white/90 group-hover:text-white transition-colors">{activity.type}</p>
-                              <span className={cn(
-                                "text-[10px] font-financial",
-                                activity.points > 0 ? "text-success" : "text-white/40"
-                              )}>
-                                {activity.points > 0 ? `+${activity.points}` : activity.points} PTS
-                              </span>
+                   ) : activities.slice(0, 5).map((activity) => (
+                     <div key={activity.id} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors group">
+                        <div className="flex items-center gap-3">
+                           <div className={cn(
+                             "w-1.5 h-1.5 rounded-full",
+                             activity.points > 0 ? "bg-success" : "bg-primary"
+                           )} />
+                           <div>
+                              <p className="text-xs font-bold text-white/80 group-hover:text-white transition-colors">{activity.type}</p>
+                              <p className="text-[9px] text-white/20 font-bold uppercase mt-0.5">
+                                 {activity.timestamp ? activity.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
+                              </p>
                            </div>
-                           <p className="text-[9px] text-white/20 font-bold uppercase mt-1">
-                              {activity.timestamp ? activity.timestamp.toDate().toLocaleTimeString() : 'Awaiting confirmation...'}
-                           </p>
                         </div>
+                        <span className={cn(
+                          "text-[11px] font-bold",
+                          activity.points > 0 ? "text-success" : "text-white/40"
+                        )}>
+                          {activity.points > 0 ? `+${activity.points}` : activity.points} PTS
+                        </span>
                      </div>
                    ))}
                 </div>
-                <Link to="/me" className="flex items-center justify-center p-4 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-[9px] font-bold text-white/20 uppercase tracking-[0.3em] group">
-                   Full Audit Ledger
-                   <ChevronRight size={10} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                <Link to="/me" className="flex items-center justify-center p-3 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-[9px] font-bold text-white/20 uppercase tracking-widest group">
+                   View Audit Ledger
+                   <ChevronRight size={10} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
              </CardPremium>
-
-             {/* System Integrity Module */}
-             <div className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/[0.05] space-y-4">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                   <Shield size={12} className="text-success" />
-                   Security Protocol V4.2
-                </div>
-                <p className="text-[10px] text-white/40 leading-relaxed">
-                   End-to-end encryption active. All protocol actions are immutable and stored on-chain. Multi-sig verification enabled for bridge transfers.
-                </p>
-             </div>
           </div>
         </div>
       </div>

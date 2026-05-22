@@ -5,10 +5,15 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { cn } from '../../utils';
 import { useNavigate } from 'react-router-dom';
+import { useCryptoData } from '../../hooks/useCryptoData';
+import { formatUSD } from '../../utils/finance';
 
 const PredictionPreview: React.FC = () => {
   const navigate = useNavigate();
+  const { marketData, loading } = useCryptoData();
   const [selectedDirection, setSelectedDirection] = useState<'up' | 'down' | null>(null);
+
+  const btc = marketData.find(c => c.id === 'bitcoin');
 
   return (
     <section id="predict" className="py-24 bg-white/[0.01]">
@@ -72,8 +77,13 @@ const PredictionPreview: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-mono font-bold">$64,231.50</p>
-                    <p className="text-xs text-green-500 font-medium">+2.45%</p>
+                    <p className="text-xl font-mono font-bold">{loading ? '---' : formatUSD(btc?.current_price || 0)}</p>
+                    <p className={cn(
+                       "text-xs font-medium",
+                       (btc?.price_change_percentage_24h || 0) >= 0 ? "text-green-500" : "text-red-500"
+                    )}>
+                       {(btc?.price_change_percentage_24h || 0) >= 0 ? '+' : ''}{btc?.price_change_percentage_24h.toFixed(2)}%
+                    </p>
                   </div>
                 </div>
 

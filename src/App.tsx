@@ -17,6 +17,7 @@ import CampaignManager from './components/admin/CampaignManager'
 import EconomyConsole from './components/admin/EconomyConsole'
 import ProtocolAuditLogs from './components/admin/ProtocolAuditLogs'
 import SystemSettingsPanel from './components/admin/SystemSettingsPanel'
+import AdminAIConsole from './components/admin/AdminAIConsole'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -117,6 +118,7 @@ function App() {
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<ControlCenter />} />
+          <Route path="ai" element={<AdminAIConsole />} />
           <Route path="users" element={<UserDirectory />} />
           <Route path="tasks" element={<TaskOrchestrator />} />
           <Route path="campaigns" element={<CampaignManager />} />

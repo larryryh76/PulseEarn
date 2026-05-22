@@ -12,7 +12,8 @@ import {
   Zap,
   Menu,
   X,
-  Layers
+  Layers,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -26,6 +27,7 @@ const AdminLayout: React.FC = () => {
 
   const adminMenu = [
     { name: 'Overview', icon: BarChart3, href: '/pulse-core' },
+    { name: 'AI Console', icon: Bot, href: '/pulse-core/ai' },
     { name: 'User Directory', icon: Users, href: '/pulse-core/users' },
     { name: 'Task Engine', icon: ClipboardList, href: '/pulse-core/tasks' },
     { name: 'Campaigns', icon: Layers, href: '/pulse-core/campaigns' },

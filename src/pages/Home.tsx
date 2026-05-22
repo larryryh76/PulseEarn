@@ -7,8 +7,12 @@ import LeaderboardPreview from '../components/sections/LeaderboardPreview';
 import SignupCTA from '../components/sections/SignupCTA';
 import FAQ from '../components/sections/FAQ';
 import MainLayout from '../layouts/MainLayout';
+import { useCryptoData } from '../hooks/useCryptoData';
 
 const Home: React.FC = () => {
+  // Pre-fetch crypto data for the whole landing page
+  useCryptoData();
+
   return (
     <MainLayout>
       <Hero />

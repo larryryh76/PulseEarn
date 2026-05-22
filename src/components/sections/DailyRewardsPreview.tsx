@@ -4,9 +4,15 @@ import { Gift, Zap, DollarSign, ChevronRight } from 'lucide-react';
 import Card from '../ui/Card';
 import { cn } from '../../utils';
 import { useNavigate } from 'react-router-dom';
+import { useCryptoData } from '../../hooks/useCryptoData';
 
 const DailyRewardsPreview: React.FC = () => {
   const navigate = useNavigate();
+  const { marketData } = useCryptoData();
+
+  const btc = marketData.find(c => c.id === 'bitcoin');
+  const eth = marketData.find(c => c.id === 'ethereum');
+
   const rewards = [
     {
       title: 'USDT Rain',
@@ -19,18 +25,18 @@ const DailyRewardsPreview: React.FC = () => {
       bg: 'bg-green-500/10'
     },
     {
-      title: 'PULSE Drop',
-      amount: '500 PULSE',
-      type: 'PULSE',
+      title: 'BTC Bonus',
+      amount: btc ? `${(50 / btc.current_price).toFixed(6)} BTC` : '--- BTC',
+      type: 'BTC',
       participants: '3.4k',
       status: 'Active',
       icon: Zap,
-      color: 'text-primary',
-      bg: 'bg-primary/10'
+      color: 'text-orange-500',
+      bg: 'bg-orange-500/10'
     },
     {
-      title: 'ETH Bonus',
-      amount: '0.05 ETH',
+      title: 'ETH Drop',
+      amount: eth ? `${(50 / eth.current_price).toFixed(4)} ETH` : '--- ETH',
       type: 'ETH',
       participants: '850',
       status: 'Active',

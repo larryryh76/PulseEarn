@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Wallet, ChevronDown } from 'lucide-react';
+import { Menu, X, Wallet, ChevronDown, LogOut, User as UserIcon, LayoutDashboard, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { cn } from '../../utils';
 import LogoWrapper from '../ui/LogoWrapper';
 import { useAuth } from '../../contexts/AuthContext';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [walletAddress] = useState("0x71C...4f92");
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,36 +70,147 @@ const Navbar: React.FC = () => {
           ))}
         </div>
 
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-6">
+          <ConnectButton.Custom>
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openChainModal,
+              openConnectModal,
+              authenticationStatus,
+              mounted,
+            }) => {
+              const ready = mounted && authenticationStatus !== 'loading';
+              const connected =
+                ready &&
+                account &&
+                chain &&
+                (!authenticationStatus ||
+                  authenticationStatus === 'authenticated');
+
+              return (
+                <div
+                  {...(!ready && {
+                    'aria-hidden': true,
+                    'style': {
+                      opacity: 0,
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                    },
+                  })}
+                >
+                  {(() => {
+                    if (!connected) {
+                      return (
+                        <button
+                          onClick={openConnectModal}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[12px] bg-primary text-white shadow-[0_4px_15px_rgba(0,112,255,0.3)] hover:shadow-primary/40 transition-all uppercase tracking-widest"
+                        >
+                          <Wallet size={14} />
+                          Connect Wallet
+                        </button>
+                      );
+                    }
+
+                    if (chain.unsupported) {
+                      return (
+                        <button onClick={openChainModal} className="px-4 py-2 bg-danger text-white rounded-xl text-xs font-bold">
+                          Wrong network
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={openChainModal}
+                          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-bold text-white/60 hover:text-white transition-all flex items-center gap-2"
+                        >
+                          {chain.hasIcon && (
+                            <div className="w-4 h-4 overflow-hidden rounded-full">
+                              {chain.iconUrl && (
+                                <img
+                                  alt={chain.name ?? 'Chain icon'}
+                                  src={chain.iconUrl}
+                                  style={{ width: 16, height: 16 }}
+                                />
+                              )}
+                            </div>
+                          )}
+                          {chain.name}
+                        </button>
+
+                        <button
+                          onClick={openAccountModal}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-[11px] bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08] transition-all"
+                        >
+                          {account.displayName}
+                          <ChevronDown size={12} className="text-white/20" />
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            }}
+          </ConnectButton.Custom>
+
           {currentUser ? (
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[13px] bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08] transition-all"
-            >
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              </div>
-              {userData?.username || 'Dashboard'}
-            </Link>
+            <div className="relative">
+               <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="w-10 h-10 rounded-full border border-white/10 p-0.5 overflow-hidden hover:border-primary/50 transition-colors"
+               >
+                  <img src={userData?.avatarUrl} className="w-full h-full rounded-full" alt="" />
+               </button>
+
+               <AnimatePresence>
+                  {isProfileOpen && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setIsProfileOpen(false)}
+                        className="fixed inset-0 z-40"
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-3 w-64 bg-[#0D0D12] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 overflow-hidden"
+                      >
+                         <div className="p-4 border-b border-white/5">
+                            <p className="text-xs font-bold text-white">{userData?.username}</p>
+                            <p className="text-[10px] text-white/40">{userData?.email}</p>
+                         </div>
+                         <div className="p-1">
+                            <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
+                               <LayoutDashboard size={14} /> Dashboard
+                            </Link>
+                            <Link to="/me" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
+                               <UserIcon size={14} /> Profile Settings
+                            </Link>
+                            {userData?.role === 'admin' && (
+                               <Link to="/pulse-core" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-primary transition-all">
+                                  <Settings size={14} /> Pulse Core
+                               </Link>
+                            )}
+                            <button
+                              onClick={() => { logout(); navigate('/'); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-danger/10 text-[11px] font-bold text-danger transition-all"
+                            >
+                               <LogOut size={14} /> Termination Protocol
+                            </button>
+                         </div>
+                      </motion.div>
+                    </>
+                  )}
+               </AnimatePresence>
+            </div>
           ) : (
-            <>
-              <Link to="/login" className="text-[13px] font-bold text-white/50 hover:text-white transition-colors">
-                Login
-              </Link>
-              <button
-                onClick={() => setIsConnected(!isConnected)}
-                className={cn(
-                  "flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-[13px] transition-all relative overflow-hidden group",
-                  isConnected
-                    ? "bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08]"
-                    : "bg-primary text-white shadow-[0_4px_15px_rgba(0,112,255,0.3)] hover:shadow-primary/40"
-                )}
-              >
-                <Wallet size={16} />
-                {isConnected ? walletAddress : "Connect Wallet"}
-                {isConnected && <ChevronDown size={14} className="text-white/40" />}
-              </button>
-            </>
+            <Link to="/login" className="text-[12px] font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">
+              Auth Terminal
+            </Link>
           )}
         </div>
 
@@ -132,7 +243,8 @@ const Navbar: React.FC = () => {
                   {link.name}
                 </a>
               ))}
-              <div className="pt-4 border-t border-white/[0.05]">
+              <div className="pt-4 border-t border-white/[0.05] flex flex-col gap-4">
+                 <ConnectButton />
                 {currentUser ? (
                   <Link
                     to="/dashboard"
@@ -142,16 +254,13 @@ const Navbar: React.FC = () => {
                     Dashboard
                   </Link>
                 ) : (
-                  <button
-                    className="flex items-center justify-center gap-3 w-full bg-primary text-white px-6 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20"
-                    onClick={() => {
-                      setIsConnected(!isConnected);
-                      setIsMobileMenuOpen(false);
-                    }}
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-3 w-full bg-primary text-white px-6 py-4 rounded-2xl font-bold text-lg"
                   >
-                    <Wallet size={20} />
-                    {isConnected ? walletAddress : "Connect Wallet"}
-                  </button>
+                    Login
+                  </Link>
                 )}
               </div>
             </div>

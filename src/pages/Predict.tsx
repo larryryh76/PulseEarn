@@ -4,7 +4,7 @@ import Card from '../components/ui/Card';
 import { useAuth } from '../contexts/AuthContext';
 import { TrendingUp, TrendingDown, Clock, Wallet, AlertCircle } from 'lucide-react';
 import { db } from '../firebase/config';
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 import { awardPoints } from '../utils/economy';
@@ -69,6 +69,12 @@ const Predict: React.FC = () => {
         amount,
         status: 'pending',
         timestamp: serverTimestamp()
+      });
+
+      // Update local user stats for profile
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        'stats.predictionsCount': increment(1)
       });
 
       toast.success('Prediction submitted!');

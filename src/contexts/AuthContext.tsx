@@ -152,6 +152,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isFlagged: false,
       actionsInLastMinute: 0,
       earnedInLastHour: 0,
+      avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
+      stats: {
+        tasksCompleted: 0,
+        referralsCount: 0,
+        predictionsCount: 0
+      },
+      preferences: {
+        notifications: true,
+        soundEnabled: true,
+        vibrationEnabled: true,
+        privacyMode: false,
+        preferredCategories: ['Daily', 'Social']
+      }
     };
 
     await setDoc(doc(db, 'users', user.uid), {

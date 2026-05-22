@@ -9,7 +9,8 @@ import {
   orderBy,
   limit,
   addDoc,
-  collection
+  collection,
+  increment as firestoreIncrement
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -130,11 +131,17 @@ export const useTasks = () => {
 
       // Update user task record
       const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
+      const userRef = doc(db, 'users', currentUser.uid);
+
       await runTransaction(db, async (transaction) => {
         transaction.set(userTaskRef, {
           taskId,
           lastCompleted: serverTimestamp(),
           status: 'completed'
+        });
+        // Update total completed tasks stat
+        transaction.update(userRef, {
+          'stats.tasksCompleted': firestoreIncrement(1)
         });
       });
 

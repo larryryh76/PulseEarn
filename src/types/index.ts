@@ -51,6 +51,19 @@ export interface UserData {
   actionsInLastMinute?: number;
   earnedInLastHour?: number;
   lastHourReset?: Timestamp;
+  avatarUrl?: string;
+  stats?: {
+    tasksCompleted: number;
+    referralsCount: number;
+    predictionsCount: number;
+  };
+  preferences?: {
+    notifications: boolean;
+    soundEnabled: boolean;
+    vibrationEnabled: boolean;
+    privacyMode: boolean;
+    preferredCategories: string[];
+  };
 }
 
 export interface Transaction {

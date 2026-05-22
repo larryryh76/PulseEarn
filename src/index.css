@@ -1,10 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #050507;
+  --color-background: #030305;
   --color-primary: #0070ff;
-  --color-secondary: #8b5cf6;
+  --color-secondary: #7c3aed;
   --color-accent: #00f2ff;
+  --color-success: #00ffa3;
+  --color-danger: #ff2e5b;
+  --color-card: #0a0a0f;
 
   --font-heading: "Space Grotesk", sans-serif;
   --font-body: "Inter", sans-serif;
@@ -13,51 +16,107 @@
 
 @layer base {
   body {
-    @apply bg-background text-white font-body antialiased;
+    @apply bg-background text-white font-body antialiased selection:bg-primary/30;
     overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 50% -20%, rgba(0, 112, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 0% 100%, rgba(124, 58, 237, 0.05) 0%, transparent 40%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
   }
 }
 
 @layer components {
-  .glass {
-    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08];
+  /* High-End Glassmorphism Tiers */
+  .glass-thin {
+    @apply bg-white/[0.01] backdrop-blur-md border border-white/[0.03];
+  }
+
+  .glass-standard {
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  }
+
+  .glass-deep {
+    @apply bg-[#0A0A0F]/80 backdrop-blur-2xl border border-white/[0.1] shadow-[0_20px_50px_rgba(0,0,0,0.5)];
+  }
+
+  /* Premium Financial Utility */
+  .text-financial {
+    @apply font-mono font-bold tracking-tight;
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px rgba(0, 112, 255, 0.3);
+    @apply shadow-[0_0_30px_rgba(0,112,255,0.2)];
+  }
+
+  .glow-accent {
+    @apply shadow-[0_0_30px_rgba(0,242,255,0.2)];
+  }
+
+  /* Advanced Animations */
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.03) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 
   .floating {
-    animation: floating 3s ease-in-out infinite;
+    animation: floating 6s ease-in-out infinite;
   }
 
   @keyframes floating {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0px); }
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
   }
 
-  .pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
+  .pulse-border {
+    animation: pulse-border 2s ease-in-out infinite;
   }
 
-  @keyframes pulse-glow {
-    0%, 100% { opacity: 0.5; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(1.05); }
+  @keyframes pulse-border {
+    0%, 100% { border-color: rgba(0, 112, 255, 0.1); }
+    50% { border-color: rgba(0, 112, 255, 0.4); }
+  }
+
+  /* Noise Texture Overlay */
+  .noise-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: url("https://grainy-gradients.vercel.app/noise.svg");
+    filter: contrast(150%) brightness(1000%);
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
   }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #030305;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.2);
 }

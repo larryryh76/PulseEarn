@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Zap, TrendingUp, Trophy, User, CheckSquare, Users, ShieldCheck } from 'lucide-react';
+import { Home, Zap, TrendingUp, Trophy, User, ShieldCheck, Target, Wallet } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils';
@@ -25,14 +25,14 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Me', icon: User, href: '/me' },
   ] : [
     { name: 'Dash', icon: Home, href: '/dashboard' },
-    { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
-    { name: 'Earn', icon: Zap, href: '/rewards' },
-    { name: 'Invite', icon: Users, href: '/referrals' },
+    { name: 'Oracle', icon: Target, href: '/predict' },
+    { name: 'Earn', icon: Zap, href: '/tasks' },
+    { name: 'Bridge', icon: Wallet, href: '/withdraw' },
     { name: 'Me', icon: User, href: '/me' },
   ];
 
   const isDashboard = location.pathname.startsWith('/dashboard') ||
-                      ['/tasks', '/rewards', '/referrals', '/me', '/predict', '/pulse-core'].includes(location.pathname);
+                      ['/tasks', '/rewards', '/referrals', '/me', '/predict', '/withdraw', '/pulse-core'].includes(location.pathname);
 
   const tabs = isDashboard ? dashboardTabs : landingTabs;
 
@@ -58,10 +58,10 @@ const MobileBottomNav: React.FC = () => {
   };
 
   return (
-    <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] z-50">
-      <div className="bg-[#0D0D12]/90 backdrop-blur-2xl rounded-2xl border border-white/[0.08] px-1 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.8)] flex items-center justify-around relative overflow-hidden">
-        {/* Subtle Ambient Glow */}
-        <div className="absolute inset-0 bg-primary/5 pointer-events-none" />
+    <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 w-[94%] z-50">
+      <div className="bg-[#030305]/80 backdrop-blur-3xl rounded-[2rem] border border-white/[0.08] p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex items-center justify-around relative overflow-hidden">
+        {/* Animated Background Pulse */}
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent pointer-events-none" />
 
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -71,29 +71,36 @@ const MobileBottomNav: React.FC = () => {
             <button
               key={tab.name}
               onClick={() => handleTabClick(tab)}
-              className="relative flex flex-col items-center py-2 px-3 transition-all duration-300 min-w-[64px]"
+              className="relative flex flex-col items-center justify-center py-2.5 px-1 flex-1 transition-all duration-300"
             >
               <div className={cn(
-                "relative z-10 transition-all duration-300",
-                isActive ? "text-primary scale-110" : "text-white/20"
+                "relative z-10 transition-all duration-500 flex flex-col items-center",
+                isActive ? "text-primary -translate-y-1" : "text-white/20"
               )}>
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={cn(isActive && "drop-shadow-[0_0_8px_rgba(0,112,255,0.6)]")} />
+                <span className={cn(
+                  "text-[9px] font-bold mt-1.5 tracking-widest uppercase transition-all duration-300",
+                  isActive ? "text-white opacity-100" : "text-white/0 opacity-0"
+                )}>
+                  {tab.name}
+                </span>
               </div>
 
               {isActive && (
                 <motion.div
                   layoutId="activeIndicator"
-                  className="absolute inset-0 bg-primary/10 rounded-xl -z-0 border border-primary/20"
+                  className="absolute inset-x-1 inset-y-1 bg-white/[0.03] border border-white/[0.05] rounded-[1.5rem] -z-0"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
 
-              <span className={cn(
-                "text-[10px] font-bold mt-1.5 tracking-tight transition-colors duration-300",
-                isActive ? "text-white" : "text-white/10"
-              )}>
-                {tab.name}
-              </span>
+              {isActive && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full shadow-[0_0_10px_#0070ff]"
+                />
+              )}
             </button>
           );
         })}

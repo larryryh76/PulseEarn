@@ -13,12 +13,21 @@ import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userData, loading } = useAuth();
 
   if (loading) return null;
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If admin is trying to access restricted user-only routes
+  const userOnlyRoutes = ['/dashboard', '/tasks', '/rewards', '/referrals', '/predict'];
+  const isUserOnlyRoute = userOnlyRoutes.includes(window.location.pathname);
+
+  if (userData?.role === 'admin' && isUserOnlyRoute) {
+    console.log(`[ProtectedRoute] Admin detected on user-only route. Redirecting to Pulse Core.`);
+    return <Navigate to="/pulse-core" replace />;
   }
 
   return <>{children}</>;
@@ -48,11 +57,14 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userData, loading } = useAuth();
 
   if (loading) return null;
 
   if (currentUser) {
+    if (userData?.role === 'admin') {
+      return <Navigate to="/pulse-core" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

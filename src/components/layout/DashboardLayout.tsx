@@ -8,9 +8,11 @@ import NotificationCenter from '../ui/NotificationCenter';
 import AnnouncementBanner from '../ui/AnnouncementBanner';
 import { useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useAuth } from '../../contexts/AuthContext';
 
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
+  const { userData } = useAuth();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const { unreadCount } = useNotifications();
 
@@ -42,7 +44,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               <div className="hidden lg:flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Mainnet v2.0</span>
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">
+                    {userData?.role === 'admin' ? 'Root Protocol' : 'Mainnet v2.0'}
+                  </span>
                 </div>
               </div>
             </div>

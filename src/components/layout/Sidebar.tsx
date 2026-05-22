@@ -7,17 +7,23 @@ import {
   Users,
   LogOut,
   ChevronRight,
-  User
+  User,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
 import Logo from '../ui/Logo';
 
 const Sidebar: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, userData } = useAuth();
   const navigate = useNavigate();
 
-  const menuItems = [
+  const isAdmin = userData?.role === 'admin';
+
+  const menuItems = isAdmin ? [
+    { name: 'Control Center', icon: ShieldCheck, href: '/pulse-core' },
+    { name: 'Me', icon: User, href: '/me' },
+  ] : [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { name: 'Earn', icon: Zap, href: '/rewards' },

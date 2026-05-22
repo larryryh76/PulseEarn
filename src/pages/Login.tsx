@@ -24,6 +24,9 @@ const Login: React.FC = () => {
       setIsSubmitting(true);
       await login(email, password);
       toast.success('Logged in successfully!');
+
+      // We don't have userData yet here, so let App.tsx handle the role-based redirect
+      // by simply navigating to dashboard (it will auto-redirect admins to pulse-core)
       navigate('/dashboard');
     } catch (error: any) {
       console.error(error);

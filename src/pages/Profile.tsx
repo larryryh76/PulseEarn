@@ -56,7 +56,12 @@ const Profile: React.FC = () => {
     }
   };
 
-  const stats = [
+  const isAdmin = userData.role === 'admin';
+
+  const stats = isAdmin ? [
+    { label: 'Protocol Access', val: 'Root', icon: Shield, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'System Health', val: '100%', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
+  ] : [
     { label: 'Total Points', val: userData.points.toLocaleString(), icon: Zap, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Streak Days', val: userData.streak, icon: Trophy, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { label: 'Tasks Done', val: 0, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
@@ -64,13 +69,13 @@ const Profile: React.FC = () => {
   ];
 
   const menuSections: MenuSection[] = [
-    {
+    ...(isAdmin ? [] : [{
       title: 'Rewards & Growth',
       items: [
         { label: 'Reward History', icon: Trophy, desc: 'View all earned points', action: () => navigate('/dashboard') },
         { label: 'Referral Program', icon: Users, desc: 'Invite friends & earn pulse', action: () => navigate('/referrals') },
       ]
-    },
+    }]),
     {
       title: 'Security & Account',
       items: [
@@ -124,7 +129,9 @@ const Profile: React.FC = () => {
                   <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
                     <h2 className="text-3xl font-bold tracking-tight">{userData.username}</h2>
                     <div className="flex items-center justify-center md:justify-start gap-2">
-                      <span className="px-2 py-0.5 rounded-md bg-primary/20 border border-primary/30 text-primary text-[9px] font-bold uppercase tracking-widest">Lv.1 Pioneer</span>
+                      <span className="px-2 py-0.5 rounded-md bg-primary/20 border border-primary/30 text-primary text-[9px] font-bold uppercase tracking-widest">
+                        {isAdmin ? 'System Administrator' : 'Lv.1 Pioneer'}
+                      </span>
                       <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/40 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1">
                         <Calendar size={10} />
                         Joined {userData.createdAt?.toDate().toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
@@ -132,16 +139,24 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Referral Code Box */}
-                  <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.05] mt-2 group cursor-pointer" onClick={copyReferralCode}>
-                    <div className="flex flex-col items-start">
-                      <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Referral Code</span>
-                      <span className="text-sm font-mono font-bold text-white/70">{userData.referralCode}</span>
+                  {/* Referral Code Box - Hide for Admin */}
+                  {!isAdmin && (
+                    <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.05] mt-2 group cursor-pointer" onClick={copyReferralCode}>
+                      <div className="flex flex-col items-start">
+                        <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Referral Code</span>
+                        <span className="text-sm font-mono font-bold text-white/70">{userData.referralCode}</span>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Copy size={14} className="text-white/40 group-hover:text-primary transition-colors" />
+                      </div>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Copy size={14} className="text-white/40 group-hover:text-primary transition-colors" />
+                  )}
+                  {isAdmin && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/20 mt-2">
+                      <Shield size={12} className="text-red-500" />
+                      <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Restricted Access</span>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
            </div>
@@ -210,7 +225,8 @@ const Profile: React.FC = () => {
         </button>
       </div>
 
-      {/* Quick History Preview */}
+      {/* Quick History Preview - Hide for Admin */}
+      {!isAdmin && (
       <div className="space-y-4 mb-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -242,6 +258,7 @@ const Profile: React.FC = () => {
           </div>
         </Card>
       </div>
+      )}
     </DashboardLayout>
   );
 };

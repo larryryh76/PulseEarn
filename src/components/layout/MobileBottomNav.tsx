@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Zap, TrendingUp, Trophy, User, CheckSquare, Users } from 'lucide-react';
+import { Home, Zap, TrendingUp, Trophy, User, CheckSquare, Users, ShieldCheck } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils';
@@ -8,7 +8,9 @@ import { useAuth } from '../../contexts/AuthContext';
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
+
+  const isAdmin = userData?.role === 'admin';
 
   const landingTabs = [
     { name: 'Home', icon: Home, href: '/' },
@@ -18,7 +20,10 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Join', icon: User, href: currentUser ? '/dashboard' : '/signup' },
   ];
 
-  const dashboardTabs = [
+  const dashboardTabs = isAdmin ? [
+    { name: 'Core', icon: ShieldCheck, href: '/pulse-core' },
+    { name: 'Me', icon: User, href: '/me' },
+  ] : [
     { name: 'Dash', icon: Home, href: '/dashboard' },
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { name: 'Earn', icon: Zap, href: '/rewards' },
@@ -34,7 +39,7 @@ const MobileBottomNav: React.FC = () => {
   const activeTab = tabs.find(tab => {
     if (tab.href.startsWith('/#')) return false;
     return location.pathname === tab.href;
-  })?.name || (isDashboard ? (location.pathname === '/dashboard' ? 'Dash' : '') : 'Home');
+  })?.name || (isDashboard ? (isAdmin ? 'Core' : 'Dash') : 'Home');
 
   const handleTabClick = (tab: any) => {
     if (tab.href.startsWith('/#')) {

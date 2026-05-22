@@ -214,7 +214,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             setUserData(resolvedData as UserData);
-            checkDailyReward(user.uid);
+
+            // ADMIN SEPARATION: Only standard users get daily rewards
+            if (resolvedData.role !== 'admin') {
+              checkDailyReward(user.uid);
+            }
           }
           setLoading(false);
         }, (error) => {

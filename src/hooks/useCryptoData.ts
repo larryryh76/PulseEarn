@@ -31,11 +31,18 @@ export const useCryptoData = () => {
   const fetchMarketData = async () => {
     try {
       setLoading(true);
+      const ids = [
+        'bitcoin', 'ethereum', 'solana', 'binancecoin', 'ripple',
+        'cardano', 'dogecoin', 'the-open-network', 'avalanche-2', 'chainlink',
+        'sui', 'tron', 'shiba-inu', 'pepe', 'litecoin',
+        'polkadot', 'cosmos', 'arbitrum', 'optimism', 'near'
+      ].join(',');
+
       const [marketRes, globalRes] = await Promise.all([
         axios.get(`${COINGECKO_BASE_URL}/coins/markets`, {
           params: {
             vs_currency: 'usd',
-            ids: 'bitcoin,ethereum,binancecoin,ripple,solana,cardano,dogecoin,polkadot',
+            ids,
             order: 'market_cap_desc',
             sparkline: false,
             price_change_percentage: '24h'

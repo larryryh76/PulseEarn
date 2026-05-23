@@ -6,18 +6,17 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   Zap,
   Wallet,
-  Activity,
   Globe,
-  Shield,
   ChevronRight,
   ArrowUpRight,
   Target,
   BarChart3,
   Users,
-  Trophy,
-  History,
   TrendingUp,
-  ArrowDownRight
+  Flame,
+  LayoutGrid,
+  ShieldCheck,
+  TrendingDown
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
@@ -25,7 +24,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Skeleton from '../components/ui/Skeleton';
 import { getXpProgress } from '../utils/progression';
 import { PTS_TO_USD, formatUSD } from '../utils/finance';
-import { CardPremium, MarketWidget } from '../components/ui/PremiumModules';
+import { CardPremium } from '../components/ui/PremiumModules';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
@@ -56,180 +55,176 @@ const Dashboard: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-8 pb-10">
 
-        {/* SECTION 1: CLEAN WALLET HERO */}
+        {/* SECTION 1: CLEAN WALLET HERO (REFINED) */}
         <section>
-          <CardPremium className="p-0 border-white/[0.05] bg-gradient-to-br from-[#0A0A0F] to-[#030305]">
-            <div className="relative p-8 md:p-12">
-              <div className="absolute inset-0 opacity-10 pointer-events-none overflow-hidden">
-                <svg viewBox="0 0 1000 200" className="w-full h-full" preserveAspectRatio="none">
-                  <path d="M0 150 Q 150 140, 300 160 T 600 120 T 1000 80 L 1000 200 L 0 200 Z" fill="url(#hero-fill)" />
-                  <defs>
-                    <linearGradient id="hero-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#0070ff" stopOpacity="0.5" />
-                      <stop offset="100%" stopColor="#0070ff" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
+          <CardPremium className="p-0 border-white/[0.05] bg-[#0A0A0F] relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(0,112,255,0.1),transparent_70%)] pointer-events-none" />
 
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
-                <div className="space-y-6">
-                  <div className="space-y-1">
-                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">Current Balance</p>
-                    <div className="flex items-baseline gap-3">
-                      <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tight">
+            <div className="relative p-8 md:p-12">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
+                <div className="space-y-8">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                       <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                       <p className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em]">Institutional Node Active</p>
+                    </div>
+                    <div className="flex items-baseline gap-4">
+                      <h1 className="text-6xl md:text-7xl font-bold text-white tracking-tighter">
                         {userData.points.toLocaleString()}
                       </h1>
-                      <span className="text-primary font-bold text-2xl">PTS</span>
+                      <span className="text-primary font-bold text-2xl tracking-widest uppercase opacity-40">PTS</span>
                     </div>
-                    <p className="text-xl font-medium text-white/60">
+                    <p className="text-2xl font-medium text-white/40 font-mono tracking-tight">
                       ≈ {formatUSD(PTS_TO_USD(userData.points))}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-8">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">24h Earning</span>
-                      <span className="text-success font-bold text-lg flex items-center gap-1">
-                        <ArrowUpRight size={16} />
+                      <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Earning Momentum</span>
+                      <span className="text-success font-bold text-xl flex items-center gap-1.5 mt-1">
+                        <TrendingUp size={18} />
                         +{userData.totalEarnedToday || 0}
                       </span>
                     </div>
-                    <div className="w-[1px] h-8 bg-white/10" />
+                    <div className="w-[1px] h-10 bg-white/5" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Level</span>
-                      <span className="text-white font-bold text-lg">Lvl {userData.level}</span>
+                      <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Current Rank</span>
+                      <span className="text-white font-bold text-xl mt-1 flex items-center gap-2">
+                         Lvl {userData.level}
+                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">ELITE</span>
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Level Progress */}
-                <div className="w-full md:w-64 space-y-3">
+                <div className="w-full md:w-72 space-y-4">
                   <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">XP Progression</span>
-                    <span className="text-[10px] font-bold text-primary">{Math.round(xp.progress)}%</span>
+                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Global Clearance Progress</span>
+                    <span className="text-lg font-mono font-bold text-primary">{Math.round(xp.progress)}%</span>
                   </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${xp.progress}%` }}
-                      className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.4)]"
+                      className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_20px_rgba(0,112,255,0.4)]"
                     />
                   </div>
-                  <p className="text-[10px] text-white/20 text-right uppercase font-bold tracking-tighter">
-                    {Math.round(xp.currentLevelXp)} / {xp.requiredXp} XP
-                  </p>
+                  <div className="flex justify-between items-center text-[9px] font-bold text-white/10 uppercase tracking-widest">
+                    <span>GENESIS NODE</span>
+                    <span>{Math.round(xp.currentLevelXp)} / {xp.requiredXp} XP</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions Bar */}
-            <div className="grid grid-cols-2 md:grid-cols-4 border-t border-white/[0.05]">
+            <div className="grid grid-cols-2 md:grid-cols-4 border-t border-white/[0.05] bg-white/[0.01]">
               {[
-                { label: 'Tasks', icon: Zap, href: '/tasks', color: 'text-primary' },
-                { label: 'Predict', icon: Target, href: '/predict', color: 'text-accent' },
-                { label: 'Withdraw', icon: Wallet, href: '/withdraw', color: 'text-success' },
-                { label: 'Invite', icon: Users, href: '/referrals', color: 'text-white' },
+                { label: 'Missions', icon: Zap, href: '/tasks', color: 'text-primary' },
+                { label: 'Oracle', icon: Target, href: '/predict', color: 'text-accent' },
+                { label: 'Portfolio', icon: Wallet, href: '/wallet', color: 'text-success' },
+                { label: 'Network', icon: Users, href: '/referrals', color: 'text-white' },
               ].map((action, i) => (
                 <button
                   key={i}
                   onClick={() => navigate(action.href)}
-                  className="flex flex-col items-center justify-center p-6 border-r last:border-r-0 border-white/[0.05] hover:bg-white/[0.02] transition-colors gap-2 group"
+                  className="flex flex-col items-center justify-center p-6 border-r last:border-r-0 border-white/[0.05] hover:bg-white/[0.03] transition-all gap-2 group"
                 >
-                  <div className={cn("p-2 rounded-xl bg-white/5 transition-transform group-hover:scale-110", action.color)}>
-                    <action.icon size={20} />
+                  <div className={cn("p-2.5 rounded-xl bg-white/5 transition-transform group-hover:scale-110", action.color)}>
+                    <action.icon size={22} />
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white">{action.label}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 group-hover:text-white transition-colors">{action.label}</span>
                 </button>
               ))}
             </div>
           </CardPremium>
         </section>
 
-        {/* SECTION 2: LIVE MARKET & ACTIVITY */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* SECTION 2: LIVE ECOSYSTEM PULSE */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={16} className="text-white/20" />
-                <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Real-time Market Data</h3>
+          {/* Market Feed Column */}
+          <div className="lg:col-span-8 space-y-8">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <BarChart3 size={18} className="text-primary" />
+                <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.3em]">Market Dynamics</h3>
               </div>
               {globalData && (
-                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5">
-                       <span className="text-[9px] font-bold text-white/20 uppercase">BTC Dominance:</span>
-                       <span className="text-[10px] font-bold text-primary">{globalData.market_cap_percentage.btc.toFixed(1)}%</span>
+                 <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                       <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">BTC Dom:</span>
+                       <span className="text-[11px] font-mono font-bold text-primary">{globalData.market_cap_percentage.btc.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Eth Gas:</span>
+                       <span className="text-[11px] font-mono font-bold text-success">24 Gwei</span>
                     </div>
                  </div>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <CardPremium className="p-5 flex items-center justify-between border-white/[0.05] bg-[#0A0A0F]">
-                 <div className="flex items-center gap-4">
-                    <img src={btc?.image} className="w-10 h-10 rounded-full" alt="BTC" />
-                    <div>
-                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Bitcoin</p>
-                       <p className="text-lg font-bold text-white">{btc ? formatUSD(btc.current_price) : '---'}</p>
-                    </div>
-                 </div>
-                 <div className={cn(
-                    "px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1",
-                    (btc?.price_change_percentage_24h || 0) >= 0 ? "text-success bg-success/10" : "text-danger bg-danger/10"
-                 )}>
-                    {(btc?.price_change_percentage_24h || 0) >= 0 ? <TrendingUp size={12} /> : <ArrowDownRight size={12} />}
-                    {btc?.price_change_percentage_24h?.toFixed(2)}%
-                 </div>
-              </CardPremium>
-
-              <CardPremium className="p-5 flex items-center justify-between border-white/[0.05] bg-[#0A0A0F]">
-                 <div className="flex items-center gap-4">
-                    <img src={eth?.image} className="w-10 h-10 rounded-full" alt="ETH" />
-                    <div>
-                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Ethereum</p>
-                       <p className="text-lg font-bold text-white">{eth ? formatUSD(eth.current_price) : '---'}</p>
-                    </div>
-                 </div>
-                 <div className={cn(
-                    "px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1",
-                    (eth?.price_change_percentage_24h || 0) >= 0 ? "text-success bg-success/10" : "text-danger bg-danger/10"
-                 )}>
-                    {(eth?.price_change_percentage_24h || 0) >= 0 ? <TrendingUp size={12} /> : <ArrowDownRight size={12} />}
-                    {eth?.price_change_percentage_24h?.toFixed(2)}%
-                 </div>
-              </CardPremium>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <MarketWidget label="User Success" value="64.2%" change="+2.1%" isPositive={true} icon={<Activity size={18} />} />
-              <MarketWidget label="Network Load" value="Optimal" icon={<Globe size={18} />} />
-              <MarketWidget label="Leaderboard" value="#142" icon={<Trophy size={18} />} />
-              <MarketWidget label="System Auth" value="Verified" icon={<Shield size={18} />} />
+              {[btc, eth].map((coin) => (
+                <div key={coin?.id} className="p-6 rounded-[2rem] bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all group cursor-pointer overflow-hidden relative">
+                   <div className="absolute top-0 right-0 p-6 opacity-[0.02] group-hover:scale-110 transition-transform duration-700">
+                      <TrendingUp size={80} />
+                   </div>
+                   <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <img src={coin?.image} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 p-1" alt="" />
+                        <div>
+                           <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{coin?.name}</p>
+                           <p className="text-lg font-bold text-white font-mono">{coin ? formatUSD(coin.current_price) : '---'}</p>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1",
+                        (coin?.price_change_percentage_24h || 0) >= 0 ? "text-success bg-success/10 border border-success/20" : "text-danger bg-danger/10 border border-danger/20"
+                      )}>
+                        {(coin?.price_change_percentage_24h || 0) >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                        {coin?.price_change_percentage_24h?.toFixed(2)}%
+                      </div>
+                   </div>
+                   <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div className={cn("h-full", (coin?.price_change_percentage_24h || 0) >= 0 ? "bg-success/40" : "bg-danger/40")} style={{ width: '60%' }} />
+                   </div>
+                </div>
+              ))}
             </div>
 
             {/* Trending assets */}
-            <div className="bg-[#0A0A0F] border border-white/[0.05] rounded-3xl overflow-hidden">
-               <div className="p-5 border-b border-white/[0.05] flex items-center justify-between">
-                  <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-widest">Trending Assets</h4>
-                  <Link to="/market" className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">View All Market</Link>
+            <div className="bg-[#0A0A0F] border border-white/[0.05] rounded-[2.5rem] overflow-hidden shadow-2xl relative">
+               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.01] to-transparent pointer-events-none" />
+               <div className="p-6 border-b border-white/[0.05] flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-3">
+                     <Flame size={16} className="text-orange-500" />
+                     <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em]">Hot Assets Discovery</h4>
+                  </div>
+                  <Link to="/predict" className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] hover:text-accent transition-colors flex items-center gap-1.5 group">
+                     View Oracle Hub <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </Link>
                </div>
-               <div className="divide-y divide-white/[0.03]">
-                  {marketData.slice(2, 6).map((coin) => (
-                    <div key={coin.id} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
-                       <div className="flex items-center gap-3">
-                          <img src={coin.image} className="w-8 h-8 rounded-full" alt={coin.symbol} />
+               <div className="divide-y divide-white/[0.03] relative z-10">
+                  {marketData.slice(2, 7).map((coin) => (
+                    <div key={coin.id} className="p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                       <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 p-2 flex items-center justify-center group-hover:scale-105 transition-transform">
+                             <img src={coin.image} className="w-full h-full object-contain" alt={coin.symbol} />
+                          </div>
                           <div>
-                             <p className="text-xs font-bold text-white">{coin.name}</p>
-                             <p className="text-[9px] font-bold text-white/20 uppercase">{coin.symbol}</p>
+                             <p className="text-[13px] font-bold text-white group-hover:text-primary transition-colors">{coin.name}</p>
+                             <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{coin.symbol}</p>
                           </div>
                        </div>
                        <div className="text-right">
-                          <p className="text-xs font-bold text-white">{formatUSD(coin.current_price)}</p>
+                          <p className="text-sm font-bold text-white font-mono">{formatUSD(coin.current_price)}</p>
                           <p className={cn(
-                             "text-[9px] font-bold uppercase",
+                             "text-[10px] font-bold uppercase tracking-tight mt-0.5",
                              coin.price_change_percentage_24h >= 0 ? "text-success" : "text-danger"
-                          )}>{coin.price_change_percentage_24h.toFixed(2)}%</p>
+                          )}>{coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%</p>
                        </div>
                     </div>
                   ))}
@@ -237,61 +232,75 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-6">
-             <div className="flex items-center gap-2 px-1">
-                <History size={16} className="text-white/20" />
-                <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Recent Activity</h3>
+          {/* Activity Column */}
+          <div className="lg:col-span-4 space-y-8">
+             <div className="flex items-center gap-3 px-2">
+                <LayoutGrid size={18} className="text-accent" />
+                <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.3em]">Node Operations</h3>
              </div>
 
-             <CardPremium className="p-0 border-white/[0.05]">
-                <div className="divide-y divide-white/[0.03]">
-                   {activities.length === 0 ? (
-                     <div className="p-10 text-center text-white/10 text-[10px] font-bold uppercase tracking-widest">
-                        No recent operations
-                     </div>
-                   ) : activities.slice(0, 5).map((activity) => (
-                     <div key={activity.id} className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors group">
-                        <div className="flex items-center gap-3">
-                           <div className={cn(
-                             "w-1.5 h-1.5 rounded-full",
-                             activity.points > 0 ? "bg-success" : "bg-primary"
-                           )} />
-                           <div>
-                              <p className="text-xs font-bold text-white/80 group-hover:text-white transition-colors">{activity.type}</p>
-                              <p className="text-[9px] text-white/20 font-bold uppercase mt-0.5">
-                                 {activity.timestamp ? activity.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'}
-                              </p>
+             <div className="space-y-4">
+                <CardPremium className="p-0 border-white/[0.05] overflow-hidden">
+                   <div className="p-5 border-b border-white/[0.05] bg-white/[0.01]">
+                      <div className="flex items-center justify-between">
+                         <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Recent Activity</h4>
+                         <ShieldCheck size={14} className="text-success opacity-40" />
+                      </div>
+                   </div>
+                   <div className="divide-y divide-white/[0.03]">
+                      {activities.length === 0 ? (
+                        <div className="p-10 text-center text-white/10 text-[10px] font-bold uppercase tracking-widest">
+                           No recent syncs
+                        </div>
+                      ) : activities.slice(0, 4).map((activity, i) => (
+                        <div key={activity.id} className="p-5 hover:bg-white/[0.02] transition-all group relative">
+                           <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                 <div className={cn(
+                                   "w-2 h-2 rounded-full",
+                                   activity.points > 0 ? "bg-success" : "bg-primary"
+                                 )} />
+                                 <div>
+                                    <p className="text-[12px] font-bold text-white/70 group-hover:text-white transition-colors">{activity.type}</p>
+                                    <p className="text-[9px] text-white/20 font-bold uppercase mt-1 tracking-tighter">
+                                       {activity.timestamp ? activity.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending...'} • NODE #42{i}
+                                    </p>
+                                 </div>
+                              </div>
+                              <span className={cn(
+                                "text-[12px] font-mono font-bold",
+                                activity.points > 0 ? "text-success" : "text-white/40"
+                              )}>
+                                {activity.points > 0 ? `+${activity.points}` : activity.points}
+                              </span>
                            </div>
                         </div>
-                        <span className={cn(
-                          "text-[11px] font-bold",
-                          activity.points > 0 ? "text-success" : "text-white/40"
-                        )}>
-                          {activity.points > 0 ? `+${activity.points}` : activity.points} PTS
-                        </span>
-                     </div>
-                   ))}
-                </div>
-                <Link to="/me" className="flex items-center justify-center p-3 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-[9px] font-bold text-white/20 uppercase tracking-widest group">
-                   View Audit Ledger
-                   <ChevronRight size={10} className="ml-1 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
-             </CardPremium>
-
-             {/* Network Stats Card */}
-             <div className="p-6 rounded-3xl bg-gradient-to-br from-primary/5 to-transparent border border-white/[0.05] space-y-4">
-                <div className="flex items-center gap-2 text-primary">
-                   <Zap size={14} />
-                   <h4 className="text-[10px] font-bold uppercase tracking-[0.2em]">Protocol Health</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <div>
-                      <p className="text-[9px] font-bold text-white/20 uppercase mb-1">Status</p>
-                      <p className="text-xs font-bold text-success">Operational</p>
+                      ))}
                    </div>
-                   <div>
-                      <p className="text-[9px] font-bold text-white/20 uppercase mb-1">Latency</p>
-                      <p className="text-xs font-bold text-white">42ms</p>
+                   <Link to="/me" className="flex items-center justify-center py-4 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-[9px] font-bold text-white/30 uppercase tracking-[0.2em] group border-t border-white/[0.05]">
+                      Access Ledger <ChevronRight size={12} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                   </Link>
+                </CardPremium>
+
+                {/* Earning Momentum Card */}
+                <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-[#0A0A0F] to-transparent border border-white/[0.05] relative overflow-hidden group">
+                   <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="relative z-10 flex flex-col items-center text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 shadow-2xl">
+                         <Globe size={32} className="text-primary animate-pulse" />
+                      </div>
+                      <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] mb-2">Protocol Health</h4>
+                      <p className="text-2xl font-bold text-white tracking-tighter mb-4">99.98% UPTIME</p>
+                      <div className="grid grid-cols-2 gap-4 w-full pt-6 border-t border-white/5">
+                         <div className="text-left">
+                            <p className="text-[9px] font-bold text-white/20 uppercase">Latency</p>
+                            <p className="text-sm font-bold text-success">38ms</p>
+                         </div>
+                         <div className="text-right">
+                            <p className="text-[9px] font-bold text-white/20 uppercase">Nodes</p>
+                            <p className="text-sm font-bold text-white">4,821</p>
+                         </div>
+                      </div>
                    </div>
                 </div>
              </div>

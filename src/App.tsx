@@ -8,7 +8,7 @@ import Earn from './pages/Earn'
 import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import Predict from './pages/Predict'
-import Withdraw from './pages/Withdraw'
+import Wallet from './pages/Wallet'
 import ControlCenter from './pages/ControlCenter'
 import AdminLayout from './components/layout/AdminLayout'
 import UserDirectory from './components/admin/UserDirectory'
@@ -31,7 +31,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   // If admin is trying to access restricted user-only routes
-  const userOnlyRoutes = ['/dashboard', '/tasks', '/rewards', '/referrals', '/predict'];
+  const userOnlyRoutes = ['/dashboard', '/tasks', '/rewards', '/referrals', '/predict', '/wallet'];
   const isUserOnlyRoute = userOnlyRoutes.some(route => window.location.pathname.startsWith(route));
 
   if (userData?.role === 'admin' && (isUserOnlyRoute || window.location.pathname === '/')) {
@@ -114,7 +114,8 @@ function App() {
         <Route path="/referrals" element={<ProtectedRoute><Invite /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/predict" element={<ProtectedRoute><Predict /></ProtectedRoute>} />
-        <Route path="/withdraw" element={<ProtectedRoute><Withdraw /></ProtectedRoute>} />
+        <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+        <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<ControlCenter />} />

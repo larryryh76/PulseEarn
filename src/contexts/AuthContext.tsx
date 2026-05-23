@@ -17,7 +17,10 @@ import {
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc
+  addDoc,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -29,7 +32,7 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string) => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
@@ -115,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(email: string, password: string, username: string) {
+  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -123,6 +126,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdmin = email.toLowerCase() === 'admin@pulse.com';
     const role = isAdmin ? 'admin' : 'user';
 
+    // Referral Logic
+    let referredBy = null;
+    if (referralCodeInput) {
+      const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const referrerDoc = querySnapshot.docs[0];
+        referredBy = referrerDoc.id;
+
+        // Award points to referrer
+        await awardPoints(referredBy, 50, 'referral_bonus', `Referral bonus for ${username}`);
+        await addDoc(collection(db, 'users', referredBy, 'notifications'), {
+          title: 'Referral Mission Success!',
+          description: `A new node (${username}) joined via your code. +50 Pulse awarded.`,
+          type: 'system',
+          read: false,
+          timestamp: serverTimestamp()
+        });
+      }
+    }
 
     const referralCode = generateReferralCode(user.uid);
     const today = new Date();
@@ -134,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username,
       points: 10,
       referralCode,
-      referredBy: null,
+      referredBy,
       streak: 1,
       totalEarnedToday: 10,
       xp: 0,

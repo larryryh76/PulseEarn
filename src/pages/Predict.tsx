@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Activity,
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '../utils';
 import TradingViewChart from '../components/ui/TradingViewChart';
@@ -19,6 +20,7 @@ import Skeleton from '../components/ui/Skeleton';
 import toast from 'react-hot-toast';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { motion } from 'framer-motion';
 
 const Predict: React.FC = () => {
@@ -29,11 +31,12 @@ const Predict: React.FC = () => {
   const [predictionAmount, setPredictionAmount] = useState(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const asset = marketData.find(c => c.id === selectedAsset);
+  const asset = marketData?.find(c => c.id === selectedAsset);
 
   const handlePredict = async () => {
     if (!selectedDirection) return toast.error('Select a direction');
-    if (userData && userData.points < predictionAmount) return toast.error('Insufficient points');
+    if (!userData) return toast.error('Auth session required');
+    if (userData.points < predictionAmount) return toast.error('Insufficient points');
 
     setIsSubmitting(true);
     try {
@@ -47,8 +50,7 @@ const Predict: React.FC = () => {
     }
   };
 
-  // Safe rendering logic
-  if (error && !marketData.length) {
+  if (error && (!marketData || marketData.length === 0)) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
@@ -141,25 +143,26 @@ const Predict: React.FC = () => {
                  </div>
 
                  <div className="h-[400px] relative bg-black/20 flex items-center justify-center">
-                    {loading && !asset ? (
-                       <div className="w-full h-full p-8 flex flex-col gap-4">
-                          <Skeleton className="w-full flex-1 rounded-2xl" />
-                          <div className="flex gap-4 h-8">
-                             <Skeleton className="flex-1 rounded-lg" />
-                             <Skeleton className="flex-1 rounded-lg" />
-                             <Skeleton className="flex-1 rounded-lg" />
-                          </div>
-                       </div>
-                    ) : (
-                       <div className="w-full h-full">
-                          <TradingViewChart symbol={selectedAsset} />
-                          {/* Live data overlay */}
-                          <div className="absolute bottom-6 right-8 px-4 py-2 rounded-xl bg-[#0D0D12]/80 backdrop-blur-md border border-white/5 flex items-center gap-3 shadow-2xl">
-                             <Activity size={14} className="text-accent animate-pulse" />
-                             <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Feed: Aggregated WebSocket</span>
-                          </div>
-                       </div>
-                    )}
+                    <ErrorBoundary name="ChartVisualizer">
+                      {loading && !asset ? (
+                         <div className="w-full h-full p-8 flex flex-col gap-4">
+                            <Skeleton className="w-full flex-1 rounded-2xl" />
+                            <div className="flex gap-4 h-8">
+                               <Skeleton className="flex-1 rounded-lg" />
+                               <Skeleton className="flex-1 rounded-lg" />
+                               <Skeleton className="flex-1 rounded-lg" />
+                            </div>
+                         </div>
+                      ) : (
+                         <div className="w-full h-full">
+                            <TradingViewChart symbol={selectedAsset} />
+                            <div className="absolute bottom-6 right-8 px-4 py-2 rounded-xl bg-[#0D0D12]/80 backdrop-blur-md border border-white/5 flex items-center gap-3 shadow-2xl">
+                               <Activity size={14} className="text-accent animate-pulse" />
+                               <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Feed: Aggregated WebSocket</span>
+                            </div>
+                         </div>
+                      )}
+                    </ErrorBoundary>
                  </div>
 
                  <div className="grid grid-cols-3 divide-x divide-white/[0.05] border-t border-white/[0.05] bg-white/[0.01]">
@@ -295,7 +298,7 @@ const Predict: React.FC = () => {
                     <div>
                        <div className="flex justify-between items-center mb-3 px-1">
                           <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Stake Magnitude</label>
-                          <span className="text-[10px] font-bold text-primary uppercase">Bal: {userData?.points.toLocaleString()} PTS</span>
+                          <span className="text-[10px] font-bold text-primary uppercase">Bal: {userData?.points.toLocaleString() || '0'} PTS</span>
                        </div>
                        <div className="relative">
                           <input
@@ -375,7 +378,7 @@ const Predict: React.FC = () => {
                     <div className="w-16 h-16 rounded-full bg-white/[0.02] border border-dashed border-white/10 flex items-center justify-center mx-auto opacity-40">
                        <Target className="text-white/40" size={32} />
                     </div>
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.4em]">Awaiting Position</p>
+                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Awaiting Position</p>
                  </div>
               </Card>
            </div>
@@ -393,13 +396,6 @@ const SparklesIcon = ({ size, className }: { size?: number, className?: string }
     <path d="M19 17v4" />
     <path d="M3 5h4" />
     <path d="M17 19h4" />
-  </svg>
-);
-
-const CheckCircle2 = ({ size, className, fill }: { size?: number, className?: string, fill?: string }) => (
-  <svg width={size || 24} height={size || 24} viewBox="0 0 24 24" fill={fill || "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-    <path d="m9 12 2 2 4-4" />
   </svg>
 );
 

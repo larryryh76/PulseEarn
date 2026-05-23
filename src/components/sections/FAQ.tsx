@@ -6,45 +6,45 @@ import { cn } from '../../utils';
 const FAQ: React.FC = () => {
   const faqs = [
     {
-      question: "How do I start earning on PulseEarn?",
-      answer: "Simply connect your Web3 wallet (MetaMask, Coinbase Wallet, or WalletConnect). Once connected, you can browse available tasks in the 'Earn' section or start making price predictions immediately."
+      question: "How do I start earning?",
+      answer: "Simply create an account and browse available tasks in your dashboard. You can start earning points immediately by completing missions or making price predictions."
     },
     {
-      question: "Which crypto tokens can I earn?",
-      answer: "PulseEarn currently supports rewards in USDT, USDC, ETH, and our native PULSE token. We're constantly adding new partner tokens through our seasonal reward drops."
+      question: "What rewards can I earn?",
+      answer: "You earn points for every activity, which can be converted into popular cryptocurrencies like USDT, BTC, and ETH during our scheduled reward drops."
     },
     {
-      question: "Is there a minimum withdrawal amount?",
-      answer: "No. At PulseEarn, we believe in true ownership. Your earnings are credited to your platform balance and can be claimed to your wallet at any time, subject only to network gas fees."
+      question: "Is there a minimum withdrawal?",
+      answer: "We have a low minimum threshold for withdrawals to ensure everyone can access their rewards. Check the 'Wallet' section in your dashboard for your current progress."
     },
     {
-      question: "How accurate are the price predictions?",
-      answer: "We use high-fidelity Chainlink oracles to fetch real-time price data. Predictions are settled on-chain once the specified time period (e.g., 5m, 1h, 24h) has elapsed."
+      question: "How do price predictions work?",
+      answer: "We use live market data to settle predictions. If your forecast for an asset's direction is correct within the timeframe, you win a share of the reward pool."
     },
     {
-      question: "Is PulseEarn secure?",
-      answer: "Security is our top priority. Our smart contracts are audited by leading firms, and we utilize multi-signature cold storage for the majority of our liquidity pools. Users always maintain custody of their funds."
+      question: "Is my data secure?",
+      answer: "Absolutely. We use industry-standard encryption and security protocols to protect your account and data. You maintain control over your wallet connections at all times."
     }
   ];
 
   return (
     <section id="faq" className="py-24 bg-white/[0.01]">
       <div className="container mx-auto px-6">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           <div className="text-center mb-16">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-primary/20"
+              className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-6 border border-primary/20"
             >
-              <HelpCircle className="text-primary w-8 h-8" />
+              <HelpCircle className="text-primary w-6 h-6" />
             </motion.div>
-            <h2 className="text-4xl font-bold mb-4">Frequently Asked Questions</h2>
-            <p className="text-white/40">Everything you need to know about PulseEarn.</p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">FAQ</h2>
+            <p className="text-white/40 text-sm md:text-base">Everything you need to know about PulseEarn.</p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {faqs.map((faq, index) => (
               <FAQItem key={index} faq={faq} index={index} />
             ))}
@@ -71,14 +71,14 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-8 py-6 flex items-center justify-between text-left"
+        className="w-full px-6 py-5 flex items-center justify-between text-left"
       >
-        <span className="text-lg font-bold">{faq.question}</span>
+        <span className="text-base font-bold">{faq.question}</span>
         <div className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
-          isOpen ? "bg-primary text-white rotate-0" : "bg-white/5 text-white/40 rotate-180"
+          "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
+          isOpen ? "bg-primary text-white" : "bg-white/5 text-white/40"
         )}>
-          {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+          {isOpen ? <Minus size={14} /> : <Plus size={14} />}
         </div>
       </button>
 
@@ -90,7 +90,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-8 pb-6 text-white/60 leading-relaxed border-t border-white/5 pt-4 mt-2">
+            <div className="px-6 pb-5 text-white/40 text-sm leading-relaxed border-t border-white/5 pt-4">
               {faq.answer}
             </div>
           </motion.div>

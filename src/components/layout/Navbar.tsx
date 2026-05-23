@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Wallet, ChevronDown, LogOut, User as UserIcon, LayoutDashboard, Settings } from 'lucide-react';
+import { Menu, X, Wallet, LogOut, User as UserIcon, LayoutDashboard, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { cn } from '../../utils';
@@ -24,9 +24,9 @@ const Navbar: React.FC = () => {
   }, []);
 
   const navLinks = [
-    { name: 'Earn', href: '/#earn' },
+    { name: 'Features', href: '/#features' },
+    { name: 'Earn', href: '/#rewards' },
     { name: 'Predict', href: '/#predict' },
-    { name: 'Leaderboard', href: '/#leaderboard' },
     { name: 'FAQ', href: '/#faq' },
   ];
 
@@ -105,10 +105,10 @@ const Navbar: React.FC = () => {
                       return (
                         <button
                           onClick={openConnectModal}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[12px] bg-primary text-white shadow-[0_4px_15px_rgba(0,112,255,0.3)] hover:shadow-primary/40 transition-all uppercase tracking-widest"
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[12px] bg-primary text-white shadow-lg hover:shadow-primary/40 transition-all uppercase tracking-widest"
                         >
                           <Wallet size={14} />
-                          Connect Wallet
+                          Connect
                         </button>
                       );
                     }
@@ -127,17 +127,6 @@ const Navbar: React.FC = () => {
                           onClick={openChainModal}
                           className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[11px] font-bold text-white/60 hover:text-white transition-all flex items-center gap-2"
                         >
-                          {chain.hasIcon && (
-                            <div className="w-4 h-4 overflow-hidden rounded-full">
-                              {chain.iconUrl && (
-                                <img
-                                  alt={chain.name ?? 'Chain icon'}
-                                  src={chain.iconUrl}
-                                  style={{ width: 16, height: 16 }}
-                                />
-                              )}
-                            </div>
-                          )}
                           {chain.name}
                         </button>
 
@@ -146,7 +135,6 @@ const Navbar: React.FC = () => {
                           className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-[11px] bg-white/[0.03] border border-white/[0.08] text-white hover:bg-white/[0.08] transition-all"
                         >
                           {account.displayName}
-                          <ChevronDown size={12} className="text-white/20" />
                         </button>
                       </div>
                     );
@@ -162,7 +150,7 @@ const Navbar: React.FC = () => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="w-10 h-10 rounded-full border border-white/10 p-0.5 overflow-hidden hover:border-primary/50 transition-colors"
                >
-                  <img src={userData?.avatarUrl} className="w-full h-full rounded-full" alt="" />
+                  <img src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`} className="w-full h-full rounded-full" alt="" />
                </button>
 
                <AnimatePresence>
@@ -188,7 +176,7 @@ const Navbar: React.FC = () => {
                                <LayoutDashboard size={14} /> Dashboard
                             </Link>
                             <Link to="/me" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
-                               <UserIcon size={14} /> Profile Settings
+                               <UserIcon size={14} /> Profile
                             </Link>
                             {userData?.role === 'admin' && (
                                <Link to="/pulse-core" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-primary transition-all">
@@ -199,7 +187,7 @@ const Navbar: React.FC = () => {
                               onClick={() => { logout(); navigate('/'); }}
                               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-danger/10 text-[11px] font-bold text-danger transition-all"
                             >
-                               <LogOut size={14} /> Termination Protocol
+                               <LogOut size={14} /> Log Out
                             </button>
                          </div>
                       </motion.div>
@@ -209,7 +197,7 @@ const Navbar: React.FC = () => {
             </div>
           ) : (
             <Link to="/login" className="text-[12px] font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">
-              Auth Terminal
+              Login
             </Link>
           )}
         </div>
@@ -244,7 +232,6 @@ const Navbar: React.FC = () => {
                 </a>
               ))}
               <div className="pt-4 border-t border-white/[0.05] flex flex-col gap-4">
-                 <ConnectButton />
                 {currentUser ? (
                   <Link
                     to="/dashboard"

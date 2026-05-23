@@ -74,16 +74,19 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster
-        position="top-right"
+        position="bottom-center"
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#0D0D12',
+            background: 'rgba(13, 13, 18, 0.95)',
             color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
             fontSize: '14px',
-            fontWeight: '600'
+            fontWeight: '500',
+            backdropFilter: 'blur(10px)',
+            padding: '12px 20px',
+            maxWidth: '90vw',
           },
         }}
       />

@@ -44,10 +44,10 @@ const Wallet: React.FC = () => {
   ];
 
   const transactions = [
-    { type: 'reward', label: 'Oracle Mission Reward', amount: '+450 PTS', date: '2h ago', status: 'confirmed' },
-    { type: 'transfer', label: 'External Node Sync', amount: '-1,200 PTS', date: '5h ago', status: 'confirmed' },
+    { type: 'reward', label: 'Daily Prediction Reward', amount: '+450 PTS', date: '2h ago', status: 'confirmed' },
+    { type: 'transfer', label: 'Point Conversion', amount: '-1,200 PTS', date: '5h ago', status: 'confirmed' },
     { type: 'reward', label: 'Staking Yield', amount: '+12 PTS', date: '12h ago', status: 'confirmed' },
-    { type: 'system', label: 'Genesis Block Award', amount: '+1,000 PTS', date: '2d ago', status: 'confirmed' },
+    { type: 'system', label: 'Account Welcome Bonus', amount: '+1,000 PTS', date: '2d ago', status: 'confirmed' },
   ];
 
   const copyAddress = () => {
@@ -62,7 +62,7 @@ const Wallet: React.FC = () => {
       <div className="max-w-4xl mx-auto pb-32">
 
         <ErrorBoundary name="WalletHero">
-          {/* PREMIUM BALANCE HERO (BINANCE/PHANTOM STYLE) */}
+          {/* BALANCE HERO */}
           <div className="relative mb-10 text-center px-4">
              <div className="absolute inset-x-0 -top-20 -z-10 flex justify-center overflow-hidden pointer-events-none">
                 <div className="w-[140%] h-[30rem] bg-[radial-gradient(ellipse_at_center,rgba(0,112,255,0.12),transparent_70%)]" />
@@ -71,65 +71,65 @@ const Wallet: React.FC = () => {
              <motion.div
                initial={{ opacity: 0, y: 20 }}
                animate={{ opacity: 1, y: 0 }}
-               className="space-y-4"
+               className="space-y-3"
              >
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Protocol Mainnet v2.4</span>
+                   <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Global Mainnet</span>
                 </div>
 
                 <div className="space-y-1">
-                   <p className="text-sm font-bold text-white/30 uppercase tracking-[0.2em]">Total Net Worth</p>
-                   <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-white">
+                   <p className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Portfolio Value</p>
+                   <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white">
                       {formatUSD(PTS_TO_USD(userData.points) + 3390.20)}
                    </h1>
                 </div>
 
                 <div className="flex items-center justify-center gap-3">
-                   <span className="text-lg font-mono font-bold text-success flex items-center gap-1">
-                      <TrendingUp size={16} /> +12.4%
+                   <span className="text-base font-mono font-bold text-success flex items-center gap-1">
+                      <TrendingUp size={14} /> +12.4%
                    </span>
                    <span className="w-1 h-1 rounded-full bg-white/10" />
                    <span className="text-sm font-bold text-white/30 uppercase tracking-widest">Last 24h</span>
                 </div>
              </motion.div>
 
-             {/* WITHDRAWAL MILESTONE (IMMEDIATELY VISIBLE) */}
+             {/* WITHDRAWAL MILESTONE */}
              <div className="max-w-md mx-auto mt-10">
                 <div className="p-5 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3 relative overflow-hidden group">
                    <div className="absolute inset-0 bg-primary/[0.02] -translate-x-full group-hover:translate-x-full transition-transform duration-[2s]" />
-                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest mb-1">
-                      <span className="text-white/40">Extraction Progress</span>
+                   <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest mb-1">
+                      <span className="text-white/40">Withdrawal Progress</span>
                       <span className="text-primary">{Math.round(progress)}%</span>
                    </div>
-                   <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                   <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
-                        className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.4)]"
+                        className="h-full bg-primary"
                       />
                    </div>
-                   <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-center">
+                   <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest text-center">
                       {userData.points >= minWithdraw
-                        ? "CLEARANCE ACHIEVED: TERMINAL UNLOCKED"
-                        : `${(minWithdraw - userData.points).toLocaleString()} PTS TO GLOBAL CLEARANCE`}
+                        ? "THRESHOLD REACHED: WITHDRAWAL UNLOCKED"
+                        : `${(minWithdraw - userData.points).toLocaleString()} PTS UNTIL NEXT WITHDRAWAL`}
                    </p>
                 </div>
              </div>
 
              {/* QUICK ACTION SUITE */}
-             <div className="flex justify-center gap-6 mt-12">
+             <div className="flex justify-center gap-4 md:gap-6 mt-10">
                 {[
-                  { label: 'Receive', icon: ArrowUpRight, rotate: 180, color: 'text-white' },
-                  { label: 'Send', icon: Send, color: 'text-white' },
-                  { label: 'Swap', icon: ArrowRightLeft, color: 'text-white' },
-                  { label: 'Buy', icon: CreditCard, color: 'text-white' },
+                  { label: 'Receive', icon: ArrowUpRight, rotate: 180 },
+                  { label: 'Send', icon: Send },
+                  { label: 'Swap', icon: ArrowRightLeft },
+                  { label: 'Buy', icon: CreditCard },
                 ].map(action => (
-                  <button key={action.label} className="group flex flex-col items-center gap-3">
-                     <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center transition-all group-hover:bg-primary group-hover:border-primary group-hover:shadow-[0_0_25px_rgba(0,112,255,0.4)] group-active:scale-95">
-                        <action.icon size={22} className={cn("transition-transform", action.rotate && `rotate-${action.rotate}`)} />
+                  <button key={action.label} className="group flex flex-col items-center gap-2">
+                     <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center transition-all group-hover:bg-primary group-hover:border-primary group-active:scale-95">
+                        <action.icon size={20} className={cn("transition-transform", action.rotate && `rotate-${action.rotate}`)} />
                      </div>
-                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-white transition-colors">{action.label}</span>
+                     <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest group-hover:text-white transition-colors">{action.label}</span>
                   </button>
                 ))}
              </div>
@@ -220,8 +220,8 @@ const Wallet: React.FC = () => {
                               {tx.type === 'reward' ? <Zap size={18} /> : <ArrowRightLeft size={18} />}
                            </div>
                            <div>
-                              <p className="text-[12px] font-bold text-white leading-tight">{tx.label}</p>
-                              <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-1">{tx.date} • BLOCK: #420...{i}</p>
+                              <p className="text-[11px] font-bold text-white leading-tight">{tx.label}</p>
+                              <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-1">{tx.date} • {tx.status}</p>
                            </div>
                         </div>
                         <div className="text-right">
@@ -238,7 +238,7 @@ const Wallet: React.FC = () => {
            </AnimatePresence>
         </div>
 
-        {/* CONNECTION CARD (PHANTOM STYLE) */}
+        {/* CONNECTION CARD */}
         <div className="mt-12 px-4">
            <Card className={cn(
               "p-0 border-white/[0.05] overflow-hidden transition-all duration-500",
@@ -249,11 +249,11 @@ const Wallet: React.FC = () => {
                     <div className="w-16 h-16 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.05] flex items-center justify-center mb-6">
                        <Lock size={32} className="text-white/20" />
                     </div>
-                    <h4 className="text-xl font-bold text-white mb-2 tracking-tight">Access Secure Bridge</h4>
-                    <p className="text-xs text-white/40 max-w-[240px] mb-8 leading-relaxed">Connect your provider to initialize capital extraction node.</p>
+                    <h4 className="text-lg font-bold text-white mb-2 tracking-tight">Connect Your Wallet</h4>
+                    <p className="text-[11px] text-white/40 max-w-[240px] mb-8 leading-relaxed">Connect your crypto wallet to start managing your assets and withdraw rewards.</p>
                     <ConnectButton.Custom>
                       {({ openConnectModal }) => (
-                        <Button onClick={openConnectModal} glow className="px-10 py-3 text-[10px] uppercase tracking-widest">Establish Session</Button>
+                        <Button onClick={openConnectModal} glow className="px-10 py-3 text-[10px] uppercase tracking-widest">Connect Wallet</Button>
                       )}
                     </ConnectButton.Custom>
                  </div>
@@ -266,7 +266,7 @@ const Wallet: React.FC = () => {
                           </div>
                           <div>
                              <h4 className="text-sm font-bold text-white font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</h4>
-                             <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-0.5">{connector?.name || 'Protocol Hub'}</p>
+                             <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-0.5">{connector?.name || 'Wallet'}</p>
                           </div>
                        </div>
                        <button onClick={() => disconnect()} className="p-2 rounded-xl bg-white/5 text-white/40 hover:text-danger transition-colors">
@@ -280,7 +280,7 @@ const Wallet: React.FC = () => {
                        </div>
                        <button onClick={copyAddress} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center gap-3 hover:bg-white/[0.04] transition-all">
                           <Copy size={14} className="text-white/20" />
-                          <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Copy ID</span>
+                          <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Copy Address</span>
                        </button>
                     </div>
                  </div>

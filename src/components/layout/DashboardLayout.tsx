@@ -18,10 +18,10 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const { unreadCount } = useNotifications();
 
-  const isMainPage = ['/dashboard', '/predict', '/tasks', '/wallet', '/me', '/pulse-core'].includes(location.pathname);
+  const isMainPage = ['/dashboard', '/predict', '/rewards', '/wallet', '/me', '/pulse-core'].includes(location.pathname);
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30">
+    <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30 overflow-x-hidden">
       {/* Background Atmosphere */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full" />
@@ -59,7 +59,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                       <span className="text-[9px] font-bold text-primary uppercase tracking-widest">
-                        {userData?.role === 'admin' ? 'Root Protocol' : 'Mainnet v2.4'}
+                        {userData?.role === 'admin' ? 'Admin Portal' : 'Live Ecosystem'}
                       </span>
                     </div>
                   </div>
@@ -96,8 +96,8 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 pb-32 lg:pb-12">
-          <div className="max-w-5xl mx-auto">
+        <main className="flex-1 px-4 py-6 md:px-6 md:py-8 pb-24 lg:pb-12 overflow-x-hidden">
+          <div className="max-w-5xl mx-auto w-full">
             {children}
           </div>
         </main>

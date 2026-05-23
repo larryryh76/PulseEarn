@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Zap, User, ShieldCheck, Target, Wallet } from 'lucide-react';
+import { Home, TrendingUp, Gift, User, ShieldCheck, Wallet } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils';
@@ -14,15 +14,23 @@ const MobileBottomNav: React.FC = () => {
 
   // HIDE ON LANDING AND AUTH PAGES
   const hidePaths = ['/', '/login', '/signup'];
-  if (hidePaths.includes(location.pathname)) return null;
+
+  // NEW LOGIC: Also hide on sub-pages (pages that are not the main tabs)
+  const mainTabs = isAdmin
+    ? ['/pulse-core', '/me']
+    : ['/dashboard', '/predict', '/rewards', '/wallet', '/me'];
+
+  const isMainTab = mainTabs.includes(location.pathname);
+
+  if (hidePaths.includes(location.pathname) || !isMainTab) return null;
 
   const dashboardTabs = isAdmin ? [
     { name: 'Core', icon: ShieldCheck, href: '/pulse-core' },
     { name: 'Me', icon: User, href: '/me' },
   ] : [
-    { name: 'Dash', icon: Home, href: '/dashboard' },
-    { name: 'Oracle', icon: Target, href: '/predict' },
-    { name: 'Tasks', icon: Zap, href: '/tasks' },
+    { name: 'Home', icon: Home, href: '/dashboard' },
+    { name: 'Predict', icon: TrendingUp, href: '/predict' },
+    { name: 'Earn', icon: Gift, href: '/rewards' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
     { name: 'Me', icon: User, href: '/me' },
   ];

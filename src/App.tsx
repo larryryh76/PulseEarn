@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
+import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Earn from './pages/Earn'
@@ -28,6 +29,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // EMAIL VERIFICATION CHECK
+  if (!currentUser.emailVerified && window.location.pathname !== '/verify-email') {
+    return <Navigate to="/verify-email" replace />;
   }
 
   // If admin is trying to access restricted user-only routes
@@ -105,6 +111,11 @@ function App() {
           <PublicRoute>
             <Login />
           </PublicRoute>
+        } />
+        <Route path="/verify-email" element={
+          <ProtectedRoute>
+            <VerifyEmail />
+          </ProtectedRoute>
         } />
         <Route path="/dashboard" element={
           <ProtectedRoute>

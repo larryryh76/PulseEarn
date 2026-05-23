@@ -5,7 +5,10 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   User,
-  UserCredential
+  UserCredential,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  updateEmail as firebaseUpdateEmail
 } from 'firebase/auth';
 import {
   doc,
@@ -27,6 +30,8 @@ import toast from 'react-hot-toast';
 import { UserData } from '../types';
 import { awardPoints } from '../utils/economy';
 import { EcosystemBot } from '../utils/ecosystemBot';
+import { motion, AnimatePresence } from 'framer-motion';
+import Logo from '../components/ui/Logo';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -36,6 +41,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
+  sendVerification: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateUserEmail: (newEmail: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRestoring, setIsRestoring] = useState(true);
 
   const generateReferralCode = (uid: string) => {
     return `PULSE-${uid.slice(0, 6).toUpperCase()}`;
@@ -89,19 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isNotToday) {
         const result = await awardPoints(uid, 10, 'daily_reward', 'Daily Login Bonus');
 
-        if (!result.success) {
-          if (result.error?.includes('Daily cap')) {
-            toast.error('Daily Pulse cap reached!');
-          }
-          return;
-        }
+        if (!result.success) return;
 
-        // Update streak separately
-        await updateDoc(userDocRef, {
-          streak: increment(1)
-        });
+        await updateDoc(userDocRef, { streak: increment(1) });
 
-        // Send notification
         await addDoc(collection(db, 'users', uid, 'notifications'), {
           title: 'Daily Reward Claimed!',
           description: 'You earned +10 Pulse for checking in today.',
@@ -110,11 +110,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           timestamp: serverTimestamp()
         });
 
-        toast.success('+10 Points Daily Reward Claimed!', {
-          icon: '🎁',
-          duration: 4000,
-        });
+        toast.success('Daily Reward Claimed!', { icon: '🎁' });
       }
+    }
+  }
+
+  async function sendVerification() {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser);
+    }
+  }
+
+  async function resetPassword(email: string) {
+    await sendPasswordResetEmail(auth, email);
+  }
+
+  async function updateUserEmail(newEmail: string) {
+    if (auth.currentUser) {
+      await firebaseUpdateEmail(auth.currentUser, newEmail);
     }
   }
 
@@ -122,11 +135,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Admin Logic: Check for exact email
+    // Send initial verification
+    await sendEmailVerification(user);
+
     const isAdmin = email.toLowerCase() === 'admin@pulse.com';
     const role = isAdmin ? 'admin' : 'user';
 
-    // Referral Logic
     let referredBy = null;
     if (referralCodeInput) {
       const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
@@ -135,11 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const referrerDoc = querySnapshot.docs[0];
         referredBy = referrerDoc.id;
 
-        // Award points to referrer
         await awardPoints(referredBy, 50, 'referral_bonus', `Referral bonus for ${username}`);
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {
           title: 'Referral Mission Success!',
-          description: `A new node (${username}) joined via your code. +50 Pulse awarded.`,
+          description: `A new member (${username}) joined via your code.`,
           type: 'system',
           read: false,
           timestamp: serverTimestamp()
@@ -167,14 +180,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: role as 'admin' | 'user',
       isBanned: false,
       isFlagged: false,
-      actionsInLastMinute: 0,
-      earnedInLastHour: 0,
       avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
-      stats: {
-        tasksCompleted: 0,
-        referralsCount: 0,
-        predictionsCount: 0
-      },
+      stats: { tasksCompleted: 0, referralsCount: 0, predictionsCount: 0 },
       preferences: {
         notifications: true,
         soundEnabled: true,
@@ -190,15 +197,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     await awardPoints(user.uid, 10, 'referral_bonus', 'Signup Welcome Bonus');
-
-    // Send welcome notification
-    await addDoc(collection(db, 'users', user.uid, 'notifications'), {
-      title: 'Welcome to PulseEarn!',
-      description: 'Start completing missions to earn your first Pulse rewards.',
-      type: 'system',
-      read: false,
-      timestamp: serverTimestamp()
-    });
   }
 
   function login(email: string, password: string) {
@@ -220,34 +218,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@pulse.com';
-
-            // AUTOMATIC ELEVATION: If admin email but not admin role in DB, fix it.
-            if (isAdminEmail && data.role !== 'admin') {
-              try {
-                await updateDoc(doc(db, 'users', user.uid), { role: 'admin' });
-              } catch (e) {
-                console.error("[Auth] Failed to auto-upgrade admin role:", e);
-              }
-            }
-
             const resolvedData = {
               ...data,
-              role: (isAdminEmail || data.role === 'admin') ? 'admin' : 'user'
+              role: (user.email?.toLowerCase() === 'admin@pulse.com' || data.role === 'admin') ? 'admin' : 'user'
             };
 
             setUserData(resolvedData as UserData);
 
-            // ADMIN SEPARATION: Only standard users get daily rewards
-            if (resolvedData.role !== 'admin') {
+            if (resolvedData.role !== 'admin' && user.emailVerified) {
               checkDailyReward(user.uid);
               EcosystemBot.evaluateUserEngagement(resolvedData as UserData);
             }
           }
           setLoading(false);
+          setIsRestoring(false);
         }, (error) => {
           console.error("Error fetching user data:", error);
           setLoading(false);
+          setIsRestoring(false);
         });
       } else {
         if (unsubscribeData) {
@@ -256,6 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setUserData(null);
         setLoading(false);
+        setIsRestoring(false);
       }
     });
 
@@ -272,11 +261,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     logout,
-    logActivity
+    logActivity,
+    sendVerification,
+    resetPassword,
+    updateUserEmail
   };
 
   return (
     <AuthContext.Provider value={value}>
+      <AnimatePresence>
+        {isRestoring ? (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
+          >
+             <div className="scale-150 mb-4">
+                <Logo />
+             </div>
+             <div className="flex flex-col items-center gap-3">
+                <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden relative">
+                   <motion.div
+                     initial={{ left: '-100%' }}
+                     animate={{ left: '100%' }}
+                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                     className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                   />
+                </div>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Restoring Secure Session</p>
+             </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -101,7 +101,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
               </div>
               <div className="w-1 h-1 rounded-full bg-white/10" />
               <span className="text-[9px] text-white/20 font-bold uppercase tracking-tighter">
-                {timer !== null ? `Stabilizing: ${timer}s` : task.category}
+                {timer !== null ? `Processing: ${timer}s` : task.category}
               </span>
             </div>
           </div>

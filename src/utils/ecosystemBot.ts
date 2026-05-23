@@ -45,8 +45,8 @@ export class EcosystemBot {
         const globalTaskRef = doc(db, 'tasks', missionKey);
         await runTransaction(db, async (transaction) => {
           transaction.set(globalTaskRef, {
-            title: 'Return of the Node',
-            description: 'The protocol missed your presence. Claim this one-time comeback bonus.',
+            title: 'Re-Engagement Bonus',
+            description: 'We missed you! Claim this one-time reward to get back into the action.',
             rewardPoints: 200,
             rewardXp: 500,
             type: 'once',
@@ -74,23 +74,23 @@ export class EcosystemBot {
       case 'growth_social_low':
         return {
           id: 'strategy_social_boost',
-          title: 'Viral engagement Surge',
+          title: 'Social Engagement Surge',
           description: 'Launch a high-intensity TikTok & YouTube engagement campaign.',
           actionType: 'campaign',
-          reasoning: 'Compensate for current engagement drop by incentivizing social interactions with high-yield short-term rewards.',
+          reasoning: 'Real-time metrics indicate a 40% drop in social interactions. This campaign aims to restore viral growth velocity.',
           suggestedTasks: [
             {
-              title: 'TikTok Viral Interaction',
-              description: 'Like and comment on the latest PulseEarn ecosystem videos.',
+              title: 'TikTok Community Interaction',
+              description: 'Engage with our latest social content to boost platform visibility.',
               rewardPoints: 450,
               rewardXp: 800,
               category: 'TikTok',
               verificationType: 'proof',
-              proofRequirements: 'Submit your TikTok handle and video URL for node verification.'
+              proofRequirements: 'Submit your TikTok handle for verification.'
             },
             {
-              title: 'YouTube Ecosystem Watch',
-              description: 'Watch the latest PulseEarn orientation video (6 mins).',
+              title: 'YouTube Insight Session',
+              description: 'Watch our latest feature overview to earn bonus points.',
               rewardPoints: 300,
               rewardXp: 500,
               category: 'YouTube',
@@ -117,14 +117,14 @@ export class EcosystemBot {
       case 'retention_streak_drop':
         return {
           id: 'strategy_streak_recovery',
-          title: 'Loyalty Restoration Protocol',
-          description: 'Deploy "Streak Shield" mystery quests to recover inactive users.',
+          title: 'Loyalty Recovery Strategy',
+          description: 'Deploy retention-focused quests to recover inactive users.',
           actionType: 'task_rotation',
-          reasoning: report.message,
+          reasoning: `Analysis shows ${report.data?.count || 'many'} users recently lost their streaks. This strategy focuses on re-establishing daily habits.`,
           suggestedTasks: [
             {
-              title: 'Streak Shield Activation',
-              description: 'Login 3 days in a row to restore your broken streak and earn a massive bonus.',
+              title: 'Streak Recovery Quest',
+              description: 'Complete 3 daily check-ins to unlock a massive loyalty bonus.',
               rewardPoints: 1000,
               rewardXp: 2000,
               category: 'Engagement',
@@ -133,8 +133,8 @@ export class EcosystemBot {
               rarity: 'legendary' as TaskRarity
             },
             {
-              title: 'Morning Pulse Check',
-              description: 'Verify your node presence between 06:00 and 10:00 UTC.',
+              title: 'Daily Morning Bonus',
+              description: 'Complete your first task before 10:00 AM UTC for extra rewards.',
               rewardPoints: 150,
               rewardXp: 300,
               category: 'Engagement',
@@ -147,21 +147,21 @@ export class EcosystemBot {
       case 'growth_referral_stagnant':
         return {
           id: 'strategy_referral_race',
-          title: 'Node Expansion Competition',
-          description: 'Initiate a 48-hour referral race with doubled bonuses.',
+          title: 'Referral Sprint Event',
+          description: 'Initiate a 48-hour referral race with boosted bonuses.',
           actionType: 'campaign',
-          reasoning: 'Re-ignite viral growth by increasing the marginal utility of each successful referral.',
+          reasoning: 'Viral growth coefficient is below target. Boosting referral utility to re-accelerate ecosystem expansion.',
           suggestedCampaign: {
-            name: 'Referral Alpha Race',
-            description: 'Top 10 inviters share a 50,000 PTS prize pool. Every referral counts for 2x points.',
+            name: 'Pulse Referral Race',
+            description: 'Top inviters share a 50,000 PTS prize pool. Every successful referral earns bonus XP.',
             bannerUrl: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=2574&auto=format&fit=crop',
             totalPrizePool: 50000,
             featured: true
           },
           suggestedTasks: [
             {
-              title: 'Invite 3 Elite Nodes',
-              description: 'Onboard 3 new users to the ecosystem.',
+              title: 'Referral Challenge',
+              description: 'Invite 3 new active members to the platform.',
               rewardPoints: 1500,
               rewardXp: 3000,
               category: 'Referral',
@@ -173,7 +173,7 @@ export class EcosystemBot {
       case 'economy_inflation_high':
         return {
           id: 'strategy_economy_rebalance',
-          title: 'Economy Stabilization Protocol',
+          title: 'Economy Stabilization Strategy',
           description: 'Adjust reward weights and introduce point-sink mystery quests.',
           actionType: 'economy_adjustment',
           reasoning: 'Ecosystem supply is exceeding safe thresholds. Introduce mystery quests with variable yields to stabilize inflation.',

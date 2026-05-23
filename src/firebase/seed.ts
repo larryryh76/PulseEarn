@@ -12,8 +12,8 @@ import { Task } from '../types';
 
 const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
   {
-    title: 'Daily Protocol Ping',
-    description: 'Sync with the mainnet and claim your daily reward.',
+    title: 'Daily Ecosystem Ping',
+    description: 'Check in with the platform and claim your daily reward.',
     rewardPoints: 10,
     rewardXp: 15,
     type: 'daily',
@@ -66,7 +66,7 @@ const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
     verificationType: 'automated'
   },
   {
-    title: 'Oracle Master',
+    title: 'Predict Master',
     description: 'Correctly predict 5 market movements.',
     rewardPoints: 500,
     rewardXp: 1000,

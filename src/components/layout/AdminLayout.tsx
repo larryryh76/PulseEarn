@@ -138,7 +138,7 @@ const AdminLayout: React.FC = () => {
         <header className="hidden lg:flex h-16 border-b border-white/[0.03] bg-[#08080C]/50 backdrop-blur-md items-center justify-between px-8 sticky top-0 z-10">
           <div className="flex items-center gap-4">
              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-             <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Protocol Online</span>
+             <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">System Online</span>
           </div>
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">

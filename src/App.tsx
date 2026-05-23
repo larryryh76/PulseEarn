@@ -16,7 +16,7 @@ import UserDirectory from './components/admin/UserDirectory'
 import TaskOrchestrator from './components/admin/TaskOrchestrator'
 import CampaignManager from './components/admin/CampaignManager'
 import EconomyConsole from './components/admin/EconomyConsole'
-import ProtocolAuditLogs from './components/admin/ProtocolAuditLogs'
+import SystemAuditLogs from './components/admin/SystemAuditLogs'
 import SystemSettingsPanel from './components/admin/SystemSettingsPanel'
 import AdminAIConsole from './components/admin/AdminAIConsole'
 import { useAuth } from './contexts/AuthContext'
@@ -138,10 +138,10 @@ function App() {
           <Route path="tasks" element={<TaskOrchestrator />} />
           <Route path="campaigns" element={<CampaignManager />} />
           <Route path="economy" element={<EconomyConsole />} />
-          <Route path="audit" element={<ProtocolAuditLogs />} />
+          <Route path="audit" element={<SystemAuditLogs />} />
           <Route path="settings" element={
             <div className="max-w-2xl mx-auto space-y-8 py-8">
-              <h1 className="text-2xl font-bold mb-8 text-center">Global Protocol Configuration</h1>
+              <h1 className="text-2xl font-bold mb-8 text-center">Global System Configuration</h1>
               <SystemSettingsPanel />
             </div>
           } />

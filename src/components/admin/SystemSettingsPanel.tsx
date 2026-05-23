@@ -42,7 +42,7 @@ const SystemSettingsPanel: React.FC = () => {
     <Card className="p-6 border-white/[0.05] bg-white/[0.01]">
       <div className="flex items-center gap-2 mb-6 text-primary">
         <Settings size={18} />
-        <h3 className="text-xs font-bold uppercase tracking-widest">Protocol Settings</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest">System Configuration</h3>
       </div>
 
       <div className="space-y-6">
@@ -74,7 +74,7 @@ const SystemSettingsPanel: React.FC = () => {
           {isSaving ? 'Updating...' : (
             <>
               <Save size={14} />
-              Save Protocol Config
+              Save System Config
             </>
           )}
         </button>

@@ -47,7 +47,7 @@ const SettingsPanel: React.FC = () => {
     <div className="space-y-8 pb-20">
       {/* Account Section */}
       <div className="space-y-4">
-         <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em] ml-1">Identity & Node</h3>
+         <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em] ml-1">Account Identity</h3>
          <Card className="p-6 border-white/[0.03] bg-white/[0.01] space-y-6">
             <div className="flex flex-col gap-4">
                <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Global Avatar Seed</label>
@@ -123,7 +123,7 @@ const SettingsPanel: React.FC = () => {
       {isSaving && (
         <div className="fixed bottom-24 right-8 bg-primary px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 z-50 animate-bounce">
            <Loader2 size={14} className="animate-spin" />
-           <span className="text-[10px] font-bold uppercase tracking-widest">Syncing to Protocol...</span>
+           <span className="text-[10px] font-bold uppercase tracking-widest">Saving Changes...</span>
         </div>
       )}
     </div>

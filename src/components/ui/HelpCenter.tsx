@@ -24,8 +24,8 @@ const HelpCenter: React.FC = () => {
       a: "You can earn Pulse by completing daily missions, watching the terminal feed, participating in market predictions, and referring new users to the platform."
     },
     {
-      q: "What are Clearance Levels?",
-      a: "Clearance levels represent your seniority in the protocol. Higher levels (unlocked via XP) grant access to premium missions with significantly higher reward yields."
+      q: "What are Reward Levels?",
+      a: "Levels represent your activity and loyalty within the ecosystem. Higher levels (unlocked via XP) grant access to premium missions with significantly higher reward yields."
     },
     {
       q: "Is the platform safe?",
@@ -45,16 +45,16 @@ const HelpCenter: React.FC = () => {
       color: "text-blue-400",
       content: `
         ### Welcome to PulseEarn
-        PulseEarn is a next-generation crypto rewards ecosystem designed for maximum capital yield.
+        PulseEarn is a modern rewards ecosystem designed to reward user engagement and market insight.
 
         #### How it Works
-        The protocol rewards nodes (users) for participating in network activities:
-        1. **Syncing:** Daily login bonuses maintain your uptime streak.
-        2. **Directives:** Complete micro-tasks in the Mission Hub to earn Pulse.
-        3. **Oracles:** Submit market forecasts to multiply your capital.
+        Earn points by participating in platform activities:
+        1. **Daily Rewards:** Claim your daily bonus to maintain your streak.
+        2. **Missions:** Complete social and engagement tasks in the Mission Hub.
+        3. **Market Predict:** Submit market forecasts to earn high-yield rewards.
 
-        #### Clearance Levels
-        Your account level (Clearance) determines your reward multipliers. Earn XP by completing tasks to unlock Elite and Premium sectors.
+        #### Reward Levels
+        Your account level determines your access and multipliers. Earn XP by completing tasks to unlock premium reward tiers.
       `
     },
     {
@@ -67,31 +67,31 @@ const HelpCenter: React.FC = () => {
         PulseEarn is optimized for consistent engagement. Follow these strategies to climb the leaderboard.
 
         #### Maintain Streaks
-        Your Daily Protocol Ping grants increasing bonuses for consecutive days of uptime. Missing a day resets your streak multiplier.
+        Your Daily Check-in grants increasing bonuses for consecutive days of activity. Missing a day resets your streak multiplier.
 
         #### Mission Stacking
-        Social and Growth missions often grant the highest XP-to-Time ratio. Complete these first to raise your clearance level quickly.
+        Social and Growth missions often grant the highest XP-to-Time ratio. Complete these first to raise your level quickly.
 
-        #### Referral Networks
-        Expand your squad by inviting new nodes. You receive a 10% lifetime commission on all points earned by your direct referrals.
+        #### Referral Program
+        Expand your network by inviting friends. You receive a commission on points earned by your direct referrals.
       `
     },
     {
       id: 'oracle',
-      title: "Oracle Protocol",
+      title: "Market Forecasting",
       icon: TrendingUp,
       color: "text-green-400",
       content: `
-        ### Advanced Forecasting
-        The Oracle Protocol allows users to stake Pulse on real-time market movements.
+        ### Market Insights
+        The Predict system allows users to earn Pulse by forecasting real-time market movements.
 
-        #### Settlement Logic
-        Orders are settled every 24 hours (00:00 UTC) based on Binance spot prices.
-        - **Long (Up):** Profit if the price at settlement is higher than your entry.
-        - **Short (Down):** Profit if the price at settlement is lower than your entry.
+        #### Reward Logic
+        Predictions are settled based on live market prices.
+        - **Higher:** Earn rewards if the price is higher than your entry.
+        - **Lower:** Earn rewards if the price is lower than your entry.
 
-        #### Risk Mitigation
-        Staking is high-risk. Incorrect forecasts result in the complete loss of staked Pulse. Only stake capital you are willing to risk.
+        #### Accuracy & Level
+        Maintaining high prediction accuracy boosts your XP and helps you level up faster, unlocking more points per prediction.
       `
     },
     {
@@ -100,17 +100,17 @@ const HelpCenter: React.FC = () => {
       icon: ShieldCheck,
       color: "text-red-400",
       content: `
-        ### Protocol Integrity
-        Security is the highest priority for the Pulse ecosystem.
+        ### Ecosystem Integrity
+        Security is our highest priority.
 
-        #### Wallet Safety
-        Never share your private keys or seed phrases. PulseEarn will only ever request a non-custodial signature to verify node ownership.
+        #### Account Safety
+        Protect your credentials and enable multi-factor authentication. PulseEarn will never ask for your passwords or private information.
 
         #### Anti-Fraud
-        Our system monitors for rapid-fire activity and multiple account usage. Suspicious nodes are automatically flagged and subject to termination.
+        Our system monitors for rapid-fire activity and multiple account usage. Suspicious accounts are automatically flagged for review.
 
         #### Withdrawal Awareness
-        Legitimate settlements only occur through our official Liquidity Bridge. Beware of phishing sites claiming to offer "instant payouts."
+        Legitimate payouts only occur through our official withdrawal portal. Beware of third-party sites claiming to offer Pulse points.
       `
     }
   ];
@@ -152,7 +152,7 @@ const HelpCenter: React.FC = () => {
          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
          <input
            type="text"
-           placeholder="Search protocol documentation..."
+           placeholder="Search documentation..."
            value={searchTerm}
            onChange={(e) => setSearchTerm(e.target.value)}
            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-primary/50 transition-all"
@@ -214,7 +214,7 @@ const HelpCenter: React.FC = () => {
       <Card className="p-6 border-primary/20 bg-primary/5 text-center">
          <HelpCircle size={32} className="text-primary mx-auto mb-4" />
          <h4 className="font-bold mb-1">Still need assistance?</h4>
-         <p className="text-xs text-white/40 mb-6">Our protocol support nodes are available 24/7.</p>
+         <p className="text-xs text-white/40 mb-6">Our support team is available 24/7 to help.</p>
          <button className="px-8 py-3 rounded-xl bg-primary text-xs font-bold uppercase tracking-widest hover:bg-primary/80 transition-all shadow-[0_4px_15px_rgba(0,112,255,0.2)]">
             Contact Support
          </button>

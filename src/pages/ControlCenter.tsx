@@ -18,7 +18,7 @@ import {
 import { cn } from '../utils';
 import SystemSettingsPanel from '../components/admin/SystemSettingsPanel';
 import UserManagementPanel from '../components/admin/UserManagementPanel';
-import ProtocolLiveFeed from '../components/admin/ProtocolLiveFeed';
+import SystemLiveFeed from '../components/admin/SystemLiveFeed';
 
 const ControlCenter: React.FC = () => {
   const [stats, setStats] = useState({
@@ -58,13 +58,13 @@ const ControlCenter: React.FC = () => {
              <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Pulse Core Interface</span>
           </div>
           <h1 className="text-4xl font-financial text-white tracking-tight">Control Center</h1>
-          <p className="text-white/30 text-xs font-medium">Platform-wide governance and cryptographic resource management.</p>
+          <p className="text-white/30 text-xs font-medium">Platform-wide governance and ecosystem resource management.</p>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,163,0.5)]" />
-            <span className="text-[10px] font-financial text-white/60 uppercase tracking-widest">Protocol Sync: 100%</span>
+            <span className="text-[10px] font-financial text-white/60 uppercase tracking-widest">Ecosystem Active</span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-white/20">
              <Globe size={18} />
@@ -75,7 +75,7 @@ const ControlCenter: React.FC = () => {
       {/* Admin Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Network Entities', val: stats.totalUsers, icon: Users, color: 'text-blue-500', trend: '+12% Δ' },
+          { label: 'Total Members', val: stats.totalUsers, icon: Users, color: 'text-blue-500', trend: '+12% Δ' },
           { label: 'Circulating Pulse', val: stats.totalPoints.toLocaleString(), icon: Zap, color: 'text-yellow-500', trend: '240/hr velocity' },
           { label: 'Operational Tasks', val: stats.activeTasks, icon: ClipboardList, color: 'text-success', trend: 'System ready' },
           { label: 'Global Alerts', val: stats.notificationsSent, icon: Bell, color: 'text-accent', trend: 'Standby' }
@@ -98,14 +98,14 @@ const ControlCenter: React.FC = () => {
           <div className="space-y-4">
              <div className="flex items-center gap-2 px-2">
                 <Activity size={14} className="text-primary" />
-                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">Protocol Event Stream</h3>
+                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">System Event Stream</h3>
              </div>
-             <ProtocolLiveFeed />
+             <SystemLiveFeed />
           </div>
           <div className="space-y-4">
              <div className="flex items-center gap-2 px-2">
                 <Users size={14} className="text-primary" />
-                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">Entity Directory</h3>
+                <h3 className="text-xs font-bold text-white/40 uppercase tracking-[0.3em]">User Directory</h3>
              </div>
              <UserManagementPanel />
           </div>
@@ -127,10 +127,10 @@ const ControlCenter: React.FC = () => {
             <div className="relative z-10 space-y-4">
                <div className="flex items-center gap-2 text-primary">
                   <ShieldCheck size={18} />
-                  <h4 className="text-[10px] font-bold uppercase tracking-[0.2em]">Integrity Protocol</h4>
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.2em]">System Integrity</h4>
                </div>
                <p className="text-xs text-white/40 leading-relaxed font-medium">
-                  Platform-wide encryption is active across all node clusters. All administrative actions are recorded in the immutable audit ledger.
+                  Platform-wide encryption is active across all user segments. All administrative actions are recorded in the immutable audit ledger.
                </p>
                <div className="flex items-center gap-2 pt-2">
                   <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,163,0.5)]" />

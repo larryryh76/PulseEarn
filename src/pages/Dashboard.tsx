@@ -6,7 +6,6 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   Zap,
   Wallet,
-  Globe,
   ChevronRight,
   ArrowUpRight,
   Target,
@@ -287,14 +286,14 @@ const Dashboard: React.FC = () => {
                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                    <div className="relative z-10 flex flex-col items-center text-center">
                       <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 shadow-2xl">
-                         <Globe size={24} className="text-primary animate-pulse" />
+                         <ShieldCheck size={24} className="text-primary animate-pulse" />
                       </div>
-                      <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mb-2">System Status</h4>
-                      <p className="text-xl font-bold text-white tracking-tighter mb-4">OPTIMAL</p>
+                      <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mb-2">Ecosystem Health</h4>
+                      <p className="text-xl font-bold text-white tracking-tighter mb-4">OPTIMIZED</p>
                       <div className="grid grid-cols-2 gap-4 w-full pt-4 border-t border-white/5">
                          <div className="text-left">
-                            <p className="text-[8px] font-bold text-white/20 uppercase">Network</p>
-                            <p className="text-xs font-bold text-success">Active</p>
+                            <p className="text-[8px] font-bold text-white/20 uppercase">Status</p>
+                            <p className="text-xs font-bold text-success">Secure</p>
                          </div>
                          <div className="text-right">
                             <p className="text-[8px] font-bold text-white/20 uppercase">Assets</p>

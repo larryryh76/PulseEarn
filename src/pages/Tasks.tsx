@@ -100,7 +100,7 @@ const Tasks: React.FC = () => {
                  </div>
                  <div className="flex-1">
                     <div className="flex justify-between items-center mb-1.5">
-                       <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Protocol XP</span>
+                       <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Account XP</span>
                        <span className="text-[10px] font-bold text-primary">{Math.round(xpInfo.currentLevelXp)} / {xpInfo.requiredXp}</span>
                     </div>
                     <div className="h-1 bg-white/5 rounded-full overflow-hidden">

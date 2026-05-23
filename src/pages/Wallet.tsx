@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
@@ -30,12 +31,108 @@ import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestor
 import { db } from '../firebase/config';
 import { Transaction } from '../types';
 
+const WithdrawalLockedModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  currentPoints: number;
+  minWithdraw: number;
+  onEarnMore: () => void;
+}> = ({ isOpen, onClose, currentPoints, minWithdraw, onEarnMore }) => {
+  const progress = Math.min(100, (currentPoints / minWithdraw) * 100);
+  const remaining = Math.max(0, minWithdraw - currentPoints);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            className="relative w-full max-w-md bg-[#0D0D12] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+               <Lock size={120} />
+            </div>
+
+            <div className="flex flex-col items-center text-center space-y-6 relative z-10">
+               <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(0,112,255,0.2)]">
+                  <Lock size={32} />
+               </div>
+
+               <div className="space-y-2">
+                  <h3 className="text-2xl font-bold tracking-tight">Withdrawal Locked</h3>
+                  <p className="text-xs text-white/40 leading-relaxed max-w-[280px] mx-auto">
+                    You need <span className="text-white font-bold">{minWithdraw.toLocaleString()} PTS</span> before withdrawals become available for your account.
+                  </p>
+               </div>
+
+               <div className="w-full space-y-4 py-4">
+                  <div className="flex justify-between items-end px-1">
+                     <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Growth Progress</span>
+                     <span className="text-sm font-mono font-bold text-primary">{currentPoints.toLocaleString()} / {minWithdraw.toLocaleString()}</span>
+                  </div>
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                     <motion.div
+                       initial={{ width: 0 }}
+                       animate={{ width: `${progress}%` }}
+                       className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                     />
+                  </div>
+                  <div className="flex justify-center">
+                     <div className="px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                           {remaining.toLocaleString()} PTS Remaining
+                        </p>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="w-full grid grid-cols-2 gap-3 pt-2">
+                  <Button variant="outline" className="rounded-xl py-4" onClick={onClose}>
+                     Close
+                  </Button>
+                  <Button glow className="rounded-xl py-4" onClick={onEarnMore}>
+                     Earn More
+                  </Button>
+               </div>
+
+               <p className="text-[9px] text-white/20 uppercase tracking-[0.2em] font-bold">
+                  Maintain streaks for x2.0 multipliers
+               </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const minWithdraw = 10000;
+
 const Wallet: React.FC = () => {
   const { userData } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'withdraw'>('overview');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
+
+  const handleWithdrawClick = () => {
+    if ((userData?.points || 0) < minWithdraw) {
+      setIsLockedModalOpen(true);
+    } else {
+      setActiveTab('withdraw');
+    }
+  };
 
   useEffect(() => {
     if (!userData?.uid) return;
@@ -60,7 +157,6 @@ const Wallet: React.FC = () => {
 
   if (!userData) return null;
 
-  const minWithdraw = 10000;
   const currentPoints = userData.points;
   const usdValue = PTS_TO_USD(currentPoints);
   const progress = Math.min(100, (currentPoints / minWithdraw) * 100);
@@ -126,7 +222,7 @@ const Wallet: React.FC = () => {
 
                 <div className="pt-8">
                    <Button
-                    onClick={() => setActiveTab('withdraw')}
+                    onClick={handleWithdrawClick}
                     glow
                     size="lg"
                     className="px-12 py-5 rounded-2xl text-xs font-bold uppercase tracking-[0.2em]"
@@ -199,7 +295,7 @@ const Wallet: React.FC = () => {
 
                    {/* Withdrawal Progress Summary */}
                    <div
-                    onClick={() => setActiveTab('withdraw')}
+                    onClick={handleWithdrawClick}
                     className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/[0.05] hover:bg-white/[0.02] transition-all cursor-pointer relative overflow-hidden group"
                    >
                       <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -556,6 +652,14 @@ const Wallet: React.FC = () => {
         </section>
 
       </div>
+
+      <WithdrawalLockedModal
+        isOpen={isLockedModalOpen}
+        onClose={() => setIsLockedModalOpen(false)}
+        currentPoints={userData.points}
+        minWithdraw={minWithdraw}
+        onEarnMore={() => navigate('/tasks')}
+      />
     </DashboardLayout>
   );
 };

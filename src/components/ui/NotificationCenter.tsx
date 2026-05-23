@@ -112,7 +112,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
           >
             <div className="p-5 border-b border-white/[0.05] flex items-center justify-between bg-white/[0.01]">
               <div className="flex items-center gap-2">
-                 <h3 className="text-xs font-bold text-white uppercase tracking-widest">Protocol Intel</h3>
+                 <h3 className="text-xs font-bold text-white uppercase tracking-widest">System Intelligence</h3>
                  {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[8px] font-bold uppercase">{unreadCount} New</span>}
               </div>
               <div className="flex items-center gap-3">

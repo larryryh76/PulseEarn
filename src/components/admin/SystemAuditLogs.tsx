@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils';
 
-const ProtocolAuditLogs: React.FC = () => {
+const SystemAuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -93,4 +93,4 @@ const ProtocolAuditLogs: React.FC = () => {
   );
 };
 
-export default ProtocolAuditLogs;
+export default SystemAuditLogs;

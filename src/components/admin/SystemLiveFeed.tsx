@@ -5,7 +5,7 @@ import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestor
 import { Activity, Zap, UserPlus, ShieldAlert, Clock, ChevronRight } from 'lucide-react';
 import { cn } from '../../utils';
 
-const ProtocolLiveFeed: React.FC = () => {
+const SystemLiveFeed: React.FC = () => {
   const [activities, setActivities] = useState<any[]>([]);
 
   useEffect(() => {
@@ -35,17 +35,17 @@ const ProtocolLiveFeed: React.FC = () => {
       <div className="px-6 py-5 border-b border-white/[0.05] flex items-center justify-between bg-white/[0.01]">
         <div className="flex items-center gap-3">
           <Clock size={16} className="text-primary" />
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em]">Real-time Network Flow</h3>
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em]">Real-time Ecosystem Activity</h3>
         </div>
         <div className="flex items-center gap-3">
           <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(0,255,163,0.5)]" />
-          <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Live Ledger</span>
+          <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">Live Activity</span>
         </div>
       </div>
       <div className="divide-y divide-white/[0.03] max-h-[450px] overflow-y-auto custom-scrollbar">
         {activities.length === 0 ? (
           <div className="p-16 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/5">Awaiting network events...</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/5">Awaiting events...</p>
           </div>
         ) : (
           activities.map(act => {
@@ -85,4 +85,4 @@ const ProtocolLiveFeed: React.FC = () => {
   );
 };
 
-export default ProtocolLiveFeed;
+export default SystemLiveFeed;

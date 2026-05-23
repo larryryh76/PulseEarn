@@ -145,7 +145,7 @@ const TaskOrchestrator: React.FC = () => {
                               <p className="text-xs font-bold text-primary">+{sub.rewardPoints} PTS</p>
                            </div>
                            <div className="text-right">
-                              <p className="text-[9px] font-bold text-white/20 uppercase">Protocol</p>
+                              <p className="text-[9px] font-bold text-white/20 uppercase">Category</p>
                               <p className="text-xs font-bold text-accent">+{sub.rewardXp} XP</p>
                            </div>
                         </div>

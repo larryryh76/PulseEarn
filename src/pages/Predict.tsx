@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCryptoData } from '../hooks/useCryptoData';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -22,7 +22,8 @@ import Button from '../components/ui/Button';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
 import PredictionHistoryDrawer from '../components/ui/PredictionHistoryDrawer';
-import { Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const Predict: React.FC = () => {
   const { userData } = useAuth();
@@ -33,38 +34,27 @@ const Predict: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [direction, setDirection] = useState<'up' | 'down' | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [predictions, setPredictions] = useState<any[]>([]);
 
-  // Mock predictions for demo purposes
-  const mockPredictions: any[] = [
-    {
-      id: '1',
-      asset: 'BTC',
-      assetImage: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
-      direction: 'up',
-      amount: 500,
-      payout: 925,
-      status: 'won',
-      timestamp: Timestamp.now(),
-      expiryTimestamp: Timestamp.now(),
-      entryPrice: 64200.50,
-      exitPrice: 65100.20,
-      xpEarned: 50
-    },
-    {
-      id: '2',
-      asset: 'ETH',
-      assetImage: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
-      direction: 'down',
-      amount: 200,
-      payout: 370,
-      status: 'lost',
-      timestamp: Timestamp.now(),
-      expiryTimestamp: Timestamp.now(),
-      entryPrice: 3450.10,
-      exitPrice: 3520.40,
-      xpEarned: 10
-    }
-  ];
+  useEffect(() => {
+    if (!userData?.uid) return;
+
+    const q = query(
+      collection(db, 'predictions'),
+      where('userId', '==', userData.uid),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPredictions(data);
+    });
+
+    return () => unsubscribe();
+  }, [userData?.uid]);
 
   const filteredAssets = marketData?.filter(a =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -300,7 +290,7 @@ const Predict: React.FC = () => {
       <PredictionHistoryDrawer
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        predictions={mockPredictions}
+        predictions={predictions}
       />
     </DashboardLayout>
   );

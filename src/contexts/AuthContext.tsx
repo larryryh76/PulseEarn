@@ -168,11 +168,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: user.uid,
       email: user.email,
       username,
-      points: 10,
+      points: 0, // Start at 0, awarded via awardPoints for history consistency
       referralCode,
       referredBy,
       streak: 1,
-      totalEarnedToday: 10,
+      totalEarnedToday: 0,
       xp: 0,
       level: 1,
       lastRewardDate: Timestamp.fromDate(today),
@@ -196,7 +196,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    await awardPoints(user.uid, 10, 'referral_bonus', 'Signup Welcome Bonus');
+    // Award Welcome Bonus and ensure it's logged in history
+    await awardPoints(user.uid, 10, 'referral_bonus', 'Signup Welcome Reward', 50);
   }
 
   function login(email: string, password: string) {

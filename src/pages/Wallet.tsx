@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   ShieldCheck,
   Zap,
   Lock,
-  TrendingUp,
   CreditCard,
   Info,
   AlertTriangle,
@@ -17,23 +16,47 @@ import {
   Clock,
   Sparkles,
   ShieldAlert,
-  ArrowUpRight
+  ArrowUpRight,
+  TrendingUp as TrendingIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import { PTS_TO_USD, formatUSD } from '../utils/finance';
-import { useAccount } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { getXpProgress } from '../utils/progression';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { Transaction } from '../types';
 
 const Wallet: React.FC = () => {
   const { userData } = useAuth();
-  const { isConnected } = useAccount();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'withdraw'>('overview');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  useEffect(() => {
+    if (!userData?.uid) return;
+
+    const q = query(
+      collection(db, 'users', userData.uid, 'transactions'),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const txData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Transaction[];
+      setTransactions(txData);
+      setLoadingHistory(false);
+    });
+
+    return () => unsubscribe();
+  }, [userData?.uid]);
 
   if (!userData) return null;
 
@@ -43,13 +66,6 @@ const Wallet: React.FC = () => {
   const progress = Math.min(100, (currentPoints / minWithdraw) * 100);
   const pointsRemaining = Math.max(0, minWithdraw - currentPoints);
   const xp = getXpProgress(userData.xp || 0);
-
-  const transactions = [
-    { id: 'tx1', type: 'prediction', label: 'Market Forecast Win', amount: '+925', date: '2h ago', status: 'completed' },
-    { id: 'tx2', type: 'mission', label: 'TikTok Ecosystem Like', amount: '+50', date: '5h ago', status: 'completed' },
-    { id: 'tx3', type: 'streak', label: '5-Day Streak Bonus', amount: '+200', date: '1d ago', status: 'completed' },
-    { id: 'tx4', type: 'referral', label: 'Node Referral Bonus', amount: '+1,000', date: '2d ago', status: 'completed' },
-  ];
 
   return (
     <DashboardLayout>
@@ -63,7 +79,7 @@ const Wallet: React.FC = () => {
              <div className="flex flex-col items-center text-center space-y-8">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                   <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest px-1">Ecosystem Rewards Wallet</span>
+                   <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest px-1">Pulse Rewards Wallet</span>
                 </div>
 
                 <div className="relative group cursor-default">
@@ -94,16 +110,16 @@ const Wallet: React.FC = () => {
 
                 <div className="flex items-center gap-8 pt-4">
                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Growth Velocity</span>
-                      <span className="text-sm font-bold text-success flex items-center gap-1.5 bg-success/5 px-2.5 py-1 rounded-lg border border-success/10">
-                         <TrendingUp size={14} /> +12.4%
+                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Reward Level</span>
+                      <span className="text-sm font-bold text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20">
+                         LVL {userData.level}
                       </span>
                    </div>
                    <div className="w-px h-10 bg-white/5" />
                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Ecosystem Status</span>
-                      <span className="text-sm font-bold text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20">
-                         LVL {userData.level}
+                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Streak Status</span>
+                      <span className="text-sm font-bold text-orange-500 uppercase bg-orange-500/10 px-2.5 py-1 rounded-lg border border-orange-500/20 flex items-center gap-1.5">
+                         <Flame size={14} /> {userData.streak || 0} Days
                       </span>
                    </div>
                 </div>
@@ -168,14 +184,14 @@ const Wallet: React.FC = () => {
                             </div>
                             <div>
                                <h3 className="text-2xl font-bold tracking-tight">Pulse Points</h3>
-                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest mt-1">Primary Ecosystem Token</p>
+                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest mt-1">Reward Balance</p>
                             </div>
                          </div>
                          <div className="text-left md:text-right">
                             <p className="text-4xl font-mono font-bold text-white tracking-tighter">{currentPoints.toLocaleString()} <span className="text-lg text-white/20">PTS</span></p>
                             <p className="text-sm font-bold text-success mt-1 tracking-widest uppercase flex items-center md:justify-end gap-2">
                                <CheckCircle2 size={14} />
-                               {formatUSD(usdValue)} Verified
+                               {formatUSD(usdValue)} Value
                             </p>
                          </div>
                       </div>
@@ -211,56 +227,66 @@ const Wallet: React.FC = () => {
                       <div className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/[0.05] space-y-4 hover:border-white/10 transition-colors">
                          <div className="flex items-center gap-3">
                             <Flame size={18} className="text-orange-500" />
-                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Active Earning Rate</h4>
+                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Earning Velocity</h4>
                          </div>
                          <div className="flex items-baseline gap-2">
                             <span className="text-3xl font-bold text-white">+{userData.totalEarnedToday || 0}</span>
-                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">Points Today</span>
+                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">PTS Earned Today</span>
                          </div>
                          <div className="pt-2 flex flex-col gap-2">
                             <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
-                               <span className="text-white/20">Streak Multiplier</span>
-                               <span className="text-primary">x1.2</span>
+                               <span className="text-white/20">Progress to Daily Goal</span>
+                               <span className="text-primary">{Math.min(100, Math.round((userData.totalEarnedToday || 0) / 200 * 100))}%</span>
                             </div>
                             <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                               <div className="h-full bg-primary w-[60%]" />
+                               <motion.div
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${Math.min(100, (userData.totalEarnedToday || 0) / 200 * 100)}%` }}
+                                 className="h-full bg-primary"
+                               />
                             </div>
                          </div>
                       </div>
 
                       <div className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/[0.05] space-y-4 hover:border-white/10 transition-colors">
                          <div className="flex items-center gap-3">
-                            <Target size={18} className="text-accent" />
-                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Forecast Precision</h4>
+                            <TrendingIcon size={18} className="text-accent" />
+                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Lifetime Progression</h4>
                          </div>
                          <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-white">74%</span>
-                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">Efficiency</span>
+                            <span className="text-3xl font-bold text-white">{userData.xp || 0}</span>
+                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">Total XP</span>
                          </div>
                          <div className="pt-2 flex flex-col gap-2">
                             <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
-                               <span className="text-white/20">Global Rank</span>
-                               <span className="text-accent">TOP 5%</span>
+                               <span className="text-white/20">XP to Next Level</span>
+                               <span className="text-accent">{Math.round(xp.progress)}%</span>
                             </div>
                             <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                               <div className="h-full bg-accent w-[85%]" />
+                               <motion.div
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${xp.progress}%` }}
+                                 className="h-full bg-accent"
+                               />
                             </div>
                          </div>
                       </div>
                    </div>
 
-                   {/* External Bridge Info */}
+                   {/* Loyalty Program Info */}
                    <div className="p-6 rounded-[2rem] bg-primary/5 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6 group">
                       <div className="flex items-center gap-4">
                          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                             <ShieldCheck size={24} />
                          </div>
                          <div>
-                            <h4 className="text-sm font-bold text-white">Protocol Verification Status</h4>
-                            <p className="text-[11px] text-white/40 font-medium uppercase tracking-tighter">Identity node is active and synchronized with the Mainnet bridge.</p>
+                            <h4 className="text-sm font-bold text-white">Account Security Status</h4>
+                            <p className="text-[11px] text-white/40 font-medium uppercase tracking-tighter">Your account is in good standing. Maintain activity to increase your level.</p>
                          </div>
                       </div>
-                      <ConnectButton />
+                      <div className="px-6 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                         Verified Member
+                      </div>
                    </div>
                 </motion.div>
               )}
@@ -273,40 +299,68 @@ const Wallet: React.FC = () => {
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-3"
                 >
-                   {transactions.map((tx) => (
-                     <div key={tx.id} className="p-5 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.03] transition-all relative overflow-hidden">
-                        <div className="flex items-center gap-4">
-                           <div className={cn(
-                             "w-11 h-11 rounded-2xl flex items-center justify-center border border-white/5 shadow-xl",
-                             tx.type === 'prediction' ? "bg-primary/5 text-primary" :
-                             tx.type === 'mission' ? "bg-accent/5 text-accent" :
-                             tx.type === 'streak' ? "bg-orange-500/5 text-orange-500" : "bg-success/5 text-success"
-                           )}>
-                              {tx.type === 'prediction' ? <Target size={20} /> :
-                               tx.type === 'mission' ? <Zap size={20} /> :
-                               tx.type === 'streak' ? <Flame size={20} /> : <Trophy size={20} />}
-                           </div>
-                           <div>
-                              <p className="text-[14px] font-bold text-white tracking-tight">{tx.label}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{tx.date}</span>
-                                 <span className="w-1 h-1 rounded-full bg-white/10" />
-                                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{tx.type} event</span>
-                              </div>
-                           </div>
-                        </div>
-                        <div className="text-right">
-                           <p className="text-base font-mono font-bold text-success">{tx.amount} PTS</p>
-                           <div className="flex items-center justify-end gap-1.5 mt-1">
-                              <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_10px_rgba(34,197,94,0.3)]" />
-                              <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{tx.status}</span>
-                           </div>
-                        </div>
-                     </div>
-                   ))}
-                   <Button variant="outline" className="w-full py-5 rounded-[1.5rem] border-dashed border-white/10 hover:border-primary/50 text-[10px] text-white/20 hover:text-primary uppercase tracking-widest mt-6">
-                      <HistoryIcon size={16} className="mr-2" /> View Archive Activity
-                   </Button>
+                   {loadingHistory ? (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                         <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                         <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Activity...</p>
+                      </div>
+                   ) : transactions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/10">
+                            <HistoryIcon size={32} />
+                         </div>
+                         <div className="space-y-1">
+                            <p className="text-sm font-bold text-white">No activity yet</p>
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest">Complete missions to earn points</p>
+                         </div>
+                      </div>
+                   ) : (
+                     transactions.map((tx) => (
+                       <div key={tx.id} className="p-5 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.03] transition-all relative overflow-hidden">
+                          <div className="flex items-center gap-4">
+                             <div className={cn(
+                               "w-11 h-11 rounded-2xl flex items-center justify-center border border-white/5 shadow-xl",
+                               tx.type === 'prediction_reward' ? "bg-primary/5 text-primary" :
+                               tx.type === 'task_reward' ? "bg-accent/5 text-accent" :
+                               tx.type === 'daily_reward' ? "bg-orange-500/5 text-orange-500" :
+                               tx.type === 'referral_bonus' ? "bg-success/5 text-success" : "bg-white/5 text-white/40"
+                             )}>
+                                {tx.type === 'prediction_reward' ? <Target size={20} /> :
+                                 tx.type === 'task_reward' ? <Zap size={20} /> :
+                                 tx.type === 'daily_reward' ? <Flame size={20} /> : <Trophy size={20} />}
+                             </div>
+                             <div>
+                                <p className="text-[14px] font-bold text-white tracking-tight">{tx.source}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                                      {tx.timestamp instanceof Date ? tx.timestamp.toLocaleDateString() :
+                                       tx.timestamp?.toDate().toLocaleDateString()}
+                                   </span>
+                                   <span className="w-1 h-1 rounded-full bg-white/10" />
+                                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{tx.type.replace('_', ' ')}</span>
+                                </div>
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <p className={cn(
+                                "text-base font-mono font-bold",
+                                tx.amount > 0 ? "text-success" : "text-danger"
+                             )}>
+                                {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()} PTS
+                             </p>
+                             <div className="flex items-center justify-end gap-1.5 mt-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_10px_rgba(34,197,94,0.3)]" />
+                                <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Settled</span>
+                             </div>
+                          </div>
+                       </div>
+                     ))
+                   )}
+                   {transactions.length > 0 && (
+                     <Button variant="outline" className="w-full py-5 rounded-[1.5rem] border-dashed border-white/10 hover:border-primary/50 text-[10px] text-white/20 hover:text-primary uppercase tracking-widest mt-6">
+                        <HistoryIcon size={16} className="mr-2" /> View Full History
+                     </Button>
+                   )}
                 </motion.div>
               )}
 
@@ -328,7 +382,7 @@ const Wallet: React.FC = () => {
                          <div className="flex justify-between items-start">
                             <div className="space-y-2">
                                <h3 className="text-3xl font-bold tracking-tight">Withdrawal Portal</h3>
-                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest">Protocol Eligibility & Security Check</p>
+                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest">Reward Eligibility & Security Check</p>
                             </div>
                             <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center min-w-[80px]">
                                <span className="text-2xl font-mono font-bold text-primary block">{Math.round(progress)}%</span>
@@ -345,9 +399,9 @@ const Wallet: React.FC = () => {
                                />
                             </div>
                             <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">
-                               <span>Genesis Node</span>
+                               <span>Standard Tier</span>
                                <span className="text-white/40">{currentPoints.toLocaleString()} / {minWithdraw.toLocaleString()} PTS</span>
-                               <span className="text-success/40">Payout Readiness</span>
+                               <span className="text-success/40">Ready to unlock</span>
                             </div>
                          </div>
 
@@ -369,14 +423,14 @@ const Wallet: React.FC = () => {
                          <div className="space-y-6">
                             <div className="flex items-center gap-3 px-1">
                                <ShieldCheck size={18} className="text-primary" />
-                               <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-widest">Ecosystem Eligibility Protocol</h4>
+                               <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-widest">Eligibility Check</h4>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                {[
-                                 { label: 'Network Balance Threshold', val: '10,000 PTS', met: currentPoints >= 10000 },
-                                 { label: 'Node Activity History', val: 'Verified', met: true },
-                                 { label: 'Fraud Prevention Scan', val: 'Passed', met: true },
-                                 { label: 'External Wallet Sync', val: isConnected ? 'Connected' : 'Pending', met: isConnected }
+                                 { label: 'Points Balance Threshold', val: '10,000 PTS', met: currentPoints >= 10000 },
+                                 { label: 'Reward Level Requirement', val: 'Level 1+', met: userData.level >= 1 },
+                                 { label: 'Email Verification', val: 'Verified', met: true },
+                                 { label: 'Security Review', val: 'Passed', met: !userData.isFlagged }
                                ].map((req, i) => (
                                  <div key={i} className="flex items-center justify-between p-5 rounded-[1.5rem] bg-white/[0.01] border border-white/[0.03] group hover:bg-white/[0.03] transition-colors">
                                     <span className="text-[12px] font-medium text-white/50">{req.label}</span>
@@ -434,8 +488,8 @@ const Wallet: React.FC = () => {
                                   <Sparkles size={16} className="text-primary" />
                                </div>
                                <div>
-                                  <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Institutional Yield</p>
-                                  <p className="text-[10px] text-white/30 leading-relaxed mt-1">Direct payout to your synchronized blockchain wallet.</p>
+                                  <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Verified Payouts</p>
+                                  <p className="text-[10px] text-white/30 leading-relaxed mt-1">Direct payout to your provided payment method or wallet.</p>
                                </div>
                             </div>
                          </div>
@@ -445,9 +499,9 @@ const Wallet: React.FC = () => {
                          <div className="space-y-2">
                             <h4 className="text-lg font-bold text-danger tracking-tight flex items-center gap-2">
                                <ShieldAlert size={20} />
-                               Node Protection
+                               Account Protection
                             </h4>
-                            <p className="text-[11px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Security protocols monitored by Ecosystem AI.</p>
+                            <p className="text-[11px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Security protocols monitored by Pulse Core.</p>
                          </div>
                          <div className="space-y-4">
                             <div className="flex items-start gap-4">
@@ -456,7 +510,7 @@ const Wallet: React.FC = () => {
                                </div>
                                <div>
                                   <p className="text-[11px] font-bold text-danger/80 uppercase tracking-widest">Anti-Fraud Verification</p>
-                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Manipulating missions results in permanent node forfeiture.</p>
+                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Manipulating missions results in permanent account suspension.</p>
                                </div>
                             </div>
                             <div className="flex items-start gap-4">
@@ -464,8 +518,8 @@ const Wallet: React.FC = () => {
                                   <Lock size={16} className="text-danger" />
                                </div>
                                <div>
-                                  <p className="text-[11px] font-bold text-danger/80 uppercase tracking-widest">Compliance Lock</p>
-                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Suspicious activity triggers a 7-day administrative review window.</p>
+                                  <p className="text-[11px] font-bold text-danger/80 uppercase tracking-widest">Withdrawal Hold</p>
+                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Suspicious activity triggers a security review period.</p>
                                </div>
                             </div>
                          </div>

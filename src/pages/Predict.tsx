@@ -11,7 +11,8 @@ import {
   Search,
   Flame,
   ArrowRight,
-  X
+  X,
+  History
 } from 'lucide-react';
 import { cn } from '../utils';
 import Skeleton from '../components/ui/Skeleton';
@@ -20,6 +21,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
+import PredictionHistoryDrawer from '../components/ui/PredictionHistoryDrawer';
+import { Timestamp } from 'firebase/firestore';
 
 const Predict: React.FC = () => {
   const { userData } = useAuth();
@@ -29,6 +32,39 @@ const Predict: React.FC = () => {
   const [predictionAmount, setPredictionAmount] = useState(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [direction, setDirection] = useState<'up' | 'down' | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Mock predictions for demo purposes
+  const mockPredictions: any[] = [
+    {
+      id: '1',
+      asset: 'BTC',
+      assetImage: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+      direction: 'up',
+      amount: 500,
+      payout: 925,
+      status: 'won',
+      timestamp: Timestamp.now(),
+      expiryTimestamp: Timestamp.now(),
+      entryPrice: 64200.50,
+      exitPrice: 65100.20,
+      xpEarned: 50
+    },
+    {
+      id: '2',
+      asset: 'ETH',
+      assetImage: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+      direction: 'down',
+      amount: 200,
+      payout: 370,
+      status: 'lost',
+      timestamp: Timestamp.now(),
+      expiryTimestamp: Timestamp.now(),
+      entryPrice: 3450.10,
+      exitPrice: 3520.40,
+      xpEarned: 10
+    }
+  ];
 
   const filteredAssets = marketData?.filter(a =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,7 +107,7 @@ const Predict: React.FC = () => {
       <div className="space-y-8 pb-20">
 
         <ErrorBoundary name="PredictHeader">
-          <div className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
              <div className="space-y-1">
                 <div className="flex items-center gap-2 text-accent font-bold">
                    <Zap size={14} />
@@ -81,17 +117,25 @@ const Predict: React.FC = () => {
                 <p className="text-white/40 text-xs font-medium">Predict the market direction and earn points.</p>
              </div>
 
-             <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">
-                   <Search size={16} />
+             <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">
+                      <Search size={16} />
+                   </div>
+                   <input
+                     type="text"
+                     placeholder="Search..."
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-all"
+                   />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search assets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-12 pr-4 py-3.5 text-sm focus:outline-none focus:border-primary/50 transition-all font-medium"
-                />
+                <button
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="w-11 h-11 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"
+                >
+                   <History size={20} />
+                </button>
              </div>
           </div>
         </ErrorBoundary>
@@ -252,6 +296,12 @@ const Predict: React.FC = () => {
            </div>
         </Card>
       </div>
+
+      <PredictionHistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        predictions={mockPredictions}
+      />
     </DashboardLayout>
   );
 };

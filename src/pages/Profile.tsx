@@ -6,6 +6,7 @@ import Card from '../components/ui/Card';
 import TransactionHistory from '../components/ui/TransactionHistory';
 import SettingsPanel from '../components/ui/SettingsPanel';
 import HelpCenter from '../components/ui/HelpCenter';
+import PredictionHistoryDrawer from '../components/ui/PredictionHistoryDrawer';
 import {
   Copy,
   Trophy,
@@ -26,6 +27,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import { getXpProgress } from '../utils/progression';
+import { Timestamp } from 'firebase/firestore';
 
 interface OverlayProps {
   isOpen: boolean;
@@ -73,6 +75,7 @@ const Profile: React.FC = () => {
   const { userData, logout } = useAuth();
   const { activities, userTasks } = useTasks();
   const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
+  const [isPredictionsOpen, setIsPredictionsOpen] = useState(false);
 
   if (!userData) return null;
 
@@ -95,8 +98,26 @@ const Profile: React.FC = () => {
   const stats = [
     { label: 'Tasks', val: completedCount, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
     { label: 'Referrals', val: userData.stats?.referralsCount || 0, icon: Users, color: 'text-accent', bg: 'bg-accent/10' },
-    { label: 'Predictions', val: userData.stats?.predictionsCount || 0, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { label: 'Predictions', val: userData.stats?.predictionsCount || 0, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-500/10', interactive: true },
     { label: 'Points', val: userData.points.toLocaleString(), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+  ];
+
+  // Mock predictions for demo
+  const mockPredictions: any[] = [
+    {
+      id: '1',
+      asset: 'BTC',
+      assetImage: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+      direction: 'up',
+      amount: 500,
+      payout: 925,
+      status: 'won',
+      timestamp: Timestamp.now(),
+      expiryTimestamp: Timestamp.now(),
+      entryPrice: 64200.50,
+      exitPrice: 65100.20,
+      xpEarned: 50
+    }
   ];
 
   return (
@@ -184,7 +205,14 @@ const Profile: React.FC = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {stats.map((stat, i) => (
-            <Card key={i} className="p-4 border-white/[0.03] bg-[#0A0A0F] rounded-2xl">
+            <Card
+              key={i}
+              onClick={stat.interactive ? () => setIsPredictionsOpen(true) : undefined}
+              className={cn(
+                "p-4 border-white/[0.03] bg-[#0A0A0F] rounded-2xl",
+                stat.interactive && "cursor-pointer hover:border-primary/30 transition-colors group"
+              )}
+            >
               <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center mb-4 border border-white/[0.05]", stat.bg)}>
                 <stat.icon size={16} className={stat.color} />
               </div>
@@ -269,6 +297,12 @@ const Profile: React.FC = () => {
       <Overlay isOpen={activeOverlay === 'history'} onClose={() => setActiveOverlay(null)} title="Activity History"><TransactionHistory /></Overlay>
       <Overlay isOpen={activeOverlay === 'settings'} onClose={() => setActiveOverlay(null)} title="Settings"><SettingsPanel /></Overlay>
       <Overlay isOpen={activeOverlay === 'help'} onClose={() => setActiveOverlay(null)} title="Help Center"><HelpCenter /></Overlay>
+
+      <PredictionHistoryDrawer
+        isOpen={isPredictionsOpen}
+        onClose={() => setIsPredictionsOpen(false)}
+        predictions={mockPredictions}
+      />
     </DashboardLayout>
   );
 };

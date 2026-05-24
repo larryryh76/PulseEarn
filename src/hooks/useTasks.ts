@@ -16,7 +16,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskSubmission } from '../types';
 import toast from 'react-hot-toast';
-import { awardPoints } from '../utils/economy';
+import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
 export const useTasks = () => {
   const { currentUser, userData } = useAuth();
@@ -176,13 +176,14 @@ export const useTasks = () => {
     if (!task) return;
 
     try {
-      const result = await awardPoints(
-        currentUser.uid,
-        task.rewardPoints,
-        'task_reward',
-        `Mission: ${task.title}`,
-        task.rewardXp || 0
-      );
+      const result = await PointTransactionEngine.execute({
+        userId: currentUser.uid,
+        amount: task.rewardPoints,
+        type: 'task_reward',
+        source: `Mission: ${task.title}`,
+        xpReward: task.rewardXp || 0,
+        description: `Successfully completed ${task.title}`
+      });
 
       if (!result.success) {
         toast.error(result.error || 'Failed to claim reward');

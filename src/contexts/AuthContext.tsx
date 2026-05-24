@@ -28,7 +28,7 @@ import {
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
-import { awardPoints } from '../utils/economy';
+import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { EcosystemBot } from '../utils/ecosystemBot';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
@@ -96,7 +96,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isNotToday = !lastRewardDate || lastRewardDate < today;
 
       if (isNotToday) {
-        const result = await awardPoints(uid, 10, 'daily_reward', 'Daily Login Bonus');
+        const result = await PointTransactionEngine.execute({
+          userId: uid,
+          amount: 10,
+          type: 'daily_reward',
+          source: 'Daily Login Bonus',
+          xpReward: 20
+        });
 
         if (!result.success) return;
 
@@ -138,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Send initial verification
     await sendEmailVerification(user);
 
-    const isAdmin = email.toLowerCase() === 'admin@pulse.com';
+    const isAdmin = email.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
     const role = isAdmin ? 'admin' : 'user';
 
     let referredBy = null;
@@ -149,7 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const referrerDoc = querySnapshot.docs[0];
         referredBy = referrerDoc.id;
 
-        await awardPoints(referredBy, 50, 'referral_bonus', `Referral bonus for ${username}`);
+        await PointTransactionEngine.execute({
+          userId: referredBy,
+          amount: 50,
+          type: 'referral_bonus',
+          source: `Referral bonus for ${username}`
+        });
+
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {
           title: 'Referral Mission Success!',
           description: `A new member (${username}) joined via your code.`,
@@ -197,7 +209,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Award Welcome Bonus and ensure it's logged in history
-    await awardPoints(user.uid, 10, 'referral_bonus', 'Signup Welcome Reward', 50);
+    await PointTransactionEngine.execute({
+      userId: user.uid,
+      amount: 10,
+      type: 'referral_bonus',
+      source: 'Signup Welcome Reward',
+      xpReward: 50
+    });
   }
 
   function login(email: string, password: string) {
@@ -221,7 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = docSnap.data() as UserData;
             const resolvedData = {
               ...data,
-              role: (user.email?.toLowerCase() === 'admin@pulse.com' || data.role === 'admin') ? 'admin' : 'user'
+              role: (user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || data.role === 'admin') ? 'admin' : 'user'
             };
 
             setUserData(resolvedData as UserData);

@@ -10,15 +10,13 @@ import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import Predict from './pages/Predict'
 import Wallet from './pages/Wallet'
-import ControlCenter from './pages/ControlCenter'
 import AdminLayout from './components/layout/AdminLayout'
-import UserDirectory from './components/admin/UserDirectory'
+import AICommandCenter from './components/admin/AICommandCenter'
 import TaskOrchestrator from './components/admin/TaskOrchestrator'
-import CampaignManager from './components/admin/CampaignManager'
-import EconomyConsole from './components/admin/EconomyConsole'
-import SystemAuditLogs from './components/admin/SystemAuditLogs'
-import SystemSettingsPanel from './components/admin/SystemSettingsPanel'
-import AdminAIConsole from './components/admin/AdminAIConsole'
+import EconomyIntelligence from './components/admin/EconomyIntelligence'
+import SystemAudit from './components/admin/SystemAudit'
+import SystemSettings from './components/admin/SystemSettings'
+import UserModeration from './components/admin/UserModeration'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -32,8 +30,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   // EMAIL VERIFICATION CHECK
-  // TEMPORARY: admin@pulse.com bypasses email verification on the frontend
-  const isAdmin = currentUser.email?.toLowerCase() === 'admin@pulse.com';
+  // TEMPORARY: admin bypasses email verification on the frontend
+  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
 
   if (!currentUser.emailVerified && !isAdmin && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
@@ -135,19 +133,12 @@ function App() {
         <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-          <Route index element={<ControlCenter />} />
-          <Route path="ai" element={<AdminAIConsole />} />
-          <Route path="users" element={<UserDirectory />} />
+          <Route index element={<AICommandCenter />} />
+          <Route path="users" element={<UserModeration />} />
           <Route path="tasks" element={<TaskOrchestrator />} />
-          <Route path="campaigns" element={<CampaignManager />} />
-          <Route path="economy" element={<EconomyConsole />} />
-          <Route path="audit" element={<SystemAuditLogs />} />
-          <Route path="settings" element={
-            <div className="max-w-2xl mx-auto space-y-8 py-8">
-              <h1 className="text-2xl font-bold mb-8 text-center">Global System Configuration</h1>
-              <SystemSettingsPanel />
-            </div>
-          } />
+          <Route path="economy" element={<EconomyIntelligence />} />
+          <Route path="audit" element={<SystemAudit />} />
+          <Route path="settings" element={<SystemSettings />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -55,7 +55,7 @@ const VerifyEmail: React.FC = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   // Bypass for admin
-  const isAdmin = currentUser.email?.toLowerCase() === 'admin@pulse.com';
+  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
   if (currentUser.emailVerified || isAdmin) {
     const target = isAdmin ? '/pulse-core' : '/dashboard';
     return <Navigate to={target} replace />;

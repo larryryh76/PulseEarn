@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import {
-  BarChart3,
-  Users,
-  ClipboardList,
   ShieldCheck,
   Settings,
-  Activity,
   LogOut,
   ChevronLeft,
   Zap,
   Menu,
   X,
-  Layers,
-  Bot
+  BrainCircuit,
+  Database,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -26,14 +23,12 @@ const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const adminMenu = [
-    { name: 'Overview', icon: BarChart3, href: '/pulse-core' },
-    { name: 'AI Console', icon: Bot, href: '/pulse-core/ai' },
-    { name: 'User Directory', icon: Users, href: '/pulse-core/users' },
-    { name: 'Task Engine', icon: ClipboardList, href: '/pulse-core/tasks' },
-    { name: 'Campaigns', icon: Layers, href: '/pulse-core/campaigns' },
-    { name: 'Economy Control', icon: Zap, href: '/pulse-core/economy' },
-    { name: 'Audit Logs', icon: Activity, href: '/pulse-core/audit' },
-    { name: 'System Settings', icon: Settings, href: '/pulse-core/settings' },
+    { name: 'Ecosystem Intelligence', icon: BrainCircuit, href: '/pulse-core' },
+    { name: 'User Moderation', icon: Users, href: '/pulse-core/users' },
+    { name: 'Task Orchestrator', icon: Database, href: '/pulse-core/tasks' },
+    { name: 'Economy Intel', icon: Zap, href: '/pulse-core/economy' },
+    { name: 'System Audit', icon: ShieldCheck, href: '/pulse-core/audit' },
+    { name: 'Configuration', icon: Settings, href: '/pulse-core/settings' },
   ];
 
   const handleLogout = async () => {

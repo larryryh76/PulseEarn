@@ -22,8 +22,9 @@ import Button from '../components/ui/Button';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
 import PredictionHistoryDrawer from '../components/ui/PredictionHistoryDrawer';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
 const Predict: React.FC = () => {
   const { userData } = useAuth();
@@ -63,17 +64,45 @@ const Predict: React.FC = () => {
 
   const handlePredict = async () => {
     if (!direction) return toast.error('Select a direction');
-    if (!userData) return toast.error('Auth required');
+    if (!userData || !userData.uid) return toast.error('Auth required');
     if (userData.points < predictionAmount) return toast.error('Insufficient points');
 
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 1. Centralized Point Deduction via AI Engine
+      const result = await PointTransactionEngine.execute({
+        userId: userData.uid,
+        amount: -predictionAmount,
+        type: 'prediction_entry',
+        source: `Prediction: ${selectedAsset?.symbol.toUpperCase()}`,
+        description: `Price forecast for ${selectedAsset?.name}`,
+        metadata: {
+          assetId: selectedAsset.id,
+          symbol: selectedAsset.symbol,
+          entryPrice: selectedAsset.current_price,
+          direction
+        }
+      });
+
+      if (!result.success) throw new Error(result.error);
+
+      // 2. Create Prediction Record
+      await addDoc(collection(db, 'predictions'), {
+        userId: userData.uid,
+        assetId: selectedAsset.id,
+        symbol: selectedAsset.symbol,
+        direction,
+        amount: predictionAmount,
+        entryPrice: selectedAsset.current_price,
+        status: 'PENDING',
+        timestamp: serverTimestamp()
+      });
+
       toast.success(`Position Opened: ${selectedAsset?.symbol.toUpperCase()} ${direction.toUpperCase()}!`);
       setSelectedAsset(null);
       setDirection(null);
-    } catch (err) {
-      toast.error('Prediction failed');
+    } catch (err: any) {
+      toast.error(err.message || 'Prediction failed');
     } finally {
       setIsSubmitting(false);
     }

@@ -18,14 +18,13 @@ import { Timestamp } from 'firebase/firestore';
 
 interface PredictionRecord {
   id: string;
-  asset: string;
-  assetImage: string;
+  assetId: string;
+  symbol: string;
   direction: 'up' | 'down';
   amount: number;
   payout: number;
   status: 'active' | 'won' | 'lost' | 'pending';
   timestamp: Timestamp;
-  expiryTimestamp: Timestamp;
   entryPrice: number;
   exitPrice?: number;
   xpEarned?: number;
@@ -135,11 +134,11 @@ const PredictionHistoryDrawer: React.FC<PredictionHistoryDrawerProps> = ({ isOpe
                                 </div>
 
                                 <div className="flex items-center gap-6 mb-10 relative z-10">
-                                   <div className="w-20 h-20 rounded-[2rem] bg-white/[0.03] border border-white/10 p-4 shadow-2xl">
-                                      <img src={selectedPrediction.assetImage} className="w-full h-full object-contain" alt="" />
+                                   <div className="w-20 h-20 rounded-[2rem] bg-white/[0.03] border border-white/10 p-4 shadow-2xl flex items-center justify-center">
+                                      <Target size={40} className="text-primary/40" />
                                    </div>
                                    <div>
-                                      <h3 className="text-3xl font-bold tracking-tighter mb-1">{selectedPrediction.asset}/USDT</h3>
+                                      <h3 className="text-3xl font-bold tracking-tighter mb-1">{selectedPrediction.symbol.toUpperCase()}/USDT</h3>
                                       <div className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border",
                                         getStatusColor(selectedPrediction.status)
@@ -235,11 +234,11 @@ const PredictionHistoryDrawer: React.FC<PredictionHistoryDrawerProps> = ({ isOpe
                                >
                                   <div className="flex items-center gap-4 relative z-10">
                                      <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 p-2.5 flex items-center justify-center">
-                                        <img src={pred.assetImage} className="w-full h-full object-contain" alt="" />
+                                        <Target size={20} className="text-primary/40" />
                                      </div>
                                      <div>
                                         <div className="flex items-center gap-2">
-                                           <h4 className="font-bold text-white tracking-tight uppercase">{pred.asset}/USDT</h4>
+                                           <h4 className="font-bold text-white tracking-tight uppercase">{pred.symbol}/USDT</h4>
                                            <div className={cn(
                                               "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border",
                                               getStatusColor(pred.status)

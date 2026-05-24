@@ -10,7 +10,8 @@ import {
   X,
   BrainCircuit,
   Database,
-  Users
+  Users,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -24,10 +25,10 @@ const AdminLayout: React.FC = () => {
 
   const adminMenu = [
     { name: 'Ecosystem Intelligence', icon: BrainCircuit, href: '/pulse-core' },
+    { name: 'Point AI', icon: Zap, href: '/pulse-core/points' },
+    { name: 'System Engineer', icon: Bot, href: '/pulse-core/engineer' },
     { name: 'User Moderation', icon: Users, href: '/pulse-core/users' },
     { name: 'Task Orchestrator', icon: Database, href: '/pulse-core/tasks' },
-    { name: 'Economy Intel', icon: Zap, href: '/pulse-core/economy' },
-    { name: 'System Audit', icon: ShieldCheck, href: '/pulse-core/audit' },
     { name: 'Configuration', icon: Settings, href: '/pulse-core/settings' },
   ];
 

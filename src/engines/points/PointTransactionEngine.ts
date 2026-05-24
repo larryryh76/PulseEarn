@@ -21,6 +21,68 @@ export interface PointTransactionRequest {
 
 export class PointTransactionEngine {
   /**
+   * Performs an atomic prediction entry: deducts points, logs transaction, and creates prediction record.
+   */
+  static async createPrediction(request: {
+    userId: string;
+    amount: number;
+    assetId: string;
+    symbol: string;
+    direction: 'up' | 'down';
+    entryPrice: number;
+  }) {
+    const { userId, amount, assetId, symbol, direction, entryPrice } = request;
+    const userRef = doc(db, 'users', userId);
+    const transactionsRef = collection(db, 'users', userId, 'transactions');
+    const predictionsRef = collection(db, 'predictions');
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw new Error("User not found");
+
+        const userData = userSnap.data();
+        if ((userData.points || 0) < amount) {
+          throw new Error("Insufficient point balance");
+        }
+
+        // 1. Deduct Balance
+        transaction.update(userRef, {
+          points: increment(-amount),
+          lastActionTimestamp: serverTimestamp()
+        });
+
+        // 2. Log Transaction
+        const txDoc = doc(transactionsRef);
+        transaction.set(txDoc, {
+          userId,
+          type: 'prediction_entry',
+          amount: -amount,
+          source: `Forecast: ${symbol.toUpperCase()}`,
+          timestamp: serverTimestamp(),
+          metadata: { assetId, direction }
+        });
+
+        // 3. Create Prediction Record
+        const predDoc = doc(predictionsRef);
+        transaction.set(predDoc, {
+          userId,
+          assetId,
+          symbol,
+          direction,
+          amount,
+          entryPrice,
+          status: 'PENDING',
+          timestamp: serverTimestamp()
+        });
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * The single authoritative method for moving points in the PulseEarn ecosystem.
    * Ensures atomic balance updates and transaction logging.
    */

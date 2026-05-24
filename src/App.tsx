@@ -11,12 +11,12 @@ import Profile from './pages/Profile'
 import Predict from './pages/Predict'
 import Wallet from './pages/Wallet'
 import AdminLayout from './components/layout/AdminLayout'
-import AICommandCenter from './components/admin/AICommandCenter'
+import PointAIConsole from './components/admin/PointAIConsole'
+import SystemEngineerConsole from './components/admin/SystemEngineerConsole'
 import TaskOrchestrator from './components/admin/TaskOrchestrator'
-import EconomyIntelligence from './components/admin/EconomyIntelligence'
-import SystemAudit from './components/admin/SystemAudit'
-import SystemSettings from './components/admin/SystemSettings'
 import UserModeration from './components/admin/UserModeration'
+import SystemSettings from './components/admin/SystemSettings'
+import EcosystemIntelligence from './components/admin/EcosystemIntelligence'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -133,11 +133,11 @@ function App() {
         <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-          <Route index element={<AICommandCenter />} />
+          <Route index element={<EcosystemIntelligence />} />
+          <Route path="points" element={<PointAIConsole />} />
+          <Route path="engineer" element={<SystemEngineerConsole />} />
           <Route path="users" element={<UserModeration />} />
           <Route path="tasks" element={<TaskOrchestrator />} />
-          <Route path="economy" element={<EconomyIntelligence />} />
-          <Route path="audit" element={<SystemAudit />} />
           <Route path="settings" element={<SystemSettings />} />
         </Route>
 

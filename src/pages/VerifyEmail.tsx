@@ -53,7 +53,13 @@ const VerifyEmail: React.FC = () => {
   };
 
   if (!currentUser) return <Navigate to="/login" replace />;
-  if (currentUser.emailVerified) return <Navigate to="/dashboard" replace />;
+
+  // Bypass for admin
+  const isAdmin = currentUser.email?.toLowerCase() === 'admin@pulse.com';
+  if (currentUser.emailVerified || isAdmin) {
+    const target = isAdmin ? '/pulse-core' : '/dashboard';
+    return <Navigate to={target} replace />;
+  }
 
   return (
     <MainLayout>

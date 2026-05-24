@@ -20,11 +20,12 @@ const Login: React.FC = () => {
   const handleAuthError = (error: any) => {
     const code = error.code || '';
     if (code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
-      return 'No account found with these credentials.';
+      return 'System Linkage Failed: Invalid credentials provided.';
     }
-    if (code === 'auth/user-disabled') return 'This account has been disabled.';
-    if (code === 'auth/too-many-requests') return 'Too many attempts. Please try again later.';
-    return 'An error occurred. Please check your connection.';
+    if (code === 'auth/user-disabled') return 'Access Denied: This account has been deactivated.';
+    if (code === 'auth/too-many-requests') return 'Security Protocol: Too many attempts. Try again later.';
+    if (code === 'auth/network-request-failed') return 'Connectivity Error: Unable to reach the ecosystem.';
+    return 'Ecosystem Error: A system anomaly occurred. Please retry.';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

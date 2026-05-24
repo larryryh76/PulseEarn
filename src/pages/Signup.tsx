@@ -35,10 +35,11 @@ const Signup: React.FC = () => {
 
   const handleAuthError = (error: any) => {
     const code = error.code || '';
-    if (code === 'auth/email-already-in-use') return 'This email is already registered.';
-    if (code === 'auth/weak-password') return 'Password is too weak. Please use at least 8 characters.';
-    if (code === 'auth/invalid-email') return 'Invalid email address format.';
-    return 'An account error occurred. Please try again.';
+    if (code === 'auth/email-already-in-use') return 'Identity Conflict: This email is already linked to the ecosystem.';
+    if (code === 'auth/weak-password') return 'Security Protocol: Password does not meet complexity requirements.';
+    if (code === 'auth/invalid-email') return 'Format Error: Invalid email signature detected.';
+    if (code === 'auth/network-request-failed') return 'Connectivity Error: Unable to reach the ecosystem.';
+    return 'Ecosystem Error: Failed to initialize account. Please retry.';
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

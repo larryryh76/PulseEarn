@@ -32,7 +32,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   // EMAIL VERIFICATION CHECK
-  if (!currentUser.emailVerified && window.location.pathname !== '/verify-email') {
+  // TEMPORARY: admin@pulse.com bypasses email verification on the frontend
+  const isAdmin = currentUser.email?.toLowerCase() === 'admin@pulse.com';
+
+  if (!currentUser.emailVerified && !isAdmin && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 

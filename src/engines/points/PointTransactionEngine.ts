@@ -28,8 +28,8 @@ export type PointTransactionResult =
 
 export class PointTransactionEngine {
   /**
-   * The single authoritative gateway for all economy mutations.
-   * Features: Transactional Locking, Idempotency (Claim ID), and Centralized Validation.
+   * The absolute authority gateway for all economy mutations.
+   * Enforces transactional locking, claim idempotency, and centralized reward validation.
    */
   static async execute(request: PointTransactionRequest): Promise<PointTransactionResult> {
     const { userId, amount, type, source, claimId, xpReward = 0, metadata = {} } = request;
@@ -39,7 +39,7 @@ export class PointTransactionEngine {
 
     try {
       return await runTransaction(db, async (transaction) => {
-        // 1. Acquire Lock & Check Idempotency
+        // 1. Acquire State & Validate Idempotency
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) throw new Error("ENTITY_NOT_FOUND");
 
@@ -47,41 +47,35 @@ export class PointTransactionEngine {
         const claimSnap = await transaction.get(claimRef);
         if (claimSnap.exists()) throw new Error("REWARD_ALREADY_CLAIMED");
 
-        // 2. Check Execution Lock (Race Condition Prevention)
+        // 2. Transactional Locking (Atomic Mutex)
         if (!request.bypassLock && userData.execution_lock) {
           const lockTime = userData.execution_lock_at?.toDate();
           const now = new Date();
-          // If lock is older than 30s, assume it's stale and override
           if (lockTime && (now.getTime() - lockTime.getTime()) < 30000) {
-            throw new Error("TRANSACTION_IN_PROGRESS");
+            throw new Error("RACE_CONDITION_DETECTED");
           }
         }
 
-        // 3. Set Lock
-        transaction.update(userRef, {
-          execution_lock: true,
-          execution_lock_at: serverTimestamp()
-        });
-
-        // 4. Centralized Validation (Cooldowns, Eligibility)
+        // 3. Centralized Reward Validation Rules
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           if (lastReward && lastReward >= today) {
-             throw new Error("DAILY_COOLDOWN_ACTIVE");
+             throw new Error("DAILY_REWARD_COOLDOWN");
           }
         }
 
-        // 5. Balance Safety
+        // 4. Financial Solvency Check
         if (amount < 0 && (userData.points || 0) + amount < 0) {
           throw new Error("INSUFFICIENT_FUNDS");
         }
 
-        // 6. Execute Mutation
+        // 5. Progression Calculation
         const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
         const newLevel = calculateLevel(newXp);
 
+        // 6. Atomic Mutation
         transaction.update(userRef, {
           points: increment(amount),
           xp: newXp,
@@ -93,17 +87,17 @@ export class PointTransactionEngine {
           ...(type === 'daily_reward' ? { lastRewardDate: serverTimestamp() } : {})
         });
 
-        // 7. Create Immutable Claim Record (Idempotency Proof)
+        // 7. Proof of Execution (Idempotency Layer)
         transaction.set(claimRef, {
           userId,
           type,
           source,
           amount,
           executedAt: serverTimestamp(),
-          metadata
+          metadata: { ...metadata, engineVersion: '4.0.0-PRO' }
         });
 
-        // 8. Create Transaction Log
+        // 8. Immutable Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           userId,
@@ -114,27 +108,20 @@ export class PointTransactionEngine {
           description: request.description || '',
           metadata,
           timestamp: serverTimestamp(),
-          engineVersion: '3.0.0-INFRA'
+          engineVersion: '4.0.0-PRO'
         });
-
-        // 9. Log to Anomaly Feed if high value or suspicious (Placeholder)
-        // ...
 
         return { success: true, txId: txDoc.id };
       });
     } catch (error: any) {
-      console.error(`[PointAI] Failure: ${error.message} (Claim: ${claimId})`);
-
-      // Attempt to release lock on error if we have the user reference
-      // (Note: transaction rollback handles Firestore state, but we log for monitoring)
-      await this.logAnomaly(userId, claimId, error.message, request);
-
+      console.error(`[PointAI] Protocol Failure: ${error.message} (Claim: ${claimId})`);
+      await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Atomic Prediction Sequence
+   * Atomic Market Prediction Pipeline
    */
   static async executePrediction(request: {
     userId: string;
@@ -158,18 +145,18 @@ export class PointTransactionEngine {
 
         const userData = userSnap.data();
         const claimSnap = await transaction.get(claimRef);
-        if (claimSnap.exists()) throw new Error("PREDICTION_ALREADY_EXISTS");
+        if (claimSnap.exists()) throw new Error("DUPLICATE_PREDICTION_ATTEMPT");
 
         if ((userData.points || 0) < amount) throw new Error("INSUFFICIENT_FUNDS");
 
-        // 1. Lock & Deduct
+        // 1. Transactional State Sync
         transaction.update(userRef, {
           points: increment(-amount),
-          execution_lock: false, // Predictions are atomic enough not to need long-locks
-          lastActionTimestamp: serverTimestamp()
+          lastActionTimestamp: serverTimestamp(),
+          ['stats.predictionsCount']: increment(1)
         });
 
-        // 2. Create Prediction Document
+        // 2. Create Verifiable Prediction Record
         const predDoc = doc(predictionsRef);
         transaction.set(predDoc, {
           userId,
@@ -180,19 +167,20 @@ export class PointTransactionEngine {
           entryPrice,
           status: 'PENDING',
           claimId,
-          timestamp: serverTimestamp()
+          timestamp: serverTimestamp(),
+          engineVersion: '4.0.0-PRO'
         });
 
-        // 3. Set Claim Nonce
+        // 3. Mark Claim Nonce
         transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, executedAt: serverTimestamp() });
 
-        // 4. Log Transaction
+        // 4. Ledger Entry
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           userId,
           type: 'prediction_entry',
           amount: -amount,
-          source: `Forecast: ${symbol.toUpperCase()}`,
+          source: `Market Prediction: ${symbol.toUpperCase()}`,
           claimId,
           timestamp: serverTimestamp(),
           metadata: { assetId, predictionId: predDoc.id }
@@ -201,12 +189,12 @@ export class PointTransactionEngine {
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };
       });
     } catch (error: any) {
-      await this.logAnomaly(userId, claimId, error.message, request);
+      await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
     }
   }
 
-  private static async logAnomaly(userId: string, claimId: string, error: string, request: any) {
+  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
     try {
       await setDoc(doc(collection(db, 'system_anomalies')), {
         userId,
@@ -214,10 +202,11 @@ export class PointTransactionEngine {
         error,
         requestType: request.type,
         timestamp: serverTimestamp(),
-        severity: (error === 'REWARD_ALREADY_CLAIMED' || error === 'DAILY_COOLDOWN_ACTIVE') ? 'MEDIUM' : 'LOW'
+        severity: (error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM',
+        context: 'PROTOCOL_VALIDATION_FAILURE'
       });
     } catch (e) {
-      // Ignore secondary failures
+      // Background logging failsafe
     }
   }
 }

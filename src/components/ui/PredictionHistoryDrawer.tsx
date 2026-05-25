@@ -18,12 +18,13 @@ import { Timestamp } from 'firebase/firestore';
 
 interface PredictionRecord {
   id: string;
+  userId: string;
   assetId: string;
   symbol: string;
   direction: 'up' | 'down';
   amount: number;
   payout: number;
-  status: 'active' | 'won' | 'lost' | 'pending';
+  status: 'active' | 'won' | 'lost' | 'PENDING';
   timestamp: Timestamp;
   entryPrice: number;
   exitPrice?: number;
@@ -41,7 +42,10 @@ const PredictionHistoryDrawer: React.FC<PredictionHistoryDrawerProps> = ({ isOpe
   const [selectedPrediction, setSelectedPrediction] = useState<PredictionRecord | null>(null);
 
   const filteredPredictions = predictions.filter(p => {
-    if (activeTab === 'active') return p.status === 'active' || p.status === 'pending';
+    // Ensure we only show real user records
+    if (!p.id || !p.userId) return false;
+
+    if (activeTab === 'active') return p.status === 'active' || p.status === 'PENDING';
     if (activeTab === 'completed') return p.status === 'won' || p.status === 'lost';
     return p.status === activeTab;
   });

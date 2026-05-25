@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -7,6 +7,8 @@ import TransactionHistory from '../components/ui/TransactionHistory';
 import SettingsPanel from '../components/ui/SettingsPanel';
 import HelpCenter from '../components/ui/HelpCenter';
 import PredictionHistoryDrawer from '../components/ui/PredictionHistoryDrawer';
+import { db } from '../firebase/config';
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import {
   Copy,
   Trophy,
@@ -27,7 +29,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import { getXpProgress } from '../utils/progression';
-import { Timestamp } from 'firebase/firestore';
 
 interface OverlayProps {
   isOpen: boolean;
@@ -102,23 +103,18 @@ const Profile: React.FC = () => {
     { label: 'Points', val: userData.points.toLocaleString(), icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
   ];
 
-  // Mock predictions for demo
-  const mockPredictions: any[] = [
-    {
-      id: '1',
-      asset: 'BTC',
-      assetImage: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
-      direction: 'up',
-      amount: 500,
-      payout: 925,
-      status: 'won',
-      timestamp: Timestamp.now(),
-      expiryTimestamp: Timestamp.now(),
-      entryPrice: 64200.50,
-      exitPrice: 65100.20,
-      xpEarned: 50
-    }
-  ];
+  const [predictions, setPredictions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!userData?.uid) return;
+    const q = query(
+      collection(db, 'predictions'),
+      where('userId', '==', userData.uid),
+      orderBy('timestamp', 'desc'),
+      limit(10)
+    );
+    return onSnapshot(q, snap => setPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [userData?.uid]);
 
   return (
     <DashboardLayout>
@@ -301,7 +297,7 @@ const Profile: React.FC = () => {
       <PredictionHistoryDrawer
         isOpen={isPredictionsOpen}
         onClose={() => setIsPredictionsOpen(false)}
-        predictions={mockPredictions}
+        predictions={predictions}
       />
     </DashboardLayout>
   );

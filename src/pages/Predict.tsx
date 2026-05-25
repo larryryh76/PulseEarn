@@ -68,7 +68,8 @@ const Predict: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const claimId = `pred_${Date.now()}_${userData.uid}`;
+      const timestamp = Date.now();
+      const claimId = `pred_${timestamp}_${userData.uid}`;
       const result = await PointTransactionEngine.executePrediction({
         userId: userData.uid,
         amount: predictionAmount,

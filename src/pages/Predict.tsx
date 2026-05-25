@@ -12,7 +12,8 @@ import {
   Flame,
   ArrowRight,
   X,
-  History
+  History,
+  RefreshCcw
 } from 'lucide-react';
 import { cn } from '../utils';
 import Skeleton from '../components/ui/Skeleton';
@@ -92,6 +93,17 @@ const Predict: React.FC = () => {
     }
   };
 
+  const handleManualResolution = async () => {
+    const { MarketResolver } = await import('../engines/points/MarketResolver');
+    const toastId = toast.loading('Synchronizing with Market Oracle...');
+    try {
+      const result = await MarketResolver.resolveAllPending();
+      toast.success(`Market Resolution Cycle Complete: ${result.resolved} positions processed.`, { id: toastId });
+    } catch (err) {
+      toast.error('Oracle Link Failure', { id: toastId });
+    }
+  };
+
   if (error && (!marketData || marketData.length === 0)) {
     return (
       <DashboardLayout>
@@ -133,6 +145,13 @@ const Predict: React.FC = () => {
                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-all"
                    />
                 </div>
+                <button
+                  onClick={handleManualResolution}
+                  className="w-11 h-11 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-center text-primary/60 hover:text-primary transition-all"
+                  title="Force Market Sync"
+                >
+                   <RefreshCcw size={20} />
+                </button>
                 <button
                   onClick={() => setIsHistoryOpen(true)}
                   className="w-11 h-11 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-all"

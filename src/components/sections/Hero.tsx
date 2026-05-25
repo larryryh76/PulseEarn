@@ -46,10 +46,10 @@ const Hero: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="text-5xl md:text-7xl lg:text-8xl font-heading font-bold leading-tight tracking-tighter"
+              className="text-6xl md:text-8xl lg:text-9xl font-bold leading-[0.9] tracking-tighter"
             >
-              EARN REWARDS <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">WITH PRECISION</span>
+              EARN <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/30">REWARDS.</span>
             </motion.h1>
           </motion.div>
 
@@ -68,21 +68,21 @@ const Hero: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
+            className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto"
           >
-            <Button size="lg" glow className="px-10 py-6 text-xs uppercase tracking-widest font-bold" onClick={() => navigate('/signup')}>
-              Get Started
-              <ArrowRight size={16} className="ml-1" />
+            <Button size="lg" className="px-12 py-7 text-[11px] uppercase tracking-[0.2em] font-bold bg-white text-black hover:bg-white/90" onClick={() => navigate('/signup')}>
+              Launch App
+              <ArrowRight size={16} className="ml-2" />
             </Button>
             <Button
               variant="outline"
               size="lg"
-              className="px-10 py-6 text-xs uppercase tracking-widest font-bold"
+              className="px-12 py-7 text-[11px] uppercase tracking-[0.2em] font-bold border-white/10 hover:bg-white/5"
               onClick={() => {
                 document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
               }}
             >
-              Learn More
+              The Ecosystem
             </Button>
           </motion.div>
 

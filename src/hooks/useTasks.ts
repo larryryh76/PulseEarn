@@ -184,7 +184,12 @@ export const useTasks = () => {
         source: `Mission: ${task.title}`,
         claimId,
         xpReward: task.rewardXp || 0,
-        description: `Successfully completed ${task.title}`
+        description: `Successfully completed ${task.title}`,
+        metadata: {
+          taskId,
+          taskType: task.type,
+          verification: task.verificationType
+        }
       });
 
       if (!result.success) {
@@ -200,7 +205,8 @@ export const useTasks = () => {
           taskId,
           lastCompleted: serverTimestamp(),
           status: 'completed'
-        });
+        }, { merge: true });
+
         transaction.update(userRef, {
           'stats.tasksCompleted': firestoreIncrement(1),
           lastActionTimestamp: serverTimestamp()

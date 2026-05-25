@@ -13,7 +13,7 @@ import { calculateLevel } from '../../utils/progression';
 export interface PointTransactionRequest {
   userId: string;
   amount: number;
-  type: Transaction['type'] | 'AI_SYSTEM_CORRECTION' | 'prediction_entry';
+  type: Transaction['type'] | 'AI_SYSTEM_CORRECTION' | 'prediction_entry' | 'referral_bonus' | 'withdrawal_debit';
   source: string;
   claimId: string; // Unique Nonce/Claim ID (e.g. daily_20260525_UID)
   description?: string;
@@ -64,6 +64,15 @@ export class PointTransactionEngine {
           if (lastReward && lastReward >= today) {
              throw new Error("DAILY_REWARD_COOLDOWN");
           }
+
+          // Streak Logic
+          const lastRewardTime = lastReward ? lastReward.getTime() : 0;
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          const isStreak = lastRewardTime > 0 && (today.getTime() - lastRewardTime) <= oneDayMs * 1.5;
+
+          transaction.update(userRef, {
+            streak: isStreak ? increment(1) : 1
+          });
         }
 
         // 4. Financial Solvency Check
@@ -71,11 +80,22 @@ export class PointTransactionEngine {
           throw new Error("INSUFFICIENT_FUNDS");
         }
 
-        // 5. Progression Calculation
+        // 5. Fraud Checks (Stub for high-value mutations)
+        if (amount > 10000) {
+          const velocityCheckRef = doc(db, 'system_security', `velocity_${userId}`);
+          // Add complex fraud detection logic here in future
+          transaction.set(velocityCheckRef, {
+            lastLargeReward: serverTimestamp(),
+            amount,
+            status: 'FLAGGED_FOR_REVIEW'
+          }, { merge: true });
+        }
+
+        // 6. Progression Calculation
         const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
         const newLevel = calculateLevel(newXp);
 
-        // 6. Atomic Mutation
+        // 7. Atomic Mutation
         transaction.update(userRef, {
           points: increment(amount),
           xp: newXp,
@@ -87,17 +107,17 @@ export class PointTransactionEngine {
           ...(type === 'daily_reward' ? { lastRewardDate: serverTimestamp() } : {})
         });
 
-        // 7. Proof of Execution (Idempotency Layer)
+        // 8. Proof of Execution (Idempotency Layer)
         transaction.set(claimRef, {
           userId,
           type,
           source,
           amount,
           executedAt: serverTimestamp(),
-          metadata: { ...metadata, engineVersion: '4.0.0-PRO' }
+          metadata: { ...metadata, engineVersion: '5.0.0-REAL' }
         });
 
-        // 8. Immutable Transaction Log
+        // 9. Immutable Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           userId,
@@ -108,13 +128,13 @@ export class PointTransactionEngine {
           description: request.description || '',
           metadata,
           timestamp: serverTimestamp(),
-          engineVersion: '4.0.0-PRO'
+          engineVersion: '5.0.0-REAL'
         });
 
         return { success: true, txId: txDoc.id };
       });
     } catch (error: any) {
-      console.error(`[PointAI] Protocol Failure: ${error.message} (Claim: ${claimId})`);
+      console.error(`[EconomyEngine] Protocol Failure: ${error.message} (Claim: ${claimId})`);
       await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
     }
@@ -168,7 +188,7 @@ export class PointTransactionEngine {
           status: 'PENDING',
           claimId,
           timestamp: serverTimestamp(),
-          engineVersion: '4.0.0-PRO'
+          engineVersion: '5.0.0-REAL'
         });
 
         // 3. Mark Claim Nonce
@@ -183,7 +203,8 @@ export class PointTransactionEngine {
           source: `Market Prediction: ${symbol.toUpperCase()}`,
           claimId,
           timestamp: serverTimestamp(),
-          metadata: { assetId, predictionId: predDoc.id }
+          metadata: { assetId, predictionId: predDoc.id },
+          engineVersion: '5.0.0-REAL'
         });
 
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };

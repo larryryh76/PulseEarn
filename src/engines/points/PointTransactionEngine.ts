@@ -13,7 +13,7 @@ import { calculateLevel } from '../../utils/progression';
 export interface PointTransactionRequest {
   userId: string;
   amount: number;
-  type: Transaction['type'] | 'AI_SYSTEM_CORRECTION' | 'prediction_entry' | 'referral_bonus' | 'withdrawal_debit';
+  type: Transaction['type'] | 'AI_SYSTEM_CORRECTION' | 'prediction_entry' | 'referral_bonus' | 'withdrawal_debit' | 'prediction_reward';
   source: string;
   claimId: string; // Unique Nonce/Claim ID (e.g. daily_20260525_UID)
   description?: string;
@@ -64,15 +64,6 @@ export class PointTransactionEngine {
           if (lastReward && lastReward >= today) {
              throw new Error("DAILY_REWARD_COOLDOWN");
           }
-
-          // Streak Logic
-          const lastRewardTime = lastReward ? lastReward.getTime() : 0;
-          const oneDayMs = 24 * 60 * 60 * 1000;
-          const isStreak = lastRewardTime > 0 && (today.getTime() - lastRewardTime) <= oneDayMs * 1.5;
-
-          transaction.update(userRef, {
-            streak: isStreak ? increment(1) : 1
-          });
         }
 
         // 4. Financial Solvency Check
@@ -80,10 +71,9 @@ export class PointTransactionEngine {
           throw new Error("INSUFFICIENT_FUNDS");
         }
 
-        // 5. Fraud Checks (Stub for high-value mutations)
+        // 5. Fraud Checks
         if (amount > 10000) {
           const velocityCheckRef = doc(db, 'system_security', `velocity_${userId}`);
-          // Add complex fraud detection logic here in future
           transaction.set(velocityCheckRef, {
             lastLargeReward: serverTimestamp(),
             amount,
@@ -96,7 +86,7 @@ export class PointTransactionEngine {
         const newLevel = calculateLevel(newXp);
 
         // 7. Atomic Mutation
-        transaction.update(userRef, {
+        const updates: any = {
           points: increment(amount),
           xp: newXp,
           level: newLevel,
@@ -105,16 +95,31 @@ export class PointTransactionEngine {
           execution_lock: false, // Release Lock
           execution_lock_at: null,
           ...(type === 'daily_reward' ? { lastRewardDate: serverTimestamp() } : {})
-        });
+        };
 
-        // 8. Proof of Execution (Idempotency Layer)
+        if (type === 'task_reward') updates['stats.tasksCompleted'] = increment(1);
+        if (type === 'referral_bonus') updates['stats.referralsCount'] = increment(1);
+
+        if (type === 'daily_reward') {
+          const lastReward = userData.lastRewardDate?.toDate();
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const lastRewardTime = lastReward ? lastReward.getTime() : 0;
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          const isStreak = lastRewardTime > 0 && (today.getTime() - lastRewardTime) <= oneDayMs * 1.5;
+          updates.streak = isStreak ? increment(1) : 1;
+        }
+
+        transaction.update(userRef, updates);
+
+        // 8. Proof of Execution
         transaction.set(claimRef, {
           userId,
           type,
           source,
           amount,
           executedAt: serverTimestamp(),
-          metadata: { ...metadata, engineVersion: '5.0.0-REAL' }
+          metadata: { ...metadata, engineVersion: '5.0.0-PRO' }
         });
 
         // 9. Immutable Transaction Log
@@ -128,20 +133,20 @@ export class PointTransactionEngine {
           description: request.description || '',
           metadata,
           timestamp: serverTimestamp(),
-          engineVersion: '5.0.0-REAL'
+          engineVersion: '5.0.0-PRO'
         });
 
         return { success: true, txId: txDoc.id };
       });
     } catch (error: any) {
-      console.error(`[EconomyEngine] Protocol Failure: ${error.message} (Claim: ${claimId})`);
+      console.error(`[PointEngine] Protocol Failure: ${error.message} (Claim: ${claimId})`);
       await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
     }
   }
 
   /**
-   * Atomic Market Prediction Pipeline
+   * Atomic Market Prediction Entry
    */
   static async executePrediction(request: {
     userId: string;
@@ -169,7 +174,10 @@ export class PointTransactionEngine {
 
         if ((userData.points || 0) < amount) throw new Error("INSUFFICIENT_FUNDS");
 
-        // 1. Transactional State Sync
+        const txDoc = doc(transactionsRef);
+        const predDoc = doc(predictionsRef);
+
+        // 1. Point Deduction & Stat Update
         transaction.update(userRef, {
           points: increment(-amount),
           lastActionTimestamp: serverTimestamp(),
@@ -177,7 +185,6 @@ export class PointTransactionEngine {
         });
 
         // 2. Create Verifiable Prediction Record
-        const predDoc = doc(predictionsRef);
         transaction.set(predDoc, {
           userId,
           assetId,
@@ -188,14 +195,14 @@ export class PointTransactionEngine {
           status: 'PENDING',
           claimId,
           timestamp: serverTimestamp(),
-          engineVersion: '5.0.0-REAL'
+          transactionReference: txDoc.id,
+          engineVersion: '5.0.0-PRO'
         });
 
         // 3. Mark Claim Nonce
         transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, executedAt: serverTimestamp() });
 
         // 4. Ledger Entry
-        const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           userId,
           type: 'prediction_entry',
@@ -204,7 +211,7 @@ export class PointTransactionEngine {
           claimId,
           timestamp: serverTimestamp(),
           metadata: { assetId, predictionId: predDoc.id },
-          engineVersion: '5.0.0-REAL'
+          engineVersion: '5.0.0-PRO'
         });
 
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };
@@ -212,6 +219,91 @@ export class PointTransactionEngine {
     } catch (error: any) {
       await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Atomic Market Prediction Resolution
+   */
+  static async resolvePrediction(predictionId: string, currentPrice: number): Promise<void> {
+    const predRef = doc(db, 'predictions', predictionId);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const predSnap = await transaction.get(predRef);
+        if (!predSnap.exists()) throw new Error("PREDICTION_NOT_FOUND");
+
+        const data = predSnap.data();
+        if (data.status !== 'PENDING') throw new Error("PREDICTION_ALREADY_RESOLVED");
+
+        const userId = data.userId;
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
+
+        const userData = userSnap.data();
+        const isWin = data.direction === 'up'
+          ? currentPrice > data.entryPrice
+          : currentPrice < data.entryPrice;
+
+        const payout = isWin ? Math.floor(data.amount * 1.85) : 0;
+        const status = isWin ? 'won' : 'lost';
+        const xpReward = isWin ? 100 : 25;
+
+        const claimId = `res_${predictionId}`;
+        const claimRef = doc(db, 'system_claims', claimId);
+        const transactionsRef = collection(db, 'users', userId, 'transactions');
+        const notificationsRef = collection(db, 'users', userId, 'notifications');
+
+        // 1. Update Prediction Status
+        transaction.update(predRef, {
+          status,
+          exitPrice: currentPrice,
+          payout,
+          resolvedAt: serverTimestamp(),
+          xpReward
+        });
+
+        // 2. Award Points & XP if Win
+        const newXp = (userData.xp || 0) + xpReward;
+        transaction.update(userRef, {
+          points: increment(payout),
+          xp: newXp,
+          level: calculateLevel(newXp),
+          lastActionTimestamp: serverTimestamp()
+        });
+
+        // 3. Log Settlement Transaction
+        const txDoc = doc(transactionsRef);
+        transaction.set(txDoc, {
+          userId,
+          type: 'prediction_reward',
+          amount: payout,
+          source: `Forecast Result: ${data.symbol.toUpperCase()} (${status.toUpperCase()})`,
+          claimId,
+          timestamp: serverTimestamp(),
+          metadata: { predictionId, currentPrice, isWin },
+          engineVersion: '5.0.0-PRO'
+        });
+
+        // 4. Mark Nonce
+        transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, executedAt: serverTimestamp() });
+
+        // 5. Notification
+        const notifDoc = doc(notificationsRef);
+        transaction.set(notifDoc, {
+          title: isWin ? 'Forecast Successful!' : 'Forecast Unsuccessful',
+          description: isWin
+            ? `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. +${payout} PTS awarded.`
+            : `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. Stake lost.`,
+          type: 'prediction_result',
+          read: false,
+          timestamp: serverTimestamp()
+        });
+      });
+    } catch (error: any) {
+      console.error(`[MarketResolver] Failed to resolve ${predictionId}:`, error.message);
+      throw error;
     }
   }
 

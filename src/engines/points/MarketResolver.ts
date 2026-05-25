@@ -4,10 +4,7 @@ import {
   getDocs,
   query,
   where,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  addDoc
+  limit
 } from 'firebase/firestore';
 import { PointTransactionEngine } from './PointTransactionEngine';
 import axios from 'axios';
@@ -17,12 +14,13 @@ export class MarketResolver {
 
   /**
    * Scans for pending predictions and resolves them against current market prices.
+   * Utilizes the atomic resolution pipeline in PointTransactionEngine.
    */
   static async resolveAllPending() {
     console.log("[MarketResolver] Starting resolution cycle...");
 
     const predictionsRef = collection(db, 'predictions');
-    const q = query(predictionsRef, where('status', '==', 'PENDING'));
+    const q = query(predictionsRef, where('status', '==', 'PENDING'), limit(50));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -45,66 +43,24 @@ export class MarketResolver {
 
       let resolvedCount = 0;
 
-      // 3. Process each prediction
+      // 3. Process each prediction using the atomic engine
       for (const predDoc of snapshot.docs) {
         const data = predDoc.data();
         const currentPrice = prices[data.assetId]?.usd;
 
         if (currentPrice === undefined) continue;
 
-        const entryPrice = data.entryPrice;
-        const direction = data.direction; // 'up' | 'down'
-        const amount = data.amount;
-
-        const isWin = direction === 'up'
-          ? currentPrice > entryPrice
-          : currentPrice < entryPrice;
-
-        const payout = isWin ? Math.floor(amount * 1.85) : 0;
-        const status = isWin ? 'won' : 'lost';
-
-        // Update Prediction Record
-        await updateDoc(doc(db, 'predictions', predDoc.id), {
-          status,
-          exitPrice: currentPrice,
-          payout,
-          resolvedAt: serverTimestamp()
-        });
-
-        // Award points if win
-        if (isWin) {
-          await PointTransactionEngine.execute({
-            userId: data.userId,
-            amount: payout,
-            type: 'prediction_reward',
-            source: `Market Win: ${data.symbol.toUpperCase()}`,
-            claimId: `res_${predDoc.id}`,
-            description: `Correct price forecast resolution.`,
-            xpReward: 100,
-            metadata: {
-              predictionId: predDoc.id,
-              asset: data.symbol
-            }
-          });
+        try {
+           await PointTransactionEngine.resolvePrediction(predDoc.id, currentPrice);
+           resolvedCount++;
+        } catch (err: any) {
+           console.error(`[MarketResolver] Atomic resolution failed for ${predDoc.id}:`, err.message);
         }
-
-        // Send notification
-        await addDoc(collection(db, 'users', data.userId, 'notifications'), {
-          title: isWin ? 'Forecast Successful!' : 'Forecast Unsuccessful',
-          description: isWin
-            ? `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. +${payout} PTS awarded.`
-            : `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. Better luck next time.`,
-          type: 'prediction_result',
-          read: false,
-          timestamp: serverTimestamp()
-        });
-
-        resolvedCount++;
       }
 
       return { resolved: resolvedCount };
     } catch (error) {
-      console.error("[MarketResolver] API Error:", error);
+      console.error("[MarketResolver] Oracle Price API Error:", error);
       throw error;
     }
   }

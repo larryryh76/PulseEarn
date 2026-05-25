@@ -14,8 +14,6 @@ import {
   doc,
   setDoc,
   onSnapshot,
-  updateDoc,
-  increment,
   Timestamp,
   serverTimestamp,
   collection,
@@ -98,14 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!result.success) {
         // Silent fail for "ALREADY_CLAIMED" as it's an automated background check
-        if (result.error !== 'REWARD_ALREADY_CLAIMED' && result.error !== 'DAILY_COOLDOWN_ACTIVE') {
+        if (result.error !== 'REWARD_ALREADY_CLAIMED' && result.error !== 'DAILY_REWARD_COOLDOWN') {
            console.warn(`[DailyReward] Failed: ${result.error}`);
         }
         return;
       }
-
-      const userDocRef = doc(db, 'users', uid);
-      await updateDoc(userDocRef, { streak: increment(1) });
 
       await addDoc(collection(db, 'users', uid, 'notifications'), {
         title: 'Daily Reward Claimed!',

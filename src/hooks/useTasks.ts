@@ -9,8 +9,7 @@ import {
   orderBy,
   limit,
   addDoc,
-  collection,
-  increment as firestoreIncrement
+  collection
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,17 +29,18 @@ export const useTasks = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Fetch active tasks
+    // Fetch active tasks with marketplace fields
     const tasksQuery = query(collection(db, 'tasks'), where('active', '==', true));
     const unsubscribeTasks = onSnapshot(tasksQuery, (snapshot) => {
       const tasksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       setTasks(tasksData);
     });
 
-    // Fetch active campaigns
+    // Fetch active campaigns with participants info
     const campaignsQuery = query(collection(db, 'campaigns'), where('active', '==', true));
     const unsubscribeCampaigns = onSnapshot(campaignsQuery, (snapshot) => {
-      setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
+      const campaignsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
+      setCampaigns(campaignsData);
     });
 
     // Fetch user completions/submissions
@@ -53,22 +53,22 @@ export const useTasks = () => {
       setUserTasks(userTasksData);
     });
 
-    // Fetch user's own submissions
+    // Fetch user's own marketplace submissions
     const submissionsQuery = query(
       collection(db, 'taskSubmissions'),
       where('userId', '==', currentUser.uid),
       orderBy('submittedAt', 'desc'),
-      limit(20)
+      limit(30)
     );
     const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
       setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskSubmission)));
     });
 
-    // Fetch recent activities
+    // Fetch recent activities for activity feed
     const activitiesQuery = query(
       collection(db, 'users', currentUser.uid, 'activities'),
       orderBy('timestamp', 'desc'),
-      limit(10)
+      limit(20)
     );
     const unsubscribeActivities = onSnapshot(activitiesQuery, (snapshot) => {
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
@@ -114,33 +114,32 @@ export const useTasks = () => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    // Check if user has sufficient level
+    // Marketplace Validation: clearance and state checks
     if (task.minLevel && userData.level < task.minLevel) {
-       toast.error(`Clearance Level ${task.minLevel} required`);
+       toast.error(`Protocol Clearance LVL ${task.minLevel} Required`);
        return;
     }
 
     const { status } = getTaskStatus(task);
     if (status !== 'available' && status !== 'rejected') {
-       toast.error(`Task currently ${status}`);
+       toast.error(`Mission currently ${status}`);
        return;
     }
 
-    // Fraud prevention: prevent rapid submissions
+    // Velocity protection
     const now = Date.now();
     const lastAction = userData.lastActionTimestamp?.toMillis() || 0;
-    if (now - lastAction < 2000) { // 2 second throttle
-       toast.error('Slow down! High activity detected.');
+    if (now - lastAction < 1500) {
+       toast.error('Processing... please wait.');
        return;
     }
 
     try {
       if (task.verificationType === 'automated' || task.verificationType === 'timer') {
-        // Direct claim for simple tasks
         return await claimTask(taskId);
       }
 
-      // Manual/Proof verification requires a submission record
+      // Marketplace Verification Flow
       const submissionRef = await addDoc(collection(db, 'taskSubmissions'), {
         taskId,
         userId: currentUser.uid,
@@ -149,7 +148,9 @@ export const useTasks = () => {
         proofData,
         submittedAt: serverTimestamp(),
         rewardPoints: task.rewardPoints,
-        rewardXp: task.rewardXp
+        rewardXp: task.rewardXp,
+        providerId: task.providerId || 'internal',
+        campaignId: task.campaignId || null
       });
 
       const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
@@ -162,10 +163,10 @@ export const useTasks = () => {
         }, { merge: true });
       });
 
-      toast.success('Mission proof submitted for review!');
+      toast.success('Mission proof logged for audit');
     } catch (error) {
       console.error(error);
-      toast.error('Submission failed');
+      toast.error('Verification signal failure');
     }
   };
 
@@ -177,6 +178,8 @@ export const useTasks = () => {
 
     try {
       const claimId = `task_${taskId}_${currentUser.uid}_${Date.now()}`;
+
+      // ABSOLUTE AUTHORITY MUTATION
       const result = await PointTransactionEngine.execute({
         userId: currentUser.uid,
         amount: task.rewardPoints,
@@ -184,16 +187,16 @@ export const useTasks = () => {
         source: `Mission: ${task.title}`,
         claimId,
         xpReward: task.rewardXp || 0,
-        description: `Successfully completed ${task.title}`,
+        description: `Successfully completed mission [${task.id}]`,
         metadata: {
           taskId,
-          taskType: task.type,
-          verification: task.verificationType
+          provider: task.providerName || 'PulseEarn',
+          campaignId: task.campaignId || null
         }
       });
 
       if (!result.success) {
-        toast.error(result.error || 'Failed to claim reward');
+        toast.error(result.error || 'Reward protocol failure');
         return;
       }
 
@@ -208,25 +211,24 @@ export const useTasks = () => {
         }, { merge: true });
 
         transaction.update(userRef, {
-          'stats.tasksCompleted': firestoreIncrement(1),
           lastActionTimestamp: serverTimestamp()
         });
       });
 
       await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
-        title: 'Mission Accomplished!',
-        description: `You earned +${task.rewardPoints} Pulse for: ${task.title}`,
+        title: 'Mission Authorized!',
+        description: `Reward of +${task.rewardPoints} PTS applied to ledger.`,
         type: 'task_completed',
         read: false,
         timestamp: serverTimestamp()
       });
 
-      toast.success(`+${task.rewardPoints} Pulse Earned!`, { icon: '⚡' });
+      toast.success(`+${task.rewardPoints} PTS Secured`, { icon: '⚡' });
       return true;
 
     } catch (error) {
       console.error(error);
-      toast.error('Claim failed');
+      toast.error('Claim authorization failure');
       return false;
     }
   };

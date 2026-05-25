@@ -13,11 +13,14 @@ import {
   Flame,
   Search,
   ExternalLink,
-  ChevronRight,
   ShieldCheck,
   Globe,
   Twitter,
-  Users
+  Users,
+  Filter,
+  ArrowRight,
+  BarChart3,
+  MousePointer2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -48,14 +51,15 @@ const Tasks: React.FC = () => {
     </DashboardLayout>
   );
 
-  const categories = ['All Missions', 'Featured', 'Social', 'Growth', 'Daily', 'History'];
+  const categories = ['All Missions', 'Featured', 'Social', 'Growth', 'Daily', 'Partners', 'History'];
 
   const filteredTasks = tasks.filter(t => {
     const matchesTab = activeTab === 'All Missions' ||
                       (activeTab === 'Featured' && t.isFeatured) ||
                       (activeTab === 'Social' && t.category === 'Social') ||
                       (activeTab === 'Growth' && t.category === 'Growth') ||
-                      (activeTab === 'Daily' && t.type === 'daily');
+                      (activeTab === 'Daily' && t.type === 'daily') ||
+                      (activeTab === 'Partners' && t.providerId && t.providerId !== 'internal');
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          t.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
@@ -83,69 +87,83 @@ const Tasks: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-12 pb-24">
+      <div className="space-y-16 pb-32">
 
-        {/* REWARDS MARKETPLACE HEADER */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
-           <div className="space-y-4">
-              <div className="flex items-center gap-3 text-white/40">
-                 <Globe size={18} />
-                 <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Live Earning Marketplace</h2>
+        {/* PREMIUM MARKETPLACE HEADER */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12">
+           <div className="space-y-6 max-w-2xl">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_15px_rgba(0,102,255,0.2)]">
+                    <Globe size={20} />
+                 </div>
+                 <h2 className="text-[11px] font-bold uppercase tracking-[0.4em] text-white/40">Marketplace Discovery</h2>
               </div>
-              <h1 className="text-5xl font-bold tracking-tighter text-white">Reward Campaigns</h1>
-              <p className="text-white/40 text-base max-w-xl font-medium leading-relaxed">
-                 Discover high-yield missions and partnership campaigns. Grow your protocol status and capital through engagement.
+              <h1 className="text-6xl font-bold tracking-tighter text-white leading-[0.9]">
+                 REWARD <br />
+                 <span className="text-primary">CAMPAIGNS.</span>
+              </h1>
+              <p className="text-white/40 text-lg font-medium leading-relaxed">
+                 Access high-yield ecosystem missions. Engage with premium partners to scale your protocol standing and earn transactional rewards.
               </p>
            </div>
 
-           <div className="grid grid-cols-2 gap-4 w-full lg:w-auto">
-              <div className="bg-white/[0.02] border border-white/5 rounded-xl p-5 min-w-[160px]">
-                 <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-2">Total Yield</p>
-                 <p className="text-2xl font-bold text-white">{userData.points?.toLocaleString() || 0} <span className="text-xs opacity-20">PTS</span></p>
+           <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="bg-black p-8 min-w-[200px] space-y-2">
+                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-2">
+                    <BarChart3 size={10} className="text-primary" /> Global Yield
+                 </p>
+                 <p className="text-3xl font-mono font-bold text-white">{userData.points?.toLocaleString() || 0}</p>
               </div>
-              <div className="bg-white/[0.02] border border-white/5 rounded-xl p-5 min-w-[160px]">
-                 <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-2">Protocol Tier</p>
-                 <p className="text-2xl font-bold text-primary">LVL {xpInfo.level}</p>
+              <div className="bg-black p-8 min-w-[200px] space-y-2">
+                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-2">
+                    <ShieldCheck size={10} className="text-success" /> Protocol Tier
+                 </p>
+                 <p className="text-3xl font-mono font-bold text-primary">LVL {xpInfo.level}</p>
               </div>
            </div>
         </div>
 
-        {/* FEATURED CAMPAIGNS (ZEALY STYLE) */}
+        {/* CAMPAIGN CAROUSEL (ZEALY/GALXE STYLE) */}
         {campaigns.length > 0 && (
-          <div className="space-y-6">
-             <div className="flex items-center justify-between">
+          <div className="space-y-8">
+             <div className="flex items-center justify-between border-b border-white/5 pb-6">
                 <div className="flex items-center gap-3">
-                   <Sparkles size={16} className="text-primary" />
-                   <h3 className="text-xs font-bold uppercase tracking-widest text-white/80">Ecosystem Partners</h3>
+                   <Sparkles size={18} className="text-primary" />
+                   <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/80">Ecosystem Missions</h3>
                 </div>
-                <button className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">View All Partnerships</button>
+                <div className="flex items-center gap-2 text-[11px] font-bold text-white/20 uppercase tracking-widest cursor-default">
+                   <Users size={14} />
+                   <span>{campaigns.reduce((acc, c) => acc + (c.participantsCount || 0), 0).toLocaleString()} Actively Earning</span>
+                </div>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {campaigns.map(camp => (
                    <motion.div
                      key={camp.id}
-                     whileHover={{ y: -4 }}
-                     className="relative group overflow-hidden rounded-2xl border border-white/10 bg-[#0A0A10] h-64 flex flex-col justify-end p-6 cursor-pointer"
+                     whileHover={{ y: -6 }}
+                     className="relative group overflow-hidden rounded-[2.5rem] border border-white/10 bg-black h-80 flex flex-col justify-end p-8 cursor-pointer shadow-2xl transition-all hover:border-primary/40"
                    >
-                      <img src={camp.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                      <img src={camp.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
 
-                      <div className="relative space-y-3">
+                      <div className="relative space-y-4">
                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-primary text-[8px] font-bold uppercase tracking-widest text-white shadow-lg">Verified</span>
-                            <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Ends in 4 days</span>
+                            <div className="px-2 py-0.5 rounded-md bg-white text-black text-[9px] font-bold uppercase tracking-widest">Verified Partner</div>
+                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Limited Event</span>
                          </div>
-                         <h4 className="text-2xl font-bold text-white tracking-tight">{camp.name}</h4>
-                         <div className="flex items-center justify-between pt-2">
-                            <div className="flex -space-x-2">
-                               {[1,2,3].map(i => (
-                                 <div key={i} className="w-6 h-6 rounded-full border border-black bg-white/10" />
-                               ))}
-                               <div className="w-6 h-6 rounded-full border border-black bg-white/5 flex items-center justify-center text-[8px] font-bold">+1.2k</div>
+                         <h4 className="text-3xl font-bold text-white tracking-tighter leading-tight group-hover:text-primary transition-colors">{camp.name}</h4>
+                         <div className="flex items-center justify-between pt-4">
+                            <div className="flex items-center gap-3">
+                               <div className="flex -space-x-3">
+                                  {[1,2,3].map(i => (
+                                    <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-white/10" />
+                                  ))}
+                               </div>
+                               <span className="text-[11px] font-bold text-white/40 uppercase tracking-widest">+{camp.participantsCount || '1.2k'}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase">
-                               <Zap size={12} /> Live Now
+                            <div className="flex items-center gap-2 text-[11px] font-bold text-primary uppercase tracking-widest">
+                               Explore <ArrowRight size={14} />
                             </div>
                          </div>
                       </div>
@@ -155,21 +173,24 @@ const Tasks: React.FC = () => {
           </div>
         )}
 
-        {/* MISSION DISCOVERY */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 pt-8">
+        {/* TASK MARKETPLACE ENGINE */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 pt-8">
 
-           {/* Sidebar Navigation */}
-           <div className="space-y-10">
-              <div className="space-y-2">
-                 <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-3">Filter Missions</h4>
+           {/* Navigation Pillar */}
+           <div className="lg:col-span-3 space-y-12">
+              <div className="space-y-4">
+                 <div className="flex items-center gap-2 text-white/20 px-4 mb-2">
+                    <Filter size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Navigation</span>
+                 </div>
                  <div className="space-y-1">
                     {categories.map(cat => (
                        <button
                          key={cat}
                          onClick={() => setActiveTab(cat)}
                          className={cn(
-                           "w-full text-left px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-all",
-                           activeTab === cat ? "bg-white/5 text-primary border border-white/5" : "text-white/30 hover:text-white/60"
+                           "w-full text-left px-5 py-4 rounded-xl text-[13px] font-bold uppercase tracking-widest transition-all border",
+                           activeTab === cat ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.1)]" : "bg-transparent border-transparent text-white/30 hover:text-white"
                          )}
                        >
                           {cat}
@@ -178,49 +199,51 @@ const Tasks: React.FC = () => {
                  </div>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
+              {/* Live Status Widget */}
+              <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/5 space-y-6">
                  <div className="flex items-center gap-2 text-orange-500">
-                    <Flame size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Active Streak</span>
+                    <Flame size={18} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest">Loyalty Multiplier</span>
                  </div>
-                 <p className="text-xl font-bold text-white">{userData.streak || 0} Days</p>
-                 <p className="text-[10px] text-white/30 leading-relaxed font-medium">Keep your streak alive to unlock multiplier rewards up to 2.5x.</p>
+                 <div className="space-y-2">
+                    <p className="text-4xl font-mono font-bold text-white">{userData.streak || 0}<span className="text-lg text-white/20">D</span></p>
+                    <p className="text-[11px] text-white/30 leading-relaxed font-medium">Keep your sequence active to maintain the 1.5x global multiplier.</p>
+                 </div>
               </div>
 
               <div className="space-y-4">
-                 <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-3">Market Intel</h4>
-                 <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10 space-y-3">
-                    <div className="flex items-center gap-2 text-primary">
-                       <ShieldCheck size={14} />
-                       <span className="text-[9px] font-bold uppercase tracking-widest">Verified Tasks Only</span>
-                    </div>
-                    <p className="text-[11px] text-white/40 leading-relaxed">All campaigns are vetted for transactional integrity and protocol security.</p>
+                 <div className="flex items-center gap-2 text-white/20 px-4">
+                    <ShieldCheck size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Protocol Audit</span>
+                 </div>
+                 <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
+                    <p className="text-[12px] text-white/60 leading-relaxed font-medium">All campaign payouts are settled atomically via the <span className="text-primary font-bold">Pulse Transaction Engine v5.0</span>.</p>
                  </div>
               </div>
            </div>
 
-           {/* Mission Grid */}
-           <div className="lg:col-span-3 space-y-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+           {/* Marketplace Feed */}
+           <div className="lg:col-span-9 space-y-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 bg-white/[0.02] border border-white/5 p-6 rounded-2xl">
+                 <div className="relative flex-1 max-w-xl">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" size={18} />
                     <input
                       type="text"
-                      placeholder="Search missions, providers..."
+                      placeholder="Search campaigns, tasks, providers..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full bg-white/[0.02] border border-white/5 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-all font-medium"
+                      className="w-full bg-black border border-white/10 rounded-xl pl-14 pr-4 py-4 text-[14px] text-white focus:outline-none focus:border-primary/50 transition-all font-medium"
                     />
                  </div>
-                 <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                       <Users size={14} />
-                       <span>4.2k Online</span>
+                 <div className="flex items-center gap-8 px-4">
+                    <div className="flex flex-col">
+                       <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Avg. Payout</span>
+                       <span className="text-sm font-bold text-white">450 PTS</span>
                     </div>
-                    <div className="w-px h-4 bg-white/10" />
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest">
-                       <Zap size={14} />
-                       <span>$14,200 Dist. Today</span>
+                    <div className="w-px h-6 bg-white/10" />
+                    <div className="flex flex-col">
+                       <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Discovery Rate</span>
+                       <span className="text-sm font-bold text-success">Optimal</span>
                     </div>
                  </div>
               </div>
@@ -228,90 +251,127 @@ const Tasks: React.FC = () => {
               {activeTab === 'History' ? (
                 <div className="space-y-4">
                    {submissions.length === 0 ? (
-                      <div className="py-24 text-center border border-dashed border-white/5 rounded-3xl">
-                         <History className="mx-auto text-white/5 mb-4" size={40} />
-                         <p className="text-[10px] font-bold text-white/10 uppercase tracking-[0.4em]">Audit Trail Empty</p>
+                      <div className="py-32 text-center border border-dashed border-white/5 rounded-[2.5rem]">
+                         <History className="mx-auto text-white/5 mb-6" size={48} />
+                         <p className="text-[11px] font-bold text-white/10 uppercase tracking-[0.5em]">No Execution Records</p>
                       </div>
                    ) : (
-                      submissions.map(sub => (
-                         <div key={sub.id} className="p-6 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between group">
-                            <div className="flex items-center gap-5">
-                               <div className={cn(
-                                 "w-12 h-12 rounded flex items-center justify-center border",
-                                 sub.status === 'approved' ? 'bg-success/5 border-success/10 text-success' : 'bg-primary/5 border-primary/10 text-primary'
-                               )}>
-                                  <Target size={20} />
+                      <div className="space-y-4">
+                         <h3 className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-4">Audit Ledger</h3>
+                         {submissions.map(sub => (
+                            <div key={sub.id} className="p-8 rounded-2xl bg-black border border-white/5 flex items-center justify-between hover:border-white/20 transition-all">
+                               <div className="flex items-center gap-6">
+                                  <div className={cn(
+                                    "w-14 h-14 rounded-xl flex items-center justify-center border",
+                                    sub.status === 'approved' ? 'bg-success/5 border-success/10 text-success' : 'bg-primary/5 border-primary/10 text-primary'
+                                  )}>
+                                     <Target size={24} />
+                                  </div>
+                                  <div>
+                                     <div className="flex items-center gap-3">
+                                        <p className="text-base font-bold text-white uppercase tracking-tight">Mission Log: {sub.taskId.slice(0, 12)}</p>
+                                        <span className="text-[10px] font-mono text-white/20 px-2 border border-white/5 rounded">AUDIT_{sub.id.slice(0, 6)}</span>
+                                     </div>
+                                     <p className="text-[11px] font-mono text-white/30 uppercase mt-1">{sub.submittedAt?.toDate().toLocaleString()}</p>
+                                  </div>
                                </div>
-                               <div>
-                                  <p className="text-sm font-bold text-white">Task: {sub.taskId.slice(0, 12)}</p>
-                                  <p className="text-[10px] font-mono text-white/20 uppercase mt-1">{sub.submittedAt?.toDate().toLocaleString()}</p>
+                               <div className="text-right">
+                                  <div className={cn(
+                                    "text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border",
+                                    sub.status === 'approved' ? 'bg-success/10 border-success/20 text-success' : 'bg-primary/10 border-primary/20 text-primary'
+                                  )}>{sub.status}</div>
+                                  <p className="text-lg font-mono font-bold text-white mt-2">+{sub.rewardPoints} <span className="text-[10px] opacity-20">PTS</span></p>
                                </div>
                             </div>
-                            <div className="text-right">
-                               <div className={cn(
-                                 "text-[10px] font-bold uppercase tracking-widest",
-                                 sub.status === 'approved' ? 'text-success' : 'text-primary'
-                               )}>{sub.status}</div>
-                               <p className="text-[11px] font-bold text-white/40 mt-1">+{sub.rewardPoints} PTS</p>
-                            </div>
-                         </div>
-                      ))
+                         ))}
+                      </div>
                    )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    {filteredTasks.length === 0 ? (
-                      <div className="col-span-full py-24 text-center border border-dashed border-white/5 rounded-3xl">
-                         <AlertCircle className="mx-auto text-white/5 mb-4" size={40} />
-                         <p className="text-[10px] font-bold text-white/10 uppercase tracking-[0.4em]">No Missions Available</p>
+                      <div className="col-span-full py-32 text-center border border-dashed border-white/5 rounded-[2.5rem]">
+                         <AlertCircle className="mx-auto text-white/5 mb-6" size={48} />
+                         <p className="text-[11px] font-bold text-white/10 uppercase tracking-[0.5em]">No Missions Detected</p>
                       </div>
                    ) : filteredTasks.map(task => {
                       const { status, nextAvailable } = getTaskStatus(task);
                       return (
                          <motion.div
                            key={task.id}
-                           whileHover={{ y: -2 }}
+                           whileHover={{ scale: 1.02 }}
                            onClick={() => handleTaskAction(task)}
                            className={cn(
-                             "group p-6 rounded-2xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden",
-                             (status === 'completed' || status === 'pending') && "opacity-50 grayscale"
+                             "group p-8 rounded-3xl bg-black border border-white/10 hover:border-primary/40 transition-all cursor-pointer relative overflow-hidden shadow-xl",
+                             (status === 'completed' || status === 'pending') && "opacity-50 grayscale pointer-events-none"
                            )}
                          >
-                            <div className="flex items-start justify-between mb-8">
-                               <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 group-hover:text-primary transition-colors">
-                                  {task.category === 'Social' ? <Twitter size={20} /> : <Zap size={20} />}
+                            {/* Card Decorative Elements */}
+                            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                               {task.category === 'Social' ? <Twitter size={120} /> : <Zap size={120} />}
+                            </div>
+
+                            <div className="flex items-start justify-between mb-10 relative z-10">
+                               <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                     <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{task.providerName || 'Pulse Infrastructure'}</span>
+                                     {task.providerId && task.providerId !== 'internal' && <div className="w-1 h-1 rounded-full bg-primary" />}
+                                  </div>
+                                  <h4 className="text-2xl font-bold text-white tracking-tight group-hover:text-primary transition-colors leading-tight">{task.title}</h4>
                                </div>
                                <div className="flex flex-col items-end gap-2">
+                                  <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20">
+                                     <Zap size={12} className="text-primary" />
+                                     <span className="text-xs font-bold text-primary">+{task.rewardPoints}</span>
+                                  </div>
                                   <span className={cn(
-                                     "px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border",
-                                     task.rarity === 'legendary' ? "bg-orange-500/10 border-orange-500/20 text-orange-500" : "bg-white/5 border-white/10 text-white/40"
+                                     "text-[8px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded border",
+                                     task.rarity === 'legendary' ? "bg-orange-500/10 border-orange-500/20 text-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.2)]" : "bg-white/5 border-white/10 text-white/30"
                                   )}>{task.rarity}</span>
-                                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
-                                     <Zap size={10} /> +{task.rewardPoints}
+                               </div>
+                            </div>
+
+                            <p className="text-[13px] text-white/40 font-medium leading-relaxed mb-8 relative z-10 line-clamp-2">
+                               {task.description}
+                            </p>
+
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5 relative z-10">
+                               <div className="flex items-center gap-6">
+                                  <div className="flex flex-col">
+                                     <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Time Est.</span>
+                                     <span className="text-[11px] font-bold text-white/60 flex items-center gap-1.5"><Clock size={10} /> {task.estimatedTime || '2m'}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Clearance</span>
+                                     <span className="text-[11px] font-bold text-white/60 flex items-center gap-1.5"><Star size={10} /> LVL {task.minLevel || 1}</span>
                                   </div>
                                </div>
-                            </div>
-
-                            <div className="space-y-2 mb-6">
-                               <h4 className="text-base font-bold text-white group-hover:text-primary transition-colors">{task.title}</h4>
-                               <p className="text-xs text-white/30 leading-relaxed line-clamp-2">{task.description}</p>
-                            </div>
-
-                            <div className="flex items-center justify-between pt-5 border-t border-white/5">
-                               <div className="flex items-center gap-4 text-[9px] font-bold text-white/20 uppercase tracking-widest">
-                                  <span className="flex items-center gap-1"><Clock size={10} /> {task.cooldown ? `${task.cooldown}h` : 'Once'}</span>
-                                  <span className="flex items-center gap-1"><Star size={10} /> +{task.rewardXp} XP</span>
-                               </div>
-                               <div className="flex items-center gap-1 text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-all uppercase tracking-widest">
-                                  Start <ChevronRight size={12} />
+                               <div className="px-5 py-2 rounded-xl bg-white text-black text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all shadow-lg flex items-center gap-2">
+                                  Claim <MousePointer2 size={12} />
                                </div>
                             </div>
 
                             {status === 'cooldown' && (
-                               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center space-y-2">
-                                  <Clock size={20} className="text-white/40" />
-                                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Cooling Down</p>
-                                  <p className="text-xs font-bold text-white">{nextAvailable?.toLocaleTimeString()}</p>
+                               <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center space-y-3 z-20">
+                                  <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white/40">
+                                     <Clock size={24} />
+                                  </div>
+                                  <div className="text-center">
+                                     <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/40 mb-1">Reset Sequence Active</p>
+                                     <p className="text-sm font-mono font-bold text-white">{nextAvailable?.toLocaleTimeString()}</p>
+                                  </div>
+                               </div>
+                            )}
+
+                            {status === 'pending' && (
+                               <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center space-y-3 z-20">
+                                  <div className="w-12 h-12 rounded-full border border-primary/20 flex items-center justify-center text-primary animate-pulse">
+                                     <ShieldCheck size={24} />
+                                  </div>
+                                  <div className="text-center">
+                                     <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary mb-1">Audit in Progress</p>
+                                     <p className="text-[10px] font-bold text-white/40">VERIFYING MISSION DATA</p>
+                                  </div>
                                </div>
                             )}
                          </motion.div>
@@ -323,7 +383,7 @@ const Tasks: React.FC = () => {
         </div>
       </div>
 
-      {/* VERIFICATION MODAL */}
+      {/* MISSION AUTHENTICATION MODAL */}
       <AnimatePresence>
         {selectedTask && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -332,58 +392,65 @@ const Tasks: React.FC = () => {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedTask(null)}
-               className="absolute inset-0 bg-black/90 backdrop-blur-md"
+               className="absolute inset-0 bg-black/95 backdrop-blur-xl"
              />
              <motion.div
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               exit={{ opacity: 0, y: 20 }}
-               className="relative w-full max-w-lg bg-black border border-white/10 rounded-2xl p-10 overflow-hidden shadow-2xl"
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               className="relative w-full max-w-xl bg-black border border-white/10 rounded-[3rem] p-12 overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)]"
              >
-                <div className="absolute top-0 right-0 p-10 opacity-5">
-                   <Target size={140} className="text-primary" />
+                <div className="absolute top-0 right-0 p-12 opacity-5">
+                   <Target size={180} className="text-primary" />
                 </div>
 
-                <div className="flex items-center gap-4 mb-8">
-                   <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                      <ExternalLink size={24} />
+                <div className="flex items-center gap-6 mb-12 relative z-10">
+                   <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_30px_rgba(0,102,255,0.2)]">
+                      <ExternalLink size={32} />
                    </div>
-                   <div>
-                      <h3 className="text-2xl font-bold text-white tracking-tight">{selectedTask.title}</h3>
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Verification Protocol Required</p>
+                   <div className="space-y-1">
+                      <h3 className="text-3xl font-bold text-white tracking-tighter uppercase">{selectedTask.title}</h3>
+                      <div className="flex items-center gap-2">
+                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                         <p className="text-[11px] font-bold text-primary uppercase tracking-[0.3em]">Verification Protocol Required</p>
+                      </div>
                    </div>
                 </div>
 
-                <div className="space-y-8">
-                   <div className="p-6 rounded-xl bg-white/[0.02] border border-white/5">
-                      <p className="text-xs text-white/60 leading-relaxed font-medium">
-                         {selectedTask.proofRequirements || "To claim your points, please provide your handle or the URL proving completion of the task."}
+                <div className="space-y-10 relative z-10">
+                   <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
+                      <p className="text-[11px] font-bold text-white/20 uppercase tracking-widest">Mission Directive</p>
+                      <p className="text-[15px] text-white/60 leading-relaxed font-medium italic">
+                         "{selectedTask.proofRequirements || "To authorize your reward distribution, provide the unique identifier or URL link proving task completion."}"
                       </p>
                    </div>
 
-                   <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-1">Proof Output</label>
+                   <div className="space-y-4">
+                      <div className="flex justify-between items-end px-2">
+                         <label className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Transaction Proof</label>
+                         <span className="text-[10px] font-mono text-primary/40 uppercase">Awaiting Input...</span>
+                      </div>
                       <input
                         type="text"
                         value={proof}
                         onChange={e => setProof(e.target.value)}
-                        placeholder="Enter Identifier (Link/Handle)..."
-                        className="w-full bg-black border border-white/10 rounded-xl px-5 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium"
+                        placeholder="Enter Link, Hash, or Handle..."
+                        className="w-full bg-black border border-white/10 rounded-2xl px-6 py-5 text-base text-white focus:outline-none focus:border-primary/50 transition-all font-mono shadow-inner"
                       />
                    </div>
 
-                   <div className="flex gap-4 pt-4">
+                   <div className="flex gap-4 pt-6">
                       <button
                         onClick={() => setSelectedTask(null)}
-                        className="flex-1 py-4 rounded-xl bg-white/5 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white transition-all"
+                        className="flex-1 py-5 rounded-2xl bg-transparent border border-white/10 text-[11px] font-bold uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/5 transition-all"
                       >
-                         Cancel
+                         Abort Mission
                       </button>
                       <button
                         onClick={handleProofSubmit}
-                        className="flex-1 py-4 rounded-xl bg-primary text-[10px] font-bold uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+                        className="flex-1 py-5 rounded-2xl bg-white text-black text-[11px] font-bold uppercase tracking-widest shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:bg-white/90 active:scale-95 transition-all"
                       >
-                         Submit Mission
+                         Authorize Submission
                       </button>
                    </div>
                 </div>

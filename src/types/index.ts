@@ -16,6 +16,8 @@ export interface Task {
   difficulty: TaskDifficulty;
   rarity: TaskRarity;
   category: string;
+  providerId?: string;
+  providerName?: string;
   campaignId?: string;
   minLevel?: number;
   active: boolean;
@@ -28,6 +30,7 @@ export interface Task {
   isFeatured?: boolean;
   dailyCap?: number;
   actionUrl?: string; // link to TikTok/YouTube etc.
+  estimatedTime?: string; // e.g. "2 min"
 }
 
 export interface TaskSubmission {
@@ -63,6 +66,7 @@ export interface Campaign {
   featured: boolean;
   taskIds: string[];
   totalPrizePool?: number;
+  participantsCount?: number;
 }
 
 export interface Activity {

@@ -176,11 +176,13 @@ export const useTasks = () => {
     if (!task) return;
 
     try {
+      const claimId = `task_${taskId}_${currentUser.uid}_${Date.now()}`;
       const result = await PointTransactionEngine.execute({
         userId: currentUser.uid,
         amount: task.rewardPoints,
         type: 'task_reward',
         source: `Mission: ${task.title}`,
+        claimId,
         xpReward: task.rewardXp || 0,
         description: `Successfully completed ${task.title}`
       });

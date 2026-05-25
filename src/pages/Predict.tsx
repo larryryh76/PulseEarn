@@ -68,13 +68,15 @@ const Predict: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const result = await PointTransactionEngine.createPrediction({
+      const claimId = `pred_${Date.now()}_${userData.uid}`;
+      const result = await PointTransactionEngine.executePrediction({
         userId: userData.uid,
         amount: predictionAmount,
         assetId: selectedAsset.id,
         symbol: selectedAsset.symbol,
         direction,
-        entryPrice: selectedAsset.current_price
+        entryPrice: selectedAsset.current_price,
+        claimId
       });
 
       if (!result.success) throw new Error(result.error);

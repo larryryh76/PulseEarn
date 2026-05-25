@@ -78,6 +78,7 @@ export class MarketResolver {
             amount: payout,
             type: 'prediction_reward',
             source: `Market Win: ${data.symbol.toUpperCase()}`,
+            claimId: `res_${predDoc.id}`,
             description: `Correct price forecast resolution.`,
             xpReward: 100,
             metadata: {

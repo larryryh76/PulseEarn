@@ -60,6 +60,7 @@ export class PointConsistencyScanner {
         amount: audit.diff,
         type: 'AI_SYSTEM_CORRECTION',
         source: 'PointConsistencyScanner',
+        claimId: `audit_${userId}_${Date.now()}`,
         description: `Automated balance alignment. Detected variance: ${audit.diff} PTS.`,
         metadata: {
           auditDate: new Date().toISOString(),

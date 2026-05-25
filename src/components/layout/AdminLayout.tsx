@@ -5,13 +5,12 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  Zap,
   Menu,
   X,
-  BrainCircuit,
   Database,
   Users,
-  Bot
+  Server,
+  ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -24,11 +23,10 @@ const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const adminMenu = [
-    { name: 'Ecosystem Intelligence', icon: BrainCircuit, href: '/pulse-core' },
-    { name: 'Point AI', icon: Zap, href: '/pulse-core/points' },
-    { name: 'System Engineer', icon: Bot, href: '/pulse-core/engineer' },
+    { name: 'System Operations', icon: Server, href: '/pulse-core' },
+    { name: 'Global Ledger', icon: Database, href: '/pulse-core/ledger' },
     { name: 'User Moderation', icon: Users, href: '/pulse-core/users' },
-    { name: 'Task Orchestrator', icon: Database, href: '/pulse-core/tasks' },
+    { name: 'Task Orchestrator', icon: ClipboardList, href: '/pulse-core/tasks' },
     { name: 'Configuration', icon: Settings, href: '/pulse-core/settings' },
   ];
 

@@ -30,7 +30,7 @@ const SystemEngineerConsole: React.FC = () => {
 
   useEffect(() => {
     const q = query(
-      collection(db, 'systemRepairQueue'),
+      collection(db, 'system_repair_queue'),
       where('status', '==', 'PENDING'),
       orderBy('createdAt', 'desc'),
       limit(20)
@@ -44,10 +44,15 @@ const SystemEngineerConsole: React.FC = () => {
   const handleAction = async (actionId: string, status: 'APPROVED' | 'REJECTED') => {
     const toastId = toast.loading(`${status === 'APPROVED' ? 'Deploying' : 'Rejecting'} proposal...`);
     try {
-      await updateDoc(doc(db, 'systemRepairQueue', actionId), {
+      await updateDoc(doc(db, 'system_repair_queue', actionId), {
         status,
         updatedAt: serverTimestamp()
       });
+
+      if (status === 'APPROVED') {
+        await SystemScannerEngine.executeInstruction(actionId);
+      }
+
       setTerminalLogs(prev => [...prev, `[SystemAI] Action ${actionId.slice(0, 8)} ${status.toLowerCase()} by administrator.`]);
       toast.success(`Proposal ${status.toLowerCase()}`, { id: toastId });
     } catch (err) {
@@ -60,7 +65,7 @@ const SystemEngineerConsole: React.FC = () => {
     setTerminalLogs(prev => [...prev, '[SystemAI] Initiating repository-wide recursive scan...', '[SystemAI] Analyzing Firestore data structures...', '[SystemAI] Checking protocol consistency...']);
 
     try {
-      const findings = await SystemScannerEngine.performDeepEcosystemScan();
+      const findings = await SystemScannerEngine.performInstitutionalScan();
       setTerminalLogs(prev => [...prev, '[SystemAI] Scan sequence complete.', `[SystemAI] Identified ${findings.length} system architecture proposals.`]);
       toast.success('Platform Scan Complete');
     } catch (err) {

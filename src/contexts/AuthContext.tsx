@@ -16,7 +16,6 @@ import {
   onSnapshot,
   updateDoc,
   increment,
-  getDoc,
   Timestamp,
   serverTimestamp,
   collection,
@@ -84,40 +83,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function checkDailyReward(uid: string) {
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const claimId = `daily_${todayStr}_${uid}`;
 
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      const lastRewardDate = data.lastRewardDate?.toDate();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    try {
+      const result = await PointTransactionEngine.execute({
+        userId: uid,
+        amount: 10,
+        type: 'daily_reward',
+        source: 'Daily Login Bonus',
+        claimId,
+        xpReward: 20
+      });
 
-      const isNotToday = !lastRewardDate || lastRewardDate < today;
-
-      if (isNotToday) {
-        const result = await PointTransactionEngine.execute({
-          userId: uid,
-          amount: 10,
-          type: 'daily_reward',
-          source: 'Daily Login Bonus',
-          xpReward: 20
-        });
-
-        if (!result.success) return;
-
-        await updateDoc(userDocRef, { streak: increment(1) });
-
-        await addDoc(collection(db, 'users', uid, 'notifications'), {
-          title: 'Daily Reward Claimed!',
-          description: 'You earned +10 Pulse for checking in today.',
-          type: 'reward_claimed',
-          read: false,
-          timestamp: serverTimestamp()
-        });
-
-        toast.success('Daily Reward Claimed!', { icon: '🎁' });
+      if (!result.success) {
+        // Silent fail for "ALREADY_CLAIMED" as it's an automated background check
+        if (result.error !== 'REWARD_ALREADY_CLAIMED' && result.error !== 'DAILY_COOLDOWN_ACTIVE') {
+           console.warn(`[DailyReward] Failed: ${result.error}`);
+        }
+        return;
       }
+
+      const userDocRef = doc(db, 'users', uid);
+      await updateDoc(userDocRef, { streak: increment(1) });
+
+      await addDoc(collection(db, 'users', uid, 'notifications'), {
+        title: 'Daily Reward Claimed!',
+        description: 'You earned +10 Pulse for checking in today.',
+        type: 'reward_claimed',
+        read: false,
+        timestamp: serverTimestamp()
+      });
+
+      toast.success('Daily Reward Claimed!', { icon: '🎁' });
+    } catch (error) {
+      // Background process safety
     }
   }
 
@@ -159,7 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           userId: referredBy,
           amount: 50,
           type: 'referral_bonus',
-          source: `Referral bonus for ${username}`
+          source: `Referral bonus for ${username}`,
+          claimId: `referral_${referredBy}_${user.uid}`
         });
 
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {
@@ -214,6 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       amount: 10,
       type: 'referral_bonus',
       source: 'Signup Welcome Reward',
+      claimId: `welcome_${user.uid}`,
       xpReward: 50
     });
   }

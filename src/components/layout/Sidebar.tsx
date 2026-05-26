@@ -9,7 +9,6 @@ import {
   ChevronRight,
   User,
   ShieldCheck,
-  Target,
   Wallet
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,7 +26,6 @@ const Sidebar: React.FC = () => {
     { name: 'Me', icon: User, href: '/me' },
   ] : [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-    { name: 'Predict', icon: Target, href: '/predict' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
     { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { name: 'Earn', icon: Zap, href: '/rewards' },

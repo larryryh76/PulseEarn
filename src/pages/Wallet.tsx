@@ -4,116 +4,24 @@ import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   ShieldCheck,
-  Zap,
   Lock,
-  CreditCard,
-  Info,
-  AlertTriangle,
   Flame,
-  Target,
-  Trophy,
   History as HistoryIcon,
-  CheckCircle2,
-  Clock,
   Sparkles,
   ShieldAlert,
   ArrowUpRight,
-  TrendingUp as TrendingIcon
+  TrendingUp as TrendingIcon,
+  Plus,
+  CreditCard as CardIcon,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import { PTS_TO_USD, formatUSD } from '../utils/finance';
 import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import ErrorBoundary from '../components/ui/ErrorBoundary';
-import { getXpProgress } from '../utils/progression';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { Transaction } from '../types';
-
-const WithdrawalLockedModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  currentPoints: number;
-  minWithdraw: number;
-  onEarnMore: () => void;
-}> = ({ isOpen, onClose, currentPoints, minWithdraw, onEarnMore }) => {
-  const progress = Math.min(100, (currentPoints / minWithdraw) * 100);
-  const remaining = Math.max(0, minWithdraw - currentPoints);
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-md bg-[#0D0D12] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
-               <Lock size={120} />
-            </div>
-
-            <div className="flex flex-col items-center text-center space-y-6 relative z-10">
-               <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(0,112,255,0.2)]">
-                  <Lock size={32} />
-               </div>
-
-               <div className="space-y-2">
-                  <h3 className="text-2xl font-bold tracking-tight">Withdrawal Locked</h3>
-                  <p className="text-xs text-white/40 leading-relaxed max-w-[280px] mx-auto">
-                    You need <span className="text-white font-bold">{minWithdraw.toLocaleString()} PTS</span> before withdrawals become available for your account.
-                  </p>
-               </div>
-
-               <div className="w-full space-y-4 py-4">
-                  <div className="flex justify-between items-end px-1">
-                     <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Growth Progress</span>
-                     <span className="text-sm font-mono font-bold text-primary">{currentPoints.toLocaleString()} / {minWithdraw.toLocaleString()}</span>
-                  </div>
-                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                     <motion.div
-                       initial={{ width: 0 }}
-                       animate={{ width: `${progress}%` }}
-                       className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                     />
-                  </div>
-                  <div className="flex justify-center">
-                     <div className="px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10">
-                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                           {remaining.toLocaleString()} PTS Remaining
-                        </p>
-                     </div>
-                  </div>
-               </div>
-
-               <div className="w-full grid grid-cols-2 gap-3 pt-2">
-                  <Button variant="outline" className="rounded-xl py-4" onClick={onClose}>
-                     Close
-                  </Button>
-                  <Button glow className="rounded-xl py-4" onClick={onEarnMore}>
-                     Earn More
-                  </Button>
-               </div>
-
-               <p className="text-[9px] text-white/20 uppercase tracking-[0.2em] font-bold">
-                  Maintain streaks for x2.0 multipliers
-               </p>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
-};
 
 const minWithdraw = 10000;
 
@@ -121,38 +29,18 @@ const Wallet: React.FC = () => {
   const { userData } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'withdraw'>('overview');
+  const [activeTab, setActiveTab] = useState<'hub' | 'ledger' | 'payout'>('hub');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
 
-  const handleWithdrawClick = () => {
-    if ((userData?.points || 0) < minWithdraw) {
-      setIsLockedModalOpen(true);
-    } else {
-      setActiveTab('withdraw');
-    }
-  };
-
   useEffect(() => {
     if (!userData?.uid) return;
-
-    const q = query(
-      collection(db, 'users', userData.uid, 'transactions'),
-      orderBy('timestamp', 'desc'),
-      limit(20)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const txData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Transaction[];
-      setTransactions(txData);
+    const q = query(collection(db, 'users', userData.uid, 'transactions'), orderBy('timestamp', 'desc'), limit(25));
+    return onSnapshot(q, snap => {
+      setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[]);
       setLoadingHistory(false);
     });
-
-    return () => unsubscribe();
   }, [userData?.uid]);
 
   if (!userData) return null;
@@ -160,490 +48,307 @@ const Wallet: React.FC = () => {
   const currentPoints = userData.points;
   const usdValue = PTS_TO_USD(currentPoints);
   const progress = Math.min(100, (currentPoints / minWithdraw) * 100);
-  const pointsRemaining = Math.max(0, minWithdraw - currentPoints);
-  const xp = getXpProgress(userData.xp || 0);
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto pb-32 space-y-8 px-4">
+      <div className="max-w-6xl mx-auto space-y-16 pb-32">
 
-        {/* PREMIUM ECONOMY HERO */}
-        <ErrorBoundary name="WalletHero">
-          <section className="relative pt-12 pb-8">
-             <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_40%,rgba(0,112,255,0.1),transparent_70%)]" />
+        {/* PREMIUM BALANCE HEADER */}
+        <section className="relative pt-10">
+           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(0,112,255,0.08),transparent_70%)]" />
+           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-12">
+              <div className="space-y-6">
+                 <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.4em]">Settlement Balance</span>
+                 </div>
+                 <div className="space-y-2">
+                    <h1 className="text-8xl md:text-9xl font-bold tracking-tighter text-white drop-shadow-2xl leading-[0.85]">
+                       {currentPoints.toLocaleString()}
+                    </h1>
+                    <div className="flex items-center gap-4">
+                       <p className="text-3xl md:text-4xl font-medium text-white/20 tracking-tight font-mono">
+                          ≈ {formatUSD(usdValue)}
+                       </p>
+                       <div className="px-3 py-1 rounded-lg bg-success/10 border border-success/20 text-success text-[10px] font-bold uppercase tracking-widest">
+                          Secured
+                       </div>
+                    </div>
+                 </div>
+              </div>
 
-             <div className="flex flex-col items-center text-center space-y-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-                   <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                   <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest px-1">Pulse Rewards Wallet</span>
-                </div>
+              <div className="flex flex-wrap gap-4 w-full lg:w-auto">
+                 <button
+                  onClick={() => setIsLockedModalOpen(true)}
+                  className="flex-1 lg:flex-none px-10 py-5 rounded-2xl bg-white text-black font-bold text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-white/90 active:scale-95 transition-all flex items-center justify-center gap-3"
+                 >
+                    Withdraw <ArrowUpRight size={16} />
+                 </button>
+                 <button
+                  onClick={() => navigate('/tasks')}
+                  className="flex-1 lg:flex-none px-10 py-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+                 >
+                    Earn More <Plus size={16} />
+                 </button>
+              </div>
+           </div>
+        </section>
 
-                <div className="relative group cursor-default">
-                   {/* Level Ring Container */}
-                   <div className="absolute inset-0 -m-12 pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity duration-700">
-                      <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
-                         <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-white/5" />
-                         <motion.circle
-                           cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="1.5"
-                           strokeDasharray="301.59"
-                           initial={{ strokeDashoffset: 301.59 }}
-                           animate={{ strokeDashoffset: 301.59 - (301.59 * xp.progress / 100) }}
-                           transition={{ duration: 2, ease: "circOut" }}
-                           className="text-primary"
-                         />
-                      </svg>
-                   </div>
-
-                   <div className="space-y-1 relative z-10">
-                      <h1 className="text-7xl md:text-9xl font-bold tracking-tighter text-white drop-shadow-[0_0_30px_rgba(0,112,255,0.3)]">
-                         {currentPoints.toLocaleString()}
-                      </h1>
-                      <p className="text-2xl md:text-3xl font-medium text-white/40 tracking-tight">
-                         ≈ {formatUSD(usdValue)}
-                      </p>
-                   </div>
-                </div>
-
-                <div className="flex items-center gap-8 pt-4">
-                   <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Reward Level</span>
-                      <span className="text-sm font-bold text-primary uppercase bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20">
-                         LVL {userData.level}
-                      </span>
-                   </div>
-                   <div className="w-px h-10 bg-white/5" />
-                   <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1.5">Streak Status</span>
-                      <span className="text-sm font-bold text-orange-500 uppercase bg-orange-500/10 px-2.5 py-1 rounded-lg border border-orange-500/20 flex items-center gap-1.5">
-                         <Flame size={14} /> {userData.streak || 0} Days
-                      </span>
-                   </div>
-                </div>
-
-                <div className="pt-8">
-                   <Button
-                    onClick={handleWithdrawClick}
-                    glow
-                    size="lg"
-                    className="px-12 py-5 rounded-2xl text-xs font-bold uppercase tracking-[0.2em]"
-                   >
-                      <CreditCard size={18} className="mr-3" />
-                      Withdraw Pulse
-                   </Button>
-                </div>
-             </div>
-          </section>
-        </ErrorBoundary>
-
-        {/* NAVIGATION TABS */}
-        <section>
-           <div className="flex border-b border-white/[0.05] mb-8 overflow-x-auto no-scrollbar">
+        {/* FINANCIAL TABS */}
+        <section className="space-y-12">
+           <div className="flex border-b border-white/5 overflow-x-auto no-scrollbar">
               {[
-                { id: 'overview', label: 'Reward Hub' },
-                { id: 'history', label: 'Ecosystem Activity' },
-                { id: 'withdraw', label: 'Withdrawal Portal' },
+                { id: 'hub', label: 'Reward Hub' },
+                { id: 'ledger', label: 'Ecosystem Ledger' },
+                { id: 'payout', label: 'Payout Configuration' },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
-                    "px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative whitespace-nowrap",
+                    "px-10 py-6 text-[11px] font-bold uppercase tracking-[0.3em] transition-all relative whitespace-nowrap",
                     activeTab === tab.id ? "text-primary" : "text-white/20 hover:text-white/40"
                   )}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <motion.div layoutId="walletTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary" />
+                    <motion.div layoutId="walletTabLine" className="absolute bottom-0 left-8 right-8 h-[1px] bg-primary shadow-[0_0_15px_rgba(0,102,255,0.8)]" />
                   )}
                 </button>
               ))}
            </div>
 
            <AnimatePresence mode="wait">
-              {activeTab === 'overview' && (
+              {activeTab === 'hub' && (
                 <motion.div
-                  key="overview"
+                  key="hub"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="space-y-6"
+                  className="space-y-10"
                 >
-                   {/* Main Asset Card */}
-                   <Card className="p-8 md:p-10 border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent rounded-[2.5rem] relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity duration-700">
-                         <Zap size={160} className="text-primary" />
-                      </div>
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative z-10">
-                         <div className="flex items-center gap-6">
-                            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                               <Zap size={32} />
+                   {/* Growth Matrix */}
+                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                      <div className="lg:col-span-8 space-y-10">
+                         {/* Large Progress visualization */}
+                         <div className="p-10 rounded-[2.5rem] bg-black border border-white/10 relative overflow-hidden group shadow-2xl">
+                            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                            <div className="flex flex-col md:flex-row justify-between items-end mb-10 relative z-10">
+                               <div className="space-y-3">
+                                  <div className="flex items-center gap-3 text-primary">
+                                     <Sparkles size={18} />
+                                     <h4 className="text-[11px] font-bold uppercase tracking-[0.3em]">Payout Milestone</h4>
+                                  </div>
+                                  <p className="text-3xl font-bold text-white tracking-tighter uppercase">Clearance Progress</p>
+                               </div>
+                               <span className="text-5xl font-mono font-bold text-white leading-none">{Math.round(progress)}%</span>
                             </div>
-                            <div>
-                               <h3 className="text-2xl font-bold tracking-tight">Pulse Points</h3>
-                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest mt-1">Reward Balance</p>
-                            </div>
-                         </div>
-                         <div className="text-left md:text-right">
-                            <p className="text-4xl font-mono font-bold text-white tracking-tighter">{currentPoints.toLocaleString()} <span className="text-lg text-white/20">PTS</span></p>
-                            <p className="text-sm font-bold text-success mt-1 tracking-widest uppercase flex items-center md:justify-end gap-2">
-                               <CheckCircle2 size={14} />
-                               {formatUSD(usdValue)} Value
-                            </p>
-                         </div>
-                      </div>
-                   </Card>
 
-                   {/* Withdrawal Progress Summary */}
-                   <div
-                    onClick={handleWithdrawClick}
-                    className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/[0.05] hover:bg-white/[0.02] transition-all cursor-pointer relative overflow-hidden group"
-                   >
-                      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="flex justify-between items-end mb-4 relative z-10">
-                         <div className="space-y-1">
-                            <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Withdrawal Eligibility</h4>
-                            <p className="text-xl font-bold text-white">Unlock Progress</p>
-                         </div>
-                         <span className="text-2xl font-mono font-bold text-primary">{Math.round(progress)}%</span>
-                      </div>
-                      <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5 relative z-10">
-                         <motion.div
-                           initial={{ width: 0 }}
-                           animate={{ width: `${progress}%` }}
-                           className="h-full bg-gradient-to-r from-primary to-accent rounded-full shadow-[0_0_15px_rgba(0,112,255,0.4)]"
-                         />
-                      </div>
-                      <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mt-4 text-center relative z-10">
-                         {pointsRemaining.toLocaleString()} PTS remaining until withdrawal threshold
-                      </p>
-                   </div>
-
-                   {/* Status & Metrics */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/[0.05] space-y-4 hover:border-white/10 transition-colors">
-                         <div className="flex items-center gap-3">
-                            <Flame size={18} className="text-orange-500" />
-                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Earning Velocity</h4>
-                         </div>
-                         <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-white">+{userData.totalEarnedToday || 0}</span>
-                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">PTS Earned Today</span>
-                         </div>
-                         <div className="pt-2 flex flex-col gap-2">
-                            <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
-                               <span className="text-white/20">Progress to Daily Goal</span>
-                               <span className="text-primary">{Math.min(100, Math.round((userData.totalEarnedToday || 0) / 200 * 100))}%</span>
-                            </div>
-                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                               <motion.div
-                                 initial={{ width: 0 }}
-                                 animate={{ width: `${Math.min(100, (userData.totalEarnedToday || 0) / 200 * 100)}%` }}
-                                 className="h-full bg-primary"
-                               />
-                            </div>
-                         </div>
-                      </div>
-
-                      <div className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/[0.05] space-y-4 hover:border-white/10 transition-colors">
-                         <div className="flex items-center gap-3">
-                            <TrendingIcon size={18} className="text-accent" />
-                            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Lifetime Progression</h4>
-                         </div>
-                         <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-white">{userData.xp || 0}</span>
-                            <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">Total XP</span>
-                         </div>
-                         <div className="pt-2 flex flex-col gap-2">
-                            <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
-                               <span className="text-white/20">XP to Next Level</span>
-                               <span className="text-accent">{Math.round(xp.progress)}%</span>
-                            </div>
-                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                               <motion.div
-                                 initial={{ width: 0 }}
-                                 animate={{ width: `${xp.progress}%` }}
-                                 className="h-full bg-accent"
-                               />
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-
-                   {/* Loyalty Program Info */}
-                   <div className="p-6 rounded-[2rem] bg-primary/5 border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6 group">
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                            <ShieldCheck size={24} />
-                         </div>
-                         <div>
-                            <h4 className="text-sm font-bold text-white">Account Security Status</h4>
-                            <p className="text-[11px] text-white/40 font-medium uppercase tracking-tighter">Your account is in good standing. Maintain activity to increase your level.</p>
-                         </div>
-                      </div>
-                      <div className="px-6 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                         Verified Member
-                      </div>
-                   </div>
-                </motion.div>
-              )}
-
-              {activeTab === 'history' && (
-                <motion.div
-                  key="history"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-3"
-                >
-                   {loadingHistory ? (
-                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                         <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                         <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Activity...</p>
-                      </div>
-                   ) : transactions.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
-                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/10">
-                            <HistoryIcon size={32} />
-                         </div>
-                         <div className="space-y-1">
-                            <p className="text-sm font-bold text-white">No activity yet</p>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">Complete missions to earn points</p>
-                         </div>
-                      </div>
-                   ) : (
-                     transactions.map((tx) => (
-                       <div key={tx.id} className="p-5 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.03] transition-all relative overflow-hidden">
-                          <div className="flex items-center gap-4">
-                             <div className={cn(
-                               "w-11 h-11 rounded-2xl flex items-center justify-center border border-white/5 shadow-xl",
-                               tx.type === 'prediction_reward' ? "bg-primary/5 text-primary" :
-                               tx.type === 'task_reward' ? "bg-accent/5 text-accent" :
-                               tx.type === 'daily_reward' ? "bg-orange-500/5 text-orange-500" :
-                               tx.type === 'referral_bonus' ? "bg-success/5 text-success" : "bg-white/5 text-white/40"
-                             )}>
-                                {tx.type === 'prediction_reward' ? <Target size={20} /> :
-                                 tx.type === 'task_reward' ? <Zap size={20} /> :
-                                 tx.type === 'daily_reward' ? <Flame size={20} /> : <Trophy size={20} />}
-                             </div>
-                             <div>
-                                <p className="text-[14px] font-bold text-white tracking-tight">{tx.source}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                                      {tx.timestamp instanceof Date ? tx.timestamp.toLocaleDateString() :
-                                       tx.timestamp?.toDate().toLocaleDateString()}
-                                   </span>
-                                   <span className="w-1 h-1 rounded-full bg-white/10" />
-                                   <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{tx.type.replace('_', ' ')}</span>
-                                </div>
-                             </div>
-                          </div>
-                          <div className="text-right">
-                             <p className={cn(
-                                "text-base font-mono font-bold",
-                                tx.amount > 0 ? "text-success" : "text-danger"
-                             )}>
-                                {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()} PTS
-                             </p>
-                             <div className="flex items-center justify-end gap-1.5 mt-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_10px_rgba(34,197,94,0.3)]" />
-                                <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Settled</span>
-                             </div>
-                          </div>
-                       </div>
-                     ))
-                   )}
-                   {transactions.length > 0 && (
-                     <Button variant="outline" className="w-full py-5 rounded-[1.5rem] border-dashed border-white/10 hover:border-primary/50 text-[10px] text-white/20 hover:text-primary uppercase tracking-widest mt-6">
-                        <HistoryIcon size={16} className="mr-2" /> View Full History
-                     </Button>
-                   )}
-                </motion.div>
-              )}
-
-              {activeTab === 'withdraw' && (
-                <motion.div
-                  key="withdraw"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-6"
-                >
-                   {/* Payout Milestone Card */}
-                   <Card className="p-8 md:p-10 rounded-[2.5rem] bg-gradient-to-br from-[#0A0A0F] to-[#161622] border-white/[0.05] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-10 opacity-[0.02]">
-                         <Lock size={160} />
-                      </div>
-
-                      <div className="relative z-10 space-y-10">
-                         <div className="flex justify-between items-start">
-                            <div className="space-y-2">
-                               <h3 className="text-3xl font-bold tracking-tight">Withdrawal Portal</h3>
-                               <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest">Reward Eligibility & Security Check</p>
-                            </div>
-                            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center min-w-[80px]">
-                               <span className="text-2xl font-mono font-bold text-primary block">{Math.round(progress)}%</span>
-                               <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Ready</span>
-                            </div>
-                         </div>
-
-                         <div className="space-y-4">
-                            <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden p-1 border border-white/5 relative">
+                            <div className="relative h-4 w-full bg-white/5 rounded-full overflow-hidden p-1 border border-white/5">
                                <motion.div
                                  initial={{ width: 0 }}
                                  animate={{ width: `${progress}%` }}
-                                 className="h-full bg-gradient-to-r from-primary via-accent to-primary rounded-full shadow-[0_0_20px_rgba(0,112,255,0.4)]"
+                                 transition={{ duration: 1.5, ease: "circOut" }}
+                                 className="h-full bg-gradient-to-r from-primary via-accent to-primary rounded-full shadow-[0_0_20px_rgba(0,102,255,0.4)]"
                                />
                             </div>
-                            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">
-                               <span>Standard Tier</span>
-                               <span className="text-white/40">{currentPoints.toLocaleString()} / {minWithdraw.toLocaleString()} PTS</span>
-                               <span className="text-success/40">Ready to unlock</span>
+
+                            <div className="flex justify-between items-center mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">
+                               <span>{currentPoints.toLocaleString()} PTS COLLECTED</span>
+                               <span className="text-white/10 font-mono tracking-tighter">THRESHOLD: {minWithdraw.toLocaleString()}</span>
                             </div>
                          </div>
 
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="p-6 rounded-[1.5rem] bg-white/[0.02] border border-white/5 space-y-2 group hover:bg-white/[0.04] transition-colors">
-                               <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Required Points</p>
-                               <p className="text-2xl font-mono font-bold text-white tracking-tighter">{pointsRemaining.toLocaleString()}</p>
-                            </div>
-                            <div className="p-6 rounded-[1.5rem] bg-white/[0.02] border border-white/5 space-y-2 group hover:bg-white/[0.04] transition-colors">
-                               <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Estimated Unlock</p>
-                               <p className="text-2xl font-mono font-bold text-white tracking-tighter">~{Math.ceil(pointsRemaining / 150)} Days</p>
-                            </div>
-                            <div className="p-6 rounded-[1.5rem] bg-white/[0.02] border border-white/5 space-y-2 group hover:bg-white/[0.04] transition-colors text-success">
-                               <p className="text-[10px] font-bold text-success/30 uppercase tracking-widest">Est. Payout</p>
-                               <p className="text-2xl font-mono font-bold tracking-tighter">{formatUSD(PTS_TO_USD(currentPoints))}</p>
-                            </div>
-                         </div>
-
-                         <div className="space-y-6">
-                            <div className="flex items-center gap-3 px-1">
-                               <ShieldCheck size={18} className="text-primary" />
-                               <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-widest">Eligibility Check</h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               {[
-                                 { label: 'Points Balance Threshold', val: '10,000 PTS', met: currentPoints >= 10000 },
-                                 { label: 'Reward Level Requirement', val: 'Level 1+', met: userData.level >= 1 },
-                                 { label: 'Email Verification', val: 'Verified', met: true },
-                                 { label: 'Security Review', val: 'Passed', met: !userData.isFlagged }
-                               ].map((req, i) => (
-                                 <div key={i} className="flex items-center justify-between p-5 rounded-[1.5rem] bg-white/[0.01] border border-white/[0.03] group hover:bg-white/[0.03] transition-colors">
-                                    <span className="text-[12px] font-medium text-white/50">{req.label}</span>
-                                    <div className="flex items-center gap-3">
-                                       <span className={cn("text-[10px] font-bold uppercase tracking-widest", req.met ? "text-success" : "text-white/20")}>{req.val}</span>
-                                       {req.met ? <CheckCircle2 size={14} className="text-success shadow-[0_0_10px_rgba(34,197,94,0.3)]" /> : <Clock size={14} className="text-white/10" />}
-                                    </div>
-                                 </div>
-                               ))}
-                            </div>
-                         </div>
-
-                         <div className="pt-4 space-y-4">
-                            <Button
-                              glow
-                              className="w-full py-6 rounded-2xl text-[12px] font-bold uppercase tracking-[0.3em]"
-                              disabled={currentPoints < minWithdraw}
-                            >
-                               {currentPoints < minWithdraw ? (
-                                  <div className="flex items-center gap-2">
-                                     <Lock size={16} />
-                                     Withdrawal Threshold Not Met
+                         {/* Status Cards */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/5 space-y-6 hover:border-white/10 transition-colors">
+                               <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3 text-orange-500">
+                                     <Flame size={20} />
+                                     <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Streak Factor</span>
                                   </div>
-                               ) : 'Initialize Payout Authorization'}
-                            </Button>
-                            <p className="text-[10px] text-white/20 text-center font-bold uppercase tracking-widest">
-                               Payouts are batched and settled within 24-48 hours.
-                            </p>
-                         </div>
-                      </div>
-                   </Card>
-
-                   {/* Information & Security */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/[0.05] space-y-6">
-                         <div className="space-y-2">
-                            <h4 className="text-lg font-bold tracking-tight flex items-center gap-2">
-                               <Info size={20} className="text-primary" />
-                               Payout Logic
-                            </h4>
-                            <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">Understanding our distribution ensures ecosystem sustainability.</p>
-                         </div>
-                         <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                                  <Trophy size={16} className="text-yellow-500" />
+                                  <span className="text-lg font-bold text-white">{userData.streak || 0}D</span>
                                </div>
-                               <div>
-                                  <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">1,000 PTS = $1.00 USD</p>
-                                  <p className="text-[10px] text-white/30 leading-relaxed mt-1">Earnings are settled in verified digital assets (USDT/BTC).</p>
-                               </div>
+                               <p className="text-[12px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">Maintain consistency to increase your global reward multiplier up to <span className="text-white font-bold">2.5x</span>.</p>
                             </div>
-                            <div className="flex items-start gap-4">
-                               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                                  <Sparkles size={16} className="text-primary" />
+
+                            <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/5 space-y-6 hover:border-white/10 transition-colors">
+                               <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3 text-accent">
+                                     <TrendingIcon size={20} />
+                                     <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Velocity Rate</span>
+                                  </div>
+                                  <span className="text-lg font-bold text-success">+{userData.totalEarnedToday || 0}</span>
                                </div>
-                               <div>
-                                  <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Verified Payouts</p>
-                                  <p className="text-[10px] text-white/30 leading-relaxed mt-1">Direct payout to your provided payment method or wallet.</p>
-                               </div>
+                               <p className="text-[12px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">System is processing your earnings at <span className="text-success font-bold">Optimal Speed</span>. Last sync detected 2m ago.</p>
                             </div>
                          </div>
                       </div>
 
-                      <div className="p-8 rounded-[2.5rem] bg-danger/5 border border-danger/10 space-y-6">
-                         <div className="space-y-2">
-                            <h4 className="text-lg font-bold text-danger tracking-tight flex items-center gap-2">
-                               <ShieldAlert size={20} />
-                               Account Protection
-                            </h4>
-                            <p className="text-[11px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Security protocols monitored by Pulse Core.</p>
-                         </div>
-                         <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                               <div className="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center shrink-0 border border-danger/20">
-                                  <AlertTriangle size={16} className="text-danger" />
-                               </div>
-                               <div>
-                                  <p className="text-[11px] font-bold text-danger/80 uppercase tracking-widest">Anti-Fraud Verification</p>
-                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Manipulating missions results in permanent account suspension.</p>
-                               </div>
+                      {/* Right Detail Pillar */}
+                      <div className="lg:col-span-4 space-y-8">
+                         <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 space-y-8 group">
+                            <div className="w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-2xl group-hover:scale-110 transition-transform">
+                               <ShieldCheck size={28} />
                             </div>
-                            <div className="flex items-start gap-4">
-                               <div className="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center shrink-0 border border-danger/20">
-                                  <Lock size={16} className="text-danger" />
+                            <div className="space-y-2">
+                               <h4 className="text-xl font-bold text-white uppercase tracking-tight">Account Audit</h4>
+                               <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase tracking-tighter">Your account is fully verified and in good standing with the Pulse protocol.</p>
+                            </div>
+                            <div className="pt-6 border-t border-white/5 space-y-4">
+                               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="text-white/20">Security Grade</span>
+                                  <span className="text-success font-mono">AAA+</span>
                                </div>
-                               <div>
-                                  <p className="text-[11px] font-bold text-danger/80 uppercase tracking-widest">Withdrawal Hold</p>
-                                  <p className="text-[10px] text-danger/40 leading-relaxed mt-1">Suspicious activity triggers a security review period.</p>
+                               <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="text-white/20">Compliance</span>
+                                  <span className="text-success font-mono">PASSED</span>
                                </div>
                             </div>
                          </div>
+
+                         <Card className="p-8 border-white/5 bg-white/[0.01] space-y-6 rounded-[2rem]">
+                            <h5 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Quick Summary</h5>
+                            <div className="space-y-4">
+                               <div className="flex justify-between text-sm font-medium">
+                                  <span className="text-white/40">Market Profits</span>
+                                  <span className="text-white">---</span>
+                               </div>
+                               <div className="flex justify-between text-sm font-medium">
+                                  <span className="text-white/40">Mission Yield</span>
+                                  <span className="text-white">+{userData.stats?.tasksCompleted || 0}</span>
+                               </div>
+                               <div className="flex justify-between text-sm font-medium">
+                                  <span className="text-white/40">Referral Fees</span>
+                                  <span className="text-white">+{userData.stats?.referralsCount || 0}</span>
+                               </div>
+                            </div>
+                         </Card>
                       </div>
                    </div>
+                </motion.div>
+              )}
 
-                   {/* Earning Suggestions */}
-                   <div className="p-8 rounded-[2.5rem] bg-gradient-to-br from-white/[0.02] to-transparent border border-white/[0.05] space-y-6">
-                      <div className="flex items-center justify-between">
-                         <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Growth Acceleration</h4>
-                         <span className="text-[10px] font-bold text-primary uppercase">Trending</span>
+              {activeTab === 'ledger' && (
+                <motion.div
+                  key="ledger"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-6"
+                >
+                   <Card className="p-0 border-white/10 bg-black overflow-hidden rounded-[2.5rem] shadow-2xl">
+                      <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                         <div className="flex items-center gap-3">
+                            <HistoryIcon size={18} className="text-primary" />
+                            <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.3em]">Transaction Audit Log</h4>
+                         </div>
+                         <span className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Immutable Record</span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         {[
-                           { label: 'Referral Race', desc: 'Invite 3 friends for a +1,500 PTS bonus.', icon: Trophy },
-                           { label: 'Prediction Streak', desc: 'Win 5 forecasts in a row for 2x yield.', icon: Target }
-                         ].map((tip, i) => (
-                           <div key={i} className="p-5 rounded-[1.5rem] bg-white/[0.02] border border-white/5 flex items-center gap-4 group hover:border-primary/50 transition-colors cursor-pointer">
-                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/30 group-hover:text-primary transition-colors">
-                                 <tip.icon size={20} />
-                              </div>
-                              <div>
-                                 <p className="text-[12px] font-bold text-white">{tip.label}</p>
-                                 <p className="text-[10px] text-white/30 mt-0.5">{tip.desc}</p>
-                              </div>
-                              <ArrowUpRight size={14} className="ml-auto text-white/10 group-hover:text-primary transition-all" />
-                           </div>
-                         ))}
+
+                      <div className="divide-y divide-white/5">
+                         {loadingHistory ? (
+                            <div className="py-32 flex flex-col items-center justify-center space-y-4">
+                               <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                               <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Authorizing Data Signal...</p>
+                            </div>
+                         ) : transactions.length === 0 ? (
+                            <div className="py-32 text-center space-y-6">
+                               <HistoryIcon size={48} className="mx-auto text-white/5" />
+                               <p className="text-[11px] font-bold text-white/10 uppercase tracking-[0.5em]">Ledger is empty</p>
+                            </div>
+                         ) : (
+                           transactions.map((tx) => (
+                             <div key={tx.id} className="p-8 flex items-center justify-between hover:bg-white/[0.01] transition-all group border-l-2 border-transparent hover:border-primary">
+                                <div className="flex items-center gap-8">
+                                   <div className={cn(
+                                     "w-14 h-14 rounded-2xl flex items-center justify-center border transition-all",
+                                     tx.amount > 0 ? "bg-success/5 border-success/10 text-success" : "bg-primary/5 border-primary/10 text-primary"
+                                   )}>
+                                      {tx.amount > 0 ? <Plus size={24} /> : <TrendingIcon size={24} />}
+                                   </div>
+                                   <div>
+                                      <h4 className="text-lg font-bold text-white tracking-tight group-hover:text-primary transition-colors">{tx.source}</h4>
+                                      <div className="flex items-center gap-4 mt-1">
+                                         <span className="text-[10px] font-mono text-white/20 uppercase">
+                                            {tx.timestamp?.toDate().toLocaleString()}
+                                         </span>
+                                         <span className="text-[10px] font-bold text-white/10 uppercase tracking-widest px-2 py-0.5 rounded border border-white/5">{tx.type.replace('_', ' ')}</span>
+                                      </div>
+                                   </div>
+                                </div>
+                                <div className="text-right space-y-1">
+                                   <p className={cn(
+                                      "text-xl font-mono font-bold",
+                                      tx.amount > 0 ? "text-success" : "text-white/40"
+                                   )}>
+                                      {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                                   </p>
+                                   <div className="flex items-center justify-end gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+                                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Verified</span>
+                                   </div>
+                                </div>
+                             </div>
+                           ))
+                         )}
+                      </div>
+                   </Card>
+                </motion.div>
+              )}
+
+              {activeTab === 'payout' && (
+                <motion.div
+                  key="payout"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-10"
+                >
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-white/5 space-y-8">
+                         <div className="space-y-3">
+                            <h4 className="text-2xl font-bold text-white tracking-tight uppercase">Settlement Method</h4>
+                            <p className="text-[12px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">Configure how you receive your converted rewards.</p>
+                         </div>
+
+                         <div className="space-y-4">
+                            {[
+                               { label: 'Direct Wallet Transfer', icon: CardIcon, status: 'Active' },
+                               { label: 'Exchange Settlement', icon: Globe, status: 'Setup Required' }
+                            ].map((item, i) => (
+                               <div key={i} className="p-6 rounded-2xl bg-black border border-white/5 flex items-center justify-between group cursor-pointer hover:border-primary/50 transition-all">
+                                  <div className="flex items-center gap-5">
+                                     <item.icon size={20} className="text-white/20 group-hover:text-primary transition-colors" />
+                                     <span className="text-[13px] font-bold text-white/80">{item.label}</span>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{item.status}</span>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+
+                      <div className="p-10 rounded-[2.5rem] bg-danger/5 border border-danger/10 space-y-8">
+                         <div className="space-y-3">
+                            <h4 className="text-2xl font-bold text-danger tracking-tight uppercase">Identity Protection</h4>
+                            <p className="text-[12px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Multi-layer verification protects your ecosystem assets.</p>
+                         </div>
+                         <div className="space-y-4">
+                            <div className="flex items-start gap-5">
+                               <ShieldAlert size={20} className="text-danger shrink-0 mt-1" />
+                               <div>
+                                  <p className="text-[13px] font-bold text-white/90">Anti-Sybil Guard</p>
+                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">Attempts to manipulate mission data will result in immediate protocol exclusion.</p>
+                               </div>
+                            </div>
+                            <div className="flex items-start gap-5">
+                               <Lock size={20} className="text-danger shrink-0 mt-1" />
+                               <div>
+                                  <p className="text-[13px] font-bold text-white/90">Withdrawal Cooling</p>
+                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">High-value settlements require a 48h manual verification cycle.</p>
+                               </div>
+                            </div>
+                         </div>
                       </div>
                    </div>
                 </motion.div>
@@ -653,13 +358,38 @@ const Wallet: React.FC = () => {
 
       </div>
 
-      <WithdrawalLockedModal
-        isOpen={isLockedModalOpen}
-        onClose={() => setIsLockedModalOpen(false)}
-        currentPoints={userData.points}
-        minWithdraw={minWithdraw}
-        onEarnMore={() => navigate('/tasks')}
-      />
+      {/* ISOLATED MINIMALIST MODAL */}
+      <AnimatePresence>
+        {isLockedModalOpen && (
+           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsLockedModalOpen(false)} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-black border border-white/10 rounded-[3rem] p-12 overflow-hidden shadow-2xl">
+                 <div className="absolute top-0 right-0 p-12 opacity-5">
+                    <Lock size={180} />
+                 </div>
+                 <div className="relative z-10 text-center space-y-10">
+                    <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto shadow-2xl">
+                       <Lock size={40} />
+                    </div>
+                    <div className="space-y-4">
+                       <h3 className="text-4xl font-bold text-white tracking-tighter uppercase">Signal Locked</h3>
+                       <p className="text-[14px] text-white/40 leading-relaxed max-w-sm mx-auto font-medium uppercase tracking-tight">
+                          Consolidate <span className="text-white font-bold">{minWithdraw.toLocaleString()} PTS</span> to authorize conversion.
+                       </p>
+                    </div>
+                    <div className="pt-4 flex flex-col gap-4">
+                       <button onClick={() => navigate('/tasks')} className="w-full py-5 rounded-2xl bg-white text-black font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-white/90 transition-all shadow-xl">
+                          Secure More Yield
+                       </button>
+                       <button onClick={() => setIsLockedModalOpen(false)} className="w-full py-5 rounded-2xl bg-transparent text-white/20 font-bold text-[11px] uppercase tracking-[0.3em] hover:text-white transition-all">
+                          Abort Request
+                       </button>
+                    </div>
+                 </div>
+              </motion.div>
+           </div>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 };

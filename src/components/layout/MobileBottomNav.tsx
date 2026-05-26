@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, TrendingUp, Gift, User, ShieldCheck, Wallet } from 'lucide-react';
+import { Home, Gift, User, ShieldCheck, Wallet } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils';
@@ -18,7 +18,7 @@ const MobileBottomNav: React.FC = () => {
   // NEW LOGIC: Also hide on sub-pages (pages that are not the main tabs)
   const mainTabs = isAdmin
     ? ['/pulse-core', '/me']
-    : ['/dashboard', '/predict', '/rewards', '/wallet', '/me'];
+    : ['/dashboard', '/rewards', '/wallet', '/me'];
 
   const isMainTab = mainTabs.includes(location.pathname);
 
@@ -29,7 +29,6 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Me', icon: User, href: '/me' },
   ] : [
     { name: 'Home', icon: Home, href: '/dashboard' },
-    { name: 'Predict', icon: TrendingUp, href: '/predict' },
     { name: 'Earn', icon: Gift, href: '/rewards' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
     { name: 'Me', icon: User, href: '/me' },

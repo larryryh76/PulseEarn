@@ -20,12 +20,12 @@ const Tasks: React.FC = () => {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                   </div>
-                  System Optimization
+                  System Update
                 </div>
               </div>
               <h1 className="text-6xl md:text-8xl font-bold text-white tracking-tighter leading-[0.85] uppercase">
                 Marketplace <br />
-                <span className="text-white/20 text-4xl md:text-6xl">Rebuilding.</span>
+                <span className="text-white/20 text-3xl md:text-5xl">Rebuilding in progress.</span>
               </h1>
             </div>
 
@@ -36,8 +36,8 @@ const Tasks: React.FC = () => {
                   <Target size={20} />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Rewards Engine</p>
-                  <p className="text-sm font-bold text-white uppercase">Recalibrating</p>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Rewards System</p>
+                  <p className="text-sm font-bold text-white uppercase">Updating</p>
                 </div>
               </div>
               <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-4">
@@ -45,8 +45,8 @@ const Tasks: React.FC = () => {
                   <Cpu size={20} />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Logic Hub</p>
-                  <p className="text-sm font-bold text-white uppercase">Optimizing</p>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Mission Hub</p>
+                  <p className="text-sm font-bold text-white uppercase">Enhancing</p>
                 </div>
               </div>
               <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-4">
@@ -74,7 +74,7 @@ const Tasks: React.FC = () => {
                   className="h-full w-1/2 bg-primary/40"
                 />
               </div>
-              <span className="text-[10px] font-bold text-primary uppercase tracking-[0.4em] animate-pulse">Synchronizing Systems...</span>
+              <span className="text-[10px] font-bold text-primary uppercase tracking-[0.4em] animate-pulse">Rebuilding Marketplace...</span>
             </div>
           </div>
         </div>

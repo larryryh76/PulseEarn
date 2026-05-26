@@ -60,7 +60,7 @@ const Wallet: React.FC = () => {
               <div className="space-y-6">
                  <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.4em]">Settlement Balance</span>
+                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.4em]">Available Balance</span>
                  </div>
                  <div className="space-y-2">
                     <h1 className="text-8xl md:text-9xl font-bold tracking-tighter text-white drop-shadow-2xl leading-[0.85]">
@@ -82,13 +82,13 @@ const Wallet: React.FC = () => {
                   onClick={() => setIsLockedModalOpen(true)}
                   className="flex-1 lg:flex-none px-10 py-5 rounded-2xl bg-white text-black font-bold text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-white/90 active:scale-95 transition-all flex items-center justify-center gap-3"
                  >
-                    Withdraw <ArrowUpRight size={16} />
+                    Redeem <ArrowUpRight size={16} />
                  </button>
                  <button
                   onClick={() => navigate('/tasks')}
                   className="flex-1 lg:flex-none px-10 py-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-white/10 transition-all flex items-center justify-center gap-3"
                  >
-                    Earn More <Plus size={16} />
+                    Marketplace <Plus size={16} />
                  </button>
               </div>
            </div>
@@ -98,9 +98,9 @@ const Wallet: React.FC = () => {
         <section className="space-y-12">
            <div className="flex border-b border-white/5 overflow-x-auto no-scrollbar">
               {[
-                { id: 'hub', label: 'Reward Hub' },
-                { id: 'ledger', label: 'Ecosystem Ledger' },
-                { id: 'payout', label: 'Payout Configuration' },
+                { id: 'hub', label: 'Reward Overview' },
+                { id: 'ledger', label: 'Audit Ledger' },
+                { id: 'payout', label: 'Redemption Config' },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -176,11 +176,11 @@ const Wallet: React.FC = () => {
                                <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3 text-accent">
                                      <TrendingIcon size={20} />
-                                     <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Velocity Rate</span>
+                                     <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Daily Activity</span>
                                   </div>
                                   <span className="text-lg font-bold text-success">+{userData.totalEarnedToday || 0}</span>
                                </div>
-                               <p className="text-[12px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">System is processing your earnings at <span className="text-success font-bold">Optimal Speed</span>. Last sync detected 2m ago.</p>
+                               <p className="text-[12px] text-white/40 leading-relaxed font-medium uppercase tracking-tight">Your account activity is being processed at <span className="text-success font-bold">Optimal Speed</span>. Last update detected 2m ago.</p>
                             </div>
                          </div>
                       </div>
@@ -192,8 +192,8 @@ const Wallet: React.FC = () => {
                                <ShieldCheck size={28} />
                             </div>
                             <div className="space-y-2">
-                               <h4 className="text-xl font-bold text-white uppercase tracking-tight">Account Audit</h4>
-                               <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase tracking-tighter">Your account is fully verified and in good standing with the Pulse protocol.</p>
+                               <h4 className="text-xl font-bold text-white uppercase tracking-tight">Account Verification</h4>
+                               <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase tracking-tighter">Your account is fully verified and in good standing.</p>
                             </div>
                             <div className="pt-6 border-t border-white/5 space-y-4">
                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
@@ -208,18 +208,18 @@ const Wallet: React.FC = () => {
                          </div>
 
                          <Card className="p-8 border-white/5 bg-white/[0.01] space-y-6 rounded-[2rem]">
-                            <h5 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Quick Summary</h5>
+                            <h5 className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Account Summary</h5>
                             <div className="space-y-4">
                                <div className="flex justify-between text-sm font-medium">
-                                  <span className="text-white/40">Market Profits</span>
+                                  <span className="text-white/40">Market Rewards</span>
                                   <span className="text-white">---</span>
                                </div>
                                <div className="flex justify-between text-sm font-medium">
-                                  <span className="text-white/40">Mission Yield</span>
+                                  <span className="text-white/40">Marketplace Yield</span>
                                   <span className="text-white">+{userData.stats?.tasksCompleted || 0}</span>
                                </div>
                                <div className="flex justify-between text-sm font-medium">
-                                  <span className="text-white/40">Referral Fees</span>
+                                  <span className="text-white/40">Referral Bonus</span>
                                   <span className="text-white">+{userData.stats?.referralsCount || 0}</span>
                                </div>
                             </div>
@@ -330,22 +330,22 @@ const Wallet: React.FC = () => {
 
                       <div className="p-10 rounded-[2.5rem] bg-danger/5 border border-danger/10 space-y-8">
                          <div className="space-y-3">
-                            <h4 className="text-2xl font-bold text-danger tracking-tight uppercase">Identity Protection</h4>
-                            <p className="text-[12px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Multi-layer verification protects your ecosystem assets.</p>
+                            <h4 className="text-2xl font-bold text-danger tracking-tight uppercase">Account Protection</h4>
+                            <p className="text-[12px] text-danger/40 leading-relaxed font-medium uppercase tracking-tight">Multi-layer verification protects your rewards and data.</p>
                          </div>
                          <div className="space-y-4">
                             <div className="flex items-start gap-5">
                                <ShieldAlert size={20} className="text-danger shrink-0 mt-1" />
                                <div>
-                                  <p className="text-[13px] font-bold text-white/90">Anti-Sybil Guard</p>
-                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">Attempts to manipulate mission data will result in immediate protocol exclusion.</p>
+                                  <p className="text-[13px] font-bold text-white/90">Fraud Prevention</p>
+                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">Attempts to manipulate data will result in immediate account restriction.</p>
                                </div>
                             </div>
                             <div className="flex items-start gap-5">
                                <Lock size={20} className="text-danger shrink-0 mt-1" />
                                <div>
-                                  <p className="text-[13px] font-bold text-white/90">Withdrawal Cooling</p>
-                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">High-value settlements require a 48h manual verification cycle.</p>
+                                  <p className="text-[13px] font-bold text-white/90">Withdrawal Delay</p>
+                                  <p className="text-[11px] text-white/30 leading-relaxed mt-1">High-value transfers require a 48h manual verification cycle.</p>
                                </div>
                             </div>
                          </div>
@@ -372,14 +372,14 @@ const Wallet: React.FC = () => {
                        <Lock size={40} />
                     </div>
                     <div className="space-y-4">
-                       <h3 className="text-4xl font-bold text-white tracking-tighter uppercase">Signal Locked</h3>
+                       <h3 className="text-4xl font-bold text-white tracking-tighter uppercase">Threshold Not Met</h3>
                        <p className="text-[14px] text-white/40 leading-relaxed max-w-sm mx-auto font-medium uppercase tracking-tight">
-                          Consolidate <span className="text-white font-bold">{minWithdraw.toLocaleString()} PTS</span> to authorize conversion.
+                          You need at least <span className="text-white font-bold">{minWithdraw.toLocaleString()} PTS</span> to authorize a redemption request.
                        </p>
                     </div>
                     <div className="pt-4 flex flex-col gap-4">
                        <button onClick={() => navigate('/tasks')} className="w-full py-5 rounded-2xl bg-white text-black font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-white/90 transition-all shadow-xl">
-                          Secure More Yield
+                          Visit Marketplace
                        </button>
                        <button onClick={() => setIsLockedModalOpen(false)} className="w-full py-5 rounded-2xl bg-transparent text-white/20 font-bold text-[11px] uppercase tracking-[0.3em] hover:text-white transition-all">
                           Abort Request

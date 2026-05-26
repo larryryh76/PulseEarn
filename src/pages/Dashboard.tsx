@@ -6,8 +6,6 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import {
   Zap,
   Wallet,
-  ArrowUpRight,
-  Target,
   BarChart3,
   Users,
   TrendingUp,
@@ -21,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Skeleton from '../components/ui/Skeleton';
 import { getXpProgress } from '../utils/progression';
 import { PTS_TO_USD, formatUSD } from '../utils/finance';
@@ -78,7 +76,7 @@ const Dashboard: React.FC = () => {
                           </div>
                           <span className="text-white/20 text-[10px] font-bold uppercase tracking-[0.2em]">Live Session</span>
                        </div>
-                       <h2 className="text-white/40 text-lg font-medium tracking-tight">Consolidated Balance</h2>
+                       <h2 className="text-white/40 text-lg font-medium tracking-tight uppercase tracking-widest">Total Earnings</h2>
                        <div className="flex items-baseline gap-4">
                          <h1 className="text-6xl md:text-8xl font-bold text-white tracking-tighter leading-[0.85]">
                            {userData.points.toLocaleString()}
@@ -100,7 +98,7 @@ const Dashboard: React.FC = () => {
                        </div>
                        <div className="w-px h-10 bg-white/10 hidden md:block" />
                        <div className="space-y-1">
-                         <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em]">Protocol clearance</span>
+                         <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em]">Account Tier</span>
                          <div className="flex items-center gap-3">
                             <span className="text-white font-bold text-2xl">Lvl {userData.level}</span>
                             <div className="px-2 py-0.5 rounded bg-white text-black text-[9px] font-bold tracking-widest uppercase">ELITE</div>
@@ -134,10 +132,9 @@ const Dashboard: React.FC = () => {
                {/* Integrated Tab Navigation */}
                <div className="flex border-t border-white/5 bg-white/[0.01]">
                  {[
-                   { label: 'Market Missions', icon: Zap, href: '/tasks' },
-                   { label: 'Execution Hub', icon: Target, href: '/predict' },
-                   { label: 'Settlement Ledger', icon: Wallet, href: '/wallet' },
-                   { label: 'Invite Protocol', icon: Users, href: '/referrals' },
+                   { label: 'Marketplace', icon: Zap, href: '/tasks' },
+                     { label: 'Account Ledger', icon: Wallet, href: '/wallet' },
+                     { label: 'Invite Friends', icon: Users, href: '/referrals' },
                  ].map((action, i) => (
                    <button
                      key={i}
@@ -219,11 +216,9 @@ const Dashboard: React.FC = () => {
                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
                   <div className="flex items-center gap-3">
                      <BarChart3 size={18} className="text-accent" />
-                     <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em]">Trending Liquidity</h4>
+                     <h4 className="text-[11px] font-bold text-white/40 uppercase tracking-[0.2em]">Market Pulse</h4>
                   </div>
-                  <Link to="/predict" className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] hover:underline flex items-center gap-2 group">
-                     Explore <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </Link>
+                  <div className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Real-time Insights</div>
                </div>
                <div className="divide-y divide-white/5">
                   {marketData.slice(2, 8).map((coin) => (
@@ -305,27 +300,30 @@ const Dashboard: React.FC = () => {
                    <div className="relative z-10 space-y-8">
                       <div className="flex flex-col items-center text-center space-y-4">
                          <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-                            <ShieldCheck size={32} className="text-primary animate-pulse" />
+                            <ShieldCheck size={32} className="text-primary" />
                          </div>
                          <div className="space-y-1">
-                            <h4 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.3em]">Protocol Status</h4>
-                            <p className="text-2xl font-bold text-white tracking-tighter uppercase leading-none">Healthy & Optimized</p>
+                            <h4 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.3em]">Account Integrity</h4>
+                            <p className="text-2xl font-bold text-white tracking-tighter uppercase leading-none">Healthy & Verified</p>
                          </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Idempotency</p>
-                            <p className="text-sm font-bold text-success uppercase">Verified</p>
+                            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">System Status</p>
+                            <p className="text-sm font-bold text-success uppercase">Online</p>
                          </div>
                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Network</p>
-                            <p className="text-sm font-bold text-white uppercase">Mainnet</p>
+                            <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Account Type</p>
+                            <p className="text-sm font-bold text-white uppercase">Standard</p>
                          </div>
                       </div>
 
-                      <button className="w-full py-4 rounded-xl bg-white text-black text-[10px] font-bold uppercase tracking-[0.3em] shadow-xl hover:bg-white/90 active:scale-95 transition-all flex items-center justify-center gap-3">
-                         Quick Sync <Plus size={14} />
+                      <button
+                        onClick={() => navigate('/referrals')}
+                        className="w-full py-4 rounded-xl bg-white text-black text-[10px] font-bold uppercase tracking-[0.3em] shadow-xl hover:bg-white/90 active:scale-95 transition-all flex items-center justify-center gap-3"
+                      >
+                         Growth Performance <Plus size={14} />
                       </button>
                    </div>
                 </div>

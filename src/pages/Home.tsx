@@ -17,9 +17,6 @@ const Home: React.FC = () => {
     <MainLayout>
       <Hero />
       <Features />
-      <DailyRewardsPreview />
-      <PredictionPreview />
-      <LeaderboardPreview />
       <FAQ />
       <SignupCTA />
     </MainLayout>

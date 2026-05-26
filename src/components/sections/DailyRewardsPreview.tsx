@@ -15,68 +15,68 @@ const DailyRewardsPreview: React.FC = () => {
 
   const rewards = [
     {
-      title: 'USDT Rain',
+      title: 'Consolidated USDT',
       amount: '$50.00',
       type: 'USDT',
       status: 'Active',
       icon: DollarSign,
-      color: 'text-green-500',
-      bg: 'bg-green-500/10'
+      color: 'text-primary',
+      bg: 'bg-primary/10'
     },
     {
-      title: 'BTC Bonus',
+      title: 'Sovereign BTC',
       amount: btc ? `${(50 / btc.current_price).toFixed(6)} BTC` : '--- BTC',
       type: 'BTC',
       status: 'Active',
       icon: Zap,
-      color: 'text-orange-500',
-      bg: 'bg-orange-500/10'
+      color: 'text-primary',
+      bg: 'bg-primary/10'
     },
     {
-      title: 'ETH Drop',
+      title: 'Execution ETH',
       amount: eth ? `${(50 / eth.current_price).toFixed(4)} ETH` : '--- ETH',
       type: 'ETH',
       status: 'Active',
       icon: EthIcon,
-      color: 'text-secondary',
-      bg: 'bg-secondary/10'
+      color: 'text-primary',
+      bg: 'bg-primary/10'
     },
   ];
 
   return (
-    <section id="rewards" className="py-24 relative overflow-hidden">
+    <section id="rewards" className="py-32 relative overflow-hidden bg-[#050507]">
       <div className="container mx-auto px-6">
-        <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 items-center">
+        <div className="flex flex-col lg:flex-row gap-16 lg:gap-32 items-center">
           <div className="lg:w-1/2 order-2 lg:order-1">
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               {rewards.map((reward, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  transition={{ delay: i * 0.05 }}
                 >
-                  <Card className="flex items-center gap-5 p-4 border-white/5 bg-white/[0.02] group hover:bg-white/[0.05] transition-all rounded-2xl">
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", reward.bg, reward.color)}>
-                      <reward.icon size={24} />
+                  <Card className="flex items-center gap-6 p-6 border border-white/5 bg-white/[0.01] group hover:bg-white/[0.03] hover:border-primary/20 transition-all rounded-[2rem] shadow-2xl">
+                    <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border border-white/5 group-hover:bg-primary/10 group-hover:border-primary/20 transition-all", reward.color)}>
+                      <reward.icon size={28} />
                     </div>
-                    <div className="flex-grow">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h4 className="font-bold text-base">{reward.title}</h4>
-                        <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[8px] font-bold uppercase tracking-wider">
+                    <div className="flex-grow space-y-1">
+                      <div className="flex items-center gap-3">
+                        <h4 className="font-bold text-lg text-white uppercase tracking-tight">{reward.title}</h4>
+                        <span className="px-2.5 py-1 rounded-md bg-success/10 border border-success/20 text-success text-[8px] font-bold uppercase tracking-widest">
                           {reward.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-white/40 text-xs">
-                        <span className="font-mono text-white/60">{reward.amount}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-white/30 text-xs font-bold uppercase tracking-tighter">{reward.amount}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => navigate('/signup')}
-                      className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white group-hover:bg-primary transition-all"
+                      className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/20 group-hover:text-white group-hover:bg-primary group-hover:border-primary transition-all"
                     >
-                      <ChevronRight size={16} />
+                      <ChevronRight size={20} />
                     </button>
                   </Card>
                 </motion.div>
@@ -84,37 +84,38 @@ const DailyRewardsPreview: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:w-1/2 order-1 lg:order-2 text-center lg:text-left">
+          <div className="lg:w-1/2 order-1 lg:order-2 text-center lg:text-left space-y-10">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
+              className="space-y-6"
             >
-              <div className="inline-flex items-center gap-2 text-primary font-bold uppercase tracking-widest text-xs mb-4">
-                <Gift size={16} />
-                Daily Reward Drops
+              <div className="text-primary text-[10px] font-bold tracking-[0.4em] uppercase mb-4 flex items-center gap-3 justify-center lg:justify-start">
+                <Gift size={16} className="text-primary" />
+                Settlement Cycles
               </div>
-              <h2 className="text-3xl md:text-5xl font-bold mb-6">
-                Earn Passive Income <br />
-                <span className="text-primary">Every Single Day.</span>
+              <h2 className="text-4xl md:text-7xl font-bold tracking-tighter text-white uppercase leading-[0.9]">
+                Scaling Your <br />
+                <span className="text-white/20">Digital Capital.</span>
               </h2>
-              <p className="text-white/40 text-sm md:text-lg mb-10 leading-relaxed">
-                Our automated system distributes rewards every 24 hours. Connect, engage, and grow your portfolio effortlessly.
+              <p className="text-white/40 text-lg md:text-xl font-medium tracking-tight max-w-xl leading-relaxed uppercase">
+                Our high-velocity engine distributes rewards across the ecosystem every 24 hours. Execute missions and secure your yield.
               </p>
 
-              <div className="flex flex-col gap-5 text-left max-w-md mx-auto lg:mx-0">
+              <div className="flex flex-col gap-6 text-left max-w-md mx-auto lg:mx-0 pt-8">
                 {[
-                  { step: '01', title: 'Join PulseEarn', desc: 'Create your account in seconds.' },
-                  { step: '02', title: 'Start Earning', desc: 'Complete daily missions and tasks.' },
-                  { step: '03', title: 'Claim Rewards', desc: 'Watch your point balance grow daily.' }
+                  { step: '01', title: 'Initialize Operator', desc: 'Secure your ID within the protocol.' },
+                  { step: '02', title: 'Execute Missions', desc: 'Complete daily high-fidelity sequences.' },
+                  { step: '03', title: 'Collect Yield', desc: 'Settle points into your sovereign ledger.' }
                 ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                      <span className="text-sm font-bold text-primary">{item.step}</span>
+                  <div key={i} className="flex items-start gap-6 group">
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors">
+                      <span className="text-xs font-bold text-primary font-mono">{item.step}</span>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-sm mb-0.5">{item.title}</h4>
-                      <p className="text-white/30 text-xs">{item.desc}</p>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-[13px] text-white uppercase tracking-wider">{item.title}</h4>
+                      <p className="text-white/30 text-[11px] font-medium uppercase tracking-tighter">{item.desc}</p>
                     </div>
                   </div>
                 ))}

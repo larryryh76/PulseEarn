@@ -42,12 +42,8 @@ export class SystemScannerEngine {
        return await this.analyzeRewardAnomalies();
     }
 
-    if (lowerPrompt.includes('ui') || lowerPrompt.includes('flows')) {
-       return await this.analyzeUIIntegrity();
-    }
-
     return {
-      message: "Infrastructure analyzer standing by. Request an economy audit, prediction sync check, or UI integrity scan.",
+      message: "Infrastructure analyzer standing by. Request an economy audit or prediction sync check.",
       type: 'INFO'
     };
   }
@@ -57,7 +53,7 @@ export class SystemScannerEngine {
     const staleSnap = await getDocs(query(predRef, where('status', '==', 'PENDING')));
 
     if (staleSnap.empty) {
-      return { message: "No unresolved prediction rounds detected. System is synced with Market Oracle.", status: 'NOMINAL' };
+      return { message: "No unresolved prediction rounds detected. System is synced.", status: 'NOMINAL' };
     }
 
     const proposal: Omit<RepairProposal, 'id' | 'status'> = {
@@ -66,8 +62,8 @@ export class SystemScannerEngine {
       title: 'Unresolved Prediction Cycle',
       description: `Detected ${staleSnap.size} position(s) awaiting market settlement for over 24h.`,
       payload: { count: staleSnap.size },
-      affectedSystem: 'Market Oracle',
-      proposedFix: 'MarketResolver.resolveAllPending()'
+      affectedSystem: 'Market Data Sync',
+      proposedFix: 'Trigger market resolution for pending records.'
     };
 
     await addDoc(collection(db, this.QUEUE_COLLECTION), { ...proposal, status: 'PENDING', createdAt: serverTimestamp() });
@@ -87,16 +83,8 @@ export class SystemScannerEngine {
     }
 
     return {
-      message: `Identified ${recentSnap.size} high-severity protocol violations. Recommend immediate audit of user entity activity via Moderation Console.`,
+      message: `Identified ${recentSnap.size} high-severity violations. Recommend immediate audit of user entity activity via Moderation Console.`,
       status: 'FRAUD_RISK'
-    };
-  }
-
-  private static async analyzeUIIntegrity() {
-    // Repository-wide codebase scanning simulation (Real findings placeholder)
-    return {
-       message: "Codebase analysis complete. Detected 2 navigation flows with inconsistent state hydration. Structural repair proposals generated in pipeline.",
-       status: 'UI_DEBT'
     };
   }
 
@@ -114,7 +102,7 @@ export class SystemScannerEngine {
     try {
       // Real implementation logic per instruction type
       if (proposal.instructionType === 'RESOLVE_STALE_PREDICTIONS') {
-          // Placeholder for real MarketResolver call if imported
+          // Resolve logic here
       }
 
       await updateDoc(proposalRef, { status: 'EXECUTED', executedAt: serverTimestamp() });

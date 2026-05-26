@@ -17,32 +17,30 @@ const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const variants = {
-    primary: 'bg-primary text-white hover:bg-primary/90',
-    secondary: 'bg-secondary text-white hover:bg-secondary/90',
+    primary: 'bg-white text-black hover:bg-white/90',
+    secondary: 'bg-primary text-white hover:bg-primary/90',
     outline: 'border border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.08] hover:border-white/20',
-    ghost: 'text-white/70 hover:text-white hover:bg-white/5',
+    ghost: 'text-white/40 hover:text-white hover:bg-white/5',
   };
 
   const sizes = {
-    sm: 'px-4 py-2 text-sm rounded-lg',
-    md: 'px-6 py-2.5 text-sm font-semibold rounded-xl',
-    lg: 'px-8 py-3.5 text-base font-bold rounded-xl',
+    sm: 'px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl',
+    md: 'px-8 py-4 text-[11px] font-bold uppercase tracking-[0.2em] rounded-xl',
+    lg: 'px-14 py-6 text-[12px] font-bold uppercase tracking-[0.3em] rounded-2xl',
   };
 
   return (
     <motion.button
-      whileHover={{ y: -1 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
-        "relative transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden",
+        "relative transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden shadow-2xl",
         variants[variant],
         sizes[size],
-        glow && "shadow-[0_0_15px_rgba(0,112,255,0.25)]",
+        glow && "shadow-[0_0_30px_rgba(255,255,255,0.1)]",
         className
       )}
       {...(props as any)}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
       <span className="relative z-10">{children}</span>
     </motion.button>
   );

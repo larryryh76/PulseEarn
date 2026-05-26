@@ -166,7 +166,7 @@ const Hero: React.FC = () => {
                             <Target size={24} />
                          </div>
                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Protocol Clear</p>
+                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Account Status</p>
                             <p className="text-xl font-bold text-white tracking-tighter">LVL 24</p>
                          </div>
                       </div>

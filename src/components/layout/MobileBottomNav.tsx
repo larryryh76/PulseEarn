@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Gift, User, ShieldCheck, Wallet } from 'lucide-react';
+import { Home, User, ShieldCheck, Wallet } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '../../utils';
@@ -29,7 +29,6 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Me', icon: User, href: '/me' },
   ] : [
     { name: 'Home', icon: Home, href: '/dashboard' },
-    { name: 'Earn', icon: Gift, href: '/rewards' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
     { name: 'Me', icon: User, href: '/me' },
   ];

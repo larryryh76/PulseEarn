@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
-  Zap,
   Users,
   LogOut,
   ChevronRight,
@@ -26,9 +25,8 @@ const Sidebar: React.FC = () => {
     { name: 'Me', icon: User, href: '/me' },
   ] : [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+    { name: 'Marketplace', icon: CheckSquare, href: '/tasks', disabled: true },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
-    { name: 'Tasks', icon: CheckSquare, href: '/tasks' },
-    { name: 'Earn', icon: Zap, href: '/rewards' },
     { name: 'Invite', icon: Users, href: '/referrals' },
     { name: 'Me', icon: User, href: '/me' },
   ];
@@ -50,18 +48,30 @@ const Sidebar: React.FC = () => {
             <NavLink
               key={item.name}
               to={item.href}
+              onClick={(e) => {
+                if (item.disabled) {
+                  e.preventDefault();
+                }
+              }}
               className={({ isActive }) => cn(
                 "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 group",
                 isActive
                   ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-white/40 hover:text-white hover:bg-white/5 border border-transparent"
+                  : item.disabled
+                    ? "text-white/10 cursor-not-allowed border border-transparent"
+                    : "text-white/40 hover:text-white hover:bg-white/5 border border-transparent"
               )}
             >
               <div className="flex items-center gap-3">
                 <item.icon size={20} />
-                <span className="font-bold text-[13px] tracking-wide">{item.name}</span>
+                <div className="flex flex-col">
+                  <span className="font-bold text-[13px] tracking-wide">{item.name}</span>
+                  {item.disabled && (
+                    <span className="text-[8px] font-bold text-white/10 uppercase tracking-widest leading-none">Rebuilding</span>
+                  )}
+                </div>
               </div>
-              <ChevronRight size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" />
+              {!item.disabled && <ChevronRight size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" />}
             </NavLink>
           ))}
         </div>

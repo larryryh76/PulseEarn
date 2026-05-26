@@ -44,12 +44,17 @@ const PredictionHistoryDrawer: React.FC<PredictionHistoryDrawerProps> = ({ isOpe
   const [selectedPrediction, setSelectedPrediction] = useState<PredictionRecord | null>(null);
 
   const filteredPredictions = predictions.filter(p => {
-    // Only real records with required transactional ID
-    if (!p.id || !p.claimId) return false;
+    // Audit check: log the raw record for debug purposes
+    if (!p.id) return false;
+
+    // Status mapping: ensure status check is case-insensitive if needed,
+    // though Engine uses PENDING, won, lost.
+    const status = p.status?.toUpperCase();
 
     if (activeTab === 'all') return true;
-    if (activeTab === 'RESOLVED') return p.status === 'won' || p.status === 'lost';
-    return p.status === activeTab;
+    if (activeTab === 'PENDING') return status === 'PENDING';
+    if (activeTab === 'RESOLVED') return status === 'WON' || status === 'LOST';
+    return status === activeTab;
   });
 
   const getStatusColor = (status: string) => {

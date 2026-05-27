@@ -10,74 +10,57 @@ import {
 import { db } from './config';
 import { Task } from '../types';
 
-const INITIAL_TASKS: Omit<Task, 'id' | 'createdAt'>[] = [
+const INITIAL_TASKS: Partial<Task>[] = [
   {
     title: 'Daily Ecosystem Ping',
     description: 'Check in with the platform and claim your daily reward.',
-    rewardPoints: 10,
-    rewardXp: 15,
-    type: 'daily',
-    rarity: 'common',
-    difficulty: 'easy',
-    category: 'Daily',
-    active: true,
-    cooldown: 24,
-    verificationType: 'automated'
+    instructions: 'Click claim to receive your reward',
+    rewardAmount: 10,
+    xpReward: 15,
+    category: 'DAILY',
+    status: 'ACTIVE',
+    cooldownPeriod: 24,
+    verificationType: 'automated',
+    providerId: 'SYSTEM',
+    providerName: 'PulseEarn',
+    visibility: 'PUBLIC',
+    minLevel: 1,
+    platform: 'NONE',
+    totalClaims: 0
   },
   {
     title: 'Terminal Surveillance',
     description: 'Monitor the live activity feed for 30 seconds.',
-    rewardPoints: 25,
-    rewardXp: 40,
-    type: 'timer',
-    rarity: 'common',
-    difficulty: 'easy',
-    category: 'Daily',
-    active: true,
-    duration: 30,
-    cooldown: 1,
-    verificationType: 'timer'
+    instructions: 'Wait for the timer to complete',
+    rewardAmount: 25,
+    xpReward: 40,
+    category: 'DAILY',
+    status: 'ACTIVE',
+    cooldownPeriod: 1,
+    verificationType: 'timer',
+    providerId: 'SYSTEM',
+    providerName: 'PulseEarn',
+    visibility: 'PUBLIC',
+    minLevel: 1,
+    platform: 'NONE',
+    totalClaims: 0
   },
   {
     title: 'X/Twitter Infiltration',
     description: 'Follow our official handle for protocol updates.',
-    rewardPoints: 50,
-    rewardXp: 100,
-    type: 'social',
-    rarity: 'rare',
-    difficulty: 'medium',
-    category: 'Social',
+    instructions: 'Follow @PulseEarn on X and submit your handle',
+    rewardAmount: 50,
+    xpReward: 100,
+    category: 'SOCIAL',
+    status: 'ACTIVE',
     minLevel: 2,
-    active: true,
-    cooldown: 0,
-    verificationType: 'manual',
-    proofRequirements: 'Submit your X profile link'
-  },
-  {
-    title: 'Squad Expansion',
-    description: 'Successfully refer a new node to the ecosystem.',
-    rewardPoints: 150,
-    rewardXp: 300,
-    type: 'referral',
-    rarity: 'rare',
-    difficulty: 'hard',
-    category: 'Growth',
-    active: true,
-    verificationType: 'automated'
-  },
-  {
-    title: 'Predict Master',
-    description: 'Correctly predict 5 market movements.',
-    rewardPoints: 500,
-    rewardXp: 1000,
-    type: 'prediction',
-    rarity: 'legendary',
-    difficulty: 'hard',
-    category: 'Featured',
-    minLevel: 5,
-    active: true,
-    isFeatured: true,
-    verificationType: 'automated'
+    cooldownPeriod: 0,
+    verificationType: 'proof',
+    providerId: 'SYSTEM',
+    providerName: 'PulseEarn',
+    visibility: 'PUBLIC',
+    platform: 'TWITTER',
+    totalClaims: 0
   }
 ];
 
@@ -94,9 +77,21 @@ export const seedTasks = async () => {
         await setDoc(newTaskRef, {
           ...taskData,
           id: newTaskRef.id,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       }
+
+      // Seed default provider
+      await setDoc(doc(db, 'task_providers', 'SYSTEM'), {
+        id: 'SYSTEM',
+        name: 'PulseEarn',
+        providerStatus: 'ACTIVE',
+        totalPaid: 0,
+        campaignBudget: 1000000,
+        createdAt: serverTimestamp()
+      });
+
       console.log('Seeding complete.');
     }
   } catch (error) {

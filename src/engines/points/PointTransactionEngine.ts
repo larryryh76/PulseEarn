@@ -10,7 +10,6 @@ import {
 import { Transaction } from '../../types';
 import { calculateLevel } from '../../utils/progression';
 import { EconomyAuthority } from './EconomyAuthority';
-import { AuditEngine } from '../system/AuditEngine';
 
 export interface PointTransactionRequest {
   userId: string;
@@ -72,23 +71,24 @@ export class PointTransactionEngine {
           }
         }
 
+        // 4. Financial Solvency Check
+        if (amount < 0 && (userData.points || 0) + amount < 0) {
+          throw new Error("INSUFFICIENT_FUNDS");
+        }
+
+        // 5. Fraud Checks
+        if (amount > 10000) {
+          const velocityCheckRef = doc(db, 'system_security', `velocity_${userId}`);
+          transaction.set(velocityCheckRef, {
+            lastLargeReward: serverTimestamp(),
+            amount,
+            status: 'FLAGGED_FOR_REVIEW'
+          }, { merge: true });
+        }
 
         // 6. Progression Calculation
         const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
         const newLevel = calculateLevel(newXp);
-
-        // 5. High-Velocity Fraud Detection
-        const riskScore = EconomyAuthority.calculateRiskScore(request, userData);
-        if (riskScore >= 75) {
-          const securityRef = doc(db, 'system_security', `risk_${userId}`);
-          transaction.set(securityRef, {
-            userId,
-            riskScore,
-            lastViolation: serverTimestamp(),
-            requestType: type,
-            status: 'FLAGGED'
-          }, { merge: true });
-        }
 
         // 7. Atomic Mutation
         const updates: any = {
@@ -139,17 +139,6 @@ export class PointTransactionEngine {
           metadata,
           timestamp: serverTimestamp(),
           engineVersion: '5.0.0-PRO'
-        });
-
-        // 10. Centralized System Audit
-        AuditEngine.log({
-          type: 'REWARD_DISTRIBUTION',
-          userId,
-          amount,
-          previousBalance: userData.points || 0,
-          newBalance: (userData.points || 0) + amount,
-          status: 'SUCCESS',
-          metadata: { ...metadata, claimId, txId: txDoc.id }
         });
 
         return { success: true, txId: txDoc.id };

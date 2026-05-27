@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task } from '../../types';
 import Card from '../ui/Card';
-import { Zap, Clock, CheckCircle2, ChevronRight, Play, Loader2, Star, Lock, Trophy } from 'lucide-react';
+import { Zap, Clock, CheckCircle2, ChevronRight, Play, Loader2, Star, Lock } from 'lucide-react';
 import { cn } from '../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,7 +38,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
 
   const startTimer = () => {
     if (status !== 'available') return;
-    setTimer(task.duration || 30);
+    setTimer(30);
   };
 
   const isLocked = task.minLevel ? userLevel < task.minLevel : false;
@@ -46,9 +46,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
   const getIcon = () => {
     if (isLocked) return <Lock className="text-white/10" size={28} />;
     if (status === 'completed') return <CheckCircle2 className="text-primary" size={28} />;
-    if (task.type === 'timer') return <Clock className="text-accent" size={28} />;
-    if (task.rarity === 'legendary' || task.rarity === 'mythic') return <Trophy className="text-purple-400" size={28} />;
-    if (task.rarity === 'rare') return <Star className="text-yellow-400" size={28} />;
+    if (task.verificationType === 'timer') return <Clock className="text-accent" size={28} />;
     return <Zap className="text-primary" size={28} />;
   };
 
@@ -70,33 +68,25 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
           <div className={cn(
             "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-transform",
             status === 'completed' ? "bg-primary/20 border-primary/30" : "bg-white/5 border-white/5 group-hover:scale-110",
-            task.type === 'timer' && status === 'available' && "bg-accent/10 border-accent/20"
+            task.verificationType === 'timer' && status === 'available' && "bg-accent/10 border-accent/20"
           )}>
             {getIcon()}
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
                <h4 className="font-bold text-base tracking-tight">{task.title}</h4>
-               {task.rarity !== 'common' && (
-                  <span className={cn(
-                    "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border border-white/5",
-                    task.rarity === 'legendary' ? "text-orange-400" : task.rarity === 'rare' ? "text-yellow-400" : "text-white/40"
-                  )}>
-                     {task.rarity}
-                  </span>
-               )}
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                  <Zap size={10} className="text-yellow-500" />
                  <span className={cn("text-[11px] font-mono font-bold", status === 'completed' ? "text-primary" : "text-white/80")}>
-                   {task.rewardPoints}
+                   {task.rewardAmount}
                  </span>
               </div>
               <div className="flex items-center gap-1">
                  <Star size={10} className="text-primary" />
                  <span className="text-[11px] font-mono font-bold text-primary/80">
-                   {task.rewardXp} XP
+                   {task.xpReward} XP
                  </span>
               </div>
               <div className="w-1 h-1 rounded-full bg-white/10" />
@@ -115,7 +105,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
              </div>
           ) : (
             <>
-              {task.type === 'timer' && status === 'available' && timer === null && (
+              {task.verificationType === 'timer' && status === 'available' && timer === null && (
                 <button
                   onClick={(e) => { e.stopPropagation(); startTimer(); }}
                   className="px-4 py-2 rounded-xl bg-accent text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-accent/80 transition-colors"
@@ -125,7 +115,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
                 </button>
               )}
 
-              {status === 'available' && task.type !== 'timer' && (
+              {status === 'available' && task.verificationType !== 'timer' && (
                 <button
                   onClick={() => onClaim(task.id)}
                   disabled={isClaiming}
@@ -169,7 +159,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
         {timer !== null && (
           <motion.div
             initial={{ scaleX: 0 }}
-            animate={{ scaleX: (task.duration! - timer) / task.duration! }}
+            animate={{ scaleX: (30 - timer) / 30 }}
             className="absolute bottom-0 left-0 h-1 bg-accent w-full origin-left"
           />
         )}

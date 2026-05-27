@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import { Task, UserTask, Activity, Campaign, TaskSubmission } from '../types';
+import { Task, UserTask, Activity, Campaign, TaskClaim } from '../types';
 import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
@@ -23,7 +23,7 @@ export const useTasks = () => {
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
+  const [submissions, setSubmissions] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,13 +55,13 @@ export const useTasks = () => {
 
     // Fetch user's own marketplace submissions
     const submissionsQuery = query(
-      collection(db, 'taskSubmissions'),
+      collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
-      orderBy('submittedAt', 'desc'),
+      orderBy('createdAt', 'desc'),
       limit(30)
     );
     const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskSubmission)));
+      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
     });
 
     // Fetch recent activities for activity feed
@@ -91,10 +91,11 @@ export const useTasks = () => {
     if (userTask.status === 'pending') return { status: 'pending' };
     if (userTask.status === 'rejected') return { status: 'rejected' };
 
-    if (task.type === 'once') return { status: 'completed' };
-
     const lastCompleted = userTask.lastCompleted?.toDate() || new Date(0);
-    const cooldownHours = task.cooldown || 24;
+    const cooldownHours = task.cooldownPeriod || 0;
+
+    if (cooldownHours === 0 && userTask.status === 'completed') return { status: 'completed' };
+
     const cooldownMs = cooldownHours * 60 * 60 * 1000;
     const now = new Date();
 
@@ -140,17 +141,17 @@ export const useTasks = () => {
       }
 
       // Marketplace Verification Flow
-      const submissionRef = await addDoc(collection(db, 'taskSubmissions'), {
+      const submissionRef = await addDoc(collection(db, 'task_claims'), {
         taskId,
         userId: currentUser.uid,
-        username: userData.username,
-        status: 'pending',
-        proofData,
-        submittedAt: serverTimestamp(),
-        rewardPoints: task.rewardPoints,
-        rewardXp: task.rewardXp,
+        validationState: 'PENDING',
+        completionState: 'IN_PROGRESS',
+        submittedProof: proofData,
+        createdAt: serverTimestamp(),
+        xpGranted: 0,
+        rewardAmount: task.rewardAmount,
+        xpReward: task.xpReward,
         providerId: task.providerId || 'internal',
-        campaignId: task.campaignId || null
       });
 
       const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
@@ -182,11 +183,11 @@ export const useTasks = () => {
       // ABSOLUTE AUTHORITY MUTATION
       const result = await PointTransactionEngine.execute({
         userId: currentUser.uid,
-        amount: task.rewardPoints,
+        amount: task.rewardAmount,
         type: 'task_reward',
         source: `Mission: ${task.title}`,
         claimId,
-        xpReward: task.rewardXp || 0,
+        xpReward: task.xpReward || 0,
         description: `Successfully completed mission [${task.id}]`,
         metadata: {
           taskId,
@@ -217,13 +218,13 @@ export const useTasks = () => {
 
       await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
         title: 'Mission Authorized!',
-        description: `Reward of +${task.rewardPoints} PTS applied to ledger.`,
+        description: `Reward of +${task.rewardAmount} PTS applied to ledger.`,
         type: 'task_completed',
         read: false,
         timestamp: serverTimestamp()
       });
 
-      toast.success(`+${task.rewardPoints} PTS Secured`, { icon: '⚡' });
+      toast.success(`+${task.rewardAmount} PTS Secured`, { icon: '⚡' });
       return true;
 
     } catch (error) {

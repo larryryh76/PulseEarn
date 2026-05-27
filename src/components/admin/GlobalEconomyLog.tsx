@@ -15,8 +15,9 @@ const GlobalEconomyLog: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
-    // Centralized Ledger Monitor
-    const q = query(collection(db, 'system_audit_logs'), orderBy('timestamp', 'desc'), limit(50));
+    // Note: In a production app, use collectionGroup query
+    // For this build, we'll monitor the system_claims (idempotency layer) for a global view
+    const q = query(collection(db, 'system_claims'), orderBy('executedAt', 'desc'), limit(50));
     return onSnapshot(q, (snap) => {
       setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -57,7 +58,7 @@ const GlobalEconomyLog: React.FC = () => {
                        <td className="p-6">
                           <div className="flex items-center gap-3 text-white/40">
                              <Clock size={12} className="text-white/20" />
-                             <span className="text-[11px] font-mono tracking-tight">{tx.timestamp?.toDate().toLocaleString()}</span>
+                             <span className="text-[11px] font-mono tracking-tight">{tx.executedAt?.toDate().toLocaleString()}</span>
                           </div>
                        </td>
                        <td className="p-6">

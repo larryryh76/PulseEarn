@@ -1,3 +1,4 @@
+
 export const ECONOMY_RULES = {
   REWARDS: {
     DAILY_LIMIT: 5000,
@@ -21,30 +22,22 @@ export const ECONOMY_RULES = {
 };
 
 export class EconomyAuthority {
-  static validateAction(type: string, request: any, userData: any): { valid: boolean; error?: string } {
-    const { amount } = request;
-
-    // 1. Transactional Velocity & Cap Check
-    if (amount > ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD) {
+  static validateAction(type: string, data: any, userData: any): { valid: boolean; error?: string } {
+    // 1. Transactional Velocity Check
+    if (data.amount > ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD) {
       return { valid: false, error: "REWARD_CAP_EXCEEDED" };
     }
 
-    // 2. Financial Solvency Check (for deductions)
-    if (amount < 0 && (userData.points || 0) + amount < 0) {
-      return { valid: false, error: "INSUFFICIENT_FUNDS" };
-    }
-
-    // 3. Cooldown Enforcement
+    // 2. Cooldown Enforcement (if applicable)
     if (type === 'daily_reward') {
       const lastReward = userData.lastRewardDate?.toDate() || new Date(0);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (lastReward >= today) {
-        return { valid: false, error: "DAILY_REWARD_COOLDOWN" };
+      const now = new Date();
+      if (now.getTime() - lastReward.getTime() < ECONOMY_RULES.REWARDS.COOLDOWN_DAILY_MS) {
+        return { valid: false, error: "COOLDOWN_ACTIVE" };
       }
     }
 
-    // 4. User State Validation
+    // 3. User State Validation
     if (userData.status === 'restricted' || userData.status === 'frozen') {
       return { valid: false, error: "ACCOUNT_RESTRICTED" };
     }
@@ -58,11 +51,6 @@ export class EconomyAuthority {
     // Logic for risk scoring
     if (request.amount > 5000) score += 40;
     if (userData.level < 2 && request.amount > 1000) score += 30;
-
-    // Check for rapid farming (velocity)
-    const lastAction = userData.lastActionTimestamp?.toDate() || new Date(0);
-    const now = new Date();
-    if (now.getTime() - lastAction.getTime() < 2000) score += 20; // Actions faster than 2s
 
     return score;
   }

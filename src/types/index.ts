@@ -3,56 +3,81 @@ import { Timestamp } from 'firebase/firestore';
 export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'prediction' | 'premium' | 'streak' | 'chain';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
-export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity';
-export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link';
+export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+export type TaskCategory = 'SOCIAL' | 'LEARN' | 'ECOSYSTEM' | 'GAMING' | 'SPONSORED' | 'DAILY';
+export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE';
 
 export interface Task {
   id: string;
+  providerId: string;
+  providerName: string;
+  campaignId: string | null;
+  category: TaskCategory;
   title: string;
   description: string;
-  rewardPoints: number;
-  rewardXp: number;
-  type: TaskType;
-  difficulty: TaskDifficulty;
-  rarity: TaskRarity;
-  category: string;
-  providerId?: string;
-  providerName?: string;
-  campaignId?: string;
-  minLevel?: number;
-  active: boolean;
-  cooldown?: number; // in hours
-  duration?: number; // for timer tasks, in seconds
+  instructions: string;
+  platform: SocialPlatform | 'NONE';
+  actionUrl: string | null;
+  rewardAmount: number;
+  xpReward: number;
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED';
+  visibility: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
   verificationType: VerificationType;
-  proofRequirements?: string; // instructions for the user
-  expiresAt?: Timestamp;
+  cooldownPeriod: number; // in hours
+  maxClaims: number | null; // null for unlimited
+  totalClaims: number;
+  expirationDate: Timestamp | null;
+  campaignArtwork: string | null;
+  tags: string[];
+  minLevel: number;
+  estimatedTime: string;
   createdAt: Timestamp;
-  isFeatured?: boolean;
-  dailyCap?: number;
-  actionUrl?: string; // link to TikTok/YouTube etc.
-  estimatedTime?: string; // e.g. "2 min"
+  updatedAt: Timestamp;
 }
 
-export interface TaskSubmission {
+export interface TaskClaim {
   id: string;
-  taskId: string;
   userId: string;
-  username: string; // for easier admin review
-  status: SubmissionStatus;
-  proofData?: string; // link to screenshot or username
-  adminFeedback?: string;
-  submittedAt: Timestamp;
-  reviewedAt?: Timestamp;
-  reviewedBy?: string;
-  rewardPoints: number;
-  rewardXp: number;
+  taskId: string;
+  providerId: string;
+  validationState: SubmissionStatus;
+  completionState: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  rewardTransactionId: string | null;
+  xpGranted: number;
+  fraudFlags: string[];
+  submittedProof: string | null; // URL to screenshot or proof text
+  adminFeedback: string | null;
+  reviewedBy: string | null;
+  createdAt: Timestamp;
+  resolvedAt: Timestamp | null;
+  metadata?: Record<string, any>;
+}
+
+export interface TaskProvider {
+  id: string;
+  name: string;
+  campaignBudget: number;
+  totalPaid: number;
+  payoutTracking: {
+    pending: number;
+    completed: number;
+  };
+  taskCount: number;
+  providerStatus: 'ACTIVE' | 'SUSPENDED' | 'UNDER_REVIEW';
+  fraudScore: number;
+  expirationRules: string | null;
+  apiKey?: string; // For future integrations
+  contactEmail: string;
+  createdAt: Timestamp;
 }
 
 export interface UserTask {
   taskId: string;
-  lastCompleted: Timestamp;
-  status: 'pending' | 'completed' | 'on_cooldown' | 'rejected';
+  lastCompleted: Timestamp | null;
+  status: 'available' | 'pending' | 'completed' | 'on_cooldown' | 'rejected';
   submissionId?: string;
+  totalCompletions: number;
 }
 
 export interface Campaign {
@@ -65,8 +90,9 @@ export interface Campaign {
   endDate: Timestamp;
   featured: boolean;
   taskIds: string[];
-  totalPrizePool?: number;
-  participantsCount?: number;
+  totalPrizePool: number;
+  remainingPool: number;
+  participantsCount: number;
 }
 
 export interface Activity {
@@ -114,15 +140,22 @@ export interface UserData {
     privacyMode: boolean;
     preferredCategories: string[];
   };
+  status?: 'active' | 'restricted' | 'frozen';
+  execution_lock?: boolean;
+  execution_lock_at?: Timestamp | null;
 }
 
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION';
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit';
   amount: number;
-  source: string; // e.g. "Mission: Twitter Follow"
+  source: string;
   timestamp: Timestamp;
+  claimId: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  engineVersion?: string;
 }
 
 export interface SystemSettings {
@@ -135,16 +168,6 @@ export interface SystemSettings {
     streakReminders: boolean;
     inflationTarget: number;
   };
-}
-
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  type: 'info' | 'warning' | 'urgent';
-  active: boolean;
-  createdAt: Timestamp;
-  expiresAt?: Timestamp;
 }
 
 export interface Notification {

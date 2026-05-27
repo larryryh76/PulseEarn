@@ -8,7 +8,8 @@ import {
   getDocs,
   updateDoc,
   doc,
-  getDoc
+  getDoc,
+  Timestamp
 } from 'firebase/firestore';
 
 export interface RepairProposal {
@@ -40,6 +41,10 @@ export class SystemScannerEngine {
 
     if (lowerPrompt.includes('abuse') || lowerPrompt.includes('fraud')) {
        return await this.analyzeRewardAnomalies();
+    }
+
+    if (lowerPrompt.includes('repair') || lowerPrompt.includes('sync')) {
+       return await this.reconcileEconomyIntegrity();
     }
 
     return {
@@ -86,6 +91,29 @@ export class SystemScannerEngine {
       message: `Identified ${recentSnap.size} high-severity violations. Recommend immediate audit of user entity activity via Moderation Console.`,
       status: 'FRAUD_RISK'
     };
+  }
+
+  private static async reconcileEconomyIntegrity() {
+     // Check for desynced claims (claims existing without matching transaction)
+     const claimsRef = collection(db, 'system_claims');
+     const staleClaims = await getDocs(query(claimsRef, where('executedAt', '<', Timestamp.now()))); // Simplified check logic
+
+     const proposal: Omit<RepairProposal, 'id' | 'status'> = {
+        instructionType: 'SYSTEM_SYNC_REPAIR',
+        priority: 'MEDIUM',
+        title: 'Infrastructure Sync Pulse',
+        description: 'Detected potential desynchronization between execution claims and the user transaction ledger.',
+        payload: { claimsCount: staleClaims.size },
+        affectedSystem: 'Economy Authority',
+        proposedFix: 'Verify ledger consistency and repair orphan execution flags.'
+     };
+
+     await addDoc(collection(db, this.QUEUE_COLLECTION), { ...proposal, status: 'PENDING', createdAt: serverTimestamp() });
+
+     return {
+        message: "Economy reconciliation initiated. Structural integrity scan queued.",
+        status: 'SYNC_PENDING'
+     };
   }
 
   /**

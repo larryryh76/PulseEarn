@@ -14,7 +14,7 @@ import {
 import CardPremium from '../ui/Card';
 import Button from '../ui/Button';
 import { db } from '../../firebase/config';
-import { collection, query, orderBy, limit, onSnapshot, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { SystemScannerEngine, RepairProposal } from '../../engines/system/SystemScannerEngine';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils';
@@ -77,8 +77,40 @@ const SystemOperationsHub: React.FC = () => {
     }
   };
 
+  const [stats, setStats] = useState({ transactions: 0, anomalies: 0, liabilities: 0 });
+
+  useEffect(() => {
+     // Aggregate real operational metrics
+     const loadStats = async () => {
+        const anomaliesSnap = await getDocs(collection(db, 'system_anomalies'));
+        const auditSnap = await getDocs(collection(db, 'system_audit_logs'));
+        setStats({
+           anomalies: anomaliesSnap.size,
+           transactions: auditSnap.size,
+           liabilities: auditSnap.docs.reduce((acc: number, doc: any) => acc + (doc.data().amount || 0), 0)
+        });
+     };
+     loadStats();
+  }, [anomalies]);
+
   return (
     <div className="space-y-8 pb-20">
+      {/* REAL-TIME MONITORING GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         <div className="surface-1 p-6 space-y-2">
+            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Total Liability</p>
+            <p className="text-2xl font-mono font-bold text-white">{stats.liabilities.toLocaleString()} PTS</p>
+         </div>
+         <div className="surface-1 p-6 space-y-2">
+            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Global Transactions</p>
+            <p className="text-2xl font-mono font-bold text-white">{stats.transactions.toLocaleString()}</p>
+         </div>
+         <div className="surface-1 p-6 space-y-2">
+            <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Security Flags</p>
+            <p className="text-2xl font-mono font-bold text-danger">{stats.anomalies.toLocaleString()}</p>
+         </div>
+      </div>
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">

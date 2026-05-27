@@ -134,7 +134,7 @@ const Hero: React.FC = () => {
                          <div className="h-48 rounded-3xl bg-white/[0.02] border border-white/5 p-6 space-y-4">
                             <div className="flex items-center gap-2 text-primary">
                                <ShieldCheck size={16} />
-                               <span className="text-[10px] font-bold uppercase">Active Nodes</span>
+                               <span className="text-[10px] font-bold uppercase">System Status</span>
                             </div>
                             <div className="space-y-2 pt-2">
                                <div className="h-2 w-full bg-white/5 rounded-sm" />

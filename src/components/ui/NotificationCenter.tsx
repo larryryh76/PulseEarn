@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Trash2, Info, X } from 'lucide-react';
+import { Check, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase/config';
@@ -84,7 +84,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         }
       });
       await batch.commit();
-      toast.success('All notifications marked as read');
+      toast.success('Batch update successful');
     } catch (error) {
       console.error("Error marking all read:", error);
     }
@@ -104,24 +104,24 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
       {isOpen && (
         <div className="absolute right-0 top-12 z-[100]" ref={dropdownRef}>
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="w-80 md:w-96 bg-[#0D0D12]/95 backdrop-blur-3xl border border-white/[0.08] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            className="w-80 md:w-96 bg-black border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
           >
-            <div className="p-5 border-b border-white/[0.05] flex items-center justify-between bg-white/[0.01]">
+            <div className="p-4 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01]">
               <div className="flex items-center gap-2">
-                 <h3 className="text-xs font-bold text-white uppercase tracking-widest">System Intelligence</h3>
-                 {unreadCount > 0 && <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[8px] font-bold uppercase">{unreadCount} New</span>}
+                 <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Operational Notices</h3>
+                 {unreadCount > 0 && <div className="w-1 h-1 rounded-full bg-primary" />}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-[9px] font-bold text-white/30 hover:text-primary transition-colors uppercase tracking-widest"
+                    className="text-[9px] font-bold text-primary hover:text-white transition-colors uppercase tracking-widest"
                   >
-                    Clear
+                    Clear All
                   </button>
                 )}
                 <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-lg transition-colors">
@@ -130,18 +130,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               </div>
             </div>
 
-            <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
               {loading ? (
-                <div className="p-5 space-y-4">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 border border-white/5">
-                    <Bell size={20} className="text-white/10" />
-                  </div>
-                  <p className="text-xs font-bold text-white/20 uppercase tracking-widest">No Intelligence</p>
-                  <p className="text-[10px] text-white/10 mt-1 uppercase">Awaiting mission updates</p>
+                <div className="p-12 text-center space-y-3">
+                  <p className="text-[10px] font-bold text-white/10 uppercase tracking-[0.3em]">Registry Empty</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/[0.03]">
@@ -149,48 +145,46 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                     <div
                       key={notif.id}
                       className={cn(
-                        "p-5 flex gap-4 transition-all hover:bg-white/[0.02] relative group",
-                        !notif.read && "bg-primary/[0.02]"
+                        "p-5 flex gap-4 transition-all hover:bg-white/[0.01] relative group",
+                        !notif.read && "bg-white/[0.02]"
                       )}
                       onClick={() => !notif.read && markAsRead(notif.id)}
                     >
-                      {!notif.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />}
-
                       <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
-                        notif.read ? "bg-white/5 border-white/5 text-white/20" : "bg-primary/10 border-primary/20 text-primary"
+                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+                        notif.read ? "bg-white/[0.02] border-white/[0.04] text-white/20" : "bg-primary/5 border-primary/10 text-primary"
                       )}>
-                        {notif.type === 'reward_claimed' ? <Check size={16} /> : <Info size={16} />}
+                        {notif.type === 'reward_claimed' ? <Check size={14} /> : <Info size={14} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-2">
                           <h4 className={cn(
-                            "text-[12px] font-bold leading-tight truncate",
-                            notif.read ? "text-white/40" : "text-white"
+                            "text-[12px] font-bold tracking-tight truncate",
+                            notif.read ? "text-white/30" : "text-white"
                           )}>
                             {notif.title}
                           </h4>
-                          <span className="text-[9px] font-bold text-white/20 uppercase whitespace-nowrap pt-0.5">
-                            {notif.timestamp ? formatTime(notif.timestamp.toDate()) : 'Recent'}
+                          <span className="text-[9px] font-mono text-white/10 uppercase whitespace-nowrap pt-0.5">
+                            {notif.timestamp ? formatTime(notif.timestamp.toDate()) : '...'}
                           </span>
                         </div>
                         <p className={cn(
-                          "text-[11px] leading-relaxed mt-1 line-clamp-2",
-                          notif.read ? "text-white/20" : "text-white/60"
+                          "text-[11px] leading-relaxed mt-0.5 line-clamp-2",
+                          notif.read ? "text-white/20" : "text-white/50"
                         )}>
                           {notif.description}
                         </p>
 
-                        <div className="flex items-center gap-3 mt-3">
+                        <div className="flex items-center gap-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                            <button
                              onClick={(e) => {
                                e.stopPropagation();
                                deleteNotification(notif.id);
                              }}
-                             className="p-1 rounded bg-white/5 text-white/20 hover:text-danger transition-colors"
+                             className="text-[9px] font-bold text-white/20 hover:text-danger uppercase tracking-widest"
                            >
-                              <Trash2 size={12} />
+                              Delete
                            </button>
                            {!notif.read && (
                              <button
@@ -198,9 +192,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                                  e.stopPropagation();
                                  markAsRead(notif.id);
                                }}
-                               className="text-[9px] font-bold text-primary uppercase tracking-widest"
+                               className="text-[9px] font-bold text-primary hover:text-white uppercase tracking-widest"
                              >
-                               Mark Read
+                               Acknowledge
                              </button>
                            )}
                         </div>
@@ -224,9 +218,10 @@ const formatTime = (date: Date) => {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  return `${days}d`;
+  if (minutes < 1) return `JUST NOW`;
+  if (minutes < 60) return `${minutes}M AGO`;
+  if (hours < 24) return `${hours}H AGO`;
+  return `${days}D AGO`;
 };
 
 export default NotificationCenter;

@@ -18,7 +18,7 @@ const MobileBottomNav: React.FC = () => {
   // NEW LOGIC: Also hide on sub-pages (pages that are not the main tabs)
   const mainTabs = isAdmin
     ? ['/pulse-core', '/me']
-    : ['/dashboard', '/rewards', '/wallet', '/me'];
+    : ['/dashboard', '/wallet', '/me'];
 
   const isMainTab = mainTabs.includes(location.pathname);
 
@@ -35,18 +35,16 @@ const MobileBottomNav: React.FC = () => {
 
   const tabs = dashboardTabs;
 
-  const activeTab = tabs.find(tab => location.pathname === tab.href)?.name || (isAdmin ? 'Core' : 'Dash');
-
   const handleTabClick = (tab: any) => {
     navigate(tab.href);
   };
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-      <div className="bg-[#030305]/95 backdrop-blur-3xl border-t border-white/[0.05] pb-safe flex items-center justify-around relative px-2">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-4">
+      <div className="bg-black/80 backdrop-blur-xl border border-white/5 rounded-3xl flex items-center justify-around relative px-2 shadow-2xl">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.name;
+          const isActive = location.pathname === tab.href;
 
           return (
             <button
@@ -56,21 +54,15 @@ const MobileBottomNav: React.FC = () => {
             >
               <div className={cn(
                 "relative z-10 flex flex-col items-center transition-all duration-300",
-                isActive ? "text-primary scale-110" : "text-white/20 hover:text-white/40"
+                isActive ? "text-white" : "text-white/20"
               )}>
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-                <span className={cn(
-                  "text-[9px] font-bold mt-1.5 uppercase tracking-[0.1em] transition-opacity duration-300",
-                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                )}>
-                  {tab.name}
-                </span>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
               </div>
 
               {isActive && (
                 <motion.div
-                  layoutId="navGlow"
-                  className="absolute inset-0 bg-primary/5 blur-xl rounded-full"
+                  layoutId="mobileNavIndicator"
+                  className="absolute bottom-2 w-1 h-1 bg-primary rounded-full"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}

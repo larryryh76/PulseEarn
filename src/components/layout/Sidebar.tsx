@@ -1,11 +1,10 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
   Users,
   LogOut,
-  ChevronRight,
   User,
   ShieldCheck,
   Wallet
@@ -17,18 +16,18 @@ import Logo from '../ui/Logo';
 const Sidebar: React.FC = () => {
   const { logout, userData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const isAdmin = userData?.role === 'admin';
 
   const menuItems = isAdmin ? [
-    { name: 'Control Center', icon: ShieldCheck, href: '/pulse-core' },
-    { name: 'Me', icon: User, href: '/me' },
+    { name: 'Core Hub', icon: ShieldCheck, href: '/pulse-core' },
+    { name: 'User View', icon: LayoutDashboard, href: '/dashboard' },
   ] : [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { name: 'Marketplace', icon: CheckSquare, href: '/tasks', disabled: true },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
-    { name: 'Invite', icon: Users, href: '/referrals' },
-    { name: 'Me', icon: User, href: '/me' },
+    { name: 'Referrals', icon: Users, href: '/referrals' },
   ];
 
   const handleLogout = async () => {
@@ -37,53 +36,83 @@ const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-72 h-screen fixed left-0 top-0 bg-[#050507] border-r border-white/[0.05] z-40">
-      <div className="p-8">
+    <aside className="hidden lg:flex flex-col w-64 h-screen fixed left-0 top-0 bg-black border-r border-border-subtle z-40">
+      <div className="px-6 py-10">
         <Logo />
       </div>
 
-      <nav className="flex-1 px-4 py-4">
-        <div className="space-y-2">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              onClick={(e) => {
-                if (item.disabled) {
-                  e.preventDefault();
-                }
-              }}
-              className={({ isActive }) => cn(
-                "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 group",
-                isActive
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : item.disabled
-                    ? "text-white/10 cursor-not-allowed border border-transparent"
-                    : "text-white/40 hover:text-white hover:bg-white/5 border border-transparent"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon size={20} />
-                <div className="flex flex-col">
-                  <span className="font-bold text-[13px] tracking-wide">{item.name}</span>
-                  {item.disabled && (
-                    <span className="text-[8px] font-bold text-white/10 uppercase tracking-widest leading-none">Rebuilding</span>
-                  )}
+      <div className="flex-1 px-4 py-2 space-y-8">
+        {/* Main Section */}
+        <div className="space-y-1">
+          <p className="px-4 pb-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.15em]">Ecosystem</p>
+          {menuItems.map((item) => {
+             const isActive = location.pathname === item.href;
+             return (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                onClick={(e) => item.disabled && e.preventDefault()}
+                className={cn(
+                  "flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative",
+                  isActive
+                    ? "bg-white/[0.04] text-white"
+                    : item.disabled
+                      ? "text-white/10 cursor-not-allowed"
+                      : "text-white/40 hover:text-white hover:bg-white/[0.02]"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon size={18} className={cn(isActive ? "text-primary" : "text-current")} />
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-[13px]">{item.name}</span>
+                    {item.disabled && (
+                      <span className="text-[9px] font-medium text-white/10 uppercase tracking-widest leading-none">Maintenance</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {!item.disabled && <ChevronRight size={14} className="opacity-0 group-hover:opacity-40 transition-opacity" />}
-            </NavLink>
-          ))}
+                {isActive && (
+                   <div className="absolute right-3 w-1 h-1 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.8)]" />
+                )}
+              </NavLink>
+             );
+          })}
         </div>
-      </nav>
 
-      <div className="p-6 border-t border-white/[0.05]">
+        {/* Identity Section */}
+        <div className="space-y-1">
+           <p className="px-4 pb-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.15em]">Personal</p>
+           <NavLink
+              to="/me"
+              className={({ isActive }) => cn(
+                "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200",
+                isActive ? "bg-white/[0.04] text-white" : "text-white/40 hover:text-white hover:bg-white/[0.02]"
+              )}
+           >
+              <User size={18} className={cn(location.pathname === '/me' ? "text-primary" : "text-current")} />
+              <span className="font-semibold text-[13px]">Identity Center</span>
+           </NavLink>
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-border-subtle">
+        <div className="bg-white/[0.02] border border-border-subtle rounded-2xl p-4 mb-4">
+           <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary text-[10px] font-bold">
+                 {userData?.level || 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                 <p className="text-[12px] font-bold text-white truncate">{userData?.username}</p>
+                 <p className="text-[10px] font-medium text-white/30 truncate">Level {userData?.level} Tier</p>
+              </div>
+           </div>
+        </div>
+
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-white/40 hover:text-red-400 transition-colors duration-300 group"
+          className="flex items-center gap-3 px-4 py-3 w-full text-white/30 hover:text-danger transition-colors duration-200 group text-[13px] font-medium"
         >
-          <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
-          <span className="font-bold text-[13px] tracking-wide">Logout Account</span>
+          <LogOut size={18} />
+          <span>Terminate Session</span>
         </button>
       </div>
     </aside>

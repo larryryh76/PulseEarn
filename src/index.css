@@ -2,101 +2,38 @@
 
 @theme {
   --color-background: #000000;
-  --color-surface-1: #050507;
-  --color-surface-2: #0D0D0F;
-  --color-surface-3: #141417;
-
   --color-primary: #0066ff;
-  --color-primary-soft: rgba(0, 102, 255, 0.1);
-  --color-accent: #00f2ff;
   --color-success: #10b981;
   --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-
-  --color-border-subtle: rgba(255, 255, 255, 0.04);
-  --color-border-muted: rgba(255, 255, 255, 0.08);
-  --color-border-strong: rgba(255, 255, 255, 0.12);
-
-  --font-heading: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", menlo, monospace;
-
-  --spacing-pacing: 4px;
 }
 
 @layer base {
   body {
-    @apply bg-background text-white font-body antialiased;
-    overflow-x: hidden;
-    letter-spacing: -0.01em;
+    @apply bg-background text-white antialiased;
+    font-family: sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading tracking-tight font-semibold;
-  }
-
-  /* Refined Typography Scale */
-  .text-display { @apply text-6xl md:text-8xl font-bold tracking-tighter leading-[1.1]; }
-  .text-h1 { @apply text-4xl md:text-5xl font-bold tracking-tight; }
-  .text-h2 { @apply text-2xl md:text-3xl font-bold tracking-tight; }
-  .text-h3 { @apply text-xl font-semibold tracking-tight; }
-  .text-caption { @apply text-[10px] font-bold uppercase tracking-[0.2em] text-white/30; }
-  .text-mono { @apply font-mono text-[13px] tracking-tight; }
+  /* Resetting everything to simple basics for structure visibility */
+  h1 { @apply text-2xl font-bold; }
+  h2 { @apply text-xl font-bold; }
+  h3 { @apply text-lg font-bold; }
+  p { @apply text-sm text-white/60; }
+  button { @apply text-sm font-medium; }
 }
 
-@layer components {
-  /* SOLID LAYERED ELEVATION (Linear/Stripe style) */
-  .surface-0 { @apply bg-background; }
-  .surface-1 { @apply bg-surface-1 border border-border-subtle rounded-2xl; }
-  .surface-2 { @apply bg-surface-2 border border-border-muted rounded-2xl shadow-xl; }
-
-  /* RESTRAINED INTERACTION */
-  .interactive {
-    @apply transition-all duration-200 ease-out;
-  }
-  .interactive:hover {
-    @apply border-border-strong bg-white/[0.02];
-  }
-  .interactive:active {
-    @apply scale-[0.98] opacity-90;
-  }
-
-  /* INTENTIONAL BUTTONS */
-  .btn-primary {
-    @apply px-5 py-2.5 rounded-xl bg-primary text-white text-[13px] font-semibold
-           hover:bg-primary/90 transition-all active:scale-[0.97] shadow-lg shadow-primary/20;
-  }
-
-  .btn-secondary {
-    @apply px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-[13px] font-semibold
-           hover:bg-white/10 transition-all active:scale-[0.97];
-  }
-
-  .btn-ghost {
-    @apply px-4 py-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 text-[13px] font-medium transition-all;
-  }
+/* Minimalist structural helpers */
+.raw-container {
+  @apply max-w-4xl mx-auto p-4;
 }
 
-/* Custom Scrollbar - Industrial Minimal */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+.raw-card {
+  @apply border border-white/10 p-4 rounded;
 }
 
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+.raw-flex {
+  @apply flex gap-4;
 }
 
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.raw-grid {
+  @apply grid gap-4;
+}

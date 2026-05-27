@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #000000;
+  --color-primary: #0066ff;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white antialiased;
+    font-family: sans-serif;
+  }
+
+  /* Resetting everything to simple basics for structure visibility */
+  h1 { @apply text-2xl font-bold; }
+  h2 { @apply text-xl font-bold; }
+  h3 { @apply text-lg font-bold; }
+  p { @apply text-sm text-white/60; }
+  button { @apply text-sm font-medium; }
+}
+
+/* Minimalist structural helpers */
+.raw-container {
+  @apply max-w-4xl mx-auto p-4;
+}
+
+.raw-card {
+  @apply border border-white/10 p-4 rounded;
+}
+
+.raw-flex {
+  @apply flex gap-4;
+}
+
+.raw-grid {
+  @apply grid gap-4;
+}

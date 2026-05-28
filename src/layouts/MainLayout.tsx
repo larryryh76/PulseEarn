@@ -9,8 +9,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <main>
         {children}
       </main>
-      <MobileBottomNav />
-
+      {/* Footer removed from internal/landing pages to maintain premium SaaS feel */}
       <footer className="py-20 px-6 border-t border-white/5 bg-background/50">
         <div className="container mx-auto text-center">
           <p className="text-white/40 text-sm">

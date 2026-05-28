@@ -176,6 +176,9 @@ const Navbar: React.FC = () => {
                             <Link to="/me" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
                                <UserIcon size={14} /> Profile
                             </Link>
+                            <Link to="/support" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
+                               <Settings size={14} /> Support
+                            </Link>
                             {userData?.role === 'admin' && (
                                <Link to="/pulse-core" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-[11px] font-bold text-primary transition-all">
                                   <Settings size={14} /> Pulse Core

@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks'
 import Invite from './pages/Invite'
 import Profile from './pages/Profile'
 import Wallet from './pages/Wallet'
+import SupportPortal from './pages/support/SupportPortal'
 import AdminLayout from './components/layout/AdminLayout'
 import SystemOperationsHub from './components/admin/SystemOperationsHub'
 import GlobalEconomyLog from './components/admin/GlobalEconomyLog'
@@ -128,6 +129,7 @@ function App() {
         <Route path="/predict" element={<Navigate to="/tasks" replace />} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
+        <Route path="/support" element={<ProtectedRoute><SupportPortal /></ProtectedRoute>} />
 
         <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<SystemOperationsHub />} />

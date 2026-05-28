@@ -14,11 +14,12 @@ import { EconomyAuthority } from './EconomyAuthority';
 export interface PointTransactionRequest {
   userId: string;
   amount: number;
-  type: Transaction['type'] | 'AI_SYSTEM_CORRECTION' | 'prediction_entry' | 'referral_bonus' | 'withdrawal_debit' | 'prediction_reward';
+  type: Transaction['type'];
   source: string;
   claimId: string; // Unique Nonce/Claim ID (e.g. daily_20260525_UID)
   description?: string;
   xpReward?: number;
+  referenceId?: string;
   metadata?: Record<string, any>;
   bypassLock?: boolean;
 }
@@ -95,6 +96,7 @@ export class PointTransactionEngine {
           points: increment(amount),
           xp: newXp,
           level: newLevel,
+          'stats.totalEarnings': increment(amount > 0 ? amount : 0),
           totalEarnedToday: amount > 0 ? increment(amount) : (userData.totalEarnedToday || 0),
           lastActionTimestamp: serverTimestamp(),
           execution_lock: false, // Release Lock
@@ -130,14 +132,19 @@ export class PointTransactionEngine {
         // 9. Immutable Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
+          id: txDoc.id,
           userId,
           type,
           amount,
           source,
           claimId,
+          status: 'COMPLETED',
+          referenceId: request.referenceId || null,
           description: request.description || '',
           metadata,
           timestamp: serverTimestamp(),
+          processedAt: serverTimestamp(),
+          auditTrail: [`SYSTEM_AUTHORIZED:${type}`, `NONCE_CLAIMED:${claimId}`],
           engineVersion: '5.0.0-PRO'
         });
 
@@ -234,7 +241,7 @@ export class PointTransactionEngine {
     const predRef = doc(db, 'predictions', predictionId);
 
     try {
-      await runTransaction(db, async (transaction) => {
+      return await runTransaction(db, async (transaction) => {
         const predSnap = await transaction.get(predRef);
         if (!predSnap.exists()) throw new Error("PREDICTION_NOT_FOUND");
 
@@ -281,12 +288,17 @@ export class PointTransactionEngine {
         // 3. Log Settlement Transaction
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
+          id: txDoc.id,
           userId,
           type: 'prediction_reward',
           amount: payout,
           source: `Forecast Result: ${data.symbol.toUpperCase()} (${status.toUpperCase()})`,
           claimId,
+          status: 'COMPLETED',
+          referenceId: predictionId,
           timestamp: serverTimestamp(),
+          processedAt: serverTimestamp(),
+          auditTrail: [`SETTLEMENT_CORE_V5`, `MARKET_PRICE:${currentPrice}`, `RESULT:${status}`],
           metadata: { predictionId, currentPrice, isWin },
           engineVersion: '5.0.0-PRO'
         });

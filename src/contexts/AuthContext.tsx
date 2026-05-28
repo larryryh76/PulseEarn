@@ -189,9 +189,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isBanned: false,
       isFlagged: false,
       avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
-      stats: { tasksCompleted: 0, referralsCount: 0, predictionsCount: 0 },
+      stats: {
+        tasksCompleted: 0,
+        referralsCount: 0,
+        predictionsCount: 0,
+        totalEarnings: 0,
+        weeklyEarnings: 0
+      },
       preferences: {
         notifications: true,
+        rewardAlerts: true,
+        marketing: false,
         soundEnabled: true,
         vibrationEnabled: true,
         privacyMode: false,

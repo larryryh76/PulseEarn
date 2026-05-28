@@ -8,6 +8,11 @@ export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 export type TaskCategory = 'SOCIAL' | 'LEARN' | 'ECOSYSTEM' | 'GAMING' | 'SPONSORED' | 'DAILY';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE';
 
+export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_USER' | 'RESOLVED' | 'CLOSED';
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TicketCategory = 'REWARD' | 'REFERRAL' | 'PAYOUT' | 'ACCOUNT' | 'FRAUD' | 'SYSTEM' | 'OTHER';
+
 export interface Task {
   id: string;
   providerId: string;
@@ -97,10 +102,13 @@ export interface Campaign {
 
 export interface Activity {
   id: string;
-  type: string;
+  userId: string;
+  type: 'reward_received' | 'referral_activated' | 'streak_updated' | 'prediction_settled' | 'task_approved' | 'reward_reversed' | 'moderation_notice' | 'level_achieved';
   points: number;
   description: string;
   timestamp: Timestamp;
+  referenceId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface UserData {
@@ -132,9 +140,13 @@ export interface UserData {
     tasksCompleted: number;
     referralsCount: number;
     predictionsCount: number;
+    totalEarnings: number;
+    weeklyEarnings: number;
   };
   preferences?: {
     notifications: boolean;
+    rewardAlerts: boolean;
+    marketing: boolean;
     soundEnabled: boolean;
     vibrationEnabled: boolean;
     privacyMode: boolean;
@@ -143,19 +155,61 @@ export interface UserData {
   status?: 'active' | 'restricted' | 'frozen';
   execution_lock?: boolean;
   execution_lock_at?: Timestamp | null;
+  security?: {
+    lastLogin: Timestamp;
+    activeSessions: number;
+    recoveryEmailSet: boolean;
+    suspiciousFlags: string[];
+  };
 }
 
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit';
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty';
   amount: number;
-  source: string;
+  source: string; // source system name
   timestamp: Timestamp;
   claimId: string;
   description?: string;
+  status: 'COMPLETED' | 'PENDING' | 'REVERSED' | 'FAILED';
+  referenceId?: string; // ID of the related object (Task, Prediction, etc.)
+  processedAt: Timestamp;
+  auditTrail: string[];
   metadata?: Record<string, any>;
   engineVersion?: string;
+}
+
+export interface ReferralRecord {
+  id: string;
+  referrerId: string;
+  refereeId: string;
+  refereeUsername: string;
+  status: ReferralStatus;
+  rewardTransactionId?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  fraudFlags: string[];
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  subject: string;
+  description: string;
+  assignedAdminId?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  resolvedAt?: Timestamp;
+  attachedLogIds: string[];
+  messages: {
+    senderId: string;
+    text: string;
+    timestamp: Timestamp;
+  }[];
 }
 
 export interface SystemSettings {
@@ -174,7 +228,26 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'submission_update';
+  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'submission_update' | 'moderation_notice' | 'payout_processed';
   read: boolean;
   timestamp: Timestamp;
+}
+
+export interface PredictionRecord {
+  id: string;
+  userId: string;
+  taskId: string; // Prediction missions are tasks
+  assetId: string;
+  symbol: string;
+  direction: 'UP' | 'DOWN';
+  entryPrice: number;
+  exitPrice?: number;
+  stakeAmount: number;
+  rewardAmount?: number;
+  status: 'ACTIVE' | 'RESOLVED' | 'CANCELED' | 'DISPUTED' | 'FAILED_SETTLEMENT';
+  transactionReference: string;
+  settlementReference?: string;
+  createdAt: Timestamp;
+  resolvedAt?: Timestamp;
+  auditTrail: string[];
 }

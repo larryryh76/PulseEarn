@@ -1,6 +1,5 @@
 import React from 'react';
 import Navbar from '../components/layout/Navbar';
-import MobileBottomNav from '../components/layout/MobileBottomNav';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (

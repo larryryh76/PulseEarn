@@ -2,7 +2,8 @@ import { db } from '../../firebase/config';
 import {
   doc,
   serverTimestamp,
-  runTransaction
+  runTransaction,
+  setDoc
 } from 'firebase/firestore';
 import { SupportTicket, TicketCategory, TicketPriority } from '../../types';
 
@@ -76,5 +77,3 @@ export class SupportEngine {
     });
   }
 }
-
-import { setDoc } from 'firebase/firestore';

@@ -24,10 +24,15 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (userData) {
-      DashboardEngine.getSummary(userData).then(res => {
-        setSummary(res);
-        setLoading(false);
-      });
+      DashboardEngine.getSummary(userData)
+        .then(res => {
+          setSummary(res);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Dashboard initialization failure:", err);
+          setLoading(false);
+        });
     }
   }, [userData]);
 

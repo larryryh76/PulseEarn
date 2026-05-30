@@ -35,8 +35,8 @@ const Logo: React.FC<{ className?: string }> = ({ className = "" }) => {
         <span className="font-heading font-bold text-xl tracking-tight text-white leading-tight">
           Pulse<span className="text-white/60 font-medium">Earn</span>
         </span>
-        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/80 font-bold leading-none">
-          Ecosystem
+        <span className="text-[8px] font-bold uppercase tracking-widest text-primary/80 leading-none">
+          Rewards
         </span>
       </div>
     </div>

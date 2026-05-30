@@ -324,7 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                      className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
                    />
                 </div>
-                <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Restoring Secure Session</p>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
              </div>
           </motion.div>
         ) : null}

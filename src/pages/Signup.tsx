@@ -35,11 +35,11 @@ const Signup: React.FC = () => {
 
   const handleAuthError = (error: any) => {
     const code = error.code || '';
-    if (code === 'auth/email-already-in-use') return 'Identity Conflict: This email is already linked to the ecosystem.';
-    if (code === 'auth/weak-password') return 'Security Protocol: Password does not meet complexity requirements.';
-    if (code === 'auth/invalid-email') return 'Format Error: Invalid email signature detected.';
-    if (code === 'auth/network-request-failed') return 'Connectivity Error: Unable to reach the ecosystem.';
-    return 'Ecosystem Error: Failed to initialize account. Please retry.';
+    if (code === 'auth/email-already-in-use') return 'This email is already in use. Please log in instead.';
+    if (code === 'auth/weak-password') return 'Password is too weak. Please use at least 6 characters.';
+    if (code === 'auth/invalid-email') return 'Please enter a valid email address.';
+    if (code === 'auth/network-request-failed') return 'Network error. Please check your internet connection.';
+    return 'An error occurred during signup. Please try again.';
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,8 +94,8 @@ const Signup: React.FC = () => {
                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 shadow-xl">
                   <UserPlus className="text-primary" size={32} />
                </div>
-               <h1 className="text-3xl font-bold mb-2 tracking-tight">Join PulseEarn</h1>
-               <p className="text-white/40 text-sm font-medium">Create your account to start earning</p>
+               <h1 className="text-3xl font-bold mb-2 tracking-tight text-white">Create Account</h1>
+               <p className="text-white/40 text-sm font-medium">Join PulseEarn and start earning rewards</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -118,7 +118,7 @@ const Signup: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Email Address</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Email</label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
                     <Mail size={18} />

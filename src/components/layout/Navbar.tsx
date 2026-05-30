@@ -15,11 +15,15 @@ import { cn } from '../../utils';
 import Logo from '../ui/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import NotificationCenter from '../ui/NotificationCenter';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -89,10 +93,24 @@ const Navbar: React.FC = () => {
 
            {currentUser ? (
               <div className="flex items-center gap-3">
-                 <button className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-white/40 hover:text-white transition-colors relative">
-                    <Bell size={18} />
-                    <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full" />
-                 </button>
+                 <div className="relative">
+                    <button
+                      onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                      className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-white/40 hover:text-white transition-colors relative"
+                    >
+                       <Bell size={18} />
+                       {unreadCount > 0 && (
+                          <div className="absolute top-2.5 right-2.5 w-4 h-4 bg-primary text-white text-[8px] font-bold rounded-full flex items-center justify-center border-2 border-background shadow-lg">
+                             {unreadCount > 9 ? '9+' : unreadCount}
+                          </div>
+                       )}
+                    </button>
+
+                    <NotificationCenter
+                      isOpen={isNotificationsOpen}
+                      onClose={() => setIsNotificationsOpen(false)}
+                    />
+                 </div>
 
                  <div className="relative">
                     <button

@@ -56,7 +56,7 @@ const SystemOperationsHub: React.FC = () => {
       const response = await SystemScannerEngine.processCommand(userPrompt);
       setLogs(prev => [...prev, { timestamp: new Date(), level: 'SYSTEM', message: response.message }]);
     } catch (err) {
-      setLogs(prev => [...prev, { timestamp: new Date(), level: 'ERROR', message: 'Kernel protocol failure.' }]);
+      setLogs(prev => [...prev, { timestamp: new Date(), level: 'ERROR', message: 'System process failure.' }]);
     } finally {
       setIsProcessing(false);
     }
@@ -205,7 +205,7 @@ const SystemOperationsHub: React.FC = () => {
                          <div className="mt-8 pt-8 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-3">
                                <span className="text-[9px] font-bold uppercase tracking-widest text-white/20 flex items-center gap-2">
-                                  <Terminal size={10} /> Instruction Set
+                                  <Terminal size={10} /> Command Set
                                </span>
                                <div className="p-5 rounded-2xl bg-black/60 border border-white/5 font-mono text-[10px] text-primary/70 overflow-x-auto">
                                   {item.proposedFix}
@@ -274,7 +274,7 @@ const SystemOperationsHub: React.FC = () => {
                </div>
             </div>
 
-            {/* Health Matrix */}
+            {/* Health Diagnostics */}
             <div className="glass-panel p-8 rounded-[2rem] space-y-10">
                <span className="section-label pr-10 border-b border-white/10 pb-4 block">System Diagnostics</span>
                <div className="space-y-8">
@@ -302,7 +302,7 @@ const SystemOperationsHub: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/40">Global Persistence</span>
                </div>
                <p className="text-xs text-white/30 leading-relaxed font-medium pr-4">
-                  System state is replicated across authorized nodes. Cryptographic authority remains centralized in the Pulse-core kernel.
+                  System state is replicated across authorized servers. Operational authority remains centralized in the Pulse-core system.
                </p>
             </div>
 

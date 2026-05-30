@@ -60,7 +60,7 @@ export class MarketResolver {
 
       return { resolved: resolvedCount };
     } catch (error) {
-      console.error("[MarketResolver] Oracle Price API Error:", error);
+      console.error("[MarketResolver] Market Data API Error:", error);
       throw error;
     }
   }

@@ -513,7 +513,22 @@ const TaskOrchestrator: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Verification Strategy</label>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Category</label>
+                    <select
+                        value={newTask.category}
+                        onChange={(e) => setNewTask({...newTask, category: e.target.value as TaskCategory})}
+                      className="w-full bg-black border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white appearance-none focus:border-primary outline-none"
+                    >
+                        <option value="SOCIAL">SOCIAL</option>
+                        <option value="ENGAGEMENT">ENGAGEMENT</option>
+                        <option value="REFERRAL">REFERRAL</option>
+                        <option value="PREDICTION">PREDICTION</option>
+                        <option value="EDUCATION">EDUCATION</option>
+                        <option value="STREAK">STREAK</option>
+                    </select>
+                  </div>
+                  <div className="space-y-3">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Verification Strategy</label>
                     <select
                       value={newTask.verificationType}
                       onChange={(e) => setNewTask({...newTask, verificationType: e.target.value as VerificationType})}
@@ -524,6 +539,9 @@ const TaskOrchestrator: React.FC = () => {
                       <option value="timer">TEMPORAL: Delay-based</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Provider Authority</label>
                     <select

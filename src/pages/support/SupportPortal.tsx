@@ -74,9 +74,9 @@ const SupportPortal: React.FC = () => {
       <div className="max-w-6xl mx-auto space-y-12 pb-24 animate-in">
 
         {/* Support Leadership Header */}
-        <section className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
+        <section id="faq-top" className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
           <div className="space-y-1">
-            <h2 className="section-label">Ecosystem Intelligence</h2>
+            <h2 className="section-label">System Support</h2>
             <h1 className="text-4xl font-bold tracking-tight">Support Terminal</h1>
             <p className="text-sm text-white/40 font-medium">Authorized resource center for troubleshooting and infrastructure signals.</p>
           </div>
@@ -106,7 +106,7 @@ const SupportPortal: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-           {/* FAQ Intelligence Matrix (8 cols) */}
+           {/* FAQ Help Center (8 cols) */}
            <div className="lg:col-span-8 space-y-8">
               <div className="flex items-center gap-2 bg-white/[0.03] p-1 rounded-2xl border border-white/10 w-fit">
                  {FAQS.map(cat => (
@@ -150,7 +150,7 @@ const SupportPortal: React.FC = () => {
                     {[
                        { label: 'Reward Engine', status: 'Operational' },
                        { label: 'Withdrawal Gateway', status: 'Operational' },
-                       { label: 'Validation Oracle', status: 'Operational' }
+                       { label: 'Verification System', status: 'Operational' }
                     ].map((sys, i) => (
                        <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">{sys.label}</span>
@@ -164,20 +164,29 @@ const SupportPortal: React.FC = () => {
               </div>
 
               <div className="glass-panel p-8 rounded-[2.5rem] space-y-6">
-                 <h4 className="text-base font-bold">Incident Documentation</h4>
+                 <h4 className="text-base font-bold">Documentation</h4>
                  <div className="space-y-2">
                     {[
-                      { icon: FileText, title: 'Pulse Reward Policy' },
-                      { icon: ShieldQuestion, title: 'Verification Procedures' },
-                      { icon: ShieldAlert, title: 'Fraud & Integrity' }
+                      { id: 'quickstart', icon: FileText, title: 'Quick Start Guide' },
+                      { id: 'earnings', icon: Zap, title: 'Reward Policy' },
+                      { id: 'security', icon: ShieldAlert, title: 'Fraud & Integrity' }
                     ].map((doc, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-all cursor-pointer group">
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setActiveCategory('GENERAL');
+                          if (document.getElementById('faq-top')) {
+                             document.getElementById('faq-top')?.scrollIntoView({ behavior: 'smooth' });
+                          }
+                        }}
+                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 rounded-2xl transition-all group"
+                      >
                          <div className="flex items-center gap-4">
                             <doc.icon size={16} className="text-white/20 group-hover:text-primary transition-colors" />
                             <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">{doc.title}</span>
                          </div>
-                         <ExternalLink size={14} className="text-white/10 group-hover:text-white/40" />
-                      </div>
+                         <ChevronRight size={14} className="text-white/10 group-hover:text-white/40" />
+                      </button>
                     ))}
                  </div>
               </div>
@@ -188,7 +197,7 @@ const SupportPortal: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Operational History</span>
                  </div>
                  <p className="text-xs text-white/30 leading-relaxed font-medium">
-                    View and manage your active and archived support incidents in the dashboard timeline.
+                    Support history is synced with your dashboard activity log for complete transparency.
                  </p>
               </div>
 
@@ -209,8 +218,8 @@ const SupportPortal: React.FC = () => {
                >
                   <div className="flex items-center justify-between">
                      <div className="space-y-1">
-                        <h3 className="text-2xl font-bold tracking-tight">Signal Incident</h3>
-                        <p className="text-xs text-white/30">Submit an authoritative report to the system administrators.</p>
+                        <h3 className="text-2xl font-bold tracking-tight">Report Incident</h3>
+                        <p className="text-xs text-white/30">Submit a support report to the system administrators.</p>
                      </div>
                      <button type="button" onClick={() => setShowTicketModal(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-colors">
                         <Plus size={24} className="rotate-45" />

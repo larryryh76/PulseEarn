@@ -151,7 +151,7 @@ export class PointTransactionEngine {
         return { success: true, txId: txDoc.id };
       });
     } catch (error: any) {
-      console.error(`[PointEngine] Protocol Failure: ${error.message} (Claim: ${claimId})`);
+      console.error(`[PointEngine] System Failure: ${error.message} (Claim: ${claimId})`);
       await this.logValidationFailure(userId, claimId, error.message, request);
       return { success: false, error: error.message };
     }

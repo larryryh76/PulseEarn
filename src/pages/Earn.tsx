@@ -200,7 +200,7 @@ const Earn: React.FC = () => {
             <div className="glass-panel p-8 rounded-[2.5rem] bg-primary/[0.02] border-primary/10">
               <div className="flex items-center gap-3 text-primary mb-6">
                 <ShieldCheck size={18} />
-                <h4 className="font-bold text-base uppercase tracking-tight">Security Protocol</h4>
+                <h4 className="font-bold text-base uppercase tracking-tight">Security Status</h4>
               </div>
               <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase mb-6">
                 All mission settlements are verified by the institutional consensus engine. Tampering or automated execution will result in account suspension.

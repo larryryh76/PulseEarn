@@ -37,7 +37,7 @@ const Invite: React.FC = () => {
         {/* Growth Header */}
         <section className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
            <div className="space-y-1">
-              <h2 className="section-label">Growth Protocol</h2>
+              <h2 className="section-label">Referral System</h2>
               <h1 className="text-4xl font-bold tracking-tight text-glow">Network Expansion</h1>
               <p className="text-sm text-white/40 font-medium max-w-md pr-12">
                  Scale the PulseEarn ecosystem by onboarding verified participants and secure tiered yield rewards.

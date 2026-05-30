@@ -5,7 +5,7 @@ export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link';
 export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
-export type TaskCategory = 'SOCIAL' | 'LEARN' | 'ECOSYSTEM' | 'GAMING' | 'SPONSORED' | 'DAILY';
+export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'STREAK';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE';
 
 export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';

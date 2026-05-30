@@ -99,14 +99,14 @@ const EcosystemIntelligence: React.FC = () => {
          <CardPremium className="p-8 bg-[#0A0A15] border-white/[0.05]">
             <div className="flex items-center gap-3 mb-8">
                <ShieldCheck size={20} className="text-success" />
-               <h3 className="text-sm font-bold uppercase tracking-widest">Protocol Status</h3>
+               <h3 className="text-sm font-bold uppercase tracking-widest">System Status</h3>
             </div>
             <div className="space-y-6">
                {[
-                 { name: 'Point AI Engine', status: 'Optimal', load: '12%' },
-                 { name: 'System Engineer AI', status: 'Scanning', load: '45%' },
-                 { name: 'Market Oracle', status: 'Synced', load: '2%' },
-                 { name: 'Quest Validation', status: 'Optimal', load: '8%' }
+                 { name: 'Transaction Engine', status: 'Optimal', load: '12%' },
+                 { name: 'Security System', status: 'Scanning', load: '45%' },
+                 { name: 'Market Data', status: 'Synced', load: '2%' },
+                 { name: 'Task Validation', status: 'Optimal', load: '8%' }
                ].map((protocol, i) => (
                  <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
                     <div className="flex items-center gap-4">

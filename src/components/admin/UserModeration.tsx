@@ -19,7 +19,7 @@ const UserModeration: React.FC = () => {
   }, []);
 
   const handleModeration = async (userId: string, action: 'ban' | 'flag' | 'unflag') => {
-    const toastId = toast.loading('Synchronizing Security Policy...');
+    const toastId = toast.loading('Updating Security Status...');
     try {
       const userRef = doc(db, 'users', userId);
       const updates: any = {};
@@ -28,9 +28,9 @@ const UserModeration: React.FC = () => {
       if (action === 'unflag') updates.isFlagged = false;
 
       await updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
-      toast.success('Protocol Applied Successfully', { id: toastId });
+      toast.success('Account Status Updated', { id: toastId });
     } catch (e) {
-      toast.error('Protocol Sync Failed', { id: toastId });
+      toast.error('Update Failed', { id: toastId });
     }
   };
 

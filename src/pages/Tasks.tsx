@@ -23,7 +23,7 @@ const Tasks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
 
-  const categories: (TaskCategory | 'ALL')[] = ['ALL', 'DAILY', 'SOCIAL', 'ECOSYSTEM', 'LEARN', 'GAMING'];
+  const categories: (TaskCategory | 'ALL')[] = ['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'STREAK'];
 
   const filteredTasks = tasks.filter(task => {
     const matchesCategory = activeCategory === 'ALL' || task.category === activeCategory;
@@ -94,7 +94,7 @@ const Tasks: React.FC = () => {
            </div>
         </section>
 
-        {/* Mission Matrix */}
+        {/* Mission Center */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {loading ? (
               [1,2,3,4,5,6].map(i => (

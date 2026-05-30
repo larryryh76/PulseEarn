@@ -117,7 +117,7 @@ export const useTasks = () => {
 
     // Marketplace Validation: clearance and state checks
     if (task.minLevel && userData.level < task.minLevel) {
-       toast.error(`Protocol Clearance LVL ${task.minLevel} Required`);
+       toast.error(`Account Level ${task.minLevel} Required`);
        return;
     }
 

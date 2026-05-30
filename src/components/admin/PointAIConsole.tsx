@@ -29,13 +29,13 @@ const PointAIConsole: React.FC = () => {
 
   const handleMarketResolution = async () => {
     setIsResolving(true);
-    const toastId = toast.loading('Synchronizing with Market Oracle...');
+    const toastId = toast.loading('Synchronizing with Market Data...');
     try {
       const result = await MarketResolver.resolveAllPending();
       toast.success(`Resolved ${result.resolved} positions.`, { id: toastId });
       EconomyMonitor.getEcosystemSnapshot().then(setEconomy);
     } catch (err) {
-      toast.error('Oracle Link Failed', { id: toastId });
+      toast.error('Market Data Link Failed', { id: toastId });
     } finally {
       setIsResolving(false);
     }
@@ -134,7 +134,7 @@ const PointAIConsole: React.FC = () => {
                  </div>
                  <div>
                     <h3 className="text-base font-bold tracking-tight text-white uppercase tracking-wider">Economy Policy</h3>
-                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Monetary Protocol v5.0.0</p>
+                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Monetary System v5.0.0</p>
                  </div>
               </div>
 
@@ -165,13 +165,13 @@ const PointAIConsole: React.FC = () => {
            <CardPremium className="p-6 bg-black border-white/[0.05] rounded-xl">
               <div className="flex items-center gap-3 mb-8">
                  <Search size={16} className="text-white/40" />
-                 <h3 className="text-xs font-bold uppercase tracking-widest text-white/80">Integrity Matrix</h3>
+                 <h3 className="text-xs font-bold uppercase tracking-widest text-white/80">Integrity Check</h3>
               </div>
 
               <div className="space-y-3">
                  {[
                    { label: 'Balance Parity', status: 'pass' },
-                   { label: 'Oracle Sync', status: 'pass' },
+                   { label: 'Market Sync', status: 'pass' },
                    { label: 'Multiplier Guard', status: 'pass' },
                    { label: 'XP Atomicity', status: 'pass' }
                  ].map((check, i) => (

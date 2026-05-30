@@ -82,9 +82,9 @@ const VerifyEmail: React.FC = () => {
                <Mail className="text-primary animate-bounce" size={40} />
             </div>
 
-            <h1 className="text-3xl font-bold mb-4 tracking-tight">Verify Your Email</h1>
+            <h1 className="text-3xl font-bold mb-4 tracking-tight text-white">Verify Your Email</h1>
             <p className="text-white/50 text-sm mb-8 leading-relaxed">
-              We've sent a secure link to <span className="text-white font-bold">{currentUser.email}</span>. Click the link to activate your PulseEarn account.
+              We've sent a verification link to <span className="text-white font-bold">{currentUser.email}</span>. Please click the link in your email to activate your account.
             </p>
 
             <div className="space-y-4">

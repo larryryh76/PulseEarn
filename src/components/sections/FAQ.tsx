@@ -6,44 +6,44 @@ import { cn } from '../../utils';
 const FAQ: React.FC = () => {
   const faqs = [
     {
-      question: "How do I initiate earning sequences?",
-      answer: "Create an account to gain access to the Pulse ecosystem. Once authorized, you can browse active mission campaigns or engage in market forecasting via the Execution Hub."
+      question: "How do I start earning?",
+      answer: "Simply create an account and log in. You can start earning points immediately by completing available tasks or making market predictions."
     },
     {
-      question: "What is the settlement protocol for rewards?",
-      answer: "All rewards are logged as points on your immutable ledger. These points can be converted into established digital assets (USDT, BTC, ETH) once the protocol threshold is met."
+      question: "How are rewards paid out?",
+      answer: "Points you earn can be redeemed for various rewards, including popular cryptocurrencies like USDT, Bitcoin, and Ethereum, once you reach the minimum balance."
     },
     {
-      question: "Is there a clearance threshold for withdrawals?",
-      answer: "To ensure ecosystem stability, a minimum clearance of 10,000 PTS is required for initial settlement. You can track your progression in the Settlement Hub."
+      question: "What is the minimum for withdrawal?",
+      answer: "To ensure a smooth experience for all users, a minimum of 10,000 points is required for your first withdrawal. You can track your progress on your dashboard."
     },
     {
-      question: "How does the forecasting engine work?",
-      answer: "The protocol utilizes high-fidelity oracles to compare your entry forecasts against real-time market data. Successful predictions result in atomic point distributions based on pool weight."
+      question: "How do market predictions work?",
+      answer: "You can predict whether the price of an asset like Bitcoin will go up or down over a set period. If your prediction is correct, you earn bonus points."
     },
     {
-      question: "What security measures protect the ledger?",
-      answer: "PulseEarn utilizes multi-layer verification, atomic transactional nonces, and systematic anomaly detection to ensure every reward claim is legitimate and secure."
+      question: "Is PulseEarn secure?",
+      answer: "Yes, we use advanced security protocols and verification to ensure that your account and earnings are always protected."
     }
   ];
 
   return (
-    <section id="faq" className="py-32 bg-[#050507] relative overflow-hidden">
+    <section id="faq" className="py-20 md:py-32 bg-[#050507] relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[160px] rounded-full -z-10" />
 
       <div className="container mx-auto px-6">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-20">
+          <div className="text-center mb-12 md:mb-20 px-4">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-primary text-[10px] font-bold tracking-[0.4em] uppercase mb-6"
+              className="text-primary text-[10px] font-bold tracking-[0.2em] uppercase mb-6"
             >
-              Common Questions
+              FAQ
             </motion.div>
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white tracking-tighter uppercase">Knowledge <span className="text-white/20">Base.</span></h2>
-            <p className="text-white/40 text-lg font-medium tracking-tight">Technical specifications and operational guidance for the PulseEarn ecosystem.</p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 text-white tracking-tight">Got <span className="text-white/20">Questions?</span></h2>
+            <p className="text-white/60 text-base sm:text-lg font-medium">Everything you need to know about getting started with PulseEarn.</p>
           </div>
 
           <div className="space-y-4">
@@ -73,17 +73,17 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-8 py-7 flex items-center justify-between text-left group"
+        className="w-full px-6 md:px-8 py-6 md:py-7 flex items-center justify-between text-left group"
       >
         <span className={cn(
-          "text-lg font-bold tracking-tight uppercase transition-colors",
+          "text-base md:text-lg font-bold tracking-tight transition-colors pr-4",
           isOpen ? "text-primary" : "text-white/80 group-hover:text-white"
         )}>{faq.question}</span>
         <div className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 border",
+          "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-500 border shrink-0",
           isOpen ? "bg-primary border-primary text-white" : "bg-white/5 border-white/10 text-white/40"
         )}>
-          {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+          {isOpen ? <Minus size={16} /> : <Plus size={16} />}
         </div>
       </button>
 
@@ -95,7 +95,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="px-8 pb-8 text-white/40 text-[15px] leading-relaxed font-medium uppercase tracking-tighter border-t border-white/5 pt-6">
+            <div className="px-6 md:px-8 pb-6 md:pb-8 text-white/50 text-sm md:text-base leading-relaxed font-medium border-t border-white/5 pt-5 md:pt-6">
               {faq.answer}
             </div>
           </motion.div>

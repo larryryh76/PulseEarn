@@ -25,36 +25,36 @@ const Hero: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-primary text-[10px] font-bold tracking-[0.3em] uppercase mb-12 backdrop-blur-xl shadow-2xl"
+            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-primary text-[10px] font-bold tracking-[0.2em] uppercase mb-8 backdrop-blur-xl"
           >
             <div className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </div>
-            The Rewards Infrastructure for the Next Era
+            Start Earning Rewards Today
           </motion.div>
 
-          {/* AGGRESSIVE MAIN TITLE */}
+          {/* MAIN TITLE */}
           <motion.div
             style={{ opacity }}
-            className="space-y-6 mb-12"
+            className="space-y-6 mb-12 w-full"
           >
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-7xl md:text-9xl lg:text-[11rem] font-bold leading-[0.8] tracking-tighter text-white"
+              className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold leading-[1.1] sm:leading-[0.9] tracking-tight text-white break-words"
             >
-              EARN <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/20">REWARDS.</span>
+              EARN <br className="hidden sm:block" />
+              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">REWARDS.</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="text-white/40 text-lg md:text-2xl max-w-3xl mx-auto leading-relaxed font-medium tracking-tight"
+              className="text-white/60 text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-medium px-4"
             >
-              A high-fidelity rewards ecosystem powered by real-time market signals. Predict trends, complete missions, and scale your capital.
+              Join PulseEarn to earn points by completing simple tasks and participating in market predictions. Simple, secure, and rewarding.
             </motion.p>
           </motion.div>
 
@@ -63,20 +63,20 @@ const Hero: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto mb-32"
+            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-24"
           >
             <button
               onClick={() => navigate('/signup')}
-              className="px-14 py-7 rounded-2xl bg-white text-black font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-white/90 active:scale-95 transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-4"
+              className="px-10 py-5 rounded-xl bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3"
             >
-              Launch Platform
+              Get Started
               <ArrowRight size={18} />
             </button>
             <button
               onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-14 py-7 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center"
+              className="px-10 py-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center"
             >
-              Ecosystem Overview
+              Learn More
             </button>
           </motion.div>
 
@@ -103,21 +103,21 @@ const Hero: React.FC = () => {
                 </div>
 
                 {/* Mock Content */}
-                <div className="p-10 grid grid-cols-12 gap-8">
+                <div className="p-6 md:p-10 flex flex-col lg:grid lg:grid-cols-12 gap-6 md:gap-8">
                    {/* Main Section */}
-                   <div className="col-span-8 space-y-8">
-                      <div className="h-40 rounded-3xl bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 p-8 flex flex-col justify-between">
+                   <div className="lg:col-span-8 space-y-6 md:space-y-8">
+                      <div className="h-32 sm:h-40 rounded-2xl md:rounded-3xl bg-gradient-to-br from-primary/10 to-transparent border border-primary/20 p-6 md:p-8 flex flex-col justify-between">
                          <div className="flex justify-between items-start">
-                            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Consolidated Balance</span>
+                            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Balance</span>
                             <Zap size={20} className="text-primary" />
                          </div>
-                         <div className="flex items-baseline gap-3">
-                            <span className="text-5xl font-bold text-white tracking-tighter">42,850</span>
-                            <span className="text-sm font-bold text-white/20 uppercase tracking-widest font-mono">PTS</span>
+                         <div className="flex items-baseline gap-2 md:gap-3">
+                            <span className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tighter">42,850</span>
+                            <span className="text-[10px] sm:text-xs md:text-sm font-bold text-white/20 uppercase tracking-widest font-mono">PTS</span>
                          </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-6">
-                         <div className="h-48 rounded-3xl bg-white/[0.02] border border-white/5 p-6 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                         <div className="h-40 md:h-48 rounded-2xl md:rounded-3xl bg-white/[0.02] border border-white/5 p-5 md:p-6 space-y-4">
                             <div className="flex items-center gap-2 text-success">
                                <TrendingUp size={16} />
                                <span className="text-[10px] font-bold uppercase">Daily Profit</span>
@@ -125,13 +125,13 @@ const Hero: React.FC = () => {
                             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                <div className="h-full w-2/3 bg-success/40" />
                             </div>
-                            <div className="flex -space-x-2 pt-4">
+                            <div className="flex -space-x-2 pt-2 md:pt-4">
                                {[1,2,3,4].map(i => (
                                  <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-white/10" />
                                ))}
                             </div>
                          </div>
-                         <div className="h-48 rounded-3xl bg-white/[0.02] border border-white/5 p-6 space-y-4">
+                         <div className="h-40 md:h-48 rounded-2xl md:rounded-3xl bg-white/[0.02] border border-white/5 p-5 md:p-6 space-y-4">
                             <div className="flex items-center gap-2 text-primary">
                                <ShieldCheck size={16} />
                                <span className="text-[10px] font-bold uppercase">System Status</span>
@@ -145,14 +145,14 @@ const Hero: React.FC = () => {
                       </div>
                    </div>
                    {/* Sidebar Section */}
-                   <div className="col-span-4 space-y-8">
-                      <div className="rounded-3xl border border-white/5 bg-white/[0.01] p-6 space-y-6">
+                   <div className="lg:col-span-4 space-y-6 md:space-y-8">
+                      <div className="rounded-2xl md:rounded-3xl border border-white/5 bg-white/[0.01] p-5 md:p-6 space-y-6">
                          <div className="flex items-center gap-2 text-white/20">
                             <Activity size={14} />
                             <span className="text-[10px] font-bold uppercase tracking-widest">Live Feed</span>
                          </div>
                          <div className="space-y-4">
-                            {[1,2,3,4].map(i => (
+                            {[1,2,3].map(i => (
                               <div key={i} className="flex items-center gap-3">
                                  <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                                  <div className="flex-1 h-2 bg-white/5 rounded-full" />
@@ -161,7 +161,7 @@ const Hero: React.FC = () => {
                             ))}
                          </div>
                       </div>
-                      <div className="rounded-3xl border border-white/5 bg-white/[0.01] p-6 flex flex-col items-center gap-4 text-center">
+                      <div className="rounded-2xl md:rounded-3xl border border-white/5 bg-white/[0.01] p-5 md:p-6 flex flex-col items-center gap-4 text-center">
                          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/20">
                             <Target size={24} />
                          </div>
@@ -180,21 +180,21 @@ const Hero: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 1 }}
-            className="w-full mt-32 pt-16 border-t border-white/[0.05]"
+            className="w-full mt-24 pt-12 border-t border-white/[0.05]"
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {[
-                { label: 'Ecosystem Liquidity', value: '$8.4M', icon: BarChart3 },
-                { label: 'Active Operators', value: '45,200', icon: Users },
-                { label: 'Settlement Grade', value: 'INSTITUTIONAL', icon: Lock },
-                { label: 'Network Uptime', value: '99.99%', icon: Globe },
+                { label: 'Total Rewards Paid', value: '$2.4M', icon: BarChart3 },
+                { label: 'Active Users', value: '45,200', icon: Users },
+                { label: 'Secure & Fast', value: 'INSTANT', icon: Lock },
+                { label: 'Support Uptime', value: '24/7', icon: Globe },
               ].map((stat, i) => (
-                <div key={i} className="flex flex-col items-center gap-3 group">
-                  <div className="flex items-center gap-2.5 text-white/20 group-hover:text-primary transition-colors">
-                     <stat.icon size={14} className="opacity-50" />
-                     <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{stat.label}</span>
+                <div key={i} className="flex flex-col items-center gap-2 group">
+                  <div className="flex items-center gap-2 text-white/30 group-hover:text-primary transition-colors">
+                     <stat.icon size={14} />
+                     <span className="text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
                   </div>
-                  <span className="text-3xl md:text-4xl font-bold text-white tracking-tighter uppercase">{stat.value}</span>
+                  <span className="text-2xl md:text-3xl font-bold text-white tracking-tight">{stat.value}</span>
                 </div>
               ))}
             </div>

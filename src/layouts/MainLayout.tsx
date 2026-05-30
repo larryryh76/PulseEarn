@@ -8,13 +8,20 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <main>
         {children}
       </main>
-      {/* Footer removed from internal/landing pages to maintain premium SaaS feel */}
-      <footer className="py-20 px-6 border-t border-white/5 bg-background/50">
-        <div className="container mx-auto text-center">
-          <p className="text-white/40 text-sm">
-            &copy; {new Date().getFullYear()} PulseEarn. All rights reserved.
-            <span className="block mt-2">Built for the future of finance.</span>
-          </p>
+      <footer className="py-16 px-6 border-t border-white/5 bg-background">
+        <div className="container mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="text-center md:text-left">
+              <p className="text-white/40 text-sm">
+                &copy; {new Date().getFullYear()} PulseEarn. All rights reserved.
+              </p>
+            </div>
+            <div className="flex items-center gap-8">
+              <a href="#" className="text-white/30 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Terms</a>
+              <a href="#" className="text-white/30 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Privacy</a>
+              <a href="#" className="text-white/30 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Support</a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

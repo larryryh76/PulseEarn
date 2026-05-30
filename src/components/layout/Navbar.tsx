@@ -44,8 +44,8 @@ const Navbar: React.FC = () => {
 
            {!isInternal && (
               <div className="hidden md:flex items-center gap-8">
-                 {['Features', 'Marketplace', 'Ecosystem'].map((link) => (
-                    <a key={link} href={`#${link.toLowerCase()}`} className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">
+                 {['Features', 'Rewards', 'Predictions', 'FAQ'].map((link) => (
+                    <a key={link} href={`#${link.toLowerCase()}`} className="text-[11px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors">
                        {link}
                     </a>
                  ))}
@@ -118,20 +118,20 @@ const Navbar: React.FC = () => {
                                 <div className="p-4 border-b border-white/5 space-y-1">
                                    <div className="flex items-center gap-2">
                                       <ShieldCheck size={12} className="text-emerald-500" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Authorized Agent</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Verified Account</span>
                                    </div>
-                                   <p className="text-[11px] font-bold text-white/40 font-mono tracking-tighter truncate">{userData?.email}</p>
+                                   <p className="text-[11px] font-bold text-white/40 tracking-tight truncate">{userData?.email}</p>
                                 </div>
                                 <div className="p-1.5 space-y-1">
                                    <Link to="/dashboard" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
                                       <LayoutDashboard size={14} /> Dashboard
                                    </Link>
                                    <Link to="/me" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-white/5 text-[11px] font-bold text-white/60 hover:text-white transition-all">
-                                      <UserIcon size={14} /> Profile Settings
+                                      <UserIcon size={14} /> Profile
                                    </Link>
                                    {userData?.role === 'admin' && (
                                       <Link to="/pulse-core" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-primary/10 text-[11px] font-bold text-primary transition-all">
-                                         <Settings size={14} /> System Core
+                                         <Settings size={14} /> Admin Panel
                                       </Link>
                                    )}
                                    <button
@@ -148,9 +148,14 @@ const Navbar: React.FC = () => {
                  </div>
               </div>
            ) : (
-              <Link to="/login" className="text-[11px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-[0.2em] pr-4">
-                 Authorize
-              </Link>
+              <div className="flex items-center gap-6">
+                 <Link to="/login" className="text-[11px] font-bold text-white/30 hover:text-white transition-colors uppercase tracking-widest">
+                    Sign In
+                 </Link>
+                 <Link to="/signup" className="hidden sm:block btn-primary px-5 py-2">
+                    Join Now
+                 </Link>
+              </div>
            )}
         </div>
       </div>

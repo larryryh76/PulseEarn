@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCryptoData } from '../hooks/useCryptoData';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -12,7 +13,6 @@ import {
   Flame,
   BarChart3,
   Activity,
-  ChevronUp,
   Share2,
   Wallet
 } from 'lucide-react';

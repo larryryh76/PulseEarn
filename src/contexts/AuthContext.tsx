@@ -59,6 +59,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isRestoring, setIsRestoring] = useState(true);
 
+  // Safety: Initialization Timeout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth initialization timed out. Forcing loading state to false.");
+        setLoading(false);
+        setIsRestoring(false);
+      }
+    }, 10000); // 10 seconds
+    return () => clearTimeout(timer);
+  }, [loading]);
+
   const generateReferralCode = (uid: string) => {
     return `PULSE-${uid.slice(0, 6).toUpperCase()}`;
   };

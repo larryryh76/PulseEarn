@@ -21,7 +21,11 @@ import { Toaster } from 'react-hot-toast'
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -49,7 +53,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   const hasAccess = currentUser && userData?.role === 'admin';
 
@@ -63,7 +71,11 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   if (currentUser) {
     if (userData?.role === 'admin') {

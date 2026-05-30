@@ -55,7 +55,7 @@ const Login: React.FC = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (error: any) {
-      console.error(error);
+      console.error("[Login] Auth Error:", error.code, error.message);
       toast.error(handleAuthError(error));
     } finally {
       setIsSubmitting(false);

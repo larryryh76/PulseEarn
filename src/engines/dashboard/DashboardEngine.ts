@@ -33,16 +33,19 @@ export class DashboardEngine {
     const oneWeekAgo = new Timestamp(Math.floor((now.getTime() - 7 * 24 * 60 * 60 * 1000) / 1000), 0);
 
     // 1. Fetch Weekly Earnings via Transaction Aggregation
+    // Note: Filtering on multiple range fields (timestamp and amount) requires a composite index.
+    // We filter by timestamp in Firestore and by amount in memory to avoid the index requirement.
     const weeklyTxQuery = query(
       collection(db, 'users', userId, 'transactions'),
-      where('timestamp', '>=', oneWeekAgo),
-      where('amount', '>', 0)
+      where('timestamp', '>=', oneWeekAgo)
     );
     const weeklyTxSnap = await getDocs(weeklyTxQuery);
     let weeklyTotal = 0;
     weeklyTxSnap.forEach(doc => {
       const tx = doc.data() as Transaction;
-      weeklyTotal += tx.amount;
+      if (tx.amount > 0) {
+        weeklyTotal += tx.amount;
+      }
     });
 
     // 2. Count Active Predictions

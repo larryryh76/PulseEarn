@@ -269,7 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
           setIsRestoring(false);
         }, (error) => {
-          console.error("Error fetching user data:", error);
+          console.error("[AuthContext] Firestore Error:", error);
           setLoading(false);
           setIsRestoring(false);
         });

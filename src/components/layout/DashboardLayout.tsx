@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/pulse-core');
+  const isAdminPath = location.pathname.startsWith('/admin');
 
   return (
     <div className="min-h-screen bg-black overflow-x-hidden selection:bg-primary/30">

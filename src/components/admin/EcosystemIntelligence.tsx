@@ -25,7 +25,7 @@ const EcosystemIntelligence: React.FC = () => {
       <div className="space-y-2">
         <div className="flex items-center gap-3 text-primary">
           <BrainCircuit size={24} />
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Institutional Overview</h2>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Official Overview</h2>
         </div>
         <h1 className="text-4xl font-bold tracking-tighter">Ecosystem Intelligence</h1>
       </div>
@@ -91,7 +91,7 @@ const EcosystemIntelligence: React.FC = () => {
                ))}
             </div>
             <div className="flex justify-between mt-6 text-[9px] font-bold text-white/20 uppercase tracking-widest px-1">
-               <span>Entity Onboarding</span>
+               <span>User Onboarding</span>
                <span>Monetary Expansion</span>
             </div>
          </CardPremium>

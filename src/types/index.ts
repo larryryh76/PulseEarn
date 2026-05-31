@@ -4,7 +4,7 @@ export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'pre
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link';
-export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'STREAK' | 'SEASONAL';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE';
 
@@ -46,7 +46,7 @@ export interface TaskClaim {
   userId: string;
   taskId: string;
   providerId: string;
-  validationState: SubmissionStatus;
+  validationState: SubtaskStatus;
   completionState: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
   rewardTransactionId: string | null;
   xpGranted: number;
@@ -81,7 +81,7 @@ export interface UserTask {
   taskId: string;
   lastCompleted: Timestamp | null;
   status: 'available' | 'pending' | 'completed' | 'on_cooldown' | 'rejected';
-  submissionId?: string;
+  subtaskId?: string;
   totalCompletions: number;
 }
 
@@ -166,7 +166,7 @@ export interface UserData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty';
+  type: 'daily_reward' | 'task_reward' | 'referral_reward' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty';
   amount: number;
   source: string; // source system name
   timestamp: Timestamp;
@@ -198,7 +198,7 @@ export interface SupportTicket {
   category: TicketCategory;
   priority: TicketPriority;
   status: TicketStatus;
-  subject: string;
+  user: string;
   description: string;
   assignedAdminId?: string;
   createdAt: Timestamp;
@@ -228,7 +228,7 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'submission_update' | 'moderation_notice' | 'payout_processed';
+  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'subtask_update' | 'moderation_notice' | 'payout_processed';
   read: boolean;
   timestamp: Timestamp;
 }
@@ -236,7 +236,7 @@ export interface Notification {
 export interface PredictionRecord {
   id: string;
   userId: string;
-  taskId: string; // Prediction missions are tasks
+  taskId: string; // Prediction tasks are tasks
   assetId: string;
   symbol: string;
   direction: 'UP' | 'DOWN';

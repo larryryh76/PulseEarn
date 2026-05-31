@@ -26,19 +26,19 @@ import {
   addDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { Task, TaskClaim, SubmissionStatus, VerificationType, TaskCategory } from '../../types';
+import { Task, TaskClaim, SubtaskStatus, VerificationType, TaskCategory } from '../../types';
 import { TaskEngine } from '../../engines/tasks/TaskEngine';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
 
-const TaskOrchestrator: React.FC = () => {
+const TaskManager: React.FC = () => {
   const { currentUser: user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'SUBMISSIONS' | 'MANAGEMENT' | 'PARTNERS'>('SUBMISSIONS');
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'MANAGEMENT' | 'PARTNERS'>('PENDING');
   const [claims, setClaims] = useState<TaskClaim[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
-  const [filter, setFilter] = useState<SubmissionStatus>('PENDING');
+  const [filter, setFilter] = useState<SubtaskStatus>('PENDING');
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<TaskClaim | null>(null);
@@ -91,7 +91,7 @@ const TaskOrchestrator: React.FC = () => {
     };
   }, [filter]);
 
-  const handleResolve = async (status: SubmissionStatus) => {
+  const handleResolve = async (status: SubtaskStatus) => {
     if (!selectedClaim || !user) return;
 
     const result = await TaskEngine.resolveClaim(
@@ -132,23 +132,23 @@ const TaskOrchestrator: React.FC = () => {
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-24 animate-in">
 
-      {/* Orchestration Header */}
+      {/* Management Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
          <div className="space-y-2">
             <div className="flex items-center gap-3">
                <Network size={20} className="text-primary" />
-               <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30 pr-10 border-r border-white/10">Mission Infrastructure</h2>
+               <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30 pr-10 border-r border-white/10">Tasks</h2>
                <div className="flex items-center gap-2 pl-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Active Orchestration</span>
+                  <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Active Management</span>
                </div>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight">Campaign Orchestrator</h1>
-            <p className="text-sm text-white/40 font-medium">Authoritative mission lifecycle management and provider oversight.</p>
+            <h1 className="text-4xl font-bold tracking-tight">Task Manager</h1>
+            <p className="text-sm text-white/40 font-medium">Verified task lifecycle management and provider oversight.</p>
          </div>
 
          <div className="flex bg-white/[0.03] border border-white/[0.08] p-1.5 rounded-2xl">
-            {(['SUBMISSIONS', 'MANAGEMENT', 'PARTNERS'] as const).map(tab => (
+            {(['PENDING', 'MANAGEMENT', 'PARTNERS'] as const).map(tab => (
                <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -163,10 +163,10 @@ const TaskOrchestrator: React.FC = () => {
          </div>
       </section>
 
-      {activeTab === 'SUBMISSIONS' && (
+      {activeTab === 'PENDING' && (
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-            {/* Submissions Queue (8 cols) */}
+            {/* Subtasks Queue (8 cols) */}
             <div className="lg:col-span-8 space-y-6">
                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -190,8 +190,8 @@ const TaskOrchestrator: React.FC = () => {
                   <table className="w-full text-left">
                      <thead>
                         <tr className="border-b border-white/5 bg-white/[0.01]">
-                           <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-white/20">Subject Entity</th>
-                           <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-white/20">Mission Reference</th>
+                           <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-white/20">User</th>
+                           <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-white/20">Task Reference</th>
                            <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-white/20 text-right">Status</th>
                         </tr>
                      </thead>
@@ -221,7 +221,7 @@ const TaskOrchestrator: React.FC = () => {
                                           <User size={18} />
                                        </div>
                                        <div>
-                                          <p className="text-sm font-bold text-white/80">Agent: {claim.userId.substring(0, 10)}</p>
+                                          <p className="text-sm font-bold text-white/80">User: {claim.userId.substring(0, 10)}</p>
                                           <p className="text-[9px] font-bold text-white/20 uppercase tracking-tighter mt-0.5">Submitted {claim.createdAt instanceof Timestamp ? claim.createdAt.toDate().toLocaleString() : 'Recent'}</p>
                                        </div>
                                     </div>
@@ -313,7 +313,7 @@ const TaskOrchestrator: React.FC = () => {
                               <textarea
                                  value={adminFeedback}
                                  onChange={(e) => setAdminFeedback(e.target.value)}
-                                 placeholder="Enter authoritative justification..."
+                                 placeholder="Enter verified justification..."
                                  className="w-full bg-black border border-white/10 rounded-2xl p-4 text-xs font-medium focus:border-primary outline-none min-h-[100px] resize-none leading-relaxed"
                               />
                            </div>
@@ -339,7 +339,7 @@ const TaskOrchestrator: React.FC = () => {
                   ) : (
                      <div className="p-16 text-center glass-panel rounded-[2rem] border-dashed border-white/10">
                         <Search size={32} className="mx-auto mb-4 opacity-5" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/10">Select an entity for inspection</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/10">Select an user for inspection</p>
                      </div>
                   )}
                </AnimatePresence>
@@ -359,7 +359,7 @@ const TaskOrchestrator: React.FC = () => {
                  className="btn-primary flex items-center gap-2 px-8"
                >
                   <Plus size={14} />
-                  Deploy Mission
+                  Deploy Task
                </button>
             </div>
 
@@ -404,7 +404,7 @@ const TaskOrchestrator: React.FC = () => {
                <button
                  className="btn-secondary flex items-center gap-2"
                  onClick={async () => {
-                   const name = prompt("Enter Provider Authority Name:");
+                   const name = prompt("Enter Provider Name:");
                    if (name) {
                      await addDoc(collection(db, 'task_providers'), {
                         name,
@@ -417,7 +417,7 @@ const TaskOrchestrator: React.FC = () => {
                  }}
                >
                   <Plus size={14} />
-                  Authorize Provider
+                  Add Provider
                </button>
             </div>
 
@@ -442,11 +442,11 @@ const TaskOrchestrator: React.FC = () => {
 
                      <div className="space-y-3 pt-6 border-t border-white/5">
                         <div className="flex justify-between items-center">
-                           <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Ecosystem Yield</span>
+                           <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Total Paid</span>
                            <span className="text-xs font-bold font-mono text-emerald-400">{p.totalPaid.toLocaleString()} PTS</span>
                         </div>
                         <div className="flex justify-between items-center">
-                           <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Budget Authority</span>
+                           <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Budget</span>
                            <span className="text-xs font-bold font-mono text-white/40 pr-1">{p.campaignBudget.toLocaleString()} PTS</span>
                         </div>
                      </div>
@@ -456,7 +456,7 @@ const TaskOrchestrator: React.FC = () => {
          </div>
       )}
 
-      {/* Mission Generator Modal */}
+      {/* Task Generator Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
           <motion.form
@@ -467,8 +467,8 @@ const TaskOrchestrator: React.FC = () => {
           >
              <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                   <h3 className="text-2xl font-bold tracking-tight">Mission Generator</h3>
-                   <p className="text-xs text-white/30">Deploy an authoritative earning objective to the global marketplace.</p>
+                   <h3 className="text-2xl font-bold tracking-tight">Task Generator</h3>
+                   <p className="text-xs text-white/30">Deploy an verified earning objective to the global marketplace.</p>
                 </div>
                 <button type="button" onClick={() => setShowCreateModal(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-colors">
                   <XCircle size={24} className="rotate-45" />
@@ -477,20 +477,20 @@ const TaskOrchestrator: React.FC = () => {
 
              <div className="space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Objective Title</label>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Task Title</label>
                   <input
                     type="text"
                     required
                     value={newTask.title}
                     onChange={(e) => setNewTask({...newTask, title: e.target.value})}
-                    placeholder="e.g. Community Identity Verification"
+                    placeholder="e.g. Community Account Verification"
                     className="w-full bg-black border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold focus:border-primary outline-none transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Reward Yield (PTS)</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Reward Amount (PTS)</label>
                     <input
                       type="number"
                       required
@@ -500,7 +500,7 @@ const TaskOrchestrator: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Clearance Gains (XP)</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">XP Reward (XP)</label>
                     <input
                       type="number"
                       required
@@ -543,7 +543,7 @@ const TaskOrchestrator: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Provider Authority</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Provider</label>
                     <select
                       required
                       value={newTask.providerId}
@@ -553,7 +553,7 @@ const TaskOrchestrator: React.FC = () => {
                       }}
                       className="w-full bg-black border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white appearance-none focus:border-primary outline-none"
                     >
-                      <option value="">Select Authority</option>
+                      <option value="">Select System</option>
                       {providers.map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
@@ -567,7 +567,7 @@ const TaskOrchestrator: React.FC = () => {
                className="w-full py-5 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.01] active:scale-[0.98] transition-all"
              >
                <Zap size={18} fill="currentColor" />
-               Authorize Deployment
+               Publish Task
              </button>
           </motion.form>
         </div>
@@ -576,4 +576,4 @@ const TaskOrchestrator: React.FC = () => {
   );
 };
 
-export default TaskOrchestrator;
+export default TaskManager;

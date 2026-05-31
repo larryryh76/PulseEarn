@@ -28,9 +28,9 @@
     font-feature-settings: "cv02", "cv03", "cv04", "ss01";
   }
 
-  h1 { @apply text-3xl font-bold tracking-tight; }
-  h2 { @apply text-xl font-semibold tracking-tight; }
-  h3 { @apply text-lg font-semibold tracking-tight; }
+  h1 { @apply text-4xl font-bold tracking-tight; }
+  h2 { @apply text-2xl font-semibold tracking-tight; }
+  h3 { @apply text-xl font-semibold tracking-tight; }
   p { @apply text-sm leading-relaxed text-white/50; }
 
   input, select, textarea {
@@ -81,6 +81,27 @@
   .fintech-ledger-row {
     @apply flex items-center justify-between py-4 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.01] px-2 rounded-lg transition-colors;
   }
+
+  /* Command Center V2 Styles */
+  .v2-gradient-bg {
+    background: radial-gradient(circle at 50% 0%, rgba(0, 102, 255, 0.08) 0%, transparent 70%);
+  }
+
+  .v2-sidebar-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium;
+  }
+
+  .v2-sidebar-item-active {
+    @apply bg-white/5 text-white border border-white/10 shadow-sm;
+  }
+
+  .v2-sidebar-item-inactive {
+    @apply text-white/40 hover:text-white/70 hover:bg-white/[0.02];
+  }
+
+  .v2-stat-card {
+    @apply bg-white/[0.02] border border-white/[0.05] p-6 rounded-2xl space-y-2 hover:border-white/10 transition-all;
+  }
 }
 
 /* Utilities */
@@ -103,4 +124,8 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.text-glow {
+  text-shadow: 0 0 30px rgba(0, 102, 255, 0.3);
 }

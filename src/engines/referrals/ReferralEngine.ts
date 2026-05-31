@@ -15,7 +15,7 @@ import { PointTransactionEngine } from '../points/PointTransactionEngine';
 
 export class ReferralEngine {
   /**
-   * Authoritatively links a new user to a referrer
+   * Verifiedly links a new user to a referrer
    */
   static async processReferral(refereeId: string, referralCode: string): Promise<{ success: boolean; error?: string }> {
     try {
@@ -115,7 +115,7 @@ export class ReferralEngine {
         const rewardResult = await PointTransactionEngine.execute({
           userId: referrerId,
           amount: 500, // 500 PTS per referral
-          type: 'referral_bonus',
+          type: 'referral_reward',
           source: `Referral Reward: ${refereeData.username}`,
           claimId,
           referenceId: referralId,

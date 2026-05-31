@@ -6,9 +6,9 @@ import {
   runTransaction,
   increment
 } from 'firebase/firestore';
-import { Task, TaskClaim, SubmissionStatus, UserData } from '../../types';
+import { Task, TaskClaim, SubtaskStatus, UserData } from '../../types';
 import { PointTransactionEngine } from '../points/PointTransactionEngine';
-import { TaskSecurityAuthority } from './TaskSecurityAuthority';
+import { TaskSecuritySystem } from './TaskSecurityAuthority';
 
 export interface TaskAttemptRequest {
   userId: string;
@@ -99,7 +99,7 @@ export class TaskEngine {
 
           return { success: true, claimId };
         } else {
-          // Manual or Proof-based tasks require a submission record
+          // Manual or Proof-based tasks require a subtask record
           const claimId = `sub_${taskId}_${userId}_${Date.now()}`;
           const claimRef = doc(db, 'task_claims', claimId);
 
@@ -117,14 +117,14 @@ export class TaskEngine {
             resolvedAt: null
           };
 
-        const flags = TaskSecurityAuthority.analyzeClaim(claimData as TaskClaim, userData as UserData);
+        const flags = TaskSecuritySystem.analyzeClaim(claimData as TaskClaim, userData as UserData);
         claimData.fraudFlags = flags;
 
           transaction.set(claimRef, claimData);
           transaction.set(userTaskRef, {
             taskId,
             status: 'pending',
-          submissionId: claimId,
+          subtaskId: claimId,
           fraudFlagged: flags.length > 0
           }, { merge: true });
 
@@ -140,7 +140,7 @@ export class TaskEngine {
   /**
    * Admin/System Resolution of a task claim
    */
-  static async resolveClaim(claimId: string, status: SubmissionStatus, adminId: string, feedback?: string): Promise<{ success: boolean; error?: string }> {
+  static async resolveClaim(claimId: string, status: SubtaskStatus, adminId: string, feedback?: string): Promise<{ success: boolean; error?: string }> {
     const claimRef = doc(db, 'task_claims', claimId);
 
     try {
@@ -197,8 +197,8 @@ export class TaskEngine {
           const notifDoc = doc(notificationsRef);
           transaction.set(notifDoc, {
             title: 'Task Approved!',
-            description: `Your submission for "${taskData.title}" was approved. +${taskData.rewardAmount} PTS awarded.`,
-            type: 'submission_update',
+            description: `Your subtask for "${taskData.title}" was approved. +${taskData.rewardAmount} PTS awarded.`,
+            type: 'subtask_update',
             read: false,
             timestamp: serverTimestamp()
           });
@@ -209,7 +209,7 @@ export class TaskEngine {
             completionState: 'FAILED',
             resolvedAt: serverTimestamp(),
             reviewedBy: adminId,
-            adminFeedback: feedback || "Submission did not meet requirements."
+            adminFeedback: feedback || "Subtask did not meet requirements."
           });
 
           transaction.update(userTaskRef, {
@@ -220,8 +220,8 @@ export class TaskEngine {
           const notifDoc = doc(notificationsRef);
           transaction.set(notifDoc, {
             title: 'Task Rejected',
-            description: `Your submission for "${taskData.title}" was rejected. ${feedback || ''}`,
-            type: 'submission_update',
+            description: `Your subtask for "${taskData.title}" was rejected. ${feedback || ''}`,
+            type: 'subtask_update',
             read: false,
             timestamp: serverTimestamp()
           });

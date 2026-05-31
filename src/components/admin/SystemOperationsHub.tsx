@@ -22,8 +22,8 @@ const SystemOperationsHub: React.FC = () => {
   const [anomalies, setAnomalies] = useState<any[]>([]);
   const [repairQueue, setRepairQueue] = useState<RepairProposal[]>([]);
   const [logs, setLogs] = useState<any[]>([
-    { timestamp: new Date(), level: 'INFO', message: 'Pulse-core Infrastructure System established.' },
-    { timestamp: new Date(), level: 'AUTH', message: 'Administrator clearance verified. System ready.' }
+    { timestamp: new Date(), level: 'INFO', message: 'System established.' },
+    { timestamp: new Date(), level: 'AUTH', message: 'Administrator access verified. System ready.' }
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -68,7 +68,7 @@ const SystemOperationsHub: React.FC = () => {
       await updateDoc(doc(db, 'system_repair_queue', proposalId), { status: 'APPROVED' });
       await SystemScannerEngine.executeInstruction(proposalId);
       toast.success('Instruction Deployed', { id: toastId });
-      setLogs(prev => [...prev, { timestamp: new Date(), level: 'INFO', message: `Authority signature applied: ${proposalId}` }]);
+      setLogs(prev => [...prev, { timestamp: new Date(), level: 'INFO', message: `System signature applied: ${proposalId}` }]);
     } catch (err) {
       toast.error('Deployment Failed', { id: toastId });
     }
@@ -77,19 +77,19 @@ const SystemOperationsHub: React.FC = () => {
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-24 animate-in">
 
-      {/* Infrastructure Header */}
+      {/* System Header */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-8 border-b border-white/[0.05] pb-10">
          <div className="space-y-2">
             <div className="flex items-center gap-3">
                <Cpu size={20} className="text-primary" />
-               <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30 pr-10 border-r border-white/10">Pulse-Core v5.0</h2>
+               <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30 pr-10 border-r border-white/10">System v5.0</h2>
                <div className="flex items-center gap-2 pl-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[10px] font-bold uppercase text-emerald-500 tracking-widest">Core Synchronized</span>
                </div>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight">Infrastructure Management</h1>
-            <p className="text-sm text-white/40 font-medium">Authoritative system management and operational overview.</p>
+            <h1 className="text-4xl font-bold tracking-tight">System Management</h1>
+            <p className="text-sm text-white/40 font-medium">Verified system management and active overview.</p>
          </div>
 
          <div className="flex items-center gap-4">
@@ -117,7 +117,7 @@ const SystemOperationsHub: React.FC = () => {
                <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
                   <div className="flex items-center gap-3">
                      <Terminal size={16} className="text-primary" />
-                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Operational Ledger</span>
+                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Active Ledger</span>
                   </div>
                   <div className="flex items-center gap-3">
                      <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary text-[8px] font-bold uppercase">Authorized</span>
@@ -157,7 +157,7 @@ const SystemOperationsHub: React.FC = () => {
                        type="text"
                        value={input}
                        onChange={e => setInput(e.target.value)}
-                       placeholder="Submit system command or operational query..."
+                       placeholder="Submit system command or active query..."
                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-16 py-4 text-[12px] font-mono text-white focus:border-primary/50 outline-none transition-all placeholder:text-white/10"
                      />
                      <button type="submit" className="absolute right-4 p-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-all">
@@ -178,7 +178,7 @@ const SystemOperationsHub: React.FC = () => {
                   {repairQueue.length === 0 ? (
                      <div className="p-16 text-center glass-panel rounded-[2.5rem] border-dashed border-white/10">
                         <CheckCircle2 size={48} className="mx-auto mb-6 text-emerald-500/20" />
-                        <h4 className="text-lg font-bold opacity-30">All Systems Nominal</h4>
+                        <h4 className="text-lg font-bold opacity-30">All Systems Active</h4>
                         <p className="text-sm opacity-10 mt-2">The correction buffer is currently empty.</p>
                      </div>
                   ) : (
@@ -264,7 +264,7 @@ const SystemOperationsHub: React.FC = () => {
                                <p className="font-mono text-[10px] text-white/40">{a.claimId.slice(0, 12)}</p>
                             </div>
                             <div className="space-y-1 text-right">
-                               <p className="text-[8px] font-bold uppercase text-white/10">Subject UID</p>
+                               <p className="text-[8px] font-bold uppercase text-white/10">User UID</p>
                                <p className="font-mono text-[10px] text-primary/40">{a.userId.slice(0, 12)}</p>
                             </div>
                          </div>
@@ -302,7 +302,7 @@ const SystemOperationsHub: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/40">Global Persistence</span>
                </div>
                <p className="text-xs text-white/30 leading-relaxed font-medium pr-4">
-                  System state is replicated across authorized servers. Operational authority remains centralized in the Pulse-core system.
+                  System state is replicated across authorized servers. Active system remains centralized in the System.
                </p>
             </div>
 

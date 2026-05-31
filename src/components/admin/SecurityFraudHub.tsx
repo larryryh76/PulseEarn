@@ -27,12 +27,12 @@ const SecurityFraudHub: React.FC = () => {
   return (
     <div className="space-y-10 pb-20 animate-in">
 
-      {/* Dense Operational Header */}
+      {/* Dense Active Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 border-b border-white/5 pb-10">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <ShieldAlert size={20} className="text-primary" />
-            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Security Infrastructure</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Security System</h2>
             <div className="flex items-center gap-2 pl-2">
                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                <span className="text-[10px] font-bold uppercase text-rose-500 tracking-widest">Fraud Watch Active</span>
@@ -73,7 +73,7 @@ const SecurityFraudHub: React.FC = () => {
                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                      <tr className="border-b border-white/5 bg-white/[0.01]">
-                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Identity</th>
+                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Account</th>
                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Anomaly Type</th>
                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Severity</th>
                         <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Timestamp</th>
@@ -154,7 +154,7 @@ const SecurityFraudHub: React.FC = () => {
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500/40">Integrity Notice</span>
                </div>
                <p className="text-xs text-white/30 leading-relaxed font-medium">
-                  Anomalies are automatically flagged by the Point Transaction Engine v5. High severity alerts require manual intervention in the Identity Governance tab.
+                  Anomalies are automatically flagged by the Point Transaction Engine v5. High severity alerts require manual intervention in the User Management tab.
                </p>
             </div>
          </div>

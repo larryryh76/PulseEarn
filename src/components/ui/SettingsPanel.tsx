@@ -49,11 +49,11 @@ const SettingsPanel: React.FC = () => {
       <div className="space-y-4">
          <div className="flex items-center gap-3 ml-1">
             <User size={16} className="text-primary/40" />
-            <h3 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Identity Details</h3>
+            <h3 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Profile Details</h3>
          </div>
          <div className="p-8 md:p-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] space-y-10">
             <div className="space-y-6">
-               <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Choose Avatar Profile</label>
+               <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Choose Avatar</label>
                <div className="flex flex-wrap gap-4">
                   {avatarSeeds.map(seed => (
                     <button
@@ -89,16 +89,16 @@ const SettingsPanel: React.FC = () => {
          </div>
       </div>
 
-      {/* System Preferences */}
+      {/* Preferences */}
       <div className="space-y-4">
-         <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em] ml-1">System Feedback</h3>
+         <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em] ml-1">App Preferences</h3>
          <Card className="p-0 overflow-hidden border-white/[0.03] bg-white/[0.01]">
             <div className="divide-y divide-white/[0.02]">
                {[
                  { id: 'notifications', label: 'Push Notifications', icon: Bell, val: userData.preferences?.notifications },
-                 { id: 'soundEnabled', label: 'Sound FX', icon: Volume2, val: userData.preferences?.soundEnabled },
+                 { id: 'soundEnabled', label: 'Sounds', icon: Volume2, val: userData.preferences?.soundEnabled },
                  { id: 'vibrationEnabled', label: 'Haptic Feedback', icon: Smartphone, val: userData.preferences?.vibrationEnabled },
-                 { id: 'privacyMode', label: 'Stealth Mode (Private Stats)', icon: Shield, val: userData.preferences?.privacyMode }
+                 { id: 'privacyMode', label: 'Private Mode', icon: Shield, val: userData.preferences?.privacyMode }
                ].map((pref) => (
                  <div key={pref.id} className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">

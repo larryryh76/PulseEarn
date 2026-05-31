@@ -25,7 +25,7 @@ export interface DashboardSummary {
 
 export class DashboardEngine {
   /**
-   * Aggregates authoritative backend data for the Command Center
+   * Aggregates verified backend data for the Command Center
    */
   static async getSummary(userData: UserData): Promise<DashboardSummary> {
     const userId = userData.uid;
@@ -52,7 +52,7 @@ export class DashboardEngine {
     const activePredQuery = query(
       collection(db, 'predictions'),
       where('userId', '==', userId),
-      where('status', '==', 'ACTIVE')
+      where('status', '==', 'PENDING')
     );
     const activePredSnap = await getDocs(activePredQuery);
 

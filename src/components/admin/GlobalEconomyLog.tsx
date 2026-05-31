@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import CardPremium from '../ui/Card';
 import {
   Clock,
   User,
   Hash,
   AlertCircle,
-  FileText
+  Database
 } from 'lucide-react';
 import { cn } from '../../utils';
 
@@ -24,71 +23,88 @@ const GlobalEconomyLog: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-8 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 text-white/40">
-            <FileText size={20} />
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Monetary Ledger</h2>
+    <div className="space-y-10 pb-20 animate-in">
+
+      {/* Dense Operational Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 border-b border-white/5 pb-10">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Database size={20} className="text-primary" />
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Financial Infrastructure</h2>
+            <div className="flex items-center gap-2 pl-2">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+               <span className="text-[10px] font-bold uppercase text-emerald-500 tracking-widest">Auth Ledger Active</span>
+            </div>
           </div>
-          <h1 className="text-4xl font-bold tracking-tighter text-white">Ecosystem Audit Log</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white">Global Audit Ledger</h1>
+          <p className="text-sm text-white/40 font-medium">Immutable record of all ecosystem monetary flows and point mutations.</p>
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 rounded border border-white/5 bg-white/[0.01]">
-           <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Live Feed</span>
-           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+        <div className="flex items-center gap-4">
+           <div className="px-6 py-3 rounded-2xl border border-white/10 bg-white/[0.02] flex items-center gap-8">
+              <div className="flex flex-col">
+                 <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Active Stream</span>
+                 <span className="text-xs font-mono font-bold text-emerald-400">CONNECTING...</span>
+              </div>
+              <div className="w-px h-8 bg-white/10" />
+              <div className="flex flex-col">
+                 <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Ledger Version</span>
+                 <span className="text-xs font-mono font-bold text-white/60">5.0.0-PRO</span>
+              </div>
+           </div>
         </div>
       </div>
 
-      <CardPremium className="p-0 overflow-hidden bg-black border-white/[0.05] rounded-xl">
+      {/* High-Density Audit Table */}
+      <div className="bg-[#08080a] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
                <thead>
-                  <tr className="border-b border-white/[0.05] bg-white/[0.01]">
-                     <th className="p-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Execution Timestamp</th>
-                     <th className="p-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Transaction Nonce</th>
-                     <th className="p-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Account Subject</th>
-                     <th className="p-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Operation Type</th>
-                     <th className="p-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 text-right">Delta (PTS)</th>
+                  <tr className="border-b border-white/5 bg-white/[0.01]">
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Execution Timestamp</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Transaction Nonce</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Subject Entity</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Protocol Operation</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Settlement (PTS)</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-white/[0.02]">
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="group hover:bg-white/[0.02] transition-all">
-                       <td className="p-6">
+                    <tr key={tx.id} className="group hover:bg-white/[0.02] transition-colors cursor-pointer">
+                       <td className="px-8 py-6">
                           <div className="flex items-center gap-3 text-white/40">
-                             <Clock size={12} className="text-white/20" />
-                             <span className="text-[11px] font-mono tracking-tight">{tx.executedAt?.toDate().toLocaleString()}</span>
+                             <Clock size={14} className="text-primary/40" />
+                             <span className="text-xs font-mono tracking-tight font-bold group-hover:text-white transition-colors">{tx.executedAt?.toDate().toLocaleString()}</span>
                           </div>
                        </td>
-                       <td className="p-6">
+                       <td className="px-8 py-6">
                           <div className="flex items-center gap-2">
-                             <Hash size={12} className="text-primary/30" />
-                             <span className="text-[11px] font-mono text-white/50">{tx.id.slice(0, 20)}...</span>
+                             <Hash size={12} className="text-white/10 group-hover:text-primary transition-colors" />
+                             <span className="text-xs font-mono text-white/30 group-hover:text-white/60 transition-colors">{tx.id}</span>
                           </div>
                        </td>
-                       <td className="p-6">
-                          <div className="flex items-center gap-2">
-                             <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center border border-white/5">
-                                <User size={10} className="text-white/40" />
+                       <td className="px-8 py-6">
+                          <div className="flex items-center gap-3">
+                             <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20 transition-all">
+                                <User size={14} className="text-white/20 group-hover:text-primary transition-colors" />
                              </div>
-                             <span className="text-[11px] font-bold text-white/70">{tx.userId.slice(0, 12)}</span>
+                             <span className="text-xs font-bold text-white/70 group-hover:text-white">{tx.userId.slice(0, 12)}...</span>
                           </div>
                        </td>
-                       <td className="p-6">
+                       <td className="px-8 py-6">
                           <span className={cn(
-                             "px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-widest border transition-colors",
-                             tx.type === 'prediction_entry' ? 'bg-orange-500/5 text-orange-500/80 border-orange-500/10' :
-                             tx.type === 'daily_reward' ? 'bg-success/5 text-success/80 border-success/10' :
-                             'bg-white/5 text-white/40 border-white/10'
+                             "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all",
+                             tx.type === 'prediction_entry' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                             tx.type === 'daily_reward' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                             'bg-white/5 text-white/40 border-white/10 group-hover:border-white/20'
                           )}>
                              {tx.type.replace(/_/g, ' ')}
                           </span>
                        </td>
-                       <td className="p-6 text-right">
+                       <td className="px-8 py-6 text-right">
                           <div className={cn(
-                             "inline-flex items-center justify-end gap-1.5 font-mono font-bold text-[12px]",
-                             tx.amount >= 0 ? "text-success" : "text-primary"
+                             "inline-flex items-center justify-end gap-1.5 font-mono font-black text-sm",
+                             tx.amount >= 0 ? "text-emerald-400" : "text-primary"
                           )}>
                              {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()}
                           </div>
@@ -105,7 +121,7 @@ const GlobalEconomyLog: React.FC = () => {
               </div>
             )}
          </div>
-      </CardPremium>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
          <div className="p-6 rounded-xl border border-white/5 bg-black">

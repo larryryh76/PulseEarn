@@ -47,55 +47,77 @@ const Tasks: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 pb-20 animate-in">
-        {/* Market Header */}
-        <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary">Mission Marketplace</h2>
-            <h1 className="text-4xl font-bold tracking-tight text-glow">Earning Terminal</h1>
-            <p className="text-sm text-white/40 max-w-lg">
-              Engage with authorized ecosystem partners to secure Pulse and XP rewards.
+      <div className="max-w-[1400px] mx-auto space-y-10 pb-20 animate-in">
+
+        {/* Authoritative Marketplace Header */}
+        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-10 relative overflow-hidden">
+          <div className="space-y-4 relative z-10">
+            <div className="flex items-center gap-3">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.5)]" />
+               <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Mission Marketplace</h2>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Mission Terminal</h1>
+            <p className="text-base text-white/40 max-w-xl leading-relaxed">
+              Engage with authorized ecosystem partners to secure high-yield Pulse and XP rewards. Every mission is verified through the Pulse-Core validation engine.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-             <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Operational Tier</span>
-                <span className="text-xs font-bold text-primary">LVL {userData?.level || 1}</span>
+          <div className="flex flex-col items-start lg:items-end gap-6 relative z-10">
+             <div className="px-6 py-3 bg-white/[0.02] border border-white/10 rounded-2xl flex items-center gap-6">
+                <div className="flex flex-col">
+                   <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">Access Tier</span>
+                   <span className="text-sm font-bold text-primary">LVL {userData?.level || 1} USER</span>
+                </div>
+                <div className="w-px h-6 bg-white/10" />
+                <div className="flex flex-col">
+                   <span className="text-[8px] font-bold uppercase tracking-widest text-white/20">Operational Status</span>
+                   <span className="text-sm font-bold text-emerald-500">ACTIVE</span>
+                </div>
+             </div>
+
+             {/* Intelligence Search Integrated */}
+             <div className="relative w-full lg:w-80 group">
+                <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Scan mission protocols..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-14 pr-6 py-4 bg-black/40 border border-white/10 rounded-[1.5rem] text-sm font-medium focus:border-primary outline-none transition-all placeholder:text-white/10"
+                />
              </div>
           </div>
+
+          <Zap size={300} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.01] pointer-events-none" />
         </section>
 
-        {/* Intelligence Controls */}
-        <section className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-           <div className="flex items-center gap-2 bg-white/5 p-1 rounded-2xl border border-white/10 w-full lg:w-fit overflow-x-auto no-scrollbar">
+        {/* Category Orchestration */}
+        <section className="flex flex-col lg:flex-row gap-6 items-center justify-between border-b border-white/5 pb-8">
+           <div className="flex items-center gap-3 bg-white/[0.02] p-1.5 rounded-2xl border border-white/5 w-full lg:w-fit overflow-x-auto no-scrollbar">
               {categories.map(cat => (
                  <button
                    key={cat}
                    onClick={() => setActiveCategory(cat)}
-                   className={`px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all shrink-0 ${
-                      activeCategory === cat ? 'bg-primary text-white shadow-lg' : 'text-white/30 hover:text-white/60'
-                   }`}
+                   className={cn(
+                      "px-6 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all shrink-0",
+                      activeCategory === cat
+                        ? "bg-primary text-white shadow-xl shadow-primary/20 border border-primary/20"
+                        : "text-white/20 hover:text-white/40 hover:bg-white/[0.02]"
+                   )}
                  >
                     {cat}
                  </button>
               ))}
            </div>
 
-           <div className="relative w-full lg:w-80 group">
-              <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
-              <input
-                type="text"
-                placeholder="Scan missions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-xs focus:ring-1 focus:ring-primary/20 outline-none"
-              />
+           <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+              {filteredTasks.length} Deployments found
            </div>
         </section>
 
-        {/* Mission Center */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Mission Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
            {loading ? (
               [1,2,3,4,5,6].map(i => (
                  <div key={i} className="h-64 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.05] animate-pulse" />
@@ -126,44 +148,49 @@ const Tasks: React.FC = () => {
                           <Zap size={120} />
                        </div>
 
-                       <div className="space-y-5">
+                       <div className="space-y-6">
                           <div className="flex items-start justify-between">
-                             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <Zap size={24} fill={task.category === 'STREAK' ? 'currentColor' : 'none'} className={task.category === 'STREAK' ? 'animate-pulse' : ''} />
+                             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:scale-105 transition-all group-hover:border-primary/20 shadow-sm">
+                                <Zap size={28} fill={task.category === 'STREAK' ? 'currentColor' : 'none'} className={task.category === 'STREAK' ? 'animate-pulse' : ''} />
                              </div>
-                             <div className="flex flex-col items-end gap-1.5">
-                                <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[8px] font-black uppercase tracking-[0.1em] text-white/30">
-                                   {task.category}
-                                </span>
+                             <div className="flex flex-col items-end gap-2">
+                                <div className="flex items-center gap-2">
+                                   <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/30">
+                                      {task.category}
+                                   </span>
+                                </div>
                                 {isLocked && (
-                                   <div className="flex items-center gap-1 text-rose-500">
+                                   <div className="flex items-center gap-2 px-2 py-1 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500">
                                       <Lock size={10} />
-                                      <span className="text-[9px] font-bold">LVL {task.minLevel}</span>
+                                      <span className="text-[9px] font-bold uppercase">LOCKED: LVL {task.minLevel}</span>
                                    </div>
                                 )}
                              </div>
                           </div>
 
                           <div>
-                             <h3 className="text-lg font-bold tracking-tight mb-2 pr-12 group-hover:text-primary transition-colors">{task.title}</h3>
-                             <p className="text-xs text-white/40 line-clamp-2 leading-relaxed">
+                             <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[9px] font-bold uppercase tracking-widest text-primary/40">Authority: {task.providerName}</span>
+                             </div>
+                             <h3 className="text-xl font-bold tracking-tight mb-3 pr-8 group-hover:text-primary transition-colors">{task.title}</h3>
+                             <p className="text-sm text-white/40 line-clamp-2 leading-relaxed font-medium">
                                 {task.description}
                              </p>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                             <div className="space-y-1">
-                                <p className="text-[9px] font-bold uppercase text-white/20 tracking-widest">Yield</p>
-                                <div className="flex items-center gap-1.5 text-emerald-400">
-                                   <Zap size={12} fill="currentColor" />
-                                   <span className="text-sm font-bold font-mono">+{task.rewardAmount}</span>
+                          <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
+                             <div className="space-y-1.5">
+                                <p className="text-[10px] font-bold uppercase text-white/20 tracking-widest">Yield</p>
+                                <div className="flex items-center gap-2 text-emerald-400">
+                                   <Zap size={14} fill="currentColor" />
+                                   <span className="text-base font-bold font-mono">+{task.rewardAmount.toLocaleString()}</span>
                                 </div>
                              </div>
-                             <div className="space-y-1">
-                                <p className="text-[9px] font-bold uppercase text-white/20 tracking-widest">Clearance</p>
-                                <div className="flex items-center gap-1.5 text-primary">
-                                   <Award size={12} />
-                                   <span className="text-sm font-bold font-mono">+{task.xpReward} XP</span>
+                             <div className="space-y-1.5">
+                                <p className="text-[10px] font-bold uppercase text-white/20 tracking-widest">Clearance</p>
+                                <div className="flex items-center gap-2 text-primary">
+                                   <Award size={14} />
+                                   <span className="text-base font-bold font-mono">+{task.xpReward} XP</span>
                                 </div>
                              </div>
                           </div>

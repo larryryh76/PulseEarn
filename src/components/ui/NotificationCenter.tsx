@@ -102,18 +102,33 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="absolute right-0 top-12 z-[100]" ref={dropdownRef}>
+        <>
+          {/* Mobile Backdrop */}
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="w-80 md:w-96 bg-black border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
-          >
-            <div className="p-4 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01]">
-              <div className="flex items-center gap-2">
-                 <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Operational Notices</h3>
-                 {unreadCount > 0 && <div className="w-1 h-1 rounded-full bg-primary" />}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden"
+          />
+
+          <div className="fixed inset-x-0 bottom-0 z-[100] md:absolute md:inset-auto md:right-0 md:top-12" ref={dropdownRef}>
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              md-initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              md-animate={{ opacity: 1, y: 0, scale: 1 }}
+              md-exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              className="w-full md:w-[400px] bg-[#08080a] border-t md:border border-white/[0.08] rounded-t-[2.5rem] md:rounded-[2rem] shadow-[0_-20px_40px_-12px_rgba(0,0,0,0.5)] md:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] overflow-hidden"
+            >
+              {/* Drag Handle for Mobile */}
+              <div className="h-1.5 w-12 bg-white/10 rounded-full mx-auto mt-4 md:hidden" />
+
+              <div className="p-6 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01] mt-2 md:mt-0">
+              <div className="flex items-center gap-3">
+                 <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Operational Notices</h3>
+                 {unreadCount > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.6)]" />}
               </div>
               <div className="flex items-center gap-4">
                 {unreadCount > 0 && (
@@ -130,14 +145,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               </div>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[min(480px,70vh)] overflow-y-auto custom-scrollbar">
               {loading ? (
-                <div className="p-4 space-y-3">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                <div className="p-6 space-y-4">
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-12 text-center space-y-3">
-                  <p className="text-[10px] font-bold text-white/10 uppercase tracking-[0.3em]">Registry Empty</p>
+                <div className="p-16 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mx-auto text-white/5">
+                    <Info size={24} />
+                  </div>
+                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em]">Registry Empty</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/[0.03]">
@@ -145,38 +163,40 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                     <div
                       key={notif.id}
                       className={cn(
-                        "p-5 flex gap-4 transition-all hover:bg-white/[0.01] relative group",
-                        !notif.read && "bg-white/[0.02]"
+                        "p-6 flex gap-5 transition-all hover:bg-white/[0.02] relative group cursor-pointer",
+                        !notif.read && "bg-primary/[0.01]"
                       )}
                       onClick={() => !notif.read && markAsRead(notif.id)}
                     >
                       <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
-                        notif.read ? "bg-white/[0.02] border-white/[0.04] text-white/20" : "bg-primary/5 border-primary/10 text-primary"
+                        "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-500",
+                        notif.read
+                          ? "bg-white/[0.01] border-white/[0.04] text-white/10"
+                          : "bg-primary/10 border-primary/20 text-primary shadow-lg shadow-primary/10"
                       )}>
-                        {notif.type === 'reward_claimed' ? <Check size={14} /> : <Info size={14} />}
+                        {notif.type === 'reward_claimed' ? <Check size={16} /> : <Info size={16} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2">
+                        <div className="flex justify-between items-start gap-4">
                           <h4 className={cn(
-                            "text-[12px] font-bold tracking-tight truncate",
-                            notif.read ? "text-white/30" : "text-white"
+                            "text-sm font-bold tracking-tight leading-tight",
+                            notif.read ? "text-white/20" : "text-white/90"
                           )}>
                             {notif.title}
                           </h4>
-                          <span className="text-[9px] font-mono text-white/10 uppercase whitespace-nowrap pt-0.5">
+                          <span className="text-[9px] font-mono text-white/10 uppercase whitespace-nowrap pt-1">
                             {notif.timestamp ? formatTime(notif.timestamp.toDate()) : '...'}
                           </span>
                         </div>
                         <p className={cn(
-                          "text-[11px] leading-relaxed mt-0.5 line-clamp-2",
-                          notif.read ? "text-white/20" : "text-white/50"
+                          "text-xs leading-relaxed mt-1.5 line-clamp-2 font-medium",
+                          notif.read ? "text-white/10" : "text-white/40"
                         )}>
                           {notif.description}
                         </p>
 
-                        <div className="flex items-center gap-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-6 mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-1 group-hover:translate-y-0">
                            <button
                              onClick={(e) => {
                                e.stopPropagation();
@@ -204,8 +224,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                 </div>
               )}
             </div>
-          </motion.div>
-        </div>
+            </motion.div>
+          </div>
+        </>
       )}
     </AnimatePresence>
   );

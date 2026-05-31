@@ -26,10 +26,11 @@ const AdminLayout: React.FC = () => {
 
   const adminMenu = [
     { name: 'System Operations', icon: Server, href: '/pulse-core' },
-    { name: 'Global Ledger', icon: Database, href: '/pulse-core/ledger' },
-    { name: 'User Moderation', icon: Users, href: '/pulse-core/users' },
-    { name: 'Task Orchestrator', icon: ClipboardList, href: '/pulse-core/tasks' },
-    { name: 'Configuration', icon: Settings, href: '/pulse-core/settings' },
+    { name: 'Audit Ledger', icon: Database, href: '/pulse-core/ledger' },
+    { name: 'User Intelligence', icon: Users, href: '/pulse-core/users' },
+    { name: 'Campaign Orchestrator', icon: ClipboardList, href: '/pulse-core/tasks' },
+    { name: 'Security & Fraud', icon: ShieldCheck, href: '/pulse-core/security' },
+    { name: 'Infrastructure Settings', icon: Settings, href: '/pulse-core/settings' },
   ];
 
   const handleLogout = async () => {

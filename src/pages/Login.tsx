@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { Mail, Lock, LogIn, AlertCircle, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { mapAuthError } from '../utils/errors';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,17 +17,6 @@ const Login: React.FC = () => {
 
   const { login, resetPassword } = useAuth();
   const navigate = useNavigate();
-
-  const handleAuthError = (error: any) => {
-    const code = error.code || '';
-    if (code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
-      return 'Invalid email or password. Please check your credentials.';
-    }
-    if (code === 'auth/user-disabled') return 'This account has been disabled.';
-    if (code === 'auth/too-many-requests') return 'Too many failed attempts. Please try again later.';
-    if (code === 'auth/network-request-failed') return 'Network error. Please check your internet connection.';
-    return 'An unexpected error occurred. Please try again.';
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +29,7 @@ const Login: React.FC = () => {
         toast.success('Password reset link sent to your email.');
         setAuthMode('login');
       } catch (error: any) {
-        toast.error(handleAuthError(error));
+        toast.error(mapAuthError(error));
       } finally {
         setIsSubmitting(false);
       }
@@ -56,7 +46,7 @@ const Login: React.FC = () => {
       navigate('/dashboard');
     } catch (error: any) {
       console.error("[Login] Auth Error:", error.code, error.message);
-      toast.error(handleAuthError(error));
+      toast.error(mapAuthError(error));
     } finally {
       setIsSubmitting(false);
     }

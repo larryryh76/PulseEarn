@@ -1,6 +1,6 @@
 import { TaskClaim, UserData } from '../../types';
 
-export class TaskSecurityAuthority {
+export class TaskSecuritySystem {
   /**
    * Performs advanced fraud detection on a task claim
    */

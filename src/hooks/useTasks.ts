@@ -3,19 +3,16 @@ import {
   onSnapshot,
   query,
   where,
-  doc,
-  runTransaction,
-  serverTimestamp,
   orderBy,
   limit,
-  addDoc,
   collection
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskClaim } from '../types';
 import toast from 'react-hot-toast';
-import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
+import { TaskEngine } from '../engines/tasks/TaskEngine';
+import { mapSystemError } from '../utils/errors';
 
 export const useTasks = () => {
   const { currentUser, userData } = useAuth();
@@ -23,7 +20,7 @@ export const useTasks = () => {
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [submissions, setSubmissions] = useState<TaskClaim[]>([]);
+  const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,8 +40,8 @@ export const useTasks = () => {
       setCampaigns(campaignsData);
     });
 
-    // Fetch user completions/submissions
-    const userTasksQuery = query(collection(db, 'users', currentUser.uid, 'userTasks'));
+    // Fetch user completions/subtasks
+    const userTasksQuery = query(collection(db, 'users', currentUser.uid, 'user_tasks'));
     const unsubscribeUserTasks = onSnapshot(userTasksQuery, (snapshot) => {
       const userTasksData: Record<string, UserTask> = {};
       snapshot.docs.forEach(doc => {
@@ -53,15 +50,15 @@ export const useTasks = () => {
       setUserTasks(userTasksData);
     });
 
-    // Fetch user's own marketplace submissions
-    const submissionsQuery = query(
+    // Fetch user's own marketplace subtasks
+    const subtasksQuery = query(
       collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
       limit(30)
     );
-    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
+    const unsubscribeSubtasks = onSnapshot(subtasksQuery, (snapshot) => {
+      setSubtasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
     });
 
     // Fetch recent activities for activity feed
@@ -79,7 +76,7 @@ export const useTasks = () => {
       unsubscribeTasks();
       unsubscribeCampaigns();
       unsubscribeUserTasks();
-      unsubscribeSubmissions();
+      unsubscribeSubtasks();
       unsubscribeActivities();
     };
   }, [currentUser]);
@@ -115,7 +112,7 @@ export const useTasks = () => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    // Marketplace Validation: clearance and state checks
+    // Marketplace Validation: level and state checks
     if (task.minLevel && userData.level < task.minLevel) {
        toast.error(`Account Level ${task.minLevel} Required`);
        return;
@@ -123,122 +120,54 @@ export const useTasks = () => {
 
     const { status } = getTaskStatus(task);
     if (status !== 'available' && status !== 'rejected') {
-       toast.error(`Mission currently ${status}`);
+       toast.error(`Task currently ${status}`);
        return;
     }
 
     // Velocity protection
     const now = Date.now();
     const lastAction = userData.lastActionTimestamp?.toMillis() || 0;
-    if (now - lastAction < 1500) {
-       toast.error('Processing... please wait.');
+    if (now - lastAction < 1000) {
+       toast.error('Action throttled. Please wait.');
        return;
     }
 
     try {
-      if (task.verificationType === 'automated' || task.verificationType === 'timer') {
-        return await claimTask(taskId);
+      const result = await TaskEngine.attemptTask({
+        userId: currentUser.uid,
+        taskId: task.id,
+        proof: proofData
+      });
+
+      if (!result.success) {
+        toast.error(mapSystemError(result.error || '') || 'Task deployment failed');
+        return false;
       }
 
-      // Marketplace Verification Flow
-      const submissionRef = await addDoc(collection(db, 'task_claims'), {
-        taskId,
-        userId: currentUser.uid,
-        validationState: 'PENDING',
-        completionState: 'IN_PROGRESS',
-        submittedProof: proofData,
-        createdAt: serverTimestamp(),
-        xpGranted: 0,
-        rewardAmount: task.rewardAmount,
-        xpReward: task.xpReward,
-        providerId: task.providerId || 'internal',
-      });
+      if (task.verificationType === 'automated') {
+        toast.success(`+${task.rewardAmount} PTS Secured`, { icon: '⚡' });
+      } else {
+        toast.success('Task proof logged for audit');
+      }
 
-      const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
-      await runTransaction(db, async (transaction) => {
-        transaction.set(userTaskRef, {
-          taskId,
-          status: 'pending',
-          submissionId: submissionRef.id,
-          lastAttemptAt: serverTimestamp()
-        }, { merge: true });
-      });
-
-      toast.success('Mission proof logged for audit');
+      return true;
     } catch (error) {
       console.error(error);
       toast.error('Verification signal failure');
+      return false;
     }
   };
 
   const claimTask = async (taskId: string) => {
-    if (!currentUser) return;
-
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    try {
-      const claimId = `task_${taskId}_${currentUser.uid}_${Date.now()}`;
-
-      // ABSOLUTE AUTHORITY MUTATION
-      const result = await PointTransactionEngine.execute({
-        userId: currentUser.uid,
-        amount: task.rewardAmount,
-        type: 'task_reward',
-        source: `Mission: ${task.title}`,
-        claimId,
-        xpReward: task.xpReward || 0,
-        description: `Successfully completed mission [${task.id}]`,
-        metadata: {
-          taskId,
-          provider: task.providerName || 'PulseEarn',
-          campaignId: task.campaignId || null
-        }
-      });
-
-      if (!result.success) {
-        toast.error(result.error || 'Reward protocol failure');
-        return;
-      }
-
-      const userTaskRef = doc(db, 'users', currentUser.uid, 'userTasks', taskId);
-      const userRef = doc(db, 'users', currentUser.uid);
-
-      await runTransaction(db, async (transaction) => {
-        transaction.set(userTaskRef, {
-          taskId,
-          lastCompleted: serverTimestamp(),
-          status: 'completed'
-        }, { merge: true });
-
-        transaction.update(userRef, {
-          lastActionTimestamp: serverTimestamp()
-        });
-      });
-
-      await addDoc(collection(db, 'users', currentUser.uid, 'notifications'), {
-        title: 'Mission Authorized!',
-        description: `Reward of +${task.rewardAmount} PTS applied to ledger.`,
-        type: 'task_completed',
-        read: false,
-        timestamp: serverTimestamp()
-      });
-
-      toast.success(`+${task.rewardAmount} PTS Secured`, { icon: '⚡' });
-      return true;
-
-    } catch (error) {
-      console.error(error);
-      toast.error('Claim authorization failure');
-      return false;
-    }
+    // Legacy support or direct claim attempt
+    return submitTask(taskId);
   };
 
   return {
     tasks,
     userTasks,
     campaigns,
-    submissions,
+    subtasks,
     activities,
     loading,
     submitTask,

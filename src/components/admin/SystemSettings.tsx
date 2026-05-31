@@ -21,7 +21,7 @@ import { cn } from '../../utils';
 
 const SystemSettings: React.FC = () => {
   const { userData } = useAuth();
-  const [activeTab, setActiveTab] = useState<'IDENTITY' | 'SECURITY' | 'PREFERENCES'>('IDENTITY');
+  const [activeTab, setActiveTab] = useState<'ACCOUNT' | 'SECURITY' | 'PREFERENCES'>('ACCOUNT');
   const [showPassword, setShowPassword] = useState(false);
 
   if (!userData) return null;
@@ -34,11 +34,11 @@ const SystemSettings: React.FC = () => {
         <div className="space-y-1">
           <h2 className="section-label pr-10">Account Control</h2>
           <h1 className="text-4xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-sm text-white/40 font-medium">Manage your identity and operational security parameters.</p>
+          <p className="text-sm text-white/40 font-medium">Manage your account and active security parameters.</p>
         </div>
 
         <div className="flex bg-white/[0.03] border border-white/[0.08] p-1.5 rounded-2xl">
-          {(['IDENTITY', 'SECURITY', 'PREFERENCES'] as const).map(tab => (
+          {(['ACCOUNT', 'SECURITY', 'PREFERENCES'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -60,7 +60,7 @@ const SystemSettings: React.FC = () => {
         {/* Main Configuration column (8 cols) */}
         <div className="lg:col-span-8 space-y-10">
 
-          {activeTab === 'IDENTITY' && (
+          {activeTab === 'ACCOUNT' && (
             <div className="glass-panel border-white/10 rounded-[3rem] p-10 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-3">
@@ -76,7 +76,7 @@ const SystemSettings: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Authority Email</label>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">System Email</label>
                   <div className="relative group">
                     <Mail size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" />
                     <input
@@ -90,7 +90,7 @@ const SystemSettings: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Identity Bio</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Account Bio</label>
                 <textarea
                   placeholder="Update your ecosystem status or bio..."
                   className="w-full bg-black/40 border border-white/5 rounded-[2rem] p-6 text-sm font-medium focus:border-primary outline-none min-h-[140px] resize-none"
@@ -149,7 +149,7 @@ const SystemSettings: React.FC = () => {
                   </div>
                   <button className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <RotateCcw size={14} />
-                    Reset via Email Authority
+                    Reset via Email System
                   </button>
                 </div>
 
@@ -173,7 +173,7 @@ const SystemSettings: React.FC = () => {
                   Initiating deactivation will permanently revoke your authorization and forfeit all accumulated PTS balances. This action is cryptographically signed and immutable.
                 </p>
                 <button className="px-8 py-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] text-rose-500 hover:bg-rose-500/20 transition-all">
-                  Terminate Identification
+                  Ban Account Identification
                 </button>
               </div>
             </div>
@@ -189,9 +189,9 @@ const SystemSettings: React.FC = () => {
 
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {[
-                        { title: 'Reward Distributions', desc: 'Alerts for successful mission settlements.' },
+                        { title: 'Reward Distributions', desc: 'Alerts for successful task settlements.' },
                         { title: 'Security Context', desc: 'Login activity and suspicious attempt signals.' },
-                        { title: 'Ecosystem Logs', desc: 'Infrastructure updates and policy changes.' },
+                        { title: 'Ecosystem Logs', desc: 'System updates and policy changes.' },
                         { title: 'Growth Signals', desc: 'Alerts for new affiliate registrations.' }
                       ].map((pref, i) => (
                         <div key={i} className="flex items-center justify-between p-6 bg-white/[0.01] border border-white/5 rounded-3xl group hover:border-primary/20 transition-all">
@@ -210,7 +210,7 @@ const SystemSettings: React.FC = () => {
           )}
         </div>
 
-        {/* Identity Context sidebar (4 cols) */}
+        {/* Account Context sidebar (4 cols) */}
         <div className="lg:col-span-4 space-y-10">
 
           <div className="glass-panel p-8 rounded-[2.5rem] space-y-8">
@@ -272,7 +272,7 @@ const SystemSettings: React.FC = () => {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Device Authorization</span>
              </div>
              <p className="text-xs text-white/40 leading-relaxed font-medium">
-                Pulse-core utilizes cryptographically verified device fingerprinting to ensure identity persistence across ecosystem modules.
+                System utilizes cryptographically verified device fingerprinting to ensure account persistence across ecosystem modules.
              </p>
           </div>
 

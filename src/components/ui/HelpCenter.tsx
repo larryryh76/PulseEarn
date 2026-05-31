@@ -21,11 +21,11 @@ const HelpCenter: React.FC = () => {
   const faqs = [
     {
       q: "How do I earn Pulse points?",
-      a: "You can earn Pulse by completing daily missions, watching the terminal feed, participating in market predictions, and referring new users to the platform."
+      a: "You can earn Pulse by completing daily tasks, watching the market feed, participating in market predictions, and referring new users to the platform."
     },
     {
       q: "What are Reward Levels?",
-      a: "Levels represent your activity and loyalty within the ecosystem. Higher levels (unlocked via XP) grant access to premium missions with significantly higher reward yields."
+      a: "Levels represent your activity and loyalty within the ecosystem. Higher levels (unlocked via XP) grant access to premium tasks with significantly higher reward yields."
     },
     {
       q: "Is the platform safe?",
@@ -50,7 +50,7 @@ const HelpCenter: React.FC = () => {
         #### How it Works
         Earn points by participating in platform activities:
         1. **Daily Rewards:** Claim your daily bonus to maintain your streak.
-        2. **Missions:** Complete social and engagement tasks in the Mission Hub.
+        2. **Tasks:** Complete social and engagement tasks in the Task Hub.
         3. **Market Predict:** Submit market forecasts to earn high-yield rewards.
 
         #### Reward Levels
@@ -69,15 +69,15 @@ const HelpCenter: React.FC = () => {
         #### Maintain Streaks
         Your Daily Check-in grants increasing bonuses for consecutive days of activity. Missing a day resets your streak multiplier.
 
-        #### Mission Stacking
-        Social and Growth missions often grant the highest XP-to-Time ratio. Complete these first to raise your level quickly.
+        #### Task Stacking
+        Social and Growth tasks often grant the highest XP-to-Time ratio. Complete these first to raise your level quickly.
 
         #### Referral Program
-        Expand your network by inviting friends. You receive a commission on points earned by your direct referrals.
+        Expand your network by inviting friends. You receive a comtask on points earned by your direct referrals.
       `
     },
     {
-      id: 'oracle',
+      id: 'forecasting',
       title: "Market Forecasting",
       icon: TrendingUp,
       color: "text-green-400",

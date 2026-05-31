@@ -7,7 +7,9 @@ import {
   LogOut,
   User as UserIcon,
   Settings,
-  ShieldCheck
+  ShieldCheck,
+  Menu,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
@@ -22,6 +24,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -33,12 +36,12 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isInternal = ['/dashboard', '/tasks', '/wallet', '/me', '/support', '/pulse-core'].some(p => location.pathname.startsWith(p));
+  const isInternal = ['/dashboard', '/tasks', '/wallet', '/me', '/support', '/admin'].some(p => location.pathname.startsWith(p));
 
   return (
     <nav className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
-      isScrolled ? "bg-background/80 backdrop-blur-xl border-b border-white/[0.05] py-3" : "bg-transparent py-5"
+      (isScrolled || isMobileMenuOpen) ? "bg-background/80 backdrop-blur-xl border-b border-white/[0.05] py-3" : "bg-transparent py-5"
     )}>
       <div className="container mx-auto px-6 flex items-center justify-between">
         <div className="flex items-center gap-8">
@@ -57,7 +60,17 @@ const Navbar: React.FC = () => {
            )}
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 md:gap-5">
+           {/* Mobile Menu Toggle */}
+           {!isInternal && (
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-white/40 hover:text-white transition-colors"
+              >
+                 {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+           )}
+
            {currentUser && (
               <div className="hidden lg:flex items-center gap-4 bg-white/[0.03] border border-white/[0.05] p-1 rounded-2xl mr-2">
                  <div className="px-4 py-2 flex items-center gap-2">
@@ -71,7 +84,7 @@ const Navbar: React.FC = () => {
               </div>
            )}
 
-           <div className="hidden md:block">
+           <div className="hidden sm:block">
               <ConnectButton.Custom>
                  {({ account, chain, openConnectModal, mounted }) => {
                     if (!mounted || !account || !chain) {
@@ -92,7 +105,7 @@ const Navbar: React.FC = () => {
            </div>
 
            {currentUser ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 md:gap-4">
                  <div className="relative">
                     <button
                       onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -148,7 +161,7 @@ const Navbar: React.FC = () => {
                                       <UserIcon size={14} /> Profile
                                    </Link>
                                    {userData?.role === 'admin' && (
-                                      <Link to="/pulse-core" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-primary/10 text-[11px] font-bold text-primary transition-all">
+                                      <Link to="/admin" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-primary/10 text-[11px] font-bold text-primary transition-all">
                                          <Settings size={14} /> Admin Panel
                                       </Link>
                                    )}
@@ -177,6 +190,42 @@ const Navbar: React.FC = () => {
            )}
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+         {isMobileMenuOpen && !isInternal && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-2xl overflow-hidden"
+            >
+               <div className="container mx-auto px-6 py-8 flex flex-col gap-6">
+                  {['Features', 'Rewards', 'Predictions', 'FAQ'].map((link) => (
+                     <a
+                       key={link}
+                       href={`#${link.toLowerCase()}`}
+                       onClick={() => setIsMobileMenuOpen(false)}
+                       className="text-lg font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+                     >
+                        {link}
+                     </a>
+                  ))}
+
+                  {!currentUser && (
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-6 border-t border-white/5">
+                       <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="py-4 text-center text-xs font-bold uppercase tracking-widest text-white/40 border border-white/10 rounded-2xl">
+                          Sign In
+                       </Link>
+                       <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="py-4 text-center text-xs font-bold uppercase tracking-widest text-black bg-white rounded-2xl">
+                          Join Now
+                       </Link>
+                    </div>
+                  )}
+               </div>
+            </motion.div>
+         )}
+      </AnimatePresence>
     </nav>
   );
 };

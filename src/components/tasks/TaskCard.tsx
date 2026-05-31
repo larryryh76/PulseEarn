@@ -18,7 +18,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, status, nextAvailable, onClai
   const [isClaiming, setIsClaiming] = useState(false);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (timer !== null && timer > 0) {
       interval = setInterval(() => {
         setTimer(prev => (prev !== null ? prev - 1 : null));

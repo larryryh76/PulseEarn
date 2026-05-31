@@ -37,7 +37,7 @@ const TransactionHistory: React.FC = () => {
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Earnings') return tx.amount > 0;
     if (activeFilter === 'Stakes') return tx.amount < 0;
-    if (activeFilter === 'Bonus') return tx.type === 'referral_bonus' || tx.type === 'daily_reward';
+    if (activeFilter === 'Bonus') return tx.type === 'referral_reward' || tx.type === 'daily_reward';
     return true;
   });
 

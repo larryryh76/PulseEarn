@@ -7,12 +7,12 @@ const Sidebar: React.FC = () => {
   const isAdmin = userData?.role === 'admin';
 
   const links = isAdmin ? [
-    { name: 'Core Hub', href: '/pulse-core' },
+    { name: 'Admin Panel', href: '/admin' },
     { name: 'Dashboard', href: '/dashboard' },
   ] : [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Wallet', href: '/wallet' },
-    { name: 'Marketplace', href: '/tasks' },
+    { name: 'User App', href: '/tasks' },
     { name: 'Referrals', href: '/referrals' },
     { name: 'Profile', href: '/me' },
   ];

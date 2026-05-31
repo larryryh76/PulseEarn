@@ -25,7 +25,7 @@ const EcosystemIntelligence: React.FC = () => {
       <div className="space-y-2">
         <div className="flex items-center gap-3 text-primary">
           <BrainCircuit size={24} />
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Institutional Overview</h2>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Official Overview</h2>
         </div>
         <h1 className="text-4xl font-bold tracking-tighter">Ecosystem Intelligence</h1>
       </div>
@@ -91,7 +91,7 @@ const EcosystemIntelligence: React.FC = () => {
                ))}
             </div>
             <div className="flex justify-between mt-6 text-[9px] font-bold text-white/20 uppercase tracking-widest px-1">
-               <span>Entity Onboarding</span>
+               <span>User Onboarding</span>
                <span>Monetary Expansion</span>
             </div>
          </CardPremium>
@@ -107,15 +107,15 @@ const EcosystemIntelligence: React.FC = () => {
                  { name: 'Security System', status: 'Scanning', load: '45%' },
                  { name: 'Market Data', status: 'Synced', load: '2%' },
                  { name: 'Task Validation', status: 'Optimal', load: '8%' }
-               ].map((protocol, i) => (
+               ].map((system, i) => (
                  <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
                     <div className="flex items-center gap-4">
                        <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                       <p className="text-xs font-bold text-white/80">{protocol.name}</p>
+                       <p className="text-xs font-bold text-white/80">{system.name}</p>
                     </div>
                     <div className="text-right">
-                       <p className="text-[10px] font-bold text-white/40 uppercase">{protocol.status}</p>
-                       <p className="text-[9px] font-mono text-primary/60">{protocol.load} LOAD</p>
+                       <p className="text-[10px] font-bold text-white/40 uppercase">{system.status}</p>
+                       <p className="text-[9px] font-mono text-primary/60">{system.load} LOAD</p>
                     </div>
                  </div>
                ))}

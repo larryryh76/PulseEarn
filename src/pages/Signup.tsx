@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { ShieldCheck, User, Mail, Lock, UserPlus, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
+import { mapAuthError } from '../utils/errors';
 
 const Signup: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -33,15 +34,6 @@ const Signup: React.FC = () => {
     return strength;
   }, [formData.password]);
 
-  const handleAuthError = (error: any) => {
-    const code = error.code || '';
-    if (code === 'auth/email-already-in-use') return 'This email is already in use. Please log in instead.';
-    if (code === 'auth/weak-password') return 'Password is too weak. Please use at least 6 characters.';
-    if (code === 'auth/invalid-email') return 'Please enter a valid email address.';
-    if (code === 'auth/network-request-failed') return 'Network error. Please check your internet connection.';
-    return 'An error occurred during signup. Please try again.';
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -67,7 +59,7 @@ const Signup: React.FC = () => {
       navigate('/dashboard'); // Will be intercepted by verification check if needed
     } catch (error: any) {
       console.error(error);
-      toast.error(handleAuthError(error));
+      toast.error(mapAuthError(error));
     } finally {
       setIsSubmitting(false);
     }

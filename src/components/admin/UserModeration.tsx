@@ -39,13 +39,13 @@ const UserModeration: React.FC = () => {
       userId,
       amount,
       type: 'AI_SYSTEM_CORRECTION',
-      source: 'Administrative Reconciliation',
+      source: 'Administrative Adjust Balance',
       claimId,
-      description: 'System balance reconciliation by authorized operator.'
+      description: 'System balance reconciliation by authorized administrator.'
     });
 
-    if (result.success) toast.success(`Reconciliation complete: ${amount > 0 ? '+' : ''}${amount} PTS`);
-    else toast.error(result.error || 'Reconciliation failed');
+    if (result.success) toast.success(`Adjust Balance complete: ${amount > 0 ? '+' : ''}${amount} PTS`);
+    else toast.error(result.error || 'Adjust Balance failed');
   };
 
   const filteredUsers = users.filter(u =>
@@ -56,26 +56,26 @@ const UserModeration: React.FC = () => {
   return (
     <div className="space-y-10 pb-20 animate-in">
 
-      {/* Dense Operational Header */}
+      {/* Dense Active Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 border-b border-white/5 pb-10">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <Users size={20} className="text-primary" />
-            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Subject Intelligence</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">User Directory</h2>
             <div className="flex items-center gap-2 pl-2">
                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-               <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Operator Monitoring Active</span>
+               <span className="text-[10px] font-bold uppercase text-primary tracking-widest">System Monitoring Active</span>
             </div>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white">Identity Governance</h1>
-          <p className="text-sm text-white/40 font-medium">Authoritative lookup and management of ecosystem participant states.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-white">User Management</h1>
+          <p className="text-sm text-white/40 font-medium">Verified lookup and management of ecosystem participant states.</p>
         </div>
 
         <div className="relative w-full lg:w-[450px] group">
            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" size={18} />
            <input
              type="text"
-             placeholder="Query Subject Identifier (UUID / Global Alias)..."
+             placeholder="Query User ID (UUID / Global Alias)..."
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
              className="w-full bg-[#08080a] border border-white/10 rounded-[1.5rem] pl-14 pr-6 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-mono placeholder:text-white/10"
@@ -88,11 +88,11 @@ const UserModeration: React.FC = () => {
             <table className="w-full text-left border-collapse min-w-[1100px]">
                <thead>
                   <tr className="border-b border-white/5 bg-white/[0.01]">
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Subject Identity</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Liquid Assets</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Clearance</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Risk Posture</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Intervention Set</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Account Details</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Balance</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Level</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Account Status</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Actions</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-white/[0.02]">
@@ -123,23 +123,23 @@ const UserModeration: React.FC = () => {
                           </div>
                        </td>
                        <td className="px-8 py-6">
-                          <span className="text-[10px] font-mono font-black text-white/20 px-3 py-1 rounded-full border border-white/5 group-hover:border-white/20 transition-all uppercase">LVL {user.level || 1} OPERATOR</span>
+                          <span className="text-[10px] font-mono font-black text-white/20 px-3 py-1 rounded-full border border-white/5 group-hover:border-white/20 transition-all uppercase">LVL {user.level || 1} User</span>
                        </td>
                        <td className="px-8 py-6">
                           {user.isBanned ? (
                             <div className="flex items-center gap-2 text-rose-500 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full w-fit">
                                <ShieldX size={12} />
-                               <span className="text-[9px] font-black uppercase tracking-widest">Terminated</span>
+                               <span className="text-[9px] font-black uppercase tracking-widest">Banned</span>
                             </div>
                           ) : user.isFlagged ? (
                             <div className="flex items-center gap-2 text-orange-500 bg-orange-500/10 border border-orange-500/20 px-3 py-1 rounded-full w-fit">
                                <ShieldAlert size={12} />
-                               <span className="text-[9px] font-black uppercase tracking-widest">Elevated Risk</span>
+                               <span className="text-[9px] font-black uppercase tracking-widest">Flagged</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-emerald-500/40 bg-emerald-500/5 border border-emerald-500/10 px-3 py-1 rounded-full w-fit group-hover:text-emerald-500 transition-colors">
                                <UserCheck size={12} />
-                               <span className="text-[9px] font-black uppercase tracking-widest">Nominal</span>
+                               <span className="text-[9px] font-black uppercase tracking-widest">Active</span>
                             </div>
                           )}
                        </td>
@@ -149,7 +149,7 @@ const UserModeration: React.FC = () => {
                                onClick={(e) => { e.stopPropagation(); adjustBalance(user.id, 500); }}
                                className="text-[10px] font-black uppercase tracking-widest text-primary/40 hover:text-primary transition-all"
                              >
-                                Reconciliation
+                                Adjust Balance
                              </button>
                              <div className="w-px h-4 bg-white/5" />
                              <button
@@ -159,14 +159,14 @@ const UserModeration: React.FC = () => {
                                  user.isFlagged ? "text-emerald-500/60 hover:text-emerald-500" : "text-white/20 hover:text-white"
                                )}
                              >
-                                {user.isFlagged ? 'Clear Signal' : 'Flag Signal'}
+                                {user.isFlagged ? 'Unflag' : 'Flag'}
                              </button>
                              <div className="w-px h-4 bg-white/5" />
                              <button
                                onClick={(e) => { e.stopPropagation(); handleModeration(user.id, 'ban'); }}
                                className="text-[10px] font-black uppercase tracking-widest text-rose-500/40 hover:text-rose-500 transition-all"
                              >
-                                Terminate
+                                Ban Account
                              </button>
                           </div>
                        </td>

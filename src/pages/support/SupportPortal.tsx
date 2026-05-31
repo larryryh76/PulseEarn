@@ -22,15 +22,15 @@ const FAQS = [
   {
     category: 'REWARDS',
     questions: [
-      { q: "Why is my mission status 'Pending'?", a: "Manual verification missions require a security audit by our moderation team. This typically takes 12-24 hours." },
-      { q: "Can I earn Pulse without verifying my identity?", a: "Basic missions are available to all users, but high-yield rewards and withdrawals require account authorization." }
+      { q: "Why is my task status 'Pending'?", a: "Some tasks require manual review by our team to ensure requirements were met. This typically takes 12-24 hours." },
+      { q: "Can I earn Pulse without a linked wallet?", a: "You can earn points for most tasks without a wallet, but you will need one to redeem your rewards later." }
     ]
   },
   {
     category: 'SECURITY',
     questions: [
-      { q: "What should I do if my account is restricted?", a: "Account restrictions occur when the security engine detects suspicious earning velocity. Submit a support ticket for recovery." },
-      { q: "How do I secure my Pulse balance?", a: "Ensure 2FA is enabled in settings and never share your recovery email with third parties." }
+      { q: "What should I do if my account is restricted?", a: "Account restrictions occur if our system detects unusual activity. If you believe this is an error, please submit a support ticket." },
+      { q: "How do I secure my account?", a: "Use a strong password and ensure your email address is verified. We will never ask for your private keys or password." }
     ]
   }
 ];
@@ -42,7 +42,7 @@ const SupportPortal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Ticket Form State
-  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketUser, setTicketUser] = useState('');
   const [ticketDescription, setTicketDescription] = useState('');
   const [ticketCategory, setTicketCategory] = useState<any>('REWARD');
 
@@ -54,7 +54,7 @@ const SupportPortal: React.FC = () => {
       userId: userData.uid,
       category: ticketCategory,
       priority: 'MEDIUM',
-      subject: ticketSubject,
+      user: ticketUser,
       description: ticketDescription,
       attachedLogIds: []
     });
@@ -62,7 +62,7 @@ const SupportPortal: React.FC = () => {
     if (res.success) {
       toast.success('Support ticket authorized and queued.');
       setShowTicketModal(false);
-      setTicketSubject('');
+      setTicketUser('');
       setTicketDescription('');
     } else {
       toast.error(`Ticket Failure: ${res.error}`);
@@ -73,12 +73,12 @@ const SupportPortal: React.FC = () => {
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-12 pb-24 animate-in">
 
-        {/* Support Leadership Header */}
+        {/* Support Header */}
         <section id="faq-top" className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
           <div className="space-y-1">
-            <h2 className="section-label">System Support</h2>
-            <h1 className="text-4xl font-bold tracking-tight">Support Terminal</h1>
-            <p className="text-sm text-white/40 font-medium">Authorized resource center for troubleshooting and infrastructure signals.</p>
+            <h2 className="section-label">Help & Support</h2>
+            <h1 className="text-4xl font-bold tracking-tight">Support Center</h1>
+            <p className="text-sm text-white/40 font-medium">Find answers to common questions or get in touch with our team.</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -87,17 +87,17 @@ const SupportPortal: React.FC = () => {
                className="btn-primary flex items-center gap-2 px-8"
              >
                 <Plus size={14} />
-                Generate Ticket
+                Contact Support
              </button>
           </div>
         </section>
 
-        {/* Global Intelligence Search */}
+        {/* Search */}
         <div className="relative group max-w-3xl">
            <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
            <input
               type="text"
-              placeholder="Query ecosystem documentation and FAQ database..."
+              placeholder="Search help articles and FAQ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/[0.03] border border-white/10 rounded-[2rem] py-6 pl-16 pr-8 text-sm font-bold focus:border-primary outline-none transition-all"
@@ -138,19 +138,19 @@ const SupportPortal: React.FC = () => {
               </div>
            </div>
 
-           {/* Operational Context Sidebar (4 cols) */}
+           {/* Sidebar (4 cols) */}
            <div className="lg:col-span-4 space-y-8">
 
               <div className="glass-panel p-8 rounded-[2.5rem] space-y-6">
                  <div className="flex items-center gap-3">
                     <LifeBuoy size={18} className="text-primary" />
-                    <h4 className="text-base font-bold">Infrastructure Health</h4>
+                    <h4 className="text-base font-bold">System Status</h4>
                  </div>
                  <div className="space-y-3">
                     {[
-                       { label: 'Reward Engine', status: 'Operational' },
-                       { label: 'Withdrawal Gateway', status: 'Operational' },
-                       { label: 'Verification System', status: 'Operational' }
+                       { label: 'Rewards', status: 'Online' },
+                       { label: 'Withdrawals', status: 'Online' },
+                       { label: 'Verification', status: 'Online' }
                     ].map((sys, i) => (
                        <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">{sys.label}</span>
@@ -194,10 +194,10 @@ const SupportPortal: React.FC = () => {
               <div className="p-8 border border-white/5 rounded-[2.5rem] bg-primary/[0.01] space-y-4">
                  <div className="flex items-center gap-3">
                     <History size={16} className="text-primary/40" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Operational History</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">History</span>
                  </div>
                  <p className="text-xs text-white/30 leading-relaxed font-medium">
-                    Support history is synced with your dashboard activity log for complete transparency.
+                    Your support history is kept private and secure. You can view updates here at any time.
                  </p>
               </div>
 
@@ -205,7 +205,7 @@ const SupportPortal: React.FC = () => {
         </div>
       </div>
 
-      {/* Incident Submission Modal */}
+      {/* Support Ticket Modal */}
       <AnimatePresence>
          {showTicketModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
@@ -218,8 +218,8 @@ const SupportPortal: React.FC = () => {
                >
                   <div className="flex items-center justify-between">
                      <div className="space-y-1">
-                        <h3 className="text-2xl font-bold tracking-tight">Report Incident</h3>
-                        <p className="text-xs text-white/30">Submit a support report to the system administrators.</p>
+                        <h3 className="text-2xl font-bold tracking-tight">Contact Support</h3>
+                        <p className="text-xs text-white/30">Submit a support request to our team.</p>
                      </div>
                      <button type="button" onClick={() => setShowTicketModal(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-colors">
                         <Plus size={24} className="rotate-45" />
@@ -228,39 +228,39 @@ const SupportPortal: React.FC = () => {
 
                   <div className="space-y-8">
                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Incident Category</label>
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Category</label>
                         <select
                            value={ticketCategory}
                            onChange={(e) => setTicketCategory(e.target.value)}
                            className="w-full bg-black border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white appearance-none focus:border-primary outline-none"
                         >
-                           <option value="REWARD">Reward Verification Anomaly</option>
-                           <option value="REFERRAL">Referral Linkage Failure</option>
-                           <option value="PAYOUT">Withdrawal Settlement Delay</option>
-                           <option value="ACCOUNT">Identity / Clearance Lock</option>
-                           <option value="OTHER">System Operational Incident</option>
+                           <option value="REWARD">Reward Issue</option>
+                           <option value="REFERRAL">Referral Issue</option>
+                           <option value="PAYOUT">Withdrawal Issue</option>
+                           <option value="ACCOUNT">Account Issue</option>
+                           <option value="OTHER">Other Issue</option>
                         </select>
                      </div>
 
                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Subject</label>
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">User</label>
                         <input
                            type="text"
                            required
-                           value={ticketSubject}
-                           onChange={(e) => setTicketSubject(e.target.value)}
-                           placeholder="Operational summary..."
+                           value={ticketUser}
+                           onChange={(e) => setTicketUser(e.target.value)}
+                           placeholder="What do you need help with?"
                            className="w-full bg-black border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold focus:border-primary outline-none"
                         />
                      </div>
 
                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Evidence & Details</label>
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">Details</label>
                         <textarea
                            required
                            value={ticketDescription}
                            onChange={(e) => setTicketDescription(e.target.value)}
-                           placeholder="Provide granular details regarding the incident..."
+                           placeholder="Please provide as much detail as possible..."
                            className="w-full bg-black border border-white/10 rounded-[2rem] p-8 text-sm font-medium focus:border-primary outline-none min-h-[180px] resize-none leading-relaxed"
                         />
                      </div>
@@ -268,7 +268,7 @@ const SupportPortal: React.FC = () => {
 
                   <button className="w-full py-5 bg-primary text-white rounded-2xl text-xs font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.01] active:scale-[0.98] transition-all">
                      <Send size={16} />
-                     Authorize Transmission
+                     Submit Ticket
                   </button>
                </motion.form>
             </div>

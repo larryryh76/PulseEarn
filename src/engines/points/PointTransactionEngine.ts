@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { Transaction } from '../../types';
 import { calculateLevel } from '../../utils/progression';
-import { EconomyAuthority } from './EconomyAuthority';
+import { EconomySystem } from './EconomyAuthority';
 
 export interface PointTransactionRequest {
   userId: string;
@@ -30,7 +30,7 @@ export type PointTransactionResult =
 
 export class PointTransactionEngine {
   /**
-   * The absolute authority gateway for all economy mutations.
+   * The absolute system gateway for all economy mutations.
    * Enforces transactional locking, claim idempotency, and centralized reward validation.
    */
   static async execute(request: PointTransactionRequest): Promise<PointTransactionResult> {
@@ -43,14 +43,14 @@ export class PointTransactionEngine {
       return await runTransaction(db, async (transaction) => {
         // 1. Acquire State & Validate Idempotency
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw new Error("ENTITY_NOT_FOUND");
+        if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
 
         const userData = userSnap.data();
         const claimSnap = await transaction.get(claimRef);
         if (claimSnap.exists()) throw new Error("REWARD_ALREADY_CLAIMED");
 
         // 1.5 Economy Rule Validation
-        const validation = EconomyAuthority.validateAction(type, request, userData);
+        const validation = EconomySystem.validateAction(type, request, userData);
         if (!validation.valid) throw new Error(validation.error);
 
         // 2. Transactional Locking (Atomic Mutex)
@@ -105,7 +105,7 @@ export class PointTransactionEngine {
         };
 
         if (type === 'task_reward') updates['stats.tasksCompleted'] = increment(1);
-        if (type === 'referral_bonus') updates['stats.referralsCount'] = increment(1);
+        if (type === 'referral_reward') updates['stats.referralsCount'] = increment(1);
 
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();
@@ -178,7 +178,7 @@ export class PointTransactionEngine {
     try {
       return await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw new Error("ENTITY_NOT_FOUND");
+        if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
 
         const userData = userSnap.data();
         const claimSnap = await transaction.get(claimRef);
@@ -333,7 +333,7 @@ export class PointTransactionEngine {
         requestType: request.type,
         timestamp: serverTimestamp(),
         severity: (error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM',
-        context: 'PROTOCOL_VALIDATION_FAILURE'
+        context: 'SYSTEM_VALIDATION_FAILURE'
       });
     } catch (e) {
       // Background logging failsafe

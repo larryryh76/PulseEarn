@@ -25,18 +25,18 @@ const GlobalEconomyLog: React.FC = () => {
   return (
     <div className="space-y-10 pb-20 animate-in">
 
-      {/* Dense Operational Header */}
+      {/* Dense Active Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 border-b border-white/5 pb-10">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <Database size={20} className="text-primary" />
-            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Financial Infrastructure</h2>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Financial System</h2>
             <div className="flex items-center gap-2 pl-2">
                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                <span className="text-[10px] font-bold uppercase text-emerald-500 tracking-widest">Auth Ledger Active</span>
             </div>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white">Global Audit Ledger</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white">Global Economy Ledger</h1>
           <p className="text-sm text-white/40 font-medium">Immutable record of all ecosystem monetary flows and point mutations.</p>
         </div>
 
@@ -63,8 +63,8 @@ const GlobalEconomyLog: React.FC = () => {
                   <tr className="border-b border-white/5 bg-white/[0.01]">
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Execution Timestamp</th>
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Transaction Nonce</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Subject Entity</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Protocol Operation</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">User</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">System Operation</th>
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Settlement (PTS)</th>
                   </tr>
                </thead>
@@ -133,7 +133,7 @@ const GlobalEconomyLog: React.FC = () => {
          <div className="md:col-span-2 p-6 rounded-xl border border-white/5 bg-black flex items-center justify-between">
             <div className="space-y-1">
                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Global Payout Velocity</p>
-               <p className="text-[20px] font-bold text-white">Nominal</p>
+               <p className="text-[20px] font-bold text-white">Active</p>
             </div>
             <div className="h-8 w-32 bg-white/5 rounded relative overflow-hidden">
                <div className="absolute inset-0 flex items-center justify-around px-2">

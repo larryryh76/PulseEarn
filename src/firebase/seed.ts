@@ -47,7 +47,7 @@ const INITIAL_TASKS: Partial<Task>[] = [
   },
   {
     title: 'X/Twitter Infiltration',
-    description: 'Follow our official handle for protocol updates.',
+    description: 'Follow our official handle for system updates.',
     instructions: 'Follow @PulseEarn on X and submit your handle',
     rewardAmount: 50,
     xpReward: 100,

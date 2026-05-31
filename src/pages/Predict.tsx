@@ -173,7 +173,7 @@ const Predict: React.FC = () => {
                       <div key={i} className="w-5 h-5 rounded-full border border-black bg-white/10" />
                     ))}
                   </div>
-                  <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.3em]">1,242 Active Operators</span>
+                  <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.3em]">1,242 Active Users</span>
                 </div>
               </div>
             </div>

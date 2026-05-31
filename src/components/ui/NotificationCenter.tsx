@@ -52,7 +52,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as HTMLElement)) {
         onClose();
       }
     };
@@ -117,9 +117,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              md-initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              md-animate={{ opacity: 1, y: 0, scale: 1 }}
-              md-exit={{ opacity: 0, y: 8, scale: 0.98 }}
               className="w-full md:w-[400px] bg-[#08080a] border-t md:border border-white/[0.08] rounded-t-[2.5rem] md:rounded-[2rem] shadow-[0_-20px_40px_-12px_rgba(0,0,0,0.5)] md:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] overflow-hidden"
             >
               {/* Drag Handle for Mobile */}
@@ -127,7 +124,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
               <div className="p-6 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01] mt-2 md:mt-0">
               <div className="flex items-center gap-3">
-                 <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Operational Notices</h3>
+                 <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Notifications</h3>
                  {unreadCount > 0 && <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.6)]" />}
               </div>
               <div className="flex items-center gap-4">
@@ -155,7 +152,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                   <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mx-auto text-white/5">
                     <Info size={24} />
                   </div>
-                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em]">Registry Empty</p>
+                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em]">No Notifications</p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/[0.03]">
@@ -214,7 +211,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                                }}
                                className="text-[9px] font-bold text-primary hover:text-white uppercase tracking-widest"
                              >
-                               Acknowledge
+                               Mark as Read
                              </button>
                            )}
                         </div>

@@ -62,7 +62,7 @@ const PointAIConsole: React.FC = () => {
             <Database size={20} />
             <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Economy Governance</h2>
           </div>
-          <h1 className="text-4xl font-bold tracking-tighter text-white">Monetary Authority</h1>
+          <h1 className="text-4xl font-bold tracking-tighter text-white">Monetary System</h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ const PointAIConsole: React.FC = () => {
               <div className="px-6 py-5 border-b border-white/[0.05] flex items-center justify-between bg-white/[0.01]">
                  <div className="flex items-center gap-3">
                     <Zap size={16} className="text-primary" />
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-white/80">Operational Corrections</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-white/80">Active Corrections</h3>
                  </div>
                  <FileText size={14} className="text-white/20" />
               </div>

@@ -21,7 +21,7 @@ export const ECONOMY_RULES = {
   }
 };
 
-export class EconomyAuthority {
+export class EconomySystem {
   static validateAction(type: string, data: any, userData: any): { valid: boolean; error?: string } {
     // 1. Transactional Velocity Check
     if (data.amount > ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD) {

@@ -12,7 +12,7 @@ import SupportPortal from './pages/support/SupportPortal'
 import AdminLayout from './components/layout/AdminLayout'
 import SystemOperationsHub from './components/admin/SystemOperationsHub'
 import GlobalEconomyLog from './components/admin/GlobalEconomyLog'
-import TaskOrchestrator from './components/admin/TaskOrchestrator'
+import TaskManager from './components/admin/TaskManager'
 import UserModeration from './components/admin/UserModeration'
 import SecurityFraudHub from './components/admin/SecurityFraudHub'
 import SystemSettings from './components/admin/SystemSettings'
@@ -45,7 +45,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isUserOnlyRoute = userOnlyRoutes.some(route => window.location.pathname.startsWith(route));
 
   if (userData?.role === 'admin' && (isUserOnlyRoute || window.location.pathname === '/')) {
-    return <Navigate to="/pulse-core" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -80,7 +80,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (currentUser) {
     if (userData?.role === 'admin') {
-      return <Navigate to="/pulse-core" replace />;
+      return <Navigate to="/admin" replace />;
     }
     return <Navigate to="/dashboard" replace />;
   }
@@ -144,11 +144,11 @@ function App() {
         <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
         <Route path="/support" element={<ProtectedRoute><SupportPortal /></ProtectedRoute>} />
 
-        <Route path="/pulse-core" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<SystemOperationsHub />} />
           <Route path="ledger" element={<GlobalEconomyLog />} />
           <Route path="users" element={<UserModeration />} />
-          <Route path="tasks" element={<TaskOrchestrator />} />
+          <Route path="tasks" element={<TaskManager />} />
           <Route path="security" element={<SecurityFraudHub />} />
           <Route path="settings" element={<SystemSettings />} />
         </Route>

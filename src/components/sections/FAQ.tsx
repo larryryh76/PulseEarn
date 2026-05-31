@@ -23,7 +23,7 @@ const FAQ: React.FC = () => {
     },
     {
       question: "Is PulseEarn secure?",
-      answer: "Yes, we use advanced security protocols and verification to ensure that your account and earnings are always protected."
+      answer: "Yes, we use advanced security systems and verification to ensure that your account and earnings are always protected."
     }
   ];
 

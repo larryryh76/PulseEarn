@@ -7,12 +7,13 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Database,
   Users,
-  Server,
   ClipboardList,
   Fingerprint,
-  Cpu
+  Cpu,
+  Layout,
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
@@ -25,12 +26,12 @@ const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const adminMenu = [
-    { name: 'System Operations', icon: Server, href: '/pulse-core' },
-    { name: 'Audit Ledger', icon: Database, href: '/pulse-core/ledger' },
-    { name: 'User Intelligence', icon: Users, href: '/pulse-core/users' },
-    { name: 'Campaign Orchestrator', icon: ClipboardList, href: '/pulse-core/tasks' },
-    { name: 'Security & Fraud', icon: ShieldCheck, href: '/pulse-core/security' },
-    { name: 'Infrastructure Settings', icon: Settings, href: '/pulse-core/settings' },
+    { name: 'Overview', icon: Layout, href: '/admin' },
+    { name: 'Economy Ledger', icon: BarChart3, href: '/admin/ledger' },
+    { name: 'User Moderation', icon: Users, href: '/admin/users' },
+    { name: 'Task Manager', icon: ClipboardList, href: '/admin/tasks' },
+    { name: 'Fraud Prevention', icon: AlertCircle, href: '/admin/security' },
+    { name: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
   const handleLogout = async () => {
@@ -55,21 +56,19 @@ const AdminLayout: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-6 space-y-2">
-        <p className="px-4 py-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] mb-4">Core Infrastructure</p>
+        <p className="px-4 py-2 text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] mb-4">Operations Hub</p>
         {adminMenu.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
-            end={item.href === '/pulse-core'}
+            end={item.href === '/admin'}
             onClick={() => setIsSidebarOpen(false)}
             className={({ isActive }) => cn(
-              "flex items-center gap-4 px-5 py-3 rounded-2xl transition-all duration-300 group",
-              isActive
-                ? "bg-primary text-white shadow-xl shadow-primary/20 border border-primary/20"
-                : "text-white/30 hover:text-white hover:bg-white/[0.03] border border-transparent"
+              "v2-sidebar-item",
+              isActive ? "v2-sidebar-item-active" : "v2-sidebar-item-inactive"
             )}
           >
-            <item.icon size={18} className={cn("transition-transform group-hover:scale-110")} />
+            <item.icon size={18} />
             <span className="text-xs font-bold uppercase tracking-widest">{item.name}</span>
           </NavLink>
         ))}
@@ -79,9 +78,9 @@ const AdminLayout: React.FC = () => {
         <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl mb-4">
            <div className="flex items-center gap-3 mb-2">
               <Fingerprint size={14} className="text-primary/40" />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-white/20">Session Authority</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-white/20">Admin Session</span>
            </div>
-           <p className="text-[10px] font-mono text-white/40">ROOT_AGENT_V5</p>
+           <p className="text-[10px] font-mono text-white/40">S-3829-PRO</p>
         </div>
 
         <button
@@ -89,14 +88,14 @@ const AdminLayout: React.FC = () => {
           className="flex items-center gap-3 px-5 py-3 w-full text-white/30 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest bg-white/[0.02] border border-white/[0.05] rounded-xl"
         >
           <ChevronLeft size={16} />
-          Marketplace
+          User App
         </button>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-5 py-3 w-full text-rose-500/60 hover:text-rose-500 transition-all text-[10px] font-bold uppercase tracking-widest group"
         >
           <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
-          Terminate
+          Logout
         </button>
       </div>
     </>
@@ -104,17 +103,6 @@ const AdminLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-white flex flex-col lg:flex-row">
-      {/* Background Grid */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-
-      {/* Mobile Header */}
-      <header className="lg:hidden h-20 border-b border-white/[0.05] bg-surface/50 backdrop-blur-xl px-6 flex items-center justify-between sticky top-0 z-40">
-        <Logo />
-        <button onClick={() => setIsSidebarOpen(true)} className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60">
-          <Menu size={24} />
-        </button>
-      </header>
-
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-72 border-r border-white/[0.05] bg-surface flex-col h-screen sticky top-0 shrink-0 z-20 shadow-2xl">
         <SidebarContent />
@@ -145,15 +133,20 @@ const AdminLayout: React.FC = () => {
 
       {/* Admin Content Area */}
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        <header className="hidden lg:flex h-20 border-b border-white/[0.03] bg-background/50 backdrop-blur-md items-center justify-between px-10 sticky top-0 z-10">
+        <header className="flex h-20 border-b border-white/[0.03] bg-background/50 backdrop-blur-md items-center justify-between px-6 lg:px-10 sticky top-0 z-10">
           <div className="flex items-center gap-4">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-             <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em]">Infrastructure Secure</span>
+             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                <Menu size={20} />
+             </button>
+             <div className="hidden sm:flex items-center gap-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em]">System Secure</span>
+             </div>
           </div>
           <div className="flex items-center gap-6">
              <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05]">
                 <ShieldCheck size={14} className="text-primary" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Session: S-3829-PRO</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Admin Access</span>
              </div>
              <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
                 <Cpu size={18} className="text-white/20" />

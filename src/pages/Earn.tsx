@@ -9,33 +9,33 @@ import { cn } from '../utils';
 const Earn: React.FC = () => {
   const [claiming, setClaiming] = useState<string | null>(null);
 
-  const missions = [
+  const tasks = [
     {
       id: 'm1',
-      title: 'Market Intelligence Audit',
-      desc: 'Analyze and verify high-fidelity market data signals for 5 consecutive sessions.',
+      title: 'Market Analysis',
+      desc: 'Watch and analyze market trends for 5 consecutive sessions to earn rewards.',
       reward: '500',
-      difficulty: 'Standard',
+      difficulty: 'Easy',
       progress: 60,
       icon: Zap,
       color: 'text-primary'
     },
     {
       id: 'm2',
-      title: 'Validator Sequence',
-      desc: 'Complete 10 successful point settlements within the institutional ecosystem.',
+      title: 'Task Milestone',
+      desc: 'Complete 10 high-value tasks from our premium partners this week.',
       reward: '1,200',
-      difficulty: 'Advanced',
+      difficulty: 'Medium',
       progress: 20,
       icon: ShieldCheck,
       color: 'text-emerald-500'
     },
     {
       id: 'm3',
-      title: 'Network Expansion',
-      desc: 'Onboard 3 new verified operators to the PulseEarn reward infrastructure.',
+      title: 'Referral Bonus',
+      desc: 'Invite 3 friends to join PulseEarn and complete their first task.',
       reward: '2,500',
-      difficulty: 'Elite',
+      difficulty: 'Hard',
       progress: 0,
       icon: Star,
       color: 'text-amber-500'
@@ -46,7 +46,7 @@ const Earn: React.FC = () => {
     setClaiming(id);
     setTimeout(() => {
       setClaiming(null);
-      toast.success('Mission sequence initialized');
+      toast.success('Task started');
     }, 1500);
   };
 
@@ -58,10 +58,10 @@ const Earn: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(0,102,255,0.5)]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Yield Optimization Active</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Earn points now</span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight uppercase">Mission Terminal</h1>
-            <p className="text-sm text-white/40 font-medium">Execute high-velocity sequences to authorize point distributions.</p>
+            <h1 className="text-4xl font-bold tracking-tight uppercase">Tasks</h1>
+            <p className="text-sm text-white/40 font-medium">Complete tasks and tasks to earn rewards every day.</p>
           </div>
 
           <div className="flex items-center gap-8">
@@ -79,20 +79,20 @@ const Earn: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Active Missions */}
+          {/* Active Tasks */}
           <div className="lg:col-span-8 space-y-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Trophy size={18} className="text-primary" />
-                <h3 className="text-xl font-bold uppercase tracking-tight">Priority Missions</h3>
+                <h3 className="text-xl font-bold uppercase tracking-tight">Available Tasks</h3>
               </div>
-              <span className="text-[10px] font-bold uppercase text-white/20 tracking-widest">3 Missions Available</span>
+              <span className="text-[10px] font-bold uppercase text-white/20 tracking-widest">3 Tasks Available</span>
             </div>
 
             <div className="space-y-6">
-              {missions.map((mission) => (
+              {tasks.map((task) => (
                 <motion.div
-                  key={mission.id}
+                  key={task.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="glass-panel p-8 rounded-[2.5rem] group hover:bg-white/[0.02] transition-all border-white/5"
@@ -100,41 +100,41 @@ const Earn: React.FC = () => {
                   <div className="flex flex-col md:flex-row gap-8">
                     <div className={cn(
                       "w-20 h-20 rounded-[2rem] flex items-center justify-center shrink-0 border border-white/5 group-hover:border-primary/20 transition-all bg-white/[0.01]",
-                      mission.color
+                      task.color
                     )}>
-                      <mission.icon size={32} />
+                      <task.icon size={32} />
                     </div>
 
                     <div className="flex-grow space-y-4">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-3 mb-1">
-                            <h4 className="text-lg font-bold text-white uppercase tracking-tight">{mission.title}</h4>
+                            <h4 className="text-lg font-bold text-white uppercase tracking-tight">{task.title}</h4>
                             <span className={cn(
                               "px-2.5 py-1 rounded-lg text-[8px] font-bold uppercase tracking-widest border",
-                              mission.difficulty === 'Elite' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
-                              mission.difficulty === 'Advanced' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
+                              task.difficulty === 'Elite' ? "bg-amber-500/10 border-amber-500/20 text-amber-500" :
+                              task.difficulty === 'Advanced' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
                               "bg-primary/10 border-primary/20 text-primary"
-                            )}>{mission.difficulty}</span>
+                            )}>{task.difficulty}</span>
                           </div>
-                          <p className="text-[11px] text-white/40 uppercase font-medium leading-relaxed max-w-md">{mission.desc}</p>
+                          <p className="text-[11px] text-white/40 uppercase font-medium leading-relaxed max-w-md">{task.desc}</p>
                         </div>
                         <div className="text-left md:text-right">
-                          <p className="text-2xl font-mono font-bold text-white">+{mission.reward}</p>
+                          <p className="text-2xl font-mono font-bold text-white">+{task.reward}</p>
                           <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">EST. YIELD (PTS)</p>
                         </div>
                       </div>
 
                       <div className="space-y-2 pt-4">
                         <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest">
-                          <span className="text-white/20">Operational Progress</span>
-                          <span className="text-white">{mission.progress}%</span>
+                          <span className="text-white/20">Task Progress</span>
+                          <span className="text-white">{task.progress}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${mission.progress}%` }}
-                            className={cn("h-full", mission.color.replace('text', 'bg'))}
+                            animate={{ width: `${task.progress}%` }}
+                            className={cn("h-full", task.color.replace('text', 'bg'))}
                           />
                         </div>
                       </div>
@@ -145,10 +145,10 @@ const Earn: React.FC = () => {
                         variant="outline"
                         size="sm"
                         className="md:w-auto w-full"
-                        onClick={() => handleClaim(mission.id)}
-                        disabled={claiming === mission.id}
+                        onClick={() => handleClaim(task.id)}
+                        disabled={claiming === task.id}
                        >
-                         {claiming === mission.id ? 'INITIALIZING...' : 'EXECUTE MISSION'}
+                         {claiming === task.id ? 'Starting...' : 'Start Task'}
                        </Button>
                     </div>
                   </div>
@@ -162,12 +162,12 @@ const Earn: React.FC = () => {
             <div className="glass-panel p-8 rounded-[2.5rem] space-y-8">
               <div className="flex items-center gap-3 text-primary">
                 <Gift size={18} />
-                <h4 className="font-bold text-base uppercase tracking-tight">Daily Settlement</h4>
+                <h4 className="font-bold text-base uppercase tracking-tight">Daily Reward</h4>
               </div>
 
               <div className="space-y-6">
                 <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 text-center space-y-4">
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Next Distribution In</p>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Available In</p>
                   <p className="text-3xl font-mono font-bold text-white tracking-widest">14:22:05</p>
                   <div className="flex items-center justify-center gap-4 text-emerald-500 font-bold text-[10px] uppercase tracking-widest">
                     <Clock size={12} />
@@ -176,11 +176,11 @@ const Earn: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 pt-4">
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Yield Breakdown</p>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Reward Details</p>
                   {[
                     { label: 'Base Reward', value: '850 PTS' },
                     { label: 'Streak Bonus', value: '125 PTS' },
-                    { label: 'Elite Multiplier', value: 'x1.25' },
+                    { label: 'Growth Bonus', value: 'x1.25' },
                   ].map((item, i) => (
                     <div key={i} className="flex justify-between items-center py-2 border-b border-white/[0.03]">
                       <span className="text-[11px] font-medium text-white/40 uppercase">{item.label}</span>
@@ -188,25 +188,25 @@ const Earn: React.FC = () => {
                     </div>
                   ))}
                   <div className="flex justify-between items-center py-4">
-                    <span className="text-xs font-bold text-primary uppercase tracking-widest">Total Forecast</span>
+                    <span className="text-xs font-bold text-primary uppercase tracking-widest">Estimated Payout</span>
                     <span className="text-lg font-mono font-bold text-primary">1,218 PTS</span>
                   </div>
                 </div>
 
-                <Button className="w-full" variant="outline">SETTLEMENT HISTORY</Button>
+                <Button className="w-full" variant="outline">View History</Button>
               </div>
             </div>
 
             <div className="glass-panel p-8 rounded-[2.5rem] bg-primary/[0.02] border-primary/10">
               <div className="flex items-center gap-3 text-primary mb-6">
                 <ShieldCheck size={18} />
-                <h4 className="font-bold text-base uppercase tracking-tight">Security Status</h4>
+                <h4 className="font-bold text-base uppercase tracking-tight">Account Safety</h4>
               </div>
               <p className="text-[11px] text-white/40 leading-relaxed font-medium uppercase mb-6">
-                All mission settlements are verified by the institutional consensus engine. Tampering or automated execution will result in account suspension.
+                All task completions are verified by our team. Any attempt to use automated systems or bots will result in account suspension.
               </p>
               <div className="flex items-center gap-3 text-[10px] font-bold text-primary uppercase tracking-widest group cursor-pointer">
-                Read Operational Guidance
+                Read our policies
                 <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </div>
             </div>

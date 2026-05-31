@@ -6,22 +6,19 @@ import { collection, query, orderBy, limit, onSnapshot, Timestamp } from 'fireba
 import { db } from '../firebase/config';
 import { Transaction } from '../types';
 import {
-  Wallet as WalletIcon,
   ArrowUpRight,
   ArrowDownLeft,
-  RefreshCw,
   Download,
   ShieldCheck,
   Zap,
-  Info,
-  Clock,
-  ChevronRight,
   ExternalLink,
+  History,
+  TrendingUp,
+  CreditCard,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
-import { Activity } from 'lucide-react';
 
 const Wallet: React.FC = () => {
   const { userData } = useAuth();
@@ -41,7 +38,7 @@ const Wallet: React.FC = () => {
   const filteredTransactions = transactions.filter(tx => {
     if (activeFilter === 'ALL') return true;
     if (activeFilter === 'REWARDS') return tx.type.includes('reward') || tx.type.includes('bonus');
-    if (activeFilter === 'ADJUSTMENTS') return tx.type === 'admin_adjustment' || tx.type === 'penalty';
+    if (activeFilter === 'ADJUSTMENTS') return tx.type === 'admin_adjustment' || tx.type === 'penalty' || tx.type === 'AI_SYSTEM_CORRECTION';
     return true;
   });
 
@@ -49,223 +46,172 @@ const Wallet: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[1400px] mx-auto space-y-10 pb-24 animate-in">
+      <div className="max-w-[1200px] mx-auto space-y-12 pb-24 animate-in">
 
-        {/* Financial Authority Header */}
-        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-10 relative overflow-hidden">
+        {/* FINTECH HEADER: Balance focused */}
+        <section className="relative overflow-hidden bg-white/[0.02] border border-white/5 rounded-[3rem] p-12 lg:p-16 text-center space-y-10">
+           <div className="absolute inset-0 v2-gradient-bg opacity-30 pointer-events-none" />
+
            <div className="space-y-4 relative z-10">
-              <div className="flex items-center gap-3">
-                 <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.5)]" />
-                 <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">System Assets</h2>
+              <div className="flex items-center justify-center gap-2 text-primary">
+                 <ShieldCheck size={16} />
+                 <span className="text-[10px] font-black uppercase tracking-[0.4em]">Verified Ledger</span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Wallet Control</h1>
-              <p className="text-base text-white/40 max-w-xl leading-relaxed">
-                 Secure authoritative ledger for your ecosystem capital. All transactions are signed and verified by the Pulse-Core financial engine.
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/20">Total Account Balance</p>
+              <div className="flex items-baseline justify-center gap-4">
+                 <h1 className="text-7xl md:text-9xl font-bold font-mono tracking-tighter text-white leading-none">
+                    {userData.points.toLocaleString()}
+                 </h1>
+                 <span className="text-2xl md:text-3xl font-bold text-white/20 uppercase tracking-widest">PTS</span>
+              </div>
+              <div className="flex items-center justify-center gap-3 text-2xl font-medium text-white/40 tracking-tight">
+                 <span>≈ {formatUSD(PTS_TO_USD(userData.points))}</span>
+              </div>
            </div>
 
-           <div className="flex flex-wrap items-center gap-4 relative z-10">
+           <div className="flex flex-wrap items-center justify-center gap-4 relative z-10">
               <button
-                onClick={() => toast.error("Ledger Export: Authorization Pending")}
-                className="px-6 py-3.5 bg-white/[0.03] border border-white/10 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/[0.05] transition-all flex items-center gap-2"
+                onClick={() => toast.success("Withdrawal gateway opening soon")}
+                className="px-10 py-5 bg-white text-black rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl hover:bg-white/90 active:scale-95 transition-all flex items-center gap-3"
               >
-                 <Download size={14} />
-                 Export Ledger
+                 <CreditCard size={18} />
+                 Redeem Rewards
               </button>
               <button
-                onClick={() => toast.error("Gateway Offline: Minimum 10,000 PTS required")}
-                className="px-8 py-4 bg-primary text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                onClick={() => toast.error("Export service temporarily offline")}
+                className="px-8 py-5 bg-white/[0.03] border border-white/10 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-white/5 active:scale-95 transition-all flex items-center gap-3"
               >
-                 Withdrawal Gateway
+                 <Download size={18} />
+                 Export History
               </button>
            </div>
-
-           <WalletIcon size={300} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.01] pointer-events-none" />
         </section>
 
-        {/* Main Wallet Composition */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* MAIN LEDGER COMPOSITION */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
 
-           {/* Left Deck: Balance & Ledger (7 cols) */}
-           <div className="lg:col-span-7 space-y-10">
-
-              {/* Premium Balance Visualization */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-primary/10 via-primary/[0.02] to-transparent border border-primary/20 rounded-[3rem] p-12 relative overflow-hidden group shadow-2xl"
-              >
-                 <div className="absolute top-0 right-0 p-12 opacity-[0.05] group-hover:opacity-10 transition-opacity">
-                    <WalletIcon size={180} />
+           {/* LEDGER STREAM (8 cols) */}
+           <div className="lg:col-span-8 space-y-8">
+              <div className="flex items-center justify-between px-2">
+                 <div className="flex items-center gap-3">
+                    <History size={18} className="text-primary" />
+                    <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/60">Transaction History</h3>
                  </div>
-
-                 <div className="relative z-10 space-y-10">
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2 px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
-                          <ShieldCheck size={12} className="text-primary" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Protected Asset Node</span>
-                       </div>
-                       <Zap size={24} className="text-primary opacity-30" />
-                    </div>
-
-                    <div className="space-y-4">
-                       <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/20">Liquid Authority</p>
-                       <div className="flex items-baseline gap-4">
-                          <h2 className="text-7xl md:text-8xl font-bold font-mono tracking-tighter text-glow leading-none">
-                             {userData.points.toLocaleString()}
-                          </h2>
-                          <span className="text-2xl md:text-3xl font-bold text-white/20 uppercase tracking-tighter">PTS</span>
-                       </div>
-                       <div className="flex items-center gap-3 text-2xl font-bold text-white/40 tracking-tighter">
-                          <span>≈ {formatUSD(PTS_TO_USD(userData.points))}</span>
-                          <span className="text-xs uppercase text-white/10 tracking-[0.2em] font-medium pt-2">Operational Estimate</span>
-                       </div>
-                    </div>
-
-                    <div className="pt-10 border-t border-white/5 grid grid-cols-2 md:grid-cols-3 gap-8">
-                       <div className="space-y-1">
-                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-[0.2em]">All-Time Yield</p>
-                          <p className="text-xl font-bold font-mono text-emerald-400">+{userData.stats?.totalEarnings.toLocaleString() || 0}</p>
-                       </div>
-                       <div className="space-y-1">
-                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-[0.2em]">Settled Tx</p>
-                          <p className="text-xl font-bold font-mono text-white/60">{transactions.length}</p>
-                       </div>
-                    </div>
-                 </div>
-              </motion.div>
-
-              {/* Enhanced Transaction Ledger */}
-              <div className="space-y-6">
-                 <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-3">
-                       <Activity size={18} className="text-primary" />
-                       <h3 className="text-xl font-bold tracking-tight uppercase">Audit Ledger</h3>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/[0.03] p-1 rounded-xl border border-white/10">
-                       {(['ALL', 'REWARDS', 'ADJUSTMENTS'] as const).map(f => (
-                          <button
-                             key={f}
-                             onClick={() => setActiveFilter(f)}
-                             className={cn(
-                                "px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                                activeFilter === f ? "bg-white/10 text-white shadow-lg" : "text-white/20 hover:text-white/40"
-                             )}
-                          >
-                             {f}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-
-                 <div className="space-y-1">
-                    {loading ? (
-                       [1,2,3,4].map(i => <div key={i} className="h-16 rounded-2xl bg-white/[0.01] animate-pulse mb-2" />)
-                    ) : filteredTransactions.length === 0 ? (
-                       <div className="py-20 text-center glass-panel rounded-[2rem] border-white/5">
-                          <p className="text-sm font-bold opacity-20 uppercase tracking-widest">No matching ledger entries</p>
-                       </div>
-                    ) : filteredTransactions.map(tx => (
-                       <div key={tx.id} className="fintech-ledger-row px-4 group hover:bg-white/[0.03]">
-                          <div className="flex items-center gap-4">
-                             <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center border",
-                                tx.amount > 0 ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"
-                             )}>
-                                {tx.amount > 0 ? <ArrowDownLeft size={16} className="text-emerald-500" /> : <ArrowUpRight size={16} className="text-rose-500" />}
-                             </div>
-                             <div>
-                                <p className="text-sm font-bold text-white/90 group-hover:text-primary transition-colors">{tx.description || tx.type.replace(/_/g, ' ')}</p>
-                                <p className="text-[10px] font-bold uppercase text-white/20 mt-0.5">{tx.source}</p>
-                             </div>
-                          </div>
-                          <div className="text-right">
-                             <p className={cn(
-                                "text-sm font-bold font-mono",
-                                tx.amount > 0 ? "text-emerald-400" : "text-rose-400"
-                             )}>
-                                {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
-                             </p>
-                             <p className="text-[9px] font-bold text-white/20 uppercase">
-                                {tx.timestamp instanceof Timestamp ? tx.timestamp.toDate().toLocaleDateString() : 'Pending'}
-                             </p>
-                          </div>
-                       </div>
+                 <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/5">
+                    {(['ALL', 'REWARDS', 'ADJUSTMENTS'] as const).map(f => (
+                       <button
+                          key={f}
+                          onClick={() => setActiveFilter(f)}
+                          className={cn(
+                             "px-5 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
+                             activeFilter === f ? "bg-white/5 text-white shadow-sm" : "text-white/20 hover:text-white/40"
+                          )}
+                       >
+                          {f}
+                       </button>
                     ))}
                  </div>
+              </div>
+
+              <div className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden divide-y divide-white/[0.03]">
+                 {loading ? (
+                    [1,2,3,4,5].map(i => <div key={i} className="h-20 bg-white/[0.01] animate-pulse" />)
+                 ) : filteredTransactions.length === 0 ? (
+                    <div className="py-32 text-center space-y-4">
+                       <History size={48} className="mx-auto opacity-5" />
+                       <p className="text-[10px] font-black opacity-20 uppercase tracking-[0.3em]">No transaction records found</p>
+                    </div>
+                 ) : filteredTransactions.map(tx => (
+                    <div key={tx.id} className="p-6 px-10 flex items-center justify-between hover:bg-white/[0.01] transition-all group">
+                       <div className="flex items-center gap-6">
+                          <div className={cn(
+                             "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all",
+                             tx.amount > 0 ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-500" : "bg-rose-500/5 border-rose-500/10 text-rose-500"
+                          )}>
+                             {tx.amount > 0 ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+                          </div>
+                          <div>
+                             <p className="text-base font-bold text-white/90 group-hover:text-white transition-colors">{tx.description || tx.type.replace(/_/g, ' ')}</p>
+                             <div className="flex items-center gap-3 mt-1">
+                                <p className="text-[10px] font-bold uppercase text-white/20">{tx.source}</p>
+                                <div className="w-1 h-1 rounded-full bg-white/5" />
+                                <p className="text-[9px] font-mono text-white/10 uppercase">
+                                   {tx.timestamp instanceof Timestamp ? tx.timestamp.toDate().toLocaleDateString() : 'Processing'}
+                                </p>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className={cn(
+                             "text-xl font-bold font-mono tracking-tight",
+                             tx.amount > 0 ? "text-emerald-400" : "text-rose-400"
+                          )}>
+                             {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                          </p>
+                          <p className="text-[8px] font-black text-white/10 uppercase tracking-widest mt-0.5">Verified</p>
+                       </div>
+                    </div>
+                 ))}
               </div>
            </div>
 
-           {/* Policy & State Context (5 cols) */}
-           <div className="lg:col-span-5 space-y-8">
+           {/* WALLET INSIGHTS (4 cols) */}
+           <div className="lg:col-span-4 space-y-10">
 
-              <div className="glass-panel p-8 rounded-[2.5rem] space-y-6">
+              <div className="v2-stat-card p-10 space-y-8">
                  <div className="flex items-center gap-3">
-                    <Info size={18} className="text-primary" />
-                    <h4 className="text-base font-bold">Policy Governance</h4>
+                    <TrendingUp size={20} className="text-emerald-500" />
+                    <h4 className="text-sm font-bold uppercase tracking-widest">Earnings Insight</h4>
                  </div>
-                 <div className="space-y-4">
-                    {[
-                       { label: 'Minimum Withdrawal', value: '10,000 PTS', icon: Zap },
-                       { label: 'Audit Duration', value: '24 - 48 Hours', icon: Clock },
-                       { label: 'Network Clearance', value: 'Verified Agent', icon: ShieldCheck },
-                    ].map((item, i) => (
-                       <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl group hover:border-primary transition-all">
-                          <div className="flex items-center gap-3">
-                             <item.icon size={14} className="text-white/20 group-hover:text-primary transition-colors" />
-                             <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">{item.label}</span>
-                          </div>
-                          <span className="text-xs font-bold text-white/80">{item.value}</span>
-                       </div>
-                    ))}
+                 <div className="space-y-6">
+                    <div className="space-y-1">
+                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">All-Time Rewards</p>
+                       <p className="text-3xl font-mono font-bold text-white">+{userData.stats?.totalEarnings.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="h-px bg-white/5 w-full" />
+                    <div className="space-y-1">
+                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Settled Transactions</p>
+                       <p className="text-3xl font-mono font-bold text-white">{transactions.length}</p>
+                    </div>
                  </div>
               </div>
 
-              <div className="glass-panel p-8 rounded-[2.5rem] space-y-6 bg-primary/[0.02]">
-                 <div className="flex items-center justify-between">
-                    <h4 className="text-base font-bold">Yield Velocity</h4>
-                    <RefreshCw size={14} className="text-primary/40 animate-spin-slow" />
+              <div className="p-10 border border-white/5 rounded-[2.5rem] bg-white/[0.01] space-y-8">
+                 <div className="flex items-center gap-3 text-primary">
+                    <Zap size={20} />
+                    <h4 className="text-sm font-bold uppercase tracking-widest">Account Limits</h4>
                  </div>
                  <div className="space-y-6">
                     <div className="space-y-3">
                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-white/20">Daily Cap Utilization</span>
+                          <span className="text-white/20">Daily Earning Limit</span>
                           <span className="text-primary">{Math.min(100, (userData.totalEarnedToday / 5000 * 100)).toFixed(0)}%</span>
                        </div>
-                       <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                       <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                           <motion.div
                              initial={{ width: 0 }}
                              animate={{ width: `${Math.min(100, (userData.totalEarnedToday / 5000 * 100))}%` }}
-                             className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.4)]"
+                             className="h-full bg-primary shadow-[0_0_15px_rgba(0,102,255,0.4)]"
                           />
                        </div>
-                       <p className="text-[10px] font-bold text-white/30 text-right uppercase tracking-tighter">
-                          {userData.totalEarnedToday.toLocaleString()} / 5,000 PTS AUTHORIZED
-                       </p>
                     </div>
-
                     <button
-                      onClick={() => toast.success("Capacity Request Logged")}
+                      onClick={() => toast.success("Limit increase request logged")}
                       className="w-full btn-secondary text-[10px] py-4 group"
                     >
-                       <div className="flex items-center justify-center gap-2">
-                          <span>Request Capacity Increase</span>
-                          <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                       </div>
+                       Request Higher Limit
                     </button>
                  </div>
               </div>
 
-              <div className="p-8 border border-white/[0.05] rounded-[2.5rem] bg-white/[0.01]">
-                 <div className="flex items-center gap-3 mb-4">
-                    <ExternalLink size={16} className="text-white/20" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Authoritative References</span>
+              <div className="p-8 border border-white/5 rounded-[2.5rem] space-y-4">
+                 <div className="flex items-center gap-2 text-white/20">
+                    <ExternalLink size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Policy References</span>
                  </div>
-                 <div className="space-y-2">
-                    <p className="text-xs text-white/40 leading-relaxed font-medium">
-                       All ledger entries are immutable and signed by the Pulse-core engine. Payouts are subject to verification of task completion authenticity.
-                    </p>
-                 </div>
+                 <p className="text-xs text-white/30 leading-relaxed font-medium">
+                    Redemption is subject to manual review and verification of all task completions. PulseEarn preserves an immutable audit trail for every point mutation.
+                 </p>
               </div>
 
            </div>

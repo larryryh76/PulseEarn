@@ -165,13 +165,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await PointTransactionEngine.execute({
           userId: referredBy,
           amount: 50,
-          type: 'referral_bonus',
+          type: 'referral_reward',
           source: `Referral bonus for ${username}`,
           claimId: `referral_${referredBy}_${user.uid}`
         });
 
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {
-          title: 'Referral Mission Success!',
+          title: 'Referral Task Success!',
           description: `A new member (${username}) joined via your code.`,
           type: 'system',
           read: false,
@@ -228,7 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await PointTransactionEngine.execute({
       userId: user.uid,
       amount: 10,
-      type: 'referral_bonus',
+      type: 'referral_reward',
       source: 'Signup Welcome Reward',
       claimId: `welcome_${user.uid}`,
       xpReward: 50

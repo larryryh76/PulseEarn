@@ -39,81 +39,84 @@ const Profile: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-12 pb-24 animate-in">
+      <div className="max-w-[1400px] mx-auto space-y-10 pb-24 animate-in">
 
-        {/* Profile Identity Deck */}
-        <section className="relative glass-panel rounded-[3rem] overflow-hidden border-white/10 shadow-2xl">
-           <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-primary/10 to-transparent" />
+        {/* Ecosystem Headquarters Identity Deck */}
+        <section className="relative bg-white/[0.01] border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
+           <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-primary/5 to-transparent" />
 
-           <div className="relative pt-12 md:pt-20 px-6 md:px-10 pb-8 md:pb-12 flex flex-col md:flex-row items-center md:items-end justify-between gap-8 md:gap-10">
-              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 w-full">
+           <div className="relative pt-12 md:pt-20 px-8 md:px-12 pb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-10">
+              <div className="flex flex-col md:flex-row items-center gap-8 w-full">
                  <div className="relative group shrink-0">
-                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] md:rounded-[3rem] bg-surface border-4 border-surface overflow-hidden shadow-2xl relative z-10 group-hover:scale-[1.02] transition-transform duration-500">
+                    <div className="w-40 h-40 md:w-48 md:h-48 rounded-[2.5rem] md:rounded-[3.5rem] bg-surface border-[6px] border-black/40 overflow-hidden shadow-2xl relative z-10 group-hover:scale-[1.02] transition-transform duration-500">
                        <img src={userData.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData.uid}`} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <button className="absolute bottom-2 right-2 p-3 bg-primary text-white rounded-2xl border-4 border-surface z-20 shadow-xl hover:scale-110 transition-transform">
-                       <Camera size={18} />
+                    <button className="absolute bottom-3 right-3 p-3.5 bg-primary text-white rounded-2xl border-[4px] border-black/40 z-20 shadow-xl hover:scale-110 transition-transform">
+                       <Camera size={20} />
                     </button>
-                    <div className="absolute -inset-4 bg-primary/20 blur-[60px] rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute -inset-6 bg-primary/20 blur-[80px] rounded-full opacity-40 group-hover:opacity-70 transition-opacity" />
                  </div>
 
-                 <div className="space-y-3 text-center md:text-left min-w-0 flex-1">
-                    <div className="flex flex-col md:flex-row items-center gap-3 overflow-hidden">
-                       <h1 className="text-3xl md:text-4xl font-bold tracking-tight truncate w-full">{userData.username}</h1>
-                       <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 flex items-center gap-2 shrink-0">
-                          <Verified size={12} className="text-primary" />
-                          <span className="text-[10px] font-bold text-primary uppercase tracking-widest">LVL {userData.level} User</span>
+                 <div className="space-y-4 text-center md:text-left min-w-0 flex-1">
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                       <h1 className="text-4xl md:text-5xl font-bold tracking-tight truncate w-full">{userData.username}</h1>
+                       <div className="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 flex items-center gap-2 shrink-0">
+                          <Shield size={12} className="text-primary" />
+                          <span className="text-[10px] font-black text-primary uppercase tracking-widest">AUTHORIZED OPERATOR</span>
                        </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 md:gap-4 text-white/40 text-sm font-medium justify-center md:justify-start">
-                       <div className="flex items-center gap-2 min-w-0">
-                          <Mail size={14} className="opacity-50 shrink-0" />
+                    <div className="flex flex-wrap items-center gap-4 text-white/40 text-base font-medium justify-center md:justify-start">
+                       <div className="flex items-center gap-2.5">
+                          <Mail size={16} className="opacity-40" />
                           <span className="truncate">{userData.email}</span>
                        </div>
-                       <span className="hidden sm:block w-1 h-1 rounded-full bg-white/10" />
-                       <div className="flex items-center gap-2 shrink-0">
-                          <Fingerprint size={14} className="opacity-50" />
-                          <span className="font-mono text-xs uppercase pr-4">ID: {userData.uid.substring(0, 8)}...</span>
+                       <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden sm:block" />
+                       <div className="flex items-center gap-2.5 font-mono text-sm uppercase">
+                          <Fingerprint size={16} className="opacity-40" />
+                          <span className="tracking-tighter pr-4">NODE-ID: {userData.uid.substring(0, 12)}</span>
                        </div>
                     </div>
                  </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-4 shrink-0 relative z-10">
                  <button
                   onClick={() => setActiveTab('SETTINGS')}
-                  className="btn-secondary flex items-center gap-2"
+                  className="px-8 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/[0.06] transition-all flex items-center gap-3"
                  >
                     <Settings size={14} />
-                    Settings
+                    Configuration
                  </button>
-                 <button onClick={() => logout()} className="btn-secondary text-rose-500 hover:bg-rose-500/10 border-rose-500/10">
-                    Sign Out
+                 <button
+                  onClick={() => logout()}
+                  className="px-8 py-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-rose-500 hover:bg-rose-500/20 transition-all"
+                 >
+                    Terminate Session
                  </button>
               </div>
            </div>
 
-           {/* Tab Selection */}
-           <div className="px-6 md:px-10 pb-8 flex items-center gap-8 border-t border-white/5 pt-8 overflow-x-auto no-scrollbar">
+           {/* Tab Architecture */}
+           <div className="px-8 md:px-12 pb-10 flex items-center gap-10 border-t border-white/5 pt-10 overflow-x-auto no-scrollbar">
               {(['IDENTITY', 'SETTINGS', 'ACHIEVEMENTS', 'ACTIVITY'] as const).map(tab => (
                  <button
                    key={tab}
                    onClick={() => setActiveTab(tab)}
                    className={cn(
-                      "text-[10px] font-bold uppercase tracking-[0.2em] transition-all relative pb-2 shrink-0",
+                      "text-[11px] font-black uppercase tracking-[0.25em] transition-all relative pb-3 shrink-0",
                       activeTab === tab ? "text-white" : "text-white/20 hover:text-white/40"
                    )}
                  >
                     {tab}
                     {activeTab === tab && (
-                       <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                       <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-1 bg-primary shadow-[0_0_10px_rgba(0,102,255,0.5)]" />
                     )}
                  </button>
               ))}
            </div>
         </section>
 
-        {/* Content Center */}
+        {/* Content Matrix */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
            {/* Primary column (8 cols) */}

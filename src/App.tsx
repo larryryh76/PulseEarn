@@ -14,6 +14,7 @@ import SystemOperationsHub from './components/admin/SystemOperationsHub'
 import GlobalEconomyLog from './components/admin/GlobalEconomyLog'
 import TaskOrchestrator from './components/admin/TaskOrchestrator'
 import UserModeration from './components/admin/UserModeration'
+import SecurityFraudHub from './components/admin/SecurityFraudHub'
 import SystemSettings from './components/admin/SystemSettings'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -148,6 +149,7 @@ function App() {
           <Route path="ledger" element={<GlobalEconomyLog />} />
           <Route path="users" element={<UserModeration />} />
           <Route path="tasks" element={<TaskOrchestrator />} />
+          <Route path="security" element={<SecurityFraudHub />} />
           <Route path="settings" element={<SystemSettings />} />
         </Route>
 

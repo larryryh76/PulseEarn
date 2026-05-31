@@ -44,44 +44,49 @@ const SettingsPanel: React.FC = () => {
   const avatarSeeds = ['Spooky', 'Ginger', 'Felix', 'Jasper', 'Milo', 'Luna'];
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-10 pb-20 max-w-3xl">
       {/* Account Section */}
       <div className="space-y-4">
-         <h3 className="text-[11px] font-bold text-white/20 uppercase tracking-[0.2em] ml-1">Account Identity</h3>
-         <Card className="p-6 border-white/[0.03] bg-white/[0.01] space-y-6">
-            <div className="flex flex-col gap-4">
-               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Global Avatar Seed</label>
-               <div className="flex flex-wrap gap-3">
+         <div className="flex items-center gap-3 ml-1">
+            <User size={16} className="text-primary/40" />
+            <h3 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Identity Matrix</h3>
+         </div>
+         <div className="p-8 md:p-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] space-y-10">
+            <div className="space-y-6">
+               <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Visual Identification Seed</label>
+               <div className="flex flex-wrap gap-4">
                   {avatarSeeds.map(seed => (
                     <button
                       key={seed}
                       onClick={() => updateProfile({ avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${seed}` })}
                       className={cn(
-                        "w-12 h-12 rounded-xl border-2 transition-all p-1",
-                        userData.avatarUrl?.includes(seed) ? "border-primary bg-primary/10" : "border-transparent bg-white/5 hover:bg-white/10"
+                        "w-14 h-14 rounded-2xl border-2 transition-all p-1 hover:scale-110 active:scale-95",
+                        userData.avatarUrl?.includes(seed) ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,102,255,0.2)]" : "border-white/5 bg-white/5 hover:bg-white/10"
                       )}
                     >
-                       <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${seed}`} alt={seed} className="w-full h-full" />
+                       <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${seed}`} alt={seed} className="w-full h-full rounded-xl" />
                     </button>
                   ))}
                </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
                <div>
-                  <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Display Name</label>
-                  <div className="relative">
+                  <label className="block text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mb-4 px-1">Display Pseudonym</label>
+                  <div className="relative group">
                      <input
                        type="text"
                        defaultValue={userData.username}
                        onBlur={(e) => userData.username !== e.target.value && updateProfile({ username: e.target.value })}
-                       className="w-full bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                       className="w-full bg-black border border-white/10 rounded-2xl py-5 px-6 text-base font-bold text-white group-focus-within:border-primary/50 transition-all outline-none"
                      />
-                     <User size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/10" />
+                     <div className="absolute right-6 top-1/2 -translate-y-1/2 text-white/10 group-focus-within:text-primary transition-colors">
+                        <User size={20} />
+                     </div>
                   </div>
                </div>
             </div>
-         </Card>
+         </div>
       </div>
 
       {/* System Preferences */}

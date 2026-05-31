@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
+import toast from 'react-hot-toast';
+import { Activity } from 'lucide-react';
 
 const Wallet: React.FC = () => {
   const { userData } = useAuth();
@@ -47,85 +49,107 @@ const Wallet: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-12 pb-24 animate-in">
+      <div className="max-w-[1400px] mx-auto space-y-10 pb-24 animate-in">
 
         {/* Financial Authority Header */}
-        <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/[0.05] pb-10">
-           <div className="space-y-1">
-              <h2 className="section-label pr-10">Financial Command</h2>
-              <h1 className="text-4xl font-bold tracking-tight">System Assets</h1>
-              <p className="text-sm text-white/40">Secure authoritative ledger for your ecosystem capital.</p>
+        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-10 relative overflow-hidden">
+           <div className="space-y-4 relative z-10">
+              <div className="flex items-center gap-3">
+                 <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.5)]" />
+                 <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">System Assets</h2>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Wallet Control</h1>
+              <p className="text-base text-white/40 max-w-xl leading-relaxed">
+                 Secure authoritative ledger for your ecosystem capital. All transactions are signed and verified by the Pulse-Core financial engine.
+              </p>
            </div>
 
-           <div className="flex items-center gap-3">
-              <button className="btn-secondary flex items-center gap-2">
+           <div className="flex flex-wrap items-center gap-4 relative z-10">
+              <button
+                onClick={() => toast.error("Ledger Export: Authorization Pending")}
+                className="px-6 py-3.5 bg-white/[0.03] border border-white/10 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/[0.05] transition-all flex items-center gap-2"
+              >
                  <Download size={14} />
-                 Statements
+                 Export Ledger
               </button>
-              <button className="btn-primary flex items-center gap-2 px-8">
+              <button
+                onClick={() => toast.error("Gateway Offline: Minimum 10,000 PTS required")}
+                className="px-8 py-4 bg-primary text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
                  Withdrawal Gateway
               </button>
            </div>
+
+           <WalletIcon size={300} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.01] pointer-events-none" />
         </section>
 
-        {/* Apple Wallet Style Balance Deck */}
+        {/* Main Wallet Composition */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
 
-           <div className="lg:col-span-7 space-y-12">
+           {/* Left Deck: Balance & Ledger (7 cols) */}
+           <div className="lg:col-span-7 space-y-10">
+
+              {/* Premium Balance Visualization */}
               <motion.div
-                whileHover={{ y: -5 }}
-                className="bg-gradient-to-br from-primary/20 via-primary/5 to-surface border border-white/10 rounded-[3rem] p-12 relative overflow-hidden group shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-primary/10 via-primary/[0.02] to-transparent border border-primary/20 rounded-[3rem] p-12 relative overflow-hidden group shadow-2xl"
               >
                  <div className="absolute top-0 right-0 p-12 opacity-[0.05] group-hover:opacity-10 transition-opacity">
-                    <WalletIcon size={200} />
+                    <WalletIcon size={180} />
                  </div>
 
                  <div className="relative z-10 space-y-10">
                     <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+                       <div className="flex items-center gap-2 px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
                           <ShieldCheck size={12} className="text-primary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Protected Account</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Protected Asset Node</span>
                        </div>
-                       <Zap size={24} className="text-primary opacity-20" />
+                       <Zap size={24} className="text-primary opacity-30" />
                     </div>
 
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Authorized Balance</p>
-                       <div className="flex items-baseline gap-3">
-                          <h2 className="text-7xl font-bold font-mono tracking-tighter text-glow">{userData.points.toLocaleString()}</h2>
-                          <span className="text-2xl font-bold text-white/20">PTS</span>
+                    <div className="space-y-4">
+                       <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/20">Liquid Authority</p>
+                       <div className="flex items-baseline gap-4">
+                          <h2 className="text-7xl md:text-8xl font-bold font-mono tracking-tighter text-glow leading-none">
+                             {userData.points.toLocaleString()}
+                          </h2>
+                          <span className="text-2xl md:text-3xl font-bold text-white/20 uppercase tracking-tighter">PTS</span>
                        </div>
-                       <p className="text-xl font-bold text-white/40 tracking-tighter">
-                          ≈ {formatUSD(PTS_TO_USD(userData.points))}
-                       </p>
+                       <div className="flex items-center gap-3 text-2xl font-bold text-white/40 tracking-tighter">
+                          <span>≈ {formatUSD(PTS_TO_USD(userData.points))}</span>
+                          <span className="text-xs uppercase text-white/10 tracking-[0.2em] font-medium pt-2">Operational Estimate</span>
+                       </div>
                     </div>
 
-                    <div className="pt-10 border-t border-white/5 flex items-center gap-10">
-                       <div>
-                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-widest mb-1">Total Yield</p>
-                          <p className="text-lg font-bold font-mono text-emerald-400">+{userData.stats?.totalEarnings.toLocaleString() || 0}</p>
+                    <div className="pt-10 border-t border-white/5 grid grid-cols-2 md:grid-cols-3 gap-8">
+                       <div className="space-y-1">
+                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-[0.2em]">All-Time Yield</p>
+                          <p className="text-xl font-bold font-mono text-emerald-400">+{userData.stats?.totalEarnings.toLocaleString() || 0}</p>
                        </div>
-                       <div className="w-px h-8 bg-white/5" />
-                       <div>
-                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-widest mb-1">Weekly Delta</p>
-                          <p className="text-lg font-bold font-mono text-white/60">0.0%</p>
+                       <div className="space-y-1">
+                          <p className="text-[9px] font-bold uppercase text-white/20 tracking-[0.2em]">Settled Tx</p>
+                          <p className="text-xl font-bold font-mono text-white/60">{transactions.length}</p>
                        </div>
                     </div>
                  </div>
               </motion.div>
 
-              {/* Transaction Ledger */}
+              {/* Enhanced Transaction Ledger */}
               <div className="space-y-6">
-                 <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold tracking-tight">Audit Ledger</h3>
-                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                 <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-3">
+                       <Activity size={18} className="text-primary" />
+                       <h3 className="text-xl font-bold tracking-tight uppercase">Audit Ledger</h3>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/[0.03] p-1 rounded-xl border border-white/10">
                        {(['ALL', 'REWARDS', 'ADJUSTMENTS'] as const).map(f => (
                           <button
                              key={f}
                              onClick={() => setActiveFilter(f)}
                              className={cn(
-                                "px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all",
-                                activeFilter === f ? "bg-white/10 text-white" : "text-white/20 hover:text-white/40"
+                                "px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all",
+                                activeFilter === f ? "bg-white/10 text-white shadow-lg" : "text-white/20 hover:text-white/40"
                              )}
                           >
                              {f}
@@ -220,7 +244,10 @@ const Wallet: React.FC = () => {
                        </p>
                     </div>
 
-                    <button className="w-full btn-secondary text-[10px] py-4 group">
+                    <button
+                      onClick={() => toast.success("Capacity Request Logged")}
+                      className="w-full btn-secondary text-[10px] py-4 group"
+                    >
                        <div className="flex items-center justify-center gap-2">
                           <span>Request Capacity Increase</span>
                           <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />

@@ -23,7 +23,7 @@ const Tasks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
 
-  const categories: (TaskCategory | 'ALL')[] = ['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'STREAK'];
+  const categories: (TaskCategory | 'ALL')[] = ['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'STREAK', 'SEASONAL'];
 
   const filteredTasks = tasks.filter(task => {
     const matchesCategory = activeCategory === 'ALL' || task.category === activeCategory;
@@ -56,7 +56,7 @@ const Tasks: React.FC = () => {
                <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,102,255,0.5)]" />
                <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Mission Marketplace</h2>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Mission Terminal</h1>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Mission Marketplace</h1>
             <p className="text-base text-white/40 max-w-xl leading-relaxed">
               Engage with authorized ecosystem partners to secure high-yield Pulse and XP rewards. Every mission is verified through the Pulse-Core validation engine.
             </p>
@@ -80,7 +80,7 @@ const Tasks: React.FC = () => {
                 <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
-                  placeholder="Scan mission protocols..."
+                  placeholder="Scan mission tasks..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-14 pr-6 py-4 bg-black/40 border border-white/10 rounded-[1.5rem] text-sm font-medium focus:border-primary outline-none transition-all placeholder:text-white/10"

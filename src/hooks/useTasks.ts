@@ -197,7 +197,7 @@ export const useTasks = () => {
       });
 
       if (!result.success) {
-        toast.error(result.error || 'Reward protocol failure');
+        toast.error(result.error || 'Reward system failure');
         return;
       }
 

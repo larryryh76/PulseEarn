@@ -49,11 +49,11 @@ const SettingsPanel: React.FC = () => {
       <div className="space-y-4">
          <div className="flex items-center gap-3 ml-1">
             <User size={16} className="text-primary/40" />
-            <h3 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Identity Matrix</h3>
+            <h3 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Identity Details</h3>
          </div>
          <div className="p-8 md:p-10 bg-white/[0.01] border border-white/5 rounded-[2.5rem] space-y-10">
             <div className="space-y-6">
-               <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Visual Identification Seed</label>
+               <label className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Choose Avatar Profile</label>
                <div className="flex flex-wrap gap-4">
                   {avatarSeeds.map(seed => (
                     <button
@@ -72,7 +72,7 @@ const SettingsPanel: React.FC = () => {
 
             <div className="space-y-6">
                <div>
-                  <label className="block text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mb-4 px-1">Display Pseudonym</label>
+                  <label className="block text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mb-4 px-1">Display Name</label>
                   <div className="relative group">
                      <input
                        type="text"

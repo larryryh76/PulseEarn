@@ -77,7 +77,7 @@ const SupportPortal: React.FC = () => {
         <section id="faq-top" className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/[0.05] pb-10">
           <div className="space-y-1">
             <h2 className="section-label">System Support</h2>
-            <h1 className="text-4xl font-bold tracking-tight">Support Terminal</h1>
+            <h1 className="text-4xl font-bold tracking-tight">Support Center</h1>
             <p className="text-sm text-white/40 font-medium">Authorized resource center for troubleshooting and infrastructure signals.</p>
           </div>
 

@@ -57,7 +57,7 @@ const Navbar: React.FC = () => {
            )}
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 md:gap-5">
            {currentUser && (
               <div className="hidden lg:flex items-center gap-4 bg-white/[0.03] border border-white/[0.05] p-1 rounded-2xl mr-2">
                  <div className="px-4 py-2 flex items-center gap-2">
@@ -71,7 +71,7 @@ const Navbar: React.FC = () => {
               </div>
            )}
 
-           <div className="hidden md:block">
+           <div className="hidden sm:block">
               <ConnectButton.Custom>
                  {({ account, chain, openConnectModal, mounted }) => {
                     if (!mounted || !account || !chain) {
@@ -92,7 +92,7 @@ const Navbar: React.FC = () => {
            </div>
 
            {currentUser ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 md:gap-4">
                  <div className="relative">
                     <button
                       onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}

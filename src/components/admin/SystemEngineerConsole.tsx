@@ -24,7 +24,7 @@ const SystemEngineerConsole: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [repairQueue, setRepairQueue] = useState<RepairProposal[]>([]);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    '[SystemAI] Platform Engineering Module Initialized...',
+    '[SystemAI] Platform Engineering System Initialized...',
     '[SystemAI] Awaiting deep scan instruction...'
   ]);
 
@@ -62,7 +62,7 @@ const SystemEngineerConsole: React.FC = () => {
 
   const runDeepScan = async () => {
     setIsScanning(true);
-    setTerminalLogs(prev => [...prev, '[SystemAI] Initiating repository-wide recursive scan...', '[SystemAI] Analyzing Firestore data structures...', '[SystemAI] Checking protocol consistency...']);
+    setTerminalLogs(prev => [...prev, '[SystemAI] Initiating repository-wide recursive scan...', '[SystemAI] Analyzing Firestore data structures...', '[SystemAI] Checking system consistency...']);
 
     try {
       const findings: any = await SystemScannerEngine.performInstitutionalScan();

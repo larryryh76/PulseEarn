@@ -35,8 +35,8 @@ class ErrorBoundary extends Component<Props, State> {
               <ShieldAlert size={24} />
            </div>
            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">Interface Fault</h3>
-              <p className="text-[11px] text-white/40 mt-1">The {this.props.name || 'module'} encountered a runtime error.</p>
+              <h3 className="text-sm font-bold text-white uppercase tracking-widest">System Error</h3>
+              <p className="text-[11px] text-white/40 mt-1">The {this.props.name || 'component'} encountered a runtime error.</p>
            </div>
            <Button
              variant="outline"
@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
              onClick={() => this.setState({ hasError: false })}
            >
               <RefreshCcw size={12} className="mr-2" />
-              Reset Module
+              Reload Component
            </Button>
         </div>
       );

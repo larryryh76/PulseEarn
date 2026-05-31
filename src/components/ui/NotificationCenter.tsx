@@ -52,7 +52,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (isOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as HTMLElement)) {
         onClose();
       }
     };
@@ -117,9 +117,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              md-initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              md-animate={{ opacity: 1, y: 0, scale: 1 }}
-              md-exit={{ opacity: 0, y: 8, scale: 0.98 }}
               className="w-full md:w-[400px] bg-[#08080a] border-t md:border border-white/[0.08] rounded-t-[2.5rem] md:rounded-[2rem] shadow-[0_-20px_40px_-12px_rgba(0,0,0,0.5)] md:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] overflow-hidden"
             >
               {/* Drag Handle for Mobile */}

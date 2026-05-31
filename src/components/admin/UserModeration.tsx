@@ -41,7 +41,7 @@ const UserModeration: React.FC = () => {
       type: 'AI_SYSTEM_CORRECTION',
       source: 'Administrative Reconciliation',
       claimId,
-      description: 'System balance reconciliation by authorized operator.'
+      description: 'System balance reconciliation by authorized administrator.'
     });
 
     if (result.success) toast.success(`Reconciliation complete: ${amount > 0 ? '+' : ''}${amount} PTS`);
@@ -64,7 +64,7 @@ const UserModeration: React.FC = () => {
             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 pr-10 border-r border-white/10">Subject Intelligence</h2>
             <div className="flex items-center gap-2 pl-2">
                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-               <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Operator Monitoring Active</span>
+               <span className="text-[10px] font-bold uppercase text-primary tracking-widest">System Monitoring Active</span>
             </div>
           </div>
           <h1 className="text-4xl font-bold tracking-tight text-white">Identity Governance</h1>
@@ -123,7 +123,7 @@ const UserModeration: React.FC = () => {
                           </div>
                        </td>
                        <td className="px-8 py-6">
-                          <span className="text-[10px] font-mono font-black text-white/20 px-3 py-1 rounded-full border border-white/5 group-hover:border-white/20 transition-all uppercase">LVL {user.level || 1} OPERATOR</span>
+                          <span className="text-[10px] font-mono font-black text-white/20 px-3 py-1 rounded-full border border-white/5 group-hover:border-white/20 transition-all uppercase">LVL {user.level || 1} User</span>
                        </td>
                        <td className="px-8 py-6">
                           {user.isBanned ? (

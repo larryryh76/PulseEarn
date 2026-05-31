@@ -21,7 +21,7 @@ const HelpCenter: React.FC = () => {
   const faqs = [
     {
       q: "How do I earn Pulse points?",
-      a: "You can earn Pulse by completing daily missions, watching the terminal feed, participating in market predictions, and referring new users to the platform."
+      a: "You can earn Pulse by completing daily missions, watching the market feed, participating in market predictions, and referring new users to the platform."
     },
     {
       q: "What are Reward Levels?",
@@ -77,7 +77,7 @@ const HelpCenter: React.FC = () => {
       `
     },
     {
-      id: 'oracle',
+      id: 'forecasting',
       title: "Market Forecasting",
       icon: TrendingUp,
       color: "text-green-400",

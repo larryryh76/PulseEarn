@@ -125,7 +125,7 @@ const SecurityFraudHub: React.FC = () => {
             <div className="bg-[#08080a] border border-white/5 rounded-[2rem] p-8 space-y-8 shadow-2xl">
                <div className="flex items-center gap-3">
                   <Fingerprint size={18} className="text-primary" />
-                  <h4 className="text-base font-bold uppercase tracking-tight">Scanner Protocols</h4>
+                  <h4 className="text-base font-bold uppercase tracking-tight">Scanner Systems</h4>
                </div>
 
                <div className="space-y-4">

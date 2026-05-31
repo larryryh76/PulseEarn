@@ -64,7 +64,7 @@ const GlobalEconomyLog: React.FC = () => {
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Execution Timestamp</th>
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Transaction Nonce</th>
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Subject Entity</th>
-                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">Protocol Operation</th>
+                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20">System Operation</th>
                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 text-right">Settlement (PTS)</th>
                   </tr>
                </thead>

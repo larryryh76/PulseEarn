@@ -107,15 +107,15 @@ const EcosystemIntelligence: React.FC = () => {
                  { name: 'Security System', status: 'Scanning', load: '45%' },
                  { name: 'Market Data', status: 'Synced', load: '2%' },
                  { name: 'Task Validation', status: 'Optimal', load: '8%' }
-               ].map((protocol, i) => (
+               ].map((system, i) => (
                  <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
                     <div className="flex items-center gap-4">
                        <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                       <p className="text-xs font-bold text-white/80">{protocol.name}</p>
+                       <p className="text-xs font-bold text-white/80">{system.name}</p>
                     </div>
                     <div className="text-right">
-                       <p className="text-[10px] font-bold text-white/40 uppercase">{protocol.status}</p>
-                       <p className="text-[9px] font-mono text-primary/60">{protocol.load} LOAD</p>
+                       <p className="text-[10px] font-bold text-white/40 uppercase">{system.status}</p>
+                       <p className="text-[9px] font-mono text-primary/60">{system.load} LOAD</p>
                     </div>
                  </div>
                ))}

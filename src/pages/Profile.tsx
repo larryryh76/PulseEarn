@@ -62,7 +62,7 @@ const Profile: React.FC = () => {
                        <h1 className="text-4xl md:text-5xl font-bold tracking-tight truncate w-full">{userData.username}</h1>
                        <div className="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 flex items-center gap-2 shrink-0">
                           <Shield size={12} className="text-primary" />
-                          <span className="text-[10px] font-black text-primary uppercase tracking-widest">AUTHORIZED OPERATOR</span>
+                          <span className="text-[10px] font-black text-primary uppercase tracking-widest">Verified Account</span>
                        </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-white/40 text-base font-medium justify-center md:justify-start">
@@ -73,7 +73,7 @@ const Profile: React.FC = () => {
                        <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden sm:block" />
                        <div className="flex items-center gap-2.5 font-mono text-sm uppercase">
                           <Fingerprint size={16} className="opacity-40" />
-                          <span className="tracking-tighter pr-4">NODE-ID: {userData.uid.substring(0, 12)}</span>
+                          <span className="tracking-tighter pr-4">User ID: {userData.uid.substring(0, 12)}</span>
                        </div>
                     </div>
                  </div>
@@ -85,13 +85,13 @@ const Profile: React.FC = () => {
                   className="px-8 py-4 bg-white/[0.03] border border-white/10 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/[0.06] transition-all flex items-center gap-3"
                  >
                     <Settings size={14} />
-                    Configuration
+                    Settings
                  </button>
                  <button
                   onClick={() => logout()}
                   className="px-8 py-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-rose-500 hover:bg-rose-500/20 transition-all"
                  >
-                    Terminate Session
+                    Sign Out
                  </button>
               </div>
            </div>
@@ -116,7 +116,7 @@ const Profile: React.FC = () => {
            </div>
         </section>
 
-        {/* Content Matrix */}
+        {/* Content Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
            {/* Primary column (8 cols) */}

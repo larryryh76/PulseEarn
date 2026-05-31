@@ -60,7 +60,7 @@ const Earn: React.FC = () => {
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(0,102,255,0.5)]" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Yield Optimization Active</span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight uppercase">Mission Terminal</h1>
+            <h1 className="text-4xl font-bold tracking-tight uppercase">Mission Hub</h1>
             <p className="text-sm text-white/40 font-medium">Execute high-velocity sequences to authorize point distributions.</p>
           </div>
 

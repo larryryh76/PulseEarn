@@ -333,7 +333,7 @@ export class PointTransactionEngine {
         requestType: request.type,
         timestamp: serverTimestamp(),
         severity: (error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM',
-        context: 'PROTOCOL_VALIDATION_FAILURE'
+        context: 'SYSTEM_VALIDATION_FAILURE'
       });
     } catch (e) {
       // Background logging failsafe

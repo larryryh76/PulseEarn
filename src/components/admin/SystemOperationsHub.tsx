@@ -22,7 +22,7 @@ const SystemOperationsHub: React.FC = () => {
   const [anomalies, setAnomalies] = useState<any[]>([]);
   const [repairQueue, setRepairQueue] = useState<RepairProposal[]>([]);
   const [logs, setLogs] = useState<any[]>([
-    { timestamp: new Date(), level: 'INFO', message: 'Pulse-core Infrastructure Interface established.' },
+    { timestamp: new Date(), level: 'INFO', message: 'Pulse-core Infrastructure System established.' },
     { timestamp: new Date(), level: 'AUTH', message: 'Administrator clearance verified. System ready.' }
   ]);
   const [input, setInput] = useState('');
@@ -88,8 +88,8 @@ const SystemOperationsHub: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase text-emerald-500 tracking-widest">Core Synchronized</span>
                </div>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight">Infrastructure Control</h1>
-            <p className="text-sm text-white/40 font-medium">Authoritative system management and operational repair matrix.</p>
+            <h1 className="text-4xl font-bold tracking-tight">Infrastructure Management</h1>
+            <p className="text-sm text-white/40 font-medium">Authoritative system management and operational overview.</p>
          </div>
 
          <div className="flex items-center gap-4">
@@ -133,7 +133,7 @@ const SystemOperationsHub: React.FC = () => {
                          l.level === 'ERROR' ? 'text-rose-500' :
                          l.level === 'OPERATOR' ? 'text-primary' :
                          l.level === 'SYSTEM' ? 'text-emerald-500' : 'text-white/30'
-                       )}>{l.level}</span>
+                       )}>{l.level === 'OPERATOR' ? 'ADMIN' : l.level}</span>
                        <span className={cn(
                          "leading-relaxed",
                          l.level === 'OPERATOR' ? 'text-white' : 'text-white/60'
@@ -144,7 +144,7 @@ const SystemOperationsHub: React.FC = () => {
                     <div className="flex gap-4 animate-pulse">
                        <span className="text-white/10">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
                        <span className="text-primary font-bold w-16 uppercase">EXEC</span>
-                       <span className="text-primary/60">Executing deep packet inspection and trace...</span>
+                       <span className="text-primary/60">Executing system-wide inspection and trace...</span>
                     </div>
                   )}
                   <div ref={logEndRef} />

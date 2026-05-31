@@ -103,13 +103,13 @@ const Wallet: React.FC = () => {
                     <div className="flex items-center justify-between">
                        <div className="flex items-center gap-2 px-4 py-1.5 bg-primary/10 border border-primary/20 rounded-full">
                           <ShieldCheck size={12} className="text-primary" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Protected Asset Node</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Protected Wallet</span>
                        </div>
                        <Zap size={24} className="text-primary opacity-30" />
                     </div>
 
                     <div className="space-y-4">
-                       <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/20">Liquid Authority</p>
+                       <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/20">Available Balance</p>
                        <div className="flex items-baseline gap-4">
                           <h2 className="text-7xl md:text-8xl font-bold font-mono tracking-tighter text-glow leading-none">
                              {userData.points.toLocaleString()}
@@ -118,7 +118,7 @@ const Wallet: React.FC = () => {
                        </div>
                        <div className="flex items-center gap-3 text-2xl font-bold text-white/40 tracking-tighter">
                           <span>≈ {formatUSD(PTS_TO_USD(userData.points))}</span>
-                          <span className="text-xs uppercase text-white/10 tracking-[0.2em] font-medium pt-2">Operational Estimate</span>
+                          <span className="text-xs uppercase text-white/10 tracking-[0.2em] font-medium pt-2">Estimated Value</span>
                        </div>
                     </div>
 

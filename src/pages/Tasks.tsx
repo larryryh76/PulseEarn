@@ -129,7 +129,7 @@ const Tasks: React.FC = () => {
                        <div className="space-y-5">
                           <div className="flex items-start justify-between">
                              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <Zap size={24} fill={task.category === 'DAILY' ? 'currentColor' : 'none'} className={task.category === 'DAILY' ? 'animate-pulse' : ''} />
+                                <Zap size={24} fill={task.category === 'STREAK' ? 'currentColor' : 'none'} className={task.category === 'STREAK' ? 'animate-pulse' : ''} />
                              </div>
                              <div className="flex flex-col items-end gap-1.5">
                                 <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[8px] font-black uppercase tracking-[0.1em] text-white/30">

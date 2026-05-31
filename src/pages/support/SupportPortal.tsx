@@ -4,13 +4,13 @@ import {
   Search,
   ChevronDown,
   FileText,
-  ShieldQuestion,
   LifeBuoy,
   Plus,
   Send,
-  ExternalLink,
   ShieldAlert,
-  History
+  History,
+  Zap,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';

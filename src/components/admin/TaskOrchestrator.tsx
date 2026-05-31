@@ -26,7 +26,7 @@ import {
   addDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { Task, TaskClaim, SubmissionStatus, VerificationType } from '../../types';
+import { Task, TaskClaim, SubmissionStatus, VerificationType, TaskCategory } from '../../types';
 import { TaskEngine } from '../../engines/tasks/TaskEngine';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';

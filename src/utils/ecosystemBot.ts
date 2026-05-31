@@ -7,7 +7,7 @@ export class EcosystemBot {
    * Generates a dynamic campaign of missions
    */
   static async spawnCampaign() {
-    const categories: Task['category'][] = ['SOCIAL', 'DAILY', 'LEARN', 'ECOSYSTEM'];
+    const categories: Task['category'][] = ['SOCIAL', 'STREAK', 'EDUCATION', 'ENGAGEMENT'];
 
     for (const category of categories) {
       await addDoc(collection(db, 'tasks'), {

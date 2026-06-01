@@ -9,15 +9,19 @@ import {
   History,
   ShieldCheck,
   Zap,
-  CreditCard
+  CreditCard,
+  AlertCircle,
+  X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
+import { PTS_TO_USD, formatUSD, WITHDRAWAL_MIN_PTS } from '../utils/finance';
 
 const Wallet: React.FC = () => {
   const { userData } = useAuth();
   const { activities, loading } = useTasks();
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'WITHDRAW'>('LEDGER');
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
 
   if (loading) return (
     <MainLayout>
@@ -29,6 +33,9 @@ const Wallet: React.FC = () => {
       </div>
     </MainLayout>
   );
+
+  const points = userData?.points || 0;
+  const usdValue = PTS_TO_USD(points);
 
   return (
     <MainLayout>
@@ -50,7 +57,6 @@ const Wallet: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="system-card bg-gradient-to-br from-surface to-surface border-primary/20 mb-12 relative overflow-hidden group"
         >
-          {/* Visual Accents */}
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] group-hover:bg-primary/20 transition-all duration-500" />
 
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -61,17 +67,22 @@ const Wallet: React.FC = () => {
                 </div>
                 <span className="data-label">Total Assets</span>
               </div>
-              <p className="text-4xl md:text-6xl font-mono font-bold tracking-tight text-white flex items-baseline gap-3">
-                {userData?.points.toLocaleString() || '0'}
-                <span className="text-sm font-bold text-primary uppercase tracking-[0.2em]">PTS</span>
-              </p>
+              <div className="space-y-1">
+                <p className="text-4xl md:text-6xl font-mono font-bold tracking-tight text-white flex items-baseline gap-3">
+                  {points.toLocaleString()}
+                  <span className="text-sm font-bold text-primary uppercase tracking-[0.2em]">PTS</span>
+                </p>
+                <p className="text-xl md:text-2xl font-mono text-text-secondary">
+                  &asymp; {formatUSD(usdValue)}
+                </p>
+              </div>
               <div className="flex items-center gap-6 mt-8">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={16} className="text-success" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Secured by PulseEngine</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Secured Vault</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RefreshCw size={14} className="text-primary animate-spin-slow" />
+                  <RefreshCw size={14} className="text-primary" />
                   <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Real-time Sync</span>
                 </div>
               </div>
@@ -84,7 +95,10 @@ const Wallet: React.FC = () => {
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-widest">Earn More</span>
               </button>
-              <button className="system-card bg-white/5 border-border flex flex-col items-center justify-center p-6 hover:bg-white/10 transition-all group/btn">
+              <button
+                onClick={() => setIsWithdrawModalOpen(true)}
+                className="system-card bg-white/5 border-border flex flex-col items-center justify-center p-6 hover:bg-white/10 transition-all group/btn"
+              >
                 <div className="p-3 bg-accent/10 rounded-full text-accent mb-4 group-hover/btn:scale-110 transition-transform">
                   <CreditCard size={20} />
                 </div>
@@ -128,7 +142,7 @@ const Wallet: React.FC = () => {
             <div className="space-y-1">
               <div className="ledger-row !bg-transparent opacity-40 mb-2">
                 <span className="data-label">Activity Description</span>
-                <span className="data-label">Status</span>
+                <span className="data-label">Status & Value</span>
               </div>
               {activities.length > 0 ? (
                 activities.map((activity) => (
@@ -147,15 +161,17 @@ const Wallet: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
+                    <div className="flex items-center gap-4 text-right">
+                      <div>
                         <p className={cn(
                           "text-sm font-bold",
                           activity.points > 0 ? "text-success" : "text-white"
                         )}>
-                          {activity.points > 0 ? '+' : ''}{activity.points} PTS
+                          {activity.points > 0 ? '+' : ''}{activity.points.toLocaleString()} PTS
                         </p>
-                        <p className="text-[10px] font-mono text-text-secondary uppercase">Confirmed</p>
+                        <p className="text-[10px] font-mono text-text-secondary uppercase">
+                          &asymp; {formatUSD(PTS_TO_USD(activity.points))}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -174,13 +190,13 @@ const Wallet: React.FC = () => {
                   <ShieldCheck size={18} className="text-primary" />
                   Identity Verification
                 </h3>
-                <p className="text-xs mb-6">Complete KYC Level 1 to enable point redemption and external withdrawals.</p>
+                <p className="text-xs mb-6 text-text-secondary">Complete KYC Level 1 to enable point redemption and external withdrawals.</p>
                 <div className="flex items-center justify-between p-4 bg-white/5 border border-border rounded-xl mb-4">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Current Status</p>
                     <p className="text-sm font-bold text-white">Tier 0 (Standard)</p>
                   </div>
-                  <button className="text-[11px] font-bold text-primary hover:underline">Verify Identity</button>
+                  <button className="text-[11px] font-bold text-primary hover:underline uppercase tracking-wider">Verify Identity</button>
                 </div>
               </div>
               <div className="system-card">
@@ -190,15 +206,15 @@ const Wallet: React.FC = () => {
                 </h3>
                 <ul className="space-y-3">
                   <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary">Min. Withdrawal</span>
-                    <span className="font-mono text-white">5,000 PTS</span>
+                    <span className="text-text-secondary font-medium">Min. Withdrawal</span>
+                    <span className="font-mono text-white">{WITHDRAWAL_MIN_PTS.toLocaleString()} PTS ({formatUSD(PTS_TO_USD(WITHDRAWAL_MIN_PTS))})</span>
                   </li>
                   <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary">Processing Time</span>
+                    <span className="text-text-secondary font-medium">Processing Time</span>
                     <span className="font-mono text-white">24-48 Hours</span>
                   </li>
                   <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary">Operational Fee</span>
+                    <span className="text-text-secondary font-medium">Operational Fee</span>
                     <span className="font-mono text-white">0%</span>
                   </li>
                 </ul>
@@ -207,6 +223,71 @@ const Wallet: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Withdrawal Modal */}
+      <AnimatePresence>
+        {isWithdrawModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsWithdrawModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md system-modal p-8"
+            >
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h2 className="text-xl mb-1">Redeem Points</h2>
+                  <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Payout Pipeline</p>
+                </div>
+                <button onClick={() => setIsWithdrawModalOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 bg-warning/10 border border-warning/20 rounded-2xl flex gap-4 mb-8">
+                <AlertCircle className="text-warning shrink-0" size={20} />
+                <div>
+                  <p className="text-sm font-bold text-warning mb-1">System Notice</p>
+                  <p className="text-xs text-warning/80 leading-relaxed">
+                    Withdrawals are currently unavailable while the payout system is being finalized.
+                    Please check back soon for the official launch of the redemption engine.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                 <div className="flex justify-between text-xs uppercase tracking-widest font-bold text-text-secondary">
+                    <span>Available Balance</span>
+                    <span className="text-white">{points.toLocaleString()} PTS</span>
+                 </div>
+                 <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
+                    />
+                 </div>
+                 <p className="text-[10px] text-text-secondary text-center uppercase tracking-widest font-bold">
+                    {points >= WITHDRAWAL_MIN_PTS ? 'Threshold Met' : `${(WITHDRAWAL_MIN_PTS - points).toLocaleString()} PTS remaining until withdrawal`}
+                 </p>
+              </div>
+
+              <button
+                disabled
+                className="w-full py-4 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] text-white/20 cursor-not-allowed"
+              >
+                Pipeline Inactive
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </MainLayout>
   );
 };

@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Clock,
   Users,
-  Search
+  Search,
+  Activity
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
@@ -19,7 +20,7 @@ import { mapSystemError } from '../utils/errors';
 const Tasks: React.FC = () => {
   const { tasks, loading, submitTask, getTaskStatus } = useTasks();
   const { userData } = useAuth();
-  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'DAILY' | 'REFERRAL'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'DAILY' | 'REFERRAL' | 'PREDICTION'>('ALL');
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
 
   const filteredTasks = tasks.filter(t => filter === 'ALL' || t.category === filter);
@@ -72,16 +73,16 @@ const Tasks: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
             >
               <p className="data-label text-primary mb-2">Missions Terminal</p>
-              <h1>Earn Rewards</h1>
+              <h1>Available Campaigns</h1>
             </motion.div>
 
-            <div className="flex items-center gap-2 p-1 bg-surface border border-border rounded-xl">
-              {(['ALL', 'SOCIAL', 'DAILY', 'REFERRAL'] as const).map((cat) => (
+            <div className="flex items-center gap-2 p-1 bg-surface border border-border rounded-xl overflow-x-auto no-scrollbar">
+              {(['ALL', 'SOCIAL', 'DAILY', 'REFERRAL', 'PREDICTION'] as const).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                    "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
                     filter === cat ? "bg-white/5 text-white" : "text-text-secondary hover:text-white"
                   )}
                 >
@@ -119,12 +120,12 @@ const Tasks: React.FC = () => {
                       {isCompleted ? (
                         <>
                           <CheckCircle2 size={14} className="text-success" />
-                          <span className="text-success">Claimed</span>
+                          <span className="text-success uppercase">Secured</span>
                         </>
                       ) : (
                         <>
                           <Clock size={14} className="text-warning" />
-                          <span className="text-warning">Audit Pending</span>
+                          <span className="text-warning uppercase">Verifying</span>
                         </>
                       )}
                     </div>
@@ -134,7 +135,9 @@ const Tasks: React.FC = () => {
                 {/* Card Content */}
                 <div className="flex justify-between items-start mb-6">
                   <div className="p-3 bg-white/5 rounded-xl group-hover:bg-primary/10 transition-colors">
-                    {task.category === 'SOCIAL' ? <Users size={24} /> : <Zap size={24} />}
+                    {task.category === 'SOCIAL' ? <Users size={20} /> :
+                     task.category === 'PREDICTION' ? <Activity size={20} /> :
+                     <Zap size={20} />}
                   </div>
                   <div className="text-right">
                     <p className="data-mono text-lg font-bold text-white">+{task.rewardAmount}</p>
@@ -143,8 +146,8 @@ const Tasks: React.FC = () => {
                 </div>
 
                 <div className="flex-1">
-                  <h3 className="mb-2">{task.title}</h3>
-                  <p className="text-xs line-clamp-2 mb-6">{task.description}</p>
+                  <h3 className="mb-2 line-clamp-1">{task.title}</h3>
+                  <p className="text-xs line-clamp-2 mb-6 text-text-secondary leading-relaxed">{task.description}</p>
                 </div>
 
                 {/* Action Footer */}
@@ -158,7 +161,7 @@ const Tasks: React.FC = () => {
                     ) : isCooldown ? (
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-warning uppercase tracking-wider">
                         <Clock size={12} />
-                        Next in 14h
+                        Cooldown
                       </div>
                     ) : (
                       <span className="badge-system">{task.category}</span>
@@ -191,9 +194,9 @@ const Tasks: React.FC = () => {
         </div>
 
         {filteredTasks.length === 0 && (
-          <div className="py-32 text-center border border-dashed border-border rounded-3xl">
-            <Search className="mx-auto text-white/10 mb-4" size={48} />
-            <p className="text-text-secondary">No missions found matching your deployment criteria</p>
+          <div className="py-40 text-center border border-dashed border-border rounded-3xl">
+            <Search className="mx-auto text-white/5 mb-6" size={48} />
+            <p className="text-text-secondary font-medium">No active campaigns available in this sector.</p>
           </div>
         )}
       </div>

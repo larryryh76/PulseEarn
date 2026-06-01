@@ -37,7 +37,7 @@ const Notifications: React.FC = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <p className="data-label text-primary mb-2">Signal Feed</p>
+            <p className="data-label text-primary mb-2">System Alerts</p>
             <h1 className="flex items-center gap-4">
               Alerts
               {unreadCount > 0 && (
@@ -97,7 +97,7 @@ const Notifications: React.FC = () => {
           ) : (
             <div className="py-32 text-center border border-dashed border-border rounded-3xl">
               <Bell className="mx-auto text-white/5 mb-4" size={48} />
-              <p className="text-text-secondary text-sm">Your signal feed is currently clear</p>
+              <p className="text-text-secondary text-sm">Your notification feed is currently clear</p>
             </div>
           )}
         </div>

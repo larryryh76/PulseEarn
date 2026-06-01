@@ -104,13 +104,13 @@ export class TaskEngine {
             engineVersion: '2.5.0-PRO'
           });
 
-          // Activity signal
+          // Activity log
           const activityRef = doc(collection(db, 'users', userId, 'activities'));
           transaction.set(activityRef, {
             userId,
             type: 'task_approved',
             points: task.rewardAmount,
-            description: `Mission directive [${task.title}] executed successfully.`,
+            description: `Mission [${task.title}] completed successfully.`,
             timestamp: serverTimestamp(),
             referenceId: taskId
           });

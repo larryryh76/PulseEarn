@@ -37,23 +37,23 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
         },
         {
           title: 'Conversion Ratio',
-          text: 'The standard conversion signal is calibrated at 1,000 PT = $1.00 USD. This ratio is subject to periodic re-balancing based on ecosystem liquidity.'
+          text: 'The standard conversion rate is 1,000 PT = $1.00 USD. This ratio is subject to periodic re-balancing based on ecosystem liquidity.'
         }
       ]
     },
     VERIFICATION: {
-      title: 'Verification Protocol',
-      subtitle: 'Proof of Execution Standards',
+      title: 'Verification Standards',
+      subtitle: 'Proof of Completion Standards',
       icon: Shield,
       color: 'text-success',
       sections: [
         {
-          title: 'Automated Signals',
-          text: 'Tasks marked as Automated utilize direct API hooks or interaction listeners to verify execution in real-time. Rewards are released instantly upon signal confirmation.'
+          title: 'Automated Verification',
+          text: 'Tasks marked as Automated utilize direct API hooks or interaction listeners to verify completion in real-time. Rewards are released instantly upon confirmation.'
         },
         {
-          title: 'Manual Audit',
-          text: 'For high-yield missions, our audit team manually reviews submitted proof (screenshots, links). Review latency is typically 12-24 hours.'
+          title: 'Manual Review',
+          text: 'For high-yield missions, our team manually reviews submitted proof (screenshots, links). Review typically takes 12-24 hours.'
         },
         {
           title: 'Proof Standards',
@@ -135,10 +135,10 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
           <div className="mt-12 pt-8 border-t border-white/5 flex items-center justify-between">
              <div className="flex items-center gap-2 text-success">
                 <CheckCircle size={14} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Protocol v2.1 Aligned</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Policy Updated</span>
              </div>
              <button onClick={onClose} className="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-widest hover:gap-3 transition-all">
-                Acknowledge Directive <ArrowRight size={14} />
+                Close Document <ArrowRight size={14} />
              </button>
           </div>
         </div>

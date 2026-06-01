@@ -11,7 +11,8 @@ import {
   Zap,
   CreditCard,
   AlertCircle,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -36,6 +37,7 @@ const Wallet: React.FC = () => {
 
   const points = userData?.points || 0;
   const usdValue = PTS_TO_USD(points);
+  const thresholdMet = points >= WITHDRAWAL_MIN_PTS;
 
   return (
     <MainLayout>
@@ -46,8 +48,8 @@ const Wallet: React.FC = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <p className="data-label text-primary mb-2">Financial Hub</p>
-            <h1>Vault</h1>
+            <p className="data-label text-primary mb-2">Financial Operations</p>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Vault Terminal</h1>
           </motion.div>
         </header>
 
@@ -55,83 +57,99 @@ const Wallet: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="system-card bg-gradient-to-br from-surface to-surface border-primary/20 mb-12 relative overflow-hidden group"
+          className="system-card bg-gradient-to-br from-surface to-surface border-primary/20 mb-12 relative overflow-hidden group p-10 md:p-16"
         >
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] group-hover:bg-primary/20 transition-all duration-500" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 rounded-full blur-[120px] group-hover:bg-primary/15 transition-all duration-700" />
 
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                  <WalletIcon size={20} />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/20">
+                  <WalletIcon size={22} />
                 </div>
-                <span className="data-label">Total Assets</span>
+                <span className="data-label text-primary">Aggregate Balance</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-4xl md:text-6xl font-mono font-bold tracking-tight text-white flex items-baseline gap-3">
+              <div className="space-y-3">
+                <p className="text-5xl md:text-7xl font-mono font-bold tracking-tighter text-white flex items-baseline gap-4">
                   {points.toLocaleString()}
-                  <span className="text-sm font-bold text-primary uppercase tracking-[0.2em]">PTS</span>
+                  <span className="text-sm font-bold text-primary uppercase tracking-[0.3em]">PTS</span>
                 </p>
-                <p className="text-xl md:text-2xl font-mono text-text-secondary">
-                  &asymp; {formatUSD(usdValue)}
-                </p>
-              </div>
-              <div className="flex items-center gap-6 mt-8">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-success" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Secured Vault</span>
+                <div className="flex items-center gap-4">
+                   <p className="text-2xl md:text-3xl font-mono text-text-secondary">
+                     &asymp; {formatUSD(usdValue)}
+                   </p>
+                   <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-widest text-text-secondary">
+                      Live Conversion Rate
+                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <RefreshCw size={14} className="text-primary" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Real-time Sync</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-8 mt-12">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck size={18} className="text-success" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Quantum-Secured Vault</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <RefreshCw size={16} className="text-primary animate-spin-slow" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">System Sync Active</span>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button className="system-card bg-white/5 border-border flex flex-col items-center justify-center p-6 hover:bg-white/10 transition-all group/btn">
-                <div className="p-3 bg-primary/10 rounded-full text-primary mb-4 group-hover/btn:scale-110 transition-transform">
-                  <Zap size={20} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <button className="system-card bg-white/[0.02] border-white/5 flex flex-col items-center justify-center p-8 hover:bg-white/[0.05] transition-all group/btn">
+                <div className="p-4 bg-primary/10 rounded-2xl text-primary mb-6 group-hover/btn:scale-110 transition-transform border border-primary/10">
+                  <Zap size={24} />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">Earn More</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">Acquire PTS</span>
               </button>
               <button
                 onClick={() => setIsWithdrawModalOpen(true)}
-                className="system-card bg-white/5 border-border flex flex-col items-center justify-center p-6 hover:bg-white/10 transition-all group/btn"
+                className={cn(
+                  "system-card flex flex-col items-center justify-center p-8 transition-all group/btn",
+                  thresholdMet
+                    ? "bg-primary/20 border-primary/40 hover:bg-primary/30"
+                    : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03]"
+                )}
               >
-                <div className="p-3 bg-accent/10 rounded-full text-accent mb-4 group-hover/btn:scale-110 transition-transform">
-                  <CreditCard size={20} />
+                <div className={cn(
+                   "p-4 rounded-2xl mb-6 group-hover/btn:scale-110 transition-transform border",
+                   thresholdMet ? "bg-primary/20 text-white border-primary/40" : "bg-white/5 text-text-secondary border-white/10"
+                )}>
+                  <CreditCard size={24} />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">Withdraw</span>
+                <span className={cn(
+                   "text-[11px] font-bold uppercase tracking-[0.2em]",
+                   thresholdMet ? "text-white" : "text-text-secondary"
+                )}>Initiate Payout</span>
               </button>
             </div>
           </div>
         </motion.div>
 
         {/* Content Tabs */}
-        <div className="flex gap-8 mb-8 border-b border-border relative">
+        <div className="flex gap-12 mb-10 border-b border-white/5 relative">
           <button
             onClick={() => setActiveTab('LEDGER')}
             className={cn(
-              "pb-4 text-xs font-bold uppercase tracking-widest transition-all relative",
+              "pb-5 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative",
               activeTab === 'LEDGER' ? "text-white" : "text-text-secondary hover:text-white"
             )}
           >
-            Transaction Ledger
+            Execution Ledger
             {activeTab === 'LEDGER' && (
-              <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_10px_rgba(0,102,255,0.5)]" />
             )}
           </button>
           <button
             onClick={() => setActiveTab('WITHDRAW')}
             className={cn(
-              "pb-4 text-xs font-bold uppercase tracking-widest transition-all relative",
+              "pb-5 text-[11px] font-bold uppercase tracking-[0.2em] transition-all relative",
               activeTab === 'WITHDRAW' ? "text-white" : "text-text-secondary hover:text-white"
             )}
           >
-            Settlement Info
+            Settlement Parameters
             {activeTab === 'WITHDRAW' && (
-              <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              <motion.div layoutId="tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary shadow-[0_0_10px_rgba(0,102,255,0.5)]" />
             )}
           </button>
         </div>
@@ -139,86 +157,80 @@ const Wallet: React.FC = () => {
         {/* Tab Content */}
         <div className="space-y-4">
           {activeTab === 'LEDGER' ? (
-            <div className="space-y-1">
-              <div className="ledger-row !bg-transparent opacity-40 mb-2">
-                <span className="data-label">Activity Description</span>
-                <span className="data-label">Status & Value</span>
-              </div>
+            <div className="space-y-2">
               {activities.length > 0 ? (
                 activities.map((activity) => (
-                  <div key={activity.id} className="ledger-row">
-                    <div className="flex items-center gap-4">
+                  <div key={activity.id} className="ledger-row bg-white/[0.01] hover:bg-white/[0.03] transition-colors p-6 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-6">
                       <div className={cn(
-                        "p-2 rounded-lg",
-                        activity.type === 'reward_received' ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
+                        "p-3 rounded-xl border",
+                        activity.points > 0 ? "bg-success/10 text-success border-success/20" : "bg-primary/10 text-primary border-primary/20"
                       )}>
-                        {activity.type === 'reward_received' ? <ArrowUpRight size={14} /> : <Zap size={14} />}
+                        {activity.points > 0 ? <ArrowUpRight size={18} /> : <Zap size={18} />}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white/90">{activity.description}</p>
-                        <p className="text-[10px] font-mono text-text-secondary uppercase mt-1">
+                        <p className="text-sm font-bold text-white/90">{activity.description}</p>
+                        <p className="text-[10px] font-mono text-text-secondary uppercase mt-1.5 tracking-widest">
                           {activity.timestamp?.toDate().toLocaleString()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-right">
-                      <div>
+                    <div className="text-right">
                         <p className={cn(
-                          "text-sm font-bold",
+                          "text-lg font-mono font-bold",
                           activity.points > 0 ? "text-success" : "text-white"
                         )}>
-                          {activity.points > 0 ? '+' : ''}{activity.points.toLocaleString()} PTS
+                          {activity.points > 0 ? '+' : ''}{activity.points.toLocaleString()} <span className="text-[10px] uppercase ml-1">PTS</span>
                         </p>
-                        <p className="text-[10px] font-mono text-text-secondary uppercase">
-                          &asymp; {formatUSD(PTS_TO_USD(activity.points))}
+                        <p className="text-[10px] font-mono text-text-secondary uppercase tracking-tighter mt-1">
+                          Value: {formatUSD(PTS_TO_USD(activity.points))}
                         </p>
-                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-20 text-center border border-dashed border-border rounded-3xl">
-                  <History className="mx-auto text-white/5 mb-4" size={40} />
-                  <p className="text-text-secondary text-sm">No transaction signals found in the ledger</p>
+                <div className="py-32 text-center border border-dashed border-white/5 rounded-[3rem] bg-black/20">
+                  <History className="mx-auto text-white/5 mb-6" size={48} />
+                  <p className="text-text-secondary text-xs font-bold uppercase tracking-[0.2em]">Zero Ledger Signal Detected</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="system-card">
-                <h3 className="mb-4 flex items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section className="system-card bg-black/40">
+                <h3 className="mb-8 flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-white/40">
                   <ShieldCheck size={18} className="text-primary" />
-                  Identity Verification
+                  Compliance Layer
                 </h3>
-                <p className="text-xs mb-6 text-text-secondary">Complete KYC Level 1 to enable point redemption and external withdrawals.</p>
-                <div className="flex items-center justify-between p-4 bg-white/5 border border-border rounded-xl mb-4">
+                <p className="text-xs mb-10 text-text-secondary leading-relaxed">Complete identification verification to authorize external payout signals and higher withdrawal bounds.</p>
+                <div className="flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-2xl mb-6">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Current Status</p>
-                    <p className="text-sm font-bold text-white">Tier 0 (Standard)</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary mb-1">Clearance Status</p>
+                    <p className="text-sm font-bold text-white uppercase tracking-widest">Tier 0 (Unverified)</p>
                   </div>
-                  <button className="text-[11px] font-bold text-primary hover:underline uppercase tracking-wider">Verify Identity</button>
+                  <button className="px-5 py-2.5 rounded-xl bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-all">Verify Signals</button>
                 </div>
-              </div>
-              <div className="system-card">
-                <h3 className="mb-4 flex items-center gap-2">
+              </section>
+              <section className="system-card bg-black/40">
+                <h3 className="mb-8 flex items-center gap-3 text-sm font-bold uppercase tracking-widest text-white/40">
                   <RefreshCw size={18} className="text-primary" />
-                  Redemption Rules
+                  Settlement Directives
                 </h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary font-medium">Min. Withdrawal</span>
-                    <span className="font-mono text-white">{WITHDRAWAL_MIN_PTS.toLocaleString()} PTS ({formatUSD(PTS_TO_USD(WITHDRAWAL_MIN_PTS))})</span>
-                  </li>
-                  <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary font-medium">Processing Time</span>
-                    <span className="font-mono text-white">24-48 Hours</span>
-                  </li>
-                  <li className="flex items-center justify-between text-xs">
-                    <span className="text-text-secondary font-medium">Operational Fee</span>
-                    <span className="font-mono text-white">0%</span>
-                  </li>
-                </ul>
-              </div>
+                <div className="space-y-6">
+                   <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-secondary uppercase tracking-widest">Minimum Threshold</span>
+                      <span className="font-mono text-sm text-white">{WITHDRAWAL_MIN_PTS.toLocaleString()} PTS ({formatUSD(PTS_TO_USD(WITHDRAWAL_MIN_PTS))})</span>
+                   </div>
+                   <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-secondary uppercase tracking-widest">Latency Period</span>
+                      <span className="font-mono text-sm text-white">24 - 48 CYCLES</span>
+                   </div>
+                   <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-text-secondary uppercase tracking-widest">Network Protocol Fee</span>
+                      <span className="font-mono text-sm text-success">0.00% SIGNAL</span>
+                   </div>
+                </div>
+              </section>
             </div>
           )}
         </div>
@@ -233,56 +245,77 @@ const Wallet: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsWithdrawModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md system-modal p-8"
+              className="relative w-full max-w-lg bg-surface border border-white/10 rounded-[3rem] p-10 shadow-2xl overflow-hidden"
             >
-              <div className="flex justify-between items-start mb-8">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-transparent" />
+
+              <div className="flex justify-between items-start mb-10">
                 <div>
-                  <h2 className="text-xl mb-1">Redeem Points</h2>
-                  <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Payout Pipeline</p>
+                  <h2 className="text-2xl font-bold tracking-tight mb-1">Redeem Signal</h2>
+                  <p className="text-[10px] text-primary uppercase tracking-[0.3em] font-bold">Payout Pipeline Initiation</p>
                 </div>
-                <button onClick={() => setIsWithdrawModalOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                  <X size={20} />
+                <button onClick={() => setIsWithdrawModalOpen(false)} className="p-3 hover:bg-white/5 rounded-xl transition-all">
+                  <X size={20} className="text-text-secondary" />
                 </button>
               </div>
 
-              <div className="p-6 bg-warning/10 border border-warning/20 rounded-2xl flex gap-4 mb-8">
-                <AlertCircle className="text-warning shrink-0" size={20} />
-                <div>
-                  <p className="text-sm font-bold text-warning mb-1">System Notice</p>
-                  <p className="text-xs text-warning/80 leading-relaxed">
-                    Withdrawals are currently unavailable while the payout system is being finalized.
-                    Please check back soon for the official launch of the redemption engine.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                 <div className="flex justify-between text-xs uppercase tracking-widest font-bold text-text-secondary">
-                    <span>Available Balance</span>
-                    <span className="text-white">{points.toLocaleString()} PTS</span>
+              {!thresholdMet ? (
+                 <div className="p-8 bg-danger/5 border border-danger/10 rounded-[2rem] flex flex-col items-center text-center gap-6 mb-10">
+                    <div className="p-4 rounded-2xl bg-danger/10 text-danger">
+                       <AlertCircle size={32} />
+                    </div>
+                    <div>
+                       <p className="text-lg font-bold text-white mb-2 tracking-tight">Threshold Not Met</p>
+                       <p className="text-xs text-text-secondary leading-relaxed uppercase tracking-widest font-bold">
+                          A minimum signal of {WITHDRAWAL_MIN_PTS.toLocaleString()} PTS is required <br/> to initiate external redemption.
+                       </p>
+                    </div>
                  </div>
-                 <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary"
-                      style={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
+              ) : (
+                <div className="p-8 bg-warning/10 border border-warning/20 rounded-[2rem] flex gap-6 mb-10">
+                  <AlertCircle className="text-warning shrink-0" size={28} />
+                  <div>
+                    <p className="text-sm font-bold text-warning mb-2 uppercase tracking-widest">Maintenance Signal</p>
+                    <p className="text-xs text-warning/80 leading-relaxed font-medium">
+                      The Redemption Engine is currently undergoing scheduled re-calibration.
+                      Signals are temporarily suspended while we stabilize the payout pipelines.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-6 mb-12">
+                 <div className="flex justify-between text-[11px] uppercase tracking-[0.2em] font-bold text-text-secondary">
+                    <span>Available Signal</span>
+                    <span className="text-white font-mono text-sm">{points.toLocaleString()} PTS</span>
+                 </div>
+                 <div className="h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
+                      className={cn("h-full", thresholdMet ? "bg-primary shadow-[0_0_15px_rgba(0,102,255,0.4)]" : "bg-white/20")}
                     />
                  </div>
-                 <p className="text-[10px] text-text-secondary text-center uppercase tracking-widest font-bold">
-                    {points >= WITHDRAWAL_MIN_PTS ? 'Threshold Met' : `${(WITHDRAWAL_MIN_PTS - points).toLocaleString()} PTS remaining until withdrawal`}
-                 </p>
+                 <div className="flex justify-between items-center">
+                    <p className="text-[10px] text-text-secondary uppercase tracking-widest font-bold">
+                       {thresholdMet ? 'Initiation Ready' : `${(WITHDRAWAL_MIN_PTS - points).toLocaleString()} PTS remaining`}
+                    </p>
+                    {thresholdMet && <span className="text-[10px] text-success font-bold uppercase tracking-widest">Authorized</span>}
+                 </div>
               </div>
 
               <button
                 disabled
-                className="w-full py-4 bg-white/5 border border-white/10 rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] text-white/20 cursor-not-allowed"
+                className="w-full py-6 bg-white/[0.02] border border-white/5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.3em] text-white/20 cursor-not-allowed flex items-center justify-center gap-3"
               >
-                Pipeline Inactive
+                {thresholdMet ? 'Pipeline Suspended' : 'Insufficient Signal'}
+                <ArrowRight size={16} />
               </button>
             </motion.div>
           </div>

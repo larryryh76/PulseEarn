@@ -1,12 +1,12 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'prediction' | 'premium' | 'streak' | 'chain';
+export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'prediction' | 'premium' | 'streak' | 'chain' | 'engagement' | 'education' | 'event';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
-export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link';
+export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link' | 'api' | 'referral' | 'prediction';
 export type SubmissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
-export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'STREAK' | 'SEASONAL';
-export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE';
+export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS';
+export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 
 export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_USER' | 'RESOLVED' | 'CLOSED';
@@ -19,26 +19,39 @@ export interface Task {
   providerName: string;
   campaignId: string | null;
   category: TaskCategory;
+  type: TaskType;
   title: string;
   description: string;
   instructions: string;
-  platform: SocialPlatform | 'NONE';
+  platform: SocialPlatform;
   actionUrl: string | null;
   rewardAmount: number;
   xpReward: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED';
+  bonusReward?: number;
+  referralBonus?: number;
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED' | 'DRAFT';
   visibility: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
   verificationType: VerificationType;
   cooldownPeriod: number; // in hours
   maxClaims: number | null; // null for unlimited
+  dailyLimit?: number;
+  perUserLimit?: number;
   totalClaims: number;
+  startDate: Timestamp | null;
+  endDate: Timestamp | null;
   expirationDate: Timestamp | null;
   campaignArtwork: string | null;
   tags: string[];
   minLevel: number;
+  regionRestrictions: string[];
   estimatedTime: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  fraudProtection: {
+    duplicatePrevention: boolean;
+    abuseDetection: boolean;
+    multiAccountDetection: boolean;
+  };
 }
 
 export interface TaskClaim {

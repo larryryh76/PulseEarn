@@ -8,6 +8,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from './config';
+import { Task } from '../types';
 
 /**
  * CLEANUP: Removed all legacy/demo/mock tasks.
@@ -32,6 +33,35 @@ export const seedTasks = async () => {
         campaignBudget: 1000000,
         createdAt: serverTimestamp()
       });
+
+      // Seed a single initial production-ready task
+      const initialTask: Partial<Task> = {
+        id: 'initial_onboarding',
+        title: 'Platform Calibration',
+        description: 'Verify your operational status by reviewing the system documentation.',
+        instructions: 'Read the reward policy in your profile center.',
+        category: 'EDUCATION',
+        type: 'once',
+        platform: 'NONE',
+        rewardAmount: 100,
+        xpReward: 50,
+        status: 'ACTIVE',
+        visibility: 'PUBLIC',
+        verificationType: 'automated',
+        cooldownPeriod: 0,
+        minLevel: 1,
+        totalClaims: 0,
+        providerId: 'SYSTEM',
+        providerName: 'PulseEarn',
+        createdAt: serverTimestamp() as any,
+        updatedAt: serverTimestamp() as any,
+        fraudProtection: {
+           duplicatePrevention: true,
+           abuseDetection: true,
+           multiAccountDetection: true
+        }
+      };
+      await setDoc(doc(db, 'tasks', 'initial_onboarding'), initialTask);
     }
   } catch (error) {
     console.error('Error seeding tasks:', error);

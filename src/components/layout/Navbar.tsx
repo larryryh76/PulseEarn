@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
@@ -32,7 +32,7 @@ const Navbar: React.FC = () => {
       <nav className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         isMobileMenuOpen ? "bg-background py-4" :
-        isScrolled ? "bg-background/80 backdrop-blur-md border-b border-border py-4" :
+        isScrolled ? "bg-background/80 backdrop-blur-md border-b border-white/5 py-4" :
         "bg-transparent py-6"
       )}>
         <div className="container mx-auto px-6 flex items-center justify-between">
@@ -50,33 +50,36 @@ const Navbar: React.FC = () => {
                       key={link.path}
                       to={link.path}
                       className={cn(
-                        "text-[12px] font-medium tracking-tight transition-colors relative py-1",
+                        "text-[10px] font-bold uppercase tracking-[0.15em] transition-colors relative py-1",
                         location.pathname === link.path ? "text-white" : "text-text-secondary hover:text-white"
                       )}
                     >
                       {link.name}
                       {location.pathname === link.path && (
-                        <motion.div layoutId="nav-glow" className="absolute -bottom-1 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(94,106,210,0.8)]" />
+                        <motion.div layoutId="nav-glow" className="absolute -bottom-1.5 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(0,102,255,0.8)]" />
                       )}
                     </Link>
                   ))}
                 </div>
 
-                <div className="h-4 w-px bg-border" />
+                <div className="h-4 w-px bg-white/10" />
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
                   {userData?.role === 'admin' && (
-                    <Link to="/admin" className="text-[12px] font-bold text-primary hover:text-primary/80 transition-colors">Admin</Link>
+                    <Link to="/admin" className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest flex items-center gap-2">
+                       <Terminal size={14} />
+                       Ops
+                    </Link>
                   )}
-                  <button onClick={() => { logout(); navigate('/'); }} className="text-[12px] font-medium text-danger/80 hover:text-danger transition-colors">
+                  <button onClick={() => { logout(); navigate('/'); }} className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest">
                     Sign Out
                   </button>
                 </div>
               </>
             ) : (
               <div className="flex items-center gap-8">
-                <Link to="/login" className="text-[12px] font-medium text-text-secondary hover:text-white transition-colors">Sign In</Link>
-                <Link to="/signup" className="btn-system-primary py-2 px-6">Get Started</Link>
+                <Link to="/login" className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors">Sign In</Link>
+                <Link to="/signup" className="btn-system-primary py-2.5 px-8 text-[10px]">Get Started</Link>
               </div>
             )}
           </div>
@@ -100,7 +103,7 @@ const Navbar: React.FC = () => {
                 {currentUser ? (
                   <>
                     <div className="space-y-4">
-                      <p className="data-label px-2">Navigation</p>
+                      <p className="data-label px-2 text-primary">Terminal Navigation</p>
                       <div className="grid grid-cols-1 gap-2">
                         {navLinks.map((link) => (
                           <Link
@@ -108,8 +111,8 @@ const Navbar: React.FC = () => {
                             to={link.path}
                             onClick={() => setIsMobileMenuOpen(false)}
                             className={cn(
-                              "flex items-center gap-4 p-4 rounded-xl font-medium transition-all",
-                              location.pathname === link.path ? "bg-white/5 text-white" : "text-text-secondary hover:bg-white/[0.02]"
+                              "flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] transition-all",
+                              location.pathname === link.path ? "bg-white/5 text-white border border-white/5" : "text-text-secondary hover:bg-white/[0.02]"
                             )}
                           >
                             <link.icon size={20} className={location.pathname === link.path ? "text-primary" : ""} />
@@ -119,24 +122,25 @@ const Navbar: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-8 border-t border-border flex flex-col gap-4">
+                    <div className="pt-8 border-t border-white/5 flex flex-col gap-4">
                       {userData?.role === 'admin' && (
-                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-4 rounded-xl font-medium text-primary bg-primary/5">
-                          Admin Operations
+                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-primary bg-primary/5 border border-primary/10">
+                          <Terminal size={20} />
+                          Administrative Access
                         </Link>
                       )}
                       <button
                         onClick={() => { logout(); navigate('/'); setIsMobileMenuOpen(false); }}
-                        className="flex items-center gap-4 p-4 rounded-xl font-medium text-danger hover:bg-danger/5"
+                        className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-danger/60 hover:bg-danger/5"
                       >
-                        Sign Out
+                        Terminate Session
                       </button>
                     </div>
                   </>
                 ) : (
                   <div className="flex flex-col gap-4">
-                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="btn-system-secondary text-center py-4">Sign In</Link>
-                    <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="btn-system-primary text-center py-4">Get Started</Link>
+                    <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="btn-system-secondary text-center py-5 uppercase tracking-widest text-[11px]">Sign In</Link>
+                    <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)} className="btn-system-primary text-center py-5 uppercase tracking-widest text-[11px]">Get Started</Link>
                   </div>
                 )}
               </div>
@@ -145,21 +149,21 @@ const Navbar: React.FC = () => {
         </AnimatePresence>
       </nav>
 
-      {/* Mobile Bottom Tab Bar (Systematic Fintech Pattern) */}
+      {/* Mobile Bottom Tab Bar */}
       {currentUser && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border px-6 py-3">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 py-4">
           <div className="flex items-center justify-between">
             {navLinks.slice(0, 4).map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  "flex flex-col items-center gap-1 transition-all",
+                  "flex flex-col items-center gap-2 transition-all",
                   location.pathname === link.path ? "text-primary" : "text-text-secondary"
                 )}
               >
-                <link.icon size={20} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
-                <span className="text-[10px] font-bold uppercase tracking-wider">{link.name}</span>
+                <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
+                <span className="text-[8px] font-bold uppercase tracking-widest">{link.name}</span>
               </Link>
             ))}
           </div>

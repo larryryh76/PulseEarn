@@ -7,7 +7,7 @@ export class EcosystemBot {
    * Generates a dynamic campaign of missions
    */
   static async spawnCampaign() {
-    const categories: Task['category'][] = ['SOCIAL', 'STREAK', 'EDUCATION', 'ENGAGEMENT'];
+    const categories: Task['category'][] = ['SOCIAL', 'EDUCATION', 'ENGAGEMENT', 'EVENTS'];
 
     for (const category of categories) {
       await addDoc(collection(db, 'tasks'), {
@@ -27,7 +27,12 @@ export class EcosystemBot {
         totalClaims: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        cooldownPeriod: 24
+        cooldownPeriod: 24,
+        fraudProtection: {
+           duplicatePrevention: true,
+           abuseDetection: true,
+           multiAccountDetection: true
+        }
       });
     }
   }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import MainLayout from '../layouts/MainLayout';
+import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';

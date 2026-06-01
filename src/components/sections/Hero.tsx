@@ -43,7 +43,7 @@ const Hero: React.FC = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-bold leading-[1.1] sm:leading-[0.9] tracking-tight text-white break-words"
+              className="text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.1] sm:leading-[0.9] tracking-tight text-white break-words"
             >
               EARN <br className="hidden sm:block" />
               <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">REWARDS.</span>

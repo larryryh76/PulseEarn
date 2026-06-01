@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../layouts/MainLayout';
+import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';

@@ -25,7 +25,7 @@ export interface DashboardSummary {
 
 export class DashboardEngine {
   /**
-   * Aggregates verified backend data for the Command Center
+   * Aggregates authoritative backend data for the Command Center
    */
   static async getSummary(userData: UserData): Promise<DashboardSummary> {
     const userId = userData.uid;

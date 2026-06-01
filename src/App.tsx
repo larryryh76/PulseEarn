@@ -5,22 +5,15 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
-import Invite from './pages/Invite'
-import Profile from './pages/Profile'
 import Wallet from './pages/Wallet'
-import SupportPortal from './pages/support/SupportPortal'
-import AdminLayout from './components/layout/AdminLayout'
-import SystemOperationsHub from './components/admin/SystemOperationsHub'
-import GlobalEconomyLog from './components/admin/GlobalEconomyLog'
-import TaskManager from './components/admin/TaskManager'
-import UserModeration from './components/admin/UserModeration'
-import SecurityFraudHub from './components/admin/SecurityFraudHub'
-import SystemSettings from './components/admin/SystemSettings'
+import Profile from './pages/Profile'
+import Notifications from './pages/Notifications'
+import AdminDashboard from './pages/admin/AdminDashboard'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData, loading } = useAuth();
+  const { currentUser, loading } = useAuth();
 
   if (loading) return (
     <div className="min-h-screen bg-[#050507] flex items-center justify-center">
@@ -28,24 +21,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     </div>
   );
 
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!currentUser) return <Navigate to="/login" replace />;
 
-  // EMAIL VERIFICATION CHECK
-  // TEMPORARY: admin bypasses email verification on the frontend
   const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-
   if (!currentUser.emailVerified && !isAdmin && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
-  }
-
-  // If admin is trying to access restricted user-only routes
-  const userOnlyRoutes = ['/dashboard', '/tasks', '/referrals', '/wallet'];
-  const isUserOnlyRoute = userOnlyRoutes.some(route => window.location.pathname.startsWith(route));
-
-  if (userData?.role === 'admin' && (isUserOnlyRoute || window.location.pathname === '/')) {
-    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -53,7 +33,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
-
   if (loading) return (
     <div className="min-h-screen bg-[#050507] flex items-center justify-center">
       <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -61,97 +40,39 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 
   const hasAccess = currentUser && userData?.role === 'admin';
-
-  if (!hasAccess) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  if (!hasAccess) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
 
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
-      <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
-
+  if (loading) return null;
   if (currentUser) {
-    if (userData?.role === 'admin') {
-      return <Navigate to="/admin" replace />;
-    }
+    if (userData?.role === 'admin') return <Navigate to="/admin" replace />;
     return <Navigate to="/dashboard" replace />;
   }
-
   return <>{children}</>;
 };
 
 function App() {
   return (
     <BrowserRouter>
-      <Toaster
-        position="bottom-center"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: 'rgba(13, 13, 18, 0.95)',
-            color: '#fff',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-            fontSize: '14px',
-            fontWeight: '500',
-            backdropFilter: 'blur(10px)',
-            padding: '12px 20px',
-            maxWidth: '90vw',
-          },
-        }}
-      />
+      <Toaster position="bottom-center" />
       <Routes>
-        <Route path="/" element={
-          <PublicRoute>
-            <Home />
-          </PublicRoute>
-        } />
-        <Route path="/signup" element={
-          <PublicRoute>
-            <Signup />
-          </PublicRoute>
-        } />
-        <Route path="/login" element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        } />
-        <Route path="/verify-email" element={
-          <ProtectedRoute>
-            <VerifyEmail />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
+        <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+        <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
 
+        {/* Core Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-        <Route path="/rewards" element={<Navigate to="/tasks" replace />} />
-        <Route path="/referrals" element={<ProtectedRoute><Invite /></ProtectedRoute>} />
-        <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/predict" element={<Navigate to="/tasks" replace />} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
-        <Route path="/withdraw" element={<Navigate to="/wallet" replace />} />
-        <Route path="/support" element={<ProtectedRoute><SupportPortal /></ProtectedRoute>} />
+        <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
 
-        <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-          <Route index element={<SystemOperationsHub />} />
-          <Route path="ledger" element={<GlobalEconomyLog />} />
-          <Route path="users" element={<UserModeration />} />
-          <Route path="tasks" element={<TaskManager />} />
-          <Route path="security" element={<SecurityFraudHub />} />
-          <Route path="settings" element={<SystemSettings />} />
-        </Route>
+        {/* Admin Route */}
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

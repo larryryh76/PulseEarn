@@ -100,7 +100,7 @@ const DailyRewardsPreview: React.FC = () => {
                 <span className="text-white/20">Earnings Daily.</span>
               </h2>
               <p className="text-white/60 text-base sm:text-lg font-medium max-w-xl leading-relaxed">
-                Our platform provides daily earning opportunities. Complete tasks and see your balance grow in real-time.
+                Our platform provides daily earning opportunities. Complete missions and see your balance grow in real-time.
               </p>
 
               <div className="flex flex-col gap-5 text-left max-w-md mx-auto lg:mx-0 pt-4">

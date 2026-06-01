@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #000000;
-  --color-primary: #0066ff;
-  --color-accent: #0066ff;
-  --color-success: #10b981;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-  --color-surface: #0a0a0a;
-  --color-surface-hover: #121212;
-  --color-border: rgba(255, 255, 255, 0.08);
+  --color-background: #050507;
+  --color-surface: #0D0D12;
+  --color-primary: #5E6AD2;
+  --color-accent: #635BFF;
+  --color-success: #10B981;
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-text-secondary: #8A8F98;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --shadow-premium: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(0, 102, 255, 0.15);
+  --shadow-premium: 0 8px 32px rgba(0, 0, 0, 0.8);
+  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
@@ -24,17 +24,18 @@
   }
 
   body {
-    @apply bg-background text-white antialiased selection:bg-primary/30;
+    @apply bg-background text-white antialiased selection:bg-primary/30 selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+    font-family: var(--font-sans);
   }
 
-  h1 { @apply text-4xl font-bold tracking-tight; }
-  h2 { @apply text-2xl font-semibold tracking-tight; }
-  h3 { @apply text-xl font-semibold tracking-tight; }
-  p { @apply text-sm leading-relaxed text-white/50; }
+  h1 { @apply text-[30px] font-semibold tracking-[-0.02em] text-white; }
+  h2 { @apply text-[18px] font-semibold tracking-tight text-white; }
+  h3 { @apply text-[16px] font-semibold tracking-tight text-white; }
+  p { @apply text-[14px] leading-[1.5] text-text-secondary; }
 
   input, select, textarea {
-    @apply bg-surface border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all;
+    @apply bg-surface border border-border rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all;
   }
 
   button {
@@ -43,79 +44,54 @@
 }
 
 @layer components {
-  .glass-panel {
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
+  /* Operational Surfaces */
+  .system-card {
+    @apply bg-surface border border-border rounded-xl p-6 shadow-subtle transition-all duration-200 hover:border-white/10;
   }
 
-  .premium-card {
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    border-radius: 1.5rem;
-    padding: 1.5rem;
-    transition: all 0.3s;
+  .system-modal {
+    @apply bg-surface border border-border rounded-2xl shadow-premium overflow-hidden;
   }
 
-  .premium-card:hover {
-    border-color: rgba(255, 255, 255, 0.1);
+  /* Fintech Inputs */
+  .btn-system-primary {
+    @apply bg-primary text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-all hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(94,106,210,0.3)];
   }
 
-  .btn-primary {
-    @apply bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5;
+  .btn-system-secondary {
+    @apply bg-white/5 text-white/80 px-5 py-2.5 rounded-lg font-semibold text-sm border border-border hover:bg-white/10 hover:text-white transition-all;
   }
 
-  .btn-secondary {
-    @apply bg-white/5 text-white/70 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest border border-white/5 hover:bg-white/10 hover:text-white;
+  .badge-system {
+    @apply px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-border;
   }
 
-  .nav-item {
-    @apply flex flex-col items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-all;
+  /* Navigation Patterns */
+  .nav-tab-active {
+    @apply text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full;
   }
 
-  .section-label {
-    @apply text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-2;
+  .nav-tab-inactive {
+    @apply text-text-secondary hover:text-white transition-colors;
   }
 
-  .fintech-ledger-row {
-    @apply flex items-center justify-between py-4 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.01] px-2 rounded-lg transition-colors;
+  /* Information Density */
+  .data-label {
+    @apply text-[12px] font-medium text-text-secondary uppercase tracking-[0.05em];
   }
 
-  /* Command Center V2 Styles */
-  .v2-gradient-bg {
-    background: radial-gradient(circle at 50% 0%, rgba(0, 102, 255, 0.08) 0%, transparent 70%);
+  .data-mono {
+    @apply font-mono text-[12px] text-white/80;
   }
 
-  .v2-sidebar-item {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium;
-  }
-
-  .v2-sidebar-item-active {
-    @apply bg-white/5 text-white border border-white/10 shadow-sm;
-  }
-
-  .v2-sidebar-item-inactive {
-    @apply text-white/40 hover:text-white/70 hover:bg-white/[0.02];
-  }
-
-  .v2-stat-card {
-    @apply bg-white/[0.02] border border-white/[0.05] p-6 rounded-2xl space-y-2 hover:border-white/10 transition-all;
+  .ledger-row {
+    @apply flex items-center justify-between py-3 border-b border-border last:border-0 hover:bg-white/[0.02] px-3 -mx-3 rounded-lg transition-colors;
   }
 }
 
-/* Utilities */
-.animate-in {
-  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.mask-radial {
-  mask-image: radial-gradient(circle at center, black, transparent 80%);
+/* Transitions */
+.transition-smooth {
+  @apply transition-all duration-300 ease-in-out;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -124,8 +100,4 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-.text-glow {
-  text-shadow: 0 0 30px rgba(0, 102, 255, 0.3);
 }

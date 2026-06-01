@@ -17,7 +17,7 @@ export interface RepairProposal {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   title: string;
   description: string;
-  affectedUserId?: string;
+  affectedEntityId?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED';
   payload: any;
   proposedFix?: string;
@@ -43,7 +43,7 @@ export class SystemScannerEngine {
     }
 
     return {
-      message: "System analyzer standing by. Request an economy audit or prediction sync check.",
+      message: "Infrastructure analyzer standing by. Request an economy audit or prediction sync check.",
       type: 'INFO'
     };
   }
@@ -83,13 +83,13 @@ export class SystemScannerEngine {
     }
 
     return {
-      message: `Identified ${recentSnap.size} high-severity violations. Recommend immediate audit of user user activity via Moderation Console.`,
+      message: `Identified ${recentSnap.size} high-severity violations. Recommend immediate audit of user entity activity via Moderation Console.`,
       status: 'FRAUD_RISK'
     };
   }
 
   /**
-   * List-based Instruction Execution
+   * Registry-based Instruction Execution
    */
   static async executeInstruction(proposalId: string) {
     const proposalRef = doc(db, this.QUEUE_COLLECTION, proposalId);
@@ -113,7 +113,7 @@ export class SystemScannerEngine {
     }
   }
 
-  static async performOfficialScan() {
+  static async performInstitutionalScan() {
     // Trigger multiple analytics sweeps
     await this.analyzePredictionSystem();
     await this.analyzeRewardAnomalies();

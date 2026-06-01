@@ -4,14 +4,14 @@ import { Task } from '../types';
 
 export class EcosystemBot {
   /**
-   * Generates a dynamic campaign of tasks
+   * Generates a dynamic campaign of missions
    */
   static async spawnCampaign() {
     const categories: Task['category'][] = ['SOCIAL', 'STREAK', 'EDUCATION', 'ENGAGEMENT'];
 
     for (const category of categories) {
       await addDoc(collection(db, 'tasks'), {
-        title: `${category} Task ${Math.floor(Math.random() * 1000)}`,
+        title: `${category} Mission ${Math.floor(Math.random() * 1000)}`,
         description: 'Auto-generated tactical objective for ecosystem growth.',
         instructions: 'Complete the required actions to secure rewards.',
         rewardAmount: Math.floor(Math.random() * 500) + 50,
@@ -34,7 +34,7 @@ export class EcosystemBot {
 
   static async monitorEconomy() {
     // Basic health check
-    console.log('[EcoBot] Monitoring system liquidity and task distribution...');
+    console.log('[EcoBot] Monitoring system liquidity and mission distribution...');
   }
 
   static evaluateUserEngagement(data: any) {

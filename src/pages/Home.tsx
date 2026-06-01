@@ -6,7 +6,7 @@ import PredictionPreview from '../components/sections/PredictionPreview';
 import LeaderboardPreview from '../components/sections/LeaderboardPreview';
 import SignupCTA from '../components/sections/SignupCTA';
 import FAQ from '../components/sections/FAQ';
-import MainLayout from '../layouts/MainLayout';
+import MainLayout from '../components/layout/MainLayout';
 import { useCryptoData } from '../hooks/useCryptoData';
 
 const Home: React.FC = () => {

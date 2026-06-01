@@ -8,7 +8,7 @@ import {
 
 export class ModerationEngine {
   /**
-   * Verifiedly suspends or freezes an account
+   * Authoritatively suspends or freezes an account
    */
   static async lockAccount(userId: string, adminId: string, reason: string, duration: 'temporary' | 'permanent'): Promise<void> {
     const userRef = doc(db, 'users', userId);

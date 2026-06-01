@@ -34,7 +34,7 @@ export const mapSystemError = (error: string): string => {
   if (error === 'COOLDOWN_ACTIVE') return 'Please wait before trying this action again.';
   if (error === 'DAILY_REWARD_COOLDOWN') return 'You have already claimed your daily reward today.';
   if (error === 'RACE_CONDITION_DETECTED') return 'Action in progress. Please wait.';
-  if (error === 'USER_NOT_FOUND') return 'User record not found. Please re-login.';
+  if (error === 'ENTITY_NOT_FOUND') return 'User record not found. Please re-login.';
 
   return 'System communication failed. Please try again in a moment.';
 };

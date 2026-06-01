@@ -15,7 +15,7 @@ export class SupportEngine {
     userId: string;
     category: TicketCategory;
     priority: TicketPriority;
-    user: string;
+    subject: string;
     description: string;
     attachedLogIds: string[];
   }): Promise<{ success: boolean; ticketId?: string; error?: string }> {
@@ -27,7 +27,7 @@ export class SupportEngine {
         category: request.category,
         priority: request.priority,
         status: 'OPEN',
-        user: request.user,
+        subject: request.subject,
         description: request.description,
         createdAt: serverTimestamp() as any,
         updatedAt: serverTimestamp() as any,

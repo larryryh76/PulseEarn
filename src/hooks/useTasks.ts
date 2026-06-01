@@ -10,9 +10,7 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskClaim } from '../types';
-import toast from 'react-hot-toast';
 import { TaskEngine } from '../engines/tasks/TaskEngine';
-import { mapSystemError } from '../utils/errors';
 
 export const useTasks = () => {
   const { currentUser, userData } = useAuth();
@@ -20,7 +18,7 @@ export const useTasks = () => {
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
+  const [submissions, setSubmissions] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +38,7 @@ export const useTasks = () => {
       setCampaigns(campaignsData);
     });
 
-    // Fetch user completions/subtasks
+    // Fetch user completions/submissions
     const userTasksQuery = query(collection(db, 'users', currentUser.uid, 'user_tasks'));
     const unsubscribeUserTasks = onSnapshot(userTasksQuery, (snapshot) => {
       const userTasksData: Record<string, UserTask> = {};
@@ -50,15 +48,15 @@ export const useTasks = () => {
       setUserTasks(userTasksData);
     });
 
-    // Fetch user's own marketplace subtasks
-    const subtasksQuery = query(
+    // Fetch user's own marketplace submissions
+    const submissionsQuery = query(
       collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
       limit(30)
     );
-    const unsubscribeSubtasks = onSnapshot(subtasksQuery, (snapshot) => {
-      setSubtasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
+    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
+      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
     });
 
     // Fetch recent activities for activity feed
@@ -76,7 +74,7 @@ export const useTasks = () => {
       unsubscribeTasks();
       unsubscribeCampaigns();
       unsubscribeUserTasks();
-      unsubscribeSubtasks();
+      unsubscribeSubmissions();
       unsubscribeActivities();
     };
   }, [currentUser]);
@@ -107,29 +105,24 @@ export const useTasks = () => {
   };
 
   const submitTask = async (taskId: string, proofData?: string) => {
-    if (!currentUser || !userData) return;
+    if (!currentUser || !userData) return { success: false, error: 'Unauthenticated' };
 
     const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+    if (!task) return { success: false, error: 'Task not found' };
 
-    // Marketplace Validation: level and state checks
     if (task.minLevel && userData.level < task.minLevel) {
-       toast.error(`Account Level ${task.minLevel} Required`);
-       return;
+       return { success: false, error: 'LEVEL_REQUIRED', minLevel: task.minLevel };
     }
 
     const { status } = getTaskStatus(task);
     if (status !== 'available' && status !== 'rejected') {
-       toast.error(`Task currently ${status}`);
-       return;
+       return { success: false, error: 'INVALID_STATUS', status };
     }
 
-    // Velocity protection
     const now = Date.now();
     const lastAction = userData.lastActionTimestamp?.toMillis() || 0;
     if (now - lastAction < 1000) {
-       toast.error('Action throttled. Please wait.');
-       return;
+       return { success: false, error: 'THROTTLED' };
     }
 
     try {
@@ -139,27 +132,14 @@ export const useTasks = () => {
         proof: proofData
       });
 
-      if (!result.success) {
-        toast.error(mapSystemError(result.error || '') || 'Task deployment failed');
-        return false;
-      }
-
-      if (task.verificationType === 'automated') {
-        toast.success(`+${task.rewardAmount} PTS Secured`, { icon: '⚡' });
-      } else {
-        toast.success('Task proof logged for audit');
-      }
-
-      return true;
+      return result;
     } catch (error) {
       console.error(error);
-      toast.error('Verification signal failure');
-      return false;
+      return { success: false, error: 'SYSTEM_ERROR' };
     }
   };
 
   const claimTask = async (taskId: string) => {
-    // Legacy support or direct claim attempt
     return submitTask(taskId);
   };
 
@@ -167,7 +147,7 @@ export const useTasks = () => {
     tasks,
     userTasks,
     campaigns,
-    subtasks,
+    submissions,
     activities,
     loading,
     submitTask,

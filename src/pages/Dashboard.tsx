@@ -88,7 +88,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-3 text-text-secondary">
-                <span>XP Signal</span>
+                <span>Experience</span>
                 <span className="text-white font-mono">{userData?.xp || 0} / 1,000</span>
               </div>
               <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -128,7 +128,7 @@ const Dashboard: React.FC = () => {
            <section className="mb-12">
               <div className="flex items-center gap-2 mb-6">
                  <Star size={16} className="text-primary" />
-                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Priority Directives</h2>
+                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Active Campaigns</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  {featuredTasks.map((task) => (
@@ -163,7 +163,7 @@ const Dashboard: React.FC = () => {
                   Terminal Missions
                 </h2>
                 <Link to="/tasks" className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2 hover:gap-3 transition-all">
-                  Access All Signals <ChevronRight size={14} />
+                  View All Missions <ChevronRight size={14} />
                 </Link>
               </div>
               <div className="grid grid-cols-1 gap-3">
@@ -201,7 +201,7 @@ const Dashboard: React.FC = () => {
             <section>
               <h2 className="flex items-center gap-2 mb-6">
                 <ActivityIcon size={18} className="text-accent" />
-                Live Signals
+                Activity Feed
               </h2>
               <div className="space-y-2">
                 {activities.length > 0 ? (
@@ -212,7 +212,7 @@ const Dashboard: React.FC = () => {
                         <div>
                           <p className="text-[12px] font-medium text-white/80 leading-relaxed mb-1">{activity.description}</p>
                           <div className="flex items-center gap-3">
-                             <span className="text-[9px] text-accent font-bold uppercase tracking-widest">Signal Received</span>
+                             <span className="text-[9px] text-accent font-bold uppercase tracking-widest">Activity Logged</span>
                              <span className="text-[9px] text-text-secondary font-mono">
                               {activity.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                              </span>
@@ -224,7 +224,7 @@ const Dashboard: React.FC = () => {
                 ) : (
                   <div className="p-12 text-center border border-dashed border-border rounded-3xl bg-black/20">
                     <ActivityIcon className="mx-auto text-white/5 mb-4" size={32} />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">No recent signals</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">No recent activity</p>
                   </div>
                 )}
               </div>

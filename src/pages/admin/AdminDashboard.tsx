@@ -502,8 +502,8 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                    <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as TaskType})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-xs font-bold uppercase tracking-widest focus:border-primary/50 transition-all">
                       <option value="once">ONCE (EXECUTION)</option>
                       <option value="daily">DAILY (RECURRING)</option>
-                      <option value="referral">REFERRAL NODES</option>
-                      <option value="prediction">FORECAST SIGNAL</option>
+                      <option value="referral">REFERRAL</option>
+                      <option value="prediction">PREDICTION</option>
                       <option value="education">LEARN & EARN</option>
                       <option value="event">SEASONAL EVENT</option>
                    </select>
@@ -592,12 +592,12 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                 </div>
 
                 <div className="space-y-1.5">
-                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ImageIcon size={12} /> Banner Signal (URL)</label>
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ImageIcon size={12} /> Banner Image (URL)</label>
                    <input value={formData.campaignArtwork || ''} onChange={e => setFormData({...formData, campaignArtwork: e.target.value})} placeholder="https://..." className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
                 </div>
 
                 <div className="space-y-1.5">
-                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ExternalLink size={12} /> Target Signal (URL)</label>
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ExternalLink size={12} /> Action Target (URL)</label>
                    <input value={formData.actionUrl || ''} onChange={e => setFormData({...formData, actionUrl: e.target.value})} placeholder="https://..." className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
                 </div>
              </div>

@@ -46,7 +46,7 @@ const Tasks: React.FC = () => {
         toast.error(mapSystemError(result.error || '') || 'Action failed');
       }
     } catch (err) {
-      toast.error('System synchronization error');
+      toast.error('System sync error');
     } finally {
       setIsSubmitting(null);
     }
@@ -125,7 +125,7 @@ const Tasks: React.FC = () => {
                       {isCompleted ? (
                         <>
                           <CheckCircle2 size={16} className="text-success" />
-                          <span className="text-success text-xs font-bold uppercase tracking-widest">Signal Secured</span>
+                          <span className="text-success text-xs font-bold uppercase tracking-widest">Verified</span>
                         </>
                       ) : (
                         <>
@@ -223,7 +223,7 @@ const Tasks: React.FC = () => {
           <div className="py-48 text-center border border-dashed border-white/5 rounded-[3rem] bg-black/20">
             <Search className="mx-auto text-white/5 mb-8" size={64} />
             <h2 className="text-xl font-bold mb-2">Sector Quiet</h2>
-            <p className="text-text-secondary text-sm max-w-xs mx-auto uppercase tracking-widest font-bold">No active mission signals in this frequency.</p>
+            <p className="text-text-secondary text-sm max-w-xs mx-auto uppercase tracking-widest font-bold">No active missions available.</p>
           </div>
         )}
       </div>

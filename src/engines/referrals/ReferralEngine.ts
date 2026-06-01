@@ -114,12 +114,12 @@ export class ReferralEngine {
         const claimId = `ref_reward_${referralId}`;
         const rewardResult = await PointTransactionEngine.execute({
           userId: referrerId,
-          amount: 500, // 500 PTS per referral
+          amount: 50, // 50 PTS per referral
           type: 'referral_bonus',
           source: `Referral Reward: ${refereeData.username}`,
           claimId,
           referenceId: referralId,
-          xpReward: 100
+          xpReward: 50
         });
 
         if (!rewardResult.success) throw new Error(rewardResult.error);
@@ -136,7 +136,7 @@ export class ReferralEngine {
         const notifDoc = doc(notificationsRef);
         transaction.set(notifDoc, {
           title: 'Referral Activated!',
-          description: `Your referral ${refereeData.username} has been verified. +500 PTS awarded.`,
+          description: `Your referral ${refereeData.username} has been verified. +50 PTS awarded.`,
           type: 'referral_joined',
           read: false,
           timestamp: serverTimestamp()

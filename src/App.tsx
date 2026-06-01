@@ -9,6 +9,12 @@ import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import PrivacyPolicy from './pages/legal/PrivacyPolicy'
+import TermsOfService from './pages/legal/TermsOfService'
+import CookiePolicy from './pages/legal/CookiePolicy'
+import RewardPolicy from './pages/legal/RewardPolicy'
+import FraudPolicy from './pages/legal/FraudPolicy'
+import VerificationPolicy from './pages/legal/VerificationPolicy'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -70,6 +76,14 @@ function App() {
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+
+        {/* Legal Routes */}
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/cookies" element={<CookiePolicy />} />
+        <Route path="/reward-policy" element={<RewardPolicy />} />
+        <Route path="/fraud-policy" element={<FraudPolicy />} />
+        <Route path="/verification-policy" element={<VerificationPolicy />} />
 
         {/* Admin Route */}
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

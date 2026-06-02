@@ -24,7 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import DocumentationModal from '../components/ui/DocumentationModal';
@@ -358,18 +358,18 @@ const Profile: React.FC = () => {
                   <p className="text-sm text-text-secondary max-w-sm mx-auto mb-10 leading-relaxed">Access our official documentation or contact our support team for assistance with your account.</p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl mx-auto">
-                    <button onClick={() => setDocType('REWARD')} className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
+                    <Link to="/reward-policy" className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
                       <Zap size={20} className="text-primary group-hover:scale-110 transition-transform" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">Reward Policy</span>
-                    </button>
-                    <button onClick={() => setDocType('VERIFICATION')} className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
+                    </Link>
+                    <Link to="/verification-policy" className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
                       <ShieldCheck size={20} className="text-primary group-hover:scale-110 transition-transform" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">Verification</span>
-                    </button>
-                    <button onClick={() => setDocType('FRAUD')} className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
+                    </Link>
+                    <Link to="/fraud-policy" className="flex flex-col items-center gap-3 p-6 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all group">
                       <FileText size={20} className="text-primary group-hover:scale-110 transition-transform" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">Integrity</span>
-                    </button>
+                    </Link>
                   </div>
                 </div>
 

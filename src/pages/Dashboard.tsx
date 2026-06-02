@@ -19,7 +19,7 @@ const Dashboard: React.FC = () => {
   const { userData } = useAuth();
   const { activities, tasks, loading } = useTasks();
 
-  const featuredTasks = tasks.filter(t => t.status === 'ACTIVE').slice(0, 3);
+  const featuredTasks = tasks.filter(t => t.active).slice(0, 3);
 
   if (loading) return (
     <MainLayout>

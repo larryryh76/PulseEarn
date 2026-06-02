@@ -25,6 +25,7 @@ export interface Task {
   instructions: string;
   platform: SocialPlatform;
   actionUrl: string | null;
+  active: boolean;
   rewardAmount: number;
   xpReward: number;
   bonusReward?: number;

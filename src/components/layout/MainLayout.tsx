@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../layout/Navbar';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -14,10 +15,13 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <p className="text-white/20 text-[9px] font-bold uppercase tracking-[0.4em]">
                 &copy; {new Date().getFullYear()} PulseEarn. Research Phase.
               </p>
-              <div className="flex gap-8">
-                 <button className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Privacy Policy</button>
-                 <button className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Terms of Service</button>
-                 <button className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Cookie Policy</button>
+              <div className="flex flex-wrap gap-x-8 gap-y-2 justify-center md:justify-start">
+                 <Link to="/privacy" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Privacy Policy</Link>
+                 <Link to="/terms" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Terms of Service</Link>
+                 <Link to="/cookies" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Cookie Policy</Link>
+                 <Link to="/reward-policy" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Reward Policy</Link>
+                 <Link to="/fraud-policy" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Fraud Policy</Link>
+                 <Link to="/verification-policy" className="text-[9px] font-bold uppercase tracking-widest text-white/10 hover:text-white/40 transition-colors">Verification Policy</Link>
               </div>
            </div>
 

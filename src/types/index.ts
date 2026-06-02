@@ -28,6 +28,7 @@ export interface Task {
   active: boolean;
   rewardAmount: number;
   xpReward: number;
+  budget?: number;
   bonusReward?: number;
   referralBonus?: number;
   status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED' | 'DRAFT';
@@ -38,6 +39,10 @@ export interface Task {
   dailyLimit?: number;
   perUserLimit?: number;
   totalClaims: number;
+  totalDistributed?: number;
+  completionCount?: number;
+  conversionRate?: number;
+  targetTiers?: string[];
   startDate: Timestamp | null;
   endDate: Timestamp | null;
   expirationDate: Timestamp | null;

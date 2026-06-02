@@ -17,7 +17,8 @@ import {
   CheckCircle,
   ExternalLink,
   Image as ImageIcon,
-  Zap
+  Zap,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -40,7 +41,7 @@ import { db } from '../../firebase/config';
 import { TaskCategory, VerificationType, SocialPlatform, TaskType, Task, SubmissionStatus } from '../../types';
 import toast from 'react-hot-toast';
 
-type AdminTab = 'OVERVIEW' | 'CAMPAIGNS' | 'CLAIMS' | 'ANALYTICS' | 'PROVIDERS' | 'USERS' | 'MODERATION' | 'TRANSACTIONS';
+type AdminTab = 'OVERVIEW' | 'CAMPAIGNS' | 'CLAIMS' | 'ANALYTICS' | 'PROVIDERS' | 'USERS' | 'MODERATION' | 'TRANSACTIONS' | 'NOTIFICATIONS' | 'SETTINGS';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
@@ -123,6 +124,8 @@ const AdminDashboard: React.FC = () => {
              {[
                { id: 'USERS', label: 'User Registry', icon: Users },
                { id: 'MODERATION', label: 'Fraud Engine', icon: ShieldAlert },
+               { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell },
+               { id: 'SETTINGS', label: 'System Settings', icon: Cpu },
              ].map(item => (
                <button
                  key={item.id}
@@ -229,6 +232,8 @@ const AdminDashboard: React.FC = () => {
             {activeTab === 'TRANSACTIONS' && <TransactionsView />}
             {activeTab === 'MODERATION' && <ModerationView />}
             {activeTab === 'ANALYTICS' && <EconomyStatsView stats={stats} />}
+            {activeTab === 'NOTIFICATIONS' && <AdminNotificationsView />}
+            {activeTab === 'SETTINGS' && <SystemSettingsView />}
 
             {/* Locked Placeholders for complex operational logic */}
             {(['PROVIDERS'].includes(activeTab)) && (
@@ -361,6 +366,16 @@ const CampaignsView: React.FC<{
                      </div>
                   </div>
                   <h3 className="text-sm font-bold mb-2">{task.title}</h3>
+                  <div className="flex gap-4 mb-6">
+                     <div>
+                        <p className="text-[9px] text-text-secondary uppercase font-bold">Completions</p>
+                        <p className="text-xs font-mono font-bold">{task.completionCount || 0}</p>
+                     </div>
+                     <div>
+                        <p className="text-[9px] text-text-secondary uppercase font-bold">Distributed</p>
+                        <p className="text-xs font-mono font-bold">{(task.totalDistributed || 0).toLocaleString()} PT</p>
+                     </div>
+                  </div>
                   <p className="text-[11px] text-text-secondary line-clamp-2 mb-6">{task.description}</p>
 
                   <div className="pt-4 border-t border-white/5 flex items-center justify-between">
@@ -479,18 +494,16 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
     platform: 'NONE',
     rewardAmount: 0,
     xpReward: 0,
-    bonusReward: 0,
-    referralBonus: 0,
+    budget: 0,
+    maxClaims: 0,
     verificationType: 'automated',
     status: 'DRAFT',
     visibility: 'PUBLIC',
     cooldownPeriod: 0,
     minLevel: 1,
-    maxClaims: 0,
-    dailyLimit: 0,
     perUserLimit: 1,
     regionRestrictions: [],
-    tags: [],
+    targetTiers: [],
     fraudProtection: {
        duplicatePrevention: true,
        abuseDetection: true,
@@ -506,7 +519,11 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
      });
 
      if (initialTask) {
-        setFormData(initialTask);
+        setFormData({
+           ...initialTask,
+           startDate: initialTask.startDate ? (initialTask.startDate as any).toDate().toISOString().split('T')[0] : '',
+           endDate: initialTask.endDate ? (initialTask.endDate as any).toDate().toISOString().split('T')[0] : ''
+        } as any);
      } else {
         setFormData({
            title: '',
@@ -518,12 +535,16 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
            platform: 'NONE',
            rewardAmount: 0,
            xpReward: 0,
+           budget: 0,
+           maxClaims: 0,
            verificationType: 'automated',
            status: 'DRAFT',
            visibility: 'PUBLIC',
            cooldownPeriod: 0,
            minLevel: 1,
            perUserLimit: 1,
+           regionRestrictions: [],
+           targetTiers: [],
            fraudProtection: {
             duplicatePrevention: true,
             abuseDetection: true,
@@ -541,9 +562,13 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
         ...formData,
         id: taskId,
         active: formData.status === 'ACTIVE',
+        startDate: (formData as any).startDate ? Timestamp.fromDate(new Date((formData as any).startDate)) : null,
+        endDate: (formData as any).endDate ? Timestamp.fromDate(new Date((formData as any).endDate)) : null,
         updatedAt: serverTimestamp(),
         createdAt: initialTask?.createdAt || serverTimestamp(),
         totalClaims: initialTask?.totalClaims || 0,
+        completionCount: initialTask?.completionCount || 0,
+        totalDistributed: initialTask?.totalDistributed || 0,
         providerId: 'SYSTEM',
         providerName: 'PulseEarn'
       };
@@ -583,7 +608,7 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
 
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Link to Campaign</label>
-                   <select value={formData.campaignId || ''} onChange={e => setFormData({...formData, campaignId: e.target.value || null})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-xs font-bold uppercase tracking-widest focus:border-primary/50 transition-all">
+                   <select value={formData.campaignId ?? ''} onChange={e => setFormData({...formData, campaignId: e.target.value || null})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-xs font-bold uppercase tracking-widest focus:border-primary/50 transition-all">
                       <option value="">STANDALONE MISSION</option>
                       {campaigns.map(c => (
                          <option key={c.id} value={c.id}>{c.name}</option>
@@ -646,12 +671,12 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Min Level</label>
-                      <input type="number" value={formData.minLevel} onChange={e => setFormData({...formData, minLevel: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Total Budget</label>
+                      <input type="number" value={formData.budget} onChange={e => setFormData({...formData, budget: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
                    </div>
                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Cooldown (Hrs)</label>
-                      <input type="number" value={formData.cooldownPeriod} onChange={e => setFormData({...formData, cooldownPeriod: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Max Claims</label>
+                      <input type="number" value={formData.maxClaims ?? 0} onChange={e => setFormData({...formData, maxClaims: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
                    </div>
                 </div>
 
@@ -697,6 +722,17 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                    </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Min Level</label>
+                      <input type="number" value={formData.minLevel} onChange={e => setFormData({...formData, minLevel: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
+                   </div>
+                   <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Cooldown (Hrs)</label>
+                      <input type="number" value={formData.cooldownPeriod} onChange={e => setFormData({...formData, cooldownPeriod: parseInt(e.target.value)})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-mono font-bold focus:border-primary/50 transition-all" />
+                   </div>
+                </div>
+
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ImageIcon size={12} /> Banner Image (URL)</label>
                    <input value={formData.campaignArtwork || ''} onChange={e => setFormData({...formData, campaignArtwork: e.target.value})} placeholder="https://..." className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
@@ -705,6 +741,17 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2"><ExternalLink size={12} /> Action Target (URL)</label>
                    <input value={formData.actionUrl || ''} onChange={e => setFormData({...formData, actionUrl: e.target.value})} placeholder="https://..." className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
+                </div>
+             </div>
+
+             <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/5">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Start Date</label>
+                   <input type="date" value={formData.startDate as any} onChange={e => setFormData({...formData, startDate: e.target.value as any})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">End Date</label>
+                   <input type="date" value={formData.endDate as any} onChange={e => setFormData({...formData, endDate: e.target.value as any})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
                 </div>
              </div>
 
@@ -1095,6 +1142,66 @@ const EconomyStatsView: React.FC<{ stats: any }> = ({ stats }) => {
                </div>
             </div>
          </section>
+      </motion.div>
+   );
+};
+
+/* --- ADMIN NOTIFICATIONS VIEW --- */
+const AdminNotificationsView: React.FC = () => {
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header className="flex justify-between items-end">
+            <div>
+               <h1 className="text-3xl font-bold tracking-tight mb-2">System Broadcasts</h1>
+               <p className="text-text-secondary text-sm">Deploy platform-wide notifications and urgent alerts.</p>
+            </div>
+            <button className="btn-system-primary px-8">Create Broadcast</button>
+         </header>
+
+         <div className="system-card border-white/5 bg-black/20 py-24 text-center">
+            <Bell className="mx-auto text-white/5 mb-6" size={48} />
+            <p className="text-text-secondary text-sm">No active system broadcasts</p>
+         </div>
+      </motion.div>
+   );
+};
+
+/* --- SYSTEM SETTINGS VIEW --- */
+const SystemSettingsView: React.FC = () => {
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Platform Control</h1>
+            <p className="text-text-secondary text-sm">Global system parameters and maintenance protocols.</p>
+         </header>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="system-card">
+               <h2 className="text-sm font-bold uppercase tracking-widest mb-6">Economy Base</h2>
+               <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                     <span className="text-xs text-text-secondary uppercase font-bold">Base Conversion</span>
+                     <span className="font-mono text-white text-sm">1000 PT : $1.00</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                     <span className="text-xs text-text-secondary uppercase font-bold">Withdrawal Floor</span>
+                     <span className="font-mono text-white text-sm">10,000 PTS</span>
+                  </div>
+               </div>
+            </div>
+
+            <div className="system-card">
+               <h2 className="text-sm font-bold uppercase tracking-widest mb-6">Service Status</h2>
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                     <span className="text-xs font-bold uppercase">Maintenance Mode</span>
+                     <div className="w-10 h-5 bg-white/10 rounded-full relative">
+                        <div className="absolute left-1 top-1 w-3 h-3 bg-white/20 rounded-full" />
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
       </motion.div>
    );
 };

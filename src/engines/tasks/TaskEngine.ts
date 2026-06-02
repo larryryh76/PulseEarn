@@ -65,7 +65,7 @@ export class TaskEngine {
 
         transaction.set(claimRef, claim);
 
-        // 4. Update User Task State
+        // 4. Update User Task State & Global Counters
         transaction.set(userTaskRef, {
           taskId,
           lastCompleted: task.verificationType === 'automated' ? serverTimestamp() : (userTask?.lastCompleted || null),
@@ -73,6 +73,14 @@ export class TaskEngine {
           submissionId: claimId,
           totalCompletions: increment(task.verificationType === 'automated' ? 1 : 0)
         }, { merge: true });
+
+        if (task.verificationType === 'automated') {
+           transaction.update(taskRef, {
+              completionCount: increment(1),
+              totalDistributed: increment(task.rewardAmount),
+              totalClaims: increment(1)
+           });
+        }
 
         // 5. Atomic Reward if Automated
         if (task.verificationType === 'automated') {

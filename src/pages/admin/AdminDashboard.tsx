@@ -12,7 +12,6 @@ import {
   X,
   Activity,
   BarChart3,
-  Globe,
   Search,
   CheckCircle,
   ExternalLink,
@@ -39,9 +38,23 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { TaskCategory, VerificationType, SocialPlatform, TaskType, Task, SubmissionStatus } from '../../types';
+import { PointTransactionEngine } from '../../engines/points/PointTransactionEngine';
 import toast from 'react-hot-toast';
 
-type AdminTab = 'OVERVIEW' | 'CAMPAIGNS' | 'CLAIMS' | 'ANALYTICS' | 'PROVIDERS' | 'USERS' | 'MODERATION' | 'TRANSACTIONS' | 'NOTIFICATIONS' | 'SETTINGS';
+type AdminTab =
+  | 'OVERVIEW'
+  | 'CAMPAIGNS'
+  | 'TASKS'
+  | 'CLAIMS'
+  | 'WITHDRAWALS'
+  | 'USERS'
+  | 'TRANSACTIONS'
+  | 'FRAUD'
+  | 'AUDIT'
+  | 'PREDICTIONS'
+  | 'NOTIFICATIONS'
+  | 'ECONOMY'
+  | 'SETTINGS';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('OVERVIEW');
@@ -89,16 +102,15 @@ const AdminDashboard: React.FC = () => {
       <div className="pt-16 pb-24 px-8 max-w-[1800px] mx-auto flex flex-col lg:flex-row gap-12 min-h-[calc(100vh-4rem)]">
 
         {/* Navigation Sidebar */}
-        <aside className="lg:w-72 shrink-0 space-y-10 border-r border-white/5 pr-12 pt-12">
+        <aside className="lg:w-72 shrink-0 space-y-10 border-r border-white/5 pr-12 pt-12 overflow-y-auto max-h-screen no-scrollbar sticky top-16">
           <div className="space-y-1">
-             <p className="data-label px-4 mb-6 text-primary">Operations</p>
+             <p className="data-label px-4 mb-6 text-primary">Command</p>
              {[
-               { id: 'OVERVIEW', label: 'System Console', icon: Terminal },
+               { id: 'OVERVIEW', label: 'Operations', icon: Terminal },
                { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers },
-               { id: 'CLAIMS', label: 'Claims Review', icon: ShieldCheck },
-               { id: 'TRANSACTIONS', label: 'Audit Ledger', icon: Activity },
-               { id: 'ANALYTICS', label: 'Economy Stats', icon: BarChart3 },
-               { id: 'PROVIDERS', label: 'Sponsors', icon: Globe },
+               { id: 'TASKS', label: 'Mission Units', icon: Zap },
+               { id: 'CLAIMS', label: 'Validations', icon: ShieldCheck },
+               { id: 'WITHDRAWALS', label: 'Payouts', icon: ExternalLink },
              ].map(item => (
                <button
                  key={item.id}
@@ -120,12 +132,13 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-1 pt-10 border-t border-white/5">
-             <p className="data-label px-4 mb-6 text-warning">Security</p>
+             <p className="data-label px-4 mb-6 text-warning">Intelligence</p>
              {[
-               { id: 'USERS', label: 'User Registry', icon: Users },
-               { id: 'MODERATION', label: 'Fraud Engine', icon: ShieldAlert },
-               { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell },
-               { id: 'SETTINGS', label: 'System Settings', icon: Cpu },
+               { id: 'USERS', label: 'Operators', icon: Users },
+               { id: 'TRANSACTIONS', label: 'Ledger', icon: Activity },
+               { id: 'FRAUD', label: 'Fraud Center', icon: ShieldAlert },
+               { id: 'AUDIT', label: 'Audit Logs', icon: Search },
+               { id: 'PREDICTIONS', label: 'Forecasts', icon: BarChart3 },
              ].map(item => (
                <button
                  key={item.id}
@@ -221,31 +234,26 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'CAMPAIGNS' && (
               <CampaignsView
-                onNewTask={() => setIsTaskModalOpen(true)}
-                onEditTask={(t) => { setSelectedTask(t); setIsTaskModalOpen(true); }}
                 onNewCampaign={() => setIsCampaignModalOpen(true)}
                 onEditCampaign={(c) => { setSelectedCampaign(c); setIsCampaignModalOpen(true); }}
               />
             )}
+            {activeTab === 'TASKS' && (
+              <TasksView
+                onNewTask={() => setIsTaskModalOpen(true)}
+                onEditTask={(t) => { setSelectedTask(t); setIsTaskModalOpen(true); }}
+              />
+            )}
             {activeTab === 'CLAIMS' && <ClaimsView />}
+            {activeTab === 'WITHDRAWALS' && <WithdrawalsView />}
             {activeTab === 'USERS' && <UsersView />}
             {activeTab === 'TRANSACTIONS' && <TransactionsView />}
-            {activeTab === 'MODERATION' && <ModerationView />}
-            {activeTab === 'ANALYTICS' && <EconomyStatsView stats={stats} />}
+            {activeTab === 'FRAUD' && <FraudCenterView />}
+            {activeTab === 'AUDIT' && <AuditCenterView />}
+            {activeTab === 'PREDICTIONS' && <PredictionsManagementView />}
             {activeTab === 'NOTIFICATIONS' && <AdminNotificationsView />}
+            {activeTab === 'ECONOMY' && <EconomyManagementView stats={stats} />}
             {activeTab === 'SETTINGS' && <SystemSettingsView />}
-
-            {/* Locked Placeholders for complex operational logic */}
-            {(['PROVIDERS'].includes(activeTab)) && (
-               <div className="py-40 text-center">
-                  <Globe size={48} className="mx-auto text-white/5 mb-6" />
-                  <h2 className="text-2xl font-bold mb-2">Partner Management</h2>
-                  <p className="text-text-secondary max-w-md mx-auto text-sm">
-                     The strategic partner and sponsor management portal is scheduled for deployment in Phase 3.
-                     Current system sponsors are managed via the System Registry.
-                  </p>
-               </div>
-            )}
           </AnimatePresence>
         </main>
 
@@ -267,49 +275,37 @@ const AdminDashboard: React.FC = () => {
 
 /* --- CAMPAIGNS VIEW --- */
 const CampaignsView: React.FC<{
-   onNewTask: () => void;
-   onEditTask: (t: Task) => void;
    onNewCampaign: () => void;
    onEditCampaign: (c: any) => void;
-}> = ({ onNewTask, onEditTask, onNewCampaign, onEditCampaign }) => {
-   const [tasks, setTasks] = useState<Task[]>([]);
+}> = ({ onNewCampaign, onEditCampaign }) => {
    const [campaigns, setCampaigns] = useState<any[]>([]);
-   const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-      const qTasks = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
-      const unsubTasks = onSnapshot(qTasks, (snap) => {
-         setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
-      });
-
       const qCamps = query(collection(db, 'campaigns'), orderBy('startDate', 'desc'));
       const unsubCamps = onSnapshot(qCamps, (snap) => {
          setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-         setLoading(false);
       });
-
-      return () => { unsubTasks(); unsubCamps(); };
+      return unsubCamps;
    }, []);
 
    return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-16">
-         {/* Campaigns Section */}
          <section className="space-y-8">
             <header className="flex justify-between items-end">
                <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Active Campaigns</h1>
-                  <p className="text-text-secondary text-sm">Strategic marketing initiatives and seasonal event grouping.</p>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Management</h1>
+                  <p className="text-text-secondary text-sm">Orchestrate strategic marketing initiatives and event groupings.</p>
                </div>
                <button onClick={onNewCampaign} className="btn-system-primary flex items-center gap-2 px-8">
                   <Plus size={18} />
-                  Initiate Campaign
+                  New Campaign
                </button>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                {campaigns.map(camp => (
                   <div key={camp.id} onClick={() => onEditCampaign(camp)} className="system-card bg-black/40 border-primary/20 hover:border-primary/40 transition-all cursor-pointer group">
-                     <div className="h-24 -mx-10 -mt-10 mb-8 overflow-hidden rounded-t-[2rem]">
+                     <div className="h-32 -mx-10 -mt-10 mb-8 overflow-hidden rounded-t-[2rem]">
                         {camp.bannerUrl ? (
                            <img src={camp.bannerUrl} alt="" className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity" />
                         ) : (
@@ -329,28 +325,41 @@ const CampaignsView: React.FC<{
                      </div>
                   </div>
                ))}
-               {campaigns.length === 0 && !loading && (
-                  <div className="col-span-full py-20 text-center border border-dashed border-white/5 rounded-3xl">
-                     <p className="text-text-secondary text-xs uppercase tracking-widest font-bold">Zero active campaigns detected</p>
-                  </div>
-               )}
             </div>
          </section>
+      </motion.div>
+   );
+};
 
-         {/* Tasks Section */}
-         <section className="space-y-8">
-            <header className="flex justify-between items-end">
-               <div>
-                  <h1 className="text-3xl font-bold tracking-tight mb-2">Mission Registry</h1>
-                  <p className="text-text-secondary text-sm">Manage individual reward units and execution parameters.</p>
-               </div>
-               <button onClick={onNewTask} className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
-                  <Plus size={14} />
-                  New Mission Unit
-               </button>
-            </header>
+/* --- TASKS VIEW --- */
+const TasksView: React.FC<{
+   onNewTask: () => void;
+   onEditTask: (t: Task) => void;
+}> = ({ onNewTask, onEditTask }) => {
+   const [tasks, setTasks] = useState<Task[]>([]);
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+   useEffect(() => {
+      const qTasks = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+      const unsubTasks = onSnapshot(qTasks, (snap) => {
+         setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+      });
+      return unsubTasks;
+   }, []);
+
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header className="flex justify-between items-end">
+            <div>
+               <h1 className="text-3xl font-bold tracking-tight mb-2">Mission Unit Registry</h1>
+               <p className="text-text-secondary text-sm">Define and manage individual reward units across all campaigns.</p>
+            </div>
+            <button onClick={onNewTask} className="btn-system-primary px-8">
+               <Plus size={18} />
+               Deploy Mission
+            </button>
+         </header>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {tasks.map(task => (
                <div key={task.id} className="system-card group hover:border-primary/40 transition-all cursor-pointer" onClick={() => onEditTask(task)}>
                   <div className="flex justify-between items-start mb-6">
@@ -376,8 +385,6 @@ const CampaignsView: React.FC<{
                         <p className="text-xs font-mono font-bold">{(task.totalDistributed || 0).toLocaleString()} PT</p>
                      </div>
                   </div>
-                  <p className="text-[11px] text-text-secondary line-clamp-2 mb-6">{task.description}</p>
-
                   <div className="pt-4 border-t border-white/5 flex items-center justify-between">
                      <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-white/5">{task.category}</span>
@@ -387,15 +394,7 @@ const CampaignsView: React.FC<{
                   </div>
                </div>
             ))}
-
-            {tasks.length === 0 && !loading && (
-               <div className="col-span-full py-32 text-center border border-dashed border-white/5 rounded-3xl">
-                  <Layers className="mx-auto text-white/5 mb-4" size={48} />
-                  <p className="text-text-secondary text-sm">No campaigns currently deployed</p>
-               </div>
-            )}
          </div>
-         </section>
       </motion.div>
    );
 };
@@ -486,8 +485,10 @@ const ClaimsView: React.FC = () => {
 const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; initialTask: Task | null }> = ({ isOpen, onClose, initialTask }) => {
   const [formData, setFormData] = useState<Partial<Task>>({
     title: '',
+    subtitle: '',
     description: '',
     instructions: '',
+    proofRequirements: '',
     campaignId: null,
     category: 'SOCIAL',
     type: 'once',
@@ -574,6 +575,18 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
       };
 
       await setDoc(doc(db, 'tasks', taskId), taskData, { merge: true });
+
+      // If linked to campaign, ensure campaign record is updated
+      if (formData.campaignId) {
+         const campRef = doc(db, 'campaigns', formData.campaignId);
+         const campSnap = await getDocs(query(collection(db, 'campaigns'), where('id', '==', formData.campaignId)));
+         if (!campSnap.empty) {
+            const campData = campSnap.docs[0].data();
+            const taskIds = Array.from(new Set([...(campData.taskIds || []), taskId]));
+            await updateDoc(campRef, { taskIds });
+         }
+      }
+
       toast.success(initialTask ? 'Mission parameters updated' : 'New mission deployed to terminal');
       onClose();
     } catch (err) {
@@ -603,7 +616,12 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
 
                 <div className="space-y-1.5">
                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Title</label>
-                   <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Designation" className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
+                   <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="Primary Designation" className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
+                </div>
+
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Subtitle</label>
+                   <input value={formData.subtitle || ''} onChange={e => setFormData({...formData, subtitle: e.target.value})} placeholder="Short Hook" className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -625,6 +643,7 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                       <option value="PREDICTION">PREDICTION</option>
                       <option value="EDUCATION">EDUCATION</option>
                       <option value="EVENTS">EVENTS</option>
+                      <option value="SPONSORED">SPONSORED</option>
                    </select>
                 </div>
 
@@ -637,6 +656,13 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                       <option value="prediction">PREDICTION</option>
                       <option value="education">LEARN & EARN</option>
                       <option value="event">SEASONAL EVENT</option>
+                      <option value="telegram">TELEGRAM</option>
+                      <option value="twitter">TWITTER/X</option>
+                      <option value="tiktok">TIKTOK</option>
+                      <option value="youtube">YOUTUBE</option>
+                      <option value="discord">DISCORD</option>
+                      <option value="website">WEBSITE VISIT</option>
+                      <option value="app_install">APP INSTALL</option>
                    </select>
                 </div>
 
@@ -647,6 +673,7 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                       <option value="TELEGRAM">TELEGRAM</option>
                       <option value="TWITTER">X / TWITTER</option>
                       <option value="TIKTOK">TIKTOK</option>
+                      <option value="YOUTUBE">YOUTUBE</option>
                       <option value="DISCORD">DISCORD</option>
                       <option value="WEBSITE">WEBSITE</option>
                       <option value="APP_STORE">APP STORE</option>
@@ -687,9 +714,14 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
                       <option value="manual">MANUAL (REVIEW)</option>
                       <option value="proof">PROOF (SCREENSHOT)</option>
                       <option value="link">LINK SUBMISSION</option>
-                      <option value="api">API VERIFICATION</option>
+                      <option value="referral">REFERRAL TRACKING</option>
                       <option value="prediction">PREDICTION ENGINE</option>
                    </select>
+                </div>
+
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Proof Requirements</label>
+                   <input value={formData.proofRequirements || ''} onChange={e => setFormData({...formData, proofRequirements: e.target.value})} placeholder="e.g. Username or Screenshot URL" className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium focus:border-primary/50 transition-all" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -758,8 +790,12 @@ const TaskDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; init
              <div className="md:col-span-3 pt-10 border-t border-white/5">
                 <div className="flex flex-col md:flex-row gap-6 items-center">
                    <div className="flex-1 space-y-1.5 w-full">
-                      <label className="data-label text-white/40">Mission Description</label>
-                      <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium h-24 focus:border-primary/50 transition-all resize-none" placeholder="Explain the objective to the operator..." />
+                      <label className="data-label text-white/40">Instructions (Internal/Operator)</label>
+                      <textarea required value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium h-20 focus:border-primary/50 transition-all resize-none" placeholder="Step-by-step guidance..." />
+                   </div>
+                   <div className="flex-1 space-y-1.5 w-full">
+                      <label className="data-label text-white/40">Mission Description (Public)</label>
+                      <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm font-medium h-20 focus:border-primary/50 transition-all resize-none" placeholder="Explain the objective to the operator..." />
                    </div>
                    <div className="w-full md:w-80">
                       <button type="submit" className="w-full py-6 bg-primary text-white font-bold uppercase tracking-[0.3em] text-[11px] rounded-2xl hover:bg-primary/90 transition-all shadow-[0_0_40px_rgba(0,102,255,0.2)]">
@@ -783,7 +819,7 @@ const UsersView: React.FC = () => {
    const [searchTerm, setSearchTerm] = useState('');
 
    useEffect(() => {
-      const q = query(collection(db, 'users'), limit(50));
+      const q = query(collection(db, 'users'), limit(100));
       return onSnapshot(q, (snap) => {
          setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
@@ -792,22 +828,41 @@ const UsersView: React.FC = () => {
    const filteredUsers = users.filter(u =>
       u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.id?.includes(searchTerm)
+      u.id?.toLowerCase().includes(searchTerm.toLowerCase())
    );
+
+   const handleBanToggle = async (user: any) => {
+      try {
+         const newStatus = !user.isBanned;
+         await updateDoc(doc(db, 'users', user.id), { isBanned: newStatus });
+
+         // Audit Log
+         await setDoc(doc(collection(db, 'system_audit')), {
+            action: newStatus ? 'USER_SUSPENDED' : 'USER_REINSTATED',
+            targetId: user.id,
+            timestamp: serverTimestamp(),
+            performedBy: 'ADMIN_TERMINAL'
+         });
+
+         toast.success(`Operator ${newStatus ? 'suspended' : 'reinstated'}`);
+      } catch (err) {
+         toast.error("Status update failed");
+      }
+   };
 
    return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
          <header className="flex justify-between items-end">
             <div>
                <h1 className="text-3xl font-bold tracking-tight mb-2">User Registry</h1>
-               <p className="text-text-secondary text-sm">Manage platform operators and account statuses.</p>
+               <p className="text-text-secondary text-sm">Manage platform operators, role assignments, and account integrity.</p>
             </div>
             <div className="relative">
                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
                <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Search UID, Email, Username..."
+                  placeholder="UID, Email, Username..."
                   className="bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm w-80 focus:border-primary/50 outline-none transition-all"
                />
             </div>
@@ -819,7 +874,8 @@ const UsersView: React.FC = () => {
                   <tr className="bg-white/5 border-b border-white/10">
                      <th className="p-6 data-label">Operator</th>
                      <th className="p-6 data-label">Balance</th>
-                     <th className="p-6 data-label">Level / XP</th>
+                     <th className="p-6 data-label">Progression</th>
+                     <th className="p-6 data-label">Role</th>
                      <th className="p-6 data-label">Status</th>
                   </tr>
                </thead>
@@ -829,6 +885,7 @@ const UsersView: React.FC = () => {
                         <td className="p-6">
                            <p className="text-xs font-bold text-white">{user.username || 'Anonymous'}</p>
                            <p className="text-[10px] text-text-secondary mt-1 font-mono">{user.email}</p>
+                           <p className="text-[8px] text-white/20 mt-1 font-mono">{user.id}</p>
                         </td>
                         <td className="p-6">
                            <p className="text-sm font-mono font-bold text-primary">{user.points?.toLocaleString()} PTS</p>
@@ -836,6 +893,11 @@ const UsersView: React.FC = () => {
                         <td className="p-6">
                            <p className="text-xs font-bold">LVL {user.level || 1}</p>
                            <p className="text-[10px] text-text-secondary mt-1">{user.xp?.toLocaleString()} XP</p>
+                        </td>
+                        <td className="p-6">
+                           <span className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded", user.role === 'admin' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-text-secondary')}>
+                              {user.role || 'USER'}
+                           </span>
                         </td>
                         <td className="p-6">
                            <div className="flex items-center gap-3">
@@ -846,14 +908,7 @@ const UsersView: React.FC = () => {
                                  {user.isBanned ? 'BANNED' : 'ACTIVE'}
                               </span>
                               <button
-                                 onClick={async () => {
-                                    try {
-                                       await updateDoc(doc(db, 'users', user.id), { isBanned: !user.isBanned });
-                                       toast.success(`Operator ${user.isBanned ? 'reinstated' : 'suspended'}`);
-                                    } catch (err) {
-                                       toast.error("Status update failed");
-                                    }
-                                 }}
+                                 onClick={() => handleBanToggle(user)}
                                  className="p-2 hover:bg-white/5 rounded-lg transition-colors text-text-secondary hover:text-white"
                               >
                                  <ShieldAlert size={14} />
@@ -928,55 +983,6 @@ const TransactionsView: React.FC = () => {
    );
 };
 
-/* --- MODERATION VIEW --- */
-const ModerationView: React.FC = () => {
-   const [anomalies, setAnomalies] = useState<any[]>([]);
-
-   useEffect(() => {
-      const q = query(collection(db, 'system_anomalies'), orderBy('timestamp', 'desc'), limit(30));
-      return onSnapshot(q, (snap) => {
-         setAnomalies(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-   }, []);
-
-   return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-         <header>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Fraud Engine</h1>
-            <p className="text-text-secondary text-sm">Automated anomaly detection and system validation failures.</p>
-         </header>
-
-         <div className="space-y-4">
-            {anomalies.map(ano => (
-               <div key={ano.id} className="system-card border-danger/20 bg-danger/5 flex items-center justify-between p-6">
-                  <div className="flex items-center gap-6">
-                     <div className="p-3 bg-danger/10 text-danger rounded-xl">
-                        <ShieldAlert size={20} />
-                     </div>
-                     <div>
-                        <p className="text-sm font-bold text-white">{ano.error}</p>
-                        <div className="flex gap-4 mt-1.5">
-                           <p className="text-[10px] font-mono text-text-secondary uppercase">Operator: {ano.userId?.slice(0, 8)}</p>
-                           <p className="text-[10px] font-mono text-text-secondary uppercase">Severity: {ano.severity}</p>
-                        </div>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-[10px] text-text-secondary font-mono uppercase">{ano.timestamp?.toDate().toLocaleString()}</p>
-                  </div>
-               </div>
-            ))}
-
-            {anomalies.length === 0 && (
-               <div className="py-32 text-center border border-dashed border-white/5 rounded-3xl bg-black/20">
-                  <CheckCircle className="mx-auto text-success/20 mb-4" size={48} />
-                  <p className="text-text-secondary text-sm">No security anomalies detected</p>
-               </div>
-            )}
-         </div>
-      </motion.div>
-   );
-};
 
 /* --- CAMPAIGN DEPLOYMENT MODAL --- */
 const CampaignDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; initialCampaign: any | null }> = ({ isOpen, onClose, initialCampaign }) => {
@@ -1093,52 +1099,305 @@ const CampaignDeploymentModal: React.FC<{ isOpen: boolean; onClose: () => void; 
   );
 };
 
-/* --- ECONOMY STATS VIEW --- */
-const EconomyStatsView: React.FC<{ stats: any }> = ({ stats }) => {
+/* --- WITHDRAWALS VIEW --- */
+const WithdrawalsView: React.FC = () => {
+   const [requests, setRequests] = useState<any[]>([]);
+
+   useEffect(() => {
+      const q = query(
+         collection(db, 'system_claims'),
+         where('type', '==', 'withdrawal_debit'),
+         orderBy('executedAt', 'desc'),
+         limit(50)
+      );
+      return onSnapshot(q, (snap) => {
+         setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+   }, []);
+
+   const handleAction = async (claim: any, action: 'APPROVE' | 'REJECT') => {
+      try {
+         await updateDoc(doc(db, 'system_claims', claim.id), {
+            adminStatus: action,
+            reviewedAt: serverTimestamp(),
+            reviewedBy: 'ADMIN_TERMINAL'
+         });
+
+         // Audit Log
+         await setDoc(doc(collection(db, 'system_audit')), {
+            action: `WITHDRAWAL_${action}`,
+            targetId: claim.id,
+            userId: claim.userId,
+            amount: claim.amount,
+            timestamp: serverTimestamp(),
+            performedBy: 'ADMIN_TERMINAL'
+         });
+
+         // Transaction Reversal if Rejected
+         if (action === 'REJECT') {
+            await PointTransactionEngine.execute({
+               userId: claim.userId,
+               amount: Math.abs(claim.amount),
+               type: 'referral_reversal', // Using reversal type for point return
+               source: 'Withdrawal Rejection Refund',
+               claimId: `refund_${claim.id}`
+            });
+         }
+
+         toast.success(`Withdrawal ${action.toLowerCase()}d`);
+      } catch (err) {
+         toast.error("Operation failed");
+      }
+   };
+
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Withdrawal Management</h1>
+            <p className="text-text-secondary text-sm">Review and finalize operator payout requests.</p>
+         </header>
+
+         <div className="system-card p-0 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+               <thead className="bg-white/5 border-b border-white/10">
+                  <tr>
+                     <th className="p-6 data-label">Operator</th>
+                     <th className="p-6 data-label">Amount</th>
+                     <th className="p-6 data-label">Status</th>
+                     <th className="p-6 data-label text-right">Actions</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-white/5">
+                  {requests.map(req => (
+                     <tr key={req.id}>
+                        <td className="p-6">
+                           <p className="text-xs font-mono">{req.userId}</p>
+                           <p className="text-[10px] text-text-secondary mt-1">{req.executedAt?.toDate().toLocaleString()}</p>
+                        </td>
+                        <td className="p-6">
+                           <p className="text-sm font-mono font-bold text-danger">{req.amount.toLocaleString()} PTS</p>
+                        </td>
+                        <td className="p-6">
+                           <span className={cn("badge-system",
+                              req.adminStatus === 'APPROVE' ? 'text-success border-success/20' :
+                              req.adminStatus === 'REJECT' ? 'text-danger border-danger/20' :
+                              'text-warning border-warning/20'
+                           )}>
+                              {req.adminStatus || 'PENDING'}
+                           </span>
+                        </td>
+                        <td className="p-6 text-right space-x-2">
+                           {!req.adminStatus && (
+                              <>
+                                 <button onClick={() => handleAction(req, 'REJECT')} className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-all">Reject</button>
+                                 <button onClick={() => handleAction(req, 'APPROVE')} className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-success/10 text-success rounded-lg hover:bg-success/20 transition-all">Approve</button>
+                              </>
+                           )}
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      </motion.div>
+   );
+};
+
+/* --- FRAUD CENTER VIEW --- */
+const FraudCenterView: React.FC = () => {
+   const [anomalies, setAnomalies] = useState<any[]>([]);
+
+   useEffect(() => {
+      const q = query(collection(db, 'system_anomalies'), orderBy('timestamp', 'desc'), limit(50));
+      return onSnapshot(q, (snap) => {
+         setAnomalies(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+   }, []);
+
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Fraud Intelligence Center</h1>
+            <p className="text-text-secondary text-sm">Real-time monitoring of suspicious patterns and security violations.</p>
+         </header>
+
+         <div className="grid grid-cols-1 gap-4">
+            {anomalies.map(ano => (
+               <div key={ano.id} className="system-card border-danger/20 bg-danger/5 flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                     <div className="p-4 bg-danger/10 text-danger rounded-2xl">
+                        <ShieldAlert size={24} />
+                     </div>
+                     <div>
+                        <p className="font-bold text-white mb-1">{ano.error}</p>
+                        <div className="flex items-center gap-4 text-[10px] font-mono text-text-secondary uppercase">
+                           <span>Operator: {ano.userId?.slice(0, 12)}</span>
+                           <span>Severity: {ano.severity}</span>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-[10px] font-mono text-text-secondary mb-2">{ano.timestamp?.toDate().toLocaleString()}</p>
+                     <button className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">Investigate</button>
+                  </div>
+               </div>
+            ))}
+         </div>
+      </motion.div>
+   );
+};
+
+/* --- AUDIT CENTER VIEW --- */
+const AuditCenterView: React.FC = () => {
+   const [logs, setLogs] = useState<any[]>([]);
+
+   useEffect(() => {
+      const q = query(collection(db, 'system_audit'), orderBy('timestamp', 'desc'), limit(100));
+      return onSnapshot(q, (snap) => {
+         setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+   }, []);
+
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">System Audit Ledger</h1>
+            <p className="text-text-secondary text-sm">Immutable record of all administrative actions and protocol events.</p>
+         </header>
+
+         <div className="system-card p-0 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+               <thead className="bg-white/5 border-b border-white/10">
+                  <tr>
+                     <th className="p-6 data-label">Action</th>
+                     <th className="p-6 data-label">Target</th>
+                     <th className="p-6 data-label">Performed By</th>
+                     <th className="p-6 data-label">Timestamp</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-white/5">
+                  {logs.map(log => (
+                     <tr key={log.id}>
+                        <td className="p-6">
+                           <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-white/5">{log.action}</span>
+                        </td>
+                        <td className="p-6">
+                           <p className="text-xs font-mono text-text-secondary">{log.targetId}</p>
+                        </td>
+                        <td className="p-6 text-xs">{log.performedBy}</td>
+                        <td className="p-6 text-xs text-text-secondary font-mono">{log.timestamp?.toDate().toLocaleString()}</td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      </motion.div>
+   );
+};
+
+/* --- PREDICTIONS MANAGEMENT VIEW --- */
+const PredictionsManagementView: React.FC = () => {
+   const [predictions, setPredictions] = useState<any[]>([]);
+
+   useEffect(() => {
+      const q = query(collection(db, 'predictions'), orderBy('timestamp', 'desc'), limit(50));
+      return onSnapshot(q, (snap) => {
+         setPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+   }, []);
+
+   return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+         <header>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Forecast Operations</h1>
+            <p className="text-text-secondary text-sm">Monitor market predictions and oversee settlement results.</p>
+         </header>
+
+         <div className="system-card p-0 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+               <thead className="bg-white/5 border-b border-white/10">
+                  <tr>
+                     <th className="p-6 data-label">Asset</th>
+                     <th className="p-6 data-label">Operator</th>
+                     <th className="p-6 data-label">Direction</th>
+                     <th className="p-6 data-label">Stake</th>
+                     <th className="p-6 data-label">Status</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-white/5">
+                  {predictions.map(pred => (
+                     <tr key={pred.id}>
+                        <td className="p-6 font-bold">{pred.symbol.toUpperCase()}</td>
+                        <td className="p-6 text-xs font-mono">{pred.userId?.slice(0, 12)}</td>
+                        <td className="p-6">
+                           <span className={cn("text-[10px] font-bold uppercase", pred.direction === 'up' ? 'text-success' : 'text-danger')}>
+                              {pred.direction}
+                           </span>
+                        </td>
+                        <td className="p-6 font-mono">{pred.amount} PTS</td>
+                        <td className="p-6">
+                           <span className={cn("badge-system",
+                              pred.status === 'won' ? 'text-success border-success/20' :
+                              pred.status === 'lost' ? 'text-danger border-danger/20' :
+                              'text-warning border-warning/20'
+                           )}>
+                              {pred.status}
+                           </span>
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      </motion.div>
+   );
+};
+
+/* --- ECONOMY MANAGEMENT VIEW --- */
+const EconomyManagementView: React.FC<{ stats: any }> = ({ stats }) => {
    return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
          <header>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Economy Intelligence</h1>
-            <p className="text-text-secondary text-sm">Aggregate metrics of system-wide point distribution and conversion.</p>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Economy Control</h1>
+            <p className="text-text-secondary text-sm">Adjust global monetary parameters and reward multipliers.</p>
          </header>
 
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="system-card">
                <p className="data-label mb-4 text-primary">Circulating Supply</p>
                <p className="text-4xl font-mono font-bold">{stats.ecosystemPoints.toLocaleString()} <span className="text-sm">PTS</span></p>
-               <p className="text-[10px] text-text-secondary mt-4 uppercase tracking-widest font-bold">Total Liability across {stats.totalUsers} Operators</p>
             </div>
             <div className="system-card">
-               <p className="data-label mb-4 text-success">USD Equivalent</p>
-               <p className="text-4xl font-mono font-bold">$ {(stats.ecosystemPoints / 1000).toLocaleString()}</p>
-               <p className="text-[10px] text-text-secondary mt-4 uppercase tracking-widest font-bold">Based on 1000:1 Conversion Ratio</p>
+               <p className="data-label mb-4 text-success">USD Liability</p>
+               <p className="text-4xl font-mono font-bold">${(stats.ecosystemPoints / 1000).toLocaleString()}</p>
             </div>
             <div className="system-card">
-               <p className="data-label mb-4 text-accent">Active Missions</p>
-               <p className="text-4xl font-mono font-bold">{stats.activeTasks}</p>
-               <p className="text-[10px] text-text-secondary mt-4 uppercase tracking-widest font-bold">Currently deployed reward vectors</p>
+               <p className="data-label mb-4 text-accent">Yield Multiplier</p>
+               <p className="text-4xl font-mono font-bold">1.0x</p>
             </div>
          </div>
 
-         <section className="system-card border-white/10">
-            <h2 className="text-sm font-bold uppercase tracking-widest mb-8">Supply Distribution</h2>
-            <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden flex">
-               <div className="h-full bg-primary" style={{ width: '65%' }} />
-               <div className="h-full bg-accent" style={{ width: '25%' }} />
-               <div className="h-full bg-white/20" style={{ width: '10%' }} />
+         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="system-card">
+               <h2 className="text-sm font-bold uppercase tracking-widest mb-8">System Constants</h2>
+               <div className="space-y-6">
+                  {[
+                     { label: 'Referral Reward', value: '50 PTS' },
+                     { label: 'Withdrawal Floor', value: '10,000 PTS' },
+                     { label: 'Conversion Ratio', value: '1000 : $1' },
+                     { label: 'Daily Cap', value: '250 PTS' }
+                  ].map(item => (
+                     <div key={item.label} className="flex items-center justify-between py-2 border-b border-white/5">
+                        <span className="text-xs text-text-secondary font-bold uppercase">{item.label}</span>
+                        <span className="text-sm font-mono font-bold">{item.value}</span>
+                     </div>
+                  ))}
+               </div>
             </div>
-            <div className="grid grid-cols-3 mt-6">
-               <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest">Active Operators (65%)</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest">Reserve Liquidity (25%)</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-white/20" />
-                  <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest">Pending Settlement (10%)</span>
+            <div className="system-card">
+               <h2 className="text-sm font-bold uppercase tracking-widest mb-8">Ecosystem Health</h2>
+               <div className="h-40 flex items-center justify-center border border-dashed border-white/10 rounded-2xl bg-black/20">
+                  <BarChart3 className="text-white/5" size={48} />
                </div>
             </div>
          </section>

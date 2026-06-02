@@ -15,6 +15,8 @@ import CookiePolicy from './pages/legal/CookiePolicy'
 import RewardPolicy from './pages/legal/RewardPolicy'
 import FraudPolicy from './pages/legal/FraudPolicy'
 import VerificationPolicy from './pages/legal/VerificationPolicy'
+import Contact from './pages/legal/Contact'
+import Support from './pages/legal/Support'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 
@@ -84,6 +86,8 @@ function App() {
         <Route path="/reward-policy" element={<RewardPolicy />} />
         <Route path="/fraud-policy" element={<FraudPolicy />} />
         <Route path="/verification-policy" element={<VerificationPolicy />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/support" element={<Support />} />
 
         {/* Admin Route */}
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

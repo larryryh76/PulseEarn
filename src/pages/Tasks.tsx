@@ -21,10 +21,10 @@ import { mapSystemError } from '../utils/errors';
 const Tasks: React.FC = () => {
   const { tasks, loading, submitTask, getTaskStatus } = useTasks();
   const { userData } = useAuth();
-  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED'>('ALL');
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
 
-  const filteredTasks = tasks.filter(t => filter === 'ALL' || t.category === filter);
+  const filteredTasks = tasks.filter(t => filter === 'ALL' || t.category === filter as any);
 
   const handleTaskClick = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -78,7 +78,7 @@ const Tasks: React.FC = () => {
             </motion.div>
 
             <div className="flex items-center gap-2 p-1.5 bg-surface border border-border rounded-2xl overflow-x-auto no-scrollbar">
-              {(['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS'] as const).map((cat) => (
+              {(['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED'] as const).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
@@ -110,7 +110,7 @@ const Tasks: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 className={cn(
-                  "system-card group relative overflow-hidden flex flex-col min-h-[400px]",
+                  "system-card group relative overflow-hidden flex flex-col min-h-[420px]",
                   (isLocked || isCooldown || isCompleted) && "opacity-80"
                 )}
               >
@@ -138,7 +138,7 @@ const Tasks: React.FC = () => {
                 )}
 
                 {/* Card Artwork Header */}
-                <div className="h-32 -mx-8 -mt-8 mb-8 relative overflow-hidden">
+                <div className="h-40 -mx-8 -mt-8 mb-8 relative overflow-hidden">
                    {task.campaignArtwork ? (
                       <img src={task.campaignArtwork} alt="" className="w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" />
                    ) : (
@@ -149,18 +149,29 @@ const Tasks: React.FC = () => {
                    <div className="absolute top-8 left-8 p-3 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl group-hover:border-primary/40 transition-colors">
                     {task.category === 'SOCIAL' ? <Users size={22} className="text-primary" /> :
                      task.category === 'PREDICTION' ? <Activity size={22} className="text-accent" /> :
+                     task.category === 'SPONSORED' ? <ShieldCheck size={22} className="text-success" /> :
                      <Zap size={22} className="text-warning" />}
+                  </div>
+
+                  <div className="absolute top-8 right-8 flex flex-col items-end">
+                     <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{task.rewardAmount}</p>
+                     <p className="text-[8px] uppercase tracking-[0.3em] text-primary font-bold">Pulse Earn</p>
                   </div>
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 space-y-4">
                   <div className="flex justify-between items-start">
-                     <h3 className="text-lg font-bold text-white/90 leading-tight group-hover:text-white transition-colors">{task.title}</h3>
-                     <div className="text-right shrink-0">
-                        <p className="text-xl font-mono font-bold text-white">+{task.rewardAmount}</p>
-                        <p className="text-[9px] uppercase tracking-[0.2em] text-text-secondary font-bold">Yield PT</p>
+                     <div>
+                        <h3 className="text-lg font-bold text-white/90 leading-tight group-hover:text-white transition-colors">{task.title}</h3>
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">{task.category}</p>
                      </div>
+                     {task.endDate && (
+                        <div className="text-right flex items-center gap-1.5 text-white/20">
+                           <Clock size={12} />
+                           <span className="text-[9px] font-bold uppercase tracking-widest">Expiring</span>
+                        </div>
+                     )}
                   </div>
 
                   <p className="text-[13px] text-text-secondary leading-relaxed line-clamp-3 group-hover:text-white/60 transition-colors">
@@ -168,8 +179,8 @@ const Tasks: React.FC = () => {
                   </p>
 
                   <div className="flex flex-wrap gap-2 pt-2">
-                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">{task.platform}</span>
-                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">{task.type}</span>
+                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">Verification: {task.verificationType}</span>
+                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">Platform: {task.platform}</span>
                   </div>
                 </div>
 
@@ -184,12 +195,12 @@ const Tasks: React.FC = () => {
                     ) : isCooldown ? (
                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20 text-[9px] font-bold text-warning uppercase tracking-widest">
                         <Clock size={12} />
-                        Re-Linking...
+                        Cooldown
                       </div>
                     ) : (
                        <div className="flex items-center gap-2 text-primary">
                           <ShieldCheck size={14} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">Authorized</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest">System Ready</span>
                        </div>
                     )}
                   </div>
@@ -208,7 +219,7 @@ const Tasks: React.FC = () => {
                       <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        Execute
+                        Initiate
                         <ArrowRight size={16} />
                       </>
                     )}

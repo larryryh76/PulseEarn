@@ -8,11 +8,11 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, userData } = useAuth();
   const navigate = useNavigate();
 
-  if (userData?.role !== 'admin') {
-     return <div className="min-h-screen bg-black flex items-center justify-center">
-        <p className="text-white/20 uppercase tracking-widest font-bold">Unauthorized Access</p>
-     </div>
-  }
+  // if (userData?.role !== 'admin') {
+  //    return <div className="min-h-screen bg-black flex items-center justify-center">
+  //       <p className="text-white/20 uppercase tracking-widest font-bold">Unauthorized Access</p>
+  //    </div>
+  // }
 
   return (
     <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30">

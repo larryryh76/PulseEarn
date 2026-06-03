@@ -5,10 +5,11 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
+import CampaignDetails from './pages/CampaignDetails'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
-import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminTerminal from './pages/admin/AdminTerminal'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
 import CookiePolicy from './pages/legal/CookiePolicy'
@@ -75,6 +76,7 @@ function App() {
         {/* Core Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
@@ -90,7 +92,7 @@ function App() {
         <Route path="/support" element={<Support />} />
 
         {/* Admin Route */}
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminTerminal /></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

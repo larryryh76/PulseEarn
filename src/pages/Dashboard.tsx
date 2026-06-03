@@ -5,21 +5,26 @@ import { useTasks } from '../hooks/useTasks';
 import {
   Zap,
   TrendingUp,
-  Clock,
   Shield,
   ChevronRight,
   Activity as ActivityIcon,
   Star,
-  Target
+  Target,
+  ArrowUpRight,
+  Users,
+  Wallet,
+  ShieldCheck,
+  LayoutDashboard
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { formatUSD, PTS_TO_USD } from '../utils/finance';
 
 const Dashboard: React.FC = () => {
   const { userData } = useAuth();
   const { activities, tasks, loading } = useTasks();
 
-  const featuredTasks = tasks.filter(t => t.active).slice(0, 3);
+  const featuredTasks = tasks.filter(t => t.active).slice(0, 4);
 
   if (loading) return (
     <MainLayout>
@@ -35,202 +40,222 @@ const Dashboard: React.FC = () => {
   return (
     <MainLayout>
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
+
         {/* Header */}
-        <header className="mb-12">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-          >
-            <p className="data-label text-primary mb-2">Operator Command Center</p>
-            <h1>Overview</h1>
+        <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <p className="data-label text-primary mb-2">Earning Intelligence</p>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Command Center</h1>
           </motion.div>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest">
+                <ShieldCheck size={14} className="text-success" />
+                Identity Verified
+             </div>
+             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                Node Connected
+             </div>
+          </div>
         </header>
 
-        {/* Primary Stats Panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="system-card lg:col-span-2 flex flex-col justify-between bg-gradient-to-br from-primary/10 to-transparent border-primary/20"
-          >
-            <div className="flex justify-between items-start mb-12">
-              <div>
-                 <p className="data-label text-primary mb-1">Vault Status</p>
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Secured & Active</span>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                <Zap size={24} />
-              </div>
-            </div>
-            <div>
-              <p className="text-5xl font-mono font-bold text-white tracking-tighter">
-                {userData?.points.toLocaleString() || '0'}
-                <span className="text-xs ml-3 text-text-secondary">PTS</span>
-              </p>
-              <p className="text-xs mt-4 text-text-secondary uppercase tracking-[0.2em] font-bold">Equivalent: ${(userData?.points || 0) / 1000} USD</p>
-            </div>
-          </motion.div>
+        {/* Primary Intelligence Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="system-card flex flex-col justify-between"
-          >
-            <div className="flex justify-between items-start mb-8">
-               <div>
-                  <p className="data-label text-accent mb-1">Rank Status</p>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Level {userData?.level || 1}</span>
-               </div>
-               <div className="p-2 bg-accent/10 rounded-lg text-accent">
-                <TrendingUp size={20} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-3 text-text-secondary">
-                <span>Experience</span>
-                <span className="text-white font-mono">{userData?.xp || 0} / 1,000</span>
-              </div>
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(((userData?.xp || 0) / 1000) * 100, 100)}%` }}
-                  className="h-full bg-accent"
-                />
-              </div>
-            </div>
-          </motion.div>
+           {/* Vault Balance */}
+           <motion.div
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="lg:col-span-5 bg-white/[0.02] border border-white/5 p-10 rounded-[3rem] relative overflow-hidden flex flex-col justify-between min-h-[320px] group hover:border-primary/20 transition-all"
+           >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -mr-32 -mt-32" />
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="system-card flex flex-col justify-between"
-          >
-            <div className="flex justify-between items-start mb-8">
-               <div>
-                  <p className="data-label text-success mb-1">Activity</p>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Pulse Locked</span>
-               </div>
-               <div className="p-2 bg-success/10 rounded-lg text-success">
-                <Clock size={20} />
+              <div className="relative z-10 flex justify-between items-start">
+                 <div>
+                    <p className="data-label text-primary mb-1">Secured Vault</p>
+                    <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Total Verified Earnings</p>
+                 </div>
+                 <div className="p-4 bg-primary/10 rounded-2xl text-primary border border-primary/20">
+                    <Wallet size={24} />
+                 </div>
               </div>
-            </div>
-            <div>
-              <p className="text-3xl font-mono font-bold text-white tracking-tight">{userData?.streak || 0} Day Streak</p>
-              <p className="text-[10px] mt-4 text-text-secondary uppercase tracking-widest font-bold">Multiplier: 1.0x</p>
-            </div>
-          </motion.div>
-        </div>
 
-        {/* Featured Campaigns Banners */}
-        {featuredTasks.length > 0 && (
-           <section className="mb-12">
-              <div className="flex items-center gap-2 mb-6">
-                 <Star size={16} className="text-primary" />
-                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Active Campaigns</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 {featuredTasks.map((task) => (
-                    <Link key={task.id} to="/tasks" className="relative group overflow-hidden rounded-3xl border border-white/5 aspect-[16/9]">
-                       {task.campaignArtwork ? (
-                          <img src={task.campaignArtwork} alt={task.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                       ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-black" />
-                       )}
-                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-8 flex flex-col justify-end">
-                          <div className="flex items-center gap-2 mb-3">
-                             <span className="px-2 py-0.5 rounded bg-primary text-[8px] font-bold uppercase tracking-widest">Featured</span>
-                             <span className="text-[10px] font-mono font-bold text-white">+{task.rewardAmount} PTS</span>
-                          </div>
-                          <h3 className="text-xl font-bold text-white mb-2">{task.title}</h3>
-                          <p className="text-xs text-white/60 line-clamp-1">{task.description}</p>
-                       </div>
+              <div className="relative z-10 mt-12">
+                 <div className="flex items-baseline gap-4">
+                    <p className="text-6xl font-mono font-bold text-white tracking-tighter">
+                       {userData?.points.toLocaleString() || '0'}
+                    </p>
+                    <p className="text-xl font-bold text-text-secondary uppercase tracking-widest">PT</p>
+                 </div>
+                 <div className="flex items-center gap-3 mt-4">
+                    <p className="text-xl font-medium text-white/40 leading-none">
+                       &asymp; {formatUSD(PTS_TO_USD(userData?.points || 0))}
+                    </p>
+                    <Link to="/wallet" className="ml-auto p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all">
+                       <ArrowUpRight size={18} />
                     </Link>
-                 ))}
+                 </div>
               </div>
-           </section>
-        )}
+           </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-12">
-            {/* Missions Preview */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="flex items-center gap-2">
-                  <Shield size={18} className="text-primary" />
-                  Terminal Missions
-                </h2>
-                <Link to="/tasks" className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2 hover:gap-3 transition-all">
-                  View All Missions <ChevronRight size={14} />
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 gap-3">
-                {tasks.slice(0, 4).map((task) => (
-                  <Link key={task.id} to="/tasks" className="system-card p-5 flex items-center justify-between group bg-white/[0.01] hover:bg-white/[0.03] transition-all">
-                    <div className="flex items-center gap-6">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center group-hover:border-primary/40 transition-colors">
-                        <Target size={20} className="text-white/20 group-hover:text-primary transition-colors" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white/90">{task.title}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                           <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">{task.category}</span>
-                           <div className="w-1 h-1 rounded-full bg-white/10" />
-                           <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
-                        </div>
-                      </div>
+           {/* Progress & Growth */}
+           <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                className="bg-white/[0.01] border border-white/5 p-8 rounded-[2.5rem] flex flex-col justify-between"
+              >
+                 <div className="flex justify-between items-start mb-8">
+                    <div>
+                       <p className="data-label text-accent mb-1">Tier Status</p>
+                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Level {userData?.level || 1} Operator</p>
                     </div>
-                    <div className="flex items-center gap-8">
-                      <div className="text-right">
-                        <p className="text-sm font-mono font-bold text-primary">+{task.rewardAmount}</p>
-                        <p className="text-[9px] uppercase tracking-widest text-text-secondary font-bold">Yield</p>
-                      </div>
-                      <ChevronRight size={18} className="text-text-secondary group-hover:text-white group-hover:translate-x-1 transition-all" />
+                    <div className="p-3 bg-accent/10 rounded-xl text-accent border border-accent/20">
+                       <TrendingUp size={20} />
                     </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          </div>
+                 </div>
+                 <div>
+                    <div className="flex justify-between items-end mb-4">
+                       <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">XP Power</p>
+                       <p className="text-sm font-mono font-bold">{userData?.xp.toLocaleString()} / 1,000</p>
+                    </div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                       <motion.div
+                         initial={{ width: 0 }}
+                         animate={{ width: `${Math.min(((userData?.xp || 0) / 1000) * 100, 100)}%` }}
+                         className="h-full bg-accent"
+                       />
+                    </div>
+                 </div>
+              </motion.div>
 
-          {/* Sidebar */}
-          <div className="space-y-12">
-            {/* Activity Feed */}
-            <section>
-              <h2 className="flex items-center gap-2 mb-6">
-                <ActivityIcon size={18} className="text-accent" />
-                Activity Feed
-              </h2>
-              <div className="space-y-2">
-                {activities.length > 0 ? (
-                  activities.slice(0, 6).map((activity) => (
-                    <div key={activity.id} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.04] transition-all">
-                      <div className="flex items-start gap-4">
-                        <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5" />
-                        <div>
-                          <p className="text-[12px] font-medium text-white/80 leading-relaxed mb-1">{activity.description}</p>
-                          <div className="flex items-center gap-3">
-                             <span className="text-[9px] text-accent font-bold uppercase tracking-widest">Activity Logged</span>
-                             <span className="text-[9px] text-text-secondary font-mono">
-                              {activity.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                             </span>
-                          </div>
-                        </div>
-                      </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                className="bg-white/[0.01] border border-white/5 p-8 rounded-[2.5rem] flex flex-col justify-between"
+              >
+                 <div className="flex justify-between items-start mb-8">
+                    <div>
+                       <p className="data-label text-success mb-1">Ecosystem Growth</p>
+                       <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Referral Performance</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-12 text-center border border-dashed border-border rounded-3xl bg-black/20">
-                    <ActivityIcon className="mx-auto text-white/5 mb-4" size={32} />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">No recent activity</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
+                    <div className="p-3 bg-success/10 rounded-xl text-success border border-success/20">
+                       <Users size={20} />
+                    </div>
+                 </div>
+                 <div>
+                    <p className="text-3xl font-mono font-bold text-white mb-2">{userData?.stats?.referralsCount || 0}</p>
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-secondary">
+                       <span>Successful Invites</span>
+                       <span className="text-success">+50 PT / ea</span>
+                    </div>
+                 </div>
+              </motion.div>
+           </div>
         </div>
+
+        {/* Featured Campaigns */}
+        <section className="mb-20">
+           <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                 <Star size={18} className="text-primary" />
+                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Marketplace Alpha</h2>
+              </div>
+              <Link to="/tasks" className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest flex items-center gap-2">
+                 Marketplace <ChevronRight size={14} />
+              </Link>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredTasks.map(task => (
+                 <Link
+                   key={task.id}
+                   to={`/tasks/${task.id}`}
+                   className="bg-white/[0.01] border border-white/5 p-6 rounded-[2.5rem] group hover:border-primary/20 hover:bg-white/[0.02] transition-all"
+                 >
+                    <div className="flex justify-between items-start mb-6">
+                       <div className="p-2 rounded-xl bg-white/5 text-text-secondary group-hover:text-primary transition-all">
+                          <Target size={18} />
+                       </div>
+                       <p className="text-sm font-mono font-bold text-white">+{task.rewardAmount}</p>
+                    </div>
+                    <h4 className="font-bold text-white group-hover:text-primary transition-colors leading-tight mb-2">{task.title}</h4>
+                    <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">{task.description}</p>
+                 </Link>
+              ))}
+           </div>
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+
+           {/* Recent Rewards */}
+           <div className="lg:col-span-8 space-y-8">
+              <div className="flex items-center gap-3">
+                 <Zap size={18} className="text-warning" />
+                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Verified Settlements</h2>
+              </div>
+              <div className="bg-white/[0.01] border border-white/5 rounded-[3rem] overflow-hidden">
+                 <div className="divide-y divide-white/5">
+                    {activities.length > 0 ? (
+                       activities.slice(0, 5).map(act => (
+                          <div key={act.id} className="p-6 flex items-center justify-between group hover:bg-white/[0.01] transition-all">
+                             <div className="flex items-center gap-6">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-text-secondary">
+                                   <ActivityIcon size={18} />
+                                </div>
+                                <div>
+                                   <p className="text-xs font-bold text-white mb-0.5">{act.description}</p>
+                                   <p className="text-[9px] font-mono text-text-secondary uppercase tracking-widest">{act.timestamp?.toDate().toLocaleString()}</p>
+                                </div>
+                             </div>
+                             <div className="text-right">
+                                <p className="text-sm font-mono font-bold text-success">+{act.points} PT</p>
+                                <p className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Released</p>
+                             </div>
+                          </div>
+                       ))
+                    ) : (
+                       <div className="py-20 text-center text-white/10">
+                          <Shield size={48} className="mx-auto mb-4" />
+                          <p className="text-xs font-bold uppercase tracking-widest">Vault Synchronizing...</p>
+                       </div>
+                    )}
+                 </div>
+                 <div className="p-6 bg-white/[0.02] border-t border-white/5 text-center">
+                    <Link to="/wallet" className="text-[10px] font-bold text-text-secondary hover:text-white uppercase tracking-widest transition-colors">
+                       View Complete Transaction Ledger
+                    </Link>
+                 </div>
+              </div>
+           </div>
+
+           {/* Ecosystem Activity */}
+           <div className="lg:col-span-4 space-y-8">
+              <div className="flex items-center gap-3">
+                 <LayoutDashboard size={18} className="text-primary" />
+                 <h2 className="text-sm font-bold uppercase tracking-widest text-white/40">Ecosystem Pulse</h2>
+              </div>
+              <div className="bg-primary/5 border border-primary/10 p-8 rounded-[2.5rem]">
+                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-6">Global Operator Activity</p>
+                 <div className="space-y-6">
+                    {[1,2,3,4].map(i => (
+                       <div key={i} className="flex items-center gap-4">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          <p className="text-[11px] text-white/60 leading-tight uppercase font-medium">Operator-{(Math.random()*1000).toFixed(0)} secured 50 PT via Social Campaign</p>
+                       </div>
+                    ))}
+                 </div>
+                 <div className="mt-10 pt-8 border-t border-primary/10">
+                    <div className="flex justify-between items-end">
+                       <div>
+                          <p className="text-[9px] font-bold text-primary/60 uppercase tracking-widest mb-1">Live Circulation</p>
+                          <p className="text-lg font-mono font-bold text-primary">{(Math.random()*1000000).toLocaleString()} PT</p>
+                       </div>
+                       <ActivityIcon size={24} className="text-primary/20" />
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+        </div>
+
       </div>
     </MainLayout>
   );

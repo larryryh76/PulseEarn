@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
+import CampaignDetails from './pages/CampaignDetails'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
@@ -20,7 +21,8 @@ import {
   AdminEconomy,
   AdminBroadcasts,
   AdminAudit,
-  AdminTasks
+  AdminTasks,
+  AdminSettings
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -88,6 +90,7 @@ function App() {
         {/* Core Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/tasks/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
@@ -114,6 +117,7 @@ function App() {
         <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><AdminOpsLayout><AdminSettings /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

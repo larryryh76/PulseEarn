@@ -2,11 +2,11 @@ import * as React from "react";
 import {
   Plus,
   Search,
-  ArrowRight,
   Image as ImageIcon,
   Edit3,
   Pause,
-  Target
+  Target,
+  Shield
 } from 'lucide-react';
 import {
   collection,
@@ -138,10 +138,10 @@ const AdminCampaigns = () => {
                          {camp.active ? <Pause size={16} /> : <Target size={16} />}
                       </button>
                    </div>
-                   <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:gap-3 transition-all">
-                      Manage Details
-                      <ArrowRight size={14} />
-                   </button>
+                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary/40 cursor-default">
+                      System Active
+                      <Shield size={14} />
+                   </div>
                 </div>
               </div>
             </div>

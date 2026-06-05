@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { useTasks } from '../hooks/useTasks';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,42 +16,14 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils';
-import toast from 'react-hot-toast';
-import { mapSystemError } from '../utils/errors';
 
 const Tasks: React.FC = () => {
-  const { tasks, loading, submitTask, getTaskStatus } = useTasks();
+  const navigate = useNavigate();
+  const { tasks, loading, getTaskStatus } = useTasks();
   const { userData } = useAuth();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED'>('ALL');
-  const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
 
   const filteredTasks = tasks.filter(t => filter === 'ALL' || t.category === filter as any);
-
-  const handleTaskClick = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    const { status } = getTaskStatus(task);
-    if (status !== 'available' && status !== 'rejected') return;
-
-    setIsSubmitting(taskId);
-    try {
-      const result = await submitTask(taskId);
-      if (result.success) {
-        if (task.verificationType === 'automated') {
-          toast.success(`+${task.rewardAmount} PTS Secured`, { icon: '⚡' });
-        } else {
-          toast.success('Mission proof logged for audit');
-        }
-      } else {
-        toast.error(mapSystemError(result.error || '') || 'Action failed');
-      }
-    } catch (err) {
-      toast.error('System sync error');
-    } finally {
-      setIsSubmitting(null);
-    }
-  };
 
   if (loading) return (
     <MainLayout>
@@ -73,8 +46,8 @@ const Tasks: React.FC = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
             >
-              <p className="data-label text-primary mb-2">Operations Terminal</p>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Campaign Feed</h1>
+              <p className="data-label text-primary mb-2">Campaign Intelligence</p>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Active Campaigns</h1>
             </motion.div>
 
             <div className="flex items-center gap-2 p-1.5 bg-surface border border-border rounded-2xl overflow-x-auto no-scrollbar">
@@ -110,9 +83,10 @@ const Tasks: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 className={cn(
-                  "system-card group relative overflow-hidden flex flex-col min-h-[420px]",
+                  "system-card group relative overflow-hidden flex flex-col min-h-[420px] cursor-pointer",
                   (isLocked || isCooldown || isCompleted) && "opacity-80"
                 )}
+                onClick={() => navigate(`/tasks/${task.id}`)}
               >
                 {/* Status Overlay */}
                 {(isCompleted || isPending) && (
@@ -140,7 +114,7 @@ const Tasks: React.FC = () => {
                 {/* Card Artwork Header */}
                 <div className="h-40 -mx-8 -mt-8 mb-8 relative overflow-hidden">
                    {task.campaignArtwork ? (
-                      <img src={task.campaignArtwork} alt="" className="w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" />
+                      <img src={task.campaignArtwork} alt="" className="w-full h-full object-cover opacity-40 group-hover:scale-110 transition-transform duration-1000" />
                    ) : (
                       <div className="w-full h-full bg-gradient-to-br from-primary/20 to-transparent" />
                    )}
@@ -155,7 +129,7 @@ const Tasks: React.FC = () => {
 
                   <div className="absolute top-8 right-8 flex flex-col items-end">
                      <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{task.rewardAmount}</p>
-                     <p className="text-[8px] uppercase tracking-[0.3em] text-primary font-bold">Pulse Earn</p>
+                     <p className="text-[8px] uppercase tracking-[0.3em] text-primary font-bold">Reward</p>
                   </div>
                 </div>
 
@@ -169,7 +143,7 @@ const Tasks: React.FC = () => {
                      {task.endDate && (
                         <div className="text-right flex items-center gap-1.5 text-white/20">
                            <Clock size={12} />
-                           <span className="text-[9px] font-bold uppercase tracking-widest">Expiring</span>
+                           <span className="text-[9px] font-bold uppercase tracking-widest">Active</span>
                         </div>
                      )}
                   </div>
@@ -179,8 +153,8 @@ const Tasks: React.FC = () => {
                   </p>
 
                   <div className="flex flex-wrap gap-2 pt-2">
-                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">Verification: {task.verificationType}</span>
-                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">Platform: {task.platform}</span>
+                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">{task.verificationType}</span>
+                     <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-bold uppercase tracking-widest text-text-secondary">{task.platform}</span>
                   </div>
                 </div>
 
@@ -190,7 +164,7 @@ const Tasks: React.FC = () => {
                     {isLocked ? (
                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/20 text-[9px] font-bold text-danger uppercase tracking-widest">
                         <Lock size={12} />
-                        Clearance Lvl {task.minLevel}
+                        Lvl {task.minLevel}
                       </div>
                     ) : isCooldown ? (
                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20 text-[9px] font-bold text-warning uppercase tracking-widest">
@@ -199,31 +173,23 @@ const Tasks: React.FC = () => {
                       </div>
                     ) : (
                        <div className="flex items-center gap-2 text-primary">
-                          <ShieldCheck size={14} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">System Ready</span>
+                          <Zap size={14} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">+{task.xpReward} XP</span>
                        </div>
                     )}
                   </div>
 
-                  <button
-                    disabled={isLocked || isCooldown || isCompleted || isPending || isSubmitting === task.id}
-                    onClick={() => handleTaskClick(task.id)}
+                  <div
                     className={cn(
                       "flex items-center gap-3 px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all",
                       (isLocked || isCooldown || isCompleted || isPending)
-                        ? "text-white/20 cursor-not-allowed bg-white/5"
-                        : "text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 hover:gap-4"
+                        ? "text-white/20 bg-white/5"
+                        : "text-white bg-primary group-hover:bg-primary/90 shadow-lg shadow-primary/20 group-hover:gap-4"
                     )}
                   >
-                    {isSubmitting === task.id ? (
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        Initiate
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
+                    Details
+                    <ArrowRight size={16} />
+                  </div>
                 </div>
               </motion.div>
             );

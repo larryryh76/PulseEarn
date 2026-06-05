@@ -5,11 +5,23 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
-import CampaignDetails from './pages/CampaignDetails'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
-import AdminTerminal from './pages/admin/AdminTerminal'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminOpsLayout from './components/layout/admin/AdminOpsLayout'
+import {
+  AdminOverview,
+  AdminCampaigns,
+  AdminValidation,
+  AdminLedger,
+  AdminOperators,
+  AdminSecurity,
+  AdminEconomy,
+  AdminBroadcasts,
+  AdminAudit,
+  AdminTasks
+} from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
 import CookiePolicy from './pages/legal/CookiePolicy'
@@ -76,7 +88,6 @@ function App() {
         {/* Core Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-        <Route path="/tasks/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
@@ -91,8 +102,18 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/support" element={<Support />} />
 
-        {/* Admin Route */}
-        <Route path="/admin" element={<AdminRoute><AdminTerminal /></AdminRoute>} />
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/overview" element={<AdminRoute><AdminOpsLayout><AdminOverview /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/campaigns" element={<AdminRoute><AdminOpsLayout><AdminCampaigns /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/validation" element={<AdminRoute><AdminOpsLayout><AdminValidation /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/ledger" element={<AdminRoute><AdminOpsLayout><AdminLedger /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminOperators /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/security" element={<AdminRoute><AdminOpsLayout><AdminSecurity /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/economy" element={<AdminRoute><AdminOpsLayout><AdminEconomy /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

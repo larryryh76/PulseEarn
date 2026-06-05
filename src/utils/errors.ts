@@ -22,7 +22,7 @@ export const mapAuthError = (error: any): string => {
     case 'auth/network-request-failed':
       return 'A network error occurred. Please check your internet connection.';
     case 'auth/internal-error':
-      return 'A system error occurred. Please try again later.';
+      return 'A system error occurred during authentication. Please try again later.';
     default:
       return 'An unexpected authentication error occurred. Please try again.';
   }
@@ -36,5 +36,5 @@ export const mapSystemError = (error: string): string => {
   if (error === 'RACE_CONDITION_DETECTED') return 'Action in progress. Please wait.';
   if (error === 'ENTITY_NOT_FOUND') return 'User record not found. Please re-login.';
 
-  return 'System communication failed. Please try again in a moment.';
+  return 'Communication failed. Please try again in a moment.';
 };

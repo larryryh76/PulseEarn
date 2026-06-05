@@ -159,8 +159,8 @@ const Login: React.FC = () => {
                   exit={{ opacity: 0, x: -20 }}
                 >
                   <div className="flex flex-col items-center text-center mb-10">
-                    <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-6 shadow-xl">
-                        <AlertCircle className="text-accent" size={32} />
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 shadow-xl">
+                        <AlertCircle className="text-primary" size={32} />
                     </div>
                     <h1 className="text-3xl font-bold mb-2 tracking-tight text-white">Reset Password</h1>
                     <p className="text-white/40 text-sm font-medium">Enter your email to receive a reset link</p>
@@ -170,7 +170,7 @@ const Login: React.FC = () => {
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Email</label>
                       <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-accent transition-colors">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
                           <Mail size={18} />
                         </div>
                         <input
@@ -178,13 +178,13 @@ const Login: React.FC = () => {
                           placeholder="name@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-accent/50 focus:bg-white/[0.04] transition-all font-medium"
+                          className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
                           required
                         />
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full py-4 rounded-xl bg-accent hover:bg-accent/80 shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting} glow>
                       {isSubmitting ? 'Sending Link...' : 'Send Reset Link'}
                     </Button>
 

@@ -29,7 +29,7 @@ const PredictionPreview: React.FC = () => {
                 <Target size={16} className="text-primary" />
                 Market Predictions
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
                 Predict & <br className="hidden sm:block" />
                 <span className="text-white/20">Earn More.</span>
               </h2>

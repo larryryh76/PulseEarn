@@ -148,20 +148,6 @@ export class PointTransactionEngine {
           engineVersion: '5.0.0-PRO'
         });
 
-        // 10. System Notification
-        if (amount !== 0) {
-           const notifRef = doc(collection(db, 'users', userId, 'notifications'));
-           transaction.set(notifRef, {
-              title: amount > 0 ? 'Reward Secured' : 'Vault Debit',
-              description: amount > 0
-                ? `You earned +${amount} PT via ${source}.`
-                : `Balance adjusted by ${amount} PT for ${source}.`,
-              type: amount > 0 ? 'reward_claimed' : 'system',
-              read: false,
-              timestamp: serverTimestamp()
-           });
-        }
-
         return { success: true, txId: txDoc.id };
       });
     } catch (error: any) {

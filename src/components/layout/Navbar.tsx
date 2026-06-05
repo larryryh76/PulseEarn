@@ -106,7 +106,7 @@ const Navbar: React.FC = () => {
                 {currentUser ? (
                   <>
                     <div className="space-y-4">
-                      <p className="data-label px-2 text-primary">Terminal Navigation</p>
+                      <p className="data-label px-2 text-primary">Navigation</p>
                       <div className="grid grid-cols-1 gap-2">
                         {navLinks.map((link) => (
                           <Link
@@ -129,14 +129,14 @@ const Navbar: React.FC = () => {
                       {userData?.role === 'admin' && (
                         <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-primary bg-primary/5 border border-primary/10">
                           <Terminal size={20} />
-                          Administrative Access
+                          Admin Access
                         </Link>
                       )}
                       <button
                         onClick={() => { logout(); navigate('/'); setIsMobileMenuOpen(false); }}
                         className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-danger/60 hover:bg-danger/5"
                       >
-                        Terminate Session
+                        Sign Out
                       </button>
                     </div>
                   </>

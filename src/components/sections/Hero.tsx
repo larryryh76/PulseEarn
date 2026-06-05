@@ -25,7 +25,7 @@ const Hero: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-primary text-[10px] font-bold tracking-[0.2em] uppercase mb-8 backdrop-blur-xl"
+            className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.03] border border-white/10 text-primary text-[10px] font-bold tracking-[0.2em] uppercase mb-8 backdrop-blur-xl whitespace-nowrap"
           >
             <div className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -43,7 +43,7 @@ const Hero: React.FC = () => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.1] sm:leading-[0.9] tracking-tight text-white break-words"
+              className="text-4xl sm:text-6xl md:text-7xl font-bold leading-[1.1] sm:leading-[1.1] tracking-tight text-white break-words"
             >
               EARN <br className="hidden sm:block" />
               <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">REWARDS.</span>
@@ -182,7 +182,7 @@ const Hero: React.FC = () => {
             transition={{ duration: 1, delay: 1 }}
             className="w-full mt-24 pt-12 border-t border-white/[0.05]"
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-12 gap-x-8">
               {[
                 { label: 'Total Rewards Paid', value: '$2.4M', icon: BarChart3 },
                 { label: 'Active Users', value: '45,200', icon: Users },

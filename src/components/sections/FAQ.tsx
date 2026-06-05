@@ -42,7 +42,7 @@ const FAQ: React.FC = () => {
             >
               FAQ
             </motion.div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 text-white tracking-tight">Got <span className="text-white/20">Questions?</span></h2>
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-6 text-white tracking-tight">Got <span className="text-white/20">Questions?</span></h2>
             <p className="text-white/60 text-base sm:text-lg font-medium">Everything you need to know about getting started with PulseEarn.</p>
           </div>
 

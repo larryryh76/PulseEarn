@@ -95,7 +95,7 @@ const DailyRewardsPreview: React.FC = () => {
                 <Gift size={16} className="text-primary" />
                 Daily Rewards
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
                 Grow Your <br className="hidden sm:block" />
                 <span className="text-white/20">Earnings Daily.</span>
               </h2>

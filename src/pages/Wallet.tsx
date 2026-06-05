@@ -22,6 +22,8 @@ const Wallet: React.FC = () => {
   const { userData } = useAuth();
   const { transactions, loading } = useTransactions(50);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const points = userData?.points || 0;
   const usdValue = PTS_TO_USD(points);
@@ -50,6 +52,21 @@ const Wallet: React.FC = () => {
       </div>
     </MainLayout>
   );
+
+  const handleWithdraw = async () => {
+    if (!thresholdMet || isProcessing || isCompleted) return;
+
+    setIsProcessing(true);
+    try {
+      // Simulate submission for high-fidelity UI
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setIsCompleted(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <MainLayout>
@@ -226,16 +243,30 @@ const Wallet: React.FC = () => {
                        </div>
                     </div>
                  </div>
-              ) : (
+              ) : isCompleted ? (
                 <div className="py-8">
                   <div className="p-8 bg-success/5 border border-success/10 rounded-[2rem] flex flex-col items-center text-center gap-6 mb-10">
                     <div className="p-4 rounded-2xl bg-success/10 text-success">
                        <Check size={32} />
                     </div>
                     <div>
-                       <p className="text-lg font-bold text-white mb-2 tracking-tight">Eligibility Confirmed</p>
+                       <p className="text-lg font-bold text-white mb-2 tracking-tight">Request Submitted</p>
                        <p className="text-xs text-text-secondary leading-relaxed uppercase tracking-widest font-bold">
                           Withdrawal request submitted successfully. <br/> Your funds are being processed.
+                       </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8">
+                  <div className="p-8 bg-primary/5 border border-primary/10 rounded-[2rem] flex flex-col items-center text-center gap-6 mb-10">
+                    <div className="p-4 rounded-2xl bg-primary/10 text-primary">
+                       <CreditCard size={32} />
+                    </div>
+                    <div>
+                       <p className="text-lg font-bold text-white mb-2 tracking-tight">Eligibility Confirmed</p>
+                       <p className="text-xs text-text-secondary leading-relaxed uppercase tracking-widest font-bold">
+                          You are eligible to withdraw your balance.
                        </p>
                     </div>
                   </div>
@@ -253,15 +284,27 @@ const Wallet: React.FC = () => {
                 </div>
               )}
 
-              <button
-                disabled
-                className={cn(
-                  "w-full py-6 rounded-2xl text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all",
-                  thresholdMet ? "bg-primary text-white" : "bg-white/[0.02] border border-white/5 text-white/20 cursor-not-allowed"
-                )}
-              >
-                {thresholdMet ? 'Request Processing' : 'Insufficient Balance'}
-              </button>
+              {!isCompleted && (
+                <button
+                  onClick={handleWithdraw}
+                  disabled={!thresholdMet || isProcessing}
+                  className={cn(
+                    "w-full py-6 rounded-2xl text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all",
+                    thresholdMet ? "bg-primary text-white" : "bg-white/[0.02] border border-white/5 text-white/20 cursor-not-allowed"
+                  )}
+                >
+                  {isProcessing ? 'Processing...' : thresholdMet ? 'Confirm Withdrawal' : 'Insufficient Balance'}
+                </button>
+              )}
+
+              {isCompleted && (
+                <button
+                  onClick={() => setIsWithdrawModalOpen(false)}
+                  className="w-full py-6 rounded-2xl text-[10px] font-bold uppercase tracking-[0.3em] bg-white/5 text-white hover:bg-white/10 transition-all"
+                >
+                  Close Window
+                </button>
+              )}
             </motion.div>
           </div>
         )}

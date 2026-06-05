@@ -8,3 +8,4 @@ export { default as AdminEconomy } from './AdminEconomy';
 export { default as AdminBroadcasts } from './AdminBroadcasts';
 export { default as AdminAudit } from './AdminAudit';
 export { default as AdminTasks } from './AdminTasks';
+export { default as AdminSettings } from './AdminSettings';

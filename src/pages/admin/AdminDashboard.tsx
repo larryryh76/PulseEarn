@@ -9,7 +9,10 @@ import {
   Layers,
   ShieldCheck,
   Activity,
-  ChevronRight
+  ChevronRight,
+  BarChart3,
+  Bell,
+  FileText
 } from 'lucide-react';
 import { cn } from '../../utils';
 import {
@@ -62,12 +65,16 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const modules = [
-    { title: 'Intelligence', desc: 'Global metrics and infrastructure health.', icon: Terminal, path: '/admin/overview', color: 'text-primary' },
+    { title: 'Overview', desc: 'Global metrics and infrastructure health.', icon: Terminal, path: '/admin/overview', color: 'text-primary' },
     { title: 'Campaigns', desc: 'Orchestrate strategic marketing initiatives.', icon: Layers, path: '/admin/campaigns', color: 'text-success' },
-    { title: 'Validation', desc: 'Authorize operator proof-of-work.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
-    { title: 'Ledger', desc: 'Audit global economic injections.', icon: Activity, path: '/admin/ledger', color: 'text-accent' },
-    { title: 'Operators', desc: 'Manage user registry and integrity.', icon: Users, path: '/admin/users', color: 'text-white' },
-    { title: 'Security', desc: 'Monitor fraud and system anomalies.', icon: ShieldAlert, path: '/admin/security', color: 'text-danger' },
+    { title: 'Validations', desc: 'Authorize operator proof-of-work.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
+    { title: 'Transactions', desc: 'Audit global economic injections.', icon: Activity, path: '/admin/ledger', color: 'text-accent' },
+    { title: 'Users', desc: 'Manage user registry and integrity.', icon: Users, path: '/admin/users', color: 'text-white' },
+    { title: 'Fraud Center', desc: 'Monitor fraud and system incidents.', icon: ShieldAlert, path: '/admin/security', color: 'text-danger' },
+    { title: 'Notifications', desc: 'Distribute global system notifications.', icon: Bell, path: '/admin/broadcasts', color: 'text-accent' },
+    { title: 'Economy', desc: 'Manage monetary policy and thresholds.', icon: BarChart3, path: '/admin/economy', color: 'text-success' },
+    { title: 'System Settings', desc: 'Manage global system parameters.', icon: Cpu, path: '/admin/settings', color: 'text-primary' },
+    { title: 'Audit Logs', desc: 'Audit administrative and system actions.', icon: FileText, path: '/admin/audit', color: 'text-white' },
   ];
 
   return (
@@ -106,7 +113,7 @@ const AdminDashboard: React.FC = () => {
            <div className="flex items-center justify-between mb-8">
               <h2 className="text-sm font-bold uppercase tracking-widest flex items-center gap-3">
                  <Cpu size={18} className="text-primary" />
-                 System Pulse
+                 Global Ecosystem Log
               </h2>
               <span className="px-3 py-1 rounded-full bg-success/10 text-success text-[8px] font-bold uppercase tracking-widest border border-success/20">
                 {loading ? 'Synchronizing...' : 'All Systems Nominal'}

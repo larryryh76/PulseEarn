@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Menu,
   X,
-  Zap
+  Cpu
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,16 +41,16 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   const navItems = [
-    { id: 'OVERVIEW', label: 'Intelligence', icon: Terminal, path: '/admin/overview' },
+    { id: 'OVERVIEW', label: 'Overview', icon: Terminal, path: '/admin/overview' },
     { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers, path: '/admin/campaigns' },
-    { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
-    { id: 'VALIDATION', label: 'Validation', icon: ShieldCheck, path: '/admin/validation' },
-    { id: 'TRANSACTIONS', label: 'Ledger', icon: Activity, path: '/admin/ledger' },
-    { id: 'USERS', label: 'Operators', icon: Users, path: '/admin/users' },
-    { id: 'FRAUD', label: 'Security', icon: ShieldAlert, path: '/admin/security' },
+    { id: 'VALIDATION', label: 'Validations', icon: ShieldCheck, path: '/admin/validation' },
+    { id: 'TRANSACTIONS', label: 'Transactions', icon: Activity, path: '/admin/ledger' },
+    { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
+    { id: 'FRAUD', label: 'Fraud Center', icon: ShieldAlert, path: '/admin/security' },
+    { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, path: '/admin/broadcasts' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
-    { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts' },
-    { id: 'AUDIT', label: 'System Logs', icon: FileText, path: '/admin/audit' },
+    { id: 'SETTINGS', label: 'System Settings', icon: Cpu, path: '/admin/settings' },
+    { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit' },
   ];
 
   const handleLogout = async () => {
@@ -107,7 +107,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
          <header className="lg:hidden h-16 border-b border-white/5 px-6 flex items-center justify-between bg-background/80 backdrop-blur-md z-40">
             <Link to="/admin" className="flex items-center gap-3">
                <Logo />
-               <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Ops</span>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Hub</span>
             </Link>
             <button
               onClick={() => setIsMobileNavOpen(v => !v)}

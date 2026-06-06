@@ -58,7 +58,7 @@ const Wallet: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      // Simulate submission for high-fidelity UI
+      // Simulate subcampaign for high-fidelity UI
       await new Promise(resolve => setTimeout(resolve, 2000));
       setIsCompleted(true);
     } catch (err) {

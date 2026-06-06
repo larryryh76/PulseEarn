@@ -6,7 +6,7 @@ import {
   Zap,
   TrendingUp,
   Clock,
-  Shield,
+  ShieldCheck,
   ChevronRight,
   Activity as ActivityIcon,
   Star,
@@ -15,8 +15,7 @@ import {
   BarChart3,
   CreditCard,
   UserPlus,
-  ArrowRight,
-  AlertCircle
+  ArrowRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -44,13 +43,13 @@ const Dashboard: React.FC = () => {
   return (
     <MainLayout>
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
-        {/* Command Header & Quick Actions */}
+        {/* Dashboard Header & Quick Actions */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 mb-12">
           <motion.header
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <p className="data-label text-primary mb-2">Earning Operating Center</p>
+            <p className="data-label text-primary mb-2">Rewards Dashboard</p>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Ready to <span className="text-primary">Earn?</span></h1>
           </motion.header>
 
@@ -69,7 +68,7 @@ const Dashboard: React.FC = () => {
                <Link
                 key={action.name}
                 to={action.path}
-                className="flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-primary/30 transition-all group"
+                className="flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-surface-bright border border-white/5 hover:bg-white/[0.08] hover:border-primary/30 transition-all group shadow-subtle"
                >
                  <action.icon size={16} className="text-white/40 group-hover:text-primary transition-colors" />
                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">{action.name}</span>
@@ -86,47 +85,44 @@ const Dashboard: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="mb-12"
            >
-              <Link to="/tasks" className="relative block w-full aspect-[21/9] md:aspect-[21/7] rounded-[2.5rem] border border-white/5 overflow-hidden group">
+              <Link to={`/tasks/${featuredTask.id}`} className="relative block w-full aspect-[21/9] md:aspect-[21/7] rounded-[3rem] border border-white/10 overflow-hidden group shadow-premium bg-surface-bright">
                  {featuredTask.campaignArtwork ? (
-                   <img src={featuredTask.campaignArtwork} alt={featuredTask.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                   <img src={featuredTask.campaignArtwork} alt={featuredTask.title} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000" />
                  ) : (
-                   <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-surface to-surface" />
+                   <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-surface-bright to-surface" />
                  )}
                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent p-8 md:p-12 flex flex-col justify-end">
                     <div className="max-w-2xl">
                        <div className="flex items-center gap-3 mb-4">
-                          <div className="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 backdrop-blur-md">
-                             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Featured High-Yield</span>
-                          </div>
-                          <div className="px-3 py-1 rounded-full bg-success/20 border border-success/30 backdrop-blur-md">
-                             <span className="text-[10px] font-bold text-success uppercase tracking-widest">Ends in 48h</span>
+                          <div className="px-3 py-1 rounded-full bg-primary text-white shadow-lg">
+                             <span className="text-[10px] font-bold uppercase tracking-widest">Featured Opportunity</span>
                           </div>
                        </div>
-                       <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight leading-none">{featuredTask.title}</h2>
-                       <p className="text-base md:text-lg text-white/60 mb-8 line-clamp-2 leading-relaxed">{featuredTask.description}</p>
+                       <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight leading-none group-hover:text-primary transition-colors">{featuredTask.title}</h2>
+                       <p className="text-base md:text-lg text-white/70 mb-8 line-clamp-2 leading-relaxed font-medium">{featuredTask.description}</p>
                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-3">
-                             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                                <Zap className="text-primary" size={24} />
+                          <div className="flex items-center gap-4">
+                             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-xl">
+                                <Zap className="text-primary" size={28} />
                              </div>
                              <div>
-                                <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Reward</p>
-                                <p className="text-xl font-mono font-bold text-white">{featuredTask.rewardAmount.toLocaleString()} <span className="text-[10px] text-white/40">PTS</span></p>
+                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Earn up to</p>
+                                <p className="text-2xl font-mono font-bold text-white">{featuredTask.rewardAmount.toLocaleString()} <span className="text-xs text-white/40">PTS</span></p>
                              </div>
                           </div>
-                          <div className="w-px h-10 bg-white/10" />
-                          <div className="flex items-center gap-3">
-                             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                                <TrendingUp className="text-accent" size={24} />
+                          <div className="w-px h-12 bg-white/10" />
+                          <div className="flex items-center gap-4">
+                             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-xl">
+                                <TrendingUp className="text-accent" size={28} />
                              </div>
                              <div>
-                                <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Progression</p>
-                                <p className="text-xl font-mono font-bold text-white">+{featuredTask.xpReward} <span className="text-[10px] text-white/40">XP</span></p>
+                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Progression</p>
+                                <p className="text-2xl font-mono font-bold text-white">+{featuredTask.xpReward} <span className="text-xs text-white/40">XP</span></p>
                              </div>
                           </div>
                           <div className="flex-grow" />
-                          <div className="hidden sm:flex items-center gap-2 group-hover:gap-4 transition-all bg-white text-black px-8 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs">
-                             Start Now <ArrowRight size={16} />
+                          <div className="hidden lg:flex items-center gap-3 bg-white text-black px-10 py-5 rounded-[2rem] font-bold uppercase tracking-[0.2em] text-xs shadow-2xl hover:scale-105 active:scale-95 transition-all">
+                             Complete Now <ArrowRight size={18} />
                           </div>
                        </div>
                     </div>
@@ -135,165 +131,170 @@ const Dashboard: React.FC = () => {
            </motion.section>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-          {/* Main Earning Flow */}
-          <div className="lg:col-span-2 space-y-12">
-            {/* Active Campaigns List */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+          {/* Main Content Area */}
+          <div className="lg:col-span-8 space-y-12">
+
+            {/* Active Campaigns - Grid View */}
             <section>
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="flex items-center gap-3 text-xl font-bold">
-                  <Star size={20} className="text-primary" />
-                  Earning Opportunities
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
+                  <Star size={24} className="text-primary" />
+                  Available Rewards
                 </h2>
-                <Link to="/tasks" className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-primary transition-colors flex items-center gap-2">
-                  View Marketplace <ChevronRight size={14} />
+                <Link to="/tasks" className="text-[11px] font-bold uppercase tracking-widest text-primary hover:text-white transition-colors flex items-center gap-2 group">
+                  Open Marketplace <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                {activeTasks.length > 0 ? (
-                  activeTasks.slice(0, 6).map((task) => (
-                    <Link
-                      key={task.id}
-                      to="/tasks"
-                      className="group bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-primary/20 rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all"
-                    >
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-[1.25rem] bg-white/5 border border-white/5 flex items-center justify-center group-hover:bg-primary/10 group-hover:border-primary/20 transition-all shrink-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {activeTasks.slice(1, 5).map((task) => (
+                  <Link
+                    key={task.id}
+                    to={`/tasks/${task.id}`}
+                    className="group card-premium flex flex-col gap-6"
+                  >
+                    <div className="flex justify-between items-start">
+                       <div className="w-14 h-14 rounded-2xl bg-background border border-white/5 flex items-center justify-center shadow-xl group-hover:border-primary/40 transition-colors">
                           <Target size={28} className="text-white/20 group-hover:text-primary transition-colors" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                             <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors">{task.title}</h3>
-                             <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-widest text-white/40">{task.category}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                             <div className="flex items-center gap-2">
-                                <Zap size={14} className="text-primary" />
-                                <span className="text-[10px] font-mono font-bold text-white/60">+{task.rewardAmount} PTS</span>
-                             </div>
-                             <div className="w-1 h-1 rounded-full bg-white/10" />
-                             <div className="flex items-center gap-2">
-                                <TrendingUp size={14} className="text-accent" />
-                                <span className="text-[10px] font-mono font-bold text-white/60">+{task.xpReward} XP</span>
-                             </div>
-                             <div className="w-1 h-1 rounded-full bg-white/10" />
-                             <div className="flex items-center gap-2">
-                                <Shield size={14} className="text-text-secondary" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">{task.verificationType}</span>
-                             </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between md:justify-end gap-8 pt-4 md:pt-0 border-t md:border-0 border-white/5">
-                        <div className="text-left md:text-right">
-                           <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mb-1">Status</p>
-                           <p className="text-[10px] font-bold text-success uppercase tracking-widest flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                              Open for Claim
-                           </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all text-white/20">
-                           <ArrowRight size={20} />
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="py-20 text-center border border-dashed border-white/5 rounded-[3rem] bg-black/20">
-                    <AlertCircle className="mx-auto text-white/5 mb-4" size={48} />
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-white/40">No campaigns available</h3>
-                    <p className="text-xs text-white/20 mt-2">Check back later for new earning opportunities.</p>
-                  </div>
-                )}
+                       </div>
+                       <div className="text-right">
+                          <p className="text-xl font-mono font-bold text-primary">+{task.rewardAmount.toLocaleString()}</p>
+                          <p className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em]">PTS REWARD</p>
+                       </div>
+                    </div>
+                    <div>
+                       <h3 className="text-lg font-bold text-white mb-2 group-hover:text-primary transition-colors line-clamp-1">{task.title}</h3>
+                       <p className="text-sm text-text-secondary leading-relaxed line-clamp-2 font-medium">{task.description}</p>
+                    </div>
+                    <div className="pt-6 border-t border-white/5 flex items-center justify-between">
+                       <span className="badge-system bg-background">{task.category}</span>
+                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white transition-colors">
+                          Start <ArrowRight size={14} />
+                       </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
 
-            {/* Secondary Status Cards */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-               <div className="system-card bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
-                  <div className="flex justify-between items-start mb-10">
-                     <p className="data-label text-primary">Wallet Assets</p>
-                     <Zap size={20} className="text-primary" />
+            {/* Account Progress Section */}
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="card-premium relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-5">
+                     <CreditCard size={120} />
                   </div>
-                  <p className="text-4xl font-mono font-bold text-white mb-2">{userData?.points.toLocaleString()} <span className="text-xs text-white/20 uppercase tracking-widest">PTS</span></p>
-                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
+                  <div className="flex justify-between items-start mb-12">
+                     <p className="data-label text-primary">Wallet Overview</p>
+                     <Zap size={24} className="text-primary" />
+                  </div>
+                  <p className="text-5xl font-mono font-bold text-white tracking-tighter mb-4">
+                    {userData?.points.toLocaleString() || '0'}
+                    <span className="text-lg ml-3 text-white/20 uppercase tracking-widest font-sans">PTS</span>
+                  </p>
+                  <div className="flex items-center gap-3 text-text-secondary font-bold text-sm">
+                     <span>Estimated Value:</span>
+                     <span className="text-white bg-white/5 px-3 py-1 rounded-lg border border-white/5">{formatUSD((userData?.points || 0) / 1000)}</span>
+                  </div>
                </div>
-               <div className="system-card">
-                  <div className="flex justify-between items-start mb-6">
-                     <p className="data-label text-accent">Rank Progress</p>
-                     <TrendingUp size={20} className="text-accent" />
+
+               <div className="card-premium">
+                  <div className="flex justify-between items-start mb-8">
+                     <p className="data-label text-accent">Account Rank</p>
+                     <TrendingUp size={24} className="text-accent" />
                   </div>
-                  <div className="flex items-baseline gap-3 mb-4">
-                     <p className="text-3xl font-bold text-white">LVL {userData?.level}</p>
-                     <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{userData?.xp} XP Total</p>
+                  <div className="flex items-baseline gap-4 mb-6">
+                     <p className="text-4xl font-bold text-white">Level {userData?.level || 1}</p>
+                     <p className="text-xs font-bold text-white/30 uppercase tracking-widest">{userData?.xp || 0} Total XP</p>
                   </div>
-                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(((userData?.xp || 0) % 1000) / 10, 100)}%` }}
-                      className="h-full bg-accent"
-                    />
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                       <span className="text-text-secondary">Progress to Level {(userData?.level || 1) + 1}</span>
+                       <span className="text-white">{(userData?.xp || 0) % 1000} / 1000</span>
+                    </div>
+                    <div className="h-3 bg-background rounded-full overflow-hidden border border-white/5 p-0.5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(((userData?.xp || 0) % 1000) / 10, 100)}%` }}
+                        className="h-full bg-gradient-to-r from-accent to-primary rounded-full"
+                      />
+                    </div>
                   </div>
                </div>
             </section>
           </div>
 
-          {/* Activity & Ecosystem Intelligence */}
-          <div className="space-y-12">
-            <section>
+          {/* Sidebar / Secondary Modules */}
+          <div className="lg:col-span-4 space-y-12">
+
+            {/* Real Reward Feed */}
+            <section className="card-premium">
               <h2 className="flex items-center gap-3 text-lg font-bold mb-8">
                 <ActivityIcon size={20} className="text-primary" />
-                System Activity
+                Reward Stream
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {activities.length > 0 ? (
-                  activities.slice(0, 8).map((activity) => {
+                  activities.slice(0, 5).map((activity) => {
                     const isPositive = activity.points > 0;
                     return (
-                      <div key={activity.id} className="p-5 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group">
-                        <div className="flex items-start gap-4">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
-                            isPositive ? "bg-success/5 border-success/10 text-success" : "bg-white/5 border-white/10 text-white/20"
-                          )}>
-                            {activity.type === 'reward_received' || activity.type === 'task_approved' ? <Zap size={18} /> :
-                             activity.type === 'level_achieved' ? <TrendingUp size={18} /> :
-                             activity.type === 'referral_activated' ? <UserPlus size={18} /> : <ActivityIcon size={18} />}
-                          </div>
-                          <div className="flex-grow overflow-hidden">
-                            <p className="text-[11px] font-bold text-white leading-tight mb-1 group-hover:text-primary transition-colors truncate">{activity.description}</p>
-                            <div className="flex items-center gap-3">
-                               <span className={cn(
-                                 "text-[8px] font-bold uppercase tracking-widest",
-                                 isPositive ? "text-success" : "text-white/20"
-                               )}>
-                                 {isPositive ? `+${activity.points} PTS` : 'Event Logged'}
-                               </span>
-                               <span className="text-[8px] text-white/10 font-mono">
+                      <div key={activity.id} className="flex items-start gap-4 p-4 rounded-2xl bg-background border border-white/5 hover:border-white/10 transition-all group">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
+                          isPositive ? "bg-success/5 border-success/10 text-success" : "bg-white/5 border-white/10 text-white/20"
+                        )}>
+                          {activity.type === 'reward_received' || activity.type === 'task_approved' ? <Zap size={18} /> :
+                           activity.type === 'level_achieved' ? <TrendingUp size={18} /> :
+                           activity.type === 'referral_activated' ? <UserPlus size={18} /> : <ActivityIcon size={18} />}
+                        </div>
+                        <div className="flex-grow overflow-hidden">
+                          <p className="text-[12px] font-bold text-white group-hover:text-primary transition-colors truncate mb-1">{activity.description}</p>
+                          <div className="flex justify-between items-center">
+                             <span className={cn(
+                               "text-[10px] font-bold uppercase tracking-widest",
+                               isPositive ? "text-success" : "text-white/20"
+                             )}>
+                               {isPositive ? `+${activity.points} PTS` : 'System Event'}
+                             </span>
+                             <span className="text-[9px] text-white/10 font-mono">
                                 {activity.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                               </span>
-                            </div>
+                             </span>
                           </div>
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="py-12 text-center border border-dashed border-white/5 rounded-[2.5rem] bg-black/10">
+                  <div className="py-12 text-center border border-dashed border-white/10 rounded-3xl bg-background/50">
                     <ActivityIcon className="mx-auto text-white/5 mb-4" size={32} />
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-white/20">No data streams found</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Awaiting first activity</p>
                   </div>
                 )}
               </div>
             </section>
 
-            {/* Streak / secondary card */}
-            <div className="system-card border-dashed border-white/10 bg-transparent text-center py-10">
-               <Clock size={32} className="mx-auto text-white/10 mb-6" />
-               <p className="text-3xl font-mono font-bold text-white mb-1">{userData?.streak || 0} Days</p>
-               <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Active Session Streak</p>
+            {/* Performance Widget */}
+            <div className="card-premium text-center relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+               <Clock size={40} className="mx-auto text-primary mb-6" />
+               <h3 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] mb-2">Current streak</h3>
+               <p className="text-5xl font-mono font-bold text-white mb-2">{userData?.streak || 0}</p>
+               <p className="text-xs font-bold text-success uppercase tracking-widest">Active Reward Multiplier: 1.0x</p>
             </div>
+
+            {/* Help & Integrity Link */}
+            <Link to="/support" className="flex items-center justify-between p-6 rounded-[2rem] bg-primary text-white shadow-xl hover:scale-[1.02] active:scale-95 transition-all group">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+                     <ShieldCheck size={24} />
+                  </div>
+                  <div>
+                     <p className="text-sm font-bold tracking-tight">Security Center</p>
+                     <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Review policies</p>
+                  </div>
+               </div>
+               <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
         </div>
       </div>

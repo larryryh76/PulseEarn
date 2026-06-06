@@ -17,7 +17,7 @@ const VerificationPolicy: React.FC = () => {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">1. Automated Verification</h2>
             <p className="text-text-secondary leading-relaxed">
-              Missions marked as "Automated" are verified through API integration or system interaction
+              Campaigns marked as "Automated" are verified through API integration or system interaction
               tracking. Points are awarded instantly upon successful completion detection.
             </p>
           </section>
@@ -25,8 +25,8 @@ const VerificationPolicy: React.FC = () => {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">2. Manual Review</h2>
             <p className="text-text-secondary leading-relaxed">
-              Certain high-reward missions require manual review of submitted proof (screenshots or links).
-              Our moderation team audits these submissions within 12-24 hours.
+              Certain high-reward campaigns require manual review of submitted proof (screenshots or links).
+              Our moderation team audits these subcampaigns within 12-24 hours.
             </p>
           </section>
 

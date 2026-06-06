@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Menu,
   X,
-  Cpu
+  Zap
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +33,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
            <div>
               <ShieldAlert size={48} className="text-danger mx-auto mb-6" />
               <h1 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Administrative Clearance Required</h1>
-              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Operations Terminal is restricted to authorized personnel only.</p>
+              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Admin Hub is restricted to authorized personnel only.</p>
               <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/90 transition-all">Terminate Access Request</button>
            </div>
         </div>
@@ -43,14 +43,14 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const navItems = [
     { id: 'OVERVIEW', label: 'Overview', icon: Terminal, path: '/admin/overview' },
     { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers, path: '/admin/campaigns' },
-    { id: 'VALIDATION', label: 'Validations', icon: ShieldCheck, path: '/admin/validation' },
-    { id: 'TRANSACTIONS', label: 'Transactions', icon: Activity, path: '/admin/ledger' },
+    { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
+    { id: 'VALIDATION', label: 'Validation', icon: ShieldCheck, path: '/admin/validation' },
+    { id: 'TRANSACTIONS', label: 'Ledger', icon: Activity, path: '/admin/ledger' },
     { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
-    { id: 'FRAUD', label: 'Fraud Center', icon: ShieldAlert, path: '/admin/security' },
-    { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, path: '/admin/broadcasts' },
+    { id: 'FRAUD', label: 'Security', icon: ShieldAlert, path: '/admin/security' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
-    { id: 'SETTINGS', label: 'System Settings', icon: Cpu, path: '/admin/settings' },
-    { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit' },
+    { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts' },
+    { id: 'AUDIT', label: 'System Logs', icon: FileText, path: '/admin/audit' },
   ];
 
   const handleLogout = async () => {
@@ -65,7 +65,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <div className="p-8 border-b border-white/5 flex items-center gap-4">
            <Logo />
            <div className="h-4 w-px bg-white/10" />
-           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops Terminal</span>
+           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Admin Hub</span>
         </div>
 
         <nav className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar">
@@ -107,7 +107,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
          <header className="lg:hidden h-16 border-b border-white/5 px-6 flex items-center justify-between bg-background/80 backdrop-blur-md z-40">
             <Link to="/admin" className="flex items-center gap-3">
                <Logo />
-               <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Hub</span>
+               <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Ops</span>
             </Link>
             <button
               onClick={() => setIsMobileNavOpen(v => !v)}

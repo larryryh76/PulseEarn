@@ -2,11 +2,11 @@ import * as React from "react";
 import {
   Plus,
   Search,
+  ArrowRight,
   Image as ImageIcon,
   Edit3,
   Pause,
-  Target,
-  Shield
+  Target
 } from 'lucide-react';
 import {
   collection,
@@ -60,8 +60,8 @@ const AdminCampaigns = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Intelligence</h1>
-          <p className="text-text-secondary text-sm font-medium">Orchestrate strategic marketing initiatives and operator incentives.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Overview</h1>
+          <p className="text-text-secondary text-sm font-medium">Orchestrate strategic marketing initiatives and user incentives.</p>
         </div>
 
         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -138,10 +138,10 @@ const AdminCampaigns = () => {
                          {camp.active ? <Pause size={16} /> : <Target size={16} />}
                       </button>
                    </div>
-                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary/40 cursor-default">
-                      System Active
-                      <Shield size={14} />
-                   </div>
+                   <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:gap-3 transition-all">
+                      Manage Details
+                      <ArrowRight size={14} />
+                   </button>
                 </div>
               </div>
             </div>

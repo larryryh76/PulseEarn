@@ -16,13 +16,12 @@ import {
   AdminCampaigns,
   AdminValidation,
   AdminLedger,
-  AdminOperators,
+  AdminUsers,
   AdminSecurity,
   AdminEconomy,
   AdminBroadcasts,
   AdminAudit,
-  AdminTasks,
-  AdminSettings
+  AdminTasks
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -111,13 +110,12 @@ function App() {
         <Route path="/admin/campaigns" element={<AdminRoute><AdminOpsLayout><AdminCampaigns /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/validation" element={<AdminRoute><AdminOpsLayout><AdminValidation /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/ledger" element={<AdminRoute><AdminOpsLayout><AdminLedger /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminOperators /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminUsers /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/security" element={<AdminRoute><AdminOpsLayout><AdminSecurity /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/economy" element={<AdminRoute><AdminOpsLayout><AdminEconomy /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/settings" element={<AdminRoute><AdminOpsLayout><AdminSettings /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

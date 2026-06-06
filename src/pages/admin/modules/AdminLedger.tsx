@@ -83,7 +83,7 @@ const AdminLedger = () => {
                 <tr className="bg-white/[0.02] border-b border-white/5">
                   <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Reference</th>
                   <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Type</th>
-                  <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Magnitude</th>
+                  <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-medium">

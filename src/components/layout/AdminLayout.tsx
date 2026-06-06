@@ -22,7 +22,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            <Link to="/admin" className="flex items-center gap-2">
               <Logo />
               <div className="h-4 w-px bg-white/10 mx-2" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops Terminal</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Admin Hub</span>
            </Link>
         </div>
 

@@ -301,7 +301,7 @@ const Profile: React.FC = () => {
                     {[
                       { id: 'notifications', label: 'Account Notifications', desc: 'Receive alerts for security and login activity' },
                       { id: 'rewardAlerts', label: 'Reward Alerts', desc: 'Get notified immediately when PTS or XP is awarded' },
-                      { id: 'marketing', label: 'News & Updates', desc: 'Stay informed about new missions and system features' }
+                      { id: 'marketing', label: 'News & Updates', desc: 'Stay informed about new campaigns and system features' }
                     ].map(item => (
                       <div key={item.id} className="flex items-center justify-between">
                         <div>

@@ -171,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {
-          title: 'Referral Mission Success!',
+          title: 'Referral Campaign Success!',
           description: `A new member (${username}) joined via your code.`,
           type: 'system',
           read: false,

@@ -70,7 +70,7 @@ export class TaskEngine {
           taskId,
           lastCompleted: task.verificationType === 'automated' ? serverTimestamp() : (userTask?.lastCompleted || null),
           status: task.verificationType === 'automated' ? 'completed' : 'pending',
-          submissionId: claimId,
+          subcampaignId: claimId,
           totalCompletions: increment(task.verificationType === 'automated' ? 1 : 0)
         }, { merge: true });
 
@@ -102,7 +102,7 @@ export class TaskEngine {
             userId,
             type: 'task_reward',
             amount: task.rewardAmount,
-            source: `Mission Secured: ${task.title}`,
+            source: `Campaign Secured: ${task.title}`,
             claimId,
             status: 'COMPLETED',
             referenceId: taskId,
@@ -118,7 +118,7 @@ export class TaskEngine {
             userId,
             type: 'task_approved',
             points: task.rewardAmount,
-            description: `Mission [${task.title}] completed successfully.`,
+            description: `Campaign [${task.title}] completed successfully.`,
             timestamp: serverTimestamp(),
             referenceId: taskId
           });
@@ -133,7 +133,7 @@ export class TaskEngine {
   }
 
   /**
-   * Generates localized daily missions for the user
+   * Generates localized daily campaigns for the user
    */
   static async syncEcosystemTasks(): Promise<void> {
     // This would run via a cloud function or administrative trigger

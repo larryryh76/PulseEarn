@@ -28,8 +28,8 @@ export class SystemScannerEngine {
   private static QUEUE_COLLECTION = 'system_repair_queue';
 
   /**
-   * Conversational User Interface
-   * Analyzes prompts and returns ecosystem-aware overview.
+   * Conversational Operator Interface
+   * Analyzes prompts and returns ecosystem-aware intelligence.
    */
   static async processCommand(prompt: string) {
     const lowerPrompt = prompt.toLowerCase();

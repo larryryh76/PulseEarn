@@ -2,7 +2,7 @@ export { default as AdminOverview } from './AdminOverview';
 export { default as AdminCampaigns } from './AdminCampaigns';
 export { default as AdminValidation } from './AdminValidation';
 export { default as AdminLedger } from './AdminLedger';
-export { default as AdminUsers } from './AdminUsers';
+export { default as AdminOperators } from './AdminOperators';
 export { default as AdminSecurity } from './AdminSecurity';
 export { default as AdminEconomy } from './AdminEconomy';
 export { default as AdminBroadcasts } from './AdminBroadcasts';

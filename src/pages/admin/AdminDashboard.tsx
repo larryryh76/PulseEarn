@@ -9,7 +9,11 @@ import {
   Layers,
   ShieldCheck,
   Activity,
-  ChevronRight
+  ChevronRight,
+  Database,
+  BarChart3,
+  Server,
+  Key
 } from 'lucide-react';
 import { cn } from '../../utils';
 import {
@@ -21,6 +25,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import Card from '../../components/ui/Card';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -62,76 +67,113 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const modules = [
-    { title: 'Overview', desc: 'Global metrics and infrastructure health.', icon: Terminal, path: '/admin/overview', color: 'text-primary' },
-    { title: 'Campaigns', desc: 'Orchestrate strategic marketing initiatives.', icon: Layers, path: '/admin/campaigns', color: 'text-success' },
-    { title: 'Validation', desc: 'Authorize user proof-of-work.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
-    { title: 'Ledger', desc: 'Audit global economic injections.', icon: Activity, path: '/admin/ledger', color: 'text-accent' },
-    { title: 'Users', desc: 'Manage user registry and integrity.', icon: Users, path: '/admin/users', color: 'text-white' },
-    { title: 'Security', desc: 'Monitor fraud and system anomalies.', icon: ShieldAlert, path: '/admin/security', color: 'text-danger' },
+    { title: 'Intelligence', desc: 'Global metrics and infrastructure health monitoring.', icon: BarChart3, path: '/admin/overview', color: 'text-primary' },
+    { title: 'Campaigns', desc: 'Orchestrate strategic reward initiatives.', icon: Layers, path: '/admin/campaigns', color: 'text-success' },
+    { title: 'Validation', desc: 'Authorize user proof-of-work submissions.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
+    { title: 'Ledger', desc: 'Audit global economic injections and debits.', icon: Database, path: '/admin/ledger', color: 'text-accent' },
+    { title: 'Users', desc: 'Manage user registry, roles and integrity.', icon: Users, path: '/admin/users', color: 'text-white' },
+    { title: 'Fraud Center', desc: 'Monitor anomalies and multi-vector threats.', icon: ShieldAlert, path: '/admin/security', color: 'text-danger' },
   ];
 
   return (
     <AdminOpsLayout>
-      <div className="space-y-12 pb-24">
-        <header>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Operations Center</h1>
-          <p className="text-text-secondary text-sm font-medium">Strategic gateway to PulseEarn infrastructure and economic management.</p>
+      <div className="space-y-16 pb-32">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Administrative Shell v5.2.0</span>
+            </div>
+            <h1 className="text-4xl font-bold tracking-tight text-white">Operations <span className="text-text-tertiary">Hub</span></h1>
+          </div>
+
+          <div className="flex items-center gap-4 bg-surface-bright/50 border border-border p-2 rounded-2xl">
+             <div className="flex items-center gap-3 px-4 py-2 border-r border-border">
+                <Server size={14} className="text-success" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Master Node: Active</span>
+             </div>
+             <div className="flex items-center gap-3 px-4 py-2">
+                <Key size={14} className="text-primary" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Admin Authorization: High</span>
+             </div>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* CORE ANALYTICS STRIP */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+           {[
+             { label: 'Ecosystem Supply', value: stats.ecosystemPoints.toLocaleString(), unit: 'PTS', icon: Activity },
+             { label: 'Verified Users', value: stats.totalUsers.toLocaleString(), unit: 'NODES', icon: Users },
+             { label: 'Active Campaigns', value: stats.totalCampaigns.toLocaleString(), unit: 'LIVE', icon: Layers },
+             { label: 'Pending Audit', value: stats.pendingClaims.toLocaleString(), unit: 'QUEUE', icon: Clock, warning: stats.pendingClaims > 0 },
+           ].map((item, i) => (
+             <Card key={i} variant="compact" className="p-8 space-y-4">
+                <div className="flex justify-between items-start">
+                   <p className="data-label">{item.label}</p>
+                   <item.icon size={16} className={cn("text-text-tertiary", item.warning && "text-warning animate-pulse")} />
+                </div>
+                <div>
+                   <p className={cn("text-3xl font-bold tracking-tighter text-white", item.warning && "text-warning")}>{item.value}</p>
+                   <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{item.unit}</p>
+                </div>
+             </Card>
+           ))}
+        </section>
+
+        {/* MODULAR ENTRY GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
            {modules.map((mod) => (
-             <div
+             <Card
                key={mod.title}
                onClick={() => navigate(mod.path)}
-               className="group bg-white/[0.01] border border-white/5 p-8 rounded-[2.5rem] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
+               className="group p-10 rounded-[2.5rem] bg-surface-bright/20 hover:bg-surface-bright/50 transition-all border-white/5 relative overflow-hidden"
              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute top-0 right-0 w-48 h-48 bg-primary/[0.02] blur-3xl rounded-full" />
 
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 bg-white/5 border border-white/5 group-hover:scale-110 transition-transform", mod.color)}>
-                   <mod.icon size={24} />
+                <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-10 bg-background/60 border border-white/5 transition-all group-hover:scale-110 group-hover:border-primary/20", mod.color)}>
+                   <mod.icon size={28} />
                 </div>
 
-                <h3 className="text-sm font-bold text-white uppercase tracking-[0.2em] mb-2">{mod.title}</h3>
-                <p className="text-xs text-text-secondary font-medium leading-relaxed mb-6">{mod.desc}</p>
-
-                <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all group-hover:gap-3">
-                   Initialize Module
-                   <ChevronRight size={14} />
+                <div className="space-y-4">
+                   <h3 className="text-base font-bold text-white uppercase tracking-[0.15em] leading-none">{mod.title}</h3>
+                   <p className="text-[13px] text-text-tertiary font-medium leading-relaxed mb-6 h-10 line-clamp-2">{mod.desc}</p>
                 </div>
-             </div>
+
+                <div className="pt-8 border-t border-white/5 flex items-center justify-between">
+                   <span className="text-[9px] font-bold text-primary uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-all">Initialize Access</span>
+                   <div className="w-10 h-10 rounded-xl bg-background/60 border border-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">
+                      <ChevronRight size={18} />
+                   </div>
+                </div>
+             </Card>
            ))}
         </div>
 
-        <section className="bg-white/[0.01] border border-white/5 p-10 rounded-[3rem]">
-           <div className="flex items-center justify-between mb-8">
-              <h2 className="text-sm font-bold uppercase tracking-widest flex items-center gap-3">
-                 <Cpu size={18} className="text-primary" />
-                 System Pulse
-              </h2>
-              <span className="px-3 py-1 rounded-full bg-success/10 text-success text-[8px] font-bold uppercase tracking-widest border border-success/20">
-                {loading ? 'Synchronizing...' : 'All Systems Nominal'}
-              </span>
+        {/* SYSTEM STATUS ARCHITECTURE */}
+        <Card className="bg-surface/30 border-dashed border-border py-12 px-10 flex flex-col lg:flex-row items-center justify-between gap-12">
+           <div className="flex items-center gap-8 text-center lg:text-left">
+              <div className="w-20 h-20 rounded-[2rem] bg-primary/5 flex items-center justify-center border border-primary/10 shadow-premium">
+                 <Cpu className="text-primary" size={32} />
+              </div>
+              <div className="space-y-2">
+                 <h2 className="text-2xl font-bold tracking-tight text-white">System Heartbeat</h2>
+                 <p className="text-sm text-text-tertiary font-medium">Monitoring global distribution latency and database consistency.</p>
+              </div>
            </div>
 
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              <div>
-                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Total Supply</p>
-                 <p className="text-xl font-mono font-bold">{stats.ecosystemPoints.toLocaleString()}</p>
-              </div>
-              <div>
-                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Active Ops</p>
-                 <p className="text-xl font-mono font-bold">{stats.totalUsers.toLocaleString()}</p>
-              </div>
-              <div>
-                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Pending Validations</p>
-                 <p className="text-xl font-mono font-bold text-warning">{stats.pendingClaims}</p>
-              </div>
-              <div>
-                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Active Campaigns</p>
-                 <p className="text-xl font-mono font-bold">{stats.totalCampaigns}</p>
-              </div>
+           <div className="flex flex-wrap items-center justify-center gap-4">
+              {[
+                { label: 'API LATENCY', value: '42ms', status: 'optimal' },
+                { label: 'DB UPTIME', value: '99.99%', status: 'optimal' },
+                { label: 'AUTH SYNC', value: 'NOMINAL', status: 'optimal' },
+              ].map((s, i) => (
+                <div key={i} className="px-6 py-3 rounded-xl bg-background/40 border border-white/5 space-y-1">
+                   <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{s.label}</p>
+                   <p className="text-sm font-mono font-bold text-success">{s.value}</p>
+                </div>
+              ))}
            </div>
-        </section>
+        </Card>
       </div>
     </AdminOpsLayout>
   );

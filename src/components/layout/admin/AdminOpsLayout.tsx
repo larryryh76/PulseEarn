@@ -33,7 +33,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
            <div>
               <ShieldAlert size={48} className="text-danger mx-auto mb-6" />
               <h1 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Administrative Clearance Required</h1>
-              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Admin Hub is restricted to authorized personnel only.</p>
+              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Operations Terminal is restricted to authorized personnel only.</p>
               <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/90 transition-all">Terminate Access Request</button>
            </div>
         </div>
@@ -41,12 +41,12 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   const navItems = [
-    { id: 'OVERVIEW', label: 'Overview', icon: Terminal, path: '/admin/overview' },
+    { id: 'OVERVIEW', label: 'Intelligence', icon: Terminal, path: '/admin/overview' },
     { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers, path: '/admin/campaigns' },
     { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
     { id: 'VALIDATION', label: 'Validation', icon: ShieldCheck, path: '/admin/validation' },
     { id: 'TRANSACTIONS', label: 'Ledger', icon: Activity, path: '/admin/ledger' },
-    { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
+    { id: 'USERS', label: 'Operators', icon: Users, path: '/admin/users' },
     { id: 'FRAUD', label: 'Security', icon: ShieldAlert, path: '/admin/security' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
     { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts' },
@@ -65,7 +65,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <div className="p-8 border-b border-white/5 flex items-center gap-4">
            <Logo />
            <div className="h-4 w-px bg-white/10" />
-           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Admin Hub</span>
+           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops Terminal</span>
         </div>
 
         <nav className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar">

@@ -33,7 +33,7 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
         },
         {
           title: 'Redemption Thresholds',
-          text: 'Initial redemption is locked until the user achieves a balance of 10,000 PT. This ensures system stability and reduces micro-transaction overhead.'
+          text: 'Initial redemption is locked until the operator achieves a balance of 10,000 PT. This ensures system stability and reduces micro-transaction overhead.'
         },
         {
           title: 'Conversion Ratio',
@@ -53,11 +53,11 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
         },
         {
           title: 'Manual Review',
-          text: 'For high-reward campaigns, our team manually reviews submitted proof (screenshots, links). Review typically takes 12-24 hours.'
+          text: 'For high-yield missions, our team manually reviews submitted proof (screenshots, links). Review typically takes 12-24 hours.'
         },
         {
           title: 'Proof Standards',
-          text: 'All screenshots must be clear, unedited, and show the completed action along with the user unique identifier where applicable.'
+          text: 'All screenshots must be clear, unedited, and show the completed action along with the operator unique identifier where applicable.'
         }
       ]
     },
@@ -69,11 +69,11 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
       sections: [
         {
           title: 'Multi-Account Policy',
-          text: 'PulseEarn enforces a strict one-user-per-identity rule. Multi-account clusters are detected via IP velocity and behavioral fingerprinting.'
+          text: 'PulseEarn enforces a strict one-operator-per-identity rule. Multi-account clusters are detected via IP velocity and behavioral fingerprinting.'
         },
         {
           title: 'Automation & Bots',
-          text: 'The use of scripts or automation to exploit campaign rewards will result in immediate permanent suspension and forfeiture of all accumulated reward.'
+          text: 'The use of scripts or automation to exploit mission rewards will result in immediate permanent suspension and forfeiture of all accumulated yield.'
         },
         {
           title: 'Referral Integrity',

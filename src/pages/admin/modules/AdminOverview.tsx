@@ -45,7 +45,7 @@ const AdminOverview = () => {
   }, []);
 
   const metricCards = [
-    { label: 'Active Users', val: stats.totalUsers, icon: Users, color: 'text-primary' },
+    { label: 'Active Operators', val: stats.totalUsers, icon: Users, color: 'text-primary' },
     { label: 'Active Campaigns', val: stats.activeCampaigns, icon: Target, color: 'text-success' },
     { label: 'Pending Reviews', val: stats.pendingValidations, icon: ShieldCheck, color: 'text-warning' },
     { label: 'Security Alerts', val: stats.fraudAlerts, icon: ShieldAlert, color: 'text-danger' },
@@ -56,8 +56,8 @@ const AdminOverview = () => {
   return (
     <div className="space-y-12 pb-24">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Operations Overview</h1>
-        <p className="text-text-secondary text-sm font-medium">Global infrastructure health and user velocity metrics.</p>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Operations Intelligence</h1>
+        <p className="text-text-secondary text-sm font-medium">Global infrastructure health and operator velocity metrics.</p>
       </header>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {metricCards.map(card => (

@@ -21,7 +21,7 @@ import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 
-const AdminUsers = () => {
+const AdminOperators = () => {
   const [users, setUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -32,7 +32,7 @@ const AdminUsers = () => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     }, (error) => {
-      console.error("Users fetch failed:", error);
+      console.error("Operators fetch failed:", error);
       setLoading(false);
     });
     return unsubscribe;
@@ -54,7 +54,7 @@ const AdminUsers = () => {
            reason: 'ADMIN_MANUAL_ACTION'
         });
 
-        toast.success(`User ${newStatus ? 'suspended' : 'reinstated'}`);
+        toast.success(`Operator ${newStatus ? 'suspended' : 'reinstated'}`);
      } catch (err) {
         toast.error("Account status update failed");
      }
@@ -70,7 +70,7 @@ const AdminUsers = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">User Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Operator Management</h1>
           <p className="text-text-secondary text-sm font-medium">Global registry of platform participants and account integrity controls.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -98,7 +98,7 @@ const AdminUsers = () => {
                 <thead>
                   <tr className="bg-white/[0.02] border-b border-white/5">
                     <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Identity</th>
-                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Wallet Balance</th>
+                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Vault Balance</th>
                     <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Rank & XP</th>
                     <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Status</th>
                   </tr>
@@ -180,7 +180,7 @@ const AdminUsers = () => {
 
                    <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 rounded-2xl p-4">
-                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Wallet</p>
+                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Vault</p>
                          <p className="text-sm font-mono font-bold">{user.points?.toLocaleString() || 0} PTS</p>
                       </div>
                       <div className="bg-white/5 rounded-2xl p-4">
@@ -205,7 +205,7 @@ const AdminUsers = () => {
         ) : (
           <div className="py-24 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
             <Users size={48} className="mx-auto text-white/5 mb-6" />
-            <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No users found</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No operators found</p>
           </div>
         )}
       </div>
@@ -213,4 +213,4 @@ const AdminUsers = () => {
   );
 };
 
-export default AdminUsers;
+export default AdminOperators;

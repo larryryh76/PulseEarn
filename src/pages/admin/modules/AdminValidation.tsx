@@ -20,14 +20,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
-import { SubcampaignStatus } from '../../../types';
+import { SubmissionStatus } from '../../../types';
 import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const AdminValidation = () => {
   const [claims, setClaims] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState<SubcampaignStatus>('PENDING');
+  const [filter, setFilter] = React.useState<SubmissionStatus>('PENDING');
 
   React.useEffect(() => {
     const q = query(
@@ -48,7 +48,7 @@ const AdminValidation = () => {
     return unsubscribe;
   }, [filter]);
 
-  const handleReview = async (claimId: string, status: SubcampaignStatus) => {
+  const handleReview = async (claimId: string, status: SubmissionStatus) => {
     try {
       const claimRef = doc(db, 'task_claims', claimId);
       const claimSnap = await getDoc(claimRef);
@@ -107,10 +107,10 @@ const AdminValidation = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Validation Center</h1>
-          <p className="text-text-secondary text-sm font-medium">Verify user proof-of-work and authorize reward distribution.</p>
+          <p className="text-text-secondary text-sm font-medium">Verify operator proof-of-work and authorize reward distribution.</p>
         </div>
         <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
-          {(['PENDING', 'APPROVED', 'REJECTED'] as SubcampaignStatus[]).map((s) => (
+          {(['PENDING', 'APPROVED', 'REJECTED'] as SubmissionStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
@@ -139,7 +139,7 @@ const AdminValidation = () => {
                      <div>
                         <div className="flex items-center gap-3 mb-2">
                            <h3 className="font-mono text-sm font-bold text-white">{claim.userId}</h3>
-                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">User</span>
+                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">Operator</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs">
                            <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-tighter">

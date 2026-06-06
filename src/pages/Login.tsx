@@ -136,7 +136,7 @@ const Login: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting} glow>
+                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting}>
                       {isSubmitting ? (
                         <div className="flex items-center gap-2">
                            <Loader2 className="animate-spin" size={16} />
@@ -184,7 +184,7 @@ const Login: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting} glow>
+                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting}>
                       {isSubmitting ? 'Sending Link...' : 'Send Reset Link'}
                     </Button>
 

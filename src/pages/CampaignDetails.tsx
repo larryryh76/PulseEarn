@@ -6,10 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import MainLayout from '../components/layout/MainLayout';
 import { Task, TaskClaim } from '../types';
 import {
-  Zap,
   Clock,
   ShieldCheck,
-  ArrowLeft,
   ExternalLink,
   Send,
   AlertCircle,
@@ -22,7 +20,6 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';

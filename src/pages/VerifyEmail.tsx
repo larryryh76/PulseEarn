@@ -92,7 +92,6 @@ const VerifyEmail: React.FC = () => {
                 onClick={checkStatus}
                 disabled={isChecking}
                 className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold"
-                glow
                >
                   {isChecking ? <Loader2 className="animate-spin" size={16} /> : 'I have verified my email'}
                </Button>

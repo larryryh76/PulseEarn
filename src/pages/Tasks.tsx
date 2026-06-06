@@ -16,8 +16,7 @@ import {
   History,
   LayoutGrid,
   Filter,
-  TrendingUp,
-  AlertCircle
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -141,7 +140,6 @@ const Tasks: React.FC = () => {
             const isLocked = task.minLevel && (userData?.level || 1) < task.minLevel;
             const isPending = status === 'pending';
             const isCompleted = status === 'completed';
-            const isCooldown = status === 'cooldown';
 
             return (
               <motion.div

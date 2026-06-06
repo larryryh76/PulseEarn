@@ -17,7 +17,7 @@ const RewardPolicy: React.FC = () => {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">1. Point Acquisition</h2>
             <p className="text-text-secondary leading-relaxed">
-              Points (PTS) are awarded for completing verified campaigns, referring new users, and
+              Points (PTS) are awarded for completing verified missions, referring new users, and
               participating in community events. All points are subject to a verification period
               before becoming eligible for withdrawal.
             </p>

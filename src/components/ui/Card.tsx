@@ -5,23 +5,31 @@ import { cn } from '../../utils';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
-  glow?: boolean;
+  variant?: 'default' | 'compact' | 'ghost';
   hover?: boolean;
   onClick?: () => void;
 }
 
-const Card: React.FC<CardProps> = ({ children, className, glow = false, hover = true, onClick }) => {
+const Card: React.FC<CardProps> = ({
+  children,
+  className,
+  variant = 'default',
+  hover = true,
+  onClick
+}) => {
   return (
     <motion.div
       onClick={onClick}
-      whileHover={hover ? { y: -4, border: 'rgba(255,255,255,0.15)', transition: { duration: 0.3 } } : {}}
+      whileHover={hover && onClick ? { y: -4, transition: { duration: 0.2 } } : {}}
       className={cn(
-        "bg-black rounded-3xl p-8 border border-white/5 relative overflow-hidden group shadow-2xl",
-        glow && "after:absolute after:inset-0 after:rounded-3xl after:shadow-[0_0_40px_rgba(0,102,255,0.1)] after:pointer-events-none",
+        "bg-surface border border-border transition-all duration-300 relative overflow-hidden group",
+        variant === 'default' && "rounded-2xl p-8",
+        variant === 'compact' && "rounded-xl p-5",
+        variant === 'ghost' && "bg-transparent border-transparent p-0 shadow-none hover:bg-white/[0.01]",
+        hover && onClick && "cursor-pointer hover:border-border-bright hover:shadow-premium",
         className
       )}
     >
-      <div className="absolute inset-0 bg-white/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="relative z-10">{children}</div>
     </motion.div>
   );

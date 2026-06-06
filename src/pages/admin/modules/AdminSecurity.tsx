@@ -105,7 +105,7 @@ const AdminSecurity = () => {
                         </span>
                      </div>
                      <div className="flex items-center gap-4 text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                        <span>User: {ano.userId?.slice(0, 16)}</span>
+                        <span>Operator: {ano.userId?.slice(0, 16)}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1.5"><Clock size={10} /> {ano.timestamp?.toDate().toLocaleString()}</span>
                      </div>

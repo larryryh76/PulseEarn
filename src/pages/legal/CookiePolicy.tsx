@@ -26,7 +26,7 @@ const CookiePolicy: React.FC = () => {
             <h2 className="text-2xl font-bold mb-4">2. Performance & Analytics</h2>
             <p className="text-text-secondary leading-relaxed">
               We may use anonymous analytics cookies to understand how users interact with the system
-              to optimize campaign delivery and system performance.
+              to optimize mission delivery and system performance.
             </p>
           </section>
         </motion.div>

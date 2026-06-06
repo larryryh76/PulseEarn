@@ -60,8 +60,8 @@ const AdminCampaigns = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Overview</h1>
-          <p className="text-text-secondary text-sm font-medium">Orchestrate strategic marketing initiatives and user incentives.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Intelligence</h1>
+          <p className="text-text-secondary text-sm font-medium">Orchestrate strategic marketing initiatives and operator incentives.</p>
         </div>
 
         <div className="flex items-center gap-4 w-full md:w-auto">

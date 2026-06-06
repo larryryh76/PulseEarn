@@ -66,7 +66,7 @@ const AdminEconomy = () => {
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Avg balance</p>
            <p className="text-3xl font-mono font-bold text-white mb-2">{stats.totalUsers > 0 ? Math.floor(stats.ecosystemPoints / stats.totalUsers) : 0}</p>
-           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> PTS / User</div>
+           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> PTS / Operator</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Settlement Floor</p>

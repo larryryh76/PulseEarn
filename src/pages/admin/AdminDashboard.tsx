@@ -4,7 +4,6 @@ import AdminOpsLayout from '../../components/layout/admin/AdminOpsLayout';
 import {
   Users,
   ShieldAlert,
-  Terminal,
   Cpu,
   Layers,
   ShieldCheck,
@@ -13,7 +12,8 @@ import {
   Database,
   BarChart3,
   Server,
-  Key
+  Key,
+  Clock
 } from 'lucide-react';
 import { cn } from '../../utils';
 import {
@@ -36,8 +36,6 @@ const AdminDashboard: React.FC = () => {
     totalCampaigns: 0,
     ecosystemPoints: 0
   });
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     const fetchGlobalStats = async () => {
       try {
@@ -58,8 +56,6 @@ const AdminDashboard: React.FC = () => {
         });
       } catch (err) {
         console.error("Stats aggregation error:", err);
-      } finally {
-        setLoading(false);
       }
     };
 

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {
-  Terminal,
   Layers,
   ShieldCheck,
   Activity,
@@ -41,16 +40,16 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   const navItems = [
-    { id: 'OVERVIEW', label: 'Intelligence', icon: Terminal, path: '/admin/overview' },
+    { id: 'OVERVIEW', label: 'Overview', icon: BarChart3, path: '/admin/overview' },
     { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers, path: '/admin/campaigns' },
     { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
-    { id: 'VALIDATION', label: 'Validation', icon: ShieldCheck, path: '/admin/validation' },
-    { id: 'TRANSACTIONS', label: 'Ledger', icon: Activity, path: '/admin/ledger' },
-    { id: 'USERS', label: 'Operators', icon: Users, path: '/admin/users' },
-    { id: 'FRAUD', label: 'Security', icon: ShieldAlert, path: '/admin/security' },
+    { id: 'VALIDATION', label: 'Approvals', icon: ShieldCheck, path: '/admin/validation' },
+    { id: 'TRANSACTIONS', label: 'Transactions', icon: Activity, path: '/admin/ledger' },
+    { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
+    { id: 'FRAUD', label: 'Fraud Monitoring', icon: ShieldAlert, path: '/admin/security' },
+    { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, path: '/admin/broadcasts' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
-    { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts' },
-    { id: 'AUDIT', label: 'System Logs', icon: FileText, path: '/admin/audit' },
+    { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit' },
   ];
 
   const handleLogout = async () => {
@@ -65,11 +64,11 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <div className="p-8 border-b border-white/5 flex items-center gap-4">
            <Logo />
            <div className="h-4 w-px bg-white/10" />
-           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops Terminal</span>
+           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Admin Hub</span>
         </div>
 
         <nav className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar">
-           <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-4 mb-4">Command</p>
+           <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest px-4 mb-4">Management</p>
            {navItems.map(item => (
              <Link
                key={item.id}
@@ -90,7 +89,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
         <div className="p-6 border-t border-white/5 space-y-4">
            <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-              <p className="text-[9px] font-bold text-white/20 uppercase mb-1">Session Active</p>
+              <p className="text-[9px] font-bold text-white/20 uppercase mb-1">Administrator</p>
               <p className="text-xs font-mono font-bold truncate text-white/60">{userData?.email}</p>
            </div>
            <button
@@ -98,7 +97,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
              className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-danger/60 hover:text-danger hover:bg-danger/5 transition-all"
            >
               <LogOut size={18} />
-              Terminate Session
+              Logout
            </button>
         </div>
       </aside>
@@ -119,14 +118,14 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
          <header className="hidden lg:flex h-20 border-b border-white/5 px-12 items-center justify-between sticky top-0 bg-[#050507]/80 backdrop-blur-md z-40">
             <div className="flex items-center gap-4">
-               <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-               <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Global Operations v5.2.0 // Node: US-East-01</span>
+               <div className="w-2 h-2 rounded-full bg-success" />
+               <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Platform Administration v5.2.0</span>
             </div>
 
             <div className="flex items-center gap-8">
                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
                   <ShieldCheck size={14} className="text-success" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Audit Hardened</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Secure Access</span>
                </div>
                <div className="h-8 w-px bg-white/10" />
                <div className="flex items-center gap-4">

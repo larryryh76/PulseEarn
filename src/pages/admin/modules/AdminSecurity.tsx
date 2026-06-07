@@ -36,8 +36,8 @@ const AdminSecurity = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Security Hub</h1>
-          <p className="text-text-secondary text-sm font-medium">Real-time threat monitoring and behavioral detection.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Fraud Monitoring</h1>
+          <p className="text-text-secondary text-sm font-medium">Monitor and manage platform security and fraud alerts.</p>
         </div>
         <div className="flex items-center gap-4">
            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/5 border border-success/10">
@@ -62,7 +62,7 @@ const AdminSecurity = () => {
               <ShieldCheck className="text-success" size={24} />
            </div>
            <p className="text-4xl font-mono font-bold text-white">99.8%</p>
-           <p className="text-[10px] text-white/20 mt-2 font-bold uppercase tracking-widest">Global Ecosystem Health</p>
+           <p className="text-[10px] text-white/20 mt-2 font-bold uppercase tracking-widest">Platform Integrity</p>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <div className="flex items-center justify-between mb-6">
@@ -105,7 +105,7 @@ const AdminSecurity = () => {
                         </span>
                      </div>
                      <div className="flex items-center gap-4 text-[10px] font-mono text-white/40 uppercase tracking-widest">
-                        <span>Operator: {ano.userId?.slice(0, 16)}</span>
+                        <span>User: {ano.userId?.slice(0, 16)}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1.5"><Clock size={10} /> {ano.timestamp?.toDate().toLocaleString()}</span>
                      </div>

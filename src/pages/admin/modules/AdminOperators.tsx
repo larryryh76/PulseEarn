@@ -50,11 +50,11 @@ const AdminOperators = () => {
            action: newStatus ? 'USER_SUSPENDED' : 'USER_REINSTATED',
            targetId: user.id,
            timestamp: serverTimestamp(),
-           performedBy: 'ADMIN_TERMINAL',
+           performedBy: 'ADMIN_PANEL',
            reason: 'ADMIN_MANUAL_ACTION'
         });
 
-        toast.success(`Operator ${newStatus ? 'suspended' : 'reinstated'}`);
+        toast.success(`User ${newStatus ? 'suspended' : 'reinstated'}`);
      } catch (err) {
         toast.error("Account status update failed");
      }
@@ -70,8 +70,8 @@ const AdminOperators = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Operator Management</h1>
-          <p className="text-text-secondary text-sm font-medium">Global registry of platform participants and account integrity controls.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">User Management</h1>
+          <p className="text-text-secondary text-sm font-medium">Manage platform users and maintain account integrity.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative flex-1 sm:w-80">
@@ -97,9 +97,9 @@ const AdminOperators = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-white/[0.02] border-b border-white/5">
-                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Identity</th>
-                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Vault Balance</th>
-                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Rank & XP</th>
+                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User</th>
+                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Balance</th>
+                    <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Level & XP</th>
                     <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Status</th>
                   </tr>
                 </thead>
@@ -116,7 +116,7 @@ const AdminOperators = () => {
                         </div>
                       </td>
                       <td className="p-8">
-                         <p className="text-sm font-mono font-bold text-white">{user.points?.toLocaleString() || 0} <span className="text-[9px] opacity-40">PTS</span></p>
+                         <p className="text-sm font-mono font-bold text-white">{(user.points || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
                          <p className="text-[10px] text-text-secondary mt-1 tracking-widest uppercase font-bold">&asymp; ${(user.points || 0) / 1000} USD</p>
                       </td>
                       <td className="p-8">
@@ -124,7 +124,7 @@ const AdminOperators = () => {
                             <Award size={14} className="text-accent" />
                             <span className="text-xs font-bold uppercase tracking-widest">Level {user.level || 1}</span>
                          </div>
-                         <p className="text-[10px] font-mono text-text-secondary">{user.xp?.toLocaleString() || 0} XP Total</p>
+                         <p className="text-[10px] font-mono text-text-secondary">{(user.xp || 0).toLocaleString()} XP Total</p>
                       </td>
                       <td className="p-8 text-right">
                          <div className="flex items-center justify-end gap-3">
@@ -132,7 +132,7 @@ const AdminOperators = () => {
                               "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border",
                               user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
                             )}>
-                               {user.isBanned ? 'Suspended' : 'Operational'}
+                               {user.isBanned ? 'Suspended' : 'Active'}
                             </span>
                             <div className="relative group/menu">
                                <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/20 hover:text-white">
@@ -180,7 +180,7 @@ const AdminOperators = () => {
 
                    <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 rounded-2xl p-4">
-                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Vault</p>
+                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Balance</p>
                          <p className="text-sm font-mono font-bold">{user.points?.toLocaleString() || 0} PTS</p>
                       </div>
                       <div className="bg-white/5 rounded-2xl p-4">
@@ -194,7 +194,7 @@ const AdminOperators = () => {
                         "px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border",
                         user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
                       )}>
-                        {user.isBanned ? 'Suspended' : 'Operational'}
+                        {user.isBanned ? 'Suspended' : 'Active'}
                       </span>
                       <p className="text-[9px] font-mono text-white/20 uppercase">ID: {user.id.slice(0, 8)}</p>
                    </div>
@@ -205,7 +205,7 @@ const AdminOperators = () => {
         ) : (
           <div className="py-24 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
             <Users size={48} className="mx-auto text-white/5 mb-6" />
-            <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No operators found</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No users found</p>
           </div>
         )}
       </div>

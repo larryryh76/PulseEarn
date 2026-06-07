@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -23,6 +24,7 @@ import toast from 'react-hot-toast';
 import CampaignBuilderModal from './modals/CampaignBuilderModal';
 
 const AdminCampaigns = () => {
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -200,7 +202,10 @@ const AdminCampaigns = () => {
                          {camp.active ? <Pause size={16} /> : <Target size={16} />}
                       </button>
                    </div>
-                   <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:gap-3 transition-all">
+                   <button
+                      onClick={() => navigate(`/campaigns/${camp.id}`)}
+                      className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:gap-3 transition-all"
+                   >
                       Manage Details
                       <ArrowRight size={14} />
                    </button>

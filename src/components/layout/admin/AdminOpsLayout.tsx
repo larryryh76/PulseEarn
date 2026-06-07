@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Layers,
+  TrendingUp,
   ShieldCheck,
   Activity,
   Users,
@@ -21,12 +22,20 @@ import Logo from '../../ui/Logo';
 import { cn } from '../../../utils';
 
 const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { logout, userData } = useAuth();
+  const { logout, userData, currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState<boolean>(false);
 
-  if (userData?.role !== 'admin') {
+  if (loading) return (
+    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  const isAdmin = currentUser?.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
+
+  if (!isAdmin) {
      return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
            <div>
@@ -43,6 +52,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
     { id: 'OVERVIEW', label: 'Overview', icon: BarChart3, path: '/admin/overview' },
     { id: 'CAMPAIGNS', label: 'Campaigns', icon: Layers, path: '/admin/campaigns' },
     { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
+    { id: 'PREDICTIONS', label: 'Predictions', icon: TrendingUp, path: '/admin/predictions' },
     { id: 'VALIDATION', label: 'Approvals', icon: ShieldCheck, path: '/admin/validation' },
     { id: 'TRANSACTIONS', label: 'Transactions', icon: Activity, path: '/admin/ledger' },
     { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
@@ -131,9 +141,9 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
                <div className="flex items-center gap-4">
                   <div className="text-right">
                      <p className="text-[10px] font-bold uppercase tracking-widest text-white">System Admin</p>
-                     <p className="text-[9px] font-mono text-white/40 uppercase">UID: {userData?.uid.slice(0, 8)}</p>
+                     <p className="text-[9px] font-mono text-white/40 uppercase">UID: {userData?.uid ? userData.uid.slice(0, 8) : currentUser?.uid.slice(0, 8)}</p>
                   </div>
-                  <img src={userData?.avatarUrl} alt="" className="w-10 h-10 rounded-xl border border-white/10 shadow-xl" />
+                  <img src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid}`} alt="" className="w-10 h-10 rounded-xl border border-white/10 shadow-xl" />
                </div>
             </div>
          </header>

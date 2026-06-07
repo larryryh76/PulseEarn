@@ -96,10 +96,10 @@ const AdminDashboard: React.FC = () => {
         {/* CORE ANALYTICS STRIP */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
            {[
-             { label: 'Total Supply', value: stats.ecosystemPoints.toLocaleString(), unit: 'PTS', icon: Activity },
-             { label: 'Total Users', value: stats.totalUsers.toLocaleString(), unit: 'USERS', icon: Users },
-             { label: 'Active Campaigns', value: stats.totalCampaigns.toLocaleString(), unit: 'LIVE', icon: Layers },
-             { label: 'Pending Reviews', value: stats.pendingClaims.toLocaleString(), unit: 'QUEUE', icon: Clock, warning: stats.pendingClaims > 0 },
+             { label: 'Total Supply', value: (stats.ecosystemPoints || 0).toLocaleString(), unit: 'PTS', icon: Activity },
+             { label: 'Total Users', value: (stats.totalUsers || 0).toLocaleString(), unit: 'USERS', icon: Users },
+             { label: 'Active Campaigns', value: (stats.totalCampaigns || 0).toLocaleString(), unit: 'LIVE', icon: Layers },
+             { label: 'Pending Reviews', value: (stats.pendingClaims || 0).toLocaleString(), unit: 'QUEUE', icon: Clock, warning: stats.pendingClaims > 0 },
            ].map((item, i) => (
              <Card key={i} variant="compact" className="p-8 space-y-4">
                 <div className="flex justify-between items-start">

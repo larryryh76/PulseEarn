@@ -29,26 +29,33 @@ const AdminOverview = () => {
         setLoading(true);
         const usersCount = await getCountFromServer(collection(db, 'users'));
 
-        // Use 'campaigns' collection for campaigns count as per standardized paths
         const campaignsCount = await getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true)));
 
         const claimsCount = await getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING')));
 
-        // Standardized path for withdrawals
         const withdrawalsCount = await getCountFromServer(query(collection(db, 'system_claims'), where('type', '==', 'withdrawal_debit'), where('adminStatus', '==', 'PENDING')));
 
         setStats({
-          totalUsers: usersCount.data().count || 0,
-          activeCampaigns: campaignsCount.data().count || 0,
-          pendingValidations: claimsCount.data().count || 0,
+          totalUsers: usersCount.data()?.count || 0,
+          activeCampaigns: campaignsCount.data()?.count || 0,
+          pendingValidations: claimsCount.data()?.count || 0,
           fraudAlerts: 0,
-          pendingWithdrawals: withdrawalsCount.data().count || 0,
+          pendingWithdrawals: withdrawalsCount.data()?.count || 0,
           transactionVolume: 0
         });
         setError(null);
       } catch (err) {
         console.error("Overview stats fetch failed:", err);
         setError("Failed to fetch operational metrics.");
+        // Set stats to 0 to prevent toLocaleString crashes if partial data failed
+        setStats({
+          totalUsers: 0,
+          activeCampaigns: 0,
+          pendingValidations: 0,
+          fraudAlerts: 0,
+          pendingWithdrawals: 0,
+          transactionVolume: 0
+        });
       } finally {
         setLoading(false);
       }
@@ -90,7 +97,7 @@ const AdminOverview = () => {
             </div>
             <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-text-secondary mb-1 truncate">{card.label}</p>
             <p className="text-xl sm:text-2xl font-mono font-bold truncate">
-              {loading ? '---' : typeof card.val === 'number' ? card.val.toLocaleString() : card.val}
+              {loading ? '---' : typeof card.val === 'number' ? (card.val || 0).toLocaleString() : (card.val || '---')}
             </p>
           </div>
         ))}

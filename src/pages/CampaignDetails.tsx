@@ -150,21 +150,33 @@ const CampaignDetails: React.FC = () => {
 
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-3">
                      <span className="badge-system badge-primary">{campaign.category}</span>
+                        <div className="h-1 w-1 rounded-full bg-white/10" />
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{campaign.type} Protocol</span>
                   </div>
                   <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
                      {campaign.name}
                   </h1>
+                     <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                           {campaign.sponsorLogoUrl ? (
+                              <img src={campaign.sponsorLogoUrl} alt="" className="w-5 h-5 rounded" />
+                           ) : (
+                              <Target size={14} className="text-primary" />
+                           )}
+                           <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{campaign.sponsorName || 'PulseEarn'}</span>
+                        </div>
+                     </div>
                </div>
 
                <div className="flex flex-wrap items-center gap-4">
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[160px]">
                      <p className="data-label">Prize Pool</p>
-                     <p className="text-3xl font-bold text-white tracking-tighter">+{campaign.totalPrizePool.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase ml-1">PTS</span></p>
+                     <p className="text-3xl font-bold text-white tracking-tighter">+{(campaign.totalPrizePool || 0).toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase ml-1">PTS</span></p>
                   </div>
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[120px]">
-                     <p className="data-label">Tasks</p>
+                        <p className="data-label">Yield Units</p>
                      <p className="text-3xl font-bold text-white tracking-tighter">{campaign.taskIds?.length || 0}</p>
                   </div>
                </div>
@@ -188,7 +200,7 @@ const CampaignDetails: React.FC = () => {
                   {[
                     { icon: Calendar, label: 'Starts', value: campaign.startDate ? campaign.startDate.toDate().toLocaleDateString() : 'N/A' },
                     { icon: Calendar, label: 'Ends', value: campaign.endDate ? campaign.endDate.toDate().toLocaleDateString() : 'Ongoing' },
-                    { icon: Users, label: 'Participants', value: campaign.participantsCount?.toLocaleString() || '0' },
+                    { icon: Users, label: 'Participants', value: (campaign.participantsCount || 0).toLocaleString() },
                   ].map((meta, i) => (
                     <div key={i} className="system-card-compact flex items-center gap-4">
                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0">

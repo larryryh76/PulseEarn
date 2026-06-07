@@ -106,8 +106,8 @@ const AdminValidation = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Validation Center</h1>
-          <p className="text-text-secondary text-sm font-medium">Verify operator proof-of-work and authorize reward distribution.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Approvals</h1>
+          <p className="text-text-secondary text-sm font-medium">Review and approve user submissions for reward distribution.</p>
         </div>
         <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
           {(['PENDING', 'APPROVED', 'REJECTED'] as SubmissionStatus[]).map((s) => (
@@ -130,16 +130,16 @@ const AdminValidation = () => {
           [1,2,3].map(i => <div key={i} className="h-32 bg-white/5 rounded-[2rem] animate-pulse" />)
         ) : claims.length > 0 ? (
           claims.map((claim) => (
-            <div key={claim.id} className="bg-white/[0.01] border border-white/5 rounded-[2rem] p-8 hover:border-white/10 transition-all group relative overflow-hidden">
+            <div key={claim.id} className="bg-white/[0.01] border border-white/5 rounded-[2rem] p-6 sm:p-8 hover:border-white/10 transition-all group relative overflow-hidden">
                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                  <div className="flex items-start gap-6">
-                     <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
-                        <User className="text-white/20" size={24} />
+                  <div className="flex items-start gap-4 sm:gap-6">
+                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
+                        <User className="text-white/20" size={20} />
                      </div>
                      <div>
                         <div className="flex items-center gap-3 mb-2">
                            <h3 className="font-mono text-sm font-bold text-white">{claim.userId}</h3>
-                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">Operator</span>
+                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">User</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs">
                            <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-tighter">
@@ -160,11 +160,20 @@ const AdminValidation = () => {
                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-2">Submitted Proof</p>
                         {claim.submittedProof ? (
                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-white/60 truncate mr-4">{claim.submittedProof}</p>
-                              <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] font-bold text-primary hover:underline uppercase shrink-0">
-                                 <ExternalLink size={12} />
-                                 Inspect
-                              </a>
+                              {claim.submittedProof.startsWith('http') ? (
+                                <div className="flex items-center gap-4 w-full">
+                                  <img src={claim.submittedProof} alt="Proof" className="w-12 h-12 rounded-lg object-cover border border-white/10" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] text-white/40 truncate mb-1">Asset Reference</p>
+                                    <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] font-bold text-primary hover:underline uppercase shrink-0">
+                                       <ExternalLink size={12} />
+                                       Inspect Asset
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-white/60 truncate">{claim.submittedProof}</p>
+                              )}
                            </div>
                         ) : (
                            <p className="text-xs text-white/20 italic">No proof assets provided</p>
@@ -172,18 +181,18 @@ const AdminValidation = () => {
                      </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 w-full lg:w-auto">
                     {claim.validationState === 'PENDING' ? (
                       <>
                         <button
                           onClick={() => handleReview(claim.id, 'REJECTED')}
-                          className="px-6 py-4 rounded-xl bg-danger/10 text-danger text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-danger/20 transition-all border border-danger/20"
+                          className="flex-1 lg:flex-none px-6 py-4 rounded-xl bg-danger/10 text-danger text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-danger/20 transition-all border border-danger/20"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleReview(claim.id, 'APPROVED')}
-                          className="px-6 py-4 rounded-xl bg-success text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-success/90 transition-all shadow-lg shadow-success/20"
+                          className="flex-1 lg:flex-none px-6 py-4 rounded-xl bg-success text-white text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-success/90 transition-all shadow-lg shadow-success/20"
                         >
                           Approve
                         </button>
@@ -203,8 +212,8 @@ const AdminValidation = () => {
         ) : (
           <div className="py-32 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
              <CheckCircle size={48} className="mx-auto text-success/20 mb-6" />
-             <h3 className="text-sm font-bold uppercase tracking-widest text-text-secondary mb-2">Queue Clearance Complete</h3>
-             <p className="text-xs text-white/20">No pending validations require administrative attention.</p>
+             <h3 className="text-sm font-bold uppercase tracking-widest text-text-secondary mb-2">Queue Clear</h3>
+             <p className="text-xs text-white/20">No pending submissions require review.</p>
           </div>
         )}
       </div>

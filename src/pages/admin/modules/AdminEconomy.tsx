@@ -41,8 +41,8 @@ const AdminEconomy = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Economy Architecture</h1>
-          <p className="text-text-secondary text-sm font-medium">Control global monetary parameters, reward multipliers, and system liquidity.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Economy Management</h1>
+          <p className="text-text-secondary text-sm font-medium">Manage platform economic parameters and reward settings.</p>
         </div>
         <div className="flex items-center gap-4">
            <button className="px-8 py-3.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
@@ -66,7 +66,7 @@ const AdminEconomy = () => {
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Avg balance</p>
            <p className="text-3xl font-mono font-bold text-white mb-2">{stats.totalUsers > 0 ? Math.floor(stats.ecosystemPoints / stats.totalUsers) : 0}</p>
-           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> PTS / Operator</div>
+           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> PTS / User</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Settlement Floor</p>
@@ -77,7 +77,7 @@ const AdminEconomy = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
          <section className="bg-white/[0.01] border border-white/5 rounded-[3rem] p-10">
-            <h2 className="text-sm font-bold uppercase tracking-widest mb-10 flex items-center gap-3"><Settings size={18} className="text-primary" /> Monetary Constants</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest mb-10 flex items-center gap-3"><Settings size={18} className="text-primary" /> Economic Settings</h2>
             <div className="space-y-8">
                {[
                  { label: 'Base Reward Ratio', value: '1000 PTS : $1.00' },

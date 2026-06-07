@@ -17,6 +17,7 @@ import { db } from '../../../firebase/config';
 import { Task } from '../../../types';
 import TaskBuilderModal from './modals/TaskBuilderModal';
 import { cn } from "../../../utils";
+import toast from "react-hot-toast";
 
 const AdminTasks = () => {
   const [tasks, setTasks] = React.useState<Task[]>([]);
@@ -41,6 +42,29 @@ const AdminTasks = () => {
     t.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDelete = async (task: Task) => {
+    if (!window.confirm(`Are you sure you want to delete "${task.title}"?`)) return;
+    try {
+      const { deleteDoc, doc: fireDoc } = await import('firebase/firestore');
+      await deleteDoc(fireDoc(db, 'tasks', task.id));
+      toast.success("Task deleted");
+    } catch (err) {
+      toast.error("Deletion failed");
+    }
+  };
+
+  const handleToggleStatus = async (task: Task) => {
+    try {
+      const { updateDoc, doc: fireDoc } = await import('firebase/firestore');
+      await updateDoc(fireDoc(db, 'tasks', task.id), {
+        active: !task.active
+      });
+      toast.success(`Task ${!task.active ? 'activated' : 'deactivated'}`);
+    } catch (err) {
+      toast.error("Status update failed");
+    }
+  };
 
   return (
     <div className="space-y-12 pb-24">
@@ -76,14 +100,16 @@ const AdminTasks = () => {
           filteredTasks.map((task) => (
             <div key={task.id} className="group bg-white/[0.01] border border-white/5 p-8 rounded-[2rem] hover:border-primary/30 transition-all duration-500 flex flex-col">
                <div className="flex justify-between items-start mb-6">
-                  <div className={cn(
-                    "px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border",
+                  <button
+                    onClick={() => handleToggleStatus(task)}
+                    className={cn(
+                    "px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border transition-all hover:scale-105",
                     task.active ? "bg-success/5 text-success border-success/10" : "bg-white/5 text-white/20 border-white/10"
                   )}>
                     {task.active ? 'Active' : 'Draft'}
-                  </div>
+                  </button>
                   <div className="text-right">
-                     <p className="text-lg font-mono font-bold text-primary">+{task.rewardAmount}</p>
+                     <p className="text-lg font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
                      <p className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Points</p>
                   </div>
                </div>
@@ -97,7 +123,10 @@ const AdminTasks = () => {
                      >
                         <Edit3 size={14} />
                      </button>
-                     <button className="p-2 rounded-lg bg-white/5 text-white/20 hover:text-danger hover:bg-danger/10 transition-all">
+                     <button
+                        onClick={() => handleDelete(task)}
+                        className="p-2 rounded-lg bg-white/5 text-white/20 hover:text-danger hover:bg-danger/10 transition-all"
+                     >
                         <Trash2 size={14} />
                      </button>
                   </div>

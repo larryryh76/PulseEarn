@@ -6,7 +6,8 @@ import {
   Image as ImageIcon,
   Edit3,
   Pause,
-  Target
+  Target,
+  Trash2
 } from 'lucide-react';
 import {
   collection,
@@ -51,6 +52,50 @@ const AdminCampaigns = () => {
      }
   };
 
+  const handleClone = async (campaign: any) => {
+     try {
+        const { id, ...data } = campaign;
+        const newId = doc(collection(db, 'campaigns')).id;
+        await updateDoc(doc(db, 'campaigns', newId), {
+           ...data,
+           id: newId,
+           name: `${data.name} (Copy)`,
+           active: false,
+           createdAt: new Date()
+        });
+        toast.success("Campaign cloned");
+     } catch (err) {
+        // Fallback if updateDoc fails on non-existent doc (standardizing on setDoc for new items)
+        try {
+           const { id, ...data } = campaign;
+           const newId = doc(collection(db, 'campaigns')).id;
+           const { doc: fireDoc, setDoc: fireSetDoc, serverTimestamp: fireTS } = await import('firebase/firestore');
+           await fireSetDoc(fireDoc(db, 'campaigns', newId), {
+              ...data,
+              id: newId,
+              name: `${data.name} (Copy)`,
+              active: false,
+              createdAt: fireTS(),
+              updatedAt: fireTS()
+           });
+           toast.success("Campaign cloned");
+        } catch (inner) {
+           toast.error("Clone failed");
+        }
+     }
+  };
+
+  const handleDelete = async (campaign: any) => {
+     if (!window.confirm(`Are you sure you want to delete "${campaign.name}"?`)) return;
+     try {
+        const { deleteDoc } = await import('firebase/firestore');
+        await deleteDoc(doc(db, 'campaigns', campaign.id));
+        toast.success("Campaign deleted");
+     } catch (err) {
+        toast.error("Deletion failed");
+     }
+  };
+
   const filteredCampaigns = campaigns.filter(c =>
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -60,8 +105,8 @@ const AdminCampaigns = () => {
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaign Intelligence</h1>
-          <p className="text-text-secondary text-sm font-medium">Orchestrate strategic marketing initiatives and operator incentives.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Campaigns</h1>
+          <p className="text-text-secondary text-sm font-medium">Manage and monitor platform reward campaigns.</p>
         </div>
 
         <div className="flex items-center gap-4 w-full md:w-auto">
@@ -105,7 +150,7 @@ const AdminCampaigns = () => {
                     "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-[0.2em] backdrop-blur-md border",
                     camp.active ? "bg-success/10 text-success border-success/20" : "bg-white/10 text-white/40 border-white/10"
                   )}>
-                    {camp.active ? 'Operational' : 'Dormant'}
+                    {camp.active ? 'Active' : 'Paused'}
                   </span>
                 </div>
               </div>
@@ -113,12 +158,29 @@ const AdminCampaigns = () => {
               <div className="p-8 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-bold tracking-tight text-white group-hover:text-primary transition-colors">{camp.name}</h3>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelectedCampaign(camp); setIsModalOpen(true); }}
-                    className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/20 hover:text-white"
-                  >
-                    <Edit3 size={16} />
-                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleClone(camp); }}
+                      className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/20 hover:text-success"
+                      title="Clone Campaign"
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedCampaign(camp); setIsModalOpen(true); }}
+                      className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/20 hover:text-white"
+                      title="Edit Campaign"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(camp); }}
+                      className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/20 hover:text-danger"
+                      title="Delete Campaign"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <p className="text-xs text-text-secondary font-medium leading-relaxed mb-8 flex-1 line-clamp-3">

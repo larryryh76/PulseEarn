@@ -54,8 +54,8 @@ const AdminLedger = () => {
     <div className="space-y-8 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Audit Ledger</h1>
-          <p className="text-text-secondary text-sm font-medium">Real-time global record of all economic injections and settlements.</p>
+      <h1 className="text-3xl font-bold tracking-tight mb-2">Transactions</h1>
+      <p className="text-text-secondary text-sm font-medium">Real-time record of all platform point movements and settlements.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative flex-1 sm:w-80">
@@ -80,10 +80,11 @@ const AdminLedger = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-white/[0.02] border-b border-white/5">
-                  <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Reference</th>
-                  <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Type</th>
-                  <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Magnitude</th>
+                <tr className="bg-white/[0.02] border-b border-white/5 whitespace-nowrap">
+                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Timestamp</th>
+                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User Reference</th>
+                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Type</th>
+                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-medium">
@@ -95,24 +96,29 @@ const AdminLedger = () => {
                   ))
                 ) : filteredTxs.length > 0 ? (
                   filteredTxs.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="p-8">
-                        <p className="text-xs font-mono text-white/40 group-hover:text-primary transition-colors">{tx.id}</p>
+                    <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group whitespace-nowrap">
+                      <td className="p-6 sm:p-8">
+                        <p className="text-[10px] font-mono text-white/40">
+                          {tx.executedAt?.toDate?.() ? tx.executedAt.toDate().toLocaleString() : 'N/A'}
+                        </p>
                       </td>
-                      <td className="p-8">
+                      <td className="p-6 sm:p-8">
+                        <p className="text-xs font-mono text-white group-hover:text-primary transition-colors">{tx.userId?.slice(0, 8)}...</p>
+                      </td>
+                      <td className="p-6 sm:p-8">
                          <div className="flex items-center gap-3">
                             <div className={cn(
                               "w-8 h-8 rounded-lg flex items-center justify-center",
-                              tx.amount >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                              (tx.amount || 0) >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
                             )}>
-                               {tx.amount >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                               {(tx.amount || 0) >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
                             </div>
-                            <span className="text-[11px] font-bold uppercase tracking-widest">{tx.type?.replace('_', ' ')}</span>
+                            <span className="text-[11px] font-bold uppercase tracking-widest">{tx.type?.replace(/_/g, ' ') || 'Unknown'}</span>
                          </div>
                       </td>
-                      <td className="p-8 text-right">
-                        <p className={cn("text-sm font-mono font-bold", tx.amount >= 0 ? "text-success" : "text-danger")}>
-                          {tx.amount >= 0 ? '+' : ''}{tx.amount?.toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
+                      <td className="p-6 sm:p-8 text-right">
+                        <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
+                          {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
                         </p>
                       </td>
                     </tr>

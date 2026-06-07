@@ -110,15 +110,24 @@ export interface Campaign {
   id: string;
   name: string;
   description: string;
+  category: TaskCategory;
   bannerUrl: string;
-  active: boolean;
-  startDate: Timestamp;
-  endDate: Timestamp;
-  featured: boolean;
-  taskIds: string[];
+  artworkUrl?: string;
+  sponsorName?: string;
+  budget?: number;
   totalPrizePool: number;
   remainingPool: number;
+  active: boolean;
+  status: 'ACTIVE' | 'PAUSED' | 'SCHEDULED' | 'ARCHIVED' | 'DRAFT';
+  visibility: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
+  startDate: Timestamp | null;
+  endDate: Timestamp | null;
+  featured: boolean;
+  taskIds: string[];
   participantsCount: number;
+  maxParticipants?: number;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 export interface Activity {

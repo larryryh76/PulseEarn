@@ -5,9 +5,12 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
+import Predictions from './pages/predictions/Predictions'
+import Referrals from './pages/Referrals'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
+import CampaignDetails from './pages/CampaignDetails'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOpsLayout from './components/layout/admin/AdminOpsLayout'
 import {
@@ -20,7 +23,8 @@ import {
   AdminEconomy,
   AdminBroadcasts,
   AdminAudit,
-  AdminTasks
+  AdminTasks,
+  AdminPredictions
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -60,8 +64,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     </div>
   );
 
-  const hasAccess = currentUser && userData?.role === 'admin';
-  if (!hasAccess) return <Navigate to="/dashboard" replace />;
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
 
@@ -88,6 +94,9 @@ function App() {
         {/* Core Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/predictions" element={<ProtectedRoute><Predictions /></ProtectedRoute>} />
+        <Route path="/referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
+        <Route path="/campaigns/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
@@ -114,6 +123,7 @@ function App() {
         <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/predictions" element={<AdminRoute><AdminOpsLayout><AdminPredictions /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

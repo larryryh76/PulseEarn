@@ -2,16 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { useTasks } from '../hooks/useTasks';
-import { useAuth } from '../contexts/AuthContext';
 import {
   Zap,
   CheckCircle2,
-  Lock,
-  Clock,
   Users,
   Search,
-  Activity,
-  ShieldCheck,
   ArrowRight,
   History,
   LayoutGrid,
@@ -25,15 +20,13 @@ import Button from '../components/ui/Button';
 
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { tasks, loading, getTaskStatus } = useTasks();
-  const { userData } = useAuth();
+  const { tasks, campaigns, loading, getTaskStatus } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED'>('ALL');
   const [view, setView] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
 
-  const activeTasks = tasks.filter(t => {
-    const { status } = getTaskStatus(t);
-    return status !== 'completed' && (filter === 'ALL' || t.category === filter as any);
-  });
+  const activeCampaigns = campaigns.filter(c =>
+    c.active && (filter === 'ALL' || c.category === filter as any)
+  );
 
   const completedTasks = tasks.filter(t => {
     const { status } = getTaskStatus(t);
@@ -135,29 +128,20 @@ const Tasks: React.FC = () => {
 
         {/* CAMPAIGN GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {(view === 'ACTIVE' ? activeTasks : completedTasks).map((task, index) => {
-            const { status } = getTaskStatus(task);
-            const isLocked = task.minLevel && (userData?.level || 1) < task.minLevel;
-            const isPending = status === 'pending';
-            const isCompleted = status === 'completed';
-
-            return (
+          {view === 'ACTIVE' ? (
+            activeCampaigns.map((camp, index) => (
               <motion.div
-                key={task.id}
+                key={camp.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                onClick={() => navigate(`/tasks/${task.id}`)}
+                onClick={() => navigate(`/campaigns/${camp.id}`)}
                 className="group cursor-pointer"
               >
-                <Card className={cn(
-                  "h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-surface-bright/50",
-                  isCompleted && "border-success/30 bg-success/[0.02]"
-                )}>
-                  {/* Visual Identity */}
+                <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-surface-bright/50">
                   <div className="h-44 relative overflow-hidden rounded-[2.5rem_2.5rem_0_0]">
-                     {task.campaignArtwork ? (
-                        <img src={task.campaignArtwork} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-1000 grayscale-[0.5] group-hover:grayscale-0" />
+                     {camp.bannerUrl ? (
+                        <img src={camp.bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-1000" />
                      ) : (
                         <div className="w-full h-full bg-gradient-to-br from-primary/10 to-transparent" />
                      )}
@@ -165,94 +149,96 @@ const Tasks: React.FC = () => {
 
                      <div className="absolute top-8 left-8 flex gap-2">
                         <div className="px-3 py-2 bg-background/80 backdrop-blur-md border border-white/5 rounded-xl group-hover:border-primary/40 transition-colors">
-                          {task.category === 'SOCIAL' ? <Users size={16} className="text-primary" /> :
-                           task.category === 'PREDICTION' ? <TrendingUp size={16} className="text-accent" /> :
-                           task.category === 'SPONSORED' ? <ShieldCheck size={16} className="text-success" /> :
+                          {camp.category === 'SOCIAL' ? <Users size={16} className="text-primary" /> :
+                           camp.category === 'PREDICTION' ? <TrendingUp size={16} className="text-accent" /> :
                            <Zap size={16} className="text-warning" />}
                         </div>
-                        {task.visibility === 'TIER_RESTRICTED' && (
-                           <div className="px-3 py-2 bg-background/80 backdrop-blur-md border border-white/5 rounded-xl text-[9px] font-bold text-warning uppercase flex items-center gap-2">
-                              <Lock size={12} />
-                              Locked
-                           </div>
-                        )}
                      </div>
 
                      <div className="absolute top-8 right-8 text-right">
                         <div className="px-4 py-2 bg-background/80 backdrop-blur-md border border-white/5 rounded-xl">
-                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{task.rewardAmount}</p>
-                           <p className="text-[7px] uppercase tracking-[0.2em] text-primary font-bold mt-1">Reward</p>
+                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{camp.totalPrizePool.toLocaleString()}</p>
+                           <p className="text-[7px] uppercase tracking-[0.2em] text-primary font-bold mt-1">Pool</p>
                         </div>
                      </div>
                   </div>
 
-                  {/* Content Integrity */}
                   <div className="flex-1 p-8 pt-6 space-y-5">
                     <div className="space-y-2">
-                       <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">{task.category}</span>
-                          <span className="w-1 h-1 rounded-full bg-white/10" />
-                          <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.15em]">{task.platform}</span>
-                       </div>
-                       <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors leading-tight">{task.title}</h3>
+                       <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">{camp.category}</p>
+                       <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors leading-tight">{camp.name}</h3>
                     </div>
-
                     <p className="text-[14px] text-text-secondary leading-relaxed line-clamp-3 font-medium">
-                       {task.description}
+                       {camp.description}
                     </p>
-
-                    <div className="flex flex-wrap gap-2 pt-2">
+                    <div className="flex items-center gap-4 pt-2">
                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
-                          <Activity size={12} className="text-text-tertiary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{task.verificationType}</span>
+                          <Users size={12} className="text-text-tertiary" />
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{camp.participantsCount} Joined</span>
+                       </div>
+                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
+                          <Zap size={12} className="text-text-tertiary" />
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{camp.taskIds?.length || 0} Tasks</span>
                        </div>
                     </div>
                   </div>
 
-                  {/* Operational Footer */}
                   <div className="px-8 pb-8 flex items-center justify-between">
-                    <div className="space-y-1">
-                       <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Progress State</p>
-                       <div className="flex items-center gap-2">
-                          {isPending ? (
-                             <div className="flex items-center gap-2 text-warning">
-                                <Clock size={14} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Pending Review</span>
-                             </div>
-                          ) : isCompleted ? (
-                             <div className="flex items-center gap-2 text-success">
-                                <CheckCircle2 size={14} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Claimed</span>
-                             </div>
-                          ) : isLocked ? (
-                             <div className="flex items-center gap-2 text-danger">
-                                <Lock size={14} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Level {task.minLevel}</span>
-                             </div>
-                          ) : (
-                             <div className="flex items-center gap-2 text-primary">
-                                <Zap size={14} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">+{task.xpReward} XP</span>
-                             </div>
-                          )}
-                       </div>
+                    <div>
+                       <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Sponsor</p>
+                       <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{camp.sponsorName || 'PulseEarn'}</p>
                     </div>
-
-                    <div className={cn(
-                       "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
-                       isCompleted ? "bg-success/10 text-success border border-success/20" : "bg-surface-bright text-white border border-border group-hover:bg-primary group-hover:text-white group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20"
-                    )}>
-                       <ArrowRight size={20} className={cn("transition-transform group-hover:translate-x-1", isCompleted && "group-hover:translate-x-0")} />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-surface-bright text-white border border-border group-hover:bg-primary group-hover:shadow-lg transition-all">
+                       <ArrowRight size={20} />
                     </div>
                   </div>
                 </Card>
               </motion.div>
-            );
-          })}
+            ))
+          ) : (
+            completedTasks.map((task, index) => {
+              return (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => navigate(`/tasks/${task.id}`)}
+                  className="group cursor-pointer"
+                >
+                  <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-success/[0.02] border-success/30">
+                    {/* Reuse similar layout for history items */}
+                    <div className="h-44 relative overflow-hidden rounded-[2.5rem_2.5rem_0_0]">
+                       {task.campaignArtwork ? (
+                          <img src={task.campaignArtwork} alt="" className="w-full h-full object-cover opacity-40" />
+                       ) : (
+                          <div className="w-full h-full bg-success/5" />
+                       )}
+                       <div className="absolute inset-0 flex items-center justify-center">
+                          <CheckCircle2 size={48} className="text-success" />
+                       </div>
+                    </div>
+                    <div className="flex-1 p-8">
+                       <h3 className="text-xl font-bold text-white mb-2">{task.title}</h3>
+                       <p className="text-sm text-text-secondary line-clamp-2 mb-6">{task.description}</p>
+                       <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                          <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Reward Secured</p>
+                          <p className="text-lg font-mono font-bold text-success">+{task.rewardAmount} PTS</p>
+                       </div>
+                    </div>
+                    <div className="px-8 pb-8 flex items-center justify-between">
+                       <span className="text-[10px] font-bold uppercase tracking-widest text-success">Verified Completion</span>
+                       <ArrowRight size={20} className="text-white/20" />
+                    </div>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
         </div>
 
         {/* EMPTY STATE ARCHITECTURE */}
-        {(view === 'ACTIVE' ? activeTasks.length === 0 : completedTasks.length === 0) && (
+        {(view === 'ACTIVE' ? activeCampaigns.length === 0 : completedTasks.length === 0) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

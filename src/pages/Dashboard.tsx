@@ -76,9 +76,9 @@ const Dashboard: React.FC = () => {
           >
              {[
                { name: 'Browse', path: '/tasks', icon: LayoutGrid },
-               { name: 'Predictions', path: '/tasks', icon: BarChart3 },
+               { name: 'Predictions', path: '/predictions', icon: BarChart3 },
                { name: 'Withdraw', path: '/wallet', icon: CreditCard },
-               { name: 'Invite', path: '/me', icon: UserPlus },
+               { name: 'Invite', path: '/referrals', icon: UserPlus },
              ].map((action) => (
                <Link
                 key={action.name}

@@ -8,6 +8,8 @@ import {
   Users,
   Search,
   ArrowRight,
+  Target,
+  Image as ImageIcon,
   History,
   LayoutGrid,
   Filter,
@@ -138,8 +140,8 @@ const Tasks: React.FC = () => {
                 onClick={() => navigate(`/campaigns/${camp.id}`)}
                 className="group cursor-pointer"
               >
-                <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-surface-bright/50">
-                  <div className="h-44 relative overflow-hidden rounded-[2.5rem_2.5rem_0_0]">
+                <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-surface-bright/50 border border-white/5 overflow-hidden">
+                  <div className="h-44 relative overflow-hidden">
                      {camp.bannerUrl ? (
                         <img src={camp.bannerUrl} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-1000" />
                      ) : (
@@ -148,16 +150,21 @@ const Tasks: React.FC = () => {
                      <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
 
                      <div className="absolute top-8 left-8 flex gap-2">
-                        <div className="px-3 py-2 bg-background/80 backdrop-blur-md border border-white/5 rounded-xl group-hover:border-primary/40 transition-colors">
+                        <div className="px-3 py-2 bg-background/80 backdrop-blur-md border border-white/10 rounded-xl group-hover:border-primary/40 transition-colors">
                           {camp.category === 'SOCIAL' ? <Users size={16} className="text-primary" /> :
                            camp.category === 'PREDICTION' ? <TrendingUp size={16} className="text-accent" /> :
                            <Zap size={16} className="text-warning" />}
                         </div>
+                        {camp.featured && (
+                           <div className="px-3 py-2 bg-accent text-white rounded-xl text-[8px] font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Target size={10} /> Featured
+                           </div>
+                        )}
                      </div>
 
                      <div className="absolute top-8 right-8 text-right">
-                        <div className="px-4 py-2 bg-background/80 backdrop-blur-md border border-white/5 rounded-xl">
-                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{camp.totalPrizePool.toLocaleString()}</p>
+                        <div className="px-4 py-2 bg-background/80 backdrop-blur-md border border-white/10 rounded-xl">
+                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{(camp.totalPrizePool || 0).toLocaleString()}</p>
                            <p className="text-[7px] uppercase tracking-[0.2em] text-primary font-bold mt-1">Pool</p>
                         </div>
                      </div>
@@ -165,30 +172,41 @@ const Tasks: React.FC = () => {
 
                   <div className="flex-1 p-8 pt-6 space-y-5">
                     <div className="space-y-2">
-                       <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">{camp.category}</p>
+                       <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">{camp.category}</span>
+                          <span className="w-1 h-1 rounded-full bg-white/10" />
+                          <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.15em]">{camp.status}</span>
+                       </div>
                        <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors leading-tight">{camp.name}</h3>
                     </div>
                     <p className="text-[14px] text-text-secondary leading-relaxed line-clamp-3 font-medium">
                        {camp.description}
                     </p>
-                    <div className="flex items-center gap-4 pt-2">
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
                           <Users size={12} className="text-text-tertiary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{camp.participantsCount} Joined</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{(camp.participantsCount || 0).toLocaleString()} Joined</span>
                        </div>
                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
                           <Zap size={12} className="text-text-tertiary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{camp.taskIds?.length || 0} Tasks</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{camp.taskIds?.length || 0} Task Units</span>
                        </div>
                     </div>
                   </div>
 
                   <div className="px-8 pb-8 flex items-center justify-between">
-                    <div>
-                       <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Sponsor</p>
-                       <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{camp.sponsorName || 'PulseEarn'}</p>
+                    <div className="flex items-center gap-3">
+                       {camp.sponsorLogoUrl ? (
+                          <img src={camp.sponsorLogoUrl} alt="" className="w-8 h-8 rounded-lg border border-white/10" />
+                       ) : (
+                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20"><ImageIcon size={14} /></div>
+                       )}
+                       <div>
+                          <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest leading-none mb-1">Sponsor</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{camp.sponsorName || 'PulseEarn'}</p>
+                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-surface-bright text-white border border-border group-hover:bg-primary group-hover:shadow-lg transition-all">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-surface-bright text-white border border-border group-hover:bg-primary group-hover:border-primary group-hover:shadow-[0_0_20px_rgba(0,112,255,0.3)] transition-all">
                        <ArrowRight size={20} />
                     </div>
                   </div>

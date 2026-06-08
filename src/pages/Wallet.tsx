@@ -116,7 +116,7 @@ const Wallet: React.FC = () => {
               <div className="lg:col-span-7 space-y-2">
                  <p className="data-label">Available Balance</p>
                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-6xl md:text-7xl font-bold text-white tracking-tighter">{points.toLocaleString()}</h2>
+                    <h2 className="text-6xl md:text-7xl font-bold text-white tracking-tighter">{(points || 0).toLocaleString()}</h2>
                     <span className="text-xl font-mono text-primary font-bold">PTS</span>
                  </div>
                  <p className="text-2xl text-text-secondary font-medium tracking-tight">
@@ -136,7 +136,7 @@ const Wallet: React.FC = () => {
                     <p className="data-label">Total Earned</p>
                     <div className="flex items-center gap-2">
                        <TrendingUp size={14} className="text-success" />
-                       <span className="text-lg font-bold text-white">{points.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
+                       <span className="text-lg font-bold text-white">{(points || 0).toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
               </div>
@@ -196,7 +196,7 @@ const Wallet: React.FC = () => {
                     <div>
                       <p className="text-sm font-bold text-white group-hover:text-primary transition-colors">{mapTransactionType(tx.type)}</p>
                       <p className="text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em]">
-                        {tx.timestamp?.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
                     </div>
                   </div>
@@ -206,7 +206,7 @@ const Wallet: React.FC = () => {
                         "text-sm font-bold font-mono tracking-tight",
                         tx.amount > 0 ? "text-success" : "text-white"
                       )}>
-                        {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                        {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
                       </p>
                       <p className="text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-widest">
                         {formatUSD(PTS_TO_USD(tx.amount))}
@@ -264,7 +264,7 @@ const Wallet: React.FC = () => {
                        <div className="space-y-2">
                           <h3 className="text-xl font-bold">Policy Restriction</h3>
                           <p className="text-sm text-text-secondary leading-relaxed font-medium">
-                            Withdrawal operations are restricted until the inventory floor of <span className="text-white font-bold">{WITHDRAWAL_MIN_PTS.toLocaleString()} PTS</span> is verified.
+                            Withdrawal operations are restricted until the inventory floor of <span className="text-white font-bold">{(WITHDRAWAL_MIN_PTS || 0).toLocaleString()} PTS</span> is verified.
                           </p>
                        </div>
                     </div>
@@ -300,7 +300,7 @@ const Wallet: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center py-5 border-b border-white/5">
                       <span className="data-label">Gross Settlement</span>
-                      <span className="data-mono text-lg">{points.toLocaleString()} PTS</span>
+                      <span className="data-mono text-lg">{(points || 0).toLocaleString()} PTS</span>
                     </div>
                     <div className="flex justify-between items-center py-5 border-b border-white/5">
                       <span className="data-label">Network Fee</span>

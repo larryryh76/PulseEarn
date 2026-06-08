@@ -21,7 +21,7 @@ import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 
-const AdminOperators = () => {
+const AdminUsers = () => {
   const [users, setUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -32,7 +32,7 @@ const AdminOperators = () => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     }, (error) => {
-      console.error("Operators fetch failed:", error);
+      console.error("Users fetch failed:", error);
       setLoading(false);
     });
     return unsubscribe;
@@ -181,7 +181,7 @@ const AdminOperators = () => {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 rounded-2xl p-4">
                          <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Balance</p>
-                         <p className="text-sm font-mono font-bold">{user.points?.toLocaleString() || 0} PTS</p>
+                         <p className="text-sm font-mono font-bold">{(user.points || 0).toLocaleString() || 0} PTS</p>
                       </div>
                       <div className="bg-white/5 rounded-2xl p-4">
                          <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Rank</p>
@@ -213,4 +213,4 @@ const AdminOperators = () => {
   );
 };
 
-export default AdminOperators;
+export default AdminUsers;

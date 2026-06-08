@@ -52,7 +52,7 @@ const AdminPredictions = () => {
     const currentPrice = marketData.find(c => c.id === coinId)?.current_price;
 
     if (!currentPrice) return toast.error("Price data unavailable");
-    if (!window.confirm(`Resolve "${campaign.name}" at current price $${currentPrice.toLocaleString()}?`)) return;
+    if (!window.confirm(`Resolve "${campaign.name}" at current price $${(currentPrice || 0).toLocaleString()}?`)) return;
 
     try {
       const predsQ = query(collection(db, 'user_predictions'), where('taskId', '==', campaign.id), where('status', '==', 'ACTIVE'));
@@ -150,7 +150,7 @@ const AdminPredictions = () => {
                     </div>
                     <div className="bg-white/5 rounded-xl p-3">
                        <p className="text-[9px] text-white/20 uppercase font-bold mb-1">Prize Pool</p>
-                       <p className="text-sm font-mono font-bold text-primary">{camp.totalPrizePool.toLocaleString()} PTS</p>
+                       <p className="text-sm font-mono font-bold text-primary">{(camp.totalPrizePool || 0).toLocaleString()} PTS</p>
                     </div>
                  </div>
                  <button
@@ -205,7 +205,7 @@ const AdminPredictions = () => {
                      </div>
                   </td>
                   <td className="p-8">
-                     <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
+                     <p className="text-sm font-mono font-bold text-white">${(pred.entryPrice || 0).toLocaleString()}</p>
                   </td>
                   <td className="p-8 text-right">
                      <span className={cn(

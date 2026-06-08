@@ -60,7 +60,32 @@ const AdminAudit = () => {
         </div>
       </header>
 
-      <div className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <div className="lg:hidden space-y-4">
+        {loading ? (
+          [1,2,3].map(i => <div key={i} className="h-32 bg-white/5 rounded-3xl animate-pulse" />)
+        ) : logs.length > 0 ? (
+          logs.map((log: any) => (
+            <div key={log.id} className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 space-y-4">
+               <div className="flex justify-between items-start">
+                  <div>
+                     <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">{log.action?.replace(/_/g, ' ')}</p>
+                     <p className="text-[9px] font-mono text-white/40">{log.timestamp?.toDate ? (log.timestamp?.toDate?.()?.toLocaleString() || "N/A") : log.timestamp?.toLocaleString?.() || 'N/A'}</p>
+                  </div>
+                  <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold text-white/40 uppercase">{log.performedBy || 'System'}</span>
+               </div>
+               <div className="p-3 bg-white/5 rounded-xl">
+                  <p className="text-[10px] text-white/60 leading-relaxed font-medium">Target: {log.targetId || 'N/A'}</p>
+               </div>
+            </div>
+          ))
+        ) : (
+          <div className="py-20 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-3xl">
+             <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No logs</p>
+          </div>
+        )}
+      </div>
+
+        <div className="hidden lg:block bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -83,7 +108,7 @@ const AdminAudit = () => {
                     <td className="p-8">
                        <div className="flex items-center gap-2 text-[11px] font-mono text-white/40">
                           <Calendar size={12} />
-                          {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : 'N/A'}
+                          {log.timestamp?.toDate ? (log.timestamp?.toDate?.()?.toLocaleString() || "N/A") : log.timestamp?.toLocaleString?.() || 'N/A'}
                        </div>
                     </td>
                     <td className="p-8">

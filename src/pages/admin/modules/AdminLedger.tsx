@@ -76,65 +76,103 @@ const AdminLedger = () => {
            <p className="font-bold uppercase tracking-widest text-sm">{error}</p>
         </div>
       ) : (
-        <div className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-white/[0.02] border-b border-white/5 whitespace-nowrap">
-                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Timestamp</th>
-                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User Reference</th>
-                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Type</th>
-                  <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 font-medium">
-                {loading ? (
-                  [1,2,3,4,5].map(i => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={3} className="p-8"><div className="h-4 bg-white/5 rounded w-full" /></td>
-                    </tr>
-                  ))
-                ) : filteredTxs.length > 0 ? (
-                  filteredTxs.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group whitespace-nowrap">
-                      <td className="p-6 sm:p-8">
-                        <p className="text-[10px] font-mono text-white/40">
-                          {tx.executedAt?.toDate?.() ? tx.executedAt.toDate().toLocaleString() : 'N/A'}
-                        </p>
-                      </td>
-                      <td className="p-6 sm:p-8">
-                        <p className="text-xs font-mono text-white group-hover:text-primary transition-colors">{tx.userId?.slice(0, 8)}...</p>
-                      </td>
-                      <td className="p-6 sm:p-8">
-                         <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center",
-                              (tx.amount || 0) >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
-                            )}>
-                               {(tx.amount || 0) >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
-                            </div>
-                            <span className="text-[11px] font-bold uppercase tracking-widest">{tx.type?.replace(/_/g, ' ') || 'Unknown'}</span>
+        <>
+          <div className="lg:hidden space-y-4">
+            {loading ? (
+              [1,2,3].map(i => <div key={i} className="h-32 bg-white/5 rounded-3xl animate-pulse" />)
+            ) : filteredTxs.length > 0 ? (
+              filteredTxs.map((tx: any) => (
+                <div key={tx.id} className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 space-y-4">
+                   <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                         <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            (tx.amount || 0) >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                         )}>
+                            {(tx.amount || 0) >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
                          </div>
-                      </td>
-                      <td className="p-6 sm:p-8 text-right">
-                        <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
-                          {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
-                        </p>
+                         <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white">{tx.type?.replace(/_/g, ' ') || 'Unknown'}</p>
+                            <p className="text-[9px] font-mono text-white/40">{tx.executedAt?.toDate?.() ? (tx.executedAt?.toDate?.()?.toLocaleString() || "N/A") : tx.executedAt?.toLocaleString?.() || 'N/A'}</p>
+                         </div>
+                      </div>
+                      <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
+                         {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
+                      </p>
+                   </div>
+                   <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">User Reference</span>
+                      <span className="text-[10px] font-mono text-white/60">{tx.userId?.slice(0, 12)}...</span>
+                   </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-20 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-3xl">
+                 <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No records</p>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:block bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/5 whitespace-nowrap">
+                    <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Timestamp</th>
+                    <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User Reference</th>
+                    <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Type</th>
+                    <th className="p-6 sm:p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 font-medium">
+                  {loading ? (
+                    [1,2,3,4,5].map(i => (
+                      <tr key={i} className="animate-pulse">
+                        <td colSpan={3} className="p-8"><div className="h-4 bg-white/5 rounded w-full" /></td>
+                      </tr>
+                    ))
+                  ) : filteredTxs.length > 0 ? (
+                    filteredTxs.map((tx: any) => (
+                      <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group whitespace-nowrap">
+                        <td className="p-6 sm:p-8">
+                          <p className="text-[10px] font-mono text-white/40">
+                            {tx.executedAt?.toDate?.() ? (tx.executedAt?.toDate?.()?.toLocaleString() || "N/A") : tx.executedAt?.toLocaleString?.() || 'N/A'}
+                          </p>
+                        </td>
+                        <td className="p-6 sm:p-8">
+                          <p className="text-xs font-mono text-white group-hover:text-primary transition-colors">{tx.userId?.slice(0, 8)}...</p>
+                        </td>
+                        <td className="p-6 sm:p-8">
+                           <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                (tx.amount || 0) >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                              )}>
+                                 {(tx.amount || 0) >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                              </div>
+                              <span className="text-[11px] font-bold uppercase tracking-widest">{tx.type?.replace(/_/g, ' ') || 'Unknown'}</span>
+                           </div>
+                        </td>
+                        <td className="p-6 sm:p-8 text-right">
+                          <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
+                            {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
+                          </p>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="p-24 text-center">
+                        <Activity size={48} className="mx-auto text-white/5 mb-6" />
+                        <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No transactions available.</p>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="p-24 text-center">
-                      <Activity size={48} className="mx-auto text-white/5 mb-6" />
-                      <p className="text-xs font-bold uppercase tracking-widest text-text-secondary">No transactions available.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

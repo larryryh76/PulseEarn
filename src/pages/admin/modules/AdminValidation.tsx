@@ -149,7 +149,7 @@ const AdminValidation = () => {
                            <div className="w-1 h-1 rounded-full bg-white/10" />
                            <div className="flex items-center gap-2 text-white/40 font-medium">
                               <Clock size={14} />
-                              {claim.createdAt?.toDate().toLocaleString()}
+                              {claim.createdAt?.toDate?.() ? (claim.createdAt?.toDate?.()?.toLocaleString() || "N/A") : 'N/A'}
                            </div>
                         </div>
                      </div>

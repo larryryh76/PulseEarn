@@ -73,9 +73,9 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
         setFormData({
           ...formData,
           ...initialCampaign,
-          startDate: initialCampaign.startDate?.toDate ? initialCampaign.startDate.toDate().toISOString().split('T')[0] : (initialCampaign.startDate || ''),
-          endDate: initialCampaign.endDate?.toDate ? initialCampaign.endDate.toDate().toISOString().split('T')[0] : (initialCampaign.endDate || ''),
-          scheduledLaunchDate: initialCampaign.scheduledLaunchDate?.toDate ? initialCampaign.scheduledLaunchDate.toDate().toISOString().split('T')[0] : (initialCampaign.scheduledLaunchDate || ''),
+          startDate: initialCampaign.startDate?.toDate ? (initialCampaign.startDate.toDate?.().toISOString().split('T')[0] || '') : (initialCampaign.startDate || ''),
+          endDate: initialCampaign.endDate?.toDate ? (initialCampaign.endDate.toDate?.().toISOString().split('T')[0] || '') : (initialCampaign.endDate || ''),
+          scheduledLaunchDate: initialCampaign.scheduledLaunchDate?.toDate ? (initialCampaign.scheduledLaunchDate.toDate?.().toISOString().split('T')[0] || '') : (initialCampaign.scheduledLaunchDate || ''),
           validationSettings: initialCampaign.validationSettings || formData.validationSettings
         });
       } else {
@@ -225,7 +225,7 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
           <div>
              <h2 className="text-2xl font-bold uppercase tracking-tight flex items-center gap-3">
                 <Target className="text-primary" />
-                {initialCampaign ? 'Campaign Management Terminal' : 'Launch New Campaign'}
+                {initialCampaign ? 'Campaign Management' : 'Launch New Campaign'}
              </h2>
              <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mt-1">Configure strategic rewards and execution vectors</p>
           </div>
@@ -415,7 +415,7 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
                       {formData.active && <Plus size={14} className="text-white rotate-45" />}
                     </div>
                     <input type="checkbox" className="hidden" checked={formData.active} onChange={e => setFormData({...formData, active: e.target.checked})} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Live Deployment</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Live</span>
                   </label>
 
                   <label className="flex items-center gap-3 cursor-pointer group">
@@ -443,8 +443,8 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
         {initialCampaign?.analytics && (
            <div className="p-8 bg-black/40 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8">
               {[
-                { label: 'Participants', val: formData.participantsCount, icon: Users },
-                { label: 'Completions', val: initialCampaign.analytics.completions, icon: CheckCircle2 },
+                { label: 'Participants', val: formData.participantsCount, icon: UsersIcon },
+                { label: 'Completions', val: initialCampaign.analytics.completions, icon: CheckCircle2Icon },
                 { label: 'Conv. Rate', val: `${initialCampaign.analytics.completionRate}%`, icon: BarChart3 },
                 { label: 'Validation', val: `${initialCampaign.analytics.validationRate}%`, icon: ShieldCheck },
                 { label: 'Distributed', val: `${initialCampaign.analytics.rewardDistributed} PTS`, icon: Zap },
@@ -471,13 +471,13 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
 
 export default CampaignBuilderModal;
 
-const Users = ({ size }: { size: number }) => (
+const UsersIcon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 );
 
-const CheckCircle2 = ({ size }: { size: number }) => (
+const CheckCircle2Icon = ({ size }: { size: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/>
   </svg>

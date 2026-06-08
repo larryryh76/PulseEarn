@@ -78,7 +78,7 @@ const Profile: React.FC = () => {
   };
 
   const xpStats = getXpProgress(userData?.xp || 0);
-  const memberSince = userData?.createdAt?.toDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || 'Recent';
+  const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
   if (txLoading && !userData) return (
     <MainLayout>
@@ -133,7 +133,7 @@ const Profile: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                      <Zap size={14} className="text-primary" />
-                     {userData?.xp?.toLocaleString()} <span className="text-white/20">Authorized XP</span>
+                     {(userData?.xp || 0).toLocaleString()} <span className="text-white/20">Authorized XP</span>
                    </div>
                  </div>
               </div>
@@ -201,7 +201,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="ledger-row border-0">
                          <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Last Secure Login</span>
-                         <span className="data-mono">{userData?.security?.lastLogin?.toDate().toLocaleDateString() || 'N/A'}</span>
+                         <span className="data-mono">{(userData?.security?.lastLogin?.toDate?.()?.toLocaleDateString() || "N/A") || 'N/A'}</span>
                       </div>
                     </Card>
                   </section>
@@ -263,7 +263,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         <p className="data-label">Inventory Earned</p>
-                        <p className="text-4xl font-bold text-white tracking-tighter">{( (userData?.stats?.referralsCount || 0) * 50 ).toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
+                        <p className="text-4xl font-bold text-white tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50).toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
                   </div>
@@ -287,12 +287,12 @@ const Profile: React.FC = () => {
                         <div>
                           <p className="text-[13px] font-bold text-white leading-none mb-1.5">{tx.source || 'Ecosystem Reward'}</p>
                           <p className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest">
-                            {tx.timestamp?.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                         <span className="text-[13px] font-mono font-bold text-success">+{tx.amount.toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
+                         <span className="text-[13px] font-mono font-bold text-success">+{(tx.amount || 0).toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
                       </div>
                     </div>
                   ))}

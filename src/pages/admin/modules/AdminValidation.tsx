@@ -20,14 +20,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
-import { SubtaskStatus } from '../../../types';
+import { submissionStatus } from '../../../types';
 import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const AdminValidation = () => {
   const [claims, setClaims] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState<SubtaskStatus>('PENDING');
+  const [filter, setFilter] = React.useState<submissionStatus>('PENDING');
 
   React.useEffect(() => {
     const q = query(
@@ -48,7 +48,7 @@ const AdminValidation = () => {
     return unsubscribe;
   }, [filter]);
 
-  const handleReview = async (claimId: string, status: SubtaskStatus) => {
+  const handleReview = async (claimId: string, status: submissionStatus) => {
     try {
       const claimRef = doc(db, 'task_claims', claimId);
       const claimSnap = await getDoc(claimRef);
@@ -107,10 +107,10 @@ const AdminValidation = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Approvals</h1>
-          <p className="text-text-secondary text-sm font-medium">Review and approve user subtasks for reward distribution.</p>
+          <p className="text-text-secondary text-sm font-medium">Review and approve user submissions for reward distribution.</p>
         </div>
         <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
-          {(['PENDING', 'APPROVED', 'REJECTED'] as SubtaskStatus[]).map((s) => (
+          {(['PENDING', 'APPROVED', 'REJECTED'] as submissionStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
@@ -213,7 +213,7 @@ const AdminValidation = () => {
           <div className="py-32 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
              <CheckCircle size={48} className="mx-auto text-success/20 mb-6" />
              <h3 className="text-sm font-bold uppercase tracking-widest text-text-secondary mb-2">Queue Clear</h3>
-             <p className="text-xs text-white/20">No pending subtasks require review.</p>
+             <p className="text-xs text-white/20">No pending submissions require review.</p>
           </div>
         )}
       </div>

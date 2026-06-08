@@ -70,7 +70,7 @@ export class TaskEngine {
           taskId,
           lastCompleted: task.verificationType === 'automated' ? serverTimestamp() : (userTask?.lastCompleted || null),
           status: task.verificationType === 'automated' ? 'completed' : 'pending',
-          subtaskId: claimId,
+          submissionId: claimId,
           totalCompletions: increment(task.verificationType === 'automated' ? 1 : 0)
         }, { merge: true });
 

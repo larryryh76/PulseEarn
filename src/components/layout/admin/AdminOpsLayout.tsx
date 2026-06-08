@@ -40,9 +40,9 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
            <div>
               <ShieldAlert size={48} className="text-danger mx-auto mb-6" />
-              <h1 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Administrative Clearance Required</h1>
-              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Operations Terminal is restricted to authorized personnel only.</p>
-              <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/90 transition-all">Terminate Access Request</button>
+              <h1 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Management Authorization Required</h1>
+              <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Operations Hub is restricted to authorized personnel only.</p>
+              <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/90 transition-all">Return to Home</button>
            </div>
         </div>
      );
@@ -129,7 +129,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
          <header className="hidden lg:flex h-20 border-b border-white/5 px-12 items-center justify-between sticky top-0 bg-[#050507]/80 backdrop-blur-md z-40">
             <div className="flex items-center gap-4">
                <div className="w-2 h-2 rounded-full bg-success" />
-               <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Platform Administration v5.2.0</span>
+               <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Admin Hub v5.2.0</span>
             </div>
 
             <div className="flex items-center gap-8">

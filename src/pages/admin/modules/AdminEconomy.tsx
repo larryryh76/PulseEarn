@@ -7,12 +7,6 @@ import {
   Zap,
   DollarSign
 } from 'lucide-react';
-import {
-  collection,
-  getDocs,
-  query,
-  limit
-} from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 
 const AdminEconomy = () => {
@@ -22,17 +16,29 @@ const AdminEconomy = () => {
     pendingWithdrawals: 0
   });
 
-  React.useEffect(() => {
+    React.useEffect(() => {
     const fetchStats = async () => {
-      const usersSnap = await getDocs(query(collection(db, 'users'), limit(500)));
-      let totalPts = 0;
-      usersSnap.forEach(doc => totalPts += (doc.data().points || 0));
+      try {
+        const { getCountFromServer, query, collection, where, limit, getDocs } = await import('firebase/firestore');
+        const usersCountSnap = await getCountFromServer(collection(db, 'users'));
+        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
+        let totalPts = 0;
+        usersSnap.forEach(doc => totalPts += (doc.data().points || 0));
 
-      setStats({
-        ecosystemPoints: totalPts,
-        totalUsers: usersSnap.size,
-        pendingWithdrawals: 0
-      });
+        const withdrawalsSnap = await getCountFromServer(query(
+          collection(db, 'system_claims'),
+          where('type', '==', 'withdrawal_debit'),
+          where('adminStatus', '==', 'PENDING')
+        ));
+
+        setStats({
+          ecosystemPoints: totalPts,
+          totalUsers: usersCountSnap.data().count,
+          pendingWithdrawals: withdrawalsSnap.data().count
+        });
+      } catch (err) {
+        console.error("Economy stats error:", err);
+      }
     };
     fetchStats();
   }, []);
@@ -64,14 +70,14 @@ const AdminEconomy = () => {
            <div className="flex items-center gap-2 text-success font-bold text-[10px] uppercase tracking-widest"><DollarSign size={12} /> USD Equivalent</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
-           <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Avg balance</p>
+           <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Average User Balance</p>
            <p className="text-3xl font-mono font-bold text-white mb-2">{stats.totalUsers > 0 ? Math.floor(stats.ecosystemPoints / stats.totalUsers) : 0}</p>
-           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> PTS / User</div>
+           <div className="flex items-center gap-2 text-accent font-bold text-[10px] uppercase tracking-widest"><TrendingUp size={12} /> Points Per User</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
-           <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Settlement Floor</p>
-           <p className="text-3xl font-mono font-bold text-white mb-2">10,000</p>
-           <div className="flex items-center gap-2 text-warning font-bold text-[10px] uppercase tracking-widest"><Wallet size={12} /> PTS Min.</div>
+           <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Withdrawal Queue</p>
+           <p className="text-3xl font-mono font-bold text-white mb-2">{(stats.pendingWithdrawals || 0).toLocaleString()}</p>
+           <div className="flex items-center gap-2 text-warning font-bold text-[10px] uppercase tracking-widest"><Wallet size={12} /> Pending Reviews</div>
         </div>
       </div>
 
@@ -81,7 +87,7 @@ const AdminEconomy = () => {
             <div className="space-y-8">
                {[
                  { label: 'Base Reward Ratio', value: '1000 PTS : $1.00' },
-                 { label: 'Referral Incentive', value: '50 PTS / User' },
+                 { label: 'Referral Incentive', value: '50 Points Per User' },
                  { label: 'Daily Earning Cap', value: '500 PTS' },
                  { label: 'Withdrawal Threshold', value: '10,000 PTS' },
                ].map((item) => (

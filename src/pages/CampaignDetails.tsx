@@ -198,8 +198,8 @@ const CampaignDetails: React.FC = () => {
 
                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
-                    { icon: Calendar, label: 'Starts', value: campaign.startDate ? campaign.startDate.toDate().toLocaleDateString() : 'N/A' },
-                    { icon: Calendar, label: 'Ends', value: campaign.endDate ? campaign.endDate.toDate().toLocaleDateString() : 'Ongoing' },
+                    { icon: Calendar, label: 'Starts', value: campaign.startDate ? (campaign.startDate?.toDate?.()?.toLocaleDateString() || "N/A") : 'N/A' },
+                    { icon: Calendar, label: 'Ends', value: campaign.endDate ? (campaign.endDate?.toDate?.()?.toLocaleDateString() || "N/A") : 'Ongoing' },
                     { icon: Users, label: 'Participants', value: (campaign.participantsCount || 0).toLocaleString() },
                   ].map((meta, i) => (
                     <div key={i} className="system-card-compact flex items-center gap-4">
@@ -254,7 +254,7 @@ const CampaignDetails: React.FC = () => {
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
                               >
-                                Execute Task <ExternalLink size={12} />
+                                Complete Task <ExternalLink size={12} />
                               </a>
                             )}
                           </div>

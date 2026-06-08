@@ -18,7 +18,7 @@ import {
   AdminCampaigns,
   AdminValidation,
   AdminLedger,
-  AdminOperators,
+  AdminUsers,
   AdminSecurity,
   AdminEconomy,
   AdminBroadcasts,
@@ -58,16 +58,25 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
+
+  // If still loading, wait for auth state
   if (loading) return (
     <div className="min-h-screen bg-[#050507] flex items-center justify-center">
       <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
 
+  // No user, go to login
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  // Special check for hardcoded admin email during transition
+  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  const isAdminRole = userData?.role === 'admin';
+
+  if (!isAdminEmail && !isAdminRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -117,7 +126,7 @@ function App() {
         <Route path="/admin/campaigns" element={<AdminRoute><AdminOpsLayout><AdminCampaigns /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/validation" element={<AdminRoute><AdminOpsLayout><AdminValidation /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/ledger" element={<AdminRoute><AdminOpsLayout><AdminLedger /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminOperators /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminUsers /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/security" element={<AdminRoute><AdminOpsLayout><AdminSecurity /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/economy" element={<AdminRoute><AdminOpsLayout><AdminEconomy /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />

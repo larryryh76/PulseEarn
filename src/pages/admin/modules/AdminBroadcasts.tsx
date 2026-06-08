@@ -42,7 +42,7 @@ const AdminBroadcasts = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Broadcast Center</h1>
-          <p className="text-text-secondary text-sm font-medium">Deploy platform-wide communications, alerts, and campaign notifications.</p>
+          <p className="text-text-secondary text-sm font-medium">Broadcast platform-wide communications, alerts, and campaign notifications.</p>
         </div>
 
         <button
@@ -129,7 +129,7 @@ const AdminBroadcasts = () => {
                     disabled={submitting}
                     className="w-full py-5 bg-white text-black font-bold uppercase tracking-[0.2em] text-[11px] rounded-2xl hover:bg-white/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
-                     {submitting ? <Loader2 className="animate-spin" size={16} /> : <><Send size={16} /> Deploy Global Node</>}
+                     {submitting ? <Loader2 className="animate-spin" size={16} /> : <><Send size={16} /> Broadcast Notification</>}
                   </button>
                </form>
             </motion.div>

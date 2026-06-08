@@ -76,7 +76,7 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Administration Hub v5.2.0</span>
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Operations Hub v5.2.0</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-white">System <span className="text-text-tertiary">Overview</span></h1>
           </div>
@@ -84,7 +84,7 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center gap-4 bg-surface-bright/50 border border-border p-2 rounded-2xl">
              <div className="flex items-center gap-3 px-4 py-2 border-r border-border">
                 <Server size={14} className="text-success" />
-                <span className="text-[10px] font-bold text-white uppercase tracking-widest">System Status: Nominal</span>
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest">System Status: Active</span>
              </div>
              <div className="flex items-center gap-3 px-4 py-2">
                 <ShieldCheck size={14} className="text-primary" />

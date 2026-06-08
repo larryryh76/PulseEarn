@@ -62,7 +62,7 @@ const Dashboard: React.FC = () => {
           >
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Personal Command Center</span>
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">User Dashboard</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
                Welcome Back, <span className="text-text-tertiary">{userData?.username}</span>
@@ -100,7 +100,7 @@ const Dashboard: React.FC = () => {
                  <WalletIcon size={18} className="text-primary" />
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{userData?.points.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{(userData?.points || 0).toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
               </div>
            </Card>
@@ -112,8 +112,8 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="space-y-4">
                  <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level}</p>
-                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{userData?.xp.toLocaleString()} XP</p>
+                    <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{(userData?.xp || 0).toLocaleString()} XP</p>
                  </div>
                  <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                     <motion.div
@@ -178,7 +178,7 @@ const Dashboard: React.FC = () => {
                               {featuredTask.description}
                            </p>
                            <div className="flex items-center gap-3 pt-2">
-                              <Button size="sm" variant="primary" className="group-hover:gap-4 transition-all">Execute Now <ArrowRight size={14} /></Button>
+                              <Button size="sm" variant="primary" className="group-hover:gap-4 transition-all">Join Now <ArrowRight size={14} /></Button>
                            </div>
                         </div>
                      </div>
@@ -271,7 +271,7 @@ const Dashboard: React.FC = () => {
                                  {isPositive ? `+${activity.points} PTS` : 'System Event'}
                                </span>
                                <span className="text-[8px] text-text-tertiary font-mono">
-                                {activity.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "N/A") : 'N/A'}
                                </span>
                             </div>
                           </div>

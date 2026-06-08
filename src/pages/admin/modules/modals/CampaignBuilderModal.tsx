@@ -322,6 +322,22 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
             </div>
 
             {/* RIGHT COLUMN: REWARDS, SPONSOR, SETTINGS */}
+              <section className="p-8 bg-white/[0.02] border border-white/5 rounded-[2rem] space-y-8">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                     <Globe size={14} /> Sponsor Information
+                  </h3>
+                  <div className="space-y-6">
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-1">Sponsor Name</label>
+                        <input value={formData.sponsorName} onChange={e => setFormData({...formData, sponsorName: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all" placeholder="PulseEarn" />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-1">Sponsor Website</label>
+                        <input value={formData.sponsorWebsite} onChange={e => setFormData({...formData, sponsorWebsite: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all" placeholder="https://pulseearn.com" />
+                     </div>
+                     <MediaUploader label="Sponsor Logo" value={formData.sponsorLogoUrl} onChange={url => setFormData({...formData, sponsorLogoUrl: url})} path="sponsors/logos" aspectRatio="square" />
+                  </div>
+               </section>
             <div className="lg:col-span-5 space-y-12">
                <section className="p-8 bg-white/[0.02] border border-white/5 rounded-[2rem] space-y-8">
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-warning flex items-center gap-2">

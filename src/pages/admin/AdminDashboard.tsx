@@ -14,14 +14,6 @@ import {
   Clock
 } from 'lucide-react';
 import { cn } from '../../utils';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  getCountFromServer,
-  limit
-} from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import Card from '../../components/ui/Card';
 
@@ -34,13 +26,15 @@ const AdminDashboard: React.FC = () => {
     totalCampaigns: 0,
     ecosystemPoints: 0
   });
-  useEffect(() => {
+    useEffect(() => {
     const fetchGlobalStats = async () => {
       try {
+        const { getCountFromServer, query, collection, where, getDocs, limit } = await import('firebase/firestore');
         const usersCount = await getCountFromServer(collection(db, 'users'));
         const tasksSnap = await getDocs(query(collection(db, 'tasks'), where('active', '==', true)));
         const claimsSnap = await getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING')));
         const campaignSnap = await getCountFromServer(collection(db, 'campaigns'));
+        const withdrawalsSnap = await getCountFromServer(query(collection(db, 'system_claims'), where('type', '==', 'withdrawal_debit'), where('adminStatus', '==', 'PENDING')));
 
         const usersSnap = await getDocs(query(collection(db, 'users'), limit(100)));
         const totalPoints = usersSnap.docs.reduce((acc, doc) => acc + (doc.data().points || 0), 0);
@@ -48,7 +42,7 @@ const AdminDashboard: React.FC = () => {
         setStats({
           totalUsers: usersCount.data().count,
           activeTasks: tasksSnap.size,
-          pendingClaims: claimsSnap.data().count,
+          pendingClaims: claimsSnap.data().count + withdrawalsSnap.data().count,
           totalCampaigns: campaignSnap.data().count,
           ecosystemPoints: totalPoints
         });

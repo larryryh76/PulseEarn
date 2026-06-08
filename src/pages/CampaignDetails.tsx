@@ -172,11 +172,11 @@ const CampaignDetails: React.FC = () => {
 
                <div className="flex flex-wrap items-center gap-4">
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[160px]">
-                     <p className="data-label">Prize Pool</p>
+                        <p className="data-label">Points Award</p>
                      <p className="text-3xl font-bold text-white tracking-tighter">+{(campaign.totalPrizePool || 0).toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase ml-1">PTS</span></p>
                   </div>
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[120px]">
-                        <p className="data-label">Yield Units</p>
+                        <p className="data-label">Task Count</p>
                      <p className="text-3xl font-bold text-white tracking-tighter">{campaign.taskIds?.length || 0}</p>
                   </div>
                </div>

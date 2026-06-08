@@ -25,7 +25,7 @@ const FraudPolicy: React.FC = () => {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">2. Automated Completion</h2>
             <p className="text-text-secondary leading-relaxed">
-              Use of scripts, bots, or any automated software to complete missions or generate points
+              Use of scripts, bots, or any automated software to complete campaigns or generate points
               is prohibited. Our system utilizes behavioral fingerprinting to detect and block automated activity.
             </p>
           </section>

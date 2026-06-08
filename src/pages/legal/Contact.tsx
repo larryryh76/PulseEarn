@@ -23,7 +23,7 @@ const Contact: React.FC = () => {
                <p className="text-primary font-mono">support@pulseearn.io</p>
             </div>
             <div className="system-card p-8">
-               <h2 className="text-xl font-bold mb-4">Security Terminal</h2>
+               <h2 className="text-xl font-bold mb-4">Security Center</h2>
                <p className="text-text-secondary mb-2">Fraud & Integrity Reports</p>
                <p className="text-danger font-mono">security@pulseearn.io</p>
             </div>

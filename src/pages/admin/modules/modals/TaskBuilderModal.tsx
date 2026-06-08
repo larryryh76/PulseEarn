@@ -89,6 +89,10 @@ const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
               </h3>
 
               <div className="space-y-4">
+                                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Linked Campaign ID</label>
+                  <input value={formData.campaignId} onChange={e => setFormData({...formData, campaignId: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all font-mono" placeholder="campaign_id_..." />
+                </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Task Title</label>
                   <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all" placeholder="Follow PulseEarn on X" />

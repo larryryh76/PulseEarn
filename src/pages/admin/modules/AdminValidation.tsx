@@ -92,7 +92,7 @@ const AdminValidation = () => {
       await updateDoc(claimRef, {
         validationState: status,
         resolvedAt: serverTimestamp(),
-        reviewedBy: 'ADMIN_TERMINAL'
+        reviewedBy: 'ADMIN_OPERATIONS'
       });
 
       toast.success(`Claim ${status.toLowerCase()} successfully`);

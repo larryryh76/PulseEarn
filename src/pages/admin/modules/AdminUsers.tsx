@@ -116,7 +116,7 @@ const AdminUsers = () => {
                         </div>
                       </td>
                       <td className="p-8">
-                         <p className="text-sm font-mono font-bold text-white">{(user.points || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
+                         <p className="text-sm font-mono font-bold text-white">{(user.points || 0)?.toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
                          <p className="text-[10px] text-text-secondary mt-1 tracking-widest uppercase font-bold">&asymp; ${(user.points || 0) / 1000} USD</p>
                       </td>
                       <td className="p-8">
@@ -124,7 +124,7 @@ const AdminUsers = () => {
                             <Award size={14} className="text-accent" />
                             <span className="text-xs font-bold uppercase tracking-widest">Level {user.level || 1}</span>
                          </div>
-                         <p className="text-[10px] font-mono text-text-secondary">{(user.xp || 0).toLocaleString()} XP Total</p>
+                         <p className="text-[10px] font-mono text-text-secondary">{(user.xp || 0)?.toLocaleString()} XP Total</p>
                       </td>
                       <td className="p-8 text-right">
                          <div className="flex items-center justify-end gap-3">
@@ -181,7 +181,7 @@ const AdminUsers = () => {
                    <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 rounded-2xl p-4">
                          <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Balance</p>
-                         <p className="text-sm font-mono font-bold">{(user.points || 0).toLocaleString() || 0} PTS</p>
+                         <p className="text-sm font-mono font-bold">{(user.points || 0)?.toLocaleString() || 0} PTS</p>
                       </div>
                       <div className="bg-white/5 rounded-2xl p-4">
                          <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Rank</p>

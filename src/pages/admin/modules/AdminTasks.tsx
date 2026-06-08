@@ -109,7 +109,7 @@ const AdminTasks = () => {
                     {task.active ? 'Active' : 'Draft'}
                   </button>
                   <div className="text-right">
-                     <p className="text-lg font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
+                     <p className="text-lg font-mono font-bold text-primary">+{(task.rewardAmount || 0)?.toLocaleString()}</p>
                      <p className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">Points</p>
                   </div>
                </div>

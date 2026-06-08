@@ -104,7 +104,7 @@ const AdminOverview = () => {
             </div>
             <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-text-secondary mb-1 truncate">{card.label}</p>
             <p className="text-xl sm:text-2xl font-mono font-bold truncate">
-              {loading ? '---' : typeof card.val === 'number' ? (card.val || 0).toLocaleString() : (card.val || '---')}
+              {loading ? '---' : typeof card.val === 'number' ? (card.val || 0)?.toLocaleString() : (card.val || '---')}
             </p>
           </div>
         ))}

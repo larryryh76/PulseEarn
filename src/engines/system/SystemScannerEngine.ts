@@ -28,7 +28,7 @@ export class SystemScannerEngine {
   private static QUEUE_COLLECTION = 'system_repair_queue';
 
   /**
-   * Conversational Operator Interface
+   * Conversational user Interface
    * Analyzes prompts and returns ecosystem-aware intelligence.
    */
   static async processCommand(prompt: string) {
@@ -53,7 +53,7 @@ export class SystemScannerEngine {
     const staleSnap = await getDocs(query(predRef, where('status', '==', 'PENDING')));
 
     if (staleSnap.empty) {
-      return { message: "No unresolved prediction rounds detected. System is synced.", status: 'NOMINAL' };
+      return { message: "No unresolved prediction rounds detected. System is synced.", status: 'synced' };
     }
 
     const proposal: Omit<RepairProposal, 'id' | 'status'> = {

@@ -97,7 +97,7 @@ const AdminLedger = () => {
                          </div>
                       </div>
                       <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
-                         {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
+                         {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()} PTS
                       </p>
                    </div>
                    <div className="pt-4 border-t border-white/5 flex items-center justify-between">
@@ -155,7 +155,7 @@ const AdminLedger = () => {
                         </td>
                         <td className="p-6 sm:p-8 text-right">
                           <p className={cn("text-sm font-mono font-bold", (tx.amount || 0) >= 0 ? "text-success" : "text-danger")}>
-                            {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
+                            {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()} <span className="text-[9px] opacity-40">PTS</span>
                           </p>
                         </td>
                       </tr>

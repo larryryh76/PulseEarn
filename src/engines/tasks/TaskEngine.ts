@@ -22,26 +22,26 @@ export class TaskEngine {
       return await runTransaction(db, async (transaction) => {
         // 1. Fetch Task and UserTask state
         const taskSnap = await transaction.get(taskRef);
-        if (!taskSnap.exists()) throw new Error("MISSION_NOT_FOUND");
+        if (!taskSnap.exists()) throw new Error("task_NOT_FOUND");
         const task = taskSnap.data() as Task;
 
         const userTaskSnap = await transaction.get(userTaskRef);
         const userTask = userTaskSnap.data() as UserTask | undefined;
 
         // 2. Validate availability
-        if (task.status !== 'ACTIVE') throw new Error("MISSION_INACTIVE");
+        if (task.status !== 'ACTIVE') throw new Error("task_INACTIVE");
 
         if (userTask) {
-          if (userTask.status === 'pending') throw new Error("MISSION_AUDIT_IN_PROGRESS");
+          if (userTask.status === 'pending') throw new Error("task_AUDIT_IN_PROGRESS");
 
           if (task.cooldownPeriod === 0 && userTask.status === 'completed') {
-             throw new Error("MISSION_ALREADY_SECURED");
+             throw new Error("task_ALREADY_SECURED");
           }
 
           if (task.cooldownPeriod > 0 && userTask.lastCompleted) {
             const lastTime = userTask.lastCompleted.toDate().getTime();
             const cooldownMs = task.cooldownPeriod * 60 * 60 * 1000;
-            if (Date.now() - lastTime < cooldownMs) throw new Error("MISSION_IN_COOLDOWN");
+            if (Date.now() - lastTime < cooldownMs) throw new Error("task_IN_COOLDOWN");
           }
         }
 
@@ -70,7 +70,7 @@ export class TaskEngine {
           taskId,
           lastCompleted: task.verificationType === 'automated' ? serverTimestamp() : (userTask?.lastCompleted || null),
           status: task.verificationType === 'automated' ? 'completed' : 'pending',
-          submissionId: claimId,
+          subtaskId: claimId,
           totalCompletions: increment(task.verificationType === 'automated' ? 1 : 0)
         }, { merge: true });
 
@@ -102,7 +102,7 @@ export class TaskEngine {
             userId,
             type: 'task_reward',
             amount: task.rewardAmount,
-            source: `Mission Secured: ${task.title}`,
+            source: `task Secured: ${task.title}`,
             claimId,
             status: 'COMPLETED',
             referenceId: taskId,
@@ -118,7 +118,7 @@ export class TaskEngine {
             userId,
             type: 'task_approved',
             points: task.rewardAmount,
-            description: `Mission [${task.title}] completed successfully.`,
+            description: `task [${task.title}] completed successfully.`,
             timestamp: serverTimestamp(),
             referenceId: taskId
           });
@@ -133,7 +133,7 @@ export class TaskEngine {
   }
 
   /**
-   * Generates localized daily missions for the user
+   * Generates localized daily tasks for the user
    */
   static async syncEcosystemTasks(): Promise<void> {
     // This would run via a cloud function or administrative trigger

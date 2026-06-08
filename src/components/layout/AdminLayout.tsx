@@ -22,14 +22,14 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            <Link to="/admin" className="flex items-center gap-2">
               <Logo />
               <div className="h-4 w-px bg-white/10 mx-2" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops Terminal</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Ops hub</span>
            </Link>
         </div>
 
         <div className="flex items-center gap-6">
            <div className="flex items-center gap-4 px-4 py-1.5 rounded-full bg-white/[0.02] border border-white/5">
               <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] font-mono text-text-secondary uppercase">System Nominal</span>
+              <span className="text-[10px] font-mono text-text-secondary uppercase">System synced</span>
            </div>
 
            <div className="h-4 w-px bg-white/10" />
@@ -39,7 +39,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
              className="text-[10px] font-bold uppercase tracking-widest text-danger/60 hover:text-danger transition-colors flex items-center gap-2"
            >
               <LogOut size={14} />
-              Exit Terminal
+              Exit hub
            </button>
         </div>
       </nav>

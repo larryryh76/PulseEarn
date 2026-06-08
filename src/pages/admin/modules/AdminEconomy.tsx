@@ -61,12 +61,12 @@ const AdminEconomy = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Total Supply</p>
-           <p className="text-3xl font-mono font-bold text-white mb-2">{(stats.ecosystemPoints || 0).toLocaleString()}</p>
+           <p className="text-3xl font-mono font-bold text-white mb-2">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
            <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest"><Zap size={12} /> Pulse Points</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Global Liability</p>
-           <p className="text-3xl font-mono font-bold text-white mb-2">${((stats.ecosystemPoints || 0) / 1000).toLocaleString()}</p>
+           <p className="text-3xl font-mono font-bold text-white mb-2">${((stats.ecosystemPoints || 0) / 1000)?.toLocaleString()}</p>
            <div className="flex items-center gap-2 text-success font-bold text-[10px] uppercase tracking-widest"><DollarSign size={12} /> USD Equivalent</div>
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
@@ -76,7 +76,7 @@ const AdminEconomy = () => {
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mb-4">Withdrawal Queue</p>
-           <p className="text-3xl font-mono font-bold text-white mb-2">{(stats.pendingWithdrawals || 0).toLocaleString()}</p>
+           <p className="text-3xl font-mono font-bold text-white mb-2">{(stats.pendingWithdrawals || 0)?.toLocaleString()}</p>
            <div className="flex items-center gap-2 text-warning font-bold text-[10px] uppercase tracking-widest"><Wallet size={12} /> Pending Reviews</div>
         </div>
       </div>

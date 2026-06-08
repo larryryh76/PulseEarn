@@ -133,7 +133,7 @@ const Profile: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                      <Zap size={14} className="text-primary" />
-                     {(userData?.xp || 0).toLocaleString()} <span className="text-white/20">Authorized XP</span>
+                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-white/20">Authorized XP</span>
                    </div>
                  </div>
               </div>
@@ -263,7 +263,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         <p className="data-label">Inventory Earned</p>
-                        <p className="text-4xl font-bold text-white tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50).toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
+                        <p className="text-4xl font-bold text-white tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
                   </div>
@@ -292,7 +292,7 @@ const Profile: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                         <span className="text-[13px] font-mono font-bold text-success">+{(tx.amount || 0).toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
+                         <span className="text-[13px] font-mono font-bold text-success">+{(tx.amount || 0)?.toLocaleString()} <span className="text-[9px] uppercase tracking-widest opacity-40">PTS</span></span>
                       </div>
                     </div>
                   ))}

@@ -61,7 +61,7 @@ const Referrals: React.FC = () => {
 
   const stats = [
     { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
-    { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * 50 || 0).toLocaleString(), icon: Zap, color: 'text-accent' },
+    { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * 50 || 0)?.toLocaleString(), icon: Zap, color: 'text-accent' },
     { label: 'Pending', value: referrals.filter(r => r.status !== 'REWARDED').length, icon: Clock, color: 'text-warning' },
     { label: 'Global Rank', value: '#1,242', icon: Trophy, color: 'text-success' },
   ];
@@ -213,7 +213,7 @@ const Referrals: React.FC = () => {
 
                    <div className="pt-6 border-t border-white/5 space-y-4">
                       {[
-                        { label: 'Direct Commission', value: '50 PTS' },
+                        { label: 'Direct Comtask', value: '50 PTS' },
                         { label: 'Task Revenue Share', value: '5%' },
                         { label: 'Tier Multiplier', value: '1.0x' },
                       ].map((rule, i) => (

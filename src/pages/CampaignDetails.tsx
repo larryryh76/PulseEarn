@@ -109,7 +109,7 @@ const CampaignDetails: React.FC = () => {
       toast.success('Proof submitted for validation.');
       setClaims(prev => ({ ...prev, [taskId]: { id: docRef.id, ...claimData } as any }));
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error('Subtask error:', error);
       toast.error('Failed to submit proof');
     } finally {
       setSubmittingTaskId(null);
@@ -173,7 +173,7 @@ const CampaignDetails: React.FC = () => {
                <div className="flex flex-wrap items-center gap-4">
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[160px]">
                         <p className="data-label">Points Award</p>
-                     <p className="text-3xl font-bold text-white tracking-tighter">+{(campaign.totalPrizePool || 0).toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase ml-1">PTS</span></p>
+                     <p className="text-3xl font-bold text-white tracking-tighter">+{(campaign.totalPrizePool || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase ml-1">PTS</span></p>
                   </div>
                   <div className="system-card-compact bg-background/40 backdrop-blur-md border-white/5 py-4 px-8 min-w-[120px]">
                         <p className="data-label">Task Count</p>
@@ -200,7 +200,7 @@ const CampaignDetails: React.FC = () => {
                   {[
                     { icon: Calendar, label: 'Starts', value: campaign.startDate ? (campaign.startDate?.toDate?.()?.toLocaleDateString() || "N/A") : 'N/A' },
                     { icon: Calendar, label: 'Ends', value: campaign.endDate ? (campaign.endDate?.toDate?.()?.toLocaleDateString() || "N/A") : 'Ongoing' },
-                    { icon: Users, label: 'Participants', value: (campaign.participantsCount || 0).toLocaleString() },
+                    { icon: Users, label: 'Participants', value: (campaign.participantsCount || 0)?.toLocaleString() },
                   ].map((meta, i) => (
                     <div key={i} className="system-card-compact flex items-center gap-4">
                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
@@ -275,7 +275,7 @@ const CampaignDetails: React.FC = () => {
                                 <textarea
                                   value={proof[task.id] || ''}
                                   onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                  placeholder="Submission Proof (URL/ID)..."
+                                  placeholder="Subtask Proof (URL/ID)..."
                                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
                                 />
                                 <Button
@@ -304,7 +304,7 @@ const CampaignDetails: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                    <h3 className="text-xl font-bold uppercase tracking-tight">Campaign Status</h3>
-                   <p className="text-text-secondary text-xs font-bold uppercase tracking-[0.15em]">{campaign.active ? 'Accepting Submissions' : 'Closed'}</p>
+                   <p className="text-text-secondary text-xs font-bold uppercase tracking-[0.15em]">{campaign.active ? 'Accepting Subtasks' : 'Closed'}</p>
                 </div>
 
                 <div className="pt-6 border-t border-white/5 space-y-4">

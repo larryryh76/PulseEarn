@@ -18,7 +18,7 @@ export const useTasks = () => {
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [submissions, setSubmissions] = useState<TaskClaim[]>([]);
+  const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export const useTasks = () => {
       setCampaigns(campaignsData);
     });
 
-    // Fetch user completions/submissions
+    // Fetch user completions/subtasks
     const userTasksQuery = query(collection(db, 'users', currentUser.uid, 'user_tasks'));
     const unsubscribeUserTasks = onSnapshot(userTasksQuery, (snapshot) => {
       const userTasksData: Record<string, UserTask> = {};
@@ -48,15 +48,15 @@ export const useTasks = () => {
       setUserTasks(userTasksData);
     });
 
-    // Fetch user's own marketplace submissions
-    const submissionsQuery = query(
+    // Fetch user's own marketplace subtasks
+    const subtasksQuery = query(
       collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
       limit(30)
     );
-    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
-      setSubmissions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
+    const unsubscribeSubtasks = onSnapshot(subtasksQuery, (snapshot) => {
+      setSubtasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
     });
 
     // Fetch recent activities for activity feed
@@ -74,7 +74,7 @@ export const useTasks = () => {
       unsubscribeTasks();
       unsubscribeCampaigns();
       unsubscribeUserTasks();
-      unsubscribeSubmissions();
+      unsubscribeSubtasks();
       unsubscribeActivities();
     };
   }, [currentUser]);
@@ -147,7 +147,7 @@ export const useTasks = () => {
     tasks,
     userTasks,
     campaigns,
-    submissions,
+    subtasks,
     activities,
     loading,
     submitTask,

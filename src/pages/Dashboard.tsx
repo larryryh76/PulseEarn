@@ -29,11 +29,11 @@ import Button from '../components/ui/Button';
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const { activities, tasks, loading, getTaskStatus, submissions } = useTasks();
+  const { activities, tasks, loading, getTaskStatus, subtasks } = useTasks();
 
   const activeTasks = tasks.filter(t => t.active && getTaskStatus(t).status === 'available');
   const featuredTask = activeTasks.sort((a, b) => b.rewardAmount - a.rewardAmount)[0];
-  const pendingSubmissions = submissions.filter(s => s.validationState === 'PENDING');
+  const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
 
   if (loading) return (
     <MainLayout>
@@ -100,7 +100,7 @@ const Dashboard: React.FC = () => {
                  <WalletIcon size={18} className="text-primary" />
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{(userData?.points || 0).toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{(userData?.points || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
               </div>
            </Card>
@@ -113,7 +113,7 @@ const Dashboard: React.FC = () => {
               <div className="space-y-4">
                  <div className="flex items-baseline gap-2">
                     <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
-                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{(userData?.xp || 0).toLocaleString()} XP</p>
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{(userData?.xp || 0)?.toLocaleString()} XP</p>
                  </div>
                  <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                     <motion.div
@@ -142,7 +142,7 @@ const Dashboard: React.FC = () => {
                  <Clock size={18} className="text-text-tertiary" />
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubmissions.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Items</span></p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubtasks.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Items</span></p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Awaiting Verification</p>
               </div>
            </Card>
@@ -288,14 +288,14 @@ const Dashboard: React.FC = () => {
             </section>
 
             {/* PENDING VALIDATIONS SUMMARY */}
-            {pendingSubmissions.length > 0 && (
+            {pendingSubtasks.length > 0 && (
                <section className="space-y-6">
                   <div className="flex items-center gap-3">
                     <Clock size={18} className="text-warning" />
                     <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Pending Reviews</h2>
                   </div>
                   <div className="space-y-3">
-                     {pendingSubmissions.slice(0, 3).map(s => (
+                     {pendingSubtasks.slice(0, 3).map(s => (
                         <div key={s.id} className="p-4 rounded-xl border border-warning/10 bg-warning/[0.02] flex items-center justify-between">
                            <div className="min-w-0">
                               <p className="text-[10px] font-bold text-white truncate max-w-[140px]">{s.metadata?.taskTitle || 'Campaign'}</p>

@@ -164,7 +164,7 @@ const Tasks: React.FC = () => {
 
                      <div className="absolute top-8 right-8 text-right">
                         <div className="px-4 py-2 bg-background/80 backdrop-blur-md border border-white/10 rounded-xl">
-                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{(camp.totalPrizePool || 0).toLocaleString()}</p>
+                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{(camp.totalPrizePool || 0)?.toLocaleString()}</p>
                            <p className="text-[7px] uppercase tracking-[0.2em] text-primary font-bold mt-1">Pool</p>
                         </div>
                      </div>
@@ -185,7 +185,7 @@ const Tasks: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-3 pt-2">
                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
                           <Users size={12} className="text-text-tertiary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{(camp.participantsCount || 0).toLocaleString()} Joined</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary">{(camp.participantsCount || 0)?.toLocaleString()} Joined</span>
                        </div>
                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border">
                           <Zap size={12} className="text-text-tertiary" />

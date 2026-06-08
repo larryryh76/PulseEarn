@@ -156,7 +156,7 @@ const Referrals: React.FC = () => {
                                 <Users size={18} />
                              </div>
                              <div>
-                                <p className="text-sm font-bold text-white uppercase tracking-tight">{ref.refereeUsername || 'New Operator'}</p>
+                                <p className="text-sm font-bold text-white uppercase tracking-tight">{ref.refereeUsername || 'New User'}</p>
                                 <p className="text-[10px] font-mono text-white/20 mt-0.5 uppercase">Joined {ref.createdAt?.toDate?.() ? (ref.createdAt?.toDate?.()?.toLocaleDateString() || "N/A") : 'N/A'}</p>
                              </div>
                           </div>
@@ -236,7 +236,7 @@ const Referrals: React.FC = () => {
                      'Invitee must verify their email address.',
                      'Invitee must complete at least 1 campaign.',
                      'Rewards are distributed within 24 hours.',
-                     'Inactive accounts (30d) do not yield rewards.'
+                     'Inactive accounts (30d) do not generate rewards.'
                    ].map((rule, i) => (
                      <li key={i} className="flex items-start gap-3">
                         <div className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />

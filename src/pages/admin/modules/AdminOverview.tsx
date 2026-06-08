@@ -7,7 +7,6 @@ import {
   Wallet,
   Activity
 } from 'lucide-react';
-import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
 
@@ -23,31 +22,39 @@ const AdminOverview = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+    React.useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true);
+        const { getCountFromServer, query, collection, where, getDocs, Timestamp } = await import('firebase/firestore');
         const usersCount = await getCountFromServer(collection(db, 'users'));
-
         const campaignsCount = await getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true)));
-
         const claimsCount = await getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING')));
-
         const withdrawalsCount = await getCountFromServer(query(collection(db, 'system_claims'), where('type', '==', 'withdrawal_debit'), where('adminStatus', '==', 'PENDING')));
+        const anomaliesCount = await getCountFromServer(collection(db, 'system_anomalies'));
+
+        // Calculate transaction volume (points moved in last 24h)
+        const yesterday = new Date();
+        yesterday.setHours(yesterday.getHours() - 24);
+        const txSnap = await getDocs(query(
+          collection(db, 'system_claims'),
+          where('executedAt', '>=', Timestamp.fromDate(yesterday))
+        ));
+        let volume = 0;
+        txSnap.forEach(doc => volume += Math.abs(doc.data().amount || 0));
 
         setStats({
           totalUsers: usersCount.data()?.count || 0,
           activeCampaigns: campaignsCount.data()?.count || 0,
           pendingValidations: claimsCount.data()?.count || 0,
-          fraudAlerts: 0,
+          fraudAlerts: anomaliesCount.data()?.count || 0,
           pendingWithdrawals: withdrawalsCount.data()?.count || 0,
-          transactionVolume: 0
+          transactionVolume: volume
         });
         setError(null);
       } catch (err) {
         console.error("Overview stats fetch failed:", err);
         setError("Failed to fetch operational metrics.");
-        // Set stats to 0 to prevent toLocaleString crashes if partial data failed
         setStats({
           totalUsers: 0,
           activeCampaigns: 0,
@@ -69,7 +76,7 @@ const AdminOverview = () => {
     { label: 'Pending Reviews', val: stats.pendingValidations, icon: ShieldCheck, color: 'text-warning' },
     { label: 'Fraud Alerts', val: stats.fraudAlerts, icon: ShieldAlert, color: 'text-danger' },
     { label: 'Withdrawal Queue', val: stats.pendingWithdrawals, icon: Wallet, color: 'text-accent' },
-    { label: 'System Status', val: 'Operational', icon: Activity, color: 'text-white/40' },
+    { label: 'Tx Volume (24h)', val: stats.transactionVolume, icon: Activity, color: 'text-accent' },
   ];
 
   return (

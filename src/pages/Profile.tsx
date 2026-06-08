@@ -367,7 +367,7 @@ const Profile: React.FC = () => {
                   </div>
                   <div className="space-y-3 max-w-md">
                      <h2 className="text-3xl font-bold tracking-tight">Operational Support</h2>
-                     <p className="text-base text-text-secondary leading-relaxed font-medium">Access our official documentation frameworks or open a support request with the network operators.</p>
+                     <p className="text-base text-text-secondary leading-relaxed font-medium">Access our official documentation frameworks or open a support request with the platform administrators.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl pt-4">
@@ -392,7 +392,7 @@ const Profile: React.FC = () => {
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest">Open a direct support signal</p>
                    </div>
                    <Button className="h-14 px-10 rounded-2xl">
-                      Request Operator Access
+                      Request Support Access
                    </Button>
                 </div>
               </motion.div>

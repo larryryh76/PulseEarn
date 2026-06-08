@@ -19,7 +19,7 @@ const Support: React.FC = () => {
           <div className="space-y-8 not-prose">
              <div className="system-card p-6">
                 <h3 className="text-lg font-bold mb-2">How do I verify my account?</h3>
-                <p className="text-sm text-text-secondary">Verification is handled automatically through our validation engine. Ensure you follow all mission instructions carefully.</p>
+                <p className="text-sm text-text-secondary">Verification is handled automatically through our validation engine. Ensure you follow all campaign instructions carefully.</p>
              </div>
              <div className="system-card p-6">
                 <h3 className="text-lg font-bold mb-2">When will I receive my rewards?</h3>
@@ -27,7 +27,7 @@ const Support: React.FC = () => {
              </div>
              <div className="system-card p-6">
                 <h3 className="text-lg font-bold mb-2">What is the withdrawal process?</h3>
-                <p className="text-sm text-text-secondary">Once you reach the 10,000 PTS threshold, you can initiate a payout request from your Wallet terminal.</p>
+                <p className="text-sm text-text-secondary">Once you reach the 10,000 PTS threshold, you can initiate a payout request from your Wallet.</p>
              </div>
           </div>
         </motion.div>

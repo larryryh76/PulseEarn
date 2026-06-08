@@ -92,7 +92,7 @@ const Predictions: React.FC = () => {
           <div className="space-y-4">
              <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Forecasting Terminal</span>
+                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Forecasting Hub</span>
              </div>
              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
                 Live <span className="text-accent">Predictions</span>
@@ -267,7 +267,7 @@ const Predictions: React.FC = () => {
                          <span className="text-white font-mono">100 PTS</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                         <span className="text-text-tertiary font-bold uppercase tracking-widest">Potential Yield</span>
+                         <span className="text-text-tertiary font-bold uppercase tracking-widest">Potential Payout</span>
                          <span className="text-success font-mono">+{(selectedCampaign.totalPrizePool || 0).toLocaleString()} PTS</span>
                       </div>
                    </div>

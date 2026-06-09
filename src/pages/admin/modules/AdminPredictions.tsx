@@ -169,57 +169,110 @@ const AdminPredictions = () => {
          </div>
       </section>
 
-      <div className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/[0.02] border-b border-white/5">
-                <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User / Asset</th>
-                <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Forecast</th>
-                <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Entry Price</th>
-                <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 font-medium">
-              {loading ? (
-                [1,2,3].map(i => <tr key={i} className="animate-pulse"><td colSpan={4} className="p-8"><div className="h-4 bg-white/5 rounded w-full" /></td></tr>)
-              ) : filteredPredictions.map((pred) => (
-                <tr key={pred.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="p-8">
-                    <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-text-tertiary">
-                          <DollarSign size={18} />
-                       </div>
-                       <div>
-                          <p className="text-sm font-bold text-white uppercase group-hover:text-primary transition-colors">{pred.symbol}</p>
-                          <p className="text-[10px] font-mono text-white/40 mt-1">{pred.userId.slice(0, 16)}...</p>
-                       </div>
-                    </div>
-                  </td>
-                  <td className="p-8">
-                     <div className="flex items-center gap-2">
-                        {pred.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
-                        <span className={cn("text-[11px] font-bold uppercase tracking-widest", pred.direction === 'UP' ? 'text-success' : 'text-danger')}>
-                           Market {pred.direction}
-                        </span>
-                     </div>
-                  </td>
-                  <td className="p-8">
-                     <p className="text-sm font-mono font-bold text-white">${(pred.entryPrice || 0)?.toLocaleString()}</p>
-                  </td>
-                  <td className="p-8 text-right">
-                     <span className={cn(
-                       "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border",
-                       pred.status === 'RESOLVED' ? "bg-success/5 text-success border-success/20" : "bg-warning/5 text-warning border-warning/20"
-                     )}>
-                        {pred.status}
-                     </span>
-                  </td>
-                </tr>
+      <div className="space-y-4">
+        {loading ? (
+          [1,2,3].map(i => <div key={i} className="h-24 bg-white/5 rounded-[2rem] animate-pulse" />)
+        ) : filteredPredictions.length > 0 ? (
+          <>
+            {/* Desktop View */}
+            <div className="hidden lg:block bg-white/[0.01] border border-white/5 rounded-[2.5rem] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-white/[0.02] border-b border-white/5">
+                      <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">User / Asset</th>
+                      <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Forecast</th>
+                      <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Entry Price</th>
+                      <th className="p-8 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-medium">
+                    {filteredPredictions.map((pred) => (
+                      <tr key={pred.id} className="hover:bg-white/[0.02] transition-colors group">
+                        <td className="p-8">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-text-tertiary">
+                              <DollarSign size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white uppercase group-hover:text-primary transition-colors">{pred.symbol}</p>
+                              <p className="text-[10px] font-mono text-white/40 mt-1">{pred.userId.slice(0, 16)}...</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-8">
+                          <div className="flex items-center gap-2">
+                            {pred.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
+                            <span className={cn("text-[11px] font-bold uppercase tracking-widest", pred.direction === 'UP' ? 'text-success' : 'text-danger')}>
+                              Market {pred.direction}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-8">
+                          <p className="text-sm font-mono font-bold text-white">${(pred.entryPrice || 0)?.toLocaleString()}</p>
+                        </td>
+                        <td className="p-8 text-right">
+                          <span className={cn(
+                            "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border",
+                            pred.status === 'RESOLVED' ? "bg-success/5 text-success border-success/20" : "bg-warning/5 text-warning border-warning/20"
+                          )}>
+                            {pred.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile View */}
+            <div className="lg:hidden space-y-4">
+              {filteredPredictions.map((pred) => (
+                <div key={pred.id} className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 space-y-4">
+                   <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-text-tertiary">
+                            <DollarSign size={18} />
+                         </div>
+                         <div>
+                            <p className="font-bold text-white uppercase">{pred.symbol}</p>
+                            <p className="text-[10px] font-mono text-white/40">ID: {pred.userId.slice(0, 8)}...</p>
+                         </div>
+                      </div>
+                      <span className={cn(
+                         "px-2 py-1 rounded text-[8px] font-bold uppercase tracking-widest border",
+                         pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-warning/10 text-warning border-warning/20"
+                      )}>
+                         {pred.status}
+                      </span>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/5 rounded-2xl p-4">
+                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Forecast</p>
+                         <div className="flex items-center gap-2">
+                            {pred.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
+                            <span className={cn("text-[10px] font-bold uppercase", pred.direction === 'UP' ? 'text-success' : 'text-danger')}>
+                               {pred.direction}
+                            </span>
+                         </div>
+                      </div>
+                      <div className="bg-white/5 rounded-2xl p-4">
+                         <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-1">Entry Price</p>
+                         <p className="text-sm font-mono font-bold">${(pred.entryPrice || 0)?.toLocaleString()}</p>
+                      </div>
+                   </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </>
+        ) : (
+          <div className="py-24 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
+             <Activity size={48} className="mx-auto text-white/5 mb-6" />
+             <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">No prediction records found</p>
+          </div>
+        )}
       </div>
     </div>
   );

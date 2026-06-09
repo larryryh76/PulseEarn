@@ -307,3 +307,20 @@ export interface PredictionRecord {
   resolvedAt?: Timestamp;
   auditTrail: string[];
 }
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  username: string;
+  amountPoints: number;
+  amountUSD: number;
+  walletAddress: string;
+  network: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID';
+  adminNotes?: string;
+  createdAt: Timestamp;
+  processedAt?: Timestamp | null;
+  paidAt?: Timestamp | null;
+  transactionHash?: string;
+}

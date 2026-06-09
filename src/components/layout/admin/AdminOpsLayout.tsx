@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  Zap
+  Zap,
+  CreditCard
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,6 +55,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
     { id: 'TASKS', label: 'Tasks', icon: Zap, path: '/admin/tasks' },
     { id: 'PREDICTIONS', label: 'Predictions', icon: TrendingUp, path: '/admin/predictions' },
     { id: 'VALIDATION', label: 'Approvals', icon: ShieldCheck, path: '/admin/validation' },
+    { id: 'WITHDRAWALS', label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals' },
     { id: 'TRANSACTIONS', label: 'Transactions', icon: Activity, path: '/admin/ledger' },
     { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
     { id: 'FRAUD', label: 'Fraud Monitoring', icon: ShieldAlert, path: '/admin/security' },

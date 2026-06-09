@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('verify landing page sections and app functionality', async ({ page }) => {
   // Go to the landing page
-  await page.goto('http://localhost:4173');
+  await page.goto('http://localhost:5173');
 
   // Scroll through the page to trigger animations
   const sections = ['#features', '#rewards', '#predict', '#leaderboard', '#faq'];
@@ -21,13 +21,13 @@ test('verify landing page sections and app functionality', async ({ page }) => {
   await expect(page.locator('h1')).toContainText('EARN REWARDS');
 
   // Verify Predict Page
-  await page.goto('http://localhost:4173/predict');
+  await page.goto('http://localhost:5173/predict');
   await page.waitForTimeout(2000); // Wait for market data
   await page.screenshot({ path: '/home/jules/verification/screenshots/predict_page.png' });
   await expect(page.locator('h1')).toContainText('Execution Hub');
 
   // Verify Earn Page
-  await page.goto('http://localhost:4173/earn');
+  await page.goto('http://localhost:5173/earn');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: '/home/jules/verification/screenshots/earn_page.png' });
   await expect(page.locator('h1')).toContainText('Mission Terminal');

@@ -29,7 +29,7 @@ const SignupCTA: React.FC = () => {
             </h2>
 
             <p className="text-white/60 text-base sm:text-lg md:text-xl max-w-xl mb-8 md:mb-10 font-medium px-4">
-              Join thousands of users who are already earning rewards with PulseEarn. Create your account in minutes.
+              Join the growing PulseEarn ecosystem. Create your account in minutes and start earning rewards.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">

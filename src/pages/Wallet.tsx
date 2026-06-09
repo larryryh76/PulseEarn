@@ -154,7 +154,7 @@ const Wallet: React.FC = () => {
               </div>
               <div className="space-y-1">
                  <p className="text-sm font-bold text-white">{thresholdMet ? 'Settlement Ready' : 'Processing Threshold'}</p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTSS Required</p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTS Required</p>
               </div>
            </div>
 

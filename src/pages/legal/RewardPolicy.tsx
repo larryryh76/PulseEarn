@@ -34,7 +34,7 @@ const RewardPolicy: React.FC = () => {
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-4">3. Withdrawal Threshold</h2>
             <p className="text-text-secondary leading-relaxed">
-              A minimum balance of 10,000 PTSS is required to initiate a withdrawal request.
+              A minimum balance of 10,000 PTS is required to initiate a withdrawal request.
               Withdrawals are processed within 24-72 hours of approval.
             </p>
           </section>

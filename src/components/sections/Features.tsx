@@ -7,8 +7,8 @@ import { cn } from '../../utils';
 const Features: React.FC = () => {
   const features = [
     {
-      title: 'Instant Payouts',
-      description: 'Receive your earnings instantly to your linked wallet. No waiting, no delays.',
+      title: 'Secure Payouts',
+      description: 'Receive your verified earnings to your linked wallet after system audit.',
       icon: Zap,
       color: 'text-primary',
     },
@@ -74,7 +74,7 @@ const Features: React.FC = () => {
             className="hidden md:block"
           >
              <p className="text-white/50 text-base font-medium max-w-sm text-right">
-                Discover the most efficient way to earn rewards by participating in our growing ecosystem.
+                A secure infrastructure for campaign-based rewards and verified user engagement.
              </p>
           </motion.div>
         </div>

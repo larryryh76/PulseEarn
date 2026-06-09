@@ -55,7 +55,7 @@ const PredictionPreview: React.FC = () => {
 
                   <div className="pt-8">
                  <button
-                  onClick={() => navigate('/predictions')}
+                  onClick={() => navigate('/predict')}
                   className="px-10 py-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-3"
                  >
                     Start Predicting <TrendingUp size={16} />
@@ -119,7 +119,7 @@ const PredictionPreview: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate('/predictions')}
+                    onClick={() => navigate('/predict')}
                     className="w-full py-5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-white/90 active:scale-95 transition-all"
                   >
                     Confirm Prediction
@@ -129,9 +129,9 @@ const PredictionPreview: React.FC = () => {
                 <div className="px-6 py-4 bg-white/[0.01] border-t border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-3 text-white/30">
                     <Clock size={12} />
-                    <span className="text-[10px] font-mono font-bold tracking-widest uppercase">04:22:15 remaining</span>
+                    <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-success">Active Session</span>
                   </div>
-                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">1,242 Active Users</span>
+                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Verified Participation</span>
                 </div>
               </Card>
             </motion.div>

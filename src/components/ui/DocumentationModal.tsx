@@ -33,7 +33,7 @@ const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose
         },
         {
           title: 'Redemption Thresholds',
-          text: 'Initial redemption is locked until the user achieves a balance of 10,000 PT. This ensures system stability and reduces micro-transaction overhead.'
+          text: 'Initial redemption is locked until the user achieves a balance of 10,000 PTS. This ensures system stability and reduces micro-transaction overhead.'
         },
         {
           title: 'Conversion Ratio',

@@ -89,7 +89,7 @@ const AdminEconomy = () => {
                  { label: 'Base Reward Ratio', value: '1000 PTS : $1.00' },
                  { label: 'Referral Incentive', value: '50 Points Per User' },
                  { label: 'Daily Earning Cap', value: '500 PTS' },
-                 { label: 'Withdrawal Threshold', value: '10,000 PTS' },
+                 { label: 'Withdrawal Threshold', value: '10,000 PTSS' },
                ].map((item) => (
                  <div key={item.label} className="flex items-center justify-between group">
                     <p className="text-[11px] font-bold text-white group-hover:text-primary transition-colors mb-1 uppercase tracking-widest">{item.label}</p>

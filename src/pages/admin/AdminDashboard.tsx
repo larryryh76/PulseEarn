@@ -57,7 +57,7 @@ const AdminDashboard: React.FC = () => {
   const modules = [
     { title: 'Overview', desc: 'Real-time performance metrics and system health.', icon: BarChart3, path: '/admin/overview', color: 'text-primary' },
     { title: 'Campaigns', desc: 'Manage and orchestrate reward campaigns.', icon: Layers, path: '/admin/campaigns', color: 'text-success' },
-    { title: 'Approvals', desc: 'Review and approve user task subtasks.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
+    { title: 'Approvals', desc: 'Review and approve user task submissions.', icon: ShieldCheck, path: '/admin/validation', color: 'text-warning' },
     { title: 'Transactions', desc: 'Audit and track all financial movements.', icon: Database, path: '/admin/ledger', color: 'text-accent' },
     { title: 'Users', desc: 'Manage user accounts and platform integrity.', icon: Users, path: '/admin/users', color: 'text-white' },
     { title: 'Fraud Center', desc: 'Monitor and mitigate suspicious activities.', icon: ShieldAlert, path: '/admin/security', color: 'text-danger' },

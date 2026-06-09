@@ -24,7 +24,8 @@ import {
   AdminBroadcasts,
   AdminAudit,
   AdminTasks,
-  AdminPredictions
+  AdminPredictions,
+  AdminWithdrawals
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -133,6 +134,7 @@ function App() {
         <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/predictions" element={<AdminRoute><AdminOpsLayout><AdminPredictions /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/withdrawals" element={<AdminRoute><AdminOpsLayout><AdminWithdrawals /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

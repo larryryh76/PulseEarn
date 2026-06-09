@@ -9,3 +9,4 @@ export { default as AdminBroadcasts } from './AdminBroadcasts';
 export { default as AdminAudit } from './AdminAudit';
 export { default as AdminTasks } from './AdminTasks';
 export { default as AdminPredictions } from './AdminPredictions';
+export { default as AdminWithdrawals } from './AdminWithdrawals';

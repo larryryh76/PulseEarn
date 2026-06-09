@@ -50,12 +50,6 @@ const AdminEconomy = () => {
           <h1 className="text-3xl font-bold tracking-tight mb-2">Economy Management</h1>
           <p className="text-text-secondary text-sm font-medium">Manage platform economic parameters and reward settings.</p>
         </div>
-        <div className="flex items-center gap-4">
-           <button className="px-8 py-3.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
-            <Settings size={18} />
-            Global Override
-          </button>
-        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -81,28 +75,28 @@ const AdminEconomy = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-         <section className="bg-white/[0.01] border border-white/5 rounded-[3rem] p-10">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+         <section className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8 sm:p-10">
             <h2 className="text-sm font-bold uppercase tracking-widest mb-10 flex items-center gap-3"><Settings size={18} className="text-primary" /> Economic Settings</h2>
-            <div className="space-y-8">
+            <div className="space-y-6">
                {[
                  { label: 'Base Reward Ratio', value: '1000 PTS : $1.00' },
                  { label: 'Referral Incentive', value: '50 Points Per User' },
                  { label: 'Daily Earning Cap', value: '500 PTS' },
                  { label: 'Withdrawal Threshold', value: '10,000 PTS' },
                ].map((item) => (
-                 <div key={item.label} className="flex items-center justify-between group">
-                    <p className="text-[11px] font-bold text-white group-hover:text-primary transition-colors mb-1 uppercase tracking-widest">{item.label}</p>
+                 <div key={item.label} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 group p-4 rounded-2xl hover:bg-white/5 transition-all">
+                    <p className="text-[11px] font-bold text-white/40 group-hover:text-primary transition-colors uppercase tracking-widest">{item.label}</p>
                     <p className="text-sm font-mono font-bold text-white">{item.value}</p>
                  </div>
                ))}
             </div>
          </section>
-         <section className="bg-white/[0.01] border border-white/5 rounded-[3rem] p-10 flex flex-col">
+         <section className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8 sm:p-10 flex flex-col">
             <h2 className="text-sm font-bold uppercase tracking-widest mb-10 flex items-center gap-3"><TrendingUp size={18} className="text-success" /> Reward Distribution</h2>
-            <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-[2rem] bg-black/20">
+            <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-[2rem] bg-black/20 p-12 text-center">
                <BarChart3 size={48} className="text-white/5 mb-6" />
-               <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Ecosystem distribution charts initializing...</p>
+               <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary max-w-[200px]">Live distribution metrics are being synchronized from the ledger.</p>
             </div>
          </section>
       </div>

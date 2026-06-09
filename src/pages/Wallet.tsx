@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
+import toast from 'react-hot-toast';
 import { PTS_TO_USD, formatUSD, WITHDRAWAL_MIN_PTS } from '../utils/finance';
 import { Transaction } from '../types';
 import Card from '../components/ui/Card';
@@ -30,6 +31,11 @@ const Wallet: React.FC = () => {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    amount: WITHDRAWAL_MIN_PTS,
+    walletAddress: '',
+    network: 'ERC20'
+  });
 
   const points = userData?.points || 0;
   const usdValue = PTS_TO_USD(points);
@@ -65,13 +71,56 @@ const Wallet: React.FC = () => {
 
   const handleWithdraw = async () => {
     if (!thresholdMet || isProcessing || isCompleted) return;
+    if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
+    if (withdrawalForm.amount < WITHDRAWAL_MIN_PTS) return toast.error(`Minimum withdrawal is ${WITHDRAWAL_MIN_PTS} PTS`);
+    if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
 
     setIsProcessing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../firebase/config');
+      const { PointTransactionEngine } = await import('../engines/points/PointTransactionEngine');
+
+      const claimId = `wd_${userData?.uid}_${Date.now()}`;
+
+      // 1. Log the debit in transactions
+      const result = await PointTransactionEngine.execute({
+        userId: userData?.uid || '',
+        amount: -withdrawalForm.amount,
+        type: 'withdrawal_debit',
+        source: 'System Withdrawal',
+        claimId,
+        metadata: {
+          walletAddress: withdrawalForm.walletAddress,
+          network: withdrawalForm.network
+        }
+      });
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      // 2. Create the withdrawal request for admin review
+      await addDoc(collection(db, 'withdrawals'), {
+        userId: userData?.uid,
+        userEmail: userData?.email,
+        username: userData?.username,
+        amountPoints: withdrawalForm.amount,
+        amountUSD: PTS_TO_USD(withdrawalForm.amount),
+        walletAddress: withdrawalForm.walletAddress,
+        network: withdrawalForm.network,
+        status: 'PENDING',
+        transactionReference: result.txId,
+        claimId,
+        createdAt: serverTimestamp()
+      });
+
       setIsCompleted(true);
-    } catch (err) {
+      toast.success("Withdrawal request submitted");
+    } catch (err: any) {
       console.error(err);
+      toast.error(err.message || "Withdrawal failed");
     } finally {
       setIsProcessing(false);
     }
@@ -286,29 +335,56 @@ const Wallet: React.FC = () => {
                   <Button variant="outline" className="w-full h-16 rounded-[1.5rem]" onClick={() => setIsWithdrawModalOpen(false)}>Return to Wallet</Button>
                 </div>
               ) : (
-                <div className="space-y-12">
-                  <div className="p-10 rounded-[2rem] bg-primary/[0.03] border border-primary/10 flex flex-col items-center text-center gap-6">
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                       <CreditCard size={32} />
+                <div className="space-y-8">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Withdrawal Amount (PTS)</label>
+                      <input
+                        type="number"
+                        value={withdrawalForm.amount}
+                        onChange={e => setWithdrawalForm({...withdrawalForm, amount: parseInt(e.target.value) || 0})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white font-mono focus:border-primary/50 outline-none transition-all"
+                      />
+                      <div className="flex justify-between px-1">
+                        <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Min: 10,000 PTS</span>
+                        <span className="text-[10px] text-primary uppercase tracking-widest font-bold cursor-pointer" onClick={() => setWithdrawalForm({...withdrawalForm, amount: points})}>Max Balance</span>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                       <h3 className="text-xl font-bold">Protocol Valid</h3>
-                       <p className="text-sm text-text-secondary font-medium uppercase tracking-widest text-[10px]">Your balance is eligible for liquidation.</p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Wallet Address</label>
+                      <input
+                        placeholder="0x... or Wallet ID"
+                        value={withdrawalForm.walletAddress}
+                        onChange={e => setWithdrawalForm({...withdrawalForm, walletAddress: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white font-mono text-sm focus:border-primary/50 outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Preferred Network</label>
+                      <select
+                        value={withdrawalForm.network}
+                        onChange={e => setWithdrawalForm({...withdrawalForm, network: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-xs font-bold uppercase focus:border-primary/50 outline-none transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="ERC20">Ethereum (ERC20)</option>
+                        <option value="BEP20">Binance Smart Chain (BEP20)</option>
+                        <option value="TRC20">TRON (TRC20)</option>
+                        <option value="SOLANA">Solana</option>
+                        <option value="POLYGON">Polygon</option>
+                      </select>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center py-5 border-b border-white/5">
-                      <span className="data-label">Gross Settlement</span>
-                      <span className="data-mono text-lg">{(points || 0)?.toLocaleString()} PTS</span>
+                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                    <div className="flex justify-between items-center">
+                       <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">USD Value</span>
+                       <span className="text-sm font-mono font-bold text-white">{formatUSD(PTS_TO_USD(withdrawalForm.amount))}</span>
                     </div>
-                    <div className="flex justify-between items-center py-5 border-b border-white/5">
-                      <span className="data-label">Network Fee</span>
-                      <span className="data-mono text-lg text-success">0.00 PTS</span>
-                    </div>
-                    <div className="flex justify-between items-center py-5">
-                       <span className="data-label">Net USD Value</span>
-                       <span className="data-mono text-lg">{formatUSD(usdValue)}</span>
+                    <div className="flex justify-between items-center">
+                       <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Processing Fee</span>
+                       <span className="text-sm font-mono font-bold text-success">FREE</span>
                     </div>
                   </div>
 
@@ -317,8 +393,9 @@ const Wallet: React.FC = () => {
                     className="w-full h-16 rounded-[1.5rem]"
                     onClick={handleWithdraw}
                     isLoading={isProcessing}
+                    disabled={withdrawalForm.amount < WITHDRAWAL_MIN_PTS || !withdrawalForm.walletAddress}
                   >
-                    Confirm & Execute Settlement
+                    Confirm & Submit Request
                   </Button>
                 </div>
               )}

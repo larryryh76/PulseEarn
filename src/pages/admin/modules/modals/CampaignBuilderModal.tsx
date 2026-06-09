@@ -45,7 +45,8 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
       referralRequired: false,
       predictionRequired: false,
       apiValidation: false
-    }
+    },
+    predictionAsset: 'bitcoin'
   });
 
   const [campaignTasks, setCampaignTasks] = useState<Task[]>([]);
@@ -270,6 +271,18 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
                              {(['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED'] as TaskCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                        </div>
+                       {formData.category === 'PREDICTION' && (
+                         <div className="space-y-2">
+                            <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-1">Target Asset</label>
+                            <select value={formData.predictionAsset} onChange={e => setFormData({...formData, predictionAsset: e.target.value})} className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-xs font-bold uppercase outline-none focus:border-primary/50">
+                               <option value="bitcoin">Bitcoin (BTC)</option>
+                               <option value="ethereum">Ethereum (ETH)</option>
+                               <option value="solana">Solana (SOL)</option>
+                               <option value="binancecoin">Binance Coin (BNB)</option>
+                               <option value="ripple">Ripple (XRP)</option>
+                            </select>
+                         </div>
+                       )}
                        <div className="space-y-2">
                           <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-1">Campaign Type</label>
                           <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as TaskType})} className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-xs font-bold uppercase outline-none focus:border-primary/50">

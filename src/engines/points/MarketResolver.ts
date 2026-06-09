@@ -4,7 +4,9 @@ import {
   getDocs,
   query,
   where,
-  limit
+  limit,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { PointTransactionEngine } from './PointTransactionEngine';
 import axios from 'axios';
@@ -19,8 +21,8 @@ export class MarketResolver {
   static async resolveAllPending() {
     console.log("[MarketResolver] Starting resolution cycle...");
 
-    const predictionsRef = collection(db, 'predictions');
-    const q = query(predictionsRef, where('status', '==', 'PENDING'), limit(50));
+    const predictionsRef = collection(db, 'user_predictions');
+    const q = query(predictionsRef, where('status', '==', 'ACTIVE'), limit(50));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -51,7 +53,11 @@ export class MarketResolver {
         if (currentPrice === undefined) continue;
 
         try {
-           await PointTransactionEngine.resolvePrediction(predDoc.id, currentPrice);
+           // Find related campaign to get reward pool
+           const campaignSnap = await getDoc(doc(db, 'campaigns', data.taskId));
+           const rewardPool = campaignSnap.exists() ? campaignSnap.data().totalPrizePool : 1000;
+
+           await PointTransactionEngine.resolvePrediction(predDoc.id, currentPrice, rewardPool);
            resolvedCount++;
         } catch (err: any) {
            console.error(`[MarketResolver] Atomic resolution failed for ${predDoc.id}:`, err.message);

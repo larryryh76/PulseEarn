@@ -162,17 +162,18 @@ export class PointTransactionEngine {
    */
   static async executePrediction(request: {
     userId: string;
+    taskId: string;
     amount: number;
     assetId: string;
     symbol: string;
-    direction: 'up' | 'down';
+    direction: 'UP' | 'DOWN';
     entryPrice: number;
     claimId: string;
   }): Promise<PointTransactionResult> {
-    const { userId, amount, assetId, symbol, direction, entryPrice, claimId } = request;
+    const { userId, taskId, amount, assetId, symbol, direction, entryPrice, claimId } = request;
     const userRef = doc(db, 'users', userId);
     const claimRef = doc(db, 'system_claims', claimId);
-    const predictionsRef = collection(db, 'predictions');
+    const predictionsRef = collection(db, 'user_predictions');
     const transactionsRef = collection(db, 'users', userId, 'transactions');
 
     try {
@@ -187,7 +188,7 @@ export class PointTransactionEngine {
         if ((userData.points || 0) < amount) throw new Error("INSUFFICIENT_FUNDS");
 
         const txDoc = doc(transactionsRef);
-        const predDoc = doc(predictionsRef);
+        const predDoc = doc(predictionsRef, claimId);
 
         // 1. Point Deduction & Stat Update
         transaction.update(userRef, {
@@ -196,18 +197,27 @@ export class PointTransactionEngine {
           ['stats.predictionsCount']: increment(1)
         });
 
+        // 1.5 Update Campaign Analytics
+        const campaignRef = doc(db, 'campaigns', taskId);
+        transaction.update(campaignRef, {
+          participantsCount: increment(1)
+        });
+
         // 2. Create Verifiable Prediction Record
         transaction.set(predDoc, {
+          id: claimId,
           userId,
+          taskId,
           assetId,
           symbol,
           direction,
-          amount,
+          stakeAmount: amount,
           entryPrice,
-          status: 'PENDING',
+          status: 'ACTIVE',
           claimId,
-          timestamp: serverTimestamp(),
+          createdAt: serverTimestamp(),
           transactionReference: txDoc.id,
+          auditTrail: [`Forecast initiated: ${direction} at ${entryPrice}`],
           engineVersion: '5.0.0-PRO'
         });
 
@@ -219,7 +229,7 @@ export class PointTransactionEngine {
           userId,
           type: 'prediction_entry',
           amount: -amount,
-          source: `Market Prediction: ${symbol.toUpperCase()}`,
+          source: `Market Forecast: ${symbol.toUpperCase()}`,
           claimId,
           timestamp: serverTimestamp(),
           metadata: { assetId, predictionId: predDoc.id },
@@ -237,8 +247,8 @@ export class PointTransactionEngine {
   /**
    * Atomic Market Prediction Resolution
    */
-  static async resolvePrediction(predictionId: string, currentPrice: number): Promise<void> {
-    const predRef = doc(db, 'predictions', predictionId);
+  static async resolvePrediction(predictionId: string, currentPrice: number, rewardPool: number): Promise<void> {
+    const predRef = doc(db, 'user_predictions', predictionId);
 
     try {
       return await runTransaction(db, async (transaction) => {
@@ -246,7 +256,7 @@ export class PointTransactionEngine {
         if (!predSnap.exists()) throw new Error("PREDICTION_NOT_FOUND");
 
         const data = predSnap.data();
-        if (data.status !== 'PENDING') throw new Error("PREDICTION_ALREADY_RESOLVED");
+        if (data.status !== 'ACTIVE') throw new Error("PREDICTION_ALREADY_RESOLVED");
 
         const userId = data.userId;
         const userRef = doc(db, 'users', userId);
@@ -254,13 +264,12 @@ export class PointTransactionEngine {
         if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
 
         const userData = userSnap.data();
-        const isWin = data.direction === 'up'
+        const isWin = data.direction === 'UP'
           ? currentPrice > data.entryPrice
           : currentPrice < data.entryPrice;
 
-        const payout = isWin ? Math.floor(data.amount * 1.85) : 0;
-        const status = isWin ? 'won' : 'lost';
-        const xpReward = isWin ? 100 : 25;
+        const payout = isWin ? rewardPool : 0;
+        const xpReward = isWin ? 250 : 50;
 
         const claimId = `res_${predictionId}`;
         const claimRef = doc(db, 'system_claims', claimId);
@@ -269,11 +278,11 @@ export class PointTransactionEngine {
 
         // 1. Update Prediction Status
         transaction.update(predRef, {
-          status,
+          status: 'RESOLVED',
           exitPrice: currentPrice,
-          payout,
+          rewardAmount: payout,
           resolvedAt: serverTimestamp(),
-          xpReward
+          auditTrail: [...(data.auditTrail || []), `Settled at ${currentPrice}. Result: ${isWin ? 'WIN' : 'LOSS'}`]
         });
 
         // 2. Award Points & XP if Win
@@ -286,22 +295,24 @@ export class PointTransactionEngine {
         });
 
         // 3. Log Settlement Transaction
-        const txDoc = doc(transactionsRef);
-        transaction.set(txDoc, {
-          id: txDoc.id,
-          userId,
-          type: 'prediction_reward',
-          amount: payout,
-          source: `Forecast Result: ${data.symbol.toUpperCase()} (${status.toUpperCase()})`,
-          claimId,
-          status: 'COMPLETED',
-          referenceId: predictionId,
-          timestamp: serverTimestamp(),
-          processedAt: serverTimestamp(),
-          auditTrail: [`SETTLEMENT_CORE_V5`, `MARKET_PRICE:${currentPrice}`, `RESULT:${status}`],
-          metadata: { predictionId, currentPrice, isWin },
-          engineVersion: '5.0.0-PRO'
-        });
+        if (payout > 0) {
+          const txDoc = doc(transactionsRef);
+          transaction.set(txDoc, {
+            id: txDoc.id,
+            userId,
+            type: 'prediction_reward',
+            amount: payout,
+            source: `Forecast Win: ${data.symbol.toUpperCase()}`,
+            claimId,
+            status: 'COMPLETED',
+            referenceId: predictionId,
+            timestamp: serverTimestamp(),
+            processedAt: serverTimestamp(),
+            auditTrail: [`SETTLEMENT_CORE_V5`, `MARKET_PRICE:${currentPrice}`, `RESULT:WIN`],
+            metadata: { predictionId, currentPrice, isWin: true },
+            engineVersion: '5.0.0-PRO'
+          });
+        }
 
         // 4. Mark Nonce
         transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, executedAt: serverTimestamp() });
@@ -311,8 +322,8 @@ export class PointTransactionEngine {
         transaction.set(notifDoc, {
           title: isWin ? 'Forecast Successful!' : 'Forecast Unsuccessful',
           description: isWin
-            ? `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. +${payout} PTS awarded.`
-            : `Your ${data.symbol.toUpperCase()} position closed at $${currentPrice}. Stake lost.`,
+            ? `Your ${data.symbol.toUpperCase()} forecast was correct. +${payout} PTS awarded.`
+            : `Your ${data.symbol.toUpperCase()} forecast was incorrect. Stake lost.`,
           type: 'prediction_result',
           read: false,
           timestamp: serverTimestamp()

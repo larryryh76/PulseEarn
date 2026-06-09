@@ -14,42 +14,77 @@ interface MediaUploaderProps {
 }
 
 const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, path, aspectRatio = 'any' }) => {
-  const [isUploading, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log(`[MediaUploader] Initiating upload for: ${file.name} (${file.size} bytes)`);
+
     if (!file.type.startsWith('image/')) {
       return toast.error('Please select an image file');
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return toast.error('File size must be under 5MB');
+    if (file.size > 10 * 1024 * 1024) { // Increased limit to 10MB as requested by "professionalization"
+      return toast.error('File size must be under 10MB');
     }
 
-    setIsSubmitting(true);
-    const storageRef = ref(storage, `${path}/${Date.now()}_${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    setIsUploading(true);
+    setProgress(0);
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setProgress(p);
-      },
-      (error) => {
-        console.error(error);
-        toast.error('Upload failed');
-        setIsSubmitting(false);
-      },
-      async () => {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        onChange(downloadURL);
-        setIsSubmitting(false);
-        toast.success('Media uploaded successfully');
-      }
-    );
+    try {
+      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const fullPath = `${path}/${fileName}`;
+      console.log(`[MediaUploader] Storage Path: ${fullPath}`);
+
+      const storageRef = ref(storage, fullPath);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log(`[MediaUploader] Progress: ${Math.round(p)}%`);
+          setProgress(p);
+        },
+        (error) => {
+          console.error('[MediaUploader] Upload Task Error:', error);
+          toast.error(`Upload failed: ${error.message}`);
+          setIsUploading(false);
+          setProgress(0);
+        },
+        async () => {
+          try {
+            console.log('[MediaUploader] Upload complete, generating URL...');
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log('[MediaUploader] Success! URL:', downloadURL);
+            onChange(downloadURL);
+            toast.success('Media uploaded successfully');
+          } catch (err: any) {
+            console.error('[MediaUploader] URL Generation Error:', err);
+            toast.error('Failed to retrieve file URL');
+          } finally {
+            setIsUploading(false);
+            setProgress(0);
+          }
+        }
+      );
+
+      // Add a safety timeout for the upload
+      setTimeout(() => {
+        if (isUploading && progress < 100) {
+          console.warn('[MediaUploader] Upload timeout reached');
+          // We don't cancel here to avoid breaking slow connections, but we log it
+        }
+      }, 60000); // 60s timeout
+
+    } catch (err: any) {
+      console.error('[MediaUploader] Initialization Error:', err);
+      toast.error('Failed to initialize upload');
+      setIsUploading(false);
+      setProgress(0);
+    }
   };
 
   return (

@@ -136,7 +136,9 @@ const Predictions: React.FC = () => {
                           <div className="pt-6 border-t border-white/5 flex items-center justify-between">
                              <div className="flex items-center gap-2 text-text-tertiary">
                                 <Clock size={14} />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Closing Soon</span>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest">
+                                      {camp.endDate ? `Ends ${new Date(camp.endDate.toDate()).toLocaleDateString()}` : 'Live'}
+                                   </span>
                              </div>
                              {existing ? (
                                 <div className="flex items-center gap-2 text-accent">
@@ -270,6 +272,26 @@ const Predictions: React.FC = () => {
                          <span className="text-text-tertiary font-bold uppercase tracking-widest">Potential Payout</span>
                          <span className="text-success font-mono">+{(selectedCampaign.totalPrizePool || 0)?.toLocaleString()} PTS</span>
                       </div>
+                   </div>
+
+                   <div className="p-6 rounded-2xl bg-warning/5 border border-warning/10 space-y-3">
+                      <h4 className="text-[10px] font-bold text-warning uppercase tracking-widest flex items-center gap-2">
+                         <ShieldCheck size={12} /> Execution Rules
+                      </h4>
+                      <ul className="space-y-1.5">
+                         <li className="text-[10px] text-white/40 flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
+                            Forecasts are locked at execution and cannot be reversed.
+                         </li>
+                         <li className="text-[10px] text-white/40 flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
+                            Settlement occurs automatically based on CoinGecko market data.
+                         </li>
+                         <li className="text-[10px] text-white/40 flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
+                            Winners receive the full prize pool amount plus 250 XP.
+                         </li>
+                      </ul>
                    </div>
 
                    <Button

@@ -13,9 +13,9 @@ import {
   onSnapshot,
   doc,
   serverTimestamp,
-  writeBatch,
   getDocs,
-  where
+  where,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { PredictionRecord, Campaign } from '../../../types';
@@ -47,59 +47,57 @@ const AdminPredictions = () => {
     return unsubscribe;
   }, []);
 
-  const resolvePrediction = async (campaign: Campaign) => {
-    const coinId = campaign.name.toLowerCase().includes('bitcoin') ? 'bitcoin' : 'ethereum';
+  const resolvePrediction = async (campaign: any) => {
+    const coinId = campaign.predictionAsset ||
+                   (campaign.name.toLowerCase().includes('bitcoin') ? 'bitcoin' :
+                   campaign.name.toLowerCase().includes('ethereum') ? 'ethereum' :
+                   campaign.name.toLowerCase().includes('solana') ? 'solana' : 'bitcoin');
+
     const currentPrice = marketData.find(c => c.id === coinId)?.current_price;
 
     if (!currentPrice) return toast.error("Price data unavailable");
     if (!window.confirm(`Resolve "${campaign.name}" at current price $${(currentPrice || 0)?.toLocaleString()}?`)) return;
 
+    const loadingToast = toast.loading('Resolving forecasts...');
+
     try {
       const predsQ = query(collection(db, 'user_predictions'), where('taskId', '==', campaign.id), where('status', '==', 'ACTIVE'));
       const predsSnap = await getDocs(predsQ);
 
-      const batch = writeBatch(db);
+      console.log(`[AdminPredictions] Resolving ${predsSnap.size} forecasts for ${campaign.name}`);
+
       let winners = 0;
       let totalDistributed = 0;
 
       for (const pDoc of predsSnap.docs) {
-        const pred = pDoc.data() as PredictionRecord;
-        const won = (pred.direction === 'UP' && currentPrice > pred.entryPrice) ||
-                    (pred.direction === 'DOWN' && currentPrice < pred.entryPrice);
+        try {
+          const pred = pDoc.data() as PredictionRecord;
+          const isWin = (pred.direction === 'UP' && currentPrice > pred.entryPrice) ||
+                        (pred.direction === 'DOWN' && currentPrice < pred.entryPrice);
 
-        if (won) {
-          winners++;
-          const reward = campaign.totalPrizePool;
-          totalDistributed += reward;
+          await PointTransactionEngine.resolvePrediction(pDoc.id, currentPrice, campaign.totalPrizePool);
 
-          await PointTransactionEngine.execute({
-            userId: pred.userId,
-            amount: reward,
-            type: 'prediction_reward',
-            source: `Forecast Win: ${campaign.name}`,
-            claimId: `pred_win_${pred.id}`,
-            referenceId: campaign.id
-          });
+          if (isWin) {
+            winners++;
+            totalDistributed += campaign.totalPrizePool;
+          }
+        } catch (predErr) {
+          console.error(`[AdminPredictions] Individual resolution failed for ${pDoc.id}:`, predErr);
         }
-
-        batch.update(doc(db, 'user_predictions', pred.id), {
-          status: 'RESOLVED',
-          exitPrice: currentPrice,
-          rewardAmount: won ? campaign.totalPrizePool : 0,
-          resolvedAt: serverTimestamp()
-        });
       }
 
-      batch.update(doc(db, 'campaigns', campaign.id), {
+      await updateDoc(doc(db, 'campaigns', campaign.id), {
         active: false,
-        status: 'ARCHIVED'
+        status: 'ARCHIVED',
+        resolvedAt: serverTimestamp()
       });
 
-      await batch.commit();
-      toast.success(`Resolved ${predsSnap.size} predictions. Winners: ${winners}. Distributed: ${totalDistributed} PTS`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Resolution failed");
+      toast.dismiss(loadingToast);
+      toast.success(`Resolved ${predsSnap.size} forecasts. Winners: ${winners}. Distributed: ${totalDistributed} PTS`);
+    } catch (err: any) {
+      console.error('[AdminPredictions] Resolution failed:', err);
+      toast.dismiss(loadingToast);
+      toast.error(`Resolution failed: ${err.message}`);
     }
   };
 

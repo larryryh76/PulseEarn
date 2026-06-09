@@ -27,7 +27,7 @@ const Support: React.FC = () => {
              </div>
              <div className="system-card p-6">
                 <h3 className="text-lg font-bold mb-2">What is the withdrawal process?</h3>
-                <p className="text-sm text-text-secondary">Once you reach the 10,000 PTSS threshold, you can initiate a payout request from your Wallet.</p>
+                <p className="text-sm text-text-secondary">Once you reach the 10,000 PTS threshold, you can initiate a payout request from your Wallet.</p>
              </div>
           </div>
         </motion.div>

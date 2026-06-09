@@ -63,7 +63,7 @@ const Referrals: React.FC = () => {
     { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
     { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * 50 || 0)?.toLocaleString(), icon: Zap, color: 'text-accent' },
     { label: 'Pending', value: referrals.filter(r => r.status !== 'REWARDED').length, icon: Clock, color: 'text-warning' },
-    { label: 'Global Rank', value: '#1,242', icon: Trophy, color: 'text-success' },
+    { label: 'Global Rank', value: '#---', icon: Trophy, color: 'text-success' },
   ];
 
   return (

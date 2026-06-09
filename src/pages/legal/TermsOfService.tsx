@@ -12,31 +12,60 @@ const TermsOfService: React.FC = () => {
           className="prose prose-invert max-w-none"
         >
           <h1 className="text-4xl font-bold mb-8">Terms of Service</h1>
-          <p className="text-text-secondary mb-6">Last Updated: May 2026</p>
+          <p className="text-text-secondary mb-12">Last Updated: June 2026</p>
 
           <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">1. Acceptance of Terms</h2>
+            <h2 className="text-2xl font-bold mb-4">1. Eligibility</h2>
             <p className="text-text-secondary leading-relaxed">
-              By accessing the PulseEarn platform, you agree to comply with these terms. Our system
-              is designed to reward genuine engagement. Any attempt to manipulate rewards using bots,
-              scripts, or multiple accounts is a violation of these terms.
+              To use PulseEarn, you must be at least 18 years of age or the legal age of majority in your jurisdiction.
+              By creating an account, you represent and warrant that you meet these eligibility requirements.
+              Only one account per individual is permitted.
             </p>
           </section>
 
           <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">2. Reward Eligibility</h2>
+            <h2 className="text-2xl font-bold mb-4">2. User Conduct</h2>
             <p className="text-text-secondary leading-relaxed">
-              Rewards (PTS) are subject to verification. We reserve the right to reverse points if
-              fraud or system exploitation is detected. Minimum withdrawal thresholds must be met
-              before redemptions can be processed.
+              Users agree to provide accurate information and engage with the platform in good faith.
+              Prohibited activities include using automated scripts, bots, or any form of unauthorized software
+              to complete tasks or generate rewards. Any attempt to exploit system vulnerabilities is strictly prohibited.
             </p>
           </section>
 
           <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">3. Account Responsibility</h2>
+            <h2 className="text-2xl font-bold mb-4">3. Campaign & Reward Rules</h2>
             <p className="text-text-secondary leading-relaxed">
-              Users are responsible for maintaining the security of their accounts. PulseEarn is not
-              liable for losses resulting from unauthorized access due to compromised credentials.
+              Rewards (PTS) are granted based on the successful completion of verified tasks and campaigns.
+              PulseEarn reserves the right to define the specific requirements for each reward.
+              Rewards are subject to audit and may be reversed if the underlying activity is found to be invalid or fraudulent.
+              Withdrawals are subject to a minimum threshold of 10,000 PTS.
+            </p>
+          </section>
+
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">4. Fraud Policy</h2>
+            <p className="text-text-secondary leading-relaxed">
+              Our automated fraud detection systems monitor all platform activity.
+              Fraudulent behavior, including but not limited to referral abuse, duplicate submissions,
+              and identity masking, will result in immediate disqualification from the reward program.
+            </p>
+          </section>
+
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">5. Account Suspension & Termination</h2>
+            <p className="text-text-secondary leading-relaxed">
+              PulseEarn reserves the right to suspend or terminate any account at its sole discretion,
+              without prior notice, if a user is found to be in violation of these terms.
+              Forfeiture of all accumulated rewards will occur upon account termination for cause.
+            </p>
+          </section>
+
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold mb-4">6. Limitation of Liability</h2>
+            <p className="text-text-secondary leading-relaxed">
+              PulseEarn is provided "as is" without any warranties. We are not liable for any indirect,
+              incidental, or consequential damages arising from your use of the platform.
+              Our total liability for any claim shall not exceed the total rewards earned by the user in the preceding 30 days.
             </p>
           </section>
         </motion.div>

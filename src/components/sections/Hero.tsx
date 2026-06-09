@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Zap, Globe, Lock, TrendingUp, ShieldCheck, Activity, BarChart3, Target, Users } from 'lucide-react';
+import { ArrowRight, Zap, TrendingUp, ShieldCheck, Activity, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Hero: React.FC = () => {
@@ -54,7 +54,7 @@ const Hero: React.FC = () => {
               transition={{ delay: 0.4 }}
               className="text-white/60 text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-medium px-4"
             >
-              Join PulseEarn to earn points by completing simple tasks and participating in market predictions. Simple, secure, and rewarding.
+              Discover a transparent reward ecosystem. Earn points through verified community activities and market-based forecasting campaigns.
             </motion.p>
           </motion.div>
 
@@ -112,7 +112,7 @@ const Hero: React.FC = () => {
                             <Zap size={20} className="text-primary" />
                          </div>
                          <div className="flex items-baseline gap-2 md:gap-3">
-                            <span className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tighter">42,850</span>
+                            <span className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tighter">---,---</span>
                             <span className="text-[10px] sm:text-xs md:text-sm font-bold text-white/20 uppercase tracking-widest font-mono">PTS</span>
                          </div>
                       </div>
@@ -175,30 +175,6 @@ const Hero: React.FC = () => {
              </div>
           </motion.div>
 
-          {/* TRUST STATS */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 1 }}
-            className="w-full mt-24 pt-12 border-t border-white/[0.05]"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-12 gap-x-8">
-              {[
-                { label: 'Total Rewards Paid', value: '$2.4M', icon: BarChart3 },
-                { label: 'Active Users', value: '45,200', icon: Users },
-                { label: 'Secure & Fast', value: 'INSTANT', icon: Lock },
-                { label: 'Support Uptime', value: '24/7', icon: Globe },
-              ].map((stat, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 group">
-                  <div className="flex items-center gap-2 text-white/30 group-hover:text-primary transition-colors">
-                     <stat.icon size={14} />
-                     <span className="text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
-                  </div>
-                  <span className="text-2xl md:text-3xl font-bold text-white tracking-tight">{stat.value}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>

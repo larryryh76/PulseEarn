@@ -4,7 +4,7 @@ export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'pre
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link' | 'api' | 'referral' | 'prediction';
-export type submissionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 
@@ -67,7 +67,7 @@ export interface TaskClaim {
   userId: string;
   taskId: string;
   providerId: string;
-  validationState: submissionStatus;
+  validationState: SubtaskStatus;
   completionState: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
   rewardTransactionId: string | null;
   xpGranted: number;
@@ -102,7 +102,7 @@ export interface UserTask {
   taskId: string;
   lastCompleted: Timestamp | null;
   status: 'available' | 'pending' | 'completed' | 'on_cooldown' | 'rejected';
-  submissionId?: string;
+  subtaskId?: string;
   totalCompletions: number;
 }
 
@@ -284,7 +284,7 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'submission_update' | 'moderation_notice' | 'payout_processed';
+  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'subtask_update' | 'moderation_notice' | 'payout_processed';
   read: boolean;
   timestamp: Timestamp;
 }

@@ -37,9 +37,9 @@ export const seedTasks = async () => {
       // Seed a single initial production-ready task
       const initialTask: Partial<Task> = {
         id: 'initial_onboarding',
-        title: 'Platform Calibration',
-        description: 'Verify your operational status by reviewing the system documentation.',
-        instructions: 'Read the reward policy in your profile center.',
+        title: 'Welcome Task',
+        description: 'Get started by reviewing the platform documentation.',
+        instructions: 'Read the reward policy in your profile.',
         category: 'EDUCATION',
         type: 'once',
         platform: 'NONE',

@@ -66,11 +66,11 @@ const AdminSecurity = () => {
         </div>
         <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem]">
            <div className="flex items-center justify-between mb-6">
-              <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">Filtered Requests</p>
+              <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">System Requests</p>
               <Activity className="text-primary" size={24} />
            </div>
-           <p className="text-4xl font-mono font-bold text-white">1,242</p>
-           <p className="text-[10px] text-white/20 mt-2 font-bold uppercase tracking-widest">Bot Mitigation Actions (24h)</p>
+           <p className="text-4xl font-mono font-bold text-white">---</p>
+           <p className="text-[10px] text-white/20 mt-2 font-bold uppercase tracking-widest">Global Activity Stream</p>
         </div>
       </div>
 

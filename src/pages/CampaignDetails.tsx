@@ -109,7 +109,7 @@ const CampaignDetails: React.FC = () => {
       toast.success('Proof submitted for validation.');
       setClaims(prev => ({ ...prev, [taskId]: { id: docRef.id, ...claimData } as any }));
     } catch (error) {
-      console.error('submission error:', error);
+      console.error('Subtask error:', error);
       toast.error('Failed to submit proof');
     } finally {
       setSubmittingTaskId(null);
@@ -275,7 +275,7 @@ const CampaignDetails: React.FC = () => {
                                 <textarea
                                   value={proof[task.id] || ''}
                                   onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                  placeholder="submission Proof (URL/ID)..."
+                                  placeholder="Subtask Proof (URL/ID)..."
                                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
                                 />
                                 <Button
@@ -304,7 +304,7 @@ const CampaignDetails: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                    <h3 className="text-xl font-bold uppercase tracking-tight">Campaign Status</h3>
-                   <p className="text-text-secondary text-xs font-bold uppercase tracking-[0.15em]">{campaign.active ? 'Accepting submissions' : 'Closed'}</p>
+                   <p className="text-text-secondary text-xs font-bold uppercase tracking-[0.15em]">{campaign.active ? 'Accepting Subtasks' : 'Closed'}</p>
                 </div>
 
                 <div className="pt-6 border-t border-white/5 space-y-4">

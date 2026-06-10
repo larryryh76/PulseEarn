@@ -27,8 +27,8 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
       return toast.error('Please select an image file');
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      return toast.error('File size must be under 20MB');
+    if (file.size > 10 * 1024 * 1024) { // Increased limit to 10MB as requested by "professionalization"
+      return toast.error('File size must be under 10MB');
     }
 
     setIsUploading(true);
@@ -130,7 +130,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
                   <Upload size={20} className="text-white/20 group-hover:text-primary transition-colors" />
                 </div>
                 <p className="text-xs font-bold text-white/40 group-hover:text-white transition-colors">Select Asset to Upload</p>
-                <p className="text-[9px] font-medium text-white/10 uppercase tracking-widest mt-1">JPG, PNG or WEBP (Max 20MB)</p>
+                <p className="text-[9px] font-medium text-white/10 uppercase tracking-widest mt-1">JPG, PNG or WEBP (Max 5MB)</p>
               </>
             )}
           </label>

@@ -23,15 +23,11 @@ import Button from '../components/ui/Button';
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { tasks, campaigns, loading, getTaskStatus } = useTasks();
-  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED' | 'OFFERWALL'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED'>('ALL');
   const [view, setView] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
 
-  const activeCampaigns = campaigns
-    .filter(c => c.active && (filter === 'ALL' || c.category === filter as any))
-    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-
-  const standaloneTasks = tasks.filter(t =>
-    t.active && !t.campaignId && (filter === 'ALL' || t.category === filter as any)
+  const activeCampaigns = campaigns.filter(c =>
+    c.active && (filter === 'ALL' || c.category === filter as any)
   );
 
   const completedTasks = tasks.filter(t => {
@@ -114,7 +110,7 @@ const Tasks: React.FC = () => {
                   <span className="text-[9px] font-bold uppercase tracking-widest">Filter By</span>
                 </div>
                 <div className="flex items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar">
-                  {(['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED', 'OFFERWALL'] as const).map((cat) => (
+                  {(['ALL', 'SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED'] as const).map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setFilter(cat)}
@@ -135,8 +131,7 @@ const Tasks: React.FC = () => {
         {/* CAMPAIGN GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {view === 'ACTIVE' ? (
-            <>
-            {activeCampaigns.map((camp, index) => (
+            activeCampaigns.map((camp, index) => (
               <motion.div
                 key={camp.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -217,52 +212,7 @@ const Tasks: React.FC = () => {
                   </div>
                 </Card>
               </motion.div>
-            ))}
-
-            {standaloneTasks.map((task, index) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: (activeCampaigns.length + index) * 0.05 }}
-                onClick={() => navigate(`/tasks/${task.id}`)}
-                className="group cursor-pointer"
-              >
-                <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-surface/50 border border-white/5 overflow-hidden">
-                  <div className="h-44 relative overflow-hidden">
-                     <div className="w-full h-full bg-gradient-to-br from-primary/5 to-transparent" />
-                     <div className="absolute inset-0 flex items-center justify-center opacity-20">
-                        <Zap size={64} className="text-primary" />
-                     </div>
-                     <div className="absolute top-8 left-8 flex gap-2">
-                        <div className="px-3 py-2 bg-background/80 backdrop-blur-md border border-white/10 rounded-xl">
-                          <Zap size={16} className="text-primary" />
-                        </div>
-                     </div>
-                     <div className="absolute top-8 right-8">
-                        <div className="px-4 py-2 bg-background/80 backdrop-blur-md border border-white/10 rounded-xl">
-                           <p className="text-xl font-bold text-white tracking-tighter leading-none">+{task.rewardAmount}</p>
-                           <p className="text-[7px] uppercase tracking-[0.2em] text-primary font-bold mt-1">PTS</p>
-                        </div>
-                     </div>
-                  </div>
-                  <div className="flex-1 p-8 pt-6 space-y-4">
-                     <div className="space-y-2">
-                        <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">{task.category}</p>
-                        <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors leading-tight">{task.title}</h3>
-                     </div>
-                     <p className="text-[14px] text-text-secondary leading-relaxed line-clamp-3 font-medium">{task.description}</p>
-                  </div>
-                  <div className="px-8 pb-8 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Standalone Task</span>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface-bright text-white border border-border group-hover:bg-primary transition-all">
-                       <ArrowRight size={18} />
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-            </>
+            ))
           ) : (
             completedTasks.map((task, index) => {
               return (

@@ -30,19 +30,17 @@ const CampaignDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [proof, setProof] = useState<Record<string, string>>({});
-  const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const fetchContent = async () => {
+    const fetchCampaign = async () => {
       if (!id || !currentUser) return;
 
       try {
-        // Try fetching campaign first
-        const campRef = doc(db, 'campaigns', id);
-        const campSnap = await getDoc(campRef);
+        const docRef = doc(db, 'campaigns', id);
+        const docSnap = await getDoc(docRef);
 
-        if (campSnap.exists()) {
-          const campData = { id: campSnap.id, ...campSnap.data() } as Campaign;
+        if (docSnap.exists()) {
+          const campData = { id: docSnap.id, ...docSnap.data() } as Campaign;
           setCampaign(campData);
 
           // Fetch Tasks for this campaign
@@ -63,40 +61,8 @@ const CampaignDetails: React.FC = () => {
             setClaims(claimsMap);
           }
         } else {
-          // If not a campaign, try fetching as a standalone task
-          const taskRef = doc(db, 'tasks', id);
-          const taskSnap = await getDoc(taskRef);
-
-          if (taskSnap.exists()) {
-            const taskData = { id: taskSnap.id, ...taskSnap.data() } as Task;
-            setTasks([taskData]);
-
-            // Create a virtual campaign for standalone task display
-            setCampaign({
-              id: taskData.id,
-              name: taskData.title,
-              description: taskData.description,
-              category: taskData.category,
-              type: taskData.type,
-              bannerUrl: taskData.campaignArtwork || '',
-              totalPrizePool: taskData.rewardAmount,
-              taskIds: [taskData.id],
-              active: taskData.active,
-              status: taskData.status as any,
-              visibility: 'PUBLIC'
-            } as any);
-
-            // Fetch Claims for this task
-            const claimsQ = query(collection(db, 'task_claims'), where('userId', '==', currentUser.uid), where('taskId', '==', taskData.id));
-            const claimsSnap = await getDocs(claimsQ);
-            if (!claimsSnap.empty) {
-               const claim = { id: claimsSnap.docs[0].id, ...claimsSnap.docs[0].data() } as TaskClaim;
-               setClaims({ [taskData.id]: claim });
-            }
-          } else {
-            toast.error('Campaign or Task not found');
-            navigate('/tasks');
-          }
+          toast.error('Campaign not found');
+          navigate('/tasks');
         }
       } catch (error) {
         console.error('Error fetching campaign:', error);
@@ -106,17 +72,13 @@ const CampaignDetails: React.FC = () => {
       }
     };
 
-    fetchContent();
+    fetchCampaign();
   }, [id, currentUser, navigate]);
 
   const handleSubmit = async (taskId: string) => {
     if (!currentUser || submittingTaskId) return;
-    const task = tasks.find(t => t.id === taskId);
     const taskProof = proof[taskId];
-
-    if (task?.submissionType !== 'NONE' && task?.submissionType !== 'AUTOMATIC' && !taskProof?.trim()) {
-      return toast.error('Please provide proof of completion');
-    }
+    if (!taskProof?.trim()) return toast.error('Please provide proof of completion');
 
     setSubmittingTaskId(taskId);
     try {
@@ -285,28 +247,16 @@ const CampaignDetails: React.FC = () => {
                               {task.description}
                             </p>
 
-                           {!isCompleted && (
-                             <div className="flex flex-wrap gap-4 pt-2">
-                               {task.actionUrl && (
-                                 <a
-                                   href={task.actionUrl}
-                                   target="_blank"
-                                   rel="noopener noreferrer"
-                                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-[10px] font-bold text-primary uppercase tracking-widest hover:bg-primary/20 transition-all"
-                                 >
-                                   Complete Task <ExternalLink size={12} />
-                                 </a>
-                               )}
-                               {task.platform === 'PREDICTION' && (
-                                 <button
-                                   onClick={() => navigate('/predictions')}
-                                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 border border-accent/20 text-[10px] font-bold text-accent uppercase tracking-widest hover:bg-accent/20 transition-all"
-                                 >
-                                   Go to Predictions <Zap size={12} />
-                                 </button>
-                               )}
-                             </div>
-                           )}
+                            {task.actionUrl && !isCompleted && (
+                              <a
+                                href={task.actionUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
+                              >
+                                Complete Task <ExternalLink size={12} />
+                              </a>
+                            )}
                           </div>
 
                           <div className="w-full md:w-80 space-y-4">
@@ -322,91 +272,19 @@ const CampaignDetails: React.FC = () => {
                               </div>
                             ) : (
                               <div className="space-y-3">
-                                {task.submissionType === 'SCREENSHOT' ? (
-                                  <div className="space-y-3">
-                                     <div className={cn(
-                                       "w-full aspect-video rounded-xl border-2 border-dashed border-white/5 bg-white/[0.02] flex flex-col items-center justify-center p-4 relative overflow-hidden group",
-                                       proof[task.id] && "border-success/20 bg-success/[0.02]"
-                                     )}>
-                                        {proof[task.id] ? (
-                                          <>
-                                            <img src={proof[task.id]} alt="Proof" className="absolute inset-0 w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                               <button onClick={() => setProof(prev => ({ ...prev, [task.id]: '' }))} className="p-2 bg-danger rounded-lg text-white"><Zap size={14} className="rotate-45" /></button>
-                                            </div>
-                                          </>
-                                        ) : (
-                                          <label className="flex flex-col items-center gap-2 cursor-pointer">
-                                             <input
-                                               type="file"
-                                               className="hidden"
-                                               accept="image/*"
-                                               onChange={async (e) => {
-                                                  const file = e.target.files?.[0];
-                                                  if (!file) return;
-                                                  setIsUploading(prev => ({ ...prev, [task.id]: true }));
-                                                  try {
-                                                    const { ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
-                                                    const { storage } = await import('../firebase/config');
-                                                    const fileName = `${currentUser?.uid}_${task.id}_${Date.now()}`;
-                                                    const storageRef = ref(storage, `proofs/${fileName}`);
-                                                    const uploadTask = uploadBytesResumable(storageRef, file);
-
-                                                    uploadTask.on('state_changed', null, (err) => {
-                                                      console.error(err);
-                                                      toast.error('Upload failed');
-                                                      setIsUploading(prev => ({ ...prev, [task.id]: false }));
-                                                    }, async () => {
-                                                      const url = await getDownloadURL(uploadTask.snapshot.ref);
-                                                      setProof(prev => ({ ...prev, [task.id]: url }));
-                                                      setIsUploading(prev => ({ ...prev, [task.id]: false }));
-                                                      toast.success('Screenshot uploaded');
-                                                    });
-                                                  } catch (err) {
-                                                    console.error(err);
-                                                    setIsUploading(prev => ({ ...prev, [task.id]: false }));
-                                                  }
-                                               }}
-                                             />
-                                             <Zap size={24} className="text-white/20" />
-                                             <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest text-center">Tap to Upload Screenshot</span>
-                                          </label>
-                                        )}
-                                        {isUploading[task.id] && (
-                                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                             <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                                          </div>
-                                        )}
-                                     </div>
-                                  </div>
-                                ) : task.submissionType === 'LINK' ? (
-                                  <input
-                                    type="url"
-                                    value={proof[task.id] || ''}
-                                    onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                    placeholder="Enter Submission Link..."
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all"
-                                  />
-                                ) : task.submissionType === 'TEXT' ? (
-                                  <textarea
-                                    value={proof[task.id] || ''}
-                                    onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                    placeholder="Enter proof or evidence..."
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
-                                  />
-                                ) : task.submissionType === 'AUTOMATIC' ? (
-                                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl text-center">
-                                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Automatic Tracking Active</p>
-                                  </div>
-                                ) : null}
-
+                                <textarea
+                                  value={proof[task.id] || ''}
+                                  onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                  placeholder="Subtask Proof (URL/ID)..."
+                                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
+                                />
                                 <Button
                                   onClick={() => handleSubmit(task.id)}
                                   isLoading={submittingTaskId === task.id}
-                                  disabled={task.submissionType !== 'NONE' && task.submissionType !== 'AUTOMATIC' && !proof[task.id]?.trim()}
+                                  disabled={!proof[task.id]?.trim()}
                                   className="w-full py-3 text-[10px]"
                                 >
-                                  {task.submissionType === 'AUTOMATIC' ? 'Verify Completion' : 'Submit Proof'}
+                                  Submit Proof
                                 </Button>
                               </div>
                             )}

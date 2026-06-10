@@ -34,6 +34,7 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
     scheduledLaunchDate: '',
     autoExpiration: true,
     featured: false,
+    priority: 0,
     taskIds: [],
     participantsCount: 0,
     maxParticipants: 1000,
@@ -268,7 +269,7 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
                        <div className="space-y-2">
                           <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-1">Category</label>
                           <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-xs font-bold uppercase outline-none focus:border-primary/50">
-                             {(['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED'] as TaskCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
+                             {(['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED', 'OFFERWALL'] as TaskCategory[]).map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                        </div>
                        {formData.category === 'PREDICTION' && (
@@ -297,8 +298,9 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent flex items-center gap-2">
                     <ImageIcon size={14} /> Campaign Visual Identity
                  </h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <MediaUploader label="Main Banner (21:9)" value={formData.bannerUrl} onChange={url => setFormData({...formData, bannerUrl: url})} path="campaigns/banners" aspectRatio="video" />
+                    <MediaUploader label="Thumbnail" value={formData.thumbnailUrl} onChange={url => setFormData({...formData, thumbnailUrl: url})} path="campaigns/thumbnails" aspectRatio="square" />
                     <MediaUploader label="Square Artwork" value={formData.artworkUrl} onChange={url => setFormData({...formData, artworkUrl: url})} path="campaigns/artwork" aspectRatio="square" />
                  </div>
               </section>
@@ -457,6 +459,11 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
                     <input type="checkbox" className="hidden" checked={formData.featured} onChange={e => setFormData({...formData, featured: e.target.checked})} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Featured</span>
                   </label>
+
+                  <div className="flex items-center gap-3">
+                     <label className="text-[9px] font-bold uppercase tracking-widest text-white/30">Priority</label>
+                     <input type="number" value={formData.priority} onChange={e => setFormData({...formData, priority: parseInt(e.target.value)})} className="w-20 bg-black/20 border border-white/10 rounded-xl p-2 text-xs font-mono outline-none focus:border-primary/50" />
+                  </div>
                </div>
             </div>
           </div>

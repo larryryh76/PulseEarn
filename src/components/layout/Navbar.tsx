@@ -5,11 +5,13 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
 import Logo from '../ui/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTasks } from '../../hooks/useTasks';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
+  const { tasks, campaigns, userTasks } = useTasks();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,11 +26,12 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Tasks', path: '/tasks', icon: Shield },
+    { name: 'Marketplace', path: '/tasks', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Profile', path: '/me', icon: User },
-    { name: 'Notifications', path: '/notifications', icon: Bell },
   ];
+
+  const availableCount = tasks.filter(t => t.active && !userTasks[t.id]).length + campaigns.filter(c => c.active).length;
 
   return (
     <>
@@ -68,6 +71,16 @@ const Navbar: React.FC = () => {
                 <div className="h-4 w-px bg-white/10" />
 
                 <div className="flex items-center gap-6">
+                   <Link to="/notifications" className="relative group">
+                      <Bell size={18} className={cn(
+                        "text-text-secondary group-hover:text-white transition-colors",
+                        location.pathname === '/notifications' && "text-white"
+                      )} />
+                      {availableCount > 0 && (
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_rgba(255,59,48,0.8)]" />
+                      )}
+                   </Link>
+
                   {userData?.role === 'admin' && (
                     <Link to="/admin" className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest flex items-center gap-2">
                        <Terminal size={14} />
@@ -154,21 +167,41 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Bottom Tab Bar */}
       {currentUser && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 py-4">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 pb-8 pt-4">
           <div className="flex items-center justify-between">
-            {navLinks.slice(0, 4).map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  "flex flex-col items-center gap-2 transition-all",
+                  "flex flex-col items-center gap-2 transition-all relative",
                   location.pathname === link.path ? "text-primary" : "text-text-secondary"
                 )}
               >
-                <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
+                <div className="relative">
+                   <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
+                   {link.path === '/tasks' && availableCount > 0 && (
+                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-danger rounded-full flex items-center justify-center border-2 border-background shadow-lg">
+                        <span className="text-[7px] font-bold text-white">{availableCount}</span>
+                     </div>
+                   )}
+                </div>
                 <span className="text-[8px] font-bold uppercase tracking-widest">{link.name}</span>
               </Link>
             ))}
+            <Link
+              to="/notifications"
+              className={cn(
+                "flex flex-col items-center gap-2 transition-all",
+                location.pathname === '/notifications' ? "text-primary" : "text-text-secondary"
+              )}
+            >
+              <div className="relative">
+                <Bell size={22} strokeWidth={location.pathname === '/notifications' ? 2.5 : 2} />
+                <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-danger rounded-full border-2 border-background" />
+              </div>
+              <span className="text-[8px] font-bold uppercase tracking-widest">Alerts</span>
+            </Link>
           </div>
         </div>
       )}

@@ -4,7 +4,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import MainLayout from '../components/layout/MainLayout';
-import { Task, TaskClaim, Campaign } from '../types';
+import { Task, TaskClaim, Campaign, VerificationType } from '../types';
 import {
   Clock,
   ExternalLink,
@@ -13,8 +13,14 @@ import {
   ChevronLeft,
   Users,
   Zap,
-  Target
+  Target,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  BarChart3,
+  UserPlus,
+  ArrowRight
 } from 'lucide-react';
+import MediaUploader from '../components/admin/MediaUploader';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -271,21 +277,74 @@ const CampaignDetails: React.FC = () => {
                                 <span className="text-[10px] font-bold uppercase tracking-widest">In Review</span>
                               </div>
                             ) : (
-                              <div className="space-y-3">
-                                <textarea
-                                  value={proof[task.id] || ''}
-                                  onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                  placeholder="Subtask Proof (URL/ID)..."
-                                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
-                                />
-                                <Button
-                                  onClick={() => handleSubmit(task.id)}
-                                  isLoading={submittingTaskId === task.id}
-                                  disabled={!proof[task.id]?.trim()}
-                                  className="w-full py-3 text-[10px]"
-                                >
-                                  Submit Proof
-                                </Button>
+                              <div className="space-y-4">
+                                {task.verificationType === 'proof' ? (
+                                  <div className="space-y-3">
+                                     <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-2">Screenshot Evidence</p>
+                                     <MediaUploader
+                                        label="Upload Completion Proof"
+                                        value={proof[task.id]}
+                                        onChange={(url) => setProof(prev => ({ ...prev, [task.id]: url }))}
+                                        path={`proofs/${currentUser.uid}`}
+                                     />
+                                  </div>
+                                ) : task.verificationType === 'link' ? (
+                                   <div className="space-y-3">
+                                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-2">Social Link Submission</p>
+                                      <div className="relative">
+                                         <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={14} />
+                                         <input
+                                            type="url"
+                                            value={proof[task.id] || ''}
+                                            onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                            placeholder="https://x.com/your-post..."
+                                            className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all"
+                                         />
+                                      </div>
+                                   </div>
+                                ) : task.verificationType === 'prediction' ? (
+                                   <div className="p-6 bg-accent/5 border border-accent/20 rounded-2xl space-y-4 text-center">
+                                      <BarChart3 size={32} className="mx-auto text-accent" />
+                                      <p className="text-[10px] font-bold text-white uppercase leading-relaxed">This task requires a Market Pulse execution.</p>
+                                      <Button
+                                        onClick={() => navigate('/predictions')}
+                                        variant="outline"
+                                        className="w-full h-10 border-accent/20 text-accent hover:bg-accent/10"
+                                      >
+                                         Go to Prediction Hub
+                                      </Button>
+                                   </div>
+                                ) : task.verificationType === 'referral' ? (
+                                   <div className="p-6 bg-primary/5 border border-primary/20 rounded-2xl space-y-4 text-center">
+                                      <UserPlus size={32} className="mx-auto text-primary" />
+                                      <p className="text-[10px] font-bold text-white uppercase leading-relaxed">Tracking referrals automatically via invite engine.</p>
+                                      <Button
+                                        onClick={() => navigate('/referrals')}
+                                        variant="outline"
+                                        className="w-full h-10 border-primary/20 text-primary hover:bg-primary/10"
+                                      >
+                                         Manage Referrals
+                                      </Button>
+                                   </div>
+                                ) : (
+                                  <textarea
+                                    value={proof[task.id] || ''}
+                                    onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                    placeholder={task.proofRequirements || "Provide completion proof..."}
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-xs font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[80px] resize-none"
+                                  />
+                                )}
+
+                                {task.verificationType !== 'prediction' && task.verificationType !== 'referral' && (
+                                  <Button
+                                    onClick={() => handleSubmit(task.id)}
+                                    isLoading={submittingTaskId === task.id}
+                                    disabled={!proof[task.id]?.trim()}
+                                    className="w-full py-4 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20"
+                                  >
+                                    Submit for Verification
+                                  </Button>
+                                )}
                               </div>
                             )}
                           </div>

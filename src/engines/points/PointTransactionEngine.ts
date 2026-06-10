@@ -169,8 +169,9 @@ export class PointTransactionEngine {
     direction: 'UP' | 'DOWN';
     entryPrice: number;
     claimId: string;
+    rewardAmount?: number;
   }): Promise<PointTransactionResult> {
-    const { userId, taskId, amount, assetId, symbol, direction, entryPrice, claimId } = request;
+    const { userId, taskId, amount, assetId, symbol, direction, entryPrice, claimId, rewardAmount } = request;
     const userRef = doc(db, 'users', userId);
     const claimRef = doc(db, 'system_claims', claimId);
     const predictionsRef = collection(db, 'user_predictions');
@@ -212,12 +213,13 @@ export class PointTransactionEngine {
           symbol,
           direction,
           stakeAmount: amount,
+          rewardAmount: rewardAmount || (amount * 2), // Default to 2x Reward Model
           entryPrice,
           status: 'ACTIVE',
           claimId,
           createdAt: serverTimestamp(),
           transactionReference: txDoc.id,
-          auditTrail: [`Forecast initiated: ${direction} at ${entryPrice}`],
+          auditTrail: [`Forecast initiated: ${direction} at ${entryPrice}. Potential Reward: ${rewardAmount || (amount * 2)}`],
           engineVersion: '5.0.0-PRO'
         });
 
@@ -247,7 +249,7 @@ export class PointTransactionEngine {
   /**
    * Atomic Market Prediction Resolution
    */
-  static async resolvePrediction(predictionId: string, currentPrice: number, rewardPool: number): Promise<void> {
+  static async resolvePrediction(predictionId: string, currentPrice: number, manualRewardPool?: number): Promise<void> {
     const predRef = doc(db, 'user_predictions', predictionId);
 
     try {
@@ -268,7 +270,8 @@ export class PointTransactionEngine {
           ? currentPrice > data.entryPrice
           : currentPrice < data.entryPrice;
 
-        const payout = isWin ? rewardPool : 0;
+        // Use stored rewardAmount (2x model) or fallback to manual pool
+        const payout = isWin ? (data.rewardAmount || manualRewardPool || (data.stakeAmount * 2)) : 0;
         const xpReward = isWin ? 250 : 50;
 
         const claimId = `res_${predictionId}`;
@@ -291,7 +294,9 @@ export class PointTransactionEngine {
           points: increment(payout),
           xp: newXp,
           level: calculateLevel(newXp),
-          lastActionTimestamp: serverTimestamp()
+          lastActionTimestamp: serverTimestamp(),
+          'stats.totalWins': increment(isWin ? 1 : 0),
+          'stats.predictionRewards': increment(payout)
         });
 
         // 3. Log Settlement Transaction

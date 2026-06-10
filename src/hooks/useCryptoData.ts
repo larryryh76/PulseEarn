@@ -21,42 +21,80 @@ export interface GlobalMarketData {
 }
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
+const CRYPTOCOMPARE_BASE_URL = 'https://min-api.cryptocompare.com/data';
+
+const SYMBOL_MAP: Record<string, string> = {
+  'bitcoin': 'BTC', 'ethereum': 'ETH', 'solana': 'SOL', 'binancecoin': 'BNB', 'ripple': 'XRP',
+  'cardano': 'ADA', 'dogecoin': 'DOGE', 'the-open-network': 'TON', 'avalanche-2': 'AVAX', 'chainlink': 'LINK',
+  'sui': 'SUI', 'tron': 'TRX', 'shiba-inu': 'SHIB', 'pepe': 'PEPE', 'litecoin': 'LTC',
+  'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
+};
 
 export const useCryptoData = () => {
   const [marketData, setMarketData] = useState<CryptoMarketData[]>([]);
   const [globalData, setGlobalData] = useState<GlobalMarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<'coingecko' | 'cryptocompare'>('coingecko');
+
+  const fetchFromCryptoCompare = async () => {
+    const symbols = Object.values(SYMBOL_MAP).join(',');
+    const res = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
+      params: { fsyms: symbols, tsyms: 'USD' }
+    });
+
+    const raw = res.data.RAW;
+    const mapped: CryptoMarketData[] = Object.entries(SYMBOL_MAP).map(([id, sym]) => {
+      const data = raw[sym]?.USD;
+      return {
+        id,
+        symbol: sym.toLowerCase(),
+        name: id.charAt(0).toUpperCase() + id.slice(1).replace('-', ' '),
+        image: `https://static.cryptocompare.com/api/data/compound-v2/coin/snapshot/?symbol=${sym}`,
+        current_price: data?.PRICE || 0,
+        market_cap: data?.MKTCAP || 0,
+        market_cap_rank: 0,
+        price_change_percentage_24h: data?.CHANGEPCT24HOUR || 0,
+        total_volume: data?.TOTALVOLUME24H || 0
+      };
+    });
+
+    setMarketData(mapped);
+    setSource('cryptocompare');
+  };
 
   const fetchMarketData = async () => {
     try {
       setLoading(true);
-      const ids = [
-        'bitcoin', 'ethereum', 'solana', 'binancecoin', 'ripple',
-        'cardano', 'dogecoin', 'the-open-network', 'avalanche-2', 'chainlink',
-        'sui', 'tron', 'shiba-inu', 'pepe', 'litecoin',
-        'polkadot', 'cosmos', 'arbitrum', 'optimism', 'near'
-      ].join(',');
+      const ids = Object.keys(SYMBOL_MAP).join(',');
 
-      const [marketRes, globalRes] = await Promise.all([
-        axios.get(`${COINGECKO_BASE_URL}/coins/markets`, {
-          params: {
-            vs_currency: 'usd',
-            ids,
-            order: 'market_cap_desc',
-            sparkline: false,
-            price_change_percentage: '24h'
-          }
-        }),
-        axios.get(`${COINGECKO_BASE_URL}/global`)
-      ]);
+      try {
+        const [marketRes, globalRes] = await Promise.all([
+          axios.get(`${COINGECKO_BASE_URL}/coins/markets`, {
+            params: {
+              vs_currency: 'usd',
+              ids,
+              order: 'market_cap_desc',
+              sparkline: false,
+              price_change_percentage: '24h'
+            },
+            timeout: 8000
+          }),
+          axios.get(`${COINGECKO_BASE_URL}/global`, { timeout: 8000 })
+        ]);
 
-      setMarketData(marketRes.data);
-      setGlobalData(globalRes.data.data);
-      setError(null);
+        setMarketData(marketRes.data);
+        setGlobalData(globalRes.data.data);
+        setSource('coingecko');
+        setError(null);
+      } catch (cgError) {
+        console.warn('CoinGecko failed, falling back to CryptoCompare...', cgError);
+        await fetchFromCryptoCompare();
+        setError('Using fallback market data source');
+      }
     } catch (err) {
-      console.error('Error fetching crypto data:', err);
-      setError('Failed to fetch real-time market data');
+      console.error('All crypto data sources failed:', err);
+      setError('Market data currently unavailable');
     } finally {
       setLoading(false);
     }
@@ -75,6 +113,7 @@ export const useCryptoData = () => {
     globalData,
     loading,
     error,
+    source,
     getCoin,
     refresh: fetchMarketData
   };

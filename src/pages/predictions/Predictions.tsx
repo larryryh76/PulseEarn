@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
-import { collection, query, where, onSnapshot, doc, serverTimestamp, setDoc, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
 import { Campaign, PredictionRecord } from '../../types';
-import { TrendingUp, TrendingDown, Clock, Trophy, History, ArrowRight, Zap, ShieldCheck } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Trophy, History, ArrowRight, Zap, ShieldCheck, Activity, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import toast from 'react-hot-toast';
+import PredictionChart from './components/PredictionChart';
 
 const Predictions: React.FC = () => {
   const { marketData, loading: marketLoading } = useCryptoData();
@@ -80,6 +81,8 @@ const Predictions: React.FC = () => {
       const coinData = marketData.find(c => c.id === assetId);
 
       const predId = `${currentUser.uid}_${event.id}`;
+      const potentialReward = stake * 2; // 2x Reward Model
+
       const record: PredictionRecord = {
         id: predId,
         userId: currentUser.uid,
@@ -89,17 +92,38 @@ const Predictions: React.FC = () => {
         direction: prediction,
         entryPrice: coinData?.current_price || 0,
         stakeAmount: stake,
+        rewardAmount: potentialReward,
         status: 'ACTIVE',
         transactionReference: `pred_stake_${predId}`,
         createdAt: serverTimestamp() as any,
-        auditTrail: [`Predicted ${prediction} at ${coinData?.current_price}`]
+        auditTrail: [`Predicted ${prediction} at ${coinData?.current_price}. Potential Reward: ${potentialReward}`]
       };
 
-      await setDoc(doc(db, 'user_predictions', predId), record);
-      toast.success(`Forecast Executed: ${prediction} confirmed.`);
+      // Differentiate Core vs Task-based prediction in metadata if needed
+      if (event.id.startsWith('auto_')) {
+        (record as any).isCore = true;
+      }
+
+      // Execute Point Deduction and Prediction Entry through specialized Engine method
+      const { PointTransactionEngine } = await import('../../engines/points/PointTransactionEngine');
+      const result = await PointTransactionEngine.executePrediction({
+         userId: currentUser.uid,
+         taskId: event.id,
+         amount: stake,
+         rewardAmount: potentialReward,
+         assetId: assetId,
+         symbol: coinData?.symbol || event.symbol || 'CRYPTO',
+         direction: prediction,
+         entryPrice: coinData?.current_price || 0,
+         claimId: predId
+      });
+
+      if (!result.success) throw new Error(result.error);
+      toast.success(`Forecast Executed: ${prediction} confirmed. 2x multiplier active.`);
       setSelectedEvent(null);
       setPrediction(null);
     } catch (err) {
+      console.error(err);
       toast.error('Forecasting failed');
     } finally {
       setIsSubmitting(false);
@@ -110,17 +134,28 @@ const Predictions: React.FC = () => {
     <MainLayout>
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
         <header className="mb-16">
-          <div className="space-y-4">
-             <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Forecasting Hub</span>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
+             <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Forecasting Hub</span>
+                </div>
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+                   Live <span className="text-accent">Predictions</span>
+                </h1>
+                <p className="text-text-secondary max-w-xl font-medium">
+                   Execute market forecasts using real-time data. Earn 2x platform rewards for accurate forecasts.
+                </p>
              </div>
-             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Live <span className="text-accent">Predictions</span>
-             </h1>
-             <p className="text-text-secondary max-w-xl font-medium">
-                Execute market forecasts using real-time data. Earn premium rewards for accurate predictions.
-             </p>
+             <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
+                   <Info size={20} />
+                </div>
+                <div>
+                   <p className="text-[10px] font-bold text-white uppercase">Reward Protocol</p>
+                   <p className="text-[10px] text-text-tertiary font-medium">Core predictions award 2x stake + 250 XP upon resolution.</p>
+                </div>
+             </div>
           </div>
         </header>
 
@@ -131,20 +166,24 @@ const Predictions: React.FC = () => {
                     <h2 className="text-xl font-bold tracking-tight">Market Intelligence</h2>
                  </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {marketData.slice(0, 4).map(coin => (
-                       <div key={coin.id} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] flex flex-col justify-between min-h-[140px] hover:border-primary/20 transition-all group">
-                          <div className="flex items-center justify-between">
-                             <img src={coin.image} alt="" className="w-8 h-8 rounded-full group-hover:scale-110 transition-transform" />
-                             <span className={cn("text-[10px] font-bold px-2 py-1 rounded-lg", coin.price_change_percentage_24h >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
-                                {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%
-                             </span>
-                          </div>
-                          <div>
-                             <p className="text-lg font-mono font-bold text-white">${coin.current_price.toLocaleString()}</p>
-                             <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{coin.name} ({coin.symbol})</p>
-                          </div>
-                       </div>
-                    ))}
+                    {marketLoading ? (
+                       [1, 2, 3, 4].map(i => <div key={i} className="h-[140px] bg-white/[0.02] border border-white/5 rounded-[2rem] animate-pulse" />)
+                    ) : (
+                      marketData.slice(0, 4).map(coin => (
+                         <div key={coin.id} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] flex flex-col justify-between min-h-[140px] hover:border-primary/20 transition-all group">
+                            <div className="flex items-center justify-between">
+                               <img src={coin.image} alt="" className="w-8 h-8 rounded-full group-hover:scale-110 transition-transform" />
+                               <span className={cn("text-[10px] font-bold px-2 py-1 rounded-lg", coin.price_change_percentage_24h >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+                                  {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%
+                               </span>
+                            </div>
+                            <div>
+                               <p className="text-lg font-mono font-bold text-white">${coin.current_price.toLocaleString()}</p>
+                               <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{coin.name} ({coin.symbol})</p>
+                            </div>
+                         </div>
+                      ))
+                    )}
                  </div>
               </section>
 
@@ -159,7 +198,9 @@ const Predictions: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    {/* Layer 2: Admin Campaigns */}
-                   {campaigns.map(camp => {
+                   {loading ? (
+                      [1, 2].map(i => <div key={i} className="h-64 bg-white/[0.02] border border-white/5 rounded-[2.5rem] animate-pulse" />)
+                   ) : campaigns.map(camp => {
                      const existing = userPredictions.find(p => p.taskId === camp.id);
                      return (
                        <Card
@@ -209,7 +250,7 @@ const Predictions: React.FC = () => {
                      );
                    })}
 
-                   {/* Layer 1: Automated Events */}
+                   {/* Layer 1: Automated Events (Market Pulse) */}
                    {automatedEvents.map(event => {
                      const existing = userPredictions.find(p => p.taskId === event.id);
                      const coin = marketData.find(c => c.id === event.assetId);
@@ -217,18 +258,21 @@ const Predictions: React.FC = () => {
                        <Card
                          key={event.id}
                          className={cn(
-                           "p-8 space-y-6 transition-all cursor-pointer",
+                           "p-8 space-y-6 transition-all cursor-pointer relative overflow-hidden",
                            existing ? "border-primary/20 bg-primary/[0.02]" : "hover:border-primary/30"
                          )}
                          onClick={() => !existing && setSelectedEvent(event)}
                        >
+                          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                             <Activity size={80} />
+                          </div>
                           <div className="flex justify-between items-start">
                              <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                 <TrendingUp size={24} />
                              </div>
                              <div className="text-right">
-                                <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">Est. Reward</p>
-                                <p className="text-xl font-mono font-bold text-white">+500 <span className="text-[10px]">PTS</span></p>
+                                <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">Multiplier</p>
+                                <p className="text-xl font-mono font-bold text-white">2.00x <span className="text-[10px]">FIXED</span></p>
                              </div>
                           </div>
                           <div>
@@ -295,9 +339,19 @@ const Predictions: React.FC = () => {
               </section>
 
               <Card className="bg-accent/5 border-accent/10 p-8 space-y-6">
-                 <div className="flex items-center gap-3">
-                    <Trophy className="text-accent" size={20} />
-                    <h2 className="text-sm font-bold uppercase tracking-widest">Top Forecasters</h2>
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                       <Trophy className="text-accent" size={20} />
+                       <h2 className="text-sm font-bold uppercase tracking-widest">Top Forecasters</h2>
+                    </div>
+                    {userData?.stats?.predictionsCount && (
+                       <div className="text-right">
+                          <p className="text-[8px] font-bold text-text-tertiary uppercase">My Accuracy</p>
+                          <p className="text-xs font-mono font-bold text-white">
+                             {((userData.stats.totalWins || 0) / (userData.stats.predictionsCount || 1) * 100).toFixed(1)}%
+                          </p>
+                       </div>
+                    )}
                  </div>
                  <div className="space-y-4">
                     {leaderboard.length > 0 ? leaderboard.slice(0, 5).map((user, i) => (
@@ -310,7 +364,9 @@ const Predictions: React.FC = () => {
                          </div>
                          <div className="text-right">
                             <span className="text-[10px] font-mono font-bold text-accent block">{user.stats?.predictionsCount || 0} EVENTS</span>
-                            <span className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">95% ACC</span>
+                            <span className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">
+                               {((user.stats?.totalWins || 0) / (user.stats?.predictionsCount || 1) * 100).toFixed(1)}% ACC
+                            </span>
                          </div>
                       </div>
                     )) : (
@@ -357,6 +413,10 @@ const Predictions: React.FC = () => {
                    </div>
 
                    <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[2rem] space-y-6">
+                      <PredictionChart
+                         assetId={selectedEvent.assetId || (selectedEvent as any).predictionAsset}
+                         symbol={selectedEvent.symbol || 'CRYPTO'}
+                      />
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-4">
                             <img src={marketData.find(c => c.id === (selectedEvent.assetId || (selectedEvent as any).predictionAsset))?.image} className="w-10 h-10 rounded-full" alt="" />
@@ -405,8 +465,8 @@ const Predictions: React.FC = () => {
                          <p className="text-sm font-mono font-bold text-white">100 PTS</p>
                       </div>
                       <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
-                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Est. Payout</p>
-                         <p className="text-sm font-mono font-bold text-success">+{((selectedEvent.totalPrizePool || 500)).toLocaleString()} PTS</p>
+                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Potential Payout</p>
+                         <p className="text-sm font-mono font-bold text-success">+{(100 * 2).toLocaleString()} PTS</p>
                       </div>
                    </div>
 

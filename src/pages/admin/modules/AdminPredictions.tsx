@@ -22,6 +22,7 @@ import { PredictionRecord, Campaign } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import { MarketResolutionEngine } from '../../../engines/predictions/MarketResolutionEngine';
 import { useCryptoData } from '../../../hooks/useCryptoData';
 import Card from '../../../components/ui/Card';
 
@@ -46,6 +47,18 @@ const AdminPredictions = () => {
 
     return unsubscribe;
   }, []);
+
+  const runAutomatedResolution = async () => {
+     const loadingToast = toast.loading('Running market resolution engine...');
+     try {
+        const result = await MarketResolutionEngine.resolveExpiredPredictions();
+        toast.dismiss(loadingToast);
+        toast.success(`Resolution cycle complete. Resolved: ${result.resolved}, Failed: ${result.failed}`);
+     } catch (err: any) {
+        toast.dismiss(loadingToast);
+        toast.error(`Engine failure: ${err.message}`);
+     }
+  };
 
   const resolvePrediction = async (campaign: any) => {
     const coinId = campaign.predictionAsset ||
@@ -113,14 +126,23 @@ const AdminPredictions = () => {
           <h1 className="text-3xl font-bold tracking-tight mb-2">Prediction Management</h1>
           <p className="text-text-secondary text-sm font-medium">Resolve market forecasts and manage prediction reward distributions.</p>
         </div>
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
-          <input
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search by User or Asset..."
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
-          />
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <button
+            onClick={runAutomatedResolution}
+            className="px-6 py-3 bg-accent/10 border border-accent/20 text-accent rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-accent/20 transition-all flex items-center gap-2"
+          >
+            <Activity size={14} />
+            Resolve Automated
+          </button>
+          <div className="relative flex-1 md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
+            <input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search by User or Asset..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+            />
+          </div>
         </div>
       </header>
 

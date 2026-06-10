@@ -88,12 +88,25 @@ const AdminCampaigns = () => {
   };
 
   const handleDelete = async (campaign: any) => {
-     if (!window.confirm(`Are you sure you want to delete "${campaign.name}"?`)) return;
+     if (!window.confirm(`Are you sure you want to delete "${campaign.name}" and all its tasks?`)) return;
      try {
-        const { deleteDoc } = await import('firebase/firestore');
-        await deleteDoc(doc(db, 'campaigns', campaign.id));
-        toast.success("Campaign deleted");
+        const { writeBatch, query, collection, where, getDocs } = await import('firebase/firestore');
+        const batch = writeBatch(db);
+
+        // Delete the campaign
+        batch.delete(doc(db, 'campaigns', campaign.id));
+
+        // Find and delete all child tasks
+        const tasksQ = query(collection(db, 'tasks'), where('campaignId', '==', campaign.id));
+        const tasksSnap = await getDocs(tasksQ);
+        tasksSnap.docs.forEach(tDoc => {
+           batch.delete(tDoc.ref);
+        });
+
+        await batch.commit();
+        toast.success("Campaign and associated tasks terminated");
      } catch (err) {
+        console.error(err);
         toast.error("Deletion failed");
      }
   };

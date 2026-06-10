@@ -154,10 +154,37 @@ const Predictions: React.FC = () => {
                    })}
                 </div>
               ) : (
-                <div className="py-24 text-center border border-dashed border-border rounded-[3rem] bg-surface/20">
-                   <Zap size={48} className="mx-auto text-text-tertiary mb-6" />
-                   <h3 className="text-lg font-bold text-white uppercase">No Active Predictions</h3>
-                   <p className="text-sm text-text-secondary max-w-xs mx-auto mt-2">New prediction events are currently being indexed by the system.</p>
+                <div className="space-y-12">
+                   <div className="py-24 text-center border border-dashed border-border rounded-[3rem] bg-surface/20">
+                      <Zap size={48} className="mx-auto text-text-tertiary mb-6" />
+                      <h3 className="text-lg font-bold text-white uppercase">No Active Predictions</h3>
+                      <p className="text-sm text-text-secondary max-w-xs mx-auto mt-2">New forecasting events are scheduled every Monday. Return shortly to execute new market forecasts.</p>
+                   </div>
+
+                   <section className="space-y-8">
+                      <div className="flex items-center justify-between">
+                         <h2 className="text-xl font-bold tracking-tight">Market Intelligence</h2>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                         {marketData.slice(0, 4).map(coin => (
+                            <div key={coin.id} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] flex items-center justify-between">
+                               <div className="flex items-center gap-4">
+                                  <img src={coin.image} alt="" className="w-8 h-8 rounded-full" />
+                                  <div>
+                                     <p className="text-[10px] font-bold text-white uppercase">{coin.symbol}</p>
+                                     <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{coin.name}</p>
+                                  </div>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-sm font-mono font-bold text-white">${coin.current_price.toLocaleString()}</p>
+                                  <p className={cn("text-[9px] font-bold", coin.price_change_percentage_24h >= 0 ? "text-success" : "text-danger")}>
+                                     {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%
+                                  </p>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   </section>
                 </div>
               )}
            </div>

@@ -28,6 +28,8 @@ export const useTasks = () => {
     const tasksQuery = query(collection(db, 'tasks'), where('active', '==', true));
     const unsubscribeTasks = onSnapshot(tasksQuery, (snapshot) => {
       const tasksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+      // Only include tasks that either have no campaignId or belong to an active campaign
+      // This is partially handled here, but fully resolved in the component using both tasks and campaigns state
       setTasks(tasksData);
     });
 
@@ -143,8 +145,14 @@ export const useTasks = () => {
     return submitTask(taskId);
   };
 
+  const filteredTasks = tasks.filter(t => {
+    if (!t.campaignId) return true;
+    const campaign = campaigns.find(c => c.id === t.campaignId);
+    return campaign && campaign.active;
+  });
+
   return {
-    tasks,
+    tasks: filteredTasks,
     userTasks,
     campaigns,
     subtasks,

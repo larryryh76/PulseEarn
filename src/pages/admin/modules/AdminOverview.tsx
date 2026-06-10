@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
+import toast from 'react-hot-toast';
 
 const AdminOverview = () => {
   const [stats, setStats] = React.useState({
@@ -79,11 +80,35 @@ const AdminOverview = () => {
     { label: 'Tx Volume (24h)', val: stats.transactionVolume, icon: Activity, color: 'text-accent' },
   ];
 
+  const runCleanup = async () => {
+     try {
+        const { getDocs, collection, writeBatch } = await import('firebase/firestore');
+        const tasksSnap = await getDocs(collection(db, 'tasks'));
+        const campaignsSnap = await getDocs(collection(db, 'campaigns'));
+        const activeCampIds = campaignsSnap.docs.map(d => d.id);
+
+        const orphaned = tasksSnap.docs.filter(t => t.data().campaignId && !activeCampIds.includes(t.data().campaignId));
+        if (orphaned.length === 0) return toast.success('No orphaned tasks detected');
+
+        const batch = writeBatch(db);
+        orphaned.forEach(t => batch.delete(t.ref));
+        await batch.commit();
+        toast.success(`Terminated ${orphaned.length} orphaned tasks`);
+     } catch (err) {
+        toast.error('Cleanup failed');
+     }
+  };
+
   return (
     <div className="space-y-12 pb-24">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">System Overview</h1>
-        <p className="text-text-secondary text-sm font-medium">Real-time platform performance and operational metrics.</p>
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">System Overview</h1>
+          <p className="text-text-secondary text-sm font-medium">Real-time platform performance and operational metrics.</p>
+        </div>
+        <button onClick={runCleanup} className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all">
+           Orphan Cleanup
+        </button>
       </header>
 
       {error && (

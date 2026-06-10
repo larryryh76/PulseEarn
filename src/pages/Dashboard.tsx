@@ -25,6 +25,7 @@ import { cn } from '../utils';
 import { formatUSD } from '../utils/finance';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -109,18 +110,27 @@ const Dashboard: React.FC = () => {
            <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
               <div className="flex justify-between items-start">
                  <p className="data-label">Rank Progression</p>
-                 <TrendingUp size={18} className="text-text-tertiary" />
+                 <TrendingUp size={18} className={cn(getLevelTier(userData?.level || 1).color)} />
               </div>
               <div className="space-y-4">
-                 <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
-                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{(userData?.xp || 0)?.toLocaleString()} XP</p>
+                 <div className="flex flex-col">
+                    <div className="flex items-baseline gap-2">
+                       <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
+                       <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", getLevelTier(userData?.level || 1).color)}>
+                          {getLevelTier(userData?.level || 1).title}
+                       </span>
+                    </div>
+                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP Authorized</p>
                  </div>
-                 <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(((userData?.xp || 0) % 1000) / 10, 100)}%` }}
-                      className="h-full bg-primary"
+                      animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
+                      className={cn(
+                        "h-full transition-all duration-1000",
+                        getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
+                        getLevelTier(userData?.level || 1).glow
+                      )}
                     />
                  </div>
               </div>

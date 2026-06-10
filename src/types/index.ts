@@ -197,6 +197,7 @@ export interface UserData {
     referralsCount: number;
     predictionsCount: number;
     totalWins?: number;
+    predictionRewards?: number;
     totalEarnings: number;
     weeklyEarnings: number;
   };

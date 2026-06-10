@@ -54,21 +54,23 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
           setIsUploading(false);
           setProgress(0);
         },
-        async () => {
-          try {
-            console.log('[MediaUploader] Upload complete, generating URL...');
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log('[MediaUploader] Success! URL:', downloadURL);
-            onChange(downloadURL);
-            toast.success('Media uploaded successfully');
-            setIsUploading(false);
-            setProgress(100);
-          } catch (err: any) {
-            console.error('[MediaUploader] URL Generation Error:', err);
-            toast.error('Failed to retrieve file URL');
-            setIsUploading(false);
-            setProgress(0);
-          }
+        () => {
+          // Wrap in a promise-based approach to ensure sequential completion
+          console.log('[MediaUploader] Upload complete, generating URL...');
+          getDownloadURL(uploadTask.snapshot.ref)
+            .then((downloadURL) => {
+              console.log('[MediaUploader] Success! URL:', downloadURL);
+              onChange(downloadURL);
+              toast.success('Media uploaded successfully');
+              setIsUploading(false);
+              setProgress(100);
+            })
+            .catch((err) => {
+              console.error('[MediaUploader] URL Generation Error:', err);
+              toast.error('Failed to retrieve file URL');
+              setIsUploading(false);
+              setProgress(0);
+            });
         }
       );
 

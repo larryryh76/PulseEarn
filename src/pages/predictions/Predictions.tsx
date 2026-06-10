@@ -63,7 +63,7 @@ const Predictions: React.FC = () => {
         id: predId,
         userId: currentUser.uid,
         taskId: campaign.id,
-        assetId: coinId,
+        assetId: asset,
         symbol: coinData?.symbol.toUpperCase() || 'CRYPTO',
         direction: prediction,
         entryPrice: coinData?.current_price || 0,

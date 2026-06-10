@@ -29,7 +29,7 @@ import Button from '../components/ui/Button';
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const { activities, tasks, loading, getTaskStatus, subtasks, campaigns } = useTasks();
+  const { activities, loading, subtasks, campaigns } = useTasks();
 
   const activeCampaigns = campaigns.filter(c => c.active);
   const featuredCampaign = activeCampaigns.find(c => c.featured) || activeCampaigns[0];

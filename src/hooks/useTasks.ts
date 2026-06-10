@@ -146,7 +146,8 @@ export const useTasks = () => {
   };
 
   const filteredTasks = tasks.filter(t => {
-    if (!t.campaignId) return true;
+    // PulseEarn Architecture Correction: Tasks MUST belong to an active campaign
+    if (!t.campaignId) return false;
     const campaign = campaigns.find(c => c.id === t.campaignId);
     return campaign && campaign.active;
   });

@@ -221,7 +221,7 @@ const Tasks: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => navigate(`/tasks/${task.id}`)}
+                onClick={() => navigate(`/campaigns/${task.campaignId}`)}
                   className="group cursor-pointer"
                 >
                   <Card className="h-full flex flex-col min-h-[460px] p-0 rounded-[2.5rem] bg-success/[0.02] border-success/30">

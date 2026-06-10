@@ -177,6 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           read: false,
           timestamp: serverTimestamp()
         });
+
+        // Trigger System Task Engine for referral completion
+        const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
+        await SystemTaskEngine.processEvent(referredBy, 'referral_completed');
       }
     }
 

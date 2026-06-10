@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal } from 'lucide-react';
+import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
@@ -29,6 +29,7 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Tasks', path: '/tasks', icon: Shield },
+    { name: 'Missions', path: '/missions', icon: Trophy },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Profile', path: '/me', icon: User },
   ];

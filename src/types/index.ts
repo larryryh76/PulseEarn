@@ -196,6 +196,7 @@ export interface UserData {
     tasksCompleted: number;
     referralsCount: number;
     predictionsCount: number;
+    totalWins?: number;
     totalEarnings: number;
     weeklyEarnings: number;
   };

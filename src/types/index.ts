@@ -5,8 +5,8 @@ export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link' | 'api' | 'referral' | 'prediction';
 export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
-export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED';
-export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
+export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'EVENTS' | 'SPONSORED' | 'OFFERWALL';
+export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'REFERRAL' | 'PREDICTION' | 'SPONSORED' | 'EDUCATIONAL' | 'NONE';
 
 export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_USER' | 'RESOLVED' | 'CLOSED';
@@ -36,8 +36,10 @@ export interface Task {
   status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED' | 'DRAFT';
   visibility: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
   verificationType: VerificationType;
+  submissionType: 'NONE' | 'SCREENSHOT' | 'LINK' | 'TEXT' | 'AUTOMATIC';
   cooldownPeriod: number; // in hours
   maxClaims: number | null; // null for unlimited
+  claimLimit?: number;
   dailyLimit?: number;
   perUserLimit?: number;
   totalClaims: number;
@@ -132,6 +134,7 @@ export interface Campaign {
   scheduledLaunchDate?: Timestamp | null;
   autoExpiration: boolean;
   featured: boolean;
+  priority: number;
   taskIds: string[];
   participantsCount: number;
   maxParticipants?: number;

@@ -107,6 +107,7 @@ function App() {
         <Route path="/predictions" element={<ProtectedRoute><Predictions /></ProtectedRoute>} />
         <Route path="/referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
         <Route path="/campaigns/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
+        <Route path="/tasks/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />

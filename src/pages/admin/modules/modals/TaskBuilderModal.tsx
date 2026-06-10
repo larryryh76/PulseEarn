@@ -18,14 +18,19 @@ const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
     type: 'once',
     platform: 'NONE',
     verificationType: 'manual',
+    submissionType: 'TEXT',
     actionUrl: '',
     cooldownPeriod: 0,
+    claimLimit: 1,
     status: 'ACTIVE'
   });
 
   useEffect(() => {
     if (isOpen && initialTask) {
-      setFormData(initialTask);
+      setFormData({
+        ...formData,
+        ...initialTask
+      });
     } else {
       setFormData({
         title: '',
@@ -38,8 +43,10 @@ const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
         type: 'once',
         platform: 'NONE',
         verificationType: 'manual',
+        submissionType: 'TEXT',
         actionUrl: '',
         cooldownPeriod: 0,
+        claimLimit: 1,
         status: 'ACTIVE'
       });
     }
@@ -136,20 +143,30 @@ const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Platform</label>
                     <select value={formData.platform} onChange={e => setFormData({...formData, platform: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
-                      {(['TELEGRAM', 'TWITTER', 'TIKTOK', 'YOUTUBE', 'DISCORD', 'WEBSITE', 'APP_STORE', 'NONE'] as SocialPlatform[]).map(p => (
+                      {(['TELEGRAM', 'TWITTER', 'TIKTOK', 'YOUTUBE', 'DISCORD', 'WEBSITE', 'APP_STORE', 'REFERRAL', 'PREDICTION', 'SPONSORED', 'EDUCATIONAL', 'NONE'] as SocialPlatform[]).map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Verification Method</label>
-                  <select value={formData.verificationType} onChange={e => setFormData({...formData, verificationType: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
-                    {(['automated', 'manual', 'proof', 'timer', 'activity', 'link', 'api', 'referral', 'prediction'] as VerificationType[]).map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Verification Method</label>
+                    <select value={formData.verificationType} onChange={e => setFormData({...formData, verificationType: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
+                      {(['automated', 'manual', 'proof', 'timer', 'activity', 'link', 'api', 'referral', 'prediction'] as VerificationType[]).map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Submission Type</label>
+                    <select value={formData.submissionType} onChange={e => setFormData({...formData, submissionType: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
+                      {['NONE', 'SCREENSHOT', 'LINK', 'TEXT', 'AUTOMATIC'].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -157,6 +174,17 @@ const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
                   <div className="relative">
                      <input value={formData.actionUrl} onChange={e => setFormData({...formData, actionUrl: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-primary/50 outline-none transition-all" placeholder="https://x.com/pulseearn" />
                      <ExternalLink size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Cooldown (Hours)</label>
+                    <input type="number" value={formData.cooldownPeriod} onChange={e => setFormData({...formData, cooldownPeriod: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-mono focus:border-primary/50 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Claim Limit</label>
+                    <input type="number" value={formData.claimLimit} onChange={e => setFormData({...formData, claimLimit: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-mono focus:border-primary/50 outline-none transition-all" />
                   </div>
                 </div>
               </div>

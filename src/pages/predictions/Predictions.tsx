@@ -55,8 +55,8 @@ const Predictions: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const coinId = campaign.name.toLowerCase().includes('bitcoin') ? 'bitcoin' : 'ethereum';
-      const coinData = marketData.find(c => c.id === coinId);
+      const asset = (campaign as any).predictionAsset || (campaign.name.toLowerCase().includes('bitcoin') ? 'bitcoin' : 'ethereum');
+      const coinData = marketData.find(c => c.id === asset);
 
       const predId = `${currentUser.uid}_${campaign.id}`;
       const record: PredictionRecord = {

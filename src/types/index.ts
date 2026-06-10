@@ -136,6 +136,11 @@ export interface Campaign {
   participantsCount: number;
   maxParticipants?: number;
   maxClaimsPerUser?: number;
+  // Prediction specific fields
+  predictionAsset?: string;
+  predictionQuestion?: string;
+  predictionTargetPrice?: number;
+  predictionType?: 'UP_DOWN' | 'TARGET' | 'RANGE';
   validationSettings: {
     manualReview: boolean;
     screenshotRequired: boolean;

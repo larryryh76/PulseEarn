@@ -4,7 +4,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import MainLayout from '../components/layout/MainLayout';
-import { Task, TaskClaim, Campaign, VerificationType } from '../types';
+import { Task, TaskClaim, Campaign } from '../types';
 import {
   Clock,
   ExternalLink,
@@ -14,11 +14,9 @@ import {
   Users,
   Zap,
   Target,
-  Image as ImageIcon,
   Link as LinkIcon,
   BarChart3,
-  UserPlus,
-  ArrowRight
+  UserPlus
 } from 'lucide-react';
 import MediaUploader from '../components/admin/MediaUploader';
 import toast from 'react-hot-toast';
@@ -90,7 +88,7 @@ const CampaignDetails: React.FC = () => {
     try {
       const task = tasks.find(t => t.id === taskId);
       const claimData = {
-        userId: currentUser.uid,
+        userId: currentUser!.uid,
         taskId: taskId,
         campaignId: campaign?.id,
         providerId: task?.providerId || 'system',
@@ -285,7 +283,7 @@ const CampaignDetails: React.FC = () => {
                                         label="Upload Completion Proof"
                                         value={proof[task.id]}
                                         onChange={(url) => setProof(prev => ({ ...prev, [task.id]: url }))}
-                                        path={`proofs/${currentUser.uid}`}
+                                        path={`proofs/${currentUser!.uid}`}
                                      />
                                   </div>
                                 ) : task.verificationType === 'link' ? (

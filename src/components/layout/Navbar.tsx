@@ -33,7 +33,9 @@ const Navbar: React.FC = () => {
     { name: 'Profile', path: '/me', icon: User },
   ];
 
-  const availableCount = tasks.filter(t => t.active && !userTasks[t.id]).length + campaigns.filter(c => c.active).length;
+  const pendingCount = tasks.filter(t => t.active && t.campaignId && !userTasks[t.id]).length;
+  const activeCampaignsCount = campaigns.filter(c => c.active).length;
+  const availableCount = pendingCount + activeCampaignsCount;
 
   return (
     <>

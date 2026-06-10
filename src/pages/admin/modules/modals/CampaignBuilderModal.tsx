@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Target, Zap, Plus, Trash2, Globe, ShieldCheck, Clock, Layers, Copy, BarChart3, Activity, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../../../../utils';
-import { doc, collection, serverTimestamp, Timestamp, getDocs, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, Timestamp, getDocs, writeBatch, setDoc, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase/config';
 import toast from 'react-hot-toast';
 import { Task, TaskCategory, TaskType } from '../../../../types';
@@ -197,12 +197,24 @@ const CampaignBuilderModal = ({ isOpen, onClose, initialCampaign }: any) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('IRREVERSIBLE ACTION: Delete campaign and references?')) return;
+    if (!window.confirm('IRREVERSIBLE ACTION: Delete campaign and all associated tasks?')) return;
     try {
-      await deleteDoc(doc(db, 'campaigns', initialCampaign.id));
-      toast.success('Campaign terminated');
+      const batch = writeBatch(db);
+
+      // Delete campaign
+      batch.delete(doc(db, 'campaigns', initialCampaign.id));
+
+      // Delete child tasks
+      const tasksSnap = await getDocs(query(collection(db, 'tasks'), where('campaignId', '==', initialCampaign.id)));
+      tasksSnap.docs.forEach(tDoc => {
+         batch.delete(tDoc.ref);
+      });
+
+      await batch.commit();
+      toast.success('Campaign and tasks terminated');
       onClose();
     } catch (err) {
+      console.error(err);
       toast.error('Deletion failed');
     }
   };

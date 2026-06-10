@@ -28,7 +28,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { getXpProgress } from '../utils/progression';
+import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Profile: React.FC = () => {
   const { userData, logout } = useAuth();
@@ -103,7 +103,7 @@ const Profile: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12 text-center lg:text-left">
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-               <div className="w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-white/5 relative z-10">
+               <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-white/5 relative z-10", getLevelTier(userData?.level || 1).glow)}>
                  <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-white/5">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
@@ -111,7 +111,7 @@ const Profile: React.FC = () => {
                      className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
                    />
                  </div>
-                 <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-white/10 flex items-center justify-center text-primary shadow-2xl">
+                 <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-white/10 flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
                    <Award size={24} />
                  </div>
                </div>
@@ -121,9 +121,12 @@ const Profile: React.FC = () => {
               <div className="space-y-2">
                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">{userData?.username}</h1>
-                   <div className="badge-system badge-primary h-8 px-4 flex items-center gap-2">
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userData?.level || 1).color, "bg-white/5")}>
                       <TrendingUp size={12} />
                       LVL {userData?.level || 1}
+                   </div>
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userData?.level || 1).color, "bg-white/5")}>
+                      {getLevelTier(userData?.level || 1).title}
                    </div>
                  </div>
                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-text-tertiary">
@@ -142,13 +145,17 @@ const Profile: React.FC = () => {
               <div className="max-w-md mx-auto lg:mx-0 p-6 bg-surface-bright/30 border border-white/5 rounded-2xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
                   <span>Elevation to Rank {xpStats.level + 1}</span>
-                  <span className="text-white">{Math.floor(xpStats.progress)}% Verified</span>
+                  <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}% Verified</span>
                 </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${xpStats.progress}%` }}
-                    className="h-full bg-primary shadow-[0_0_10px_rgba(94,106,210,0.5)]"
+                    className={cn(
+                      "h-full transition-all duration-1000",
+                      getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
+                      getLevelTier(userData?.level || 1).glow
+                    )}
                   />
                 </div>
               </div>

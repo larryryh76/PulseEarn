@@ -26,7 +26,7 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Marketplace', path: '/tasks', icon: Shield },
+    { name: 'Tasks', path: '/tasks', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Profile', path: '/me', icon: User },
   ];
@@ -167,7 +167,7 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Bottom Tab Bar */}
       {currentUser && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 pb-8 pt-4">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 py-4">
           <div className="flex items-center justify-between">
             {navLinks.map((link) => (
               <Link

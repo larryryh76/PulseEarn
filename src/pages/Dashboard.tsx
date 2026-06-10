@@ -29,10 +29,10 @@ import Button from '../components/ui/Button';
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const { activities, loading, subtasks, campaigns } = useTasks();
+  const { activities, tasks, loading, getTaskStatus, subtasks } = useTasks();
 
-  const activeCampaigns = campaigns.filter(c => c.active);
-  const featuredCampaign = activeCampaigns.find(c => c.featured) || activeCampaigns[0];
+  const activeTasks = tasks.filter(t => t.active && getTaskStatus(t).status === 'available');
+  const featuredTask = activeTasks.sort((a, b) => b.rewardAmount - a.rewardAmount)[0];
   const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
 
   if (loading) return (
@@ -152,7 +152,7 @@ const Dashboard: React.FC = () => {
           {/* PRIMARY EARNING FEED */}
           <div className="lg:col-span-2 space-y-16">
             {/* FEATURED DISCOVERY */}
-            {featuredCampaign && (
+            {featuredTask && (
                <section className="space-y-8">
                   <div className="flex items-center justify-between">
                      <h2 className="text-xl font-bold tracking-tight">Priority Discovery</h2>
@@ -161,9 +161,9 @@ const Dashboard: React.FC = () => {
                      </Link>
                   </div>
 
-                  <Link to={`/campaigns/${featuredCampaign.id}`} className="group relative block w-full aspect-[21/10] md:aspect-[21/8] rounded-[2.5rem] border border-border overflow-hidden bg-surface-bright/50 transition-all hover:border-primary/40 hover:shadow-premium">
-                     {featuredCampaign.bannerUrl ? (
-                        <img src={featuredCampaign.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000 grayscale-[0.3] group-hover:grayscale-0" />
+                  <Link to={`/campaigns/${featuredTask.id}`} className="group relative block w-full aspect-[21/10] md:aspect-[21/8] rounded-[2.5rem] border border-border overflow-hidden bg-surface-bright/50 transition-all hover:border-primary/40 hover:shadow-premium">
+                     {featuredTask.campaignArtwork ? (
+                        <img src={featuredTask.campaignArtwork} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000 grayscale-[0.3] group-hover:grayscale-0" />
                      ) : (
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
                      )}
@@ -171,11 +171,11 @@ const Dashboard: React.FC = () => {
                         <div className="max-w-xl space-y-6">
                            <div className="flex items-center gap-3">
                               <span className="badge-system badge-primary">Featured Campaign</span>
-                              <span className="badge-system">+{featuredCampaign.totalPrizePool} PTS</span>
+                              <span className="badge-system">+{featuredTask.rewardAmount} PTS</span>
                            </div>
-                           <h3 className="text-3xl md:text-4xl font-bold text-white leading-none tracking-tight">{featuredCampaign.name}</h3>
+                           <h3 className="text-3xl md:text-4xl font-bold text-white leading-none tracking-tight">{featuredTask.title}</h3>
                            <p className="text-sm text-text-secondary font-medium line-clamp-2 leading-relaxed">
-                              {featuredCampaign.description}
+                              {featuredTask.description}
                            </p>
                            <div className="flex items-center gap-3 pt-2">
                               <Button size="sm" variant="primary" className="group-hover:gap-4 transition-all">Join Now <ArrowRight size={14} /></Button>
@@ -193,11 +193,11 @@ const Dashboard: React.FC = () => {
                </div>
 
                <div className="grid grid-cols-1 gap-4">
-                  {activeCampaigns.length > 0 ? (
-                    activeCampaigns.filter(c => c.id !== featuredCampaign?.id).slice(0, 5).map((camp) => (
+                  {activeTasks.length > 0 ? (
+                    activeTasks.filter(t => t.id !== featuredTask?.id).slice(0, 5).map((task) => (
                       <Link
-                        key={camp.id}
-                        to={`/campaigns/${camp.id}`}
+                        key={task.id}
+                        to={`/campaigns/${task.id}`}
                         className="group flex items-center justify-between p-6 rounded-[2rem] bg-surface/50 border border-border hover:bg-surface-bright/50 hover:border-primary/30 transition-all"
                       >
                         <div className="flex items-center gap-6">
@@ -205,8 +205,8 @@ const Dashboard: React.FC = () => {
                               <Target size={24} className="text-text-tertiary group-hover:text-primary transition-colors" />
                            </div>
                            <div>
-                              <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em] mb-1">{camp.category}</p>
-                              <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors">{camp.name}</h3>
+                              <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em] mb-1">{task.category}</p>
+                              <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors">{task.title}</h3>
                            </div>
                         </div>
 
@@ -215,7 +215,7 @@ const Dashboard: React.FC = () => {
                               <p className="data-label">Potential Reward</p>
                               <div className="flex items-center gap-2 justify-end">
                                  <Zap size={12} className="text-primary" />
-                                 <span className="text-sm font-bold text-white">+{camp.totalPrizePool} <span className="text-[10px] text-text-tertiary uppercase">PTS</span></span>
+                                 <span className="text-sm font-bold text-white">+{task.rewardAmount} <span className="text-[10px] text-text-tertiary uppercase">PTS</span></span>
                               </div>
                            </div>
                            <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">

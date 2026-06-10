@@ -6,12 +6,14 @@ import { cn } from '../../utils';
 import Logo from '../ui/Logo';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
   const { tasks, campaigns, userTasks } = useTasks();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,7 +78,7 @@ const Navbar: React.FC = () => {
                         "text-text-secondary group-hover:text-white transition-colors",
                         location.pathname === '/notifications' && "text-white"
                       )} />
-                      {availableCount > 0 && (
+                      {unreadCount > 0 && (
                         <div className="absolute -top-1 -right-1 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_rgba(255,59,48,0.8)]" />
                       )}
                    </Link>
@@ -198,7 +200,9 @@ const Navbar: React.FC = () => {
             >
               <div className="relative">
                 <Bell size={22} strokeWidth={location.pathname === '/notifications' ? 2.5 : 2} />
-                <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-danger rounded-full border-2 border-background" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-danger rounded-full border-2 border-background" />
+                )}
               </div>
               <span className="text-[8px] font-bold uppercase tracking-widest">Alerts</span>
             </Link>

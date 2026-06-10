@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Zap,
-  CreditCard
+  CreditCard,
+  Trophy
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -60,6 +61,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
     { id: 'USERS', label: 'Users', icon: Users, path: '/admin/users' },
     { id: 'FRAUD', label: 'Fraud Monitoring', icon: ShieldAlert, path: '/admin/security' },
     { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, path: '/admin/broadcasts' },
+    { id: 'MISSIONS', label: 'Missions', icon: Trophy, path: '/admin/missions' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
     { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit' },
   ];

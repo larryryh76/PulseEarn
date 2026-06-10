@@ -25,7 +25,7 @@ export interface PointTransactionRequest {
 }
 
 export type PointTransactionResult =
-  | { success: true; txId: string; predictionId?: string }
+  | { success: true; txId: string; predictionId?: string; newLevel?: number }
   | { success: false; error: string };
 
 export class PointTransactionEngine {
@@ -119,6 +119,10 @@ export class PointTransactionEngine {
 
         transaction.update(userRef, updates);
 
+        // 7.5 System Task Trigger
+        // We use a post-transaction check or separate call for the engine to avoid nested transaction issues
+        // but for level_up and task_reward we trigger the processing.
+
         // 8. Proof of Execution
         transaction.set(claimRef, {
           userId,
@@ -148,7 +152,19 @@ export class PointTransactionEngine {
           engineVersion: '5.0.0-PRO'
         });
 
-        return { success: true, txId: txDoc.id };
+        return { success: true, txId: txDoc.id, newLevel: updates.level, oldLevel: userData.level || 1 };
+      }).then(async (res: any) => {
+        // Trigger background missions after successful transaction
+        if (res.success) {
+          const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+          if (type === 'task_reward') await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
+          if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
+
+          if (res.newLevel && res.newLevel > res.oldLevel) {
+             await SystemTaskEngine.processEvent(userId, 'level_up');
+          }
+        }
+        return res as PointTransactionResult;
       });
     } catch (error: any) {
       console.error(`[PointEngine] System Failure: ${error.message} (Claim: ${claimId})`);

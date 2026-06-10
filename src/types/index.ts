@@ -331,3 +331,45 @@ export interface WithdrawalRequest {
   paidAt?: Timestamp | null;
   transactionHash?: string;
 }
+
+export type SystemTaskTrigger =
+  | 'referral_completed'
+  | 'prediction_submitted'
+  | 'prediction_completed'
+  | 'campaign_task_completed'
+  | 'daily_login'
+  | 'level_up'
+  | 'profile_updated';
+
+export type SystemTaskCategory = 'WELCOME' | 'REFERRAL' | 'PREDICTION' | 'CAMPAIGN' | 'STREAK' | 'LEVEL';
+
+export interface SystemTaskDefinition {
+  id: string;
+  title: string;
+  description: string;
+  trigger: SystemTaskTrigger;
+  category: SystemTaskCategory;
+  conditionField: string; // e.g. 'stats.referralsCount' or 'level'
+  targetValue: number;
+  rewardPoints: number;
+  rewardXp: number;
+  active: boolean;
+  repeatable: boolean;
+  priority: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface UserSystemTask {
+  id: string; // Unique ID (often userId_systemTaskId)
+  userId: string;
+  systemTaskId: string;
+  category: SystemTaskCategory;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'CLAIMED';
+  progress: number;
+  target: number;
+  unlockedAt: Timestamp;
+  completedAt?: Timestamp | null;
+  claimedAt?: Timestamp | null;
+  transactionReference?: string | null;
+}

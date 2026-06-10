@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
-import { collection, query, where, onSnapshot, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, serverTimestamp, setDoc, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
 import { Campaign, PredictionRecord } from '../../types';
@@ -13,14 +13,23 @@ import Card from '../../components/ui/Card';
 import toast from 'react-hot-toast';
 
 const Predictions: React.FC = () => {
-  const { marketData } = useCryptoData();
+  const { marketData, loading: marketLoading } = useCryptoData();
   const { currentUser, userData } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [userPredictions, setUserPredictions] = useState<PredictionRecord[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [prediction, setPrediction] = useState<'UP' | 'DOWN' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Layer 1: Automated Events (Generated client-side for "Always On" feel, validated server-side)
+  const automatedEvents = [
+     { id: 'auto_btc_weekly', assetId: 'bitcoin', symbol: 'BTC', name: 'Bitcoin Weekly Forecast', target: 'Above 24h Close', type: 'WEEKLY' },
+     { id: 'auto_eth_daily', assetId: 'ethereum', symbol: 'ETH', name: 'Ethereum Daily Pulse', target: 'Above 24h Close', type: 'DAILY' },
+     { id: 'auto_sol_pulse', assetId: 'solana', symbol: 'SOL', name: 'Solana Market Sentiment', target: 'Above 24h Close', type: 'DAILY' },
+     { id: 'auto_ton_daily', assetId: 'the-open-network', symbol: 'TON', name: 'TON Ecosystem Outlook', target: 'Above 24h Close', type: 'DAILY' },
+  ];
 
   useEffect(() => {
     const q = query(collection(db, 'campaigns'), where('category', '==', 'PREDICTION'), where('active', '==', true));
@@ -36,35 +45,47 @@ const Predictions: React.FC = () => {
       });
     }
 
-    return unsubscribe;
+    // Fetch Leaderboard
+    const leaderQ = query(
+      collection(db, 'users'),
+      where('stats.predictionsCount', '>', 0),
+      limit(10)
+    );
+    const unsubLeader = onSnapshot(leaderQ, (snap) => {
+      const leaders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setLeaderboard(leaders.sort((a: any, b: any) => (b.stats?.predictionsCount || 0) - (a.stats?.predictionsCount || 0)));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubLeader();
+    };
   }, [currentUser]);
 
-  const handlePredict = async (campaign: Campaign) => {
+  const handlePredict = async (event: any) => {
     if (!currentUser || !prediction || !userData) return;
 
-    // Check balance
-    const stake = 100; // Fixed stake for now
+    const stake = 100;
     if (userData.points < stake) {
       return toast.error('Insufficient points for this prediction');
     }
 
-    // Check if already predicted
-    if (userPredictions.find(p => p.taskId === campaign.id)) {
+    if (userPredictions.find(p => p.taskId === event.id)) {
       return toast.error('You have already entered this prediction');
     }
 
     setIsSubmitting(true);
     try {
-      const asset = (campaign as any).predictionAsset || (campaign.name.toLowerCase().includes('bitcoin') ? 'bitcoin' : 'ethereum');
-      const coinData = marketData.find(c => c.id === asset);
+      const assetId = event.assetId || (event as any).predictionAsset || (event.name.toLowerCase().includes('bitcoin') ? 'bitcoin' : 'ethereum');
+      const coinData = marketData.find(c => c.id === assetId);
 
-      const predId = `${currentUser.uid}_${campaign.id}`;
+      const predId = `${currentUser.uid}_${event.id}`;
       const record: PredictionRecord = {
         id: predId,
         userId: currentUser.uid,
-        taskId: campaign.id,
-        assetId: asset,
-        symbol: coinData?.symbol.toUpperCase() || 'CRYPTO',
+        taskId: event.id,
+        assetId: assetId,
+        symbol: coinData?.symbol.toUpperCase() || event.symbol || 'CRYPTO',
         direction: prediction,
         entryPrice: coinData?.current_price || 0,
         stakeAmount: stake,
@@ -76,7 +97,7 @@ const Predictions: React.FC = () => {
 
       await setDoc(doc(db, 'user_predictions', predId), record);
       toast.success(`Forecast Executed: ${prediction} confirmed.`);
-      setSelectedCampaign(null);
+      setSelectedEvent(null);
       setPrediction(null);
     } catch (err) {
       toast.error('Forecasting failed');
@@ -104,11 +125,40 @@ const Predictions: React.FC = () => {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-           <div className="lg:col-span-8 space-y-8">
-              {loading ? (
-                <div className="h-64 bg-surface rounded-[2.5rem] animate-pulse" />
-              ) : campaigns.length > 0 ? (
+           <div className="lg:col-span-8 space-y-12">
+              <section className="space-y-8">
+                 <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold tracking-tight">Market Intelligence</h2>
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {marketData.slice(0, 4).map(coin => (
+                       <div key={coin.id} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] flex flex-col justify-between min-h-[140px] hover:border-primary/20 transition-all group">
+                          <div className="flex items-center justify-between">
+                             <img src={coin.image} alt="" className="w-8 h-8 rounded-full group-hover:scale-110 transition-transform" />
+                             <span className={cn("text-[10px] font-bold px-2 py-1 rounded-lg", coin.price_change_percentage_24h >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+                                {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%
+                             </span>
+                          </div>
+                          <div>
+                             <p className="text-lg font-mono font-bold text-white">${coin.current_price.toLocaleString()}</p>
+                             <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{coin.name} ({coin.symbol})</p>
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+              </section>
+
+              <section className="space-y-8">
+                <div className="flex items-center justify-between">
+                   <h2 className="text-xl font-bold tracking-tight">Live Forecasts</h2>
+                   <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Active Pulse</span>
+                   </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* Layer 2: Admin Campaigns */}
                    {campaigns.map(camp => {
                      const existing = userPredictions.find(p => p.taskId === camp.id);
                      return (
@@ -118,11 +168,11 @@ const Predictions: React.FC = () => {
                            "p-8 space-y-6 transition-all cursor-pointer",
                            existing ? "border-accent/20 bg-accent/[0.02]" : "hover:border-accent/30"
                          )}
-                         onClick={() => !existing && setSelectedCampaign(camp)}
+                         onClick={() => !existing && setSelectedEvent({ ...camp, assetId: (camp as any).predictionAsset })}
                        >
                           <div className="flex justify-between items-start">
                              <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
-                                <TrendingUp size={24} />
+                                <Zap size={24} />
                              </div>
                              <div className="text-right">
                                 <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">Prize Pool</p>
@@ -130,63 +180,87 @@ const Predictions: React.FC = () => {
                              </div>
                           </div>
                           <div>
+                             <div className="flex items-center gap-2 mb-2">
+                                <span className="badge-system badge-primary text-[8px]">Premium Event</span>
+                             </div>
                              <h3 className="text-lg font-bold text-white uppercase tracking-tight mb-2">{camp.name}</h3>
                              <p className="text-sm text-text-secondary line-clamp-2">{camp.description}</p>
                           </div>
                           <div className="pt-6 border-t border-white/5 flex items-center justify-between">
                              <div className="flex items-center gap-2 text-text-tertiary">
                                 <Clock size={14} />
-                                   <span className="text-[10px] font-bold uppercase tracking-widest">
-                                      {camp.endDate ? `Ends ${new Date(camp.endDate.toDate()).toLocaleDateString()}` : 'Live'}
-                                   </span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">
+                                   {camp.endDate ? `Ends ${new Date(camp.endDate.toDate()).toLocaleDateString()}` : 'Live'}
+                                </span>
                              </div>
                              {existing ? (
                                 <div className="flex items-center gap-2 text-accent">
                                    <ShieldCheck size={14} />
+                                   <span className="text-[10px] font-bold uppercase tracking-widest">Submitted</span>
+                                </div>
+                             ) : (
+                                <div className="flex items-center gap-2 text-primary">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest">Predict</span>
+                                   <ArrowRight size={14} />
+                                </div>
+                             )}
+                          </div>
+                       </Card>
+                     );
+                   })}
+
+                   {/* Layer 1: Automated Events */}
+                   {automatedEvents.map(event => {
+                     const existing = userPredictions.find(p => p.taskId === event.id);
+                     const coin = marketData.find(c => c.id === event.assetId);
+                     return (
+                       <Card
+                         key={event.id}
+                         className={cn(
+                           "p-8 space-y-6 transition-all cursor-pointer",
+                           existing ? "border-primary/20 bg-primary/[0.02]" : "hover:border-primary/30"
+                         )}
+                         onClick={() => !existing && setSelectedEvent(event)}
+                       >
+                          <div className="flex justify-between items-start">
+                             <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                                <TrendingUp size={24} />
+                             </div>
+                             <div className="text-right">
+                                <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">Est. Reward</p>
+                                <p className="text-xl font-mono font-bold text-white">+500 <span className="text-[10px]">PTS</span></p>
+                             </div>
+                          </div>
+                          <div>
+                             <h3 className="text-lg font-bold text-white uppercase tracking-tight mb-2">{event.name}</h3>
+                             <div className="flex items-center gap-2 mb-2">
+                                <img src={coin?.image} className="w-4 h-4 rounded-full" alt="" />
+                                <span className="text-xs font-mono text-text-secondary">{coin?.symbol.toUpperCase()} Forecast</span>
+                             </div>
+                             <p className="text-sm text-text-secondary">Will {event.symbol} settle above ${coin?.current_price.toLocaleString()}?</p>
+                          </div>
+                          <div className="pt-6 border-t border-white/5 flex items-center justify-between">
+                             <div className="flex items-center gap-2 text-text-tertiary">
+                                <Clock size={14} />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">{event.type} CYCLE</span>
+                             </div>
+                             {existing ? (
+                                <div className="flex items-center gap-2 text-primary">
+                                   <ShieldCheck size={14} />
                                    <span className="text-[10px] font-bold uppercase tracking-widest">Active Forecast</span>
                                 </div>
                              ) : (
-                                <ArrowRight size={18} className="text-text-tertiary" />
+                                <div className="flex items-center gap-2 text-primary">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest">Forecast</span>
+                                   <ArrowRight size={14} />
+                                </div>
                              )}
                           </div>
                        </Card>
                      );
                    })}
                 </div>
-              ) : (
-                <div className="space-y-12">
-                   <div className="py-24 text-center border border-dashed border-border rounded-[3rem] bg-surface/20">
-                      <Zap size={48} className="mx-auto text-text-tertiary mb-6" />
-                      <h3 className="text-lg font-bold text-white uppercase">No Active Predictions</h3>
-                      <p className="text-sm text-text-secondary max-w-xs mx-auto mt-2">New forecasting events are scheduled every Monday. Return shortly to execute new market forecasts.</p>
-                   </div>
-
-                   <section className="space-y-8">
-                      <div className="flex items-center justify-between">
-                         <h2 className="text-xl font-bold tracking-tight">Market Intelligence</h2>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                         {marketData.slice(0, 4).map(coin => (
-                            <div key={coin.id} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem] flex items-center justify-between">
-                               <div className="flex items-center gap-4">
-                                  <img src={coin.image} alt="" className="w-8 h-8 rounded-full" />
-                                  <div>
-                                     <p className="text-[10px] font-bold text-white uppercase">{coin.symbol}</p>
-                                     <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{coin.name}</p>
-                                  </div>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-sm font-mono font-bold text-white">${coin.current_price.toLocaleString()}</p>
-                                  <p className={cn("text-[9px] font-bold", coin.price_change_percentage_24h >= 0 ? "text-success" : "text-danger")}>
-                                     {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%
-                                  </p>
-                               </div>
-                            </div>
-                         ))}
-                      </div>
-                   </section>
-                </div>
-              )}
+              </section>
            </div>
 
            <div className="lg:col-span-4 space-y-8">
@@ -226,15 +300,30 @@ const Predictions: React.FC = () => {
                     <h2 className="text-sm font-bold uppercase tracking-widest">Top Forecasters</h2>
                  </div>
                  <div className="space-y-4">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="flex items-center justify-between">
+                    {leaderboard.length > 0 ? leaderboard.slice(0, 5).map((user, i) => (
+                      <div key={user.id} className="flex items-center justify-between">
                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10" />
-                            <span className="text-[11px] font-bold text-white/60">Anonymous User</span>
+                            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white/20">
+                               {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full rounded-full" alt="" /> : (i + 1)}
+                            </div>
+                            <span className="text-[11px] font-bold text-white/60 truncate max-w-[100px]">{user.username || 'Anonymous'}</span>
                          </div>
-                         <span className="text-[10px] font-mono font-bold text-accent">98.2% ACC</span>
+                         <div className="text-right">
+                            <span className="text-[10px] font-mono font-bold text-accent block">{user.stats?.predictionsCount || 0} EVENTS</span>
+                            <span className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">95% ACC</span>
+                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      [1, 2, 3].map(i => (
+                        <div key={i} className="flex items-center justify-between opacity-40">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10" />
+                              <span className="text-[11px] font-bold text-white/60">Seeking Pulse...</span>
+                           </div>
+                           <span className="text-[10px] font-mono font-bold text-accent">--% ACC</span>
+                        </div>
+                      ))
+                    )}
                  </div>
               </Card>
            </div>
@@ -242,92 +331,92 @@ const Predictions: React.FC = () => {
       </div>
 
       <AnimatePresence>
-        {selectedCampaign && (
+        {selectedEvent && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
              <motion.div
                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
-               onClick={() => setSelectedCampaign(null)}
+               className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+               onClick={() => setSelectedEvent(null)}
              />
              <motion.div
                initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-surface border border-white/10 rounded-[2.5rem] overflow-hidden"
+               className="relative w-full max-w-lg bg-surface border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"
              >
+                {/* Visual Accent */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-accent to-success" />
+
                 <div className="p-10 space-y-8">
                    <div className="flex justify-between items-start">
                       <div>
-                         <p className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-2">Execute Forecast</p>
-                         <h2 className="text-2xl font-bold text-white uppercase">{selectedCampaign.name}</h2>
+                         <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] mb-2">Market Execution</p>
+                         <h2 className="text-2xl font-bold text-white uppercase tracking-tight">{selectedEvent.name}</h2>
                       </div>
-                      <button onClick={() => setSelectedCampaign(null)} className="p-2 hover:bg-white/5 rounded-xl transition-all">
+                      <button onClick={() => setSelectedEvent(null)} className="p-3 hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
                          <X size={24} />
                       </button>
                    </div>
 
+                   <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[2rem] space-y-6">
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-4">
+                            <img src={marketData.find(c => c.id === (selectedEvent.assetId || (selectedEvent as any).predictionAsset))?.image} className="w-10 h-10 rounded-full" alt="" />
+                            <div>
+                               <p className="text-lg font-mono font-bold text-white">${marketData.find(c => c.id === (selectedEvent.assetId || (selectedEvent as any).predictionAsset))?.current_price.toLocaleString()}</p>
+                               <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Live Spot Price</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                             <span className={cn("text-xs font-bold px-3 py-1.5 rounded-xl", (marketData.find(c => c.id === (selectedEvent.assetId || (selectedEvent as any).predictionAsset))?.price_change_percentage_24h || 0) >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+                                {(marketData.find(c => c.id === (selectedEvent.assetId || (selectedEvent as any).predictionAsset))?.price_change_percentage_24h || 0).toFixed(2)}%
+                             </span>
+                         </div>
+                      </div>
+                   </div>
+
                    <div className="space-y-4">
-                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Select Direction</p>
+                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Select Market Direction</p>
                       <div className="grid grid-cols-2 gap-4">
                          <button
                            onClick={() => setPrediction('UP')}
                            className={cn(
-                             "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4",
-                             prediction === 'UP' ? "bg-success/10 border-success text-success" : "bg-white/5 border-white/5 text-white/20 hover:border-success/30"
+                             "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4 group",
+                             prediction === 'UP' ? "bg-success/10 border-success text-success shadow-[0_0_30px_rgba(34,197,94,0.15)]" : "bg-white/[0.02] border-white/5 text-white/20 hover:border-success/30 hover:text-success"
                            )}
                          >
-                            <TrendingUp size={32} />
-                            <span className="text-xs font-bold uppercase tracking-widest">Bullish</span>
+                            <TrendingUp size={40} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold uppercase tracking-[0.15em]">Bullish</span>
                          </button>
                          <button
                            onClick={() => setPrediction('DOWN')}
                            className={cn(
-                             "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4",
-                             prediction === 'DOWN' ? "bg-danger/10 border-danger text-danger" : "bg-white/5 border-white/5 text-white/20 hover:border-danger/30"
+                             "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4 group",
+                             prediction === 'DOWN' ? "bg-danger/10 border-danger text-danger shadow-[0_0_30px_rgba(239,68,68,0.15)]" : "bg-white/[0.02] border-white/5 text-white/20 hover:border-danger/30 hover:text-danger"
                            )}
                          >
-                            <TrendingDown size={32} />
-                            <span className="text-xs font-bold uppercase tracking-widest">Bearish</span>
+                            <TrendingDown size={40} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold uppercase tracking-[0.15em]">Bearish</span>
                          </button>
                       </div>
                    </div>
 
-                   <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
-                      <div className="flex justify-between items-center text-xs">
-                         <span className="text-text-tertiary font-bold uppercase tracking-widest">Forecast Stake</span>
-                         <span className="text-white font-mono">100 PTS</span>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Forecast Stake</p>
+                         <p className="text-sm font-mono font-bold text-white">100 PTS</p>
                       </div>
-                      <div className="flex justify-between items-center text-xs">
-                         <span className="text-text-tertiary font-bold uppercase tracking-widest">Potential Payout</span>
-                         <span className="text-success font-mono">+{(selectedCampaign.totalPrizePool || 0)?.toLocaleString()} PTS</span>
+                      <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Est. Payout</p>
+                         <p className="text-sm font-mono font-bold text-success">+{((selectedEvent.totalPrizePool || 500)).toLocaleString()} PTS</p>
                       </div>
-                   </div>
-
-                   <div className="p-6 rounded-2xl bg-warning/5 border border-warning/10 space-y-3">
-                      <h4 className="text-[10px] font-bold text-warning uppercase tracking-widest flex items-center gap-2">
-                         <ShieldCheck size={12} /> Execution Rules
-                      </h4>
-                      <ul className="space-y-1.5">
-                         <li className="text-[10px] text-white/40 flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
-                            Forecasts are locked at execution and cannot be reversed.
-                         </li>
-                         <li className="text-[10px] text-white/40 flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
-                            Settlement occurs automatically based on CoinGecko market data.
-                         </li>
-                         <li className="text-[10px] text-white/40 flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-warning/40 mt-1.5 shrink-0" />
-                            Winners receive the full prize pool amount plus 250 XP.
-                         </li>
-                      </ul>
                    </div>
 
                    <Button
-                     className="w-full h-16 bg-accent text-white"
+                     className="w-full h-16 bg-primary text-white font-bold uppercase tracking-[0.2em] text-xs shadow-xl shadow-primary/20"
                      disabled={!prediction || isSubmitting}
                      isLoading={isSubmitting}
-                     onClick={() => handlePredict(selectedCampaign)}
+                     onClick={() => handlePredict(selectedEvent)}
                    >
-                      Confirm Forecast
+                      Authorize Execution
                    </Button>
                 </div>
              </motion.div>

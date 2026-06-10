@@ -208,7 +208,7 @@ const Dashboard: React.FC = () => {
                     activeTasks.slice(0, 5).map((task) => (
                       <Link
                         key={task.id}
-                        to={`/campaigns/${task.id}`}
+                        to={`/campaigns/${task.campaignId}`}
                         className="group flex items-center justify-between p-6 rounded-[2rem] bg-surface/50 border border-border hover:bg-surface-bright/50 hover:border-primary/30 transition-all"
                       >
                         <div className="flex items-center gap-6">

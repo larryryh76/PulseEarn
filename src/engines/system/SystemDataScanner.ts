@@ -16,8 +16,7 @@ export class SystemDataScanner {
   static async scanDataIntegrity() {
     const alerts = [];
 
-    // 1. Scan for missing user documents for existing auth accounts (Logic placeholder)
-    // 2. Scan for point balance vs transaction mismatches
+    // 1. Scan for point balance vs transaction mismatches
     const usersRef = collection(db, 'users');
     const usersSnap = await getDocs(query(usersRef, limit(20)));
 

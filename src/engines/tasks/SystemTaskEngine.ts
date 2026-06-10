@@ -71,7 +71,11 @@ export class SystemTaskEngine {
         const currentProgress = this.resolveFieldValue(userData, def.conditionField) || 0;
 
         const isCompleted = currentProgress >= def.targetValue;
-        const newStatus = isCompleted ? 'COMPLETED' : 'IN_PROGRESS';
+
+        // Ensure status doesn't downgrade if progress decreases (unlikely but safe)
+        const currentStatus = utData?.status || 'IN_PROGRESS';
+        const newStatus = isCompleted ? 'COMPLETED' :
+                         (currentStatus === 'COMPLETED' ? 'COMPLETED' : 'IN_PROGRESS');
 
         // If no record exists or progress has changed
         if (!utData || utData.progress !== currentProgress || utData.status !== newStatus) {
@@ -89,12 +93,9 @@ export class SystemTaskEngine {
 
           transaction.set(userTaskRef, update, { merge: true });
 
-          // Auto-reward logic if configured or handle via manual claim button
-          // For System Tasks, we often want auto-completion rewards to reduce friction
           if (isCompleted && (!utData || utData.status === 'IN_PROGRESS')) {
-             // In a real production system, this might be triggered in a follow-up step
-             // to avoid nested transaction complexities, but here we can queue it.
-             console.log(`[SystemTaskEngine] Mission ${def.id} completed for ${userId}`);
+             // Log completion for audit visibility
+             console.log(`[SystemTaskEngine] Mission ${def.id} reached completion for user ${userId}`);
           }
         }
       });

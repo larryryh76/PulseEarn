@@ -61,7 +61,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
         chart.timeScale().fitContent();
       } catch (err) {
         console.error('Chart Data Error:', err);
-        // Fallback mock data
+        // Generate simulated data on network failure
         const data = [];
         let time = Math.floor(Date.now() / 1000) - (100 * 60);
         let value = 100;

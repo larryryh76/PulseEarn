@@ -20,6 +20,7 @@ export const useTasks = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
   const [loading, setLoading] = useState(true);
+  const [systemTasks, setSystemTasks] = useState<{ id: string; definition: any; progress: any }[]>([]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -69,10 +70,26 @@ export const useTasks = () => {
     );
     const unsubscribeActivities = onSnapshot(activitiesQuery, (snapshot) => {
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
-      setLoading(false);
+    });
+
+    // Unified: Fetch System Missions (Missions now live here)
+    const defQ = query(collection(db, 'system_task_definitions'), where('active', '==', true));
+    const unsubscribeDefs = onSnapshot(defQ, (defSnap) => {
+      const userQ = query(collection(db, 'user_system_tasks'), where('userId', '==', currentUser.uid));
+      const unsubscribeUserSys = onSnapshot(userQ, (userSysSnap) => {
+        const sysTasksData = defSnap.docs.map(d => {
+          const def = d.data();
+          const progress = userSysSnap.docs.find(ud => ud.data().systemTaskId === d.id)?.data();
+          return { id: d.id, definition: def, progress };
+        });
+        setSystemTasks(sysTasksData as any);
+        setLoading(false);
+      });
+      return () => unsubscribeUserSys();
     });
 
     return () => {
+      unsubscribeDefs();
       unsubscribeTasks();
       unsubscribeCampaigns();
       unsubscribeUserTasks();
@@ -158,6 +175,7 @@ export const useTasks = () => {
     campaigns,
     subtasks,
     activities,
+    systemTasks,
     loading,
     submitTask,
     claimTask,

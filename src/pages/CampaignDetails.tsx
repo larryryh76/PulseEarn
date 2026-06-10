@@ -348,7 +348,7 @@ const CampaignDetails: React.FC = () => {
                                                   try {
                                                     const { ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
                                                     const { storage } = await import('../firebase/config');
-                                                    const fileName = `${currentUser.uid}_${task.id}_${Date.now()}`;
+                                                    const fileName = `${currentUser?.uid}_${task.id}_${Date.now()}`;
                                                     const storageRef = ref(storage, `proofs/${fileName}`);
                                                     const uploadTask = uploadBytesResumable(storageRef, file);
 

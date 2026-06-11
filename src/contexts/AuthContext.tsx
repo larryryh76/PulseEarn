@@ -26,7 +26,6 @@ import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
-import { EcosystemBot } from '../utils/ecosystemBot';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 
@@ -271,7 +270,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (resolvedData.role !== 'admin' && user.emailVerified) {
               checkDailyReward(user.uid);
-              EcosystemBot.evaluateUserEngagement(resolvedData as UserData);
             }
           }
           setLoading(false);

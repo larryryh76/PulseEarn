@@ -12,7 +12,7 @@ import { useAuth } from './AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskClaim } from '../types';
 import { TaskEngine } from '../engines/tasks/TaskEngine';
 
-interface TaskContextType {
+export interface TaskContextType {
   tasks: Task[];
   userTasks: Record<string, UserTask>;
   campaigns: Campaign[];

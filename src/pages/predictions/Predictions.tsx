@@ -12,10 +12,11 @@ import {
   Zap,
   Activity,
   ShieldCheck,
-  LayoutGrid,
   ArrowUpRight,
   ArrowDownRight,
-  LineChart
+  LineChart,
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -135,57 +136,51 @@ const Predictions: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-24 min-h-screen bg-[#08080C] flex flex-col">
-        {/* TERMINAL HEADER */}
-        <header className="h-16 border-b border-white/5 bg-black/40 backdrop-blur-xl flex items-center justify-between px-8 z-20">
-           <div className="flex items-center gap-6">
+      <div className="pt-20 min-h-screen bg-[#050507] flex flex-col">
+        {/* PREMIUM SUB-NAV */}
+        <div className="h-14 border-b border-white/[0.03] bg-black/40 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-30">
+           <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Market Prices Active</span>
+                 <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Market Live</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-white/[0.02] border border-white/[0.05] rounded-full">
+                 <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Balance:</span>
+                 <span className="text-[10px] font-mono font-bold text-white">{(userData?.points || 0).toLocaleString()} PTS</span>
               </div>
            </div>
 
-           <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+           <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
               <button
                 onClick={() => setTerminalView('FORECAST')}
                 className={cn(
-                  "px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                  "px-6 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all",
                   terminalView === 'FORECAST' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                 )}
               >
-                Forecasting Hub
+                Prediction
               </button>
               <button
                 onClick={() => setTerminalView('PORTFOLIO')}
                 className={cn(
-                  "px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                  "px-6 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
                   terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                 )}
               >
-                My Positions {activePositions.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                Portfolio {activePositions.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
               </button>
            </div>
+        </div>
 
-           <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                 <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Available Balance</p>
-                 <p className="text-sm font-mono font-bold text-white">{(userData?.points || 0).toLocaleString()} <span className="text-[10px] text-primary">PTS</span></p>
-              </div>
-           </div>
-        </header>
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-
-           {/* MARKET SIDEBAR (MOBILE: Horizontal Scroll, DESKTOP: Left Vertical) */}
-           <aside className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/20 flex flex-col shrink-0 z-10">
-              <div className="p-6 border-b border-white/5 hidden lg:block">
-                 <div className="flex items-center justify-between">
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Active Markets</h2>
-                    <LayoutGrid size={14} className="text-text-tertiary" />
-                 </div>
+           {/* LEFT SIDEBAR: ASSET SELECTION */}
+           <aside className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-white/[0.03] bg-black/20 flex flex-col shrink-0 z-20">
+              <div className="p-5 border-b border-white/[0.03] hidden lg:block">
+                 <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Select Asset</h2>
               </div>
 
-              <div className="flex-1 overflow-x-auto lg:overflow-y-auto no-scrollbar lg:custom-scrollbar flex lg:flex-col p-2 lg:p-3 gap-2">
+              <div className="flex-1 overflow-x-auto lg:overflow-y-auto no-scrollbar lg:custom-scrollbar flex lg:flex-col p-2 gap-1">
                  {allMarkets.map((market) => {
                     const mCoin = marketData.find(c => c.id === market.assetId);
                     const isSelected = selectedMarketId === market.id;
@@ -196,22 +191,22 @@ const Predictions: React.FC = () => {
                          key={market.id}
                          onClick={() => { setSelectedMarketId(market.id); setTerminalView('FORECAST'); }}
                          className={cn(
-                           "min-w-[240px] lg:min-w-0 w-full p-4 rounded-2xl transition-all flex items-center gap-4 group border shrink-0",
-                           isSelected ? "bg-white/5 border-white/10" : "bg-transparent border-transparent hover:bg-white/[0.02]"
+                           "min-w-[180px] lg:min-w-0 w-full p-3.5 rounded-xl transition-all flex items-center gap-3 group border shrink-0",
+                           isSelected ? "bg-white/[0.04] border-white/[0.05]" : "bg-transparent border-transparent hover:bg-white/[0.02]"
                          )}
                        >
-                          <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/5 p-2 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-black/40 border border-white/[0.05] p-1.5 flex items-center justify-center shrink-0">
                              {mCoin?.image ? (
                                 <img src={mCoin.image} className="w-full h-full object-contain" alt="" />
                              ) : (
-                                <Zap size={18} className="text-primary" />
+                                <Zap size={14} className="text-primary" />
                              )}
                           </div>
                           <div className="flex-1 text-left min-w-0">
-                             <div className="flex items-center justify-between gap-2">
-                                <p className="text-[11px] font-black text-white truncate uppercase tracking-tight">{market.symbol}</p>
+                             <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-bold text-white truncate tracking-tight">{market.symbol}</p>
                                 <span className={cn(
-                                  "text-[9px] font-bold font-mono shrink-0",
+                                  "text-[8px] font-mono font-bold",
                                   isNegative ? "text-danger" : "text-success"
                                 )}>
                                    {isNegative ? '' : '+'}{mCoin?.price_change_percentage_24h?.toFixed(1)}%
@@ -225,221 +220,249 @@ const Predictions: React.FC = () => {
               </div>
            </aside>
 
-           {/* MAIN EXPERIENCE STAGE */}
-           <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-background/40 relative">
+           {/* CENTER STAGE: ANALYSIS & CHART */}
+           <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#050507]">
               <AnimatePresence mode="wait">
                  {terminalView === 'FORECAST' ? (
                     <motion.div
                       key="forecast"
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                       className="flex-1 flex flex-col lg:flex-row h-full"
                     >
-                       {/* CENTER: DATA & CHART */}
-                       <div className="flex-1 p-6 lg:p-12 space-y-10 overflow-y-auto no-scrollbar">
+                       <div className="flex-1 p-6 lg:p-10 space-y-10 overflow-y-auto no-scrollbar">
                           {activeMarket ? (
-                             <div className="max-w-4xl mx-auto space-y-8">
-                                <div className="space-y-4">
+                             <div className="max-w-4xl mx-auto space-y-10">
+                                <div className="space-y-6">
                                    <div className="flex items-center gap-3">
                                       <span className={cn(
                                         "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
-                                        activeMarket.isCampaign ? "bg-primary/10 text-primary border-primary/20" : "bg-white/5 text-white/40 border-white/10"
+                                        activeMarket.isCampaign ? "bg-primary/10 text-primary border-primary/20" : "bg-white/[0.03] text-white/40 border-white/[0.05]"
                                       )}>
-                                         {activeMarket.isCampaign ? 'Featured' : 'Market'}
+                                         {activeMarket.isCampaign ? 'Featured' : 'Global Market'}
                                       </span>
-                                      <div className="flex items-center gap-2 text-text-tertiary">
-                                         <Activity size={12} />
-                                         <span className="text-[10px] font-bold uppercase tracking-widest">{activeMarket.participants.toLocaleString()} Joined</span>
+                                      <div className="flex items-center gap-1.5 text-text-tertiary">
+                                         <Activity size={10} />
+                                         <span className="text-[9px] font-bold uppercase tracking-widest">{activeMarket.participants.toLocaleString()} Analysts</span>
                                       </div>
                                    </div>
-                                   <h1 className="text-3xl lg:text-5xl font-black text-white uppercase tracking-tighter leading-none italic">
+                                   <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tighter leading-tight">
                                       {activeMarket.question}
                                    </h1>
                                 </div>
 
-                                <div className="bg-black/40 rounded-[2.5rem] border border-white/5 p-6 lg:p-10 backdrop-blur-xl relative overflow-hidden group">
-                                   <div className="absolute top-6 right-6 lg:top-10 lg:right-10 z-10">
-                                      <div className="px-5 py-2.5 bg-black/60 rounded-xl border border-white/10 backdrop-blur-md">
-                                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Mark Price</p>
-                                         <p className="text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
+                                <div className="bg-black/20 rounded-[2rem] border border-white/[0.03] p-1 shadow-2xl">
+                                   <div className="p-8 border-b border-white/[0.03] flex items-center justify-between">
+                                      <div className="flex items-center gap-4">
+                                         <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                                            <LineChart size={20} className="text-primary" />
+                                         </div>
+                                         <div>
+                                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-0.5">Live Trajectory</p>
+                                            <p className="text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
+                                         </div>
+                                      </div>
+                                      <div className="hidden sm:flex items-center gap-4">
+                                         <div className="text-right">
+                                            <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">24h Vol</p>
+                                            <p className="text-xs font-mono font-bold text-success">${(coinData?.total_volume || 0).toLocaleString()}</p>
+                                         </div>
+                                         <div className="text-right">
+                                            <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Market Cap</p>
+                                            <p className="text-xs font-mono font-bold text-primary">${(coinData?.market_cap || 0).toLocaleString()}</p>
+                                         </div>
                                       </div>
                                    </div>
-                                   <PredictionChart
-                                     assetId={activeMarket.assetId}
-                                     symbol={activeMarket.symbol}
-                                   />
+                                   <div className="p-6">
+                                      <PredictionChart
+                                        assetId={activeMarket.assetId}
+                                        symbol={activeMarket.symbol}
+                                      />
+                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                    {[
-                                      { label: 'Reward Amount', value: `+${activeMarket.reward.toLocaleString()} PTS`, icon: Zap },
-                                      { label: 'Prediction Type', value: '24h Forecast', icon: ShieldCheck },
-                                      { label: 'Time Remaining', value: 'Ends Soon', icon: Clock }
+                                      { label: 'Forecast Reward', value: `+${activeMarket.reward.toLocaleString()} PTS`, icon: Zap, color: 'text-primary' },
+                                      { label: 'Resolution', value: '24h Expiry', icon: ShieldCheck, color: 'text-success' },
+                                      { label: 'Status', value: 'Authorized', icon: Clock, color: 'text-warning' }
                                    ].map((metric, i) => (
-                                      <div key={i} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-2">
+                                      <div key={i} className="p-6 rounded-2xl bg-white/[0.01] border border-white/[0.03] space-y-3 group hover:bg-white/[0.02] transition-all">
                                          <div className="flex items-center gap-2 text-text-tertiary">
-                                            <metric.icon size={14} className="text-primary" />
+                                            <metric.icon size={12} className={metric.color} />
                                             <span className="text-[9px] font-bold uppercase tracking-widest">{metric.label}</span>
                                          </div>
-                                         <p className="text-xl font-bold text-white uppercase italic tracking-tight">{metric.value}</p>
+                                         <p className="text-lg font-bold text-white tracking-tight uppercase">{metric.value}</p>
                                       </div>
                                    ))}
                                 </div>
                              </div>
                           ) : (
                              <div className="h-full flex items-center justify-center opacity-20">
-                                <Activity size={64} className="animate-pulse" />
+                                <Activity size={48} className="animate-pulse" />
                              </div>
                           )}
                        </div>
 
-                       {/* RIGHT: EXECUTION TERMINAL */}
-                       <div className="w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/5 bg-black/20 p-8 lg:p-12 flex flex-col justify-between shrink-0">
-                          <div className="space-y-12">
-                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Prediction Hub</p>
-                                <h3 className="text-xl font-bold text-white uppercase tracking-tight italic">Set Direction</h3>
+                       {/* RIGHT PANEL: EXECUTION */}
+                       <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-white/[0.03] bg-black/40 p-8 flex flex-col justify-between shrink-0">
+                          <div className="space-y-10">
+                             <div className="space-y-1.5">
+                                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">Trajectory Analysis</p>
+                                <h3 className="text-lg font-bold text-white uppercase tracking-tight">Authorization</h3>
                              </div>
 
-                             <div className="space-y-4">
+                             <div className="space-y-3">
                                 <button
                                   onClick={() => setPrediction('UP')}
                                   className={cn(
-                                    "w-full p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group",
-                                    prediction === 'UP' ? "bg-success/10 border-success text-success shadow-lg shadow-success/10" : "bg-white/[0.02] border-white/5 text-white/20 hover:border-success/30 hover:text-success"
+                                    "w-full p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
+                                    prediction === 'UP' ? "bg-success/10 border-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-success/30"
                                   )}
                                 >
-                                   <div className={cn("p-4 rounded-2xl transition-all", prediction === 'UP' ? "bg-success/20" : "bg-white/5 group-hover:bg-success/10")}>
-                                      <ArrowUpRight size={40} />
+                                   <div className={cn(
+                                     "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                                     prediction === 'UP' ? "bg-success text-white" : "bg-white/[0.03] text-white/20 group-hover:text-success"
+                                   )}>
+                                      <ArrowUpRight size={24} />
                                    </div>
                                    <div className="text-center">
-                                      <p className="font-black uppercase tracking-[0.2em] text-xs italic">Market Up</p>
-                                      <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Price will increase</p>
+                                      <p className={cn("font-black uppercase tracking-[0.1em] text-[10px]", prediction === 'UP' ? "text-success" : "text-white/40")}>Bullish Forecast</p>
+                                      <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5 italic">Predict higher valuation</p>
                                    </div>
                                 </button>
 
                                 <button
                                   onClick={() => setPrediction('DOWN')}
                                   className={cn(
-                                    "w-full p-8 rounded-[2rem] border-2 transition-all flex flex-col items-center gap-4 group",
-                                    prediction === 'DOWN' ? "bg-danger/10 border-danger text-danger shadow-lg shadow-danger/10" : "bg-white/[0.02] border-white/5 text-white/20 hover:border-danger/30 hover:text-danger"
+                                    "w-full p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
+                                    prediction === 'DOWN' ? "bg-danger/10 border-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-danger/30"
                                   )}
                                 >
-                                   <div className={cn("p-4 rounded-2xl transition-all", prediction === 'DOWN' ? "bg-danger/20" : "bg-white/5 group-hover:bg-danger/10")}>
-                                      <ArrowDownRight size={40} />
+                                   <div className={cn(
+                                     "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                                     prediction === 'DOWN' ? "bg-danger text-white" : "bg-white/[0.03] text-white/20 group-hover:text-danger"
+                                   )}>
+                                      <ArrowDownRight size={24} />
                                    </div>
                                    <div className="text-center">
-                                      <p className="font-black uppercase tracking-[0.2em] text-xs italic">Market Down</p>
-                                      <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Price will decrease</p>
+                                      <p className={cn("font-black uppercase tracking-[0.1em] text-[10px]", prediction === 'DOWN' ? "text-danger" : "text-white/40")}>Bearish Forecast</p>
+                                      <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5 italic">Predict lower valuation</p>
                                    </div>
                                 </button>
                              </div>
 
-                             <div className="p-6 rounded-[2rem] bg-black/40 border border-white/5 space-y-4">
+                             <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/[0.03] space-y-3">
                                 <div className="flex justify-between items-center">
-                                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Entry Fee</span>
-                                   <span className="text-sm font-mono font-bold text-white">100 PTS</span>
+                                   <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Platform Fee</span>
+                                   <span className="text-xs font-mono font-bold text-white">100 PTS</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Status</span>
-                                   <span className="text-[10px] font-black text-success uppercase">Active</span>
+                                   <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Entry Limit</span>
+                                   <span className="text-[9px] font-black text-success uppercase tracking-widest">Authorized</span>
                                 </div>
                              </div>
                           </div>
 
-                          <div className="space-y-4 pt-10">
+                          <div className="space-y-6 pt-10">
+                             <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
+                                <Info size={14} className="text-primary shrink-0" />
+                                <p className="text-[9px] font-bold text-text-secondary leading-normal">
+                                   Forecasts are finalized upon submission and settled at the next resolution cycle.
+                                </p>
+                             </div>
                              <Button
-                               className="w-full h-20 bg-white text-black hover:bg-primary hover:text-white font-black uppercase tracking-[0.4em] text-[13px] rounded-[1.5rem] disabled:opacity-20 transition-all shadow-2xl active:scale-[0.98] italic"
+                               className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white font-black uppercase tracking-[0.3em] text-[11px] rounded-xl disabled:opacity-20 transition-all active:scale-[0.98]"
                                disabled={!prediction || isSubmitting}
                                isLoading={isSubmitting}
                                onClick={handlePredict}
                              >
-                                Submit Prediction
+                                Submit Forecast
                              </Button>
-                             <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest text-center px-4 leading-relaxed">
-                                Once submitted, predictions cannot be changed. Rewards are distributed automatically when the market resolves.
-                             </p>
                           </div>
                        </div>
                     </motion.div>
                  ) : (
                     <motion.div
                       key="portfolio"
-                      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-                      className="flex-1 p-8 lg:p-16 overflow-y-auto no-scrollbar"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="flex-1 p-6 lg:p-12 overflow-y-auto no-scrollbar"
                     >
-                       <div className="max-w-5xl mx-auto space-y-12">
-                          <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                             <div className="space-y-3">
-                                <h2 className="text-4xl lg:text-6xl font-black text-white uppercase tracking-tighter italic">Portfolio</h2>
-                                <p className="text-lg text-text-secondary font-medium tracking-tight">Active forecasts and authorization history.</p>
+                       <div className="max-w-4xl mx-auto space-y-12">
+                          <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-white/[0.03] pb-10">
+                             <div className="space-y-2">
+                                <h2 className="text-4xl font-bold text-white tracking-tighter italic">Portfolio</h2>
+                                <p className="text-sm text-text-secondary font-medium italic">Your active trajectory forecasts and history.</p>
                              </div>
-                             <div className="flex gap-10">
+                             <div className="flex gap-8">
                                 <div className="text-right">
-                                   <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Accuracy</p>
-                                   <p className="text-3xl font-mono font-bold text-primary">
-                                      {((userData?.stats?.totalWins || 0) / (userData?.stats?.predictionsCount || 1) * 100).toFixed(1)}%
+                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Win Rate</p>
+                                   <p className="text-2xl font-mono font-bold text-primary">
+                                      {((userData?.stats?.totalWins || 0) / (userData?.stats?.predictionsCount || 1) * 100).toFixed(0)}%
                                    </p>
                                 </div>
                                 <div className="text-right">
-                                   <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Total Wins</p>
-                                   <p className="text-3xl font-mono font-bold text-success">{(userData?.stats?.totalWins || 0)}</p>
+                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Settled</p>
+                                   <p className="text-2xl font-mono font-bold text-white">{(userData?.stats?.totalWins || 0)}</p>
                                 </div>
                              </div>
                           </header>
 
-                          <div className="grid grid-cols-1 gap-3">
+                          <div className="space-y-2">
                              {userPredictions.map((pred) => (
-                                <div key={pred.id} className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 flex items-center justify-between group hover:border-white/10 transition-all">
-                                   <div className="flex items-center gap-8">
+                                <div key={pred.id} className="p-6 rounded-2xl bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.02] transition-all">
+                                   <div className="flex items-center gap-6">
                                       <div className={cn(
-                                        "w-16 h-16 rounded-[1.5rem] flex items-center justify-center border text-2xl transition-all shadow-lg",
-                                        pred.status === 'RESOLVED' ? "bg-success/5 border-success/20 text-success" : "bg-primary/5 border-primary/20 text-primary"
+                                        "w-12 h-12 rounded-xl flex items-center justify-center border text-lg transition-all",
+                                        pred.status === 'RESOLVED' ? "bg-success/5 border-success/10 text-success" : "bg-primary/5 border-primary/10 text-primary"
                                       )}>
-                                         {pred.direction === 'UP' ? <TrendingUp /> : <TrendingDown />}
+                                         {pred.direction === 'UP' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
                                       </div>
-                                      <div className="space-y-1.5">
+                                      <div className="space-y-1">
                                          <div className="flex items-center gap-3">
-                                            <p className="text-xl font-black text-white uppercase tracking-tight italic">{pred.symbol} Forecast</p>
+                                            <p className="text-sm font-bold text-white uppercase tracking-tight">{pred.symbol} Forecast</p>
                                             <span className={cn(
-                                              "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded border",
+                                              "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
                                               pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-primary/10 text-primary border-primary/20"
                                             )}>{pred.status}</span>
                                          </div>
-                                         <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
-                                            Execution: {pred.createdAt?.toDate?.().toLocaleDateString() || 'Pending'}
+                                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
+                                            {pred.createdAt?.toDate?.().toLocaleDateString() || 'Recently'}
                                          </p>
                                       </div>
                                    </div>
 
-                                   <div className="flex items-center gap-12 text-right">
-                                      <div className="hidden sm:block">
-                                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Entry Value</p>
-                                         <p className="text-xl font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
+                                   <div className="flex items-center gap-10 text-right">
+                                      <div className="hidden md:block">
+                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Entry</p>
+                                         <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
                                       </div>
-                                      <div className="w-28">
-                                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Payout</p>
+                                      <div className="w-24">
+                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Payout</p>
                                          {pred.status === 'RESOLVED' ? (
                                             <p className={cn(
-                                              "text-xl font-mono font-bold",
+                                              "text-sm font-mono font-bold",
                                               (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/20"
                                             )}>
-                                               {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0'} <span className="text-[10px]">pts</span>
+                                               {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0'} PTS
                                             </p>
                                          ) : (
                                             <div className="flex items-center justify-end gap-1.5 text-primary">
-                                               <Clock size={12} />
-                                               <span className="text-[10px] font-black uppercase">Pending</span>
+                                               <Clock size={10} />
+                                               <span className="text-[9px] font-black uppercase tracking-widest">Active</span>
                                             </div>
                                          )}
+                                      </div>
+                                      <div className="p-2 rounded-lg bg-white/[0.03] text-white/20">
+                                         <ChevronRight size={14} />
                                       </div>
                                    </div>
                                 </div>
                              ))}
 
                              {userPredictions.length === 0 && (
-                                <div className="py-40 text-center border border-dashed border-white/5 rounded-[3.5rem] flex flex-col items-center gap-6 opacity-20">
-                                   <LineChart size={64} />
-                                   <p className="text-xs font-black uppercase tracking-[0.4em]">Zero Active Positions Found</p>
+                                <div className="py-24 text-center border border-dashed border-white/[0.05] rounded-[2rem] flex flex-col items-center gap-4 opacity-20">
+                                   <Activity size={40} />
+                                   <p className="text-[9px] font-black uppercase tracking-[0.3em]">No Active Positions</p>
                                 </div>
                              )}
                           </div>

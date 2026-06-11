@@ -28,6 +28,7 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Prediction', path: '/predictions', icon: Terminal },
     { name: 'Tasks', path: '/tasks', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Profile', path: '/me', icon: User },
@@ -55,13 +56,13 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center gap-10">
             {currentUser ? (
               <>
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-6">
                   {navLinks.map((link) => (
                     <Link
                       key={link.path}
                       to={link.path}
                       className={cn(
-                        "text-[10px] font-bold uppercase tracking-[0.15em] transition-colors relative py-1",
+                        "text-[10px] font-bold uppercase tracking-[0.1em] transition-colors relative py-1",
                         location.pathname === link.path ? "text-white" : "text-text-secondary hover:text-white"
                       )}
                     >

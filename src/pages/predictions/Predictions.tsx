@@ -131,6 +131,7 @@ const Predictions: React.FC = () => {
   };
 
   const activePositions = userPredictions.filter(p => p.status === 'ACTIVE');
+  const { loading: marketLoading } = useCryptoData();
 
   return (
     <MainLayout>
@@ -176,53 +177,75 @@ const Predictions: React.FC = () => {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                 {allMarkets.map((market) => {
-                    const mCoin = marketData.find(c => c.id === market.assetId);
-                    const isNegative = (mCoin?.price_change_percentage_24h || 0) < 0;
-
-                    return (
-                       <div
-                         key={market.id}
-                         onClick={() => setSelectedMarketId(market.id)}
-                         className="group p-6 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
-                       >
-                          <div className="flex justify-between items-start mb-8">
-                             <div className="w-12 h-12 rounded-xl bg-black/40 border border-white/[0.05] p-2 flex items-center justify-center">
-                                {mCoin?.image ? (
-                                   <img src={mCoin.image} className="w-full h-full object-contain" alt="" />
-                                ) : (
-                                   <Zap size={18} className="text-primary" />
-                                )}
-                             </div>
-                             <div className="text-right">
-                                <p className="text-[10px] font-mono font-bold text-white">${(mCoin?.current_price || 0).toLocaleString()}</p>
-                                <span className={cn(
-                                  "text-[9px] font-bold",
-                                  isNegative ? "text-danger" : "text-success"
-                                )}>
-                                   {isNegative ? '' : '+'}{mCoin?.price_change_percentage_24h?.toFixed(1)}%
-                                </span>
+                 {marketLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                       <div key={i} className="p-6 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] animate-pulse h-64 space-y-8">
+                          <div className="flex justify-between items-start">
+                             <div className="w-12 h-12 rounded-xl bg-white/5" />
+                             <div className="space-y-2">
+                                <div className="h-3 w-20 bg-white/5 rounded" />
+                                <div className="h-2 w-12 bg-white/5 rounded ml-auto" />
                              </div>
                           </div>
-
-                          <div className="space-y-4">
-                             <h3 className="text-lg font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
-                                {market.question}
-                             </h3>
-                             <div className="flex items-center justify-between pt-4 border-t border-white/[0.03]">
-                                <div className="flex items-center gap-1.5">
-                                   <Zap size={10} className="text-primary" />
-                                   <span className="text-[10px] font-mono font-bold text-white">+{market.reward.toLocaleString()} PTS</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-white/20">
-                                   <Activity size={10} />
-                                   <span className="text-[9px] font-bold uppercase tracking-widest">{market.participants.toLocaleString()}</span>
-                                </div>
-                             </div>
+                          <div className="space-y-3">
+                             <div className="h-4 w-full bg-white/5 rounded" />
+                             <div className="h-4 w-2/3 bg-white/5 rounded" />
+                          </div>
+                          <div className="pt-4 border-t border-white/[0.03] flex justify-between">
+                             <div className="h-3 w-16 bg-white/5 rounded" />
+                             <div className="h-3 w-12 bg-white/5 rounded" />
                           </div>
                        </div>
-                    );
-                 })}
+                    ))
+                 ) : (
+                    allMarkets.map((market) => {
+                       const mCoin = marketData.find(c => c.id === market.assetId);
+                       const isNegative = (mCoin?.price_change_percentage_24h || 0) < 0;
+
+                       return (
+                          <div
+                            key={market.id}
+                            onClick={() => setSelectedMarketId(market.id)}
+                            className="group p-6 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                          >
+                             <div className="flex justify-between items-start mb-8">
+                                <div className="w-12 h-12 rounded-xl bg-black/40 border border-white/[0.05] p-2 flex items-center justify-center">
+                                   {mCoin?.image ? (
+                                      <img src={mCoin.image} className="w-full h-full object-contain" alt="" />
+                                   ) : (
+                                      <Zap size={18} className="text-primary" />
+                                   )}
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-[10px] font-mono font-bold text-white">${(mCoin?.current_price || 0).toLocaleString()}</p>
+                                   <span className={cn(
+                                     "text-[9px] font-bold",
+                                     isNegative ? "text-danger" : "text-success"
+                                   )}>
+                                      {isNegative ? '' : '+'}{mCoin?.price_change_percentage_24h?.toFixed(1)}%
+                                   </span>
+                                </div>
+                             </div>
+
+                             <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                   {market.question}
+                                </h3>
+                                <div className="flex items-center justify-between pt-4 border-t border-white/[0.03]">
+                                   <div className="flex items-center gap-1.5">
+                                      <Zap size={10} className="text-primary" />
+                                      <span className="text-[10px] font-mono font-bold text-white">Potential Return: 2× Stake</span>
+                                   </div>
+                                   <div className="flex items-center gap-1.5 text-white/20">
+                                      <Activity size={10} />
+                                      <span className="text-[9px] font-bold uppercase tracking-widest">{market.participants.toLocaleString()}</span>
+                                   </div>
+                                </div>
+                             </div>
+                          </div>
+                       );
+                    })
+                 )}
               </motion.div>
            ) : (
               <motion.div
@@ -379,10 +402,10 @@ const Predictions: React.FC = () => {
 
                              <div className="grid grid-cols-2 gap-3">
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
-                                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Reward Pool</p>
+                                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Potential Return</p>
                                    <div className="flex items-center gap-1.5">
                                       <Zap size={10} className="text-primary" />
-                                      <span className="text-xs font-mono font-bold text-white">+{activeMarket.reward}</span>
+                                      <span className="text-xs font-mono font-bold text-white">200 PTS</span>
                                    </div>
                                 </div>
                                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">

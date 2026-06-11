@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
-import { Web3Provider } from './contexts/Web3Provider'
 import { TaskProvider } from './contexts/TaskContext'
 import { seedTasks } from './firebase/seed'
 import ErrorBoundary from './components/ui/ErrorBoundary'
@@ -21,15 +20,13 @@ seedTasks();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary name="App Root">
-      <Web3Provider>
-        <AuthProvider>
-          <TaskProvider>
-            <Suspense fallback={<div className="min-h-screen bg-[#050507] flex items-center justify-center"><div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}>
-              <App />
-            </Suspense>
-          </TaskProvider>
-        </AuthProvider>
-      </Web3Provider>
+      <AuthProvider>
+        <TaskProvider>
+          <Suspense fallback={<div className="min-h-screen bg-[#050507] flex items-center justify-center"><div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}>
+            <App />
+          </Suspense>
+        </TaskProvider>
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

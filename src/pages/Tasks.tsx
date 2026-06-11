@@ -157,27 +157,26 @@ const Tasks: React.FC = () => {
                           <div
                             key={camp.id}
                             onClick={() => navigate(`/campaigns/${camp.id}`)}
-                            className="group relative aspect-[16/9] rounded-[2rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5"
+                            className="group relative aspect-[21/9] rounded-[2.5rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 bg-[#0A0A0F]"
                           >
                              {camp.bannerUrl || camp.thumbnailUrl ? (
-                                <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" alt="" />
+                                <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-1000" alt="" />
                              ) : (
                                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
                              )}
-                             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-8 flex flex-col justify-end">
+                             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-10 flex flex-col justify-end">
                                 <div className="space-y-4">
                                    <div className="flex items-center gap-2">
                                       <span className="px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-[8px] font-black text-primary uppercase tracking-widest">{camp.category}</span>
-                                      <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Campaign</span>
                                    </div>
-                                   <h3 className="text-xl font-bold text-white tracking-tight italic leading-none">{camp.name}</h3>
+                                   <h3 className="text-2xl font-bold text-white tracking-tighter italic leading-none">{camp.name}</h3>
                                    <div className="flex items-center justify-between pt-2">
-                                      <div className="flex items-center gap-1.5">
-                                         <Zap size={10} className="text-primary" />
-                                         <span className="text-xs font-mono font-bold text-white">+{(camp.totalPrizePool || 0).toLocaleString()}</span>
+                                      <div className="flex items-center gap-2">
+                                         <Zap size={12} className="text-primary" />
+                                         <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">+{(camp.totalPrizePool || 0).toLocaleString()} PTS Pool</span>
                                       </div>
-                                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/40 group-hover:bg-white group-hover:text-black transition-all">
-                                         <ArrowRight size={14} />
+                                      <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white/40 group-hover:bg-white group-hover:text-black transition-all">
+                                         <ArrowRight size={16} />
                                       </div>
                                    </div>
                                 </div>
@@ -188,49 +187,73 @@ const Tasks: React.FC = () => {
                  )}
 
                  {activeMissions.length > 0 && (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 italic">Available Activities</h4>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 italic">Platform Missions</h4>
                           <div className="h-px flex-1 bg-white/[0.03]" />
                        </div>
 
-                       <div className="space-y-2">
+                       <div className="grid grid-cols-1 gap-2">
                           {activeMissions.map((mission) => {
                              const isCompleted = mission.progress?.status === 'COMPLETED';
+                             const progress = mission.progress?.progress || 0;
+                             const target = mission.definition.targetValue;
+                             const percent = Math.min((progress / target) * 100, 100);
+
                              return (
                                 <div
                                   key={mission.id}
                                   onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
                                   className={cn(
-                                    "group flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer",
+                                    "group p-1 rounded-2xl border transition-all cursor-pointer",
                                     isCompleted
-                                     ? "bg-primary/[0.04] border-primary/20 hover:bg-primary/[0.06]"
-                                     : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.03] hover:border-primary/20"
+                                     ? "bg-primary/[0.08] border-primary/20 hover:bg-primary/[0.12]"
+                                     : "bg-[#0A0A0F] border-white/5 hover:bg-white/[0.02] hover:border-primary/20"
                                   )}
                                 >
-                                   <div className="flex items-center gap-6 overflow-hidden">
-                                      <div className={cn(
-                                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all border",
-                                        isCompleted ? "bg-primary/20 border-primary/30" : "bg-white/[0.03] border-white/[0.05]"
-                                      )}>
-                                         <TaskIcon category={mission.definition.category} size={24} />
-                                      </div>
-                                      <div className="min-w-0">
-                                         <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-0.5">Task</p>
-                                         <h3 className="text-base font-bold text-white uppercase tracking-tight truncate">{mission.definition.title}</h3>
-                                      </div>
-                                   </div>
-
-                                   <div className="flex items-center gap-8 shrink-0 ml-4">
-                                      <div className="text-right hidden sm:block">
-                                         <div className="flex items-center gap-1.5 justify-end">
-                                            <Zap size={12} className="text-primary" />
-                                            <span className="text-sm font-mono font-bold text-white">+{mission.definition.rewardPoints}</span>
+                                   <div className="flex items-center justify-between p-4 px-5">
+                                      <div className="flex items-center gap-5 min-w-0">
+                                         <div className={cn(
+                                           "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-lg transition-all",
+                                           isCompleted ? "bg-primary/20 border-primary/30 text-white" : "bg-white/[0.03] border-white/5 text-primary group-hover:border-primary/20"
+                                         )}>
+                                            <TaskIcon category={mission.definition.category} size={22} />
                                          </div>
-                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Reward</p>
+                                         <div className="min-w-0 space-y-0.5">
+                                            <h3 className="text-sm font-bold text-white tracking-tight truncate group-hover:text-primary transition-colors uppercase italic">{mission.definition.title}</h3>
+                                            <div className="flex items-center gap-3">
+                                               <div className="flex items-center gap-1.5">
+                                                  <Zap size={10} className="text-primary" />
+                                                  <span className="text-[10px] font-mono font-bold text-text-secondary">+{mission.definition.rewardPoints}</span>
+                                               </div>
+                                               <span className="text-white/10">•</span>
+                                               <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.1em]">
+                                                  Goal: {target} Units
+                                               </span>
+                                            </div>
+                                         </div>
                                       </div>
-                                      <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-primary group-hover:text-white transition-all">
-                                         <ChevronRight size={16} />
+
+                                      <div className="flex items-center gap-6 shrink-0 ml-4">
+                                         <div className="hidden sm:flex flex-col items-end gap-1.5 w-24">
+                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest italic">{progress} / {target}</span>
+                                            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                               <motion.div
+                                                  initial={{ width: 0 }}
+                                                  animate={{ width: `${percent}%` }}
+                                                  className="h-full bg-primary"
+                                               />
+                                            </div>
+                                         </div>
+                                         {isCompleted ? (
+                                            <div className="px-5 py-2 rounded-lg bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 animate-pulse">
+                                               Claim
+                                            </div>
+                                         ) : (
+                                            <div className="w-9 h-9 rounded-xl bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-primary group-hover:text-white transition-all">
+                                               <ChevronRight size={16} />
+                                            </div>
+                                         )}
                                       </div>
                                    </div>
                                 </div>

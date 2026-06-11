@@ -62,11 +62,18 @@ const Navbar: React.FC = () => {
                       key={link.path}
                       to={link.path}
                       className={cn(
-                        "text-[10px] font-bold uppercase tracking-[0.1em] transition-colors relative py-1",
+                        "text-[10px] font-bold uppercase tracking-[0.1em] transition-colors relative py-1 group/link",
                         location.pathname === link.path ? "text-white" : "text-text-secondary hover:text-white"
                       )}
                     >
-                      {link.name}
+                      <div className="flex items-center gap-1.5">
+                        {link.name}
+                        {link.path === '/tasks' && availableCount > 0 && (
+                          <span className="w-4 h-4 bg-danger rounded-full flex items-center justify-center text-[7px] font-bold text-white shadow-[0_0_8px_rgba(239,68,68,0.4)]">
+                            {availableCount}
+                          </span>
+                        )}
+                      </div>
                       {location.pathname === link.path && (
                         <motion.div layoutId="nav-glow" className="absolute -bottom-1.5 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(0,102,255,0.8)]" />
                       )}
@@ -143,12 +150,19 @@ const Navbar: React.FC = () => {
                             to={link.path}
                             onClick={() => setIsMobileMenuOpen(false)}
                             className={cn(
-                              "flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] transition-all",
+                              "flex items-center justify-between p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] transition-all",
                               location.pathname === link.path ? "bg-white/5 text-white border border-white/5" : "text-text-secondary hover:bg-white/[0.02]"
                             )}
                           >
-                            <link.icon size={20} className={location.pathname === link.path ? "text-primary" : ""} />
-                            {link.name}
+                            <div className="flex items-center gap-4">
+                              <link.icon size={20} className={location.pathname === link.path ? "text-primary" : ""} />
+                              {link.name}
+                            </div>
+                            {link.path === '/tasks' && availableCount > 0 && (
+                              <span className="w-5 h-5 bg-danger rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-lg">
+                                {availableCount}
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </div>

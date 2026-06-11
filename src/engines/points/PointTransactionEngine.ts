@@ -216,11 +216,16 @@ export class PointTransactionEngine {
           ['stats.predictionsCount']: increment(1)
         });
 
-        // 1.5 Update Campaign Analytics
-        const campaignRef = doc(db, 'campaigns', taskId);
-        transaction.update(campaignRef, {
-          participantsCount: increment(1)
-        });
+        // 1.5 Update Campaign Analytics (Only if it's a campaign-linked market)
+        if (!taskId.startsWith('global_')) {
+          const campaignRef = doc(db, 'campaigns', taskId);
+          const campaignSnap = await transaction.get(campaignRef);
+          if (campaignSnap.exists()) {
+            transaction.update(campaignRef, {
+              participantsCount: increment(1)
+            });
+          }
+        }
 
         // 2. Create Verifiable Prediction Record
         transaction.set(predDoc, {
@@ -231,7 +236,7 @@ export class PointTransactionEngine {
           symbol,
           direction,
           stakeAmount: amount,
-          rewardAmount: rewardAmount || (amount * 2), // Default to 2x Reward Model
+          rewardAmount: amount * 2, // Strictly enforce 2x Reward Model for initial prod
           entryPrice,
           status: 'ACTIVE',
           claimId,

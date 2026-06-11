@@ -98,7 +98,7 @@ const Profile: React.FC = () => {
   return (
     <MainLayout>
       <div className="pt-32 pb-24 px-6 max-w-5xl mx-auto">
-        {/* PROFILE INFRASTRUCTURE HEADER */}
+        {/* PROFILE HEADER */}
         <header className="mb-16">
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12 text-center lg:text-left">
             <div className="relative group">
@@ -136,7 +136,7 @@ const Profile: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                      <Zap size={14} className="text-primary" />
-                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-white/20">Authorized XP</span>
+                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-white/20">XP Earned</span>
                    </div>
                  </div>
               </div>
@@ -144,8 +144,8 @@ const Profile: React.FC = () => {
               {/* XP HIERARCHY */}
               <div className="max-w-md mx-auto lg:mx-0 p-6 bg-surface-bright/30 border border-white/5 rounded-2xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
-                  <span>Elevation to Rank {xpStats.level + 1}</span>
-                  <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}% Verified</span>
+                  <span>Progress to Level {xpStats.level + 1}</span>
+                  <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}%</span>
                 </div>
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
@@ -186,7 +186,7 @@ const Profile: React.FC = () => {
           ))}
         </div>
 
-        {/* SYSTEM VIEWPORT */}
+        {/* CONTENT VIEWPORT */}
         <div className="min-h-[500px]">
           <AnimatePresence mode="wait">
             {activeTab === 'IDENTITY' && (
@@ -195,12 +195,12 @@ const Profile: React.FC = () => {
                   <section className="space-y-6">
                     <div className="flex items-center gap-3">
                        <div className="w-1 h-5 bg-primary rounded-full" />
-                       <h2 className="text-lg font-bold tracking-tight">Security Protocol</h2>
+                       <h2 className="text-lg font-bold tracking-tight">Account Security</h2>
                     </div>
                     <Card variant="compact" className="space-y-4">
                       <div className="ledger-row border-0">
-                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Email Verification</span>
-                        <div className="badge-system bg-success/10 text-success border-success/20">Authorized</div>
+                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Email Status</span>
+                        <div className="badge-system bg-success/10 text-success border-success/20">Verified</div>
                       </div>
                       <div className="ledger-row border-0">
                         <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Session Encryption</span>
@@ -216,7 +216,7 @@ const Profile: React.FC = () => {
                   <section className="space-y-6">
                     <div className="flex items-center gap-3">
                        <div className="w-1 h-5 bg-primary rounded-full" />
-                       <h2 className="text-lg font-bold tracking-tight">Ecosystem Linkage</h2>
+                       <h2 className="text-lg font-bold tracking-tight">Device Status</h2>
                     </div>
                     <Card variant="compact" className="flex items-center gap-6">
                       <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-white/5 flex items-center justify-center text-text-tertiary group hover:border-primary/20 transition-colors">
@@ -224,7 +224,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="space-y-1">
                          <p className="text-sm font-bold text-white">Device Pairing</p>
-                         <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">Primary Handset Authorized</p>
+                         <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">Linked</p>
                       </div>
                     </Card>
                   </section>
@@ -247,9 +247,9 @@ const Profile: React.FC = () => {
                   </div>
                   <div className="relative z-10 max-w-xl space-y-10">
                     <div className="space-y-3">
-                       <h2 className="text-3xl font-bold tracking-tight">Referral Infrastructure</h2>
+                       <h2 className="text-3xl font-bold tracking-tight">Referral Program</h2>
                        <p className="text-base text-text-secondary leading-relaxed font-medium">
-                          Expand the PulseEarn node network. You receive <span className="text-white font-bold tracking-tight">50 PTS</span> for every verified user you onboard to the ecosystem.
+                          Invite friends to join the PulseEarn community. You receive <span className="text-white font-bold tracking-tight">50 PTS</span> for every verified user you onboard to the platform.
                        </p>
                     </div>
 
@@ -269,7 +269,7 @@ const Profile: React.FC = () => {
                         <p className="text-4xl font-bold text-white tracking-tighter">{userData?.stats?.referralsCount || 0}</p>
                       </div>
                       <div className="space-y-2">
-                        <p className="data-label">Inventory Earned</p>
+                        <p className="data-label">Total Earned</p>
                         <p className="text-4xl font-bold text-white tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
@@ -282,7 +282,7 @@ const Profile: React.FC = () => {
               <motion.div key="activity" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
                 <div className="flex items-center gap-3">
                    <div className="w-1 h-5 bg-primary rounded-full" />
-                   <h2 className="text-lg font-bold tracking-tight">Recent Synchronization History</h2>
+                   <h2 className="text-lg font-bold tracking-tight">Recent Activity History</h2>
                 </div>
                 <div className="space-y-2">
                   {transactions.slice(0, 10).map(tx => (
@@ -305,7 +305,7 @@ const Profile: React.FC = () => {
                   ))}
                   {transactions.length === 0 && (
                     <div className="py-24 text-center border border-dashed border-border rounded-[2.5rem]">
-                       <p className="text-[10px] font-bold uppercase text-text-tertiary tracking-[0.2em]">No system activity found in current cycle</p>
+                       <p className="text-[10px] font-bold uppercase text-text-tertiary tracking-[0.2em]">No recent activity</p>
                     </div>
                   )}
                 </div>
@@ -350,7 +350,7 @@ const Profile: React.FC = () => {
                 <section className="space-y-8">
                   <div className="flex items-center gap-3">
                     <div className="w-1 h-5 bg-primary rounded-full" />
-                    <h2 className="text-lg font-bold tracking-tight">Security Infrastructure</h2>
+                    <h2 className="text-lg font-bold tracking-tight">Security & Privacy</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button className="flex items-center justify-between p-6 bg-surface border border-border rounded-2xl hover:border-primary/30 transition-all text-left">

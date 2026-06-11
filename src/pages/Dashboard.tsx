@@ -77,8 +77,8 @@ const Dashboard: React.FC = () => {
             className="flex flex-wrap gap-3"
           >
              {[
-               { name: 'Browse', path: '/tasks', icon: LayoutGrid },
-               { name: 'Predictions', path: '/predictions', icon: BarChart3 },
+               { name: 'Tasks', path: '/tasks', icon: LayoutGrid },
+               { name: 'Markets', path: '/predictions', icon: BarChart3 },
                { name: 'Withdraw', path: '/wallet', icon: CreditCard },
                { name: 'Invite', path: '/referrals', icon: UserPlus },
              ].map((action) => (
@@ -166,9 +166,9 @@ const Dashboard: React.FC = () => {
             {featuredCampaign ? (
                <section className="space-y-8">
                   <div className="flex items-center justify-between">
-                     <h2 className="text-xl font-bold tracking-tight">Priority Discovery</h2>
+                     <h2 className="text-xl font-bold tracking-tight">Featured Tasks</h2>
                      <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white flex items-center gap-2 transition-colors">
-                        All Campaigns <ChevronRight size={14} />
+                        All Tasks <ChevronRight size={14} />
                      </Link>
                   </div>
 
@@ -254,7 +254,7 @@ const Dashboard: React.FC = () => {
                </div>
 
                <Button variant="outline" className="w-full h-16 rounded-[2rem]" onClick={() => navigate('/tasks')}>
-                  View All Marketplace Campaigns
+                  View All Available Tasks
                </Button>
             </section>
           </div>

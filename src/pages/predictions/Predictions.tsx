@@ -11,12 +11,12 @@ import {
   Clock,
   Zap,
   Activity,
-  ShieldCheck,
   ArrowUpRight,
   ArrowDownRight,
   LineChart,
-  ChevronRight,
-  Info
+  Info,
+  X,
+  Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -32,7 +32,7 @@ const Predictions: React.FC = () => {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<'UP' | 'DOWN' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [terminalView, setTerminalView] = useState<'FORECAST' | 'PORTFOLIO'>('FORECAST');
+  const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
 
   // Unified global markets from live data + admin campaigns
   const allMarkets = useMemo(() => {
@@ -59,7 +59,11 @@ const Predictions: React.FC = () => {
       isCampaign: false,
       image: coin.image,
       price: coin.current_price,
-      change: coin.price_change_percentage_24h
+      change: coin.price_change_percentage_24h,
+      high_24h: (coin as any).high_24h,
+      low_24h: (coin as any).low_24h,
+      total_volume: coin.total_volume,
+      market_cap: coin.market_cap
     }));
 
     return [...campaignMarkets, ...globalMarkets];
@@ -86,14 +90,7 @@ const Predictions: React.FC = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Default selection
-  useEffect(() => {
-    if (allMarkets.length > 0 && !selectedMarketId) {
-      setSelectedMarketId(allMarkets[0].id);
-    }
-  }, [allMarkets, selectedMarketId]);
-
-  const activeMarket = allMarkets.find(m => m.id === selectedMarketId) || allMarkets[0];
+  const activeMarket = allMarkets.find(m => m.id === selectedMarketId);
   const coinData = marketData.find(c => c.id === activeMarket?.assetId);
 
   const handlePredict = async () => {
@@ -123,10 +120,11 @@ const Predictions: React.FC = () => {
 
       if (!result.success) throw new Error(result.error);
 
-      toast.success('Forecast Authorized');
+      toast.success('Forecast Submitted');
       setPrediction(null);
+      setSelectedMarketId(null);
     } catch (err: any) {
-      toast.error(err.message || 'Authorization failed.');
+      toast.error(err.message || 'Submission failed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -136,342 +134,309 @@ const Predictions: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-20 min-h-screen bg-[#050507] flex flex-col">
-        {/* PREMIUM SUB-NAV */}
-        <div className="h-14 border-b border-white/[0.03] bg-black/40 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-30">
-           <div className="flex items-center gap-8">
+      <div className="pt-24 pb-20 min-h-screen bg-[#050507] px-6 max-w-7xl mx-auto space-y-12">
+        {/* HEADER */}
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+           <div className="space-y-4">
               <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Market Live</span>
+                 <Target size={14} className="text-primary" />
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Live Forecasting</span>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-white/[0.02] border border-white/[0.05] rounded-full">
-                 <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Balance:</span>
-                 <span className="text-[10px] font-mono font-bold text-white">{(userData?.points || 0).toLocaleString()} PTS</span>
-              </div>
+              <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none italic">
+                 Prediction
+              </h1>
            </div>
 
-           <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05]">
+           <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] shrink-0">
               <button
-                onClick={() => setTerminalView('FORECAST')}
+                onClick={() => setTerminalView('EXPLORE')}
                 className={cn(
-                  "px-6 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all",
-                  terminalView === 'FORECAST' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
+                  "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                  terminalView === 'EXPLORE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
                 )}
               >
-                Prediction
+                Explore
               </button>
               <button
                 onClick={() => setTerminalView('PORTFOLIO')}
                 className={cn(
-                  "px-6 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
-                  terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
+                  "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                  terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
                 )}
               >
                 Portfolio {activePositions.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
               </button>
            </div>
-        </div>
+        </header>
 
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-
-           {/* LEFT SIDEBAR: ASSET SELECTION */}
-           <aside className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-white/[0.03] bg-black/20 flex flex-col shrink-0 z-20">
-              <div className="p-5 border-b border-white/[0.03] hidden lg:block">
-                 <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30">Select Asset</h2>
-              </div>
-
-              <div className="flex-1 overflow-x-auto lg:overflow-y-auto no-scrollbar lg:custom-scrollbar flex lg:flex-col p-2 gap-1">
+        <AnimatePresence mode="wait">
+           {terminalView === 'EXPLORE' ? (
+              <motion.div
+                key="explore"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
                  {allMarkets.map((market) => {
                     const mCoin = marketData.find(c => c.id === market.assetId);
-                    const isSelected = selectedMarketId === market.id;
                     const isNegative = (mCoin?.price_change_percentage_24h || 0) < 0;
 
                     return (
-                       <button
+                       <div
                          key={market.id}
-                         onClick={() => { setSelectedMarketId(market.id); setTerminalView('FORECAST'); }}
-                         className={cn(
-                           "min-w-[180px] lg:min-w-0 w-full p-3.5 rounded-xl transition-all flex items-center gap-3 group border shrink-0",
-                           isSelected ? "bg-white/[0.04] border-white/[0.05]" : "bg-transparent border-transparent hover:bg-white/[0.02]"
-                         )}
+                         onClick={() => setSelectedMarketId(market.id)}
+                         className="group p-6 rounded-[2rem] bg-white/[0.01] border border-white/[0.03] hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
                        >
-                          <div className="w-8 h-8 rounded-lg bg-black/40 border border-white/[0.05] p-1.5 flex items-center justify-center shrink-0">
-                             {mCoin?.image ? (
-                                <img src={mCoin.image} className="w-full h-full object-contain" alt="" />
-                             ) : (
-                                <Zap size={14} className="text-primary" />
-                             )}
-                          </div>
-                          <div className="flex-1 text-left min-w-0">
-                             <div className="flex items-center justify-between">
-                                <p className="text-[10px] font-bold text-white truncate tracking-tight">{market.symbol}</p>
+                          <div className="flex justify-between items-start mb-8">
+                             <div className="w-12 h-12 rounded-xl bg-black/40 border border-white/[0.05] p-2 flex items-center justify-center">
+                                {mCoin?.image ? (
+                                   <img src={mCoin.image} className="w-full h-full object-contain" alt="" />
+                                ) : (
+                                   <Zap size={18} className="text-primary" />
+                                )}
+                             </div>
+                             <div className="text-right">
+                                <p className="text-[10px] font-mono font-bold text-white">${(mCoin?.current_price || 0).toLocaleString()}</p>
                                 <span className={cn(
-                                  "text-[8px] font-mono font-bold",
+                                  "text-[9px] font-bold",
                                   isNegative ? "text-danger" : "text-success"
                                 )}>
                                    {isNegative ? '' : '+'}{mCoin?.price_change_percentage_24h?.toFixed(1)}%
                                 </span>
                              </div>
-                             <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5">${(mCoin?.current_price || 0).toLocaleString()}</p>
                           </div>
-                       </button>
+
+                          <div className="space-y-4">
+                             <h3 className="text-lg font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                {market.question}
+                             </h3>
+                             <div className="flex items-center justify-between pt-4 border-t border-white/[0.03]">
+                                <div className="flex items-center gap-1.5">
+                                   <Zap size={10} className="text-primary" />
+                                   <span className="text-[10px] font-mono font-bold text-white">+{market.reward.toLocaleString()} PTS</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-white/20">
+                                   <Activity size={10} />
+                                   <span className="text-[9px] font-bold uppercase tracking-widest">{market.participants.toLocaleString()}</span>
+                                </div>
+                             </div>
+                          </div>
+                       </div>
                     );
                  })}
-              </div>
-           </aside>
-
-           {/* CENTER STAGE: ANALYSIS & CHART */}
-           <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#050507]">
-              <AnimatePresence mode="wait">
-                 {terminalView === 'FORECAST' ? (
-                    <motion.div
-                      key="forecast"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex-1 flex flex-col lg:flex-row h-full"
-                    >
-                       <div className="flex-1 p-6 lg:p-10 space-y-10 overflow-y-auto no-scrollbar">
-                          {activeMarket ? (
-                             <div className="max-w-4xl mx-auto space-y-10">
-                                <div className="space-y-6">
-                                   <div className="flex items-center gap-3">
-                                      <span className={cn(
-                                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
-                                        activeMarket.isCampaign ? "bg-primary/10 text-primary border-primary/20" : "bg-white/[0.03] text-white/40 border-white/[0.05]"
-                                      )}>
-                                         {activeMarket.isCampaign ? 'Featured' : 'Global Market'}
-                                      </span>
-                                      <div className="flex items-center gap-1.5 text-text-tertiary">
-                                         <Activity size={10} />
-                                         <span className="text-[9px] font-bold uppercase tracking-widest">{activeMarket.participants.toLocaleString()} Analysts</span>
-                                      </div>
-                                   </div>
-                                   <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tighter leading-tight">
-                                      {activeMarket.question}
-                                   </h1>
-                                </div>
-
-                                <div className="bg-black/20 rounded-[2rem] border border-white/[0.03] p-1 shadow-2xl">
-                                   <div className="p-8 border-b border-white/[0.03] flex items-center justify-between">
-                                      <div className="flex items-center gap-4">
-                                         <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
-                                            <LineChart size={20} className="text-primary" />
-                                         </div>
-                                         <div>
-                                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-0.5">Live Trajectory</p>
-                                            <p className="text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
-                                         </div>
-                                      </div>
-                                      <div className="hidden sm:flex items-center gap-4">
-                                         <div className="text-right">
-                                            <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">24h Vol</p>
-                                            <p className="text-xs font-mono font-bold text-success">${(coinData?.total_volume || 0).toLocaleString()}</p>
-                                         </div>
-                                         <div className="text-right">
-                                            <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Market Cap</p>
-                                            <p className="text-xs font-mono font-bold text-primary">${(coinData?.market_cap || 0).toLocaleString()}</p>
-                                         </div>
-                                      </div>
-                                   </div>
-                                   <div className="p-6">
-                                      <PredictionChart
-                                        assetId={activeMarket.assetId}
-                                        symbol={activeMarket.symbol}
-                                      />
-                                   </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                   {[
-                                      { label: 'Forecast Reward', value: `+${activeMarket.reward.toLocaleString()} PTS`, icon: Zap, color: 'text-primary' },
-                                      { label: 'Resolution', value: '24h Expiry', icon: ShieldCheck, color: 'text-success' },
-                                      { label: 'Status', value: 'Authorized', icon: Clock, color: 'text-warning' }
-                                   ].map((metric, i) => (
-                                      <div key={i} className="p-6 rounded-2xl bg-white/[0.01] border border-white/[0.03] space-y-3 group hover:bg-white/[0.02] transition-all">
-                                         <div className="flex items-center gap-2 text-text-tertiary">
-                                            <metric.icon size={12} className={metric.color} />
-                                            <span className="text-[9px] font-bold uppercase tracking-widest">{metric.label}</span>
-                                         </div>
-                                         <p className="text-lg font-bold text-white tracking-tight uppercase">{metric.value}</p>
-                                      </div>
-                                   ))}
-                                </div>
+              </motion.div>
+           ) : (
+              <motion.div
+                key="portfolio"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="space-y-4"
+              >
+                 {userPredictions.map((pred) => (
+                    <div key={pred.id} className="p-6 rounded-2xl bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.02] transition-all">
+                       <div className="flex items-center gap-6">
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center border text-lg transition-all",
+                            pred.status === 'RESOLVED' ? "bg-success/5 border-success/10 text-success" : "bg-primary/5 border-primary/10 text-primary"
+                          )}>
+                             {pred.direction === 'UP' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                          </div>
+                          <div className="space-y-1">
+                             <div className="flex items-center gap-3">
+                                <p className="text-sm font-bold text-white uppercase tracking-tight">{pred.symbol} Forecast</p>
+                                <span className={cn(
+                                  "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
+                                  pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-primary/10 text-primary border-primary/20"
+                                )}>{pred.status}</span>
                              </div>
-                          ) : (
-                             <div className="h-full flex items-center justify-center opacity-20">
-                                <Activity size={48} className="animate-pulse" />
-                             </div>
-                          )}
+                             <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
+                                {pred.createdAt?.toDate?.().toLocaleDateString() || 'Recently'}
+                             </p>
+                          </div>
                        </div>
 
-                       {/* RIGHT PANEL: EXECUTION */}
-                       <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-white/[0.03] bg-black/40 p-8 flex flex-col justify-between shrink-0">
-                          <div className="space-y-10">
-                             <div className="space-y-1.5">
-                                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">Trajectory Analysis</p>
-                                <h3 className="text-lg font-bold text-white uppercase tracking-tight">Authorization</h3>
-                             </div>
-
-                             <div className="space-y-3">
-                                <button
-                                  onClick={() => setPrediction('UP')}
-                                  className={cn(
-                                    "w-full p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
-                                    prediction === 'UP' ? "bg-success/10 border-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-success/30"
-                                  )}
-                                >
-                                   <div className={cn(
-                                     "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                                     prediction === 'UP' ? "bg-success text-white" : "bg-white/[0.03] text-white/20 group-hover:text-success"
-                                   )}>
-                                      <ArrowUpRight size={24} />
-                                   </div>
-                                   <div className="text-center">
-                                      <p className={cn("font-black uppercase tracking-[0.1em] text-[10px]", prediction === 'UP' ? "text-success" : "text-white/40")}>Bullish Forecast</p>
-                                      <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5 italic">Predict higher valuation</p>
-                                   </div>
-                                </button>
-
-                                <button
-                                  onClick={() => setPrediction('DOWN')}
-                                  className={cn(
-                                    "w-full p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
-                                    prediction === 'DOWN' ? "bg-danger/10 border-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-danger/30"
-                                  )}
-                                >
-                                   <div className={cn(
-                                     "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                                     prediction === 'DOWN' ? "bg-danger text-white" : "bg-white/[0.03] text-white/20 group-hover:text-danger"
-                                   )}>
-                                      <ArrowDownRight size={24} />
-                                   </div>
-                                   <div className="text-center">
-                                      <p className={cn("font-black uppercase tracking-[0.1em] text-[10px]", prediction === 'DOWN' ? "text-danger" : "text-white/40")}>Bearish Forecast</p>
-                                      <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5 italic">Predict lower valuation</p>
-                                   </div>
-                                </button>
-                             </div>
-
-                             <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/[0.03] space-y-3">
-                                <div className="flex justify-between items-center">
-                                   <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Platform Fee</span>
-                                   <span className="text-xs font-mono font-bold text-white">100 PTS</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                   <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Entry Limit</span>
-                                   <span className="text-[9px] font-black text-success uppercase tracking-widest">Authorized</span>
-                                </div>
-                             </div>
+                       <div className="flex items-center gap-10 text-right">
+                          <div className="hidden md:block">
+                             <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Entry</p>
+                             <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
                           </div>
-
-                          <div className="space-y-6 pt-10">
-                             <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
-                                <Info size={14} className="text-primary shrink-0" />
-                                <p className="text-[9px] font-bold text-text-secondary leading-normal">
-                                   Forecasts are finalized upon submission and settled at the next resolution cycle.
+                          <div className="w-24">
+                             <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Payout</p>
+                             {pred.status === 'RESOLVED' ? (
+                                <p className={cn(
+                                  "text-sm font-mono font-bold",
+                                  (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/20"
+                                )}>
+                                   {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0'} PTS
                                 </p>
-                             </div>
-                             <Button
-                               className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white font-black uppercase tracking-[0.3em] text-[11px] rounded-xl disabled:opacity-20 transition-all active:scale-[0.98]"
-                               disabled={!prediction || isSubmitting}
-                               isLoading={isSubmitting}
-                               onClick={handlePredict}
-                             >
-                                Submit Forecast
-                             </Button>
-                          </div>
-                       </div>
-                    </motion.div>
-                 ) : (
-                    <motion.div
-                      key="portfolio"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex-1 p-6 lg:p-12 overflow-y-auto no-scrollbar"
-                    >
-                       <div className="max-w-4xl mx-auto space-y-12">
-                          <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-white/[0.03] pb-10">
-                             <div className="space-y-2">
-                                <h2 className="text-4xl font-bold text-white tracking-tighter italic">Portfolio</h2>
-                                <p className="text-sm text-text-secondary font-medium italic">Your active trajectory forecasts and history.</p>
-                             </div>
-                             <div className="flex gap-8">
-                                <div className="text-right">
-                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Win Rate</p>
-                                   <p className="text-2xl font-mono font-bold text-primary">
-                                      {((userData?.stats?.totalWins || 0) / (userData?.stats?.predictionsCount || 1) * 100).toFixed(0)}%
-                                   </p>
-                                </div>
-                                <div className="text-right">
-                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Settled</p>
-                                   <p className="text-2xl font-mono font-bold text-white">{(userData?.stats?.totalWins || 0)}</p>
-                                </div>
-                             </div>
-                          </header>
-
-                          <div className="space-y-2">
-                             {userPredictions.map((pred) => (
-                                <div key={pred.id} className="p-6 rounded-2xl bg-white/[0.01] border border-white/[0.03] flex items-center justify-between group hover:bg-white/[0.02] transition-all">
-                                   <div className="flex items-center gap-6">
-                                      <div className={cn(
-                                        "w-12 h-12 rounded-xl flex items-center justify-center border text-lg transition-all",
-                                        pred.status === 'RESOLVED' ? "bg-success/5 border-success/10 text-success" : "bg-primary/5 border-primary/10 text-primary"
-                                      )}>
-                                         {pred.direction === 'UP' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
-                                      </div>
-                                      <div className="space-y-1">
-                                         <div className="flex items-center gap-3">
-                                            <p className="text-sm font-bold text-white uppercase tracking-tight">{pred.symbol} Forecast</p>
-                                            <span className={cn(
-                                              "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border",
-                                              pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-primary/10 text-primary border-primary/20"
-                                            )}>{pred.status}</span>
-                                         </div>
-                                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
-                                            {pred.createdAt?.toDate?.().toLocaleDateString() || 'Recently'}
-                                         </p>
-                                      </div>
-                                   </div>
-
-                                   <div className="flex items-center gap-10 text-right">
-                                      <div className="hidden md:block">
-                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Entry</p>
-                                         <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
-                                      </div>
-                                      <div className="w-24">
-                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest mb-0.5">Payout</p>
-                                         {pred.status === 'RESOLVED' ? (
-                                            <p className={cn(
-                                              "text-sm font-mono font-bold",
-                                              (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/20"
-                                            )}>
-                                               {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0'} PTS
-                                            </p>
-                                         ) : (
-                                            <div className="flex items-center justify-end gap-1.5 text-primary">
-                                               <Clock size={10} />
-                                               <span className="text-[9px] font-black uppercase tracking-widest">Active</span>
-                                            </div>
-                                         )}
-                                      </div>
-                                      <div className="p-2 rounded-lg bg-white/[0.03] text-white/20">
-                                         <ChevronRight size={14} />
-                                      </div>
-                                   </div>
-                                </div>
-                             ))}
-
-                             {userPredictions.length === 0 && (
-                                <div className="py-24 text-center border border-dashed border-white/[0.05] rounded-[2rem] flex flex-col items-center gap-4 opacity-20">
-                                   <Activity size={40} />
-                                   <p className="text-[9px] font-black uppercase tracking-[0.3em]">No Active Positions</p>
+                             ) : (
+                                <div className="flex items-center justify-end gap-1.5 text-primary">
+                                   <Clock size={10} />
+                                   <span className="text-[9px] font-black uppercase tracking-widest">Active</span>
                                 </div>
                              )}
                           </div>
                        </div>
-                    </motion.div>
+                    </div>
+                 ))}
+
+                 {userPredictions.length === 0 && (
+                    <div className="py-24 text-center border border-dashed border-white/[0.05] rounded-[2rem] flex flex-col items-center gap-4 opacity-20">
+                       <Activity size={40} />
+                       <p className="text-[9px] font-black uppercase tracking-[0.3em]">No Active Positions</p>
+                    </div>
                  )}
-              </AnimatePresence>
-           </main>
-        </div>
+              </motion.div>
+           )}
+        </AnimatePresence>
+
+        {/* PREDICTION DETAIL PANEL */}
+        <AnimatePresence>
+           {selectedMarketId && activeMarket && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+                 <motion.div
+                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                   className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                   onClick={() => setSelectedMarketId(null)}
+                 />
+                 <motion.div
+                   initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                   className="relative w-full max-w-6xl h-full max-h-[850px] bg-surface-bright rounded-[3rem] border border-white/5 shadow-2xl flex flex-col md:flex-row overflow-hidden"
+                 >
+                    {/* LEFT: ANALYSIS & CHART */}
+                    <div className="flex-1 p-8 lg:p-12 flex flex-col overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-white/5">
+                       <div className="flex justify-between items-start mb-10">
+                          <div className="space-y-4 flex-1">
+                             <div className="flex items-center gap-3">
+                                <span className={cn(
+                                   "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border",
+                                   activeMarket.isCampaign ? "bg-primary/10 text-primary border-primary/20" : "bg-white/[0.03] text-white/40 border-white/[0.05]"
+                                )}>
+                                   {activeMarket.isCampaign ? 'Featured Discovery' : 'Market Opportunity'}
+                                </span>
+                             </div>
+                             <h2 className="text-3xl lg:text-5xl font-bold text-white tracking-tighter leading-none italic">{activeMarket.question}</h2>
+                          </div>
+                          <button onClick={() => setSelectedMarketId(null)} className="p-3 hover:bg-white/5 rounded-2xl transition-all md:hidden">
+                             <X size={24} />
+                          </button>
+                       </div>
+
+                       <div className="flex-1 bg-black/20 rounded-[2.5rem] border border-white/5 p-8 relative overflow-hidden flex flex-col">
+                          <div className="flex justify-between items-center mb-8">
+                             <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                                   <LineChart size={20} className="text-primary" />
+                                </div>
+                                <div>
+                                   <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-0.5">Mark Price</p>
+                                   <p className="text-2xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
+                                </div>
+                             </div>
+                             <div className="hidden lg:flex items-center gap-6">
+                                <div className="text-right">
+                                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">24h Vol</p>
+                                   <p className="text-xs font-mono font-bold text-success">${(coinData?.total_volume || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Market Cap</p>
+                                   <p className="text-xs font-mono font-bold text-primary">${(coinData?.market_cap || 0).toLocaleString()}</p>
+                                </div>
+                             </div>
+                          </div>
+                          <div className="flex-1">
+                             <PredictionChart assetId={activeMarket.assetId} symbol={activeMarket.symbol} />
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* RIGHT: ACTION PANEL */}
+                    <div className="w-full md:w-[420px] bg-black/40 p-8 lg:p-12 flex flex-col justify-between shrink-0">
+                       <div className="space-y-12">
+                          <div className="flex justify-between items-start">
+                             <div className="space-y-1.5">
+                                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">Forecast Control</p>
+                                <h3 className="text-xl font-bold text-white uppercase tracking-tight">Confirm Position</h3>
+                             </div>
+                             <button onClick={() => setSelectedMarketId(null)} className="p-3 hover:bg-white/5 rounded-2xl transition-all hidden md:block">
+                                <X size={24} />
+                             </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4">
+                             <button
+                               onClick={() => setPrediction('UP')}
+                               className={cn(
+                                 "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4 group overflow-hidden relative",
+                                 prediction === 'UP' ? "bg-success/10 border-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-success/30"
+                               )}
+                             >
+                                <div className={cn(
+                                   "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
+                                   prediction === 'UP' ? "bg-success text-white" : "bg-white/[0.03] text-white/20"
+                                )}>
+                                   <ArrowUpRight size={32} />
+                                </div>
+                                <div className="text-center">
+                                   <p className={cn("font-black uppercase tracking-[0.1em] text-xs", prediction === 'UP' ? "text-success" : "text-white/40")}>Predict Up</p>
+                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1 italic">Price will increase</p>
+                                </div>
+                             </button>
+
+                             <button
+                               onClick={() => setPrediction('DOWN')}
+                               className={cn(
+                                 "p-8 rounded-[2rem] border transition-all flex flex-col items-center gap-4 group overflow-hidden relative",
+                                 prediction === 'DOWN' ? "bg-danger/10 border-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-white/[0.01] border-white/[0.05] hover:border-danger/30"
+                               )}
+                             >
+                                <div className={cn(
+                                   "w-14 h-14 rounded-2xl flex items-center justify-center transition-all",
+                                   prediction === 'DOWN' ? "bg-danger text-white" : "bg-white/[0.03] text-white/20"
+                                )}>
+                                   <ArrowDownRight size={32} />
+                                </div>
+                                <div className="text-center">
+                                   <p className={cn("font-black uppercase tracking-[0.1em] text-xs", prediction === 'DOWN' ? "text-danger" : "text-white/40")}>Predict Down</p>
+                                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1 italic">Price will decrease</p>
+                                </div>
+                             </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                             <div className="p-6 rounded-[1.5rem] bg-white/[0.01] border border-white/[0.03] space-y-2">
+                                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reward</p>
+                                <div className="flex items-center gap-1.5">
+                                   <Zap size={10} className="text-primary" />
+                                   <span className="text-sm font-mono font-bold text-white">+{activeMarket.reward}</span>
+                                </div>
+                             </div>
+                             <div className="p-6 rounded-[1.5rem] bg-white/[0.01] border border-white/[0.03] space-y-2">
+                                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Fee</p>
+                                <span className="text-sm font-mono font-bold text-white">100 PTS</span>
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="space-y-6">
+                          <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
+                             <Info size={14} className="text-primary shrink-0" />
+                             <p className="text-[9px] font-bold text-text-secondary leading-normal italic">
+                                Positions settle at the next market resolution cycle. Final submission is immutable.
+                             </p>
+                          </div>
+                          <Button
+                            className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl disabled:opacity-20 transition-all active:scale-[0.98] italic shadow-2xl shadow-primary/10"
+                            disabled={!prediction || isSubmitting}
+                            isLoading={isSubmitting}
+                            onClick={handlePredict}
+                          >
+                             Submit Prediction
+                          </Button>
+                       </div>
+                    </div>
+                 </motion.div>
+              </div>
+           )}
+        </AnimatePresence>
       </div>
     </MainLayout>
   );

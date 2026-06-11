@@ -120,18 +120,20 @@ const Dashboard: React.FC = () => {
                           {getLevelTier(userData?.level || 1).title}
                        </span>
                     </div>
-                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP Authorized</p>
+                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP Earned</p>
                  </div>
-                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
                       className={cn(
-                        "h-full transition-all duration-1000",
+                        "h-full transition-all duration-1000 rounded-full relative",
                         getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
-                        getLevelTier(userData?.level || 1).glow
+                        "shadow-[0_0_15px_rgba(94,106,210,0.6)]"
                       )}
-                    />
+                    >
+                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                    </motion.div>
                  </div>
               </div>
            </Card>
@@ -162,13 +164,49 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
           {/* PRIMARY EARNING FEED */}
           <div className="lg:col-span-2 space-y-16">
+            {/* DAILY OBJECTIVE */}
+            <section className="space-y-6">
+               <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold tracking-tight">Today's Objective</h2>
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
+                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                     Live Reset in 12h
+                  </div>
+               </div>
+               <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                     <Target size={120} className="text-primary" />
+                  </div>
+                  <div className="relative z-10 space-y-6">
+                     <div className="space-y-2">
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Daily Goal</p>
+                        <h3 className="text-3xl font-bold text-white tracking-tight leading-none italic">Complete 3 Campaign Tasks</h3>
+                     </div>
+                     <div className="flex items-center gap-6">
+                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                           <div className="h-full bg-primary w-1/3 shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]" />
+                        </div>
+                        <span className="text-sm font-mono font-bold text-white">1/3</span>
+                     </div>
+                     <Button
+                        size="sm"
+                        variant="primary"
+                        className="rounded-xl px-8 h-12"
+                        onClick={() => navigate('/tasks')}
+                     >
+                        Continue Progress
+                     </Button>
+                  </div>
+               </div>
+            </section>
+
             {/* FEATURED DISCOVERY */}
             {featuredCampaign ? (
                <section className="space-y-8">
                   <div className="flex items-center justify-between">
-                     <h2 className="text-xl font-bold tracking-tight">Featured Tasks</h2>
+                     <h2 className="text-xl font-bold tracking-tight">Featured Discovery</h2>
                      <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white flex items-center gap-2 transition-colors">
-                        All Tasks <ChevronRight size={14} />
+                        View All <ChevronRight size={14} />
                      </Link>
                   </div>
 

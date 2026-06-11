@@ -100,7 +100,7 @@ export const seedTasks = async () => {
         {
           id: 'referral_pro',
           title: 'Community Leader',
-          description: 'Onboard 5 unique nodes to the referral network.',
+          description: 'Invite 5 friends to join the PulseEarn community.',
           trigger: 'referral_completed',
           category: 'REFERRAL',
           conditionField: 'stats.referralsCount',

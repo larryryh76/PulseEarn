@@ -69,7 +69,7 @@ const Notifications: React.FC = () => {
             className="h-10"
           >
             <Check size={14} />
-            Authorize All Read
+            Mark All as Read
           </Button>
         </header>
 

@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
-  const { tasks, campaigns, userTasks } = useTasks();
+  const { tasks, userTasks } = useTasks();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,9 +34,9 @@ const Navbar: React.FC = () => {
     { name: 'Profile', path: '/me', icon: User },
   ];
 
-  const availableCount = campaigns.filter(c => {
-    const cTasks = tasks.filter(t => t.campaignId === c.id);
-    return cTasks.some(t => !userTasks[t.id] || userTasks[t.id].status === 'available' || userTasks[t.id].status === 'rejected');
+  const availableCount = tasks.filter(t => {
+    const status = userTasks[t.id]?.status || 'available';
+    return status === 'available' || status === 'rejected';
   }).length;
 
   return (
@@ -187,7 +187,7 @@ const Navbar: React.FC = () => {
                 <div className="relative">
                    <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
                    {link.path === '/tasks' && availableCount > 0 && (
-                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-danger rounded-full flex items-center justify-center border-2 border-background shadow-lg">
+                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg">
                         <span className="text-[7px] font-bold text-white">{availableCount}</span>
                      </div>
                    )}
@@ -195,21 +195,6 @@ const Navbar: React.FC = () => {
                 <span className="text-[8px] font-bold uppercase tracking-widest">{link.name}</span>
               </Link>
             ))}
-            <Link
-              to="/notifications"
-              className={cn(
-                "flex flex-col items-center gap-2 transition-all",
-                location.pathname === '/notifications' ? "text-primary" : "text-text-secondary"
-              )}
-            >
-              <div className="relative">
-                <Bell size={22} strokeWidth={location.pathname === '/notifications' ? 2.5 : 2} />
-                {unreadCount > 0 && (
-                  <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-danger rounded-full border-2 border-background" />
-                )}
-              </div>
-              <span className="text-[8px] font-bold uppercase tracking-widest">Alerts</span>
-            </Link>
           </div>
         </div>
       )}

@@ -128,7 +128,7 @@ export const seedTasks = async () => {
         {
           id: 'level_vanguard',
           title: 'Elite Progression',
-          description: 'Reach Level 10 to demonstrate platform mastery.',
+          description: 'Reach Level 10 to establish elite platform status.',
           trigger: 'level_up',
           category: 'LEVEL',
           conditionField: 'level',

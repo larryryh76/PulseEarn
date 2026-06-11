@@ -122,6 +122,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: serverTimestamp()
       });
 
+      // Trigger System Task Engine for daily login progression
+      const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
+      await SystemTaskEngine.processEvent(uid, 'daily_login');
+
       toast.success('Daily Reward Claimed!', { icon: '🎁' });
     } catch (error) {
       // Background process safety

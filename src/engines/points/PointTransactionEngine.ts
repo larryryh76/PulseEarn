@@ -159,6 +159,8 @@ export class PointTransactionEngine {
           const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
           if (type === 'task_reward') await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
           if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
+          if (type === 'referral_bonus') await SystemTaskEngine.processEvent(userId, 'referral_completed');
+          if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
 
           if (res.newLevel && res.newLevel > res.oldLevel) {
              await SystemTaskEngine.processEvent(userId, 'level_up');

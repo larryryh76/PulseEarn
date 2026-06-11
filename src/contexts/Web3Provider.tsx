@@ -20,7 +20,7 @@ import React from 'react';
 
 const config = getDefaultConfig({
   appName: 'PulseEarn',
-  projectId: '04309ed1007e463f1393b0a6e0d37e61', // Using a placeholder for this environment
+  projectId: '04309ed1007e463f1393b0a6e0d37e61',
   chains: [mainnet, polygon, optimism, arbitrum, base],
   ssr: false,
 });

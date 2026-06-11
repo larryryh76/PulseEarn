@@ -64,7 +64,7 @@ export class SystemTaskEngine {
         const utSnap = await transaction.get(userTaskRef);
         const utData = utSnap.exists() ? utSnap.data() as UserSystemTask : null;
 
-        // Skip if already claimed (unless repeatable - logic for repeatable can be added later)
+        // Skip if already claimed
         if (utData?.status === 'CLAIMED') return;
 
         // Resolve current progress based on the condition field in user document

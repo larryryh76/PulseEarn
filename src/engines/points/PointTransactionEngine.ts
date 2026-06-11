@@ -5,7 +5,8 @@ import {
   collection,
   serverTimestamp,
   runTransaction,
-  setDoc
+  setDoc,
+  getDoc
 } from 'firebase/firestore';
 import { Transaction } from '../../types';
 import { calculateLevel } from '../../utils/progression';
@@ -262,6 +263,12 @@ export class PointTransactionEngine {
         });
 
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };
+      }).then(async (res: any) => {
+        if (res.success) {
+          const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+          await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
+        }
+        return res as PointTransactionResult;
       });
     } catch (error: any) {
       await this.logValidationFailure(userId, claimId, error.message, request);
@@ -356,6 +363,13 @@ export class PointTransactionEngine {
           read: false,
           timestamp: serverTimestamp()
         });
+      }).then(async () => {
+         const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+         // We fetch the userId again or pass it through
+         const predSnap = await getDoc(predRef);
+         if (predSnap.exists()) {
+            await SystemTaskEngine.processEvent(predSnap.data().userId, 'prediction_completed');
+         }
       });
     } catch (error: any) {
       console.error(`[MarketResolver] Failed to resolve ${predictionId}:`, error.message);

@@ -88,11 +88,12 @@ const AdminPredictions = () => {
           const isWin = (pred.direction === 'UP' && currentPrice > pred.entryPrice) ||
                         (pred.direction === 'DOWN' && currentPrice < pred.entryPrice);
 
-          await PointTransactionEngine.resolvePrediction(pDoc.id, currentPrice, campaign.totalPrizePool);
+          // Atomic resolution follows the 2x Stake model stored in the pred record
+          await PointTransactionEngine.resolvePrediction(pDoc.id, currentPrice);
 
           if (isWin) {
             winners++;
-            totalDistributed += campaign.totalPrizePool;
+            totalDistributed += (pred.rewardAmount || (pred.stakeAmount * 2));
           }
         } catch (predErr) {
           console.error(`[AdminPredictions] Individual resolution failed for ${pDoc.id}:`, predErr);
@@ -169,8 +170,8 @@ const AdminPredictions = () => {
                        <p className="text-sm font-mono font-bold text-white">{predictions.filter(p => p.taskId === camp.id).length}</p>
                     </div>
                     <div className="bg-white/5 rounded-xl p-3">
-                       <p className="text-[9px] text-white/20 uppercase font-bold mb-1">Prize Pool</p>
-                       <p className="text-sm font-mono font-bold text-primary">{(camp.totalPrizePool || 0)?.toLocaleString()} PTS</p>
+                       <p className="text-[9px] text-white/20 uppercase font-bold mb-1">Status</p>
+                       <p className="text-sm font-mono font-bold text-primary">2× Stake Model</p>
                     </div>
                  </div>
                  <button

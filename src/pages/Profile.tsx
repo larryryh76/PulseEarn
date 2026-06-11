@@ -141,22 +141,24 @@ const Profile: React.FC = () => {
                  </div>
               </div>
 
-              {/* XP HIERARCHY */}
-              <div className="max-w-md mx-auto lg:mx-0 p-6 bg-surface-bright/30 border border-white/5 rounded-2xl">
+              {/* XP PROGRESSION */}
+              <div className="max-w-md mx-auto lg:mx-0 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
                   <span>Progress to Level {xpStats.level + 1}</span>
                   <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}%</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-3 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${xpStats.progress}%` }}
                     className={cn(
-                      "h-full transition-all duration-1000",
+                      "h-full transition-all duration-1000 rounded-full relative",
                       getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
-                      getLevelTier(userData?.level || 1).glow
+                      "shadow-[0_0_20px_rgba(94,106,210,0.8)]"
                     )}
-                  />
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+                  </motion.div>
                 </div>
               </div>
             </div>
@@ -230,10 +232,10 @@ const Profile: React.FC = () => {
                   </section>
                 </div>
 
-                <div className="pt-12 border-t border-border">
-                   <Button variant="danger" className="w-full h-16 rounded-[1.5rem] opacity-60 hover:opacity-100" onClick={handleLogout}>
+                <div className="pt-12 border-t border-white/5">
+                   <Button variant="danger" className="w-full h-16 rounded-2xl opacity-60 hover:opacity-100 italic font-black uppercase tracking-widest text-[11px]" onClick={handleLogout}>
                       <LogOut size={16} />
-                      Terminate Active Session
+                      Sign Out
                    </Button>
                 </div>
               </motion.div>
@@ -247,9 +249,9 @@ const Profile: React.FC = () => {
                   </div>
                   <div className="relative z-10 max-w-xl space-y-10">
                     <div className="space-y-3">
-                       <h2 className="text-3xl font-bold tracking-tight">Referral Program</h2>
-                       <p className="text-base text-text-secondary leading-relaxed font-medium">
-                          Invite friends to join the PulseEarn community. You receive <span className="text-white font-bold tracking-tight">50 PTS</span> for every verified user you onboard to the platform.
+                       <h2 className="text-3xl font-bold tracking-tight italic">Invite Friends</h2>
+                       <p className="text-base text-text-secondary leading-relaxed font-medium italic">
+                          Grow your network and earn rewards. You'll receive <span className="text-white font-bold tracking-tight">50 PTS</span> for every friend who joins PulseEarn using your code.
                        </p>
                     </div>
 
@@ -319,11 +321,11 @@ const Profile: React.FC = () => {
                     <div className="w-1 h-5 bg-primary rounded-full" />
                     <h2 className="text-lg font-bold tracking-tight">System Communications</h2>
                   </div>
-                  <Card className="divide-y divide-white/5 p-0 overflow-hidden">
+                  <Card className="divide-y divide-white/5 p-0 overflow-hidden bg-white/[0.01] border-white/5">
                     {[
-                      { id: 'notifications', label: 'Core Alerts', desc: 'Critical security and authentication signals' },
-                      { id: 'rewardAlerts', label: 'Economic Pulses', desc: 'Real-time notification of point and XP authorization' },
-                      { id: 'marketing', label: 'Ecosystem Intelligence', desc: 'Updates on new campaign discovery and network news' }
+                      { id: 'notifications', label: 'Security Alerts', desc: 'Critical security and account updates' },
+                      { id: 'rewardAlerts', label: 'Reward Notifications', desc: 'Real-time alerts for earned points and XP' },
+                      { id: 'marketing', label: 'Product Updates', desc: 'News about new campaigns and platform features' }
                     ].map(item => (
                       <div key={item.id} className="flex items-center justify-between p-8 hover:bg-white/[0.01] transition-colors">
                         <div className="space-y-1">
@@ -373,8 +375,8 @@ const Profile: React.FC = () => {
                     <HelpCircle size={32} />
                   </div>
                   <div className="space-y-3 max-w-md">
-                     <h2 className="text-3xl font-bold tracking-tight">Operational Support</h2>
-                     <p className="text-base text-text-secondary leading-relaxed font-medium">Access our official documentation frameworks or open a support request with the platform administrators.</p>
+                     <h2 className="text-3xl font-bold tracking-tight italic">Help & Support</h2>
+                     <p className="text-base text-text-secondary leading-relaxed font-medium italic">Access platform documentation or contact our support team for assistance.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl pt-4">

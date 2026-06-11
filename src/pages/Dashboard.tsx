@@ -13,7 +13,6 @@ import {
   CreditCard,
   UserPlus,
   ArrowRight,
-  AlertCircle,
   ChevronRight,
   Flame,
   Wallet as WalletIcon,
@@ -107,9 +106,9 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
+           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.01] border-white/5">
               <div className="flex justify-between items-start">
-                 <p className="data-label">Rank Progression</p>
+                 <p className="data-label">Progression</p>
                  <TrendingUp size={18} className={cn(getLevelTier(userData?.level || 1).color)} />
               </div>
               <div className="space-y-4">
@@ -120,19 +119,19 @@ const Dashboard: React.FC = () => {
                           {getLevelTier(userData?.level || 1).title}
                        </span>
                     </div>
-                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP Earned</p>
+                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP</p>
                  </div>
-                 <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                 <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
                       className={cn(
                         "h-full transition-all duration-1000 rounded-full relative",
                         getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
-                        "shadow-[0_0_15px_rgba(94,106,210,0.6)]"
+                        "shadow-[0_0_20px_rgba(94,106,210,0.8)]"
                       )}
                     >
-                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
                     </motion.div>
                  </div>
               </div>
@@ -164,13 +163,48 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
           {/* PRIMARY EARNING FEED */}
           <div className="lg:col-span-2 space-y-16">
+            {/* FEATURED DISCOVERY */}
+            {featuredCampaign && (
+               <section className="space-y-8">
+                  <div className="flex items-center justify-between">
+                     <h2 className="text-xl font-bold tracking-tight italic">Recommended Campaign</h2>
+                     <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white flex items-center gap-2 transition-colors">
+                        View All <ChevronRight size={14} />
+                     </Link>
+                  </div>
+
+                  <Link to={`/campaigns/${featuredCampaign.id}`} className="group relative block w-full aspect-[21/9] rounded-[2.5rem] border border-white/5 overflow-hidden bg-[#0A0A0F] transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10">
+                     {featuredCampaign.bannerUrl ? (
+                        <img src={featuredCampaign.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:scale-105 transition-transform duration-1000" />
+                     ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
+                     )}
+                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-10 flex flex-col justify-end">
+                        <div className="max-w-xl space-y-6">
+                           <div className="flex items-center gap-3">
+                              <span className="px-3 py-1 rounded-full bg-primary text-white text-[9px] font-black uppercase tracking-widest">Featured</span>
+                              <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">+{(featuredCampaign.totalPrizePool || 0).toLocaleString()} PTS</span>
+                           </div>
+                           <h3 className="text-3xl md:text-4xl font-bold text-white leading-none tracking-tighter italic">{featuredCampaign.name}</h3>
+                           <p className="text-sm text-text-secondary font-medium line-clamp-2 leading-relaxed italic">
+                              {featuredCampaign.description}
+                           </p>
+                           <div className="flex items-center gap-3 pt-2">
+                              <Button size="sm" variant="primary" className="rounded-xl px-10 h-12 shadow-xl shadow-primary/20 group-hover:gap-6 transition-all italic">Launch Campaign <ArrowRight size={14} /></Button>
+                           </div>
+                        </div>
+                     </div>
+                  </Link>
+               </section>
+            )}
+
             {/* DAILY OBJECTIVE */}
             <section className="space-y-6">
                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight">Today's Objective</h2>
+                  <h2 className="text-xl font-bold tracking-tight italic">Daily Objective</h2>
                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                     Live Reset in 12h
+                     Resets in 12h
                   </div>
                </div>
                <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
@@ -179,19 +213,19 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="relative z-10 space-y-6">
                      <div className="space-y-2">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Daily Goal</p>
-                        <h3 className="text-3xl font-bold text-white tracking-tight leading-none italic">Complete 3 Campaign Tasks</h3>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Platform Goal</p>
+                        <h3 className="text-3xl font-bold text-white tracking-tighter leading-none italic">Complete 3 Tasks</h3>
                      </div>
                      <div className="flex items-center gap-6">
-                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                           <div className="h-full bg-primary w-1/3 shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]" />
+                        <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                           <div className="h-full bg-primary w-1/3 rounded-full shadow-[0_0_15px_rgba(94,106,210,0.6)]" />
                         </div>
-                        <span className="text-sm font-mono font-bold text-white">1/3</span>
+                        <span className="text-sm font-mono font-bold text-white">1 / 3</span>
                      </div>
                      <Button
                         size="sm"
                         variant="primary"
-                        className="rounded-xl px-8 h-12"
+                        className="rounded-xl px-8 h-12 italic"
                         onClick={() => navigate('/tasks')}
                      >
                         Continue Progress
@@ -200,117 +234,67 @@ const Dashboard: React.FC = () => {
                </div>
             </section>
 
-            {/* FEATURED DISCOVERY */}
-            {featuredCampaign ? (
-               <section className="space-y-8">
-                  <div className="flex items-center justify-between">
-                     <h2 className="text-xl font-bold tracking-tight">Featured Discovery</h2>
-                     <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white flex items-center gap-2 transition-colors">
-                        View All <ChevronRight size={14} />
-                     </Link>
-                  </div>
-
-                  <Link to={`/campaigns/${featuredCampaign.id}`} className="group relative block w-full aspect-[21/10] md:aspect-[21/8] rounded-[2.5rem] border border-border overflow-hidden bg-surface-bright/50 transition-all hover:border-primary/40 hover:shadow-premium">
-                     {featuredCampaign.bannerUrl ? (
-                        <img src={featuredCampaign.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000 grayscale-[0.3] group-hover:grayscale-0" />
-                     ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-                     )}
-                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent p-10 flex flex-col justify-end">
-                        <div className="max-w-xl space-y-6">
-                           <div className="flex items-center gap-3">
-                              <span className="badge-system badge-primary">Featured Campaign</span>
-                              <span className="badge-system">+{(featuredCampaign.totalPrizePool || featuredCampaign.pointsReward || 0).toLocaleString()} PTS</span>
-                           </div>
-                           <h3 className="text-3xl md:text-4xl font-bold text-white leading-none tracking-tight">{featuredCampaign.name}</h3>
-                           <p className="text-sm text-text-secondary font-medium line-clamp-2 leading-relaxed">
-                              {featuredCampaign.description}
-                           </p>
-                           <div className="flex items-center gap-3 pt-2">
-                              <Button size="sm" variant="primary" className="group-hover:gap-4 transition-all">Join Now <ArrowRight size={14} /></Button>
-                           </div>
-                        </div>
-                     </div>
-                  </Link>
-               </section>
-            ) : (
-               <section className="space-y-8">
-                  <div className="flex items-center justify-between">
-                     <h2 className="text-xl font-bold tracking-tight">Priority Discovery</h2>
-                  </div>
-                  <div className="py-24 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20">
-                     <AlertCircle className="mx-auto text-text-tertiary/20 mb-4" size={40} />
-                     <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">No active campaigns at this time</p>
-                  </div>
-               </section>
-            )}
 
             {/* RECENT REWARDS & OPPORTUNITIES */}
-            <section className="space-y-8">
-               <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight">Available Rewards</h2>
-               </div>
+            {activeTasks.length > 0 && (
+              <section className="space-y-8">
+                 <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold tracking-tight italic">Recommended Tasks</h2>
+                    <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white transition-colors">
+                       View All
+                    </Link>
+                 </div>
 
-               <div className="grid grid-cols-1 gap-4">
-                  {activeTasks.length > 0 ? (
-                    activeTasks.slice(0, 5).map((task) => (
+                 <div className="grid grid-cols-1 gap-3">
+                    {activeTasks.slice(0, 4).map((task) => (
                       <Link
                         key={task.id}
                         to={`/campaigns/${task.campaignId}`}
-                        className="group flex items-center justify-between p-6 rounded-[2rem] bg-surface/50 border border-border hover:bg-surface-bright/50 hover:border-primary/30 transition-all"
+                        className="group flex items-center justify-between p-5 rounded-2xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.03] hover:border-primary/20 transition-all"
                       >
-                        <div className="flex items-center gap-6">
-                           <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center shrink-0 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
-                              <Target size={24} className="text-text-tertiary group-hover:text-primary transition-colors" />
+                        <div className="flex items-center gap-5">
+                           <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/20 transition-all">
+                              <Target size={20} className="text-text-tertiary group-hover:text-primary transition-colors" />
                            </div>
                            <div>
-                              <p className="text-[9px] font-bold text-primary uppercase tracking-[0.2em] mb-1">{task.category}</p>
-                              <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors">{task.title}</h3>
+                              <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">{task.category}</p>
+                              <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors">{task.title}</h3>
                            </div>
                         </div>
 
-                        <div className="flex items-center gap-8">
-                           <div className="hidden md:block text-right">
-                              <p className="data-label">Potential Reward</p>
-                              <div className="flex items-center gap-2 justify-end">
-                                 <Zap size={12} className="text-primary" />
-                                 <span className="text-sm font-bold text-white">+{task.rewardAmount} <span className="text-[10px] text-text-tertiary uppercase">PTS</span></span>
+                        <div className="flex items-center gap-6">
+                           <div className="hidden sm:block text-right">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                 <Zap size={10} className="text-primary" />
+                                 <span className="text-sm font-mono font-bold text-white">+{task.rewardAmount}</span>
                               </div>
+                              <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Available</p>
                            </div>
-                           <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">
-                              <ChevronRight size={18} />
+                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
+                              <ChevronRight size={14} />
                            </div>
                         </div>
                       </Link>
-                    ))
-                  ) : (
-                    <div className="py-24 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20">
-                      <AlertCircle className="mx-auto text-text-tertiary/20 mb-4" size={40} />
-                      <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">No active data streams</p>
-                    </div>
-                  )}
-               </div>
-
-               <Button variant="outline" className="w-full h-16 rounded-[2rem]" onClick={() => navigate('/tasks')}>
-                  View All Available Tasks
-               </Button>
-            </section>
+                    ))}
+                 </div>
+              </section>
+            )}
           </div>
 
           {/* SYSTEM SIDEBAR: LIVE FEED */}
           <div className="space-y-16">
-            <section className="space-y-8">
-              <div className="flex items-center gap-3">
-                <ActivityIcon size={18} className="text-primary" />
-                <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">System Activity</h2>
-              </div>
+            {activities.length > 0 && (
+              <section className="space-y-8">
+                <div className="flex items-center gap-3">
+                  <ActivityIcon size={18} className="text-primary" />
+                  <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Recent Rewards</h2>
+                </div>
 
-              <div className="space-y-3">
-                {activities.length > 0 ? (
-                  activities.slice(0, 8).map((activity) => {
+                <div className="space-y-2">
+                  {activities.slice(0, 6).map((activity) => {
                     const isPositive = activity.points > 0;
                     return (
-                      <div key={activity.id} className="p-5 rounded-2xl bg-surface-bright/30 border border-border group hover:bg-surface-bright/50 transition-all">
+                      <div key={activity.id} className="p-4 rounded-xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] transition-all">
                         <div className="flex items-start gap-4">
                           <div className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
@@ -321,30 +305,26 @@ const Dashboard: React.FC = () => {
                              activity.type === 'referral_activated' ? <UserPlus size={14} /> : <ActivityIcon size={14} />}
                           </div>
                           <div className="flex-grow min-w-0">
-                            <p className="text-[11px] font-bold text-white leading-snug group-hover:text-primary transition-colors truncate">{activity.description}</p>
+                            <p className="text-[10px] font-bold text-white leading-snug group-hover:text-primary transition-colors truncate">{activity.description}</p>
                             <div className="flex items-center gap-2 mt-1">
                                <span className={cn(
-                                 "text-[8px] font-bold uppercase tracking-widest",
+                                 "text-[8px] font-black uppercase tracking-widest",
                                  isPositive ? "text-success" : "text-text-tertiary"
                                )}>
-                                 {isPositive ? `+${activity.points} PTS` : 'System Event'}
+                                 {isPositive ? `+${activity.points} PTS` : 'Activity'}
                                </span>
                                <span className="text-[8px] text-text-tertiary font-mono">
-                                {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "N/A") : 'N/A'}
+                                {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "") : ""}
                                </span>
                             </div>
                           </div>
                         </div>
                       </div>
                     );
-                  })
-                ) : (
-                  <div className="py-12 text-center border border-dashed border-border rounded-2xl">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary">Zero Activity Pulses</p>
-                  </div>
-                )}
-              </div>
-            </section>
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* PENDING VALIDATIONS SUMMARY */}
             {pendingSubtasks.length > 0 && (

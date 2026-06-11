@@ -326,7 +326,7 @@ const Wallet: React.FC = () => {
                        <Check size={40} />
                     </div>
                     <div className="space-y-2">
-                       <h3 className="text-2xl font-bold text-white">Request Authorized</h3>
+                       <h3 className="text-2xl font-bold text-white">Request Submitted</h3>
                        <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-[0.2em] leading-relaxed">
                           Your settlement request has been queued for verification. <br/> Funds will be released upon manual audit.
                        </p>

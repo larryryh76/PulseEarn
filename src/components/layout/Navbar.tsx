@@ -106,10 +106,20 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Toggle */}
-          <button className="md:hidden z-50 p-2 text-text-secondary hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          {/* Mobile Actions */}
+          <div className="flex md:hidden items-center gap-4 z-50">
+            {currentUser && (
+              <Link to="/notifications" className="relative p-2 text-text-secondary hover:text-white transition-colors">
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <div className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_rgba(255,59,48,0.8)]" />
+                )}
+              </Link>
+            )}
+            <button className="p-2 text-text-secondary hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Menu Overlay */}

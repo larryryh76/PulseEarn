@@ -146,53 +146,10 @@ const Tasks: React.FC = () => {
            )}
         </header>
 
-        {/* ELEGANT LIST VIEW */}
-        <div className="space-y-2">
+        {/* PRODUCT-DRIVEN LIST VIEW */}
+        <div className="space-y-12">
            {view === 'AVAILABLE' ? (
               <>
-                 {/* CHALLENGES (System Tasks) */}
-                 {activeMissions.map((mission) => {
-                    const isCompleted = mission.progress?.status === 'COMPLETED';
-                    return (
-                       <div
-                         key={mission.id}
-                         onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
-                         className={cn(
-                           "group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
-                           isCompleted
-                            ? "bg-primary/[0.04] border-primary/20 hover:bg-primary/[0.06]"
-                            : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.03] hover:border-white/[0.1]"
-                         )}
-                       >
-                          <div className="flex items-center gap-5 overflow-hidden">
-                             <div className={cn(
-                               "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all border",
-                               isCompleted ? "bg-primary/20 border-primary/30" : "bg-white/[0.03] border-white/[0.05]"
-                             )}>
-                                <TaskIcon category={mission.definition.category} size={20} />
-                             </div>
-                             <div className="min-w-0">
-                                <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Global Challenge</p>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-tight truncate">{mission.definition.title}</h3>
-                             </div>
-                          </div>
-
-                          <div className="flex items-center gap-8 shrink-0 ml-4">
-                             <div className="text-right hidden sm:block">
-                                <div className="flex items-center gap-1.5 justify-end">
-                                   <Zap size={10} className="text-primary" />
-                                   <span className="text-xs font-mono font-bold text-white">+{mission.definition.rewardPoints}</span>
-                                </div>
-                                <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">PTS Available</p>
-                             </div>
-                             <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-white/10 group-hover:text-white transition-all">
-                                <ChevronRight size={14} />
-                             </div>
-                          </div>
-                       </div>
-                    );
-                 })}
-
                  {/* CAMPAIGN BANNERS */}
                  {activeCampaigns.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
@@ -231,9 +188,9 @@ const Tasks: React.FC = () => {
                  )}
 
                  {activeMissions.length > 0 && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Challenges & Missions</h4>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 italic">Available Activities</h4>
                           <div className="h-px flex-1 bg-white/[0.03]" />
                        </div>
 
@@ -245,35 +202,35 @@ const Tasks: React.FC = () => {
                                   key={mission.id}
                                   onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
                                   className={cn(
-                                    "group flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer",
+                                    "group flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer",
                                     isCompleted
                                      ? "bg-primary/[0.04] border-primary/20 hover:bg-primary/[0.06]"
-                                     : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.03] hover:border-white/[0.1]"
+                                     : "bg-white/[0.01] border-white/[0.03] hover:bg-white/[0.03] hover:border-primary/20"
                                   )}
                                 >
-                                   <div className="flex items-center gap-5 overflow-hidden">
+                                   <div className="flex items-center gap-6 overflow-hidden">
                                       <div className={cn(
-                                        "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all border",
+                                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all border",
                                         isCompleted ? "bg-primary/20 border-primary/30" : "bg-white/[0.03] border-white/[0.05]"
                                       )}>
-                                         <TaskIcon category={mission.definition.category} size={20} />
+                                         <TaskIcon category={mission.definition.category} size={24} />
                                       </div>
                                       <div className="min-w-0">
-                                         <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Global Challenge</p>
-                                         <h3 className="text-sm font-bold text-white uppercase tracking-tight truncate">{mission.definition.title}</h3>
+                                         <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-0.5">Task</p>
+                                         <h3 className="text-base font-bold text-white uppercase tracking-tight truncate">{mission.definition.title}</h3>
                                       </div>
                                    </div>
 
                                    <div className="flex items-center gap-8 shrink-0 ml-4">
                                       <div className="text-right hidden sm:block">
                                          <div className="flex items-center gap-1.5 justify-end">
-                                            <Zap size={10} className="text-primary" />
-                                            <span className="text-xs font-mono font-bold text-white">+{mission.definition.rewardPoints}</span>
+                                            <Zap size={12} className="text-primary" />
+                                            <span className="text-sm font-mono font-bold text-white">+{mission.definition.rewardPoints}</span>
                                          </div>
-                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">PTS Available</p>
+                                         <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Reward</p>
                                       </div>
-                                      <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-white/10 group-hover:text-white transition-all">
-                                         <ChevronRight size={14} />
+                                      <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-primary group-hover:text-white transition-all">
+                                         <ChevronRight size={16} />
                                       </div>
                                    </div>
                                 </div>
@@ -337,7 +294,7 @@ const Tasks: React.FC = () => {
                           <div className="p-2 bg-primary/10 rounded-lg text-primary border border-primary/20">
                              <TaskIcon category={selectedTask.definition.category} size={18} />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Activity Protocol</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Activity Details</span>
                        </div>
                        <button onClick={() => setSelectedMarketTask(null)} className="p-2.5 hover:bg-white/[0.05] rounded-xl transition-all text-text-tertiary hover:text-white">
                           <X size={20} />
@@ -349,8 +306,8 @@ const Tasks: React.FC = () => {
                           <div className="inline-flex px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
                              <span className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">{selectedTask.definition.category}</span>
                           </div>
-                          <h2 className="text-4xl lg:text-5xl font-bold text-white tracking-tighter leading-[0.9] italic">{selectedTask.definition.title}</h2>
-                          <p className="text-lg text-text-secondary font-medium leading-relaxed italic border-l-2 border-white/5 pl-6">{selectedTask.definition.description}</p>
+                          <h2 className="text-4xl lg:text-6xl font-bold text-white tracking-tighter leading-[0.9] italic">{selectedTask.definition.title}</h2>
+                          <p className="text-lg text-text-secondary font-medium leading-relaxed italic border-l-2 border-white/5 pl-8">{selectedTask.definition.description}</p>
                        </div>
 
                        <div className="grid grid-cols-2 gap-4">

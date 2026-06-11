@@ -78,7 +78,7 @@ const Dashboard: React.FC = () => {
           >
              {[
                { name: 'Tasks', path: '/tasks', icon: LayoutGrid },
-               { name: 'Markets', path: '/predictions', icon: BarChart3 },
+               { name: 'Prediction', path: '/predictions', icon: BarChart3 },
                { name: 'Withdraw', path: '/wallet', icon: CreditCard },
                { name: 'Invite', path: '/referrals', icon: UserPlus },
              ].map((action) => (

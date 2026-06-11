@@ -56,7 +56,7 @@ const AdminPredictions = () => {
         toast.success(`Resolution cycle complete. Resolved: ${result.resolved}, Failed: ${result.failed}`);
      } catch (err: any) {
         toast.dismiss(loadingToast);
-        toast.error(`Engine failure: ${err.message}`);
+        toast.error(`Resolution failed: ${err.message}`);
      }
   };
 

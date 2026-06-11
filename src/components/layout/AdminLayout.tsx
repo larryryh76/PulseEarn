@@ -52,7 +52,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* Industrial Footer */}
       <footer className="py-10 px-8 border-t border-white/5 bg-black/20 flex items-center justify-between">
          <p className="text-[9px] font-mono text-white/20 uppercase tracking-widest">
-            PulseEarn Infrastructure Hub // Auth: Administrative-Tier
+            PulseEarn Admin Console // Auth: Administrative
          </p>
          <div className="flex gap-6">
             <span className="text-[9px] font-mono text-white/10 uppercase tracking-widest">v2.5.0-PRO</span>

@@ -27,7 +27,7 @@ const AdminBroadcasts = () => {
     setSubmitting(true);
     try {
       await BroadcastEngine.broadcastGlobal(formData.title, formData.description, formData.type);
-      toast.success("Broadcast deployed successfully to node network.");
+      toast.success("Notification sent successfully.");
       setIsModalOpen(false);
       setFormData({ title: '', description: '', type: 'system' });
     } catch (err) {

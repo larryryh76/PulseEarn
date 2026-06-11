@@ -43,7 +43,7 @@ export class SystemScannerEngine {
     }
 
     return {
-      message: "Infrastructure analyzer standing by. Request an economy audit or prediction sync check.",
+      message: "System analyzer ready. Request an economy audit or prediction sync check.",
       type: 'INFO'
     };
   }

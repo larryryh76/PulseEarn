@@ -27,8 +27,6 @@ export class EconomyMonitor {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Note: To get total 24h volume efficiently, we'd ideally aggregate this on the backend.
-    // For now, we simulate the logic based on the users' daily earned stats.
     let velocity24h = 0;
     usersSnap.forEach(doc => {
         velocity24h += (doc.data().totalEarnedToday || 0);

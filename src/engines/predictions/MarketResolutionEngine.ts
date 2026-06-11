@@ -10,8 +10,6 @@ export class MarketResolutionEngine {
    */
   static async resolveExpiredPredictions(): Promise<{ resolved: number; failed: number }> {
     const predictionsRef = collection(db, 'user_predictions');
-    // For "Core" automated predictions, we use a 24h cycle from creation for now
-    // In a production environment, this would target specific cycle timestamps (e.g. daily close)
     const q = query(predictionsRef, where('status', '==', 'ACTIVE'));
     const snap = await getDocs(q);
 
@@ -44,10 +42,12 @@ export class MarketResolutionEngine {
         for (const pred of groupedByAsset[assetId]) {
           const createdAt = pred.createdAt?.toDate?.() || new Date();
           const now = new Date();
+          // We resolve anything older than 24h or those marked for auto resolution
           const isExpired = (now.getTime() - createdAt.getTime()) > (24 * 60 * 60 * 1000);
 
           if (isExpired || pred.id.startsWith('auto_')) {
             try {
+              // Standard resolution respects the reward model stored in the document
               await PointTransactionEngine.resolvePrediction(pred.id, currentPrice);
               resolved++;
             } catch (err) {

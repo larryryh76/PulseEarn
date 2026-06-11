@@ -93,7 +93,7 @@ export interface TaskProvider {
   providerStatus: 'ACTIVE' | 'SUSPENDED' | 'UNDER_REVIEW';
   fraudScore: number;
   expirationRules: string | null;
-  apiKey?: string; // For future integrations
+  apiKey?: string;
   contactEmail: string;
   createdAt: Timestamp;
 }

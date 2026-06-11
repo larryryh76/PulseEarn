@@ -58,7 +58,7 @@ export class ReferralEngine {
           fraudFlags: []
         };
 
-        // 3. Fraud Detection (Basic IP/Device logic can be added here)
+        // 3. Fraud Detection
         if (referrerData.walletAddress && refereeData.walletAddress && referrerData.walletAddress === refereeData.walletAddress) {
           record.status = 'FLAGGED';
           record.fraudFlags.push('MATCHING_WALLET_IDENTIFIED');

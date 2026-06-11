@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
-  const { tasks, userTasks } = useTasks();
+  const { tasks, userTasks, systemTasks } = useTasks();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,10 +34,14 @@ const Navbar: React.FC = () => {
     { name: 'Profile', path: '/me', icon: User },
   ];
 
-  const availableCount = tasks.filter(t => {
+  const availableTaskCount = tasks.filter(t => {
     const status = userTasks[t.id]?.status || 'available';
     return status === 'available' || status === 'rejected';
   }).length;
+
+  const claimableMissionCount = systemTasks.filter(m => m.progress?.status === 'COMPLETED').length;
+
+  const totalActionableCount = availableTaskCount + claimableMissionCount;
 
   return (
     <>
@@ -68,9 +72,9 @@ const Navbar: React.FC = () => {
                     >
                       <div className="flex items-center gap-1.5">
                         {link.name}
-                        {link.path === '/tasks' && availableCount > 0 && (
+                        {link.path === '/tasks' && totalActionableCount > 0 && (
                           <span className="w-4 h-4 bg-danger rounded-full flex items-center justify-center text-[7px] font-bold text-white shadow-[0_0_8px_rgba(239,68,68,0.4)]">
-                            {availableCount}
+                            {totalActionableCount}
                           </span>
                         )}
                       </div>
@@ -158,9 +162,9 @@ const Navbar: React.FC = () => {
                               <link.icon size={20} className={location.pathname === link.path ? "text-primary" : ""} />
                               {link.name}
                             </div>
-                            {link.path === '/tasks' && availableCount > 0 && (
+                            {link.path === '/tasks' && totalActionableCount > 0 && (
                               <span className="w-5 h-5 bg-danger rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-lg">
-                                {availableCount}
+                                {totalActionableCount}
                               </span>
                             )}
                           </Link>
@@ -210,9 +214,9 @@ const Navbar: React.FC = () => {
               >
                 <div className="relative">
                    <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
-                   {link.path === '/tasks' && availableCount > 0 && (
+                   {link.path === '/tasks' && totalActionableCount > 0 && (
                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg">
-                        <span className="text-[7px] font-bold text-white">{availableCount}</span>
+                        <span className="text-[7px] font-bold text-white">{totalActionableCount}</span>
                      </div>
                    )}
                 </div>

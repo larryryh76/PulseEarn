@@ -82,49 +82,22 @@ export class TaskEngine {
            });
         }
 
-        // 5. Atomic Reward if Automated
-        if (task.verificationType === 'automated') {
-          // In a real system, we would trigger the PointTransactionEngine here.
-          // Since we are in a transaction, we update the user balance directly for atomicity.
-          const userRef = doc(db, 'users', userId);
-          transaction.update(userRef, {
-            points: increment(task.rewardAmount),
-            xp: increment(task.xpReward),
-            'stats.tasksCompleted': increment(1),
-            'stats.totalEarnings': increment(task.rewardAmount),
-            lastActionTimestamp: serverTimestamp()
-          });
-
-          // Log transaction
-          const txRef = doc(collection(db, 'users', userId, 'transactions'));
-          transaction.set(txRef, {
-            id: txRef.id,
-            userId,
-            type: 'task_reward',
-            amount: task.rewardAmount,
-            source: `task Secured: ${task.title}`,
-            claimId,
-            status: 'COMPLETED',
-            referenceId: taskId,
-            timestamp: serverTimestamp(),
-            processedAt: serverTimestamp(),
-            auditTrail: ['ENGINE_V2_AUTOMATED_RELEASE'],
-            engineVersion: '2.5.0-PRO'
-          });
-
-          // Activity log
-          const activityRef = doc(collection(db, 'users', userId, 'activities'));
-          transaction.set(activityRef, {
-            userId,
-            type: 'task_approved',
-            points: task.rewardAmount,
-            description: `task [${task.title}] completed successfully.`,
-            timestamp: serverTimestamp(),
-            referenceId: taskId
-          });
+        // 5. Post-transaction reward if Automated
+        return { success: true, claimId, task };
+      }).then(async (res: any) => {
+        if (res.success && res.task.verificationType === 'automated') {
+           const { PointTransactionEngine } = await import('../points/PointTransactionEngine');
+           await PointTransactionEngine.execute({
+              userId,
+              amount: res.task.rewardAmount,
+              type: 'task_reward',
+              source: `Task Secured: ${res.task.title}`,
+              claimId: res.claimId,
+              xpReward: res.task.xpReward,
+              referenceId: taskId
+           });
         }
-
-        return { success: true };
+        return res;
       });
     } catch (err: any) {
       console.error(`[TaskEngine] Execution Error: ${err.message}`);

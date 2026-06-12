@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
@@ -19,7 +19,11 @@ import {
   CheckCircle2,
   X,
   Calendar,
-  TrendingDown
+  TrendingDown,
+  Gift,
+  MousePointer2,
+  Trophy,
+  ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,91 +41,67 @@ const Dashboard: React.FC = () => {
 
   const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
   const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
 
-  // Intelligent Live Rotation Engine: Dynamically cycles through highest-value opportunities
-  const rotatingOpportunities = useMemo(() => {
-    const opps: any[] = [];
+  // Modern Intelligent Discovery Engine
+  const discoveredTasks = useMemo(() => {
+    const rail: any[] = [];
 
-    // 1. Featured Campaigns (Highest Priority)
+    // 1. Featured Campaigns
     activeCampaigns.filter(c => c.featured).forEach(c => {
-       opps.push({
+       rail.push({
           id: `campaign_${c.id}`,
+          originalId: c.id,
           type: 'CAMPAIGN',
           title: c.name,
-          subtitle: 'Featured Campaign',
-          description: c.description,
+          category: c.category,
           reward: c.totalPrizePool || 0,
-          rewardLabel: 'Prize Pool',
           image: c.bannerUrl,
-          path: `/campaigns/${c.id}`,
+          description: c.description,
+          participants: c.participantsCount,
           priority: 100
        });
     });
 
-    // 2. High-Value System Missions
-    systemTasks.forEach(st => {
-       if (st.progress?.status !== 'CLAIMED') {
-          opps.push({
-             id: `mission_${st.id}`,
-             type: 'MISSION',
-             title: st.definition.title,
-             subtitle: 'System Objective',
-             description: st.definition.description,
-             reward: st.definition.rewardPoints,
-             rewardLabel: 'Milestone Reward',
-             progress: st.progress?.progress || 0,
-             target: st.definition.targetValue,
-             path: st.definition.category === 'PREDICTION' ? '/predictions' :
-                   st.definition.category === 'REFERRAL' ? '/referrals' : '/tasks',
-             priority: st.progress?.status === 'COMPLETED' ? 90 : 70
-          });
-       }
-    });
-
-    // 3. Newest Campaigns
-    activeCampaigns.filter(c => !c.featured).slice(0, 3).forEach(c => {
-       opps.push({
-          id: `new_${c.id}`,
-          type: 'CAMPAIGN',
-          title: c.name,
-          subtitle: 'New Opportunity',
-          description: c.description,
-          reward: c.totalPrizePool || 0,
-          rewardLabel: 'Prize Pool',
-          image: c.bannerUrl,
-          path: `/campaigns/${c.id}`,
-          priority: 50
+    // 2. High-Value Actionable Tasks
+    tasks.filter(t => t.active && getTaskStatus(t).status === 'available').slice(0, 8).forEach(t => {
+       const campaign = activeCampaigns.find(c => c.id === t.campaignId);
+       rail.push({
+          id: `task_${t.id}`,
+          originalId: t.id,
+          campaignId: t.campaignId,
+          campaignName: campaign?.name,
+          type: 'TASK',
+          title: t.title,
+          category: t.category,
+          reward: t.rewardAmount,
+          xp: t.xpReward,
+          instructions: t.instructions,
+          verificationType: t.verificationType,
+          priority: t.rewardAmount > 500 ? 90 : 70
        });
     });
 
-    return opps.sort((a, b) => b.priority - a.priority);
-  }, [activeCampaigns, systemTasks]);
+    // 3. Unclaimed System Missions
+    systemTasks.filter(st => st.progress?.status !== 'CLAIMED').forEach(st => {
+       rail.push({
+          id: `mission_${st.id}`,
+          originalId: st.id,
+          type: 'MISSION',
+          title: st.definition.title,
+          category: st.definition.category,
+          reward: st.definition.rewardPoints,
+          xp: st.definition.rewardXp,
+          description: st.definition.description,
+          progress: st.progress?.progress || 0,
+          target: st.definition.targetValue,
+          status: st.progress?.status || 'IN_PROGRESS',
+          priority: st.progress?.status === 'COMPLETED' ? 95 : 80
+       });
+    });
 
-  const [rotationIndex, setRotationIndex] = React.useState(0);
-  const featuredOpportunity = rotatingOpportunities[rotationIndex];
-
-  // Auto-rotation timer
-  React.useEffect(() => {
-    if (rotatingOpportunities.length <= 1) return;
-    const interval = setInterval(() => {
-      setRotationIndex((prev) => (prev + 1) % rotatingOpportunities.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [rotatingOpportunities.length]);
-
-  // Secondary Active Objectives List
-  const activeObjectives = useMemo(() => {
-     return tasks
-       .filter(t => t.active && getTaskStatus(t).status === 'available')
-       .map(t => ({
-          id: t.id,
-          title: t.title,
-          reward: t.rewardAmount,
-          category: t.category,
-          path: `/campaigns/${t.campaignId}`
-       }))
-       .slice(0, 4);
-  }, [tasks, getTaskStatus]);
+    return rail.sort((a, b) => b.priority - a.priority);
+  }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
 
   if (loading) return (
     <MainLayout>
@@ -140,9 +120,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
+      <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto space-y-20">
         {/* HEADER */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12 mb-16">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -181,8 +161,9 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* METRICS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-8 flex flex-col justify-between min-h-[160px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-8 flex flex-col justify-between min-h-[160px] relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] -mr-16 -mt-16 group-hover:bg-primary/20 transition-all duration-700" />
               <div className="flex justify-between items-start">
                  <p className="data-label text-primary">Balance</p>
                  <WalletIcon size={18} className="text-primary" />
@@ -193,41 +174,43 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.01] border-white/5">
-              <div className="flex justify-between items-start">
+           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="flex justify-between items-start relative z-10">
                  <p className="data-label">Progression</p>
-                 <TrendingUp size={18} className={cn(getLevelTier(userData?.level || 1).color)} />
+                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10", getLevelTier(userData?.level || 1).color)}>
+                    <TrendingUp size={16} />
+                 </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 relative z-10">
                  <div className="flex flex-col">
                     <div className="flex items-baseline gap-2">
                        <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
-                       <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", getLevelTier(userData?.level || 1).color)}>
+                       <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/5", getLevelTier(userData?.level || 1).color)}>
                           {getLevelTier(userData?.level || 1).title}
                        </span>
                     </div>
                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP</p>
                  </div>
-                 <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
+                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
                       className={cn(
                         "h-full transition-all duration-1000 rounded-full relative",
-                        getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
-                        "shadow-[0_0_20px_rgba(94,106,210,0.8)]"
+                        getLevelTier(userData?.level || 1).color.replace('text-', 'bg-')
                       )}
-                    >
-                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-                    </motion.div>
+                    />
                  </div>
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
+           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 group">
               <div className="flex justify-between items-start">
                  <p className="data-label">Streak</p>
-                 <Flame size={18} className={cn(userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")} />
+                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10", userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")}>
+                    <Flame size={16} />
+                 </div>
               </div>
               <div className="space-y-1">
                  <p className="text-3xl font-bold text-white tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
@@ -235,10 +218,12 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
+           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 group">
               <div className="flex justify-between items-start">
                  <p className="data-label">Pending</p>
-                 <Clock size={18} className="text-text-tertiary" />
+                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10 text-white/40 group-hover:text-warning transition-colors">
+                    <Clock size={16} />
+                 </div>
               </div>
               <div className="space-y-1">
                  <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubtasks.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Tasks</span></p>
@@ -250,133 +235,129 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
           {/* PRIMARY EARNING FEED */}
           <div className="lg:col-span-2 space-y-16">
-            {/* LIVE OPPORTUNITY ROTATOR */}
-            {featuredOpportunity && (
-               <section className="space-y-8">
-                  <div className="flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                        <Zap size={18} className="text-primary" />
-                        <h2 className="text-xl font-black uppercase tracking-widest text-[11px]">Priority Discovery</h2>
-                     </div>
-                     <div className="flex gap-2">
-                        {rotatingOpportunities.slice(0, 5).map((_, idx) => (
-                           <button
-                             key={idx}
-                             onClick={() => setRotationIndex(idx)}
-                             className={cn(
-                               "h-1 transition-all rounded-full",
-                               rotationIndex === idx ? "w-6 bg-primary" : "w-2 bg-white/10 hover:bg-white/20"
-                             )}
-                           />
-                        ))}
-                     </div>
+            {/* MODERN TASK RAIL */}
+            <section className="space-y-8">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                     <h2 className="text-xl font-bold tracking-tight italic">Earning Discovery</h2>
                   </div>
+                  <Link to="/tasks" className="flex items-center gap-2 group">
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover:text-primary transition-colors">Marketplace</span>
+                     <ChevronRight size={14} className="text-white/10 group-hover:text-primary transition-colors" />
+                  </Link>
+               </div>
 
-                  <AnimatePresence mode="wait">
-                     <motion.div
-                        key={featuredOpportunity.id}
-                        initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 1.02, y: -10 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                     >
-                        <Link to={featuredOpportunity.path} className="group relative block w-full aspect-[21/9] rounded-[3rem] border border-white/5 overflow-hidden bg-[#0A0A0F] shadow-2xl transition-all hover:border-primary/40">
-                           {featuredOpportunity.image ? (
-                              <img src={featuredOpportunity.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-[3s]" />
-                           ) : (
-                              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-black to-black" />
+               <div className="relative -mx-6 px-6 overflow-x-auto no-scrollbar pb-8">
+                  <div className="flex gap-5 min-w-max">
+                     {discoveredTasks.map((item) => (
+                        <motion.div
+                           key={item.id}
+                           whileHover={{ y: -5 }}
+                           className={cn(
+                              "w-80 p-6 rounded-[2.5rem] bg-[#0A0A0F] border transition-all cursor-pointer flex flex-col justify-between group",
+                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-white/5 hover:border-white/20"
                            )}
-
-                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-10 flex flex-col justify-end">
-                              <div className="max-w-2xl space-y-6">
-                                 <div className="flex items-center gap-4">
-                                    <span className="px-3 py-1 rounded-lg bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20">
-                                       {featuredOpportunity.subtitle}
-                                    </span>
-                                    <div className="flex items-center gap-2 text-white/40">
-                                       <Zap size={14} className="text-primary" />
-                                       <span className="text-[11px] font-black uppercase tracking-widest">
-                                          +{featuredOpportunity.reward.toLocaleString()} PTS
-                                       </span>
-                                    </div>
+                           onClick={() => {
+                              if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
+                              else setSelectedTask(item);
+                           }}
+                        >
+                           <div className="space-y-6">
+                              <div className="flex justify-between items-start">
+                                 <div className={cn(
+                                    "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
+                                    item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.02] border-white/5 text-text-tertiary group-hover:text-white"
+                                 )}>
+                                    {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
+                                     item.category === 'REFERRAL' ? <UserPlus size={20} /> :
+                                     item.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
                                  </div>
-
-                                 <h3 className="text-3xl md:text-5xl font-black text-white leading-none tracking-tighter uppercase italic">{featuredOpportunity.title}</h3>
-                                 <p className="text-base text-text-secondary font-medium line-clamp-2 leading-relaxed opacity-60">
-                                    {featuredOpportunity.description}
-                                 </p>
-
-                                 <div className="flex items-center gap-6 pt-2">
-                                    <Button size="lg" variant="primary" className="rounded-2xl px-12 h-14 shadow-2xl shadow-primary/20 group-hover:gap-8 transition-all font-black uppercase tracking-widest text-[11px] italic">
-                                       Launch Now <ArrowRight size={16} />
-                                    </Button>
-                                    {featuredOpportunity.target && (
-                                       <div className="flex flex-col gap-2">
-                                          <div className="flex justify-between items-center w-32">
-                                             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Progress</span>
-                                             <span className="text-[10px] font-mono text-white">{Math.round((featuredOpportunity.progress / featuredOpportunity.target) * 100)}%</span>
-                                          </div>
-                                          <div className="w-32 h-1 bg-white/5 rounded-full overflow-hidden">
-                                             <motion.div
-                                               initial={{ width: 0 }}
-                                               animate={{ width: `${(featuredOpportunity.progress / featuredOpportunity.target) * 100}%` }}
-                                               className="h-full bg-primary"
-                                             />
-                                          </div>
-                                       </div>
-                                    )}
+                                 <div className="text-right">
+                                    <div className="flex items-center gap-1.5 justify-end">
+                                       <Zap size={12} className="text-primary" />
+                                       <span className="text-lg font-mono font-bold text-white">+{item.reward.toLocaleString()}</span>
+                                    </div>
+                                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20">Authorized Reward</p>
                                  </div>
                               </div>
-                           </div>
-                        </Link>
-                     </motion.div>
-                  </AnimatePresence>
-               </section>
-            )}
 
-            {/* LIVE TASK FEED */}
-            <section className="space-y-8">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                       <Target size={18} className="text-primary" />
-                       <h2 className="text-xl font-black uppercase tracking-widest text-[11px]">Actionable Objectives</h2>
-                    </div>
-                    <Link to="/tasks" className="text-[10px] font-black text-text-tertiary uppercase tracking-widest hover:text-white transition-colors group flex items-center gap-2">
-                       Marketplace <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                 </div>
-
-                 {activeObjectives.length > 0 ? (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {activeObjectives.map((obj) => (
-                      <Link
-                        key={obj.id}
-                        to={obj.path}
-                        className="group p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/5 hover:bg-white/[0.03] hover:border-primary/20 transition-all flex items-center justify-between shadow-lg"
-                      >
-                        <div className="flex items-center gap-5">
-                           <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all">
-                              <Target size={20} />
+                              <div className="space-y-2">
+                                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.category || item.type}</p>
+                                 <h3 className="text-xl font-bold text-white tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                    {item.title}
+                                 </h3>
+                                 <p className="text-xs text-text-tertiary font-medium line-clamp-2 leading-relaxed min-h-[32px]">
+                                    {item.description || item.instructions || 'Secure this objective to claim your contribution rewards.'}
+                                 </p>
+                              </div>
                            </div>
-                           <div className="space-y-1">
-                              <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">{obj.category}</p>
-                              <h3 className="text-[13px] font-black text-white group-hover:text-primary transition-colors leading-tight uppercase italic">{obj.title}</h3>
-                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                           <Zap size={10} className="text-primary" />
-                           <span className="text-[13px] font-mono font-bold text-white">+{obj.reward}</span>
-                        </div>
-                      </Link>
-                    ))}
-                 </div>
-                 ) : (
-                    <div className="py-20 text-center border border-dashed border-white/5 rounded-[3rem] bg-white/[0.01]">
-                       <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20">All objectives secured</p>
-                    </div>
-                 )}
-              </section>
+                           <div className="pt-8 flex items-center justify-between border-t border-white/5 mt-8">
+                              <div className="flex items-center gap-3">
+                                 {item.type === 'MISSION' && item.target > 0 ? (
+                                    <div className="flex flex-col gap-1.5">
+                                       <div className="w-20 h-1 bg-white/5 rounded-full overflow-hidden">
+                                          <div className="h-full bg-primary" style={{ width: `${(item.progress / item.target) * 100}%` }} />
+                                       </div>
+                                       <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">{Math.round((item.progress / item.target) * 100)}% Complete</span>
+                                    </div>
+                                 ) : item.type === 'CAMPAIGN' ? (
+                                    <div className="flex -space-x-2">
+                                       {[1,2,3].map(i => <div key={i} className="w-5 h-5 rounded-full border border-black bg-surface-bright" />)}
+                                       <span className="pl-4 text-[9px] font-black text-white/20 uppercase tracking-widest">+{item.participants || 0}</span>
+                                    </div>
+                                 ) : (
+                                    <div className="flex items-center gap-1.5 text-success">
+                                       <Gift size={10} />
+                                       <span className="text-[9px] font-black uppercase tracking-widest">Available</span>
+                                    </div>
+                                 )}
+                              </div>
+                              <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
+                                 <ArrowRight size={14} />
+                              </div>
+                           </div>
+                        </motion.div>
+                     ))}
+                  </div>
+               </div>
+            </section>
+
+            {/* DASHBOARD ANALYTICS / STATS OVERVIEW */}
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/5 space-y-8 group hover:border-primary/20 transition-all">
+                   <div className="flex justify-between items-start">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
+                         <TrendingUp size={20} />
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Global Rank</p>
+                         <p className="text-xl font-bold text-white tracking-tighter italic">TOP 1%</p>
+                      </div>
+                   </div>
+                   <div className="space-y-4">
+                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Growth Vector</h4>
+                      <p className="text-xs text-text-tertiary leading-relaxed">Your ecosystem participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep forecasting to maintain yield.</p>
+                   </div>
+                </div>
+
+                <div className="p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/5 space-y-8 group hover:border-orange-500/20 transition-all">
+                   <div className="flex justify-between items-start">
+                      <div className="w-12 h-12 rounded-2xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center text-orange-500">
+                         <Flame size={20} />
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Hot Streak</p>
+                         <p className="text-xl font-bold text-white tracking-tighter italic">{userData?.streak || 0} DAYS</p>
+                      </div>
+                   </div>
+                   <div className="space-y-4">
+                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Loyalty Multiplier</h4>
+                      <p className="text-xs text-text-tertiary leading-relaxed">Daily login recorded. Maintain your streak to unlock <span className="text-orange-500 font-bold">Bonus Yield</span> multipliers.</p>
+                   </div>
+                </div>
+            </section>
           </div>
 
           {/* ACTIVITY FEED */}
@@ -466,15 +447,30 @@ const Dashboard: React.FC = () => {
                </section>
             )}
 
-            {/* COMPLETED SUMMARY */}
-            <section className="space-y-8">
-               <div className="system-card bg-surface-bright/20 border-dashed border-white/5 py-10 flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success border border-success/20">
-                     <CheckCircle2 size={24} />
+            {/* COMPLETED SUMMARY / NEXT MILESTONE */}
+            <section className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/5 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Trophy size={80} />
+               </div>
+               <div className="flex flex-col items-center gap-6 relative z-10">
+                  <div className="w-16 h-16 rounded-full bg-success/5 flex items-center justify-center text-success border border-success/10 shadow-[0_0_30px_rgba(34,197,94,0.1)]">
+                     <CheckCircle2 size={32} />
                   </div>
-                  <div className="text-center">
-                     <p className="text-2xl font-bold text-white tracking-tight">{userData?.stats?.tasksCompleted || 0}</p>
-                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Tasks Completed</p>
+                  <div className="text-center space-y-1">
+                     <p className="text-4xl font-bold text-white tracking-tighter leading-none">{userData?.stats?.tasksCompleted || 0}</p>
+                     <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Verified Contributions</p>
+                  </div>
+                  <div className="w-full space-y-3">
+                     <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Next Milestone</span>
+                        <span className="text-[9px] font-mono text-white/40">Level {userData?.level ? userData.level + 1 : 2}</span>
+                     </div>
+                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
+                        />
+                     </div>
                   </div>
                </div>
             </section>
@@ -494,6 +490,136 @@ const Dashboard: React.FC = () => {
                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
              />
              <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+             >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg">
+                        <ActivityIcon size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Activity Log</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
+                      </div>
+                   </div>
+                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                      <X size={18} />
+                   </button>
+                </div>
+
+                <div className="p-8 space-y-8">
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-text-tertiary mb-2">
+                         <Calendar size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                         <span className="text-white/10">•</span>
+                         <Clock size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
+                   </div>
+
+                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Transaction Yield</span>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className={cn("text-xl font-mono font-bold", selectedActivity.points >= 0 ? "text-success" : "text-danger")}>
+                               {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                         </div>
+                      </div>
+
+                      {selectedActivity.metadata?.symbol && (
+                         <div className="p-5 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Asset Index</span>
+                            <span className="text-xs font-bold text-white uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
+                         </div>
+                      )}
+
+                      {selectedActivity.metadata?.direction && (
+                         <div className="p-5 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Forecast Vector</span>
+                            <div className="flex items-center gap-2">
+                               {selectedActivity.metadata.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
+                               <span className={cn("text-xs font-bold uppercase tracking-widest", selectedActivity.metadata.direction === 'UP' ? "text-success" : "text-danger")}>{selectedActivity.metadata.direction}</span>
+                            </div>
+                         </div>
+                      )}
+
+                      {selectedActivity.metadata?.entryPrice && (
+                         <div className="p-5 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Execution Price</span>
+                            <span className="text-xs font-mono font-bold text-white">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
+                         </div>
+                      )}
+
+                      {selectedActivity.metadata?.taskName && (
+                         <div className="p-5 flex justify-between items-start gap-4">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
+                            <span className="text-[11px] font-bold text-white uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
+                         </div>
+                      )}
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Ledger Status</span>
+                         <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Immutable</span>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
+                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
+                      </div>
+                      <Button
+                        onClick={() => {
+                           const type = selectedActivity.type as string;
+                           if (type.includes('prediction')) navigate('/predictions');
+                           else if (type.includes('campaign')) {
+                              if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
+                              else navigate('/tasks');
+                           }
+                           else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
+                           else if (type.includes('referral')) navigate('/referrals');
+                           else if (type.includes('level')) navigate('/me');
+                           else if (type.includes('withdrawal')) navigate('/wallet');
+                           setSelectedActivity(null);
+                        }}
+                        variant="primary"
+                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
+                      >
+                         View Source Context <ArrowRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                   </div>
+                </div>
+
+                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TASK DETAIL OVERLAY */}
+      <AnimatePresence>
+        {selectedTask && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-12">
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setSelectedTask(null)}
+               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+             />
+             <motion.div
                initial={{ scale: 0.9, opacity: 0, y: 40 }}
                animate={{ scale: 1, opacity: 1, y: 0 }}
                exit={{ scale: 0.9, opacity: 0, y: 40 }}
@@ -502,126 +628,103 @@ const Dashboard: React.FC = () => {
                 <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                    <div className="flex items-center gap-5">
                       <div className="w-14 h-14 rounded-[1.25rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/20">
-                        <ActivityIcon size={24} />
+                        {selectedTask.type === 'MISSION' ? <Trophy size={24} /> : <Target size={24} />}
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary leading-none mb-1.5">System Protocol</p>
-                        <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary leading-none mb-1.5">{selectedTask.campaignName || 'System Directive'}</p>
+                        <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">{selectedTask.type} Protocol</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedActivity(null)} className="w-12 h-12 flex items-center justify-center hover:bg-white/5 rounded-2xl transition-all text-text-tertiary hover:text-white">
+                   <button onClick={() => setSelectedTask(null)} className="w-12 h-12 flex items-center justify-center hover:bg-white/5 rounded-2xl transition-all text-text-tertiary hover:text-white">
                       <X size={24} />
                    </button>
                 </div>
 
                 <div className="p-10 space-y-12 overflow-y-auto max-h-[70vh]">
-                   <div className="space-y-6 text-center md:text-left">
-                      <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{selectedActivity.description}</h2>
-                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-text-tertiary">
-                         <div className="flex items-center gap-2.5">
-                            <Calendar size={16} className="text-primary/40" />
-                            <span className="text-[11px] font-black uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                         </div>
-                         <div className="w-1.5 h-1.5 rounded-full bg-white/5" />
-                         <div className="flex items-center gap-2.5">
-                            <Clock size={16} className="text-primary/40" />
-                            <span className="text-[11px] font-black uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                         </div>
-                      </div>
+                   <div className="space-y-6">
+                      <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{selectedTask.title}</h2>
+                      <p className="text-lg text-text-secondary font-medium leading-relaxed opacity-70">
+                         {selectedTask.description || selectedTask.instructions || 'Execute this objective to secure authorized contribution rewards.'}
+                      </p>
                    </div>
 
-                   {/* DYNAMIC CONTENT BASED ON METADATA */}
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 group hover:border-primary/20 transition-all shadow-inner">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Balance Impact</p>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
+                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</p>
                          <div className="flex items-baseline gap-2.5">
-                            <p className={cn(
-                              "text-4xl font-mono font-bold tracking-tighter",
-                              selectedActivity.points > 0 ? "text-success" : selectedActivity.points < 0 ? "text-danger" : "text-white/20"
-                            )}>
-                               {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points.toLocaleString()}
+                            <p className="text-3xl font-mono font-bold tracking-tighter text-white">
+                               {selectedTask.reward.toLocaleString()}
                             </p>
                             <span className="text-[11px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
                          </div>
                       </div>
 
-                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 group hover:border-primary/20 transition-all shadow-inner">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Verification Status</p>
-                         <div className="flex items-center gap-3">
-                            <div className="w-2.5 h-2.5 rounded-full bg-success animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                            <p className="text-lg font-black text-white uppercase tracking-widest italic">Immutable Record</p>
+                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
+                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">XP Provision</p>
+                         <div className="flex items-baseline gap-2.5">
+                            <p className="text-3xl font-mono font-bold tracking-tighter text-primary">
+                               {selectedTask.xp?.toLocaleString() || '100'}
+                            </p>
+                            <span className="text-[11px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
                          </div>
                       </div>
 
-                      {/* Prediction Details */}
-                      {selectedActivity.metadata?.assetId && (
-                        <>
-                          <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Asset Index</p>
-                            <p className="text-lg font-black text-white uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</p>
-                          </div>
-                          <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Vector Position</p>
-                            <div className="flex items-center gap-2">
-                               {selectedActivity.metadata.direction === 'UP' ? <TrendingUp size={18} className="text-success" /> : <TrendingDown size={18} className="text-danger" />}
-                               <p className={cn("text-lg font-black uppercase tracking-widest", selectedActivity.metadata.direction === 'UP' ? "text-success" : "text-danger")}>
-                                  {selectedActivity.metadata.direction}
-                               </p>
-                            </div>
-                          </div>
-                          <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3">
-                            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Entry Vector</p>
-                            <p className="text-lg font-mono font-bold text-white">${selectedActivity.metadata.entryPrice?.toLocaleString()}</p>
-                          </div>
-                          {selectedActivity.metadata.exitPrice && (
-                            <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3">
-                              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Exit Vector</p>
-                              <p className="text-lg font-mono font-bold text-white">${selectedActivity.metadata.exitPrice?.toLocaleString()}</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* Task Details */}
-                      {selectedActivity.metadata?.taskName && (
-                        <div className="md:col-span-2 p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3">
-                          <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Associated Objective</p>
-                          <p className="text-xl font-bold text-white uppercase tracking-tight italic">{selectedActivity.metadata.taskName}</p>
-                        </div>
-                      )}
+                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
+                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Protocol Type</p>
+                         <div className="flex items-center gap-3">
+                            <MousePointer2 size={18} className="text-success" />
+                            <p className="text-lg font-black text-white uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</p>
+                         </div>
+                      </div>
                    </div>
 
-                   <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-dashed border-white/10 space-y-8">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Network Reference</p>
-                            <p className="text-[10px] font-mono text-primary truncate max-w-[280px]">{selectedActivity.referenceId || selectedActivity.id}</p>
+                   {selectedTask.type === 'MISSION' && selectedTask.target > 0 && (
+                      <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-dashed border-white/10 space-y-6">
+                         <div className="flex justify-between items-end">
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Sync Progress</p>
+                               <p className="text-2xl font-mono font-bold text-white">{selectedTask.progress} / {selectedTask.target}</p>
+                            </div>
+                            <span className="text-xs font-black text-primary uppercase tracking-widest">{Math.round((selectedTask.progress / selectedTask.target) * 100)}% Verified</span>
                          </div>
-                         <Button
-                           onClick={() => {
-                              const type = selectedActivity.type as string;
-                              if (type.includes('prediction')) navigate('/predictions');
-                              else if (type.includes('campaign')) {
-                                 if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
-                                 else navigate('/tasks');
-                              }
-                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
-                              else if (type.includes('referral')) navigate('/referrals');
-                              else if (type.includes('level')) navigate('/me');
-                              else if (type.includes('withdrawal')) navigate('/wallet');
-                              setSelectedActivity(null);
-                           }}
-                           variant="primary"
-                           className="h-14 px-10 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl shadow-primary/20 group italic"
-                         >
-                            Explore Context <ArrowRight size={16} className="ml-3 group-hover:translate-x-2 transition-transform" />
-                         </Button>
+                         <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div
+                               initial={{ width: 0 }}
+                               animate={{ width: `${(selectedTask.progress / selectedTask.target) * 100}%` }}
+                               className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                            />
+                         </div>
                       </div>
+                   )}
+
+                   <div className="flex flex-col md:flex-row gap-4">
+                      <Button
+                        onClick={() => {
+                           if (selectedTask.type === 'MISSION') {
+                              if (selectedTask.category === 'PREDICTION') navigate('/predictions');
+                              else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
+                              else navigate('/tasks');
+                           } else {
+                              navigate(`/campaigns/${selectedTask.campaignId}`);
+                           }
+                           setSelectedTask(null);
+                        }}
+                        variant="primary"
+                        className="flex-1 h-16 rounded-[1.5rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl shadow-primary/20 group italic"
+                      >
+                         Initialize Objective <ArrowUpRight size={18} className="ml-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedTask(null)}
+                        className="h-16 px-10 rounded-[1.5rem] bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.3em] text-[11px] hover:bg-white/10 transition-all"
+                      >
+                         Dismiss
+                      </Button>
                    </div>
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn contribution node • active session</p>
                 </div>
              </motion.div>
           </div>

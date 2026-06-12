@@ -30,10 +30,17 @@ const SYMBOL_MAP: Record<string, string> = {
   'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
 };
 
+// Memory cache for market data to prevent redundant fetches and layout shifts
+let cache: {
+  market: CryptoMarketData[];
+  global: GlobalMarketData | null;
+  timestamp: number;
+} = { market: [], global: null, timestamp: 0 };
+
 export const useCryptoData = () => {
-  const [marketData, setMarketData] = useState<CryptoMarketData[]>([]);
-  const [globalData, setGlobalData] = useState<GlobalMarketData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [marketData, setMarketData] = useState<CryptoMarketData[]>(cache.market);
+  const [globalData, setGlobalData] = useState<GlobalMarketData | null>(cache.global);
+  const [loading, setLoading] = useState(cache.market.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'coingecko' | 'cryptocompare'>('coingecko');
 
@@ -85,6 +92,14 @@ export const useCryptoData = () => {
 
         setMarketData(marketRes.data);
         setGlobalData(globalRes.data.data);
+
+        // Update Cache
+        cache = {
+          market: marketRes.data,
+          global: globalRes.data.data,
+          timestamp: Date.now()
+        };
+
         setSource('coingecko');
         setError(null);
       } catch (cgError) {
@@ -101,7 +116,12 @@ export const useCryptoData = () => {
   };
 
   useEffect(() => {
-    fetchMarketData();
+    // If cache is fresh (less than 30s), don't trigger initial fetch loading state
+    const isFresh = Date.now() - cache.timestamp < 30000;
+    if (!isFresh || marketData.length === 0) {
+       fetchMarketData();
+    }
+
     const interval = setInterval(fetchMarketData, 60000); // Update every minute
     return () => clearInterval(interval);
   }, []);

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { useNotifications } from '../hooks/useNotifications';
 import { useTasks } from '../hooks/useTasks';
@@ -26,16 +27,22 @@ import { cn } from '../utils';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 
-import { useNavigate } from 'react-router-dom';
 
 const Notifications: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { notifications, unreadCount, loading: notificationsLoading, markAsRead, markAllAsRead } = useNotifications();
   const { activities, loading: tasksLoading } = useTasks();
-  const [tab, setTab] = useState<'ALERTS' | 'ACTIVITY'>('ALERTS');
+  const [tab, setTab] = useState<'ALERTS' | 'ACTIVITY'>(location.state?.tab || 'ALERTS');
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
 
   const loading = notificationsLoading || tasksLoading;
+
+  useEffect(() => {
+     if (location.state?.tab) {
+        setTab(location.state.tab);
+     }
+  }, [location.state]);
 
   const getIcon = (type?: string) => {
     switch (type) {

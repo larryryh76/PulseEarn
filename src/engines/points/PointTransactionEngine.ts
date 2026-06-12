@@ -246,7 +246,7 @@ export class PointTransactionEngine {
 
         // 2. Create Verifiable Prediction Record
         transaction.set(predDoc, {
-          id: claimId,
+          id: predDoc.id,
           userId,
           taskId,
           assetId,

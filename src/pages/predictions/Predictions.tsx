@@ -103,16 +103,21 @@ const Predictions: React.FC = () => {
     }
   };
 
-  const activePositions = userPredictions.filter((p: PredictionRecord) => p.status === 'ACTIVE');
+  const activePositions = useMemo(() =>
+    userPredictions.filter((p: PredictionRecord) => p.status === 'ACTIVE'),
+    [userPredictions]
+  );
 
-  const filteredPredictions = userPredictions.filter((p: PredictionRecord) => {
-    if (historyFilter === 'ALL') return true;
-    if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
-    if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
-    if (historyFilter === 'WON') return p.status === 'RESOLVED' && (p.rewardAmount || 0) > 0;
-    if (historyFilter === 'LOST') return p.status === 'RESOLVED' && (p.rewardAmount || 0) === 0;
-    return true;
-  });
+  const filteredPredictions = useMemo(() => {
+    return userPredictions.filter((p: PredictionRecord) => {
+        if (historyFilter === 'ALL') return true;
+        if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
+        if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
+        if (historyFilter === 'WON') return p.status === 'RESOLVED' && (p.rewardAmount || 0) > 0;
+        if (historyFilter === 'LOST') return p.status === 'RESOLVED' && (p.rewardAmount || 0) === 0;
+        return true;
+    });
+  }, [userPredictions, historyFilter]);
 
   return (
     <MainLayout>

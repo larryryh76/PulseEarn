@@ -40,6 +40,10 @@ const CampaignDetails: React.FC = () => {
       if (!id || !currentUser) return;
 
       try {
+        // 0. Auto-Join Campaign Participation
+        const { CampaignEngine } = await import('../engines/tasks/CampaignEngine');
+        await CampaignEngine.joinCampaign(currentUser.uid, id);
+
         const docRef = doc(db, 'campaigns', id);
         const docSnap = await getDoc(docRef);
 

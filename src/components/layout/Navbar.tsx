@@ -56,7 +56,7 @@ const Navbar: React.FC = () => {
         "bg-transparent py-6"
       )}>
         <div className="container mx-auto px-6 flex items-center justify-between">
-          <Link to="/" className="z-50 flex items-center gap-2">
+          <Link to="/" className="z-50 flex items-center gap-2" aria-label="PulseEarn Home">
             <Logo />
           </Link>
 
@@ -92,7 +92,7 @@ const Navbar: React.FC = () => {
                 <div className="h-4 w-px bg-white/10" />
 
                 <div className="flex items-center gap-6">
-                   <Link to="/notifications" className="relative group">
+                   <Link to="/notifications" className="relative group" aria-label="View Notifications" title="Notifications">
                       <Bell size={18} className={cn(
                         "text-text-secondary group-hover:text-white transition-colors",
                         location.pathname === '/notifications' && "text-white"
@@ -131,7 +131,12 @@ const Navbar: React.FC = () => {
                 )}
               </Link>
             )}
-            <button className="p-2 text-text-secondary hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <button
+              className="p-2 text-text-secondary hover:text-white transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
+            >
               {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>

@@ -134,14 +134,7 @@ export class PointTransactionEngine {
           metadata: { ...metadata, engineVersion: '5.0.0-PRO' }
         });
 
-        // 8.5 Activity Log
-        const activityRef = doc(collection(db, 'users', userId, 'activities'));
-        transaction.set(activityRef, {
-          type: 'reward_received',
-          points: amount,
-          description: source,
-          timestamp: serverTimestamp()
-        });
+        // 8.5 Activity Log (Handled via ActivityEngine post-transaction)
 
         // 9. Immutable Transaction Log
         const txDoc = doc(transactionsRef);
@@ -164,15 +157,31 @@ export class PointTransactionEngine {
 
         return { success: true, txId: txDoc.id, newLevel: updates.level, oldLevel: userData.level || 1 };
       }).then(async (res: any) => {
-        // Trigger background missions after successful transaction
+        // Trigger background missions and activity logs after successful transaction
         if (res.success) {
+          const { ActivityEngine } = await import('../system/ActivityEngine');
           const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+
+          await ActivityEngine.log({
+            userId,
+            type: type === 'task_reward' ? 'task_completed' : 'reward_received',
+            points: amount,
+            description: source,
+            referenceId: request.referenceId
+          });
+
           if (type === 'task_reward') await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
           if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
           if (type === 'referral_bonus') await SystemTaskEngine.processEvent(userId, 'referral_completed');
           if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
 
           if (res.newLevel && res.newLevel > res.oldLevel) {
+             await ActivityEngine.log({
+               userId,
+               type: 'level_achieved',
+               description: `Reached Level ${res.newLevel}!`,
+               metadata: { level: res.newLevel }
+             });
              await SystemTaskEngine.processEvent(userId, 'level_up');
           }
         }
@@ -257,14 +266,7 @@ export class PointTransactionEngine {
         // 3. Mark Claim Nonce
         transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, executedAt: serverTimestamp() });
 
-        // 3.5 Activity Log
-        const activityRef = doc(collection(db, 'users', userId, 'activities'));
-        transaction.set(activityRef, {
-          type: 'prediction_placed',
-          points: -amount,
-          description: `Placed prediction on ${symbol.toUpperCase()}`,
-          timestamp: serverTimestamp()
-        });
+        // 3.5 Activity Log (Handled via ActivityEngine post-transaction)
 
         // 4. Ledger Entry
         transaction.set(txDoc, {
@@ -281,7 +283,17 @@ export class PointTransactionEngine {
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };
       }).then(async (res: any) => {
         if (res.success) {
+          const { ActivityEngine } = await import('../system/ActivityEngine');
           const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+
+          await ActivityEngine.log({
+            userId,
+            type: 'prediction_placed',
+            points: -amount,
+            description: `Placed forecast on ${symbol.toUpperCase()}`,
+            referenceId: res.predictionId
+          });
+
           await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
         }
         return res as PointTransactionResult;
@@ -368,16 +380,7 @@ export class PointTransactionEngine {
         // 4. Mark Nonce
         transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, executedAt: serverTimestamp() });
 
-        // 4.5 Activity Log
-        const activityRef = doc(collection(db, 'users', userId, 'activities'));
-        transaction.set(activityRef, {
-          type: isWin ? 'prediction_won' : 'prediction_lost',
-          points: payout,
-          description: isWin
-            ? `Won ${payout} PTS from ${data.symbol.toUpperCase()} Prediction`
-            : `Forecast settled for ${data.symbol.toUpperCase()}`,
-          timestamp: serverTimestamp()
-        });
+        // 4.5 Activity Log (Handled via ActivityEngine post-transaction)
 
         // 5. Notification
         const notifDoc = doc(notificationsRef);
@@ -391,11 +394,25 @@ export class PointTransactionEngine {
           timestamp: serverTimestamp()
         });
       }).then(async () => {
+         const { ActivityEngine } = await import('../system/ActivityEngine');
          const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
-         // We fetch the userId again or pass it through
+
          const predSnap = await getDoc(predRef);
          if (predSnap.exists()) {
-            await SystemTaskEngine.processEvent(predSnap.data().userId, 'prediction_completed');
+            const data = predSnap.data();
+            const isWin = (data.rewardAmount || 0) > 0;
+
+            await ActivityEngine.log({
+              userId: data.userId,
+              type: isWin ? 'prediction_won' : 'prediction_lost',
+              points: data.rewardAmount || 0,
+              description: isWin
+                ? `Forecast successful on ${data.symbol.toUpperCase()}! +${data.rewardAmount} PTS`
+                : `Forecast settled for ${data.symbol.toUpperCase()}`,
+              referenceId: predictionId
+            });
+
+            await SystemTaskEngine.processEvent(data.userId, 'prediction_completed');
          }
       });
     } catch (error: any) {

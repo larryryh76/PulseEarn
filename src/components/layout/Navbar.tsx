@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
-  const { tasks, userTasks, systemTasks } = useTasks();
+  const { tasks, userTasks, systemTasks, campaigns } = useTasks();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,14 +34,18 @@ const Navbar: React.FC = () => {
     { name: 'Profile', path: '/me', icon: User },
   ];
 
-  const availableTaskCount = tasks.filter(t => {
-    const status = userTasks[t.id]?.status || 'available';
-    return status === 'available' || status === 'rejected';
+  const actionableCampaignCount = campaigns.filter(c => {
+    if (!c.active) return false;
+    const campaignTasks = tasks.filter(t => c.taskIds?.includes(t.id));
+    return campaignTasks.some(t => {
+       const status = userTasks[t.id]?.status || 'available';
+       return status === 'available' || status === 'rejected';
+    });
   }).length;
 
   const claimableMissionCount = systemTasks.filter(m => m.progress?.status === 'COMPLETED').length;
 
-  const totalActionableCount = availableTaskCount + claimableMissionCount;
+  const totalActionableCount = actionableCampaignCount + claimableMissionCount;
 
   return (
     <>

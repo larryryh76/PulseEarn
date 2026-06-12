@@ -16,9 +16,12 @@ import {
   ChevronRight,
   Flame,
   Wallet as WalletIcon,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  ExternalLink,
+  Calendar
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
 import { formatUSD } from '../utils/finance';
@@ -30,6 +33,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
+  const [selectedActivity, setSelectedActivity] = React.useState<any | null>(null);
 
   const activeCampaigns = (campaigns || []).filter(c => c.active);
   const featuredCampaign = activeCampaigns.find(c => c.featured) || activeCampaigns[0];
@@ -250,8 +254,7 @@ const Dashboard: React.FC = () => {
 
 
             {/* DYNAMIC OBJECTIVES ENGINE */}
-            {dynamicObjectives.length > 0 && (
-              <section className="space-y-8">
+            <section className="space-y-8">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                        <Target size={18} className="text-primary" />
@@ -262,6 +265,7 @@ const Dashboard: React.FC = () => {
                     </Link>
                  </div>
 
+                 {dynamicObjectives.length > 0 ? (
                  <div className="grid grid-cols-1 gap-3">
                     {dynamicObjectives.slice(0, 5).map((obj: any) => (
                       <Link
@@ -287,7 +291,7 @@ const Dashboard: React.FC = () => {
                                  {obj.status === 'COMPLETED' && <span className="text-[7px] font-black bg-primary text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">Claim Ready</span>}
                               </div>
                               <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors leading-tight">{obj.title}</h3>
-                              {obj.target > 0 && (
+                              {obj.target > 0 ? (
                                  <div className="flex items-center gap-3 pt-1">
                                     <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
                                        <motion.div
@@ -298,6 +302,8 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{obj.progress} / {obj.target}</span>
                                  </div>
+                              ) : (
+                                 <p className="text-[10px] text-text-tertiary font-medium">Objective Active</p>
                               )}
                            </div>
                         </div>
@@ -317,8 +323,12 @@ const Dashboard: React.FC = () => {
                       </Link>
                     ))}
                  </div>
+                 ) : (
+                    <div className="py-12 text-center border border-dashed border-white/5 rounded-[2.5rem] bg-white/[0.01]">
+                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">No active tasks available</p>
+                    </div>
+                 )}
               </section>
-            )}
           </div>
 
           {/* ACTIVITY FEED */}
@@ -335,19 +345,7 @@ const Dashboard: React.FC = () => {
                     const isPositive = activity.points > 0;
 
                     const handleActivityClick = () => {
-                      const type = activity.type as string;
-                      if (type === 'prediction_placed' || type === 'prediction_won' || type === 'prediction_lost') {
-                        navigate('/predictions');
-                      } else if (type === 'campaign_joined' || type === 'campaign_completed') {
-                        if (activity.referenceId) navigate(`/campaigns/${activity.referenceId}`);
-                        else navigate('/tasks');
-                      } else if (type === 'task_completed' || type === 'reward_received' || type === 'mission_completed') {
-                        navigate('/tasks');
-                      } else if (type === 'level_achieved') {
-                        navigate('/me');
-                      } else if (type === 'referral_activated' || type === 'referral_reward_earned') {
-                        navigate('/referrals');
-                      }
+                      setSelectedActivity(activity);
                     };
 
                     return (
@@ -429,6 +427,113 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ACTIVITY DETAIL OVERLAY */}
+      <AnimatePresence>
+        {selectedActivity && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setSelectedActivity(null)}
+               className="absolute inset-0 bg-black/80 backdrop-blur-md"
+             />
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0, y: 20 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               exit={{ scale: 0.95, opacity: 0, y: 20 }}
+               className="relative w-full max-w-lg bg-[#0A0A0F] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+             >
+                <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/10">
+                        <ActivityIcon size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 leading-none mb-1">Event Logic</p>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-widest">{selectedActivity.type.replace('_', ' ')}</h3>
+                      </div>
+                   </div>
+                   <button onClick={() => setSelectedActivity(null)} className="p-3 hover:bg-white/5 rounded-2xl transition-all text-text-tertiary hover:text-white">
+                      <X size={20} />
+                   </button>
+                </div>
+
+                <div className="p-10 space-y-10 flex-1">
+                   <div className="space-y-4">
+                      <h2 className="text-3xl font-bold text-white tracking-tighter uppercase italic leading-none">{selectedActivity.description}</h2>
+                      <div className="flex items-center gap-4 text-text-tertiary">
+                         <div className="flex items-center gap-2">
+                            <Calendar size={14} className="text-primary" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString()}</span>
+                         </div>
+                         <div className="w-1 h-1 rounded-full bg-white/10" />
+                         <div className="flex items-center gap-2">
+                            <Clock size={14} className="text-primary" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString()}</span>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-2 group hover:bg-white/[0.04] transition-all">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Yield Impact</p>
+                         <div className="flex items-baseline gap-2">
+                            <p className={cn(
+                              "text-2xl font-mono font-bold tracking-tighter",
+                              selectedActivity.points > 0 ? "text-success" : selectedActivity.points < 0 ? "text-danger" : "text-white"
+                            )}>
+                               {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points}
+                            </p>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                         </div>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-2 group hover:bg-white/[0.04] transition-all">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Status</p>
+                         <div className="flex items-center gap-2">
+                            <CheckCircle2 size={18} className="text-primary" />
+                            <p className="text-xs font-bold text-white uppercase tracking-widest">Verified</p>
+                         </div>
+                      </div>
+                   </div>
+
+                   {selectedActivity.referenceId && (
+                      <div className="p-8 rounded-[2rem] bg-black/40 border border-white/5 space-y-6">
+                         <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">System Reference</p>
+                            <span className="text-[9px] font-mono text-primary truncate max-w-[120px]">{selectedActivity.referenceId}</span>
+                         </div>
+                         <Button
+                           onClick={() => {
+                              const type = selectedActivity.type as string;
+                              if (type.includes('prediction')) navigate('/predictions');
+                              else if (type.includes('campaign')) {
+                                 if (selectedActivity.referenceId) navigate(`/campaigns/${selectedActivity.referenceId}`);
+                                 else navigate('/tasks');
+                              }
+                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
+                              else if (type.includes('referral')) navigate('/referrals');
+                              else if (type.includes('level')) navigate('/me');
+                              else if (type.includes('withdrawal')) navigate('/wallet');
+                              setSelectedActivity(null);
+                           }}
+                           variant="primary"
+                           className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl shadow-primary/10"
+                         >
+                            Open Context <ExternalLink size={14} className="ml-2" />
+                         </Button>
+                      </div>
+                   )}
+                </div>
+
+                <div className="p-8 bg-white/[0.02] border-t border-white/5 flex justify-center">
+                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.5em]">PulseEarn Infrastructure Node Alpha-5</p>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </MainLayout>
   );
 };

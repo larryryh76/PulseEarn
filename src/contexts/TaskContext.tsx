@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
-import { Task, UserTask, Activity, Campaign, TaskClaim } from '../types';
+import { Task, UserTask, Activity, Campaign, TaskClaim, PredictionRecord } from '../types';
 import { TaskEngine } from '../engines/tasks/TaskEngine';
 
 export interface TaskContextType {
@@ -19,6 +19,7 @@ export interface TaskContextType {
   subtasks: TaskClaim[];
   activities: Activity[];
   systemTasks: { id: string; definition: any; progress: any }[];
+  predictions: PredictionRecord[];
   loading: boolean;
   submitTask: (taskId: string, proofData?: string) => Promise<{ success: boolean; error?: string }>;
   claimTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
@@ -34,6 +35,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
+  const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemTasks, setSystemTasks] = useState<{ id: string; definition: any; progress: any }[]>([]);
 
@@ -88,7 +90,18 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
     }));
 
-    // 6. Fetch System Missions
+    // 6. Fetch Predictions History
+    const predictionsQuery = query(
+      collection(db, 'user_predictions'),
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    unsubscribes.push(onSnapshot(predictionsQuery, (snapshot) => {
+      setPredictions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord)));
+    }));
+
+    // 7. Fetch System Missions
     const defQ = query(collection(db, 'system_task_definitions'), where('active', '==', true));
     unsubscribes.push(onSnapshot(defQ, (defSnap) => {
       const userQ = query(collection(db, 'user_system_tasks'), where('userId', '==', currentUser.uid));
@@ -155,6 +168,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subtasks,
       activities,
       systemTasks,
+      predictions,
       loading,
       submitTask,
       claimTask,

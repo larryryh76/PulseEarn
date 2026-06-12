@@ -184,20 +184,25 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="space-y-4 relative z-10">
                  <div className="flex flex-col">
-                    <div className="flex items-baseline gap-2">
-                       <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
-                       <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/5", getLevelTier(userData?.level || 1).color)}>
-                          {getLevelTier(userData?.level || 1).title}
-                       </span>
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-baseline gap-2">
+                          <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
+                          <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/5", getLevelTier(userData?.level || 1).color)}>
+                             {getLevelTier(userData?.level || 1).title}
+                          </span>
+                       </div>
+                       <span className="text-[10px] font-mono font-bold text-primary">{getXpProgress(userData?.xp || 0).progress}%</span>
                     </div>
-                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">{(userData?.xp || 0)?.toLocaleString()} Total XP</p>
+                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">
+                       {(userData?.xp || 0)?.toLocaleString()} / {getXpProgress(userData?.xp || 0).nextLevelXp?.toLocaleString()} XP
+                    </p>
                  </div>
                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
                       className={cn(
-                        "h-full transition-all duration-1000 rounded-full relative",
+                        "h-full transition-all duration-1000 rounded-full relative shadow-[0_0_10px_rgba(0,102,255,0.3)]",
                         getLevelTier(userData?.level || 1).color.replace('text-', 'bg-')
                       )}
                     />
@@ -260,7 +265,9 @@ const Dashboard: React.FC = () => {
                            )}
                            onClick={() => {
                               if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
-                              else setSelectedTask(item);
+                              else if (item.category === 'PREDICTION') navigate('/predictions');
+                              else if (item.category === 'REFERRAL') navigate('/referrals');
+                              else navigate('/tasks');
                            }}
                         >
                            <div className="space-y-6">
@@ -364,13 +371,16 @@ const Dashboard: React.FC = () => {
           <div className="space-y-16">
             {activities.length > 0 && (
               <section className="space-y-8">
-                <div className="flex items-center gap-3">
-                  <ActivityIcon size={18} className="text-primary" />
-                  <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ActivityIcon size={18} className="text-primary" />
+                    <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
+                  </div>
+                  <Link to="/notifications" className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-colors">See All</Link>
                 </div>
 
                 <div className="space-y-2">
-                  {activities.slice(0, 8).map((activity) => {
+                  {activities.slice(0, 6).map((activity) => {
                     const isPositive = activity.points > 0;
 
                     return (
@@ -587,12 +597,16 @@ const Dashboard: React.FC = () => {
                         <Button
                            onClick={() => {
                               const type = selectedActivity.type as string;
-                              if (type.includes('prediction')) navigate('/predictions');
+                              if (type.includes('prediction')) {
+                                 navigate('/predictions', { state: { view: 'PORTFOLIO' } });
+                              }
                               else if (type.includes('campaign')) {
                                  if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
                                  else navigate('/tasks');
                               }
-                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
+                              else if (type.includes('task') || type.includes('mission')) {
+                                 navigate('/tasks', { state: { view: 'COMPLETED' } });
+                              }
                               else if (type.includes('referral')) navigate('/referrals');
                               else if (type.includes('withdrawal')) navigate('/wallet');
                               setSelectedActivity(null);

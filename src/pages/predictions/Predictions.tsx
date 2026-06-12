@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,7 +15,9 @@ import {
   ArrowLeft,
   ChevronRight,
   BarChart3,
-  History
+  History,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -25,6 +28,7 @@ import PredictionChart from './components/PredictionChart';
 const STAKE_OPTIONS = [10, 50, 100, 500, 1000];
 
 const Predictions: React.FC = () => {
+  const location = useLocation();
   const { marketData, loading: marketLoading } = useCryptoData();
   const { currentUser, userData } = useAuth();
   const { predictions: userPredictions, campaigns: contextCampaigns } = useTasks();
@@ -35,17 +39,27 @@ const Predictions: React.FC = () => {
   const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'WON' | 'LOST'>('ALL');
 
+  useEffect(() => {
+    if (location.state?.view) {
+      setTerminalView(location.state.view);
+    }
+  }, [location.state]);
+
   // Unified global markets from live data + admin campaigns
   const allMarkets = useMemo(() => {
-    const campaignMarkets = contextCampaigns.filter((c: Campaign) => c.category === 'PREDICTION').map((c: Campaign) => ({
-      id: c.id,
-      assetId: (c as any).predictionAsset || 'bitcoin',
-      symbol: (c as any).predictionSymbol || 'BTC',
-      name: c.name,
-      question: c.predictionQuestion || c.description,
-      isCampaign: true,
-      image: ''
-    }));
+    if (!marketData || !Array.isArray(marketData)) return [];
+
+    const campaignMarkets = (contextCampaigns || [])
+      .filter((c: Campaign) => c && c.category === 'PREDICTION')
+      .map((c: Campaign) => ({
+        id: c.id,
+        assetId: (c as any).predictionAsset || 'bitcoin',
+        symbol: (c as any).predictionSymbol || 'BTC',
+        name: c.name,
+        question: c.predictionQuestion || c.description,
+        isCampaign: true,
+        image: ''
+      }));
 
     const globalMarkets = marketData.slice(0, 10).map(coin => ({
       id: `global_${coin.id}`,
@@ -135,35 +149,35 @@ const Predictions: React.FC = () => {
     <MainLayout>
       <div className="pt-24 min-h-screen bg-[#050507] flex flex-col">
         {/* TOP NAV BAR - TERMINAL STYLE */}
-        <div className="border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-16 z-30 px-6 py-5">
-           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-              <div className="flex items-center gap-8">
+        <div className="border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-16 z-30 px-4 sm:px-6 py-4 sm:py-5">
+           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-4 sm:gap-8">
                  <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shadow-[0_0_15px_rgba(0,112,255,0.2)]">
                        <BarChart3 size={16} className="text-primary" />
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white italic">Forecasting Terminal</span>
                  </div>
-                 <div className="flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
+                 <div className="flex bg-white/[0.03] p-0.5 sm:p-1 rounded-lg border border-white/[0.05]">
                     <button
                       onClick={() => { setTerminalView('EXPLORE'); setSelectedMarketId(null); }}
                       className={cn(
-                        "px-4 md:px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                        "px-2.5 sm:px-6 py-1.5 rounded-md text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 sm:gap-2",
                         terminalView === 'EXPLORE' && !selectedMarketId ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                       )}
                     >
                       <Activity size={12} />
-                      <span className="hidden sm:inline">Markets</span>
+                      <span>Markets</span>
                     </button>
                     <button
                       onClick={() => { setTerminalView('PORTFOLIO'); setSelectedMarketId(null); }}
                       className={cn(
-                        "px-4 md:px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                        "px-2.5 sm:px-6 py-1.5 rounded-md text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 sm:gap-2",
                         terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                       )}
                     >
                       <History size={12} />
-                      <span className="hidden sm:inline">My Forecasts</span>
+                      <span>History</span>
                       {activePositions.length > 0 && <span className="w-1 h-1 rounded-full bg-primary" />}
                     </button>
                  </div>
@@ -184,7 +198,7 @@ const Predictions: React.FC = () => {
            </div>
         </div>
 
-        <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 pb-20 overflow-hidden">
+        <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 pb-32 overflow-x-hidden">
           <AnimatePresence mode="wait">
             {selectedMarketId && activeMarket ? (
                <motion.div
@@ -238,7 +252,7 @@ const Predictions: React.FC = () => {
                         </div>
 
                         {/* CENTERED CHART AREA */}
-                        <div className="bg-black/40 border border-white/5 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-6 min-h-[350px] sm:min-h-[400px] flex flex-col">
+                        <div className="bg-black/40 border border-white/5 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-6 min-h-[300px] sm:min-h-[400px] flex flex-col overflow-hidden">
                            <div className="flex items-center justify-between mb-6 px-4">
                               <div className="flex items-center gap-4">
                                  <div className="flex items-center gap-2">
@@ -484,12 +498,24 @@ const Predictions: React.FC = () => {
                                           {pred.status === 'ACTIVE' ? 'Active' : pred.status}
                                         </div>
                                      </div>
-                                     <div className="flex items-center gap-3 text-text-tertiary">
+                                     <div className="flex flex-wrap items-center gap-3 text-text-tertiary">
                                         <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
-                                           {pred.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'Pending'}
+                                           {pred.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'Pending'}
                                         </span>
                                         <div className="w-1 h-1 rounded-full bg-white/5" />
-                                        <span className="text-[9px] font-mono text-white/20 uppercase">{pred.id.slice(-6)}</span>
+                                        {pred.status === 'ACTIVE' ? (
+                                           <div className="flex items-center gap-1.5">
+                                              <Clock size={10} className="text-primary/40" />
+                                              <span className="text-[9px] font-bold text-primary/60 uppercase tracking-widest">
+                                                 Settling In: ~{(Math.max(1, 24 - Math.floor((Date.now() - (pred.createdAt?.toMillis?.() || Date.now())) / (1000 * 60 * 60))))}h
+                                              </span>
+                                           </div>
+                                        ) : (
+                                           <div className="flex items-center gap-1.5">
+                                              <CheckCircle2 size={10} className="text-success/40" />
+                                              <span className="text-[9px] font-bold text-success/60 uppercase tracking-widest">Resolved</span>
+                                           </div>
+                                        )}
                                      </div>
                                   </div>
                                </div>

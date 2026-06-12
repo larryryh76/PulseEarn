@@ -96,7 +96,7 @@ function App() {
   return (
     <BrowserRouter>
       <Toaster
-        position="bottom-center"
+        position="top-right"
         toastOptions={{
           duration: 4000,
           style: {

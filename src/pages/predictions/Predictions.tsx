@@ -45,7 +45,6 @@ const Predictions: React.FC = () => {
       symbol: (c as any).predictionSymbol || 'BTC',
       name: c.name,
       question: c.predictionQuestion || c.description,
-      reward: c.totalPrizePool,
       isCampaign: true,
       image: ''
     }));
@@ -56,13 +55,10 @@ const Predictions: React.FC = () => {
       symbol: coin.symbol.toUpperCase(),
       name: `${coin.name}`,
       question: `Will ${coin.name} price increase in the next 24h?`,
-      reward: 0,
       isCampaign: false,
       image: coin.image,
       price: coin.current_price,
-      change: coin.price_change_percentage_24h,
-      total_volume: coin.total_volume,
-      market_cap: coin.market_cap
+      change: coin.price_change_percentage_24h
     }));
 
     return [...campaignMarkets, ...globalMarkets];
@@ -96,9 +92,6 @@ const Predictions: React.FC = () => {
     if (!currentUser || !prediction || !userData || !activeMarket) return;
 
     if (userData.points < stake) return toast.error('Insufficient points for this forecast.');
-
-    const existing = userPredictions.find(p => p.taskId === activeMarket.id && p.status === 'ACTIVE');
-    if (existing) return toast.error('Active forecast already exists for this market.');
 
     setIsSubmitting(true);
     try {
@@ -472,28 +465,43 @@ const Predictions: React.FC = () => {
                               </div>
                            </div>
 
-                           <div className="flex items-center gap-12 text-right">
-                              <div className="hidden md:block">
+                           <div className="flex items-center gap-8 md:gap-12 text-right">
+                              <div className="hidden sm:block">
                                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Stake</p>
-                                 <p className="text-sm font-mono font-bold text-white">{pred.stakeAmount} PTS</p>
+                                 <p className="text-xs md:text-sm font-mono font-bold text-white">{pred.stakeAmount} PTS</p>
                               </div>
                               <div className="hidden md:block">
                                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Entry Price</p>
-                                 <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
+                                 <p className="text-xs md:text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
                               </div>
-                              <div className="w-32">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Payout Status</p>
+                              {pred.status === 'RESOLVED' && (
+                                <div className="hidden md:block">
+                                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Exit Price</p>
+                                    <p className="text-xs md:text-sm font-mono font-bold text-white">${pred.exitPrice?.toLocaleString() || '---'}</p>
+                                </div>
+                              )}
+                              <div className="w-24 md:w-32">
+                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Outcome</p>
                                  {pred.status === 'RESOLVED' ? (
-                                    <p className={cn(
-                                      "text-lg font-mono font-bold",
-                                      (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/10"
-                                    )}>
-                                       {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : 'LOST'}
-                                    </p>
+                                    <div className="flex flex-col items-end">
+                                        <p className={cn(
+                                          "text-base md:text-lg font-mono font-bold leading-none",
+                                          (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/10"
+                                        )}>
+                                           {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0 PTS'}
+                                        </p>
+                                        <span className={cn(
+                                            "text-[7px] font-black uppercase tracking-widest mt-1",
+                                            (pred.rewardAmount || 0) > 0 ? "text-success/50" : "text-white/5"
+                                        )}>{(pred.rewardAmount || 0) > 0 ? 'Won' : 'Lost'}</span>
+                                    </div>
                                  ) : (
-                                    <div className="flex items-center justify-end gap-2 text-primary">
-                                       <Clock size={12} className="animate-pulse" />
-                                       <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+                                    <div className="flex flex-col items-end">
+                                        <div className="flex items-center justify-end gap-2 text-primary">
+                                            <Clock size={12} className="animate-pulse" />
+                                            <p className="text-base md:text-lg font-mono font-bold leading-none">+{pred.stakeAmount * 2}</p>
+                                        </div>
+                                        <span className="text-[7px] font-black text-primary/50 uppercase tracking-widest mt-1 italic">Potential Return</span>
                                     </div>
                                  )}
                               </div>

@@ -212,7 +212,8 @@ export class PointTransactionEngine {
 
         const userData = userSnap.data();
         const claimSnap = await transaction.get(claimRef);
-        if (claimSnap.exists()) throw new Error("DUPLICATE_PREDICTION_ATTEMPT");
+        // Removed DUPLICATE_PREDICTION_ATTEMPT check to allow multiple predictions on same market/claimId logic
+        // though claimId should ideally be unique per entry attempt anyway.
 
         if ((userData.points || 0) < amount) throw new Error("INSUFFICIENT_FUNDS");
 

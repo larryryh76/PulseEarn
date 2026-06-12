@@ -25,7 +25,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
         horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
       },
       width: chartContainerRef.current.clientWidth,
-      height: 240,
+      height: window.innerWidth < 768 ? 200 : 240,
       timeScale: {
         borderVisible: false,
       },
@@ -100,7 +100,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
        )}
-       <div ref={chartContainerRef} className="w-full h-[240px]" />
+       <div ref={chartContainerRef} className="w-full h-[200px] sm:h-[240px]" />
     </div>
   );
 };

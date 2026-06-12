@@ -201,10 +201,7 @@ const Dashboard: React.FC = () => {
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
-                      className={cn(
-                        "h-full transition-all duration-1000 rounded-full relative shadow-[0_0_15px_rgba(0,112,255,0.5)]",
-                        getLevelTier(userData?.level || 1).color.replace('text-', 'bg-')
-                      )}
+                      className="h-full transition-all duration-1000 rounded-full relative shadow-[0_0_20px_rgba(0,112,255,0.6)] bg-primary"
                     >
                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
                     </motion.div>
@@ -378,7 +375,7 @@ const Dashboard: React.FC = () => {
                     <ActivityIcon size={18} className="text-primary" />
                     <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
                   </div>
-                  <Link to="/notifications" className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-colors">See All</Link>
+                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-colors">See All</Link>
                 </div>
 
                 <div className="space-y-2">

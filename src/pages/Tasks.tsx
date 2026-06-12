@@ -156,26 +156,26 @@ const Tasks: React.FC = () => {
 
                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Reward Claimed</span>
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</span>
                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-success">+{selectedHistoryItem.definition?.rewardPoints || selectedHistoryItem.rewardAmount}</span>
+                            <span className="text-xl font-mono font-bold text-success tabular-nums">+{ (selectedHistoryItem.definition?.rewardPoints || selectedHistoryItem.rewardAmount || 0).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
                          </div>
                       </div>
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Experience Granted</span>
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">System XP</span>
                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-primary">+{selectedHistoryItem.definition?.rewardXp || selectedHistoryItem.xpReward || '100'}</span>
+                            <span className="text-xl font-mono font-bold text-primary tabular-nums">+{ (selectedHistoryItem.definition?.rewardXp || selectedHistoryItem.xpReward || 100).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
                          </div>
                       </div>
 
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Verification</span>
-                         <div className="flex items-center gap-1.5">
+                      <div className="p-5 flex justify-between items-center bg-success/[0.01]">
+                         <span className="text-[10px] font-black text-success/40 uppercase tracking-[0.2em]">Ledger Status</span>
+                         <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Protocol Verified</span>
+                            <span className="text-[9px] font-black text-success uppercase tracking-widest italic">Immutable Proof</span>
                          </div>
                       </div>
                    </div>

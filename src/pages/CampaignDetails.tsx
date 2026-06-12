@@ -17,7 +17,9 @@ import {
   Link as LinkIcon,
   BarChart3,
   ShieldCheck,
-  Info
+  Info,
+  TrendingUp,
+  ChevronRight
 } from 'lucide-react';
 import MediaUploader from '../components/admin/MediaUploader';
 import toast from 'react-hot-toast';
@@ -233,7 +235,7 @@ const CampaignDetails: React.FC = () => {
                   <div className="h-px flex-1 bg-white/[0.03]" />
                </div>
 
-               <div className="space-y-3">
+               <div className="space-y-4">
                   {tasks.map((task) => {
                     const claim = claims[task.id];
                     const isPending = claim?.validationState === 'PENDING';
@@ -241,108 +243,123 @@ const CampaignDetails: React.FC = () => {
 
                     return (
                       <div key={task.id} className={cn(
-                        "p-1 rounded-[2rem] border transition-all",
-                        isCompleted ? "bg-success/[0.02] border-success/20" : "bg-[#0A0A0F] border-white/5"
+                        "rounded-[2rem] border transition-all overflow-hidden",
+                        isCompleted ? "bg-success/[0.01] border-success/10" : "bg-[#08080C] border-white/5 shadow-xl"
                       )}>
-                         <div className="p-6 md:p-8 flex flex-col gap-8">
-                            <div className="flex items-center justify-between gap-6">
-                               <div className="flex items-center gap-6">
+                         <div className="p-6 sm:p-8 space-y-8">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                               <div className="flex items-center gap-5">
                                   <div className={cn(
-                                    "w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 transition-all",
-                                    isCompleted ? "bg-success/10 border-success/20 text-success" : "bg-white/[0.03] border-white/5 text-primary"
+                                    "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 shadow-inner",
+                                    isCompleted ? "bg-success/5 border-success/20 text-success" : "bg-white/[0.02] border-white/10 text-primary"
                                   )}>
-                                     <Zap size={24} />
+                                     <Zap size={20} />
                                   </div>
-                                  <div>
-                                     <h3 className="text-xl font-bold text-white uppercase tracking-tight leading-tight">{task.title}</h3>
-                                     <div className="flex items-center gap-4 mt-1">
-                                        <div className="flex items-center gap-1.5">
+                                  <div className="min-w-0">
+                                     <h3 className="text-lg font-bold text-white uppercase tracking-tight truncate italic">{task.title}</h3>
+                                     <div className="flex items-center gap-3 mt-1">
+                                        <div className="flex items-center gap-1">
                                            <Zap size={10} className="text-primary" />
-                                           <span className="text-[10px] font-mono font-bold text-primary">+{task.rewardAmount} PTS</span>
+                                           <span className="text-[11px] font-mono font-bold text-white">+{task.rewardAmount}</span>
                                         </div>
-                                        <span className="text-white/10">•</span>
-                                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{task.verificationType}</span>
+                                        <div className="w-1 h-1 rounded-full bg-white/5" />
+                                        <div className="flex items-center gap-1">
+                                           <TrendingUp size={10} className="text-accent" />
+                                           <span className="text-[11px] font-mono font-bold text-white">+{task.xpReward} XP</span>
+                                        </div>
+                                        <div className="w-1 h-1 rounded-full bg-white/5" />
+                                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{task.verificationType}</span>
                                      </div>
                                   </div>
                                </div>
 
                                {isCompleted ? (
-                                  <div className="px-6 py-2 rounded-xl bg-success/10 border border-success/20 text-success flex items-center gap-2">
-                                     <CheckCircle2 size={16} />
-                                     <span className="text-[9px] font-black uppercase tracking-widest">Verified</span>
+                                  <div className="self-start sm:self-center px-4 py-1.5 rounded-lg bg-success/10 border border-success/20 text-success flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                                     <CheckCircle2 size={14} />
+                                     <span className="text-[9px] font-black uppercase tracking-widest">Protocol Verified</span>
                                   </div>
                                ) : isPending ? (
-                                  <div className="px-6 py-2 rounded-xl bg-warning/10 border border-warning/20 text-warning/60 flex items-center gap-2">
-                                     <Clock size={16} className="animate-pulse" />
-                                     <span className="text-[9px] font-black uppercase tracking-widest">Reviewing</span>
+                                  <div className="self-start sm:self-center px-4 py-1.5 rounded-lg bg-warning/5 border border-warning/10 text-warning/60 flex items-center gap-2">
+                                     <Clock size={14} className="animate-pulse" />
+                                     <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Audit</span>
                                   </div>
                                ) : null}
                             </div>
 
-                            <div className="px-2">
-                               <p className="text-sm text-text-secondary leading-relaxed border-l border-white/10 pl-6">
-                                  {task.description}
-                               </p>
-                            </div>
+                            <p className="text-sm text-text-tertiary leading-relaxed font-medium pl-5 border-l-2 border-primary/20 italic">
+                               {task.description}
+                            </p>
 
                             {!isCompleted && !isPending && (
-                               <div className="pt-6 border-t border-white/5 space-y-6">
+                               <div className="pt-8 border-t border-white/5 space-y-8">
                                   {task.actionUrl && (
-                                     <div className="flex items-center justify-between bg-white/[0.02] p-4 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2">Task URL</p>
+                                     <div className="flex items-center justify-between bg-white/[0.01] p-5 rounded-2xl border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                           <Info size={14} className="text-primary/40" />
+                                           <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Execution Link</p>
+                                        </div>
                                         <a
                                           href={task.actionUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="flex items-center gap-2 text-[10px] font-black text-primary hover:text-white transition-colors uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-xl border border-primary/20"
+                                          className="flex items-center gap-2 text-[9px] font-black text-white bg-white/5 hover:bg-white/10 transition-all uppercase tracking-widest px-5 py-2.5 rounded-xl border border-white/10"
                                         >
-                                          Start Task <ExternalLink size={12} />
+                                          Start Session <ExternalLink size={12} />
                                         </a>
                                      </div>
                                   )}
 
-                                  <div className="space-y-4">
-                                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2">Submission</p>
-                                     {task.verificationType === 'proof' ? (
-                                        <MediaUploader
-                                           label="Upload Proof"
-                                           value={proof[task.id]}
-                                           onChange={(url) => setProof(prev => ({ ...prev, [task.id]: url }))}
-                                           path={`proofs/${currentUser!.uid}`}
-                                        />
-                                     ) : task.verificationType === 'link' ? (
-                                        <div className="relative group">
-                                           <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" size={16} />
-                                           <input
-                                              type="url"
-                                              value={proof[task.id] || ''}
-                                              onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                              placeholder="https://..."
-                                              className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm font-mono font-bold text-white focus:outline-none focus:border-primary transition-all placeholder:text-white/10"
+                                  <div className="space-y-5">
+                                     <div className="flex items-center gap-3 px-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(94,106,210,0.5)]" />
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Evidence Submission</p>
+                                     </div>
+
+                                     <div className="bg-[#050507] rounded-2xl border border-white/5 overflow-hidden">
+                                        {task.verificationType === 'proof' ? (
+                                           <div className="p-1">
+                                              <MediaUploader
+                                                 label="Upload Secure Proof"
+                                                 value={proof[task.id]}
+                                                 onChange={(url) => setProof(prev => ({ ...prev, [task.id]: url }))}
+                                                 path={`proofs/${currentUser!.uid}`}
+                                              />
+                                           </div>
+                                        ) : task.verificationType === 'link' ? (
+                                           <div className="relative group">
+                                              <LinkIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" size={16} />
+                                              <input
+                                                 type="url"
+                                                 value={proof[task.id] || ''}
+                                                 onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                                 placeholder="https://source.evidence/..."
+                                                 className="w-full bg-transparent border-0 px-14 py-5 text-sm font-mono font-bold text-white focus:outline-none transition-all placeholder:text-white/5"
+                                              />
+                                           </div>
+                                        ) : task.verificationType === 'prediction' ? (
+                                           <div onClick={() => navigate('/predictions')} className="p-8 text-center cursor-pointer group hover:bg-white/[0.02] transition-all">
+                                              <BarChart3 size={32} className="mx-auto text-primary/40 mb-3 group-hover:text-primary group-hover:scale-110 transition-all" />
+                                              <p className="text-[10px] font-black text-white/40 group-hover:text-white uppercase tracking-[0.2em]">Open Forecasting Ledger</p>
+                                           </div>
+                                        ) : (
+                                           <textarea
+                                             value={proof[task.id] || ''}
+                                             onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                             placeholder={task.proofRequirements || "Enter required submission details..."}
+                                             className="w-full bg-transparent border-0 px-6 py-5 text-sm font-medium text-white focus:outline-none transition-all min-h-[120px] resize-none placeholder:text-white/5"
                                            />
-                                        </div>
-                                     ) : task.verificationType === 'prediction' ? (
-                                        <div onClick={() => navigate('/predictions')} className="bg-primary/5 border border-primary/10 rounded-2xl p-6 text-center cursor-pointer group hover:bg-primary/10 transition-all">
-                                           <BarChart3 size={32} className="mx-auto text-primary mb-3 group-hover:scale-110 transition-transform" />
-                                           <p className="text-[10px] font-black text-white uppercase tracking-widest">Go to Predictions</p>
-                                        </div>
-                                     ) : (
-                                        <textarea
-                                          value={proof[task.id] || ''}
-                                          onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                          placeholder={task.proofRequirements || "Enter details..."}
-                                          className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[100px] resize-none placeholder:text-white/10"
-                                        />
-                                     )}
+                                        )}
+                                     </div>
 
                                      {task.verificationType !== 'prediction' && task.verificationType !== 'referral' && (
                                         <Button
                                           onClick={() => handleSubmit(task.id)}
                                           isLoading={submittingTaskId === task.id}
                                           disabled={!proof[task.id]?.trim()}
-                                          className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98]"
+                                          variant="primary"
+                                          className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
                                         >
-                                          Submit
+                                          Validate Contribution <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
                                         </Button>
                                      )}
                                   </div>

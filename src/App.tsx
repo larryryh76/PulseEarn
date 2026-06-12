@@ -37,6 +37,7 @@ import Contact from './pages/legal/Contact'
 import Support from './pages/legal/Support'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
+import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -94,7 +95,39 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position="bottom-center" />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#12121A',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '1.25rem',
+            fontSize: '11px',
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            padding: '12px 20px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+          },
+          success: {
+            icon: <CheckCircle2 size={16} className="text-success" />,
+            style: {
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+            }
+          },
+          error: {
+            icon: <AlertCircle size={16} className="text-danger" />,
+            style: {
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+            }
+          },
+          loading: {
+            icon: <Zap size={16} className="text-primary animate-pulse" />,
+          }
+        }}
+      />
       <Routes>
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />

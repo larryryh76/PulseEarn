@@ -578,25 +578,31 @@ const Dashboard: React.FC = () => {
                          <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
                          <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
                       </div>
-                      <Button
-                        onClick={() => {
-                           const type = selectedActivity.type as string;
-                           if (type.includes('prediction')) navigate('/predictions');
-                           else if (type.includes('campaign')) {
-                              if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
-                              else navigate('/tasks');
-                           }
-                           else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
-                           else if (type.includes('referral')) navigate('/referrals');
-                           else if (type.includes('level')) navigate('/me');
-                           else if (type.includes('withdrawal')) navigate('/wallet');
-                           setSelectedActivity(null);
-                        }}
-                        variant="primary"
-                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
-                      >
-                         View Source Context <ArrowRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                      </Button>
+                      {(selectedActivity.type.includes('prediction') ||
+                        selectedActivity.type.includes('campaign') ||
+                        selectedActivity.type.includes('task') ||
+                        selectedActivity.type.includes('mission') ||
+                        selectedActivity.type.includes('referral') ||
+                        selectedActivity.type.includes('withdrawal')) && (
+                        <Button
+                           onClick={() => {
+                              const type = selectedActivity.type as string;
+                              if (type.includes('prediction')) navigate('/predictions');
+                              else if (type.includes('campaign')) {
+                                 if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
+                                 else navigate('/tasks');
+                              }
+                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks');
+                              else if (type.includes('referral')) navigate('/referrals');
+                              else if (type.includes('withdrawal')) navigate('/wallet');
+                              setSelectedActivity(null);
+                           }}
+                           variant="primary"
+                           className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
+                        >
+                           View Source Context <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                        </Button>
+                      )}
                    </div>
                 </div>
 
@@ -620,84 +626,77 @@ const Dashboard: React.FC = () => {
                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
              />
              <motion.div
-               initial={{ scale: 0.9, opacity: 0, y: 40 }}
-               animate={{ scale: 1, opacity: 1, y: 0 }}
-               exit={{ scale: 0.9, opacity: 0, y: 40 }}
-               className="relative w-full max-w-2xl bg-[#050507] border border-white/10 rounded-[3rem] shadow-[0_0_100px_rgba(0,0,0,1)] overflow-hidden flex flex-col"
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
              >
-                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                   <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 rounded-[1.25rem] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl shadow-primary/20">
-                        {selectedTask.type === 'MISSION' ? <Trophy size={24} /> : <Target size={24} />}
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary leading-none mb-1.5">{selectedTask.campaignName || 'System Directive'}</p>
-                        <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">{selectedTask.type} Protocol</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">{selectedTask.campaignName || 'System Directive'}</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.type} PROTOCOL</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedTask(null)} className="w-12 h-12 flex items-center justify-center hover:bg-white/5 rounded-2xl transition-all text-text-tertiary hover:text-white">
-                      <X size={24} />
+                   <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                      <X size={18} />
                    </button>
                 </div>
 
-                <div className="p-10 space-y-12 overflow-y-auto max-h-[70vh]">
-                   <div className="space-y-6">
-                      <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic leading-none">{selectedTask.title}</h2>
-                      <p className="text-lg text-text-secondary font-medium leading-relaxed opacity-70">
+                <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+                   <div className="space-y-4">
+                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTask.title}</h2>
+                      <p className="text-sm text-text-secondary leading-relaxed opacity-70">
                          {selectedTask.description || selectedTask.instructions || 'Execute this objective to secure authorized contribution rewards.'}
                       </p>
                    </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</p>
-                         <div className="flex items-baseline gap-2.5">
-                            <p className="text-3xl font-mono font-bold tracking-tighter text-white">
-                               {selectedTask.reward.toLocaleString()}
-                            </p>
-                            <span className="text-[11px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Reward</p>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-mono font-bold text-white">{selectedTask.reward.toLocaleString()}</span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
                          </div>
                       </div>
 
-                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">XP Provision</p>
-                         <div className="flex items-baseline gap-2.5">
-                            <p className="text-3xl font-mono font-bold tracking-tighter text-primary">
-                               {selectedTask.xp?.toLocaleString() || '100'}
-                            </p>
-                            <span className="text-[11px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
-                         </div>
-                      </div>
-
-                      <div className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 space-y-3 shadow-inner">
-                         <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Protocol Type</p>
-                         <div className="flex items-center gap-3">
-                            <MousePointer2 size={18} className="text-success" />
-                            <p className="text-lg font-black text-white uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</p>
+                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                         <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Provision</p>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-mono font-bold text-primary">{selectedTask.xp?.toLocaleString() || '100'}</span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
                          </div>
                       </div>
                    </div>
 
+                   <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex justify-between items-center">
+                      <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Method</span>
+                      <div className="flex items-center gap-2">
+                         <MousePointer2 size={14} className="text-success" />
+                         <span className="text-[10px] font-black text-white uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</span>
+                      </div>
+                   </div>
+
                    {selectedTask.type === 'MISSION' && selectedTask.target > 0 && (
-                      <div className="p-10 rounded-[2.5rem] bg-white/[0.01] border border-dashed border-white/10 space-y-6">
+                      <div className="p-6 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 space-y-4">
                          <div className="flex justify-between items-end">
-                            <div className="space-y-1">
-                               <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Sync Progress</p>
-                               <p className="text-2xl font-mono font-bold text-white">{selectedTask.progress} / {selectedTask.target}</p>
-                            </div>
-                            <span className="text-xs font-black text-primary uppercase tracking-widest">{Math.round((selectedTask.progress / selectedTask.target) * 100)}% Verified</span>
+                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Sync Progress</span>
+                            <span className="text-[10px] font-mono text-primary font-bold">{Math.round((selectedTask.progress / selectedTask.target) * 100)}%</span>
                          </div>
-                         <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                         <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                                initial={{ width: 0 }}
                                animate={{ width: `${(selectedTask.progress / selectedTask.target) * 100}%` }}
-                               className="h-full bg-primary shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                               className="h-full bg-primary"
                             />
                          </div>
                       </div>
                    )}
 
-                   <div className="flex flex-col md:flex-row gap-4">
+                   <div className="space-y-3 pt-4">
                       <Button
                         onClick={() => {
                            if (selectedTask.type === 'MISSION') {
@@ -710,16 +709,16 @@ const Dashboard: React.FC = () => {
                            setSelectedTask(null);
                         }}
                         variant="primary"
-                        className="flex-1 h-16 rounded-[1.5rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl shadow-primary/20 group italic"
+                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group italic"
                       >
-                         Initialize Objective <ArrowUpRight size={18} className="ml-3 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                         Initialize Objective <ArrowUpRight size={16} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                       </Button>
-                      <Button
+                      <button
                         onClick={() => setSelectedTask(null)}
-                        className="h-16 px-10 rounded-[1.5rem] bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.3em] text-[11px] hover:bg-white/10 transition-all"
+                        className="w-full h-12 text-[10px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white transition-colors"
                       >
-                         Dismiss
-                      </Button>
+                         Return to Session
+                      </button>
                    </div>
                 </div>
 

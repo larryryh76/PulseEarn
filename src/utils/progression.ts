@@ -42,7 +42,8 @@ export const getXpProgress = (xp: number) => {
     level,
     currentLevelXp,
     requiredXp,
-    progress
+    nextLevelXp: cumulativeXp + requiredXp,
+    progress: Math.floor(progress)
   };
 };
 

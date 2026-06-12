@@ -15,7 +15,6 @@ import {
   Target,
   ArrowLeft,
   ChevronRight,
-  ShieldCheck,
   BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +35,7 @@ const Predictions: React.FC = () => {
   const [stake, setStake] = useState<number>(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
+  const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'WON' | 'LOST'>('ALL');
 
   // Unified global markets from live data + admin campaigns
   const allMarkets = useMemo(() => {
@@ -45,8 +45,7 @@ const Predictions: React.FC = () => {
       symbol: (c as any).predictionSymbol || 'BTC',
       name: c.name,
       question: c.predictionQuestion || c.description,
-      reward: c.totalPrizePool || 5000,
-      participants: c.participantsCount || 0,
+      reward: c.totalPrizePool,
       isCampaign: true,
       image: ''
     }));
@@ -55,16 +54,13 @@ const Predictions: React.FC = () => {
       id: `global_${coin.id}`,
       assetId: coin.id,
       symbol: coin.symbol.toUpperCase(),
-      name: `${coin.name} Market`,
-      question: `Will ${coin.name} valuation increase in 24h?`,
-      reward: 1250,
-      participants: Math.floor(Math.random() * 2000) + 1000,
+      name: `${coin.name}`,
+      question: `Will ${coin.name} price increase in the next 24h?`,
+      reward: 0,
       isCampaign: false,
       image: coin.image,
       price: coin.current_price,
       change: coin.price_change_percentage_24h,
-      high_24h: (coin as any).high_24h,
-      low_24h: (coin as any).low_24h,
       total_volume: coin.total_volume,
       market_cap: coin.market_cap
     }));
@@ -134,6 +130,15 @@ const Predictions: React.FC = () => {
 
   const activePositions = userPredictions.filter(p => p.status === 'ACTIVE');
 
+  const filteredPredictions = userPredictions.filter(p => {
+    if (historyFilter === 'ALL') return true;
+    if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
+    if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
+    if (historyFilter === 'WON') return p.status === 'RESOLVED' && (p.rewardAmount || 0) > 0;
+    if (historyFilter === 'LOST') return p.status === 'RESOLVED' && (p.rewardAmount || 0) === 0;
+    return true;
+  });
+
   return (
     <MainLayout>
       <div className="pt-24 min-h-screen bg-[#050507] flex flex-col">
@@ -143,7 +148,7 @@ const Predictions: React.FC = () => {
               <div className="flex items-center gap-6">
                  <div className="flex items-center gap-2">
                     <BarChart3 size={16} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white italic">Forecasting Terminal</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Predictions</span>
                  </div>
                  <div className="hidden md:flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
                     <button
@@ -162,7 +167,7 @@ const Predictions: React.FC = () => {
                         terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                       )}
                     >
-                      Portfolio {activePositions.length > 0 && <span className="w-1 h-1 rounded-full bg-primary" />}
+                      My Predictions {activePositions.length > 0 && <span className="w-1 h-1 rounded-full bg-primary" />}
                     </button>
                  </div>
               </div>
@@ -199,7 +204,7 @@ const Predictions: React.FC = () => {
                        className="flex items-center gap-2 text-text-tertiary hover:text-white transition-colors group"
                      >
                        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                       <span className="text-[10px] font-black uppercase tracking-[0.2em]">Return to Markets</span>
+                       <span className="text-[10px] font-black uppercase tracking-[0.2em]">Back to Markets</span>
                      </button>
 
                      <div className="space-y-6">
@@ -210,21 +215,21 @@ const Predictions: React.FC = () => {
                               </div>
                               <div>
                                  <div className="flex items-center gap-3 mb-1">
-                                    <h2 className="text-3xl font-bold text-white tracking-tighter uppercase italic">{activeMarket.symbol}</h2>
+                                    <h2 className="text-3xl font-bold text-white tracking-tighter uppercase">{activeMarket.symbol}</h2>
                                     <span className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">
-                                       {activeMarket.isCampaign ? 'Featured' : 'Global'}
+                                       {activeMarket.isCampaign ? 'Featured' : 'Market'}
                                     </span>
                                  </div>
-                                 <p className="text-text-tertiary text-sm font-medium italic">{activeMarket.question}</p>
+                                 <p className="text-text-tertiary text-sm font-medium">{activeMarket.question}</p>
                               </div>
                            </div>
                            <div className="flex items-center gap-8 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
                               <div className="text-right">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Index Price</p>
+                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Price</p>
                                  <p className="text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
                               </div>
                               <div className="text-right">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">24h Change</p>
+                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">24h</p>
                                  <p className={cn(
                                    "text-sm font-mono font-bold",
                                    (coinData?.price_change_percentage_24h || 0) < 0 ? "text-danger" : "text-success"
@@ -241,30 +246,13 @@ const Predictions: React.FC = () => {
                               <div className="flex items-center gap-4">
                                  <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Live Feed</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Market Live</span>
                                  </div>
-                                 <span className="text-[9px] font-black uppercase tracking-widest text-white/20">•</span>
-                                 <span className="text-[9px] font-black uppercase tracking-widest text-white/40">24H Performance</span>
                               </div>
                               <LineChart size={14} className="text-primary" />
                            </div>
                            <div className="flex-1">
                               <PredictionChart assetId={activeMarket.assetId} symbol={activeMarket.symbol} />
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                              <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Market Cap</p>
-                              <p className="text-sm font-mono font-bold text-white">${(coinData?.market_cap || 0).toLocaleString()}</p>
-                           </div>
-                           <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                              <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Volume (24h)</p>
-                              <p className="text-sm font-mono font-bold text-white">${(coinData?.total_volume || 0).toLocaleString()}</p>
-                           </div>
-                           <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                              <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Participants</p>
-                              <p className="text-sm font-mono font-bold text-white">{activeMarket.participants.toLocaleString()}</p>
                            </div>
                         </div>
                      </div>
@@ -274,13 +262,12 @@ const Predictions: React.FC = () => {
                   <div className="lg:col-span-4 lg:sticky lg:top-40 h-fit">
                      <div className="bg-[#0A0A0F] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
                         <div className="p-8 border-b border-white/5 bg-white/[0.02]">
-                           <h3 className="text-xl font-bold text-white italic tracking-tight uppercase">Execution Panel</h3>
-                           <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1">Settle Forecast Position</p>
+                           <h3 className="text-xl font-bold text-white tracking-tight uppercase">Predict</h3>
                         </div>
 
                         <div className="p-8 space-y-8">
                            <div className="space-y-4">
-                              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block ml-2">Market Direction</label>
+                              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block ml-2">Direction</label>
                               <div className="grid grid-cols-2 gap-3">
                                  <button
                                    onClick={() => setPrediction('UP')}
@@ -306,7 +293,7 @@ const Predictions: React.FC = () => {
                            </div>
 
                            <div className="space-y-4">
-                              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block ml-2">Allocation Stake</label>
+                              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block ml-2">Stake Amount</label>
                               <div className="flex flex-wrap gap-2">
                                  {STAKE_OPTIONS.map((opt) => (
                                     <button
@@ -323,7 +310,7 @@ const Predictions: React.FC = () => {
                               </div>
                               <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 space-y-6">
                                  <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Entry Stake</span>
+                                    <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Stake</span>
                                     <span className="text-sm font-mono font-bold text-white">{stake} PTS</span>
                                  </div>
                                  <div className="flex justify-between items-center pt-4 border-t border-white/5">
@@ -333,28 +320,17 @@ const Predictions: React.FC = () => {
                                     </div>
                                     <span className="text-sm font-mono font-bold text-primary">{stake * 2} PTS</span>
                                  </div>
-                                 <div className="bg-primary/5 rounded-xl p-3 border border-primary/10">
-                                    <p className="text-[9px] font-bold text-primary/80 italic leading-relaxed text-center">
-                                       "Potential Return: 2× Stake"
-                                    </p>
-                                 </div>
                               </div>
                            </div>
 
                            <div className="space-y-4">
-                              <div className="flex items-start gap-3 px-2">
-                                 <ShieldCheck size={14} className="text-success shrink-0 mt-0.5" />
-                                 <p className="text-[9px] font-bold text-white/40 leading-relaxed italic uppercase tracking-wider">
-                                    Position is locked for 24 hours. Result settled automatically by price oracle.
-                                 </p>
-                              </div>
                               <Button
-                                className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl italic shadow-2xl active:scale-[0.98] disabled:opacity-20"
+                                className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98] disabled:opacity-20"
                                 disabled={!prediction || isSubmitting}
                                 isLoading={isSubmitting}
                                 onClick={handlePredict}
                               >
-                                CONFIRM FORECAST
+                                PLACE PREDICTION
                               </Button>
                            </div>
                         </div>
@@ -373,10 +349,10 @@ const Predictions: React.FC = () => {
                      <div className="space-y-4">
                         <div className="flex items-center gap-2">
                            <Target size={14} className="text-primary" />
-                           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Active Opportunities</span>
+                           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Active Markets</span>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none italic">
-                           Market Discovery
+                           Discover
                         </h1>
                      </div>
                   </div>
@@ -417,7 +393,7 @@ const Predictions: React.FC = () => {
                                  </div>
 
                                  <div className="space-y-4">
-                                    <h3 className="text-xl font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors italic">
+                                    <h3 className="text-xl font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
                                        {market.question}
                                     </h3>
                                     <div className="flex items-center justify-between pt-6 border-t border-white/5">
@@ -426,7 +402,7 @@ const Predictions: React.FC = () => {
                                           <span className="text-[9px] font-black uppercase tracking-widest text-primary">2× Return</span>
                                        </div>
                                        <div className="flex items-center gap-2 text-white/20 group-hover:text-white transition-colors">
-                                          <span className="text-[10px] font-black uppercase tracking-widest italic">Predict Now</span>
+                                          <span className="text-[10px] font-black uppercase tracking-widest">Predict Now</span>
                                           <ChevronRight size={14} />
                                        </div>
                                     </div>
@@ -445,18 +421,35 @@ const Predictions: React.FC = () => {
                  exit={{ opacity: 0 }}
                  className="space-y-8"
                >
-                  <div className="space-y-4">
-                     <div className="flex items-center gap-2">
-                        <Activity size={14} className="text-primary" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">History & Positions</span>
-                     </div>
-                     <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none italic uppercase">
-                        Portfolio
-                     </h1>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Activity size={14} className="text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Prediction History</span>
+                        </div>
+                        <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
+                            My Predictions
+                        </h1>
+                    </div>
+
+                    <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] overflow-x-auto no-scrollbar">
+                        {(['ALL', 'ACTIVE', 'COMPLETED', 'WON', 'LOST'] as const).map((f) => (
+                            <button
+                                key={f}
+                                onClick={() => setHistoryFilter(f)}
+                                className={cn(
+                                    "px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all shrink-0",
+                                    historyFilter === f ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
+                                )}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                     {userPredictions.map((pred) => (
+                     {filteredPredictions.map((pred) => (
                         <div key={pred.id} className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/5 flex items-center justify-between group hover:bg-white/[0.01] transition-all">
                            <div className="flex items-center gap-6">
                               <div className={cn(
@@ -480,6 +473,10 @@ const Predictions: React.FC = () => {
                            </div>
 
                            <div className="flex items-center gap-12 text-right">
+                              <div className="hidden md:block">
+                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Stake</p>
+                                 <p className="text-sm font-mono font-bold text-white">{pred.stakeAmount} PTS</p>
+                              </div>
                               <div className="hidden md:block">
                                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Entry Price</p>
                                  <p className="text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>

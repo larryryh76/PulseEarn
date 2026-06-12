@@ -124,7 +124,7 @@ const CampaignDetails: React.FC = () => {
     <MainLayout>
       <div className="pt-32 px-6 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh]">
         <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin mb-8" />
-        <p className="text-text-tertiary text-[10px] font-bold uppercase tracking-[0.2em]">Synchronizing Protocol Data...</p>
+        <p className="text-text-tertiary text-[10px] font-bold uppercase tracking-[0.2em]">Loading...</p>
       </div>
     </MainLayout>
   );
@@ -150,17 +150,17 @@ const CampaignDetails: React.FC = () => {
               className="flex items-center gap-2 text-text-tertiary hover:text-white transition-colors mb-12 group"
             >
               <ChevronLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Back to Objectives</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Back to Tasks</span>
             </button>
 
             <div className="space-y-8">
                <div className="flex flex-wrap items-center gap-3">
-                  <span className="px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[9px] font-black text-primary uppercase tracking-widest italic">{campaign.category}</span>
+                  <span className="px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[9px] font-black text-primary uppercase tracking-widest">{campaign.category}</span>
                   <div className="w-1 h-1 rounded-full bg-white/10" />
-                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] italic">Verification Active</span>
+                  <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Active</span>
                </div>
 
-               <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white leading-none italic uppercase">
+               <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white leading-none uppercase">
                   {campaign.name}
                </h1>
 
@@ -179,7 +179,7 @@ const CampaignDetails: React.FC = () => {
                         <Target size={20} />
                      </div>
                      <div>
-                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-0.5">Objectives</p>
+                        <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-0.5">Tasks</p>
                         <p className="text-xl font-mono font-bold text-white">{campaign.taskIds?.length || 0}</p>
                      </div>
                   </div>
@@ -203,33 +203,29 @@ const CampaignDetails: React.FC = () => {
             {/* OVERVIEW SECTION */}
             <section className="space-y-8">
                <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">Intelligence</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Details</span>
                   <div className="h-px flex-1 bg-white/[0.03]" />
                </div>
                <div className="p-10 rounded-[3rem] bg-[#0A0A0F] border border-white/5 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-10 opacity-[0.02] group-hover:scale-110 transition-transform duration-700">
                      <Info size={160} />
                   </div>
-                  <p className="text-lg text-text-secondary leading-relaxed font-medium italic relative z-10">
+                  <p className="text-lg text-text-secondary leading-relaxed font-medium relative z-10">
                      {campaign.description}
                   </p>
                   <div className="flex items-center gap-6 mt-10 pt-10 border-t border-white/5 relative z-10">
                      <div className="flex items-center gap-2">
                         <Calendar size={14} className="text-white/20" />
-                        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Expires: {campaign.endDate ? campaign.endDate.toDate().toLocaleDateString() : 'Continuous'}</span>
-                     </div>
-                     <div className="flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-success/40" />
-                        <span className="text-[9px] font-black text-success/40 uppercase tracking-widest">Proof Encryption Active</span>
+                        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Ends: {campaign.endDate ? campaign.endDate.toDate().toLocaleDateString() : 'Continuous'}</span>
                      </div>
                   </div>
                </div>
             </section>
 
-            {/* TASKS LIST SECTION - COMPACT LIST ROWS */}
+            {/* TASKS LIST SECTION */}
             <section className="space-y-8">
                <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary italic">Operations</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Tasks</span>
                   <div className="h-px flex-1 bg-white/[0.03]" />
                </div>
 
@@ -254,14 +250,14 @@ const CampaignDetails: React.FC = () => {
                                      <Zap size={24} />
                                   </div>
                                   <div>
-                                     <h3 className="text-xl font-bold text-white uppercase tracking-tight italic leading-tight">{task.title}</h3>
+                                     <h3 className="text-xl font-bold text-white uppercase tracking-tight leading-tight">{task.title}</h3>
                                      <div className="flex items-center gap-4 mt-1">
                                         <div className="flex items-center gap-1.5">
                                            <Zap size={10} className="text-primary" />
                                            <span className="text-[10px] font-mono font-bold text-primary">+{task.rewardAmount} PTS</span>
                                         </div>
                                         <span className="text-white/10">•</span>
-                                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{task.verificationType} Verification</span>
+                                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{task.verificationType}</span>
                                      </div>
                                   </div>
                                </div>
@@ -280,7 +276,7 @@ const CampaignDetails: React.FC = () => {
                             </div>
 
                             <div className="px-2">
-                               <p className="text-sm text-text-secondary leading-relaxed italic border-l border-white/10 pl-6">
+                               <p className="text-sm text-text-secondary leading-relaxed border-l border-white/10 pl-6">
                                   {task.description}
                                </p>
                             </div>
@@ -289,23 +285,23 @@ const CampaignDetails: React.FC = () => {
                                <div className="pt-6 border-t border-white/5 space-y-6">
                                   {task.actionUrl && (
                                      <div className="flex items-center justify-between bg-white/[0.02] p-4 rounded-2xl border border-white/5">
-                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2 italic">Operation URL</p>
+                                        <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2">Task URL</p>
                                         <a
                                           href={task.actionUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="flex items-center gap-2 text-[10px] font-black text-primary hover:text-white transition-colors uppercase tracking-widest bg-primary/10 px-4 py-2 rounded-xl border border-primary/20"
                                         >
-                                          Execute Action <ExternalLink size={12} />
+                                          Start Task <ExternalLink size={12} />
                                         </a>
                                      </div>
                                   )}
 
                                   <div className="space-y-4">
-                                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2 italic">Evidence Submission</p>
+                                     <p className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-2">Submission</p>
                                      {task.verificationType === 'proof' ? (
                                         <MediaUploader
-                                           label="Upload Proof Artifact"
+                                           label="Upload Proof"
                                            value={proof[task.id]}
                                            onChange={(url) => setProof(prev => ({ ...prev, [task.id]: url }))}
                                            path={`proofs/${currentUser!.uid}`}
@@ -324,13 +320,13 @@ const CampaignDetails: React.FC = () => {
                                      ) : task.verificationType === 'prediction' ? (
                                         <div onClick={() => navigate('/predictions')} className="bg-primary/5 border border-primary/10 rounded-2xl p-6 text-center cursor-pointer group hover:bg-primary/10 transition-all">
                                            <BarChart3 size={32} className="mx-auto text-primary mb-3 group-hover:scale-110 transition-transform" />
-                                           <p className="text-[10px] font-black text-white uppercase tracking-widest italic">Go to Prediction Terminal</p>
+                                           <p className="text-[10px] font-black text-white uppercase tracking-widest">Go to Predictions</p>
                                         </div>
                                      ) : (
                                         <textarea
                                           value={proof[task.id] || ''}
                                           onChange={(e) => setProof(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                          placeholder={task.proofRequirements || "Enter required intelligence data..."}
+                                          placeholder={task.proofRequirements || "Enter details..."}
                                           className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-medium text-white focus:outline-none focus:border-primary transition-all min-h-[100px] resize-none placeholder:text-white/10"
                                         />
                                      )}
@@ -340,9 +336,9 @@ const CampaignDetails: React.FC = () => {
                                           onClick={() => handleSubmit(task.id)}
                                           isLoading={submittingTaskId === task.id}
                                           disabled={!proof[task.id]?.trim()}
-                                          className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl italic shadow-2xl active:scale-[0.98]"
+                                          className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98]"
                                         >
-                                          Submit Intelligence
+                                          Submit
                                         </Button>
                                      )}
                                   </div>
@@ -362,13 +358,13 @@ const CampaignDetails: React.FC = () => {
                   <ShieldCheck size={36} className="text-primary" />
                 </div>
                 <div className="space-y-2">
-                   <h3 className="text-xl font-bold uppercase tracking-tighter text-white italic">Protocol Status</h3>
-                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{campaign.active ? 'ACTIVE OPERATIONS' : 'DECOMMISSIONED'}</p>
+                   <h3 className="text-xl font-bold uppercase tracking-tighter text-white">Status</h3>
+                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{campaign.active ? 'Active' : 'Ended'}</p>
                 </div>
 
                 <div className="pt-8 border-t border-white/5 space-y-6">
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest italic">
-                    <span className="text-white/20">Execution Progress</span>
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                    <span className="text-white/20">Progress</span>
                     <span className="text-white">{Object.values(claims).filter(c => c.validationState === 'APPROVED').length} / {tasks.length}</span>
                   </div>
                   <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">

@@ -164,7 +164,7 @@ export interface Campaign {
 export interface Activity {
   id: string;
   userId: string;
-  type: 'reward_received' | 'referral_activated' | 'streak_updated' | 'prediction_settled' | 'task_approved' | 'reward_reversed' | 'moderation_notice' | 'level_achieved';
+  type: 'reward_received' | 'referral_activated' | 'streak_updated' | 'prediction_settled' | 'task_approved' | 'reward_reversed' | 'moderation_notice' | 'level_achieved' | 'prediction_placed' | 'prediction_won' | 'prediction_lost' | 'task_completed' | 'mission_completed';
   points: number;
   description: string;
   timestamp: Timestamp;

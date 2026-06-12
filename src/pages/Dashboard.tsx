@@ -19,7 +19,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { cn } from '../utils';
 import { formatUSD } from '../utils/finance';
 import Card from '../components/ui/Card';
@@ -27,7 +27,6 @@ import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
   const { userData } = useAuth();
   const { activities, tasks, campaigns, loading, getTaskStatus, subtasks } = useTasks();
 
@@ -54,7 +53,7 @@ const Dashboard: React.FC = () => {
   return (
     <MainLayout>
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
-        {/* OPERATIONAL HEADER */}
+        {/* HEADER */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12 mb-16">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -63,10 +62,10 @@ const Dashboard: React.FC = () => {
           >
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">User Dashboard</span>
+              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Dashboard</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-               Welcome Back, <span className="text-text-tertiary">{userData?.username}</span>
+               Welcome back, <span className="text-text-tertiary">{userData?.username}</span>
             </h1>
           </motion.div>
 
@@ -93,11 +92,11 @@ const Dashboard: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* METRIC INFRASTRUCTURE */}
+        {/* METRICS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
            <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-8 flex flex-col justify-between min-h-[160px]">
               <div className="flex justify-between items-start">
-                 <p className="data-label text-primary">Available Balance</p>
+                 <p className="data-label text-primary">Balance</p>
                  <WalletIcon size={18} className="text-primary" />
               </div>
               <div className="space-y-1">
@@ -139,23 +138,23 @@ const Dashboard: React.FC = () => {
 
            <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
               <div className="flex justify-between items-start">
-                 <p className="data-label">Active Streak</p>
+                 <p className="data-label">Streak</p>
                  <Flame size={18} className={cn(userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")} />
               </div>
               <div className="space-y-1">
                  <p className="text-3xl font-bold text-white tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Session Consistency</p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Login Streak</p>
               </div>
            </Card>
 
            <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px]">
               <div className="flex justify-between items-start">
-                 <p className="data-label">Pending Reviews</p>
+                 <p className="data-label">Pending</p>
                  <Clock size={18} className="text-text-tertiary" />
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubtasks.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Items</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Awaiting Verification</p>
+                 <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubtasks.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Tasks</span></p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Reviewing</p>
               </div>
            </Card>
         </div>
@@ -198,48 +197,13 @@ const Dashboard: React.FC = () => {
                </section>
             )}
 
-            {/* DAILY OBJECTIVE */}
-            <section className="space-y-6">
-               <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight italic">Daily Objective</h2>
-                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
-                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                     Resets in 12h
-                  </div>
-               </div>
-               <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                     <Target size={120} className="text-primary" />
-                  </div>
-                  <div className="relative z-10 space-y-6">
-                     <div className="space-y-2">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Platform Goal</p>
-                        <h3 className="text-3xl font-bold text-white tracking-tighter leading-none italic">Complete 3 Tasks</h3>
-                     </div>
-                     <div className="flex items-center gap-6">
-                        <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                           <div className="h-full bg-primary w-1/3 rounded-full shadow-[0_0_15px_rgba(94,106,210,0.6)]" />
-                        </div>
-                        <span className="text-sm font-mono font-bold text-white">1 / 3</span>
-                     </div>
-                     <Button
-                        size="sm"
-                        variant="primary"
-                        className="rounded-xl px-8 h-12 italic"
-                        onClick={() => navigate('/tasks')}
-                     >
-                        Continue Progress
-                     </Button>
-                  </div>
-               </div>
-            </section>
 
 
-            {/* RECENT REWARDS & OPPORTUNITIES */}
+            {/* TASKS */}
             {activeTasks.length > 0 && (
               <section className="space-y-8">
                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold tracking-tight italic">Recommended Tasks</h2>
+                    <h2 className="text-xl font-bold tracking-tight">Tasks</h2>
                     <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white transition-colors">
                        View All
                     </Link>
@@ -281,13 +245,13 @@ const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* SYSTEM SIDEBAR: LIVE FEED */}
+          {/* ACTIVITY FEED */}
           <div className="space-y-16">
             {activities.length > 0 && (
               <section className="space-y-8">
                 <div className="flex items-center gap-3">
                   <ActivityIcon size={18} className="text-primary" />
-                  <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Recent Rewards</h2>
+                  <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
                 </div>
 
                 <div className="space-y-2">
@@ -300,8 +264,9 @@ const Dashboard: React.FC = () => {
                             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
                             isPositive ? "bg-success/5 border-success/10 text-success" : "bg-white/5 border-white/10 text-white/20"
                           )}>
-                            {activity.type === 'reward_received' || activity.type === 'task_approved' ? <Zap size={14} /> :
+                            {activity.type === 'reward_received' || activity.type === 'task_approved' || activity.type === 'prediction_won' ? <Zap size={14} /> :
                              activity.type === 'level_achieved' ? <TrendingUp size={14} /> :
+                             activity.type === 'prediction_placed' ? <BarChart3 size={14} /> :
                              activity.type === 'referral_activated' ? <UserPlus size={14} /> : <ActivityIcon size={14} />}
                           </div>
                           <div className="flex-grow min-w-0">
@@ -349,7 +314,7 @@ const Dashboard: React.FC = () => {
                </section>
             )}
 
-            {/* COMPLETED SUMMARY QUICK VIEW */}
+            {/* COMPLETED SUMMARY */}
             <section className="space-y-8">
                <div className="system-card bg-surface-bright/20 border-dashed border-white/5 py-10 flex flex-col items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-success border border-success/20">
@@ -357,7 +322,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="text-center">
                      <p className="text-2xl font-bold text-white tracking-tight">{userData?.stats?.tasksCompleted || 0}</p>
-                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Campaigns Finalized</p>
+                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Tasks Completed</p>
                   </div>
                </div>
             </section>

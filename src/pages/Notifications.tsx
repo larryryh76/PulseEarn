@@ -21,7 +21,7 @@ import {
   ArrowUpRight,
   TrendingDown
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -124,22 +124,22 @@ const Notifications: React.FC = () => {
         <div className="space-y-3">
           {tab === 'ALERTS' ? (
             notifications.length > 0 ? (
-            notifications.map((notification, index) => (
-              <motion.div
-                key={notification.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-                onClick={() => !notification.read && markAsRead(notification.id)}
-                className="group"
-              >
-                 <Card
-                  variant="compact"
-                  className={cn(
-                    "p-6 flex items-start gap-5 cursor-pointer transition-all",
-                    !notification.read ? "border-primary/20 bg-primary/[0.01]" : "opacity-60 grayscale-[0.5] hover:grayscale-0"
-                  )}
-                 >
+              notifications.map((notification, index) => (
+                <motion.div
+                  key={notification.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  onClick={() => !notification.read && markAsRead(notification.id)}
+                  className="group"
+                >
+                  <Card
+                    variant="compact"
+                    className={cn(
+                      "p-6 flex items-start gap-5 cursor-pointer transition-all",
+                      !notification.read ? "border-primary/20 bg-primary/[0.01]" : "opacity-60 grayscale-[0.5] hover:grayscale-0"
+                    )}
+                  >
                     <div className={cn(
                       "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all",
                       !notification.read ? "bg-primary/5 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
@@ -163,78 +163,77 @@ const Notifications: React.FC = () => {
                     </div>
 
                     {!notification.read ? (
-                       <div className="w-2 h-2 rounded-full bg-primary mt-2 shadow-[0_0_12px_rgba(94,106,210,1)] animate-pulse shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2 shadow-[0_0_12px_rgba(94,106,210,1)] animate-pulse shrink-0" />
                     ) : (
-                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary/20 group-hover:text-text-tertiary transition-colors">
-                          <ChevronRight size={14} />
-                       </div>
-                    )}
-                 </Card>
-              </motion.div>
-            ))
-          ) : (
-            <div className="py-48 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20 flex flex-col items-center gap-6">
-              <div className="w-16 h-16 rounded-[1.25rem] bg-surface border border-border flex items-center justify-center text-text-tertiary">
-                 <ShieldAlert size={24} />
-              </div>
-              <div className="space-y-1">
-                 <h2 className="text-lg font-bold text-white">Registry Clear</h2>
-                 <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">No synchronization signals detected</p>
-              </div>
-            </div>
-          ) : (
-            activities.length > 0 ? (
-              activities.map((activity, index) => (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  onClick={() => setSelectedActivity(activity)}
-                  className="group"
-                >
-                  <Card
-                    variant="compact"
-                    className="p-6 flex items-center gap-5 cursor-pointer transition-all hover:border-primary/20 bg-[#0A0A0F] border-white/5"
-                  >
-                    <div className={cn(
-                      "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all bg-white/[0.02] border-white/10 text-white/20 group-hover:text-primary",
-                    )}>
-                      {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
-                       activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
-                       activity.type.includes('referral') ? <UserPlus size={18} /> :
-                       activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold tracking-tight text-white group-hover:text-primary transition-colors truncate uppercase italic leading-none">
-                          {activity.description}
-                        </h3>
-                        <span className="text-[9px] font-mono font-bold text-text-tertiary uppercase">
-                          {activity.timestamp?.toDate?.() ? activity.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                        </span>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary/20 group-hover:text-text-tertiary transition-colors">
+                        <ChevronRight size={14} />
                       </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">
-                         {activity.points > 0 ? `+${activity.points.toLocaleString()} PTS` : 'System Event'}
-                      </p>
-                    </div>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary/20 group-hover:text-primary transition-colors">
-                        <ChevronRight size={16} />
-                    </div>
+                    )}
                   </Card>
                 </motion.div>
               ))
             ) : (
               <div className="py-48 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20 flex flex-col items-center gap-6">
                 <div className="w-16 h-16 rounded-[1.25rem] bg-surface border border-border flex items-center justify-center text-text-tertiary">
-                   <ActivityIcon size={24} />
+                  <ShieldAlert size={24} />
                 </div>
                 <div className="space-y-1">
-                   <h2 className="text-lg font-bold text-white">No Activity</h2>
-                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Your interaction ledger is empty</p>
+                  <h2 className="text-lg font-bold text-white">Registry Clear</h2>
+                  <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">No synchronization signals detected</p>
                 </div>
               </div>
             )
+          ) : activities.length > 0 ? (
+            activities.map((activity, index) => (
+              <motion.div
+                key={activity.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
+                onClick={() => setSelectedActivity(activity)}
+                className="group"
+              >
+                <Card
+                  variant="compact"
+                  className="p-6 flex items-center gap-5 cursor-pointer transition-all hover:border-primary/20 bg-[#0A0A0F] border-white/5"
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all bg-white/[0.02] border-white/10 text-white/20 group-hover:text-primary",
+                  )}>
+                    {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
+                      activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
+                        activity.type.includes('referral') ? <UserPlus size={18} /> :
+                          activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold tracking-tight text-white group-hover:text-primary transition-colors truncate uppercase italic leading-none">
+                        {activity.description}
+                      </h3>
+                      <span className="text-[9px] font-mono font-bold text-text-tertiary uppercase">
+                        {activity.timestamp?.toDate?.() ? activity.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">
+                      {activity.points > 0 ? `+${activity.points.toLocaleString()} PTS` : 'System Event'}
+                    </p>
+                  </div>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary/20 group-hover:text-primary transition-colors">
+                    <ChevronRight size={16} />
+                  </div>
+                </Card>
+              </motion.div>
+            ))
+          ) : (
+            <div className="py-48 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20 flex flex-col items-center gap-6">
+              <div className="w-16 h-16 rounded-[1.25rem] bg-surface border border-border flex items-center justify-center text-text-tertiary">
+                <ActivityIcon size={24} />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-white">No Activity</h2>
+                <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Your interaction ledger is empty</p>
+              </div>
+            </div>
           )}
         </div>
       </div>

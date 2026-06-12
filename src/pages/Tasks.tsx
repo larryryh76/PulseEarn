@@ -12,6 +12,7 @@ import {
   Trophy,
   Target,
   Sparkles,
+  Clock,
   X,
   Share2,
   Calendar,
@@ -54,6 +55,17 @@ const Tasks: React.FC = () => {
   }, [location.state]);
   const [selectedTask, setSelectedMarketTask] = useState<any | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (location.state?.highlightId) {
+       const mission = systemTasks.find(m => m.id === location.state.highlightId);
+       if (mission) {
+          setSelectedHistoryItem({ ...mission, type: 'MISSION' });
+          setView('COMPLETED');
+       }
+    }
+  }, [location.state, systemTasks]);
 
   const activeCampaigns = campaigns.filter(c =>
     c.active && (filter === 'ALL' || c.category === filter as any)
@@ -98,6 +110,92 @@ const Tasks: React.FC = () => {
 
   return (
     <MainLayout>
+      {/* HISTORY DETAIL MODAL */}
+      <AnimatePresence>
+        {selectedHistoryItem && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setSelectedHistoryItem(null)}
+               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+             />
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+             >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success shadow-lg">
+                        <CheckCircle2 size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Quest Ledger</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">COMPLETED OBJECTIVE</h3>
+                      </div>
+                   </div>
+                   <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                      <X size={18} />
+                   </button>
+                </div>
+
+                <div className="p-8 space-y-8">
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-text-tertiary mb-2">
+                         <Calendar size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
+                         <span className="text-white/10">•</span>
+                         <Clock size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Protocol Verified</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
+                   </div>
+
+                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Reward Claimed</span>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-mono font-bold text-success">+{selectedHistoryItem.definition?.rewardPoints || selectedHistoryItem.rewardAmount}</span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                         </div>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Experience Granted</span>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-mono font-bold text-primary">+{selectedHistoryItem.definition?.rewardXp || selectedHistoryItem.xpReward || '100'}</span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
+                         </div>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Verification</span>
+                         <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Protocol Verified</span>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="pt-4">
+                      <div className="flex justify-between items-center px-1">
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
+                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedHistoryItem.id || 'N/A'}</span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="pt-32 pb-32 px-6 max-w-5xl mx-auto">
 
         {/* HEADER */}
@@ -302,24 +400,29 @@ const Tasks: React.FC = () => {
            ) : (
               <>
                  {/* COMPLETED HISTORY */}
-                 <div className="space-y-3">
+                 <div className="grid grid-cols-1 gap-3">
                    {[...completedMissions, ...completedTasks.map(t => ({...t, type: 'TASK'}))].map((item: any, i) => (
                       <div
                         key={item.id || i}
-                        className="flex items-center justify-between p-5 px-8 rounded-2xl border border-success/10 bg-success/[0.01] opacity-70 group hover:opacity-100 transition-all"
+                        onClick={() => setSelectedHistoryItem(item)}
+                        className="flex items-center justify-between p-4 px-6 rounded-xl border border-success/10 bg-success/[0.01] group hover:bg-success/[0.02] cursor-pointer transition-all shadow-lg"
                       >
-                         <div className="flex items-center gap-6">
-                            <div className="w-12 h-12 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success">
-                               <CheckCircle2 size={20} />
+                         <div className="flex items-center gap-5">
+                            <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success shadow-inner">
+                               <CheckCircle2 size={18} />
                             </div>
                             <div>
-                               <h3 className="text-base font-bold text-white uppercase tracking-tight">{item.definition?.title || item.title}</h3>
-                               <p className="text-[10px] font-black text-success uppercase tracking-widest mt-1">Completed</p>
+                               <h3 className="text-sm font-bold text-white uppercase tracking-tight italic group-hover:text-success transition-colors">{item.definition?.title || item.title}</h3>
+                               <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">Protocol Secured</span>
+                                  <div className="w-1 h-1 rounded-full bg-success/20" />
+                                  <span className="text-[9px] font-mono text-white/20">{item.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'RECENT'}</span>
+                               </div>
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-lg font-mono font-bold text-success">+{item.definition?.rewardPoints || item.rewardAmount} PTS</p>
-                            <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">{item.claimedAt?.toDate?.().toLocaleDateString() || 'Recently'}</p>
+                            <p className="text-base font-mono font-bold text-success">+{item.definition?.rewardPoints || item.rewardAmount} PTS</p>
+                            <p className="text-[8px] font-black text-white/10 uppercase tracking-widest">Permanent Ledger</p>
                          </div>
                       </div>
                    ))}
@@ -348,61 +451,61 @@ const Tasks: React.FC = () => {
                  <motion.div
                    initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                    transition={{ type: 'spring', damping: 35, stiffness: 350 }}
-                   className="relative w-full max-w-xl h-full bg-[#08080C] border-l border-white/[0.05] shadow-2xl flex flex-col"
+                   className="relative w-full max-w-lg h-full bg-[#08080C] border-l border-white/[0.05] shadow-2xl flex flex-col"
                  >
                     {/* Panel Header */}
-                    <div className="p-8 border-b border-white/[0.05] flex items-center justify-between shrink-0">
+                    <div className="p-6 border-b border-white/[0.05] flex items-center justify-between shrink-0">
                        <div className="flex items-center gap-3">
-                          <div className="p-2.5 bg-primary/10 rounded-xl text-primary border border-primary/20 shadow-lg shadow-primary/10">
-                             <TaskIcon category={selectedTask.definition.category} size={20} />
+                          <div className="w-10 h-10 bg-primary/10 rounded-xl text-primary border border-primary/20 flex items-center justify-center shadow-lg shadow-primary/10">
+                             <TaskIcon category={selectedTask.definition.category} size={18} />
                           </div>
                           <div>
-                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 block">Challenge</span>
-                             <span className="text-[8px] font-black text-primary uppercase tracking-widest">{selectedTask.definition.category}</span>
+                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block leading-none mb-1">Challenge</span>
+                             <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">{selectedTask.definition.category}</span>
                           </div>
                        </div>
-                       <button onClick={() => setSelectedMarketTask(null)} className="p-3 hover:bg-white/[0.05] rounded-2xl transition-all text-text-tertiary hover:text-white">
-                          <X size={20} />
+                       <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-white/[0.05] rounded-xl transition-all text-text-tertiary hover:text-white flex items-center justify-center">
+                          <X size={18} />
                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-10 space-y-12">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
+                       <div className="space-y-4">
+                          <h2 className="text-3xl font-bold text-white tracking-tighter leading-tight uppercase italic">{selectedTask.definition.title}</h2>
+                          <p className="text-sm text-text-secondary font-medium leading-relaxed border-l-2 border-primary/20 pl-6 italic">{selectedTask.definition.description}</p>
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] space-y-2 group hover:bg-white/[0.04] transition-all">
+                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Yield</p>
+                             <div className="flex items-baseline gap-1.5">
+                                <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
+                                <span className="text-[9px] font-black text-primary uppercase tracking-widest">pts</span>
+                             </div>
+                          </div>
+                          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] space-y-2 group hover:bg-white/[0.04] transition-all">
+                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Growth</p>
+                             <div className="flex items-baseline gap-1.5">
+                                <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardXp.toLocaleString()}</p>
+                                <span className="text-[9px] font-black text-success uppercase tracking-widest">xp</span>
+                             </div>
+                          </div>
+                       </div>
+
                        <div className="space-y-6">
-                          <h2 className="text-4xl lg:text-5xl font-bold text-white tracking-tighter leading-[1] uppercase">{selectedTask.definition.title}</h2>
-                          <p className="text-lg text-text-secondary font-medium leading-relaxed border-l-2 border-primary/20 pl-8">{selectedTask.definition.description}</p>
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.05] space-y-3 group hover:bg-white/[0.04] transition-all">
-                             <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Reward</p>
-                             <div className="flex items-baseline gap-2">
-                                <p className="text-3xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardPoints}</p>
-                                <span className="text-[10px] font-black text-primary uppercase tracking-widest">pts</span>
-                             </div>
-                          </div>
-                          <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.05] space-y-3 group hover:bg-white/[0.04] transition-all">
-                             <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Experience</p>
-                             <div className="flex items-baseline gap-2">
-                                <p className="text-3xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardXp}</p>
-                                <span className="text-[10px] font-black text-success uppercase tracking-widest">xp</span>
-                             </div>
-                          </div>
-                       </div>
-
-                       <div className="space-y-8">
                           <div className="flex items-center justify-between">
-                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Instructions</h4>
-                             <div className="h-px flex-1 bg-white/[0.03] ml-6" />
+                             <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Instructions</h4>
+                             <div className="h-px flex-1 bg-white/[0.03] ml-4" />
                           </div>
-                          <div className="p-8 rounded-[3rem] bg-black/40 border border-white/[0.03] space-y-6 relative overflow-hidden">
-                             <div className="absolute top-0 right-0 p-8 opacity-[0.02]">
-                                <Target size={120} />
+                          <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.03] space-y-5 relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-6 opacity-[0.01]">
+                                <Target size={100} />
                              </div>
-                             <div className="flex gap-6 relative z-10">
-                                <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-black text-primary shadow-lg shadow-primary/5">01</div>
-                                <div className="space-y-2">
-                                   <p className="text-xs font-black text-white/40 uppercase tracking-widest">Objective</p>
-                                   <p className="text-base font-medium text-text-secondary leading-relaxed">
+                             <div className="flex gap-4 relative z-10">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-[10px] font-black text-primary">01</div>
+                                <div className="space-y-1.5">
+                                   <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Primary Objective</p>
+                                   <p className="text-sm font-medium text-text-secondary leading-relaxed">
                                       {selectedTask.definition.category === 'WELCOME' && "Secure your identity on the PulseEarn protocol to unlock basic rewards."}
                                       {selectedTask.definition.category === 'REFERRAL' && `Deploy your invitation link and successfully onboard ${selectedTask.definition.targetValue} new participants.`}
                                       {selectedTask.definition.category === 'PREDICTION' && `Execute ${selectedTask.definition.targetValue} successful market forecasts to demonstrate analytical proficiency.`}

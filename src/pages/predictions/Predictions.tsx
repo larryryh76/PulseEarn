@@ -17,7 +17,9 @@ import {
   BarChart3,
   History,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -38,12 +40,20 @@ const Predictions: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'WON' | 'LOST'>('ALL');
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<PredictionRecord | null>(null);
 
   useEffect(() => {
     if (location.state?.view) {
       setTerminalView(location.state.view);
     }
-  }, [location.state]);
+    if (location.state?.highlightId) {
+       const item = userPredictions.find((p: any) => p.id === location.state.highlightId);
+       if (item) {
+          setSelectedHistoryItem(item);
+          setTerminalView('PORTFOLIO');
+       }
+    }
+  }, [location.state, userPredictions]);
 
   // Unified global markets from live data + admin campaigns
   const allMarkets = useMemo(() => {
@@ -147,6 +157,115 @@ const Predictions: React.FC = () => {
 
   return (
     <MainLayout>
+      {/* HISTORY DETAIL MODAL */}
+      <AnimatePresence>
+        {selectedHistoryItem && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setSelectedHistoryItem(null)}
+               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+             />
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+             >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg">
+                        <History size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Forecast Ledger</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedHistoryItem.status} POSITION</h3>
+                      </div>
+                   </div>
+                   <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                      <X size={18} />
+                   </button>
+                </div>
+
+                <div className="p-8 space-y-8">
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-text-tertiary mb-2">
+                         <Calendar size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                         <span className="text-white/10">•</span>
+                         <Clock size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedHistoryItem.symbol} Forecast</h2>
+                   </div>
+
+                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Initial Stake</span>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-mono font-bold text-white">{selectedHistoryItem.stakeAmount.toLocaleString()}</span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                         </div>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Forecast Vector</span>
+                         <div className="flex items-center gap-2">
+                            {selectedHistoryItem.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
+                            <span className={cn("text-xs font-bold uppercase tracking-widest", selectedHistoryItem.direction === 'UP' ? "text-success" : "text-danger")}>{selectedHistoryItem.direction}</span>
+                         </div>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Entry Price</span>
+                         <span className="text-xs font-mono font-bold text-white">${selectedHistoryItem.entryPrice.toLocaleString()}</span>
+                      </div>
+
+                      {selectedHistoryItem.status === 'RESOLVED' ? (
+                         <>
+                            <div className="p-5 flex justify-between items-center">
+                               <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Exit Price</span>
+                               <span className="text-xs font-mono font-bold text-white">${selectedHistoryItem.exitPrice?.toLocaleString() || '---'}</span>
+                            </div>
+                            <div className="p-5 flex justify-between items-center">
+                               <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Final Yield</span>
+                               <div className="flex items-baseline gap-1.5">
+                                  <span className={cn("text-xl font-mono font-bold", (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-white/10")}>
+                                     {(selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
+                                  </span>
+                                  <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                               </div>
+                            </div>
+                         </>
+                      ) : (
+                         <div className="p-5 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Settlement</span>
+                            <div className="flex items-center gap-1.5">
+                               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                               <span className="text-[10px] font-black text-primary uppercase tracking-widest italic">Awaiting Protocol</span>
+                            </div>
+                         </div>
+                      )}
+                   </div>
+
+                   <div className="pt-4">
+                      <div className="flex justify-between items-center px-1">
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Position Hash</span>
+                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedHistoryItem.id}</span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="pt-24 min-h-screen bg-[#050507] flex flex-col">
         {/* TOP NAV BAR - TERMINAL STYLE */}
         <div className="border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-16 z-30 px-4 sm:px-6 py-4 sm:py-5">
@@ -198,7 +317,7 @@ const Predictions: React.FC = () => {
            </div>
         </div>
 
-        <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 pb-32 overflow-x-hidden">
+        <div className="flex-1 max-w-7xl mx-auto w-full p-3 sm:p-6 pb-32 overflow-x-hidden">
           <AnimatePresence mode="wait">
             {selectedMarketId && activeMarket ? (
                <motion.div
@@ -262,7 +381,7 @@ const Predictions: React.FC = () => {
                               </div>
                               <LineChart size={14} className="text-primary" />
                            </div>
-                           <div className="flex-1">
+                           <div className="flex-1 min-h-[250px]">
                               <PredictionChart assetId={activeMarket.assetId} symbol={activeMarket.symbol} />
                            </div>
                         </div>
@@ -406,17 +525,33 @@ const Predictions: React.FC = () => {
                                     </div>
                                  </div>
 
-                                 <div className="space-y-4">
-                                    <h3 className="text-xl font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                 <div className="space-y-5">
+                                    <div className="flex items-center gap-2 mb-1">
+                                       <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
+                                       <span className="text-[8px] font-black text-success uppercase tracking-[0.2em]">Open Context</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors italic">
                                        {market.question}
                                     </h3>
-                                    <div className="flex items-center justify-between pt-6 border-t border-white/5">
+
+                                    <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5">
+                                       <div className="space-y-1">
+                                          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Multiplier</p>
+                                          <p className="text-xs font-mono font-bold text-white">2.00x</p>
+                                       </div>
+                                       <div className="space-y-1 text-right">
+                                          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Settlement</p>
+                                          <p className="text-xs font-mono font-bold text-white">24H</p>
+                                       </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-2">
                                        <div className="flex items-center gap-1.5">
                                           <Zap size={10} className="text-primary" />
-                                          <span className="text-[9px] font-black uppercase tracking-widest text-primary">2× Return</span>
+                                          <span className="text-[9px] font-black uppercase tracking-widest text-primary">Pulse Reward</span>
                                        </div>
                                        <div className="flex items-center gap-2 text-white/20 group-hover:text-white transition-colors">
-                                          <span className="text-[10px] font-black uppercase tracking-widest">Predict Now</span>
+                                          <span className="text-[10px] font-black uppercase tracking-widest">Enter Market</span>
                                           <ChevronRight size={14} />
                                        </div>
                                     </div>
@@ -462,18 +597,22 @@ const Predictions: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
                      {filteredPredictions.map((pred: PredictionRecord) => {
                         const isWin = pred.status === 'RESOLVED' && (pred.rewardAmount || 0) > 0;
 
                         return (
-                          <div key={pred.id} className="group relative overflow-hidden">
+                          <div
+                             key={pred.id}
+                             onClick={() => setSelectedHistoryItem(pred)}
+                             className="group relative overflow-hidden cursor-pointer"
+                          >
                             <div className={cn(
-                                "absolute inset-y-0 left-0 w-0.5 transition-all group-hover:w-1",
+                                "absolute inset-y-0 left-0 w-1 transition-all group-hover:w-1.5",
                                 pred.status === 'ACTIVE' ? "bg-primary" : isWin ? "bg-success" : "bg-white/10"
                             )} />
 
-                            <div className="p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] bg-[#0A0A0F] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:bg-white/[0.02] shadow-xl">
+                            <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0A0A0F] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 transition-all hover:bg-white/[0.02] shadow-xl">
                                <div className="flex items-center gap-5 sm:gap-6">
                                   <div className={cn(
                                     "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center border transition-all shadow-inner shrink-0",
@@ -520,7 +659,7 @@ const Predictions: React.FC = () => {
                                   </div>
                                </div>
 
-                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 md:gap-10 flex-1 md:max-w-2xl lg:max-w-3xl border-t md:border-t-0 border-white/5 pt-5 md:pt-0">
+                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-10 flex-1 md:max-w-2xl lg:max-w-3xl border-t md:border-t-0 border-white/5 pt-4 md:pt-0">
                                   <div className="space-y-1">
                                      <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Stake</p>
                                      <div className="flex items-baseline gap-1">

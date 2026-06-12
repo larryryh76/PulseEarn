@@ -197,15 +197,17 @@ const Dashboard: React.FC = () => {
                        {(userData?.xp || 0)?.toLocaleString()} / {getXpProgress(userData?.xp || 0).nextLevelXp?.toLocaleString()} XP
                     </p>
                  </div>
-                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
+                 <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10 mt-2">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
                       className={cn(
-                        "h-full transition-all duration-1000 rounded-full relative shadow-[0_0_10px_rgba(0,102,255,0.3)]",
+                        "h-full transition-all duration-1000 rounded-full relative shadow-[0_0_15px_rgba(0,112,255,0.5)]",
                         getLevelTier(userData?.level || 1).color.replace('text-', 'bg-')
                       )}
-                    />
+                    >
+                       <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                    </motion.div>
                  </div>
               </div>
            </Card>
@@ -598,14 +600,14 @@ const Dashboard: React.FC = () => {
                            onClick={() => {
                               const type = selectedActivity.type as string;
                               if (type.includes('prediction')) {
-                                 navigate('/predictions', { state: { view: 'PORTFOLIO' } });
+                                 navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
                               else if (type.includes('campaign')) {
                                  if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
                                  else navigate('/tasks');
                               }
                               else if (type.includes('task') || type.includes('mission')) {
-                                 navigate('/tasks', { state: { view: 'COMPLETED' } });
+                                 navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
                               else if (type.includes('referral')) navigate('/referrals');
                               else if (type.includes('withdrawal')) navigate('/wallet');

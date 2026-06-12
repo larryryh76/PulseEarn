@@ -7,7 +7,6 @@ import { Campaign, PredictionRecord } from '../../types';
 import {
   TrendingUp,
   TrendingDown,
-  Clock,
   Zap,
   Activity,
   LineChart,
@@ -185,7 +184,7 @@ const Predictions: React.FC = () => {
            </div>
         </div>
 
-        <div className="flex-1 max-w-7xl mx-auto w-full p-6 pb-20">
+        <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 pb-20 overflow-hidden">
           <AnimatePresence mode="wait">
             {selectedMarketId && activeMarket ? (
                <motion.div
@@ -193,10 +192,10 @@ const Predictions: React.FC = () => {
                  initial={{ opacity: 0, y: 20 }}
                  animate={{ opacity: 1, y: 0 }}
                  exit={{ opacity: 0, y: -20 }}
-                 className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+                 className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8"
                >
                   {/* LEFT: BACK & MARKET INFO */}
-                  <div className="lg:col-span-8 space-y-8">
+                  <div className="lg:col-span-8 space-y-6 sm:space-y-8">
                      <button
                        onClick={() => setSelectedMarketId(null)}
                        className="flex items-center gap-2 text-text-tertiary hover:text-white transition-colors group"
@@ -206,25 +205,25 @@ const Predictions: React.FC = () => {
                      </button>
 
                      <div className="space-y-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                           <div className="flex items-center gap-6">
-                              <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center p-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                           <div className="flex items-center gap-4 sm:gap-6">
+                              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center p-2.5 sm:p-3">
                                  {coinData?.image ? <img src={coinData.image} className="w-full h-full object-contain" alt="" /> : <Zap size={24} className="text-primary" />}
                               </div>
-                              <div>
-                                 <div className="flex items-center gap-3 mb-1">
-                                    <h2 className="text-3xl font-bold text-white tracking-tighter uppercase">{activeMarket.symbol}</h2>
-                                    <span className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">
+                              <div className="min-w-0">
+                                 <div className="flex items-center gap-3 mb-1 flex-wrap">
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tighter uppercase truncate">{activeMarket.symbol}</h2>
+                                    <span className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest whitespace-nowrap">
                                        {activeMarket.isCampaign ? 'Featured' : 'Market'}
                                     </span>
                                  </div>
-                                 <p className="text-text-tertiary text-sm font-medium">{activeMarket.question}</p>
+                                 <p className="text-text-tertiary text-xs sm:text-sm font-medium line-clamp-1">{activeMarket.question}</p>
                               </div>
                            </div>
-                           <div className="flex items-center gap-8 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-                              <div className="text-right">
+                           <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                              <div className="text-left sm:text-right">
                                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Price</p>
-                                 <p className="text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
+                                 <p className="text-lg sm:text-xl font-mono font-bold text-white">${(coinData?.current_price || 0).toLocaleString()}</p>
                               </div>
                               <div className="text-right">
                                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">24h</p>
@@ -239,7 +238,7 @@ const Predictions: React.FC = () => {
                         </div>
 
                         {/* CENTERED CHART AREA */}
-                        <div className="bg-black/40 border border-white/5 rounded-[2.5rem] p-6 min-h-[400px] flex flex-col">
+                        <div className="bg-black/40 border border-white/5 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-6 min-h-[350px] sm:min-h-[400px] flex flex-col">
                            <div className="flex items-center justify-between mb-6 px-4">
                               <div className="flex items-center gap-4">
                                  <div className="flex items-center gap-2">
@@ -258,19 +257,19 @@ const Predictions: React.FC = () => {
 
                   {/* RIGHT: EXECUTION PANEL */}
                   <div className="lg:col-span-4 lg:sticky lg:top-40 h-fit">
-                     <div className="bg-[#0A0A0F] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                        <div className="p-8 border-b border-white/5 bg-white/[0.02]">
-                           <h3 className="text-xl font-bold text-white tracking-tight uppercase">Predict</h3>
+                     <div className="bg-[#0A0A0F] border border-white/5 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl">
+                        <div className="p-6 sm:p-8 border-b border-white/5 bg-white/[0.02]">
+                           <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight uppercase">Predict</h3>
                         </div>
 
-                        <div className="p-8 space-y-8">
+                        <div className="p-6 sm:p-8 space-y-6 sm:space-y-8">
                            <div className="space-y-4">
                               <label className="text-[10px] font-black text-white/30 uppercase tracking-widest block ml-2">Direction</label>
                               <div className="grid grid-cols-2 gap-3">
                                  <button
                                    onClick={() => setPrediction('UP')}
                                    className={cn(
-                                     "p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
+                                     "p-4 sm:p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
                                      prediction === 'UP' ? "bg-success/10 border-success shadow-[0_0_20px_rgba(34,197,94,0.15)]" : "bg-white/[0.01] border-white/[0.05] hover:border-success/30"
                                    )}
                                  >
@@ -280,7 +279,7 @@ const Predictions: React.FC = () => {
                                  <button
                                    onClick={() => setPrediction('DOWN')}
                                    className={cn(
-                                     "p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
+                                     "p-4 sm:p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 group relative overflow-hidden",
                                      prediction === 'DOWN' ? "bg-danger/10 border-danger shadow-[0_0_20px_rgba(239,68,68,0.15)]" : "bg-white/[0.01] border-white/[0.05] hover:border-danger/30"
                                    )}
                                  >
@@ -298,7 +297,7 @@ const Predictions: React.FC = () => {
                                       key={opt}
                                       onClick={() => setStake(opt)}
                                       className={cn(
-                                        "px-4 py-2 rounded-xl border text-[10px] font-mono font-bold transition-all",
+                                        "px-3 py-2 sm:px-4 rounded-xl border text-[10px] font-mono font-bold transition-all",
                                         stake === opt ? "bg-primary border-primary text-white" : "bg-white/5 border-white/10 text-white/40 hover:border-white/20"
                                       )}
                                     >
@@ -306,7 +305,7 @@ const Predictions: React.FC = () => {
                                     </button>
                                  ))}
                               </div>
-                              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 space-y-6">
+                              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 sm:p-6 space-y-4 sm:space-y-6">
                                  <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Stake</span>
                                     <span className="text-sm font-mono font-bold text-white">{stake} PTS</span>
@@ -326,7 +325,7 @@ const Predictions: React.FC = () => {
 
                            <div className="space-y-4">
                               <Button
-                                className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98] disabled:opacity-20"
+                                className="w-full h-14 sm:h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98] disabled:opacity-20"
                                 disabled={!prediction || isSubmitting}
                                 isLoading={isSubmitting}
                                 onClick={handlePredict}
@@ -449,108 +448,94 @@ const Predictions: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2 sm:space-y-3">
                      {filteredPredictions.map((pred: PredictionRecord) => {
                         const isWin = pred.status === 'RESOLVED' && (pred.rewardAmount || 0) > 0;
 
                         return (
                           <div key={pred.id} className="group relative overflow-hidden">
                             <div className={cn(
-                                "absolute inset-y-0 left-0 w-1 transition-all group-hover:w-2",
+                                "absolute inset-y-0 left-0 w-0.5 transition-all group-hover:w-1",
                                 pred.status === 'ACTIVE' ? "bg-primary" : isWin ? "bg-success" : "bg-white/10"
                             )} />
 
-                            <div className="p-8 rounded-3xl bg-[#0A0A0F] border border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-8 transition-all hover:bg-white/[0.02] hover:border-white/10 shadow-xl">
-                               <div className="flex items-center gap-8">
+                            <div className="p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] bg-[#0A0A0F] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:bg-white/[0.02] shadow-xl">
+                               <div className="flex items-center gap-5 sm:gap-6">
                                   <div className={cn(
-                                    "w-16 h-16 rounded-[1.5rem] flex items-center justify-center border text-lg transition-all shadow-inner",
+                                    "w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center border transition-all shadow-inner shrink-0",
                                     pred.status === 'ACTIVE' ? "bg-primary/5 border-primary/20 text-primary shadow-primary/5" :
                                     isWin ? "bg-success/5 border-success/20 text-success shadow-success/5" :
                                     "bg-white/[0.02] border-white/10 text-white/20"
                                   )}>
-                                     {pred.direction === 'UP' ? <TrendingUp size={28} /> : <TrendingDown size={28} />}
+                                     {pred.direction === 'UP' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                                   </div>
 
-                                  <div className="space-y-2">
-                                     <div className="flex items-center gap-3 flex-wrap">
-                                        <h3 className="text-xl font-bold text-white uppercase tracking-tighter italic">
+                                  <div className="space-y-1.5 min-w-0">
+                                     <div className="flex items-center gap-2.5 flex-wrap">
+                                        <h3 className="text-lg font-bold text-white uppercase tracking-tighter italic truncate">
                                            {pred.symbol} Forecast
                                         </h3>
                                         <div className={cn(
-                                          "px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border",
+                                          "px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-[0.2em] border",
                                           pred.status === 'ACTIVE' ? "bg-primary/10 text-primary border-primary/20 animate-pulse" :
                                           isWin ? "bg-success/10 text-success border-success/20" :
                                           "bg-white/5 text-white/30 border-white/10"
                                         )}>
-                                          {pred.status === 'ACTIVE' ? 'Processing' : pred.status}
+                                          {pred.status === 'ACTIVE' ? 'Active' : pred.status}
                                         </div>
-                                        {isWin && (
-                                           <div className="px-2.5 py-1 rounded-lg bg-success text-black text-[8px] font-black uppercase tracking-[0.2em]">
-                                              Winner
-                                           </div>
-                                        )}
                                      </div>
-                                     <div className="flex items-center gap-4 text-text-tertiary">
-                                        <div className="flex items-center gap-1.5">
-                                           <Clock size={12} className="text-primary/40" />
-                                           <span className="text-[10px] font-bold uppercase tracking-widest">
-                                              {pred.createdAt?.toDate?.().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) || 'Pending Ledger'}
-                                           </span>
-                                        </div>
+                                     <div className="flex items-center gap-3 text-text-tertiary">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
+                                           {pred.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'Pending'}
+                                        </span>
                                         <div className="w-1 h-1 rounded-full bg-white/5" />
-                                        <span className="text-[10px] font-mono text-white/20">{pred.id.slice(-8).toUpperCase()}</span>
+                                        <span className="text-[9px] font-mono text-white/20 uppercase">{pred.id.slice(-6)}</span>
                                      </div>
                                   </div>
                                </div>
 
-                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-12 flex-1 lg:max-w-3xl">
-                                  <div className="space-y-1.5">
-                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Capital Stake</p>
-                                     <div className="flex items-baseline gap-1.5">
-                                        <p className="text-lg font-mono font-bold text-white">{pred.stakeAmount.toLocaleString()}</p>
-                                        <span className="text-[10px] font-bold text-text-tertiary">PTS</span>
+                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 md:gap-10 flex-1 md:max-w-2xl lg:max-w-3xl border-t md:border-t-0 border-white/5 pt-5 md:pt-0">
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Stake</p>
+                                     <div className="flex items-baseline gap-1">
+                                        <p className="text-sm font-mono font-bold text-white">{pred.stakeAmount.toLocaleString()}</p>
+                                        <span className="text-[8px] font-bold text-text-tertiary">PTS</span>
                                      </div>
                                   </div>
 
-                                  <div className="space-y-1.5">
-                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Entry Vector</p>
-                                     <p className="text-lg font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Entry</p>
+                                     <p className="text-sm font-mono font-bold text-white truncate">${pred.entryPrice.toLocaleString()}</p>
                                   </div>
 
-                                  <div className="space-y-1.5">
-                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Settlement</p>
+                                  <div className="space-y-1">
+                                     <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Execution</p>
                                      {pred.status === 'RESOLVED' ? (
-                                        <p className="text-lg font-mono font-bold text-white">${pred.exitPrice?.toLocaleString() || '---'}</p>
+                                        <p className="text-sm font-mono font-bold text-white truncate">${pred.exitPrice?.toLocaleString() || '---'}</p>
                                      ) : (
-                                        <div className="flex items-center gap-2">
-                                           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                                           <p className="text-[10px] font-black text-primary uppercase tracking-widest">Live</p>
+                                        <div className="flex items-center gap-1.5">
+                                           <div className="w-1 h-1 rounded-full bg-primary animate-ping" />
+                                           <p className="text-[9px] font-black text-primary uppercase tracking-widest">Live</p>
                                         </div>
                                      )}
                                   </div>
 
-                                  <div className="space-y-1.5 text-right sm:text-left">
-                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Yield Outcome</p>
+                                  <div className="space-y-1 text-right sm:text-left">
+                                     <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Yield</p>
                                      {pred.status === 'RESOLVED' ? (
-                                        <div className="space-y-0.5">
+                                        <div className="flex items-baseline justify-end sm:justify-start gap-1">
                                             <p className={cn(
-                                              "text-xl font-mono font-bold tracking-tighter",
+                                              "text-base font-mono font-bold tracking-tighter",
                                               isWin ? "text-success" : "text-white/10"
                                             )}>
                                                {isWin ? `+${pred.rewardAmount?.toLocaleString()}` : '0'}
                                             </p>
-                                            <p className={cn(
-                                                "text-[8px] font-black uppercase tracking-widest",
-                                                isWin ? "text-success/50" : "text-white/5"
-                                            )}>{isWin ? 'Yield Distributed' : 'Capital Lost'}</p>
+                                            {isWin && <span className="text-[8px] font-bold text-success/50 uppercase tracking-widest">PTS</span>}
                                         </div>
                                      ) : (
-                                        <div className="space-y-0.5">
-                                            <div className="flex items-center justify-end sm:justify-start gap-1.5 text-primary">
-                                                <Zap size={14} />
-                                                <p className="text-xl font-mono font-bold tracking-tighter">+{pred.stakeAmount * 2}</p>
-                                            </div>
-                                            <p className="text-[8px] font-black text-primary/40 uppercase tracking-widest italic">Est. Return</p>
+                                        <div className="flex items-center justify-end sm:justify-start gap-1.5 text-primary">
+                                            <Zap size={12} />
+                                            <p className="text-base font-mono font-bold tracking-tighter">+{pred.stakeAmount * 2}</p>
                                         </div>
                                      )}
                                   </div>

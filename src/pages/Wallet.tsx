@@ -15,9 +15,11 @@ import {
   Zap,
   ChevronRight,
   TrendingUp,
-  Activity
+  Activity,
+  ArrowUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import { PTS_TO_USD, formatUSD, WITHDRAWAL_MIN_PTS } from '../utils/finance';
@@ -26,8 +28,10 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 
 const Wallet: React.FC = () => {
+  const navigate = useNavigate();
   const { userData } = useAuth();
   const { transactions, loading } = useTransactions(50);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -234,7 +238,7 @@ const Wallet: React.FC = () => {
           <div className="space-y-3">
             {transactions.length > 0 ? (
               transactions.map((tx) => (
-                <div key={tx.id} className="ledger-row group">
+                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="ledger-row group cursor-pointer">
                   <div className="flex items-center gap-6">
                     <div className={cn(
                       "w-12 h-12 rounded-xl border flex items-center justify-center transition-all",
@@ -400,6 +404,107 @@ const Wallet: React.FC = () => {
                 </div>
               )}
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TRANSACTION DETAIL OVERLAY */}
+      <AnimatePresence>
+        {selectedTx && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               exit={{ opacity: 0 }}
+               onClick={() => setSelectedTx(null)}
+               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
+             />
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+             >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                        <History size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Audit Ledger</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTx.type.replace(/_/g, ' ')}</h3>
+                      </div>
+                   </div>
+                   <button onClick={() => setSelectedTx(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                      <X size={18} />
+                   </button>
+                </div>
+
+                <div className="p-8 space-y-8">
+                   <div className="space-y-4 text-center sm:text-left">
+                      <div className="flex items-center justify-center sm:justify-start gap-2 text-text-tertiary mb-2">
+                         <Clock size={12} className="text-primary/40" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedTx.timestamp?.toDate?.().toLocaleString()}</span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTx.source}</h2>
+                      {selectedTx.description && <p className="text-sm text-text-tertiary">{selectedTx.description}</p>}
+                   </div>
+
+                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Inventory Change</span>
+                         <div className="flex items-baseline gap-1.5">
+                            <span className={cn("text-xl font-mono font-bold", selectedTx.amount >= 0 ? "text-success" : "text-danger")}>
+                               {selectedTx.amount > 0 ? '+' : ''}{selectedTx.amount.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
+                         </div>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">USD Offset</span>
+                         <span className="text-xs font-mono font-bold text-white">{formatUSD(PTS_TO_USD(selectedTx.amount))}</span>
+                      </div>
+
+                      <div className="p-5 flex justify-between items-center">
+                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Verification Status</span>
+                         <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">{selectedTx.status || 'COMPLETED'}</span>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <div className="flex justify-between items-center px-1">
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Transaction Ref</span>
+                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px] uppercase">{selectedTx.id.slice(-12)}</span>
+                      </div>
+
+                      {(selectedTx.type.includes('prediction') || selectedTx.type.includes('task') || selectedTx.type.includes('referral')) && (
+                        <Button
+                           onClick={() => {
+                              if (selectedTx.type.includes('prediction')) navigate('/predictions');
+                              else if (selectedTx.type.includes('task')) {
+                                 if (selectedTx.metadata?.campaignId) navigate(`/campaigns/${selectedTx.metadata.campaignId}`);
+                                 else navigate('/tasks');
+                              }
+                              else if (selectedTx.type.includes('referral')) navigate('/referrals');
+                              setSelectedTx(null);
+                           }}
+                           variant="primary"
+                           className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] group shadow-xl"
+                        >
+                           Go to Context <ArrowUp size={14} className="ml-2 group-hover:-translate-y-1 transition-transform" />
+                        </Button>
+                      )}
+                   </div>
+                </div>
+
+                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Ledger Proof • Protocol V6.0</p>
+                </div>
+             </motion.div>
           </div>
         )}
       </AnimatePresence>

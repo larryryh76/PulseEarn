@@ -182,6 +182,7 @@ const Tasks: React.FC = () => {
                                          )}
                                       </div>
                                       <h3 className="text-3xl md:text-5xl font-bold text-white tracking-tighter leading-none uppercase">{camp.name}</h3>
+                                      <p className="text-white/60 text-sm md:text-base font-medium line-clamp-2 max-w-xl">{camp.description}</p>
                                       <div className="flex items-center gap-8 pt-4">
                                          <div className="flex items-center gap-2">
                                             <Zap size={14} className="text-primary" />
@@ -254,12 +255,15 @@ const Tasks: React.FC = () => {
 
                                       <div className="flex items-center gap-8 shrink-0 ml-4">
                                          <div className="hidden sm:flex flex-col items-end gap-1.5 w-32">
-                                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{progress} / {target}</span>
+                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none">{progress} / {target}</span>
                                             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                                <motion.div
                                                   initial={{ width: 0 }}
                                                   animate={{ width: `${percent}%` }}
-                                                  className="h-full bg-primary"
+                                                  className={cn(
+                                                    "h-full",
+                                                    isCompleted ? "bg-success" : "bg-primary"
+                                                  )}
                                                />
                                             </div>
                                          </div>

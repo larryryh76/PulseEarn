@@ -15,7 +15,8 @@ import {
   Target,
   ArrowLeft,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -143,24 +144,27 @@ const Predictions: React.FC = () => {
                     <BarChart3 size={16} className="text-primary" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Predictions</span>
                  </div>
-                 <div className="hidden md:flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
+                 <div className="flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
                     <button
                       onClick={() => { setTerminalView('EXPLORE'); setSelectedMarketId(null); }}
                       className={cn(
-                        "px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all",
+                        "px-4 md:px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
                         terminalView === 'EXPLORE' && !selectedMarketId ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                       )}
                     >
-                      Explore
+                      <Activity size={12} />
+                      <span className="hidden sm:inline">Markets</span>
                     </button>
                     <button
                       onClick={() => { setTerminalView('PORTFOLIO'); setSelectedMarketId(null); }}
                       className={cn(
-                        "px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
+                        "px-4 md:px-6 py-1.5 rounded-md text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-2",
                         terminalView === 'PORTFOLIO' ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
                       )}
                     >
-                      My Predictions {activePositions.length > 0 && <span className="w-1 h-1 rounded-full bg-primary" />}
+                      <History size={12} />
+                      <span className="hidden sm:inline">My Forecasts</span>
+                      {activePositions.length > 0 && <span className="w-1 h-1 rounded-full bg-primary" />}
                     </button>
                  </div>
               </div>
@@ -311,7 +315,10 @@ const Predictions: React.FC = () => {
                                        <Zap size={14} className="text-primary" />
                                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">Potential Return</span>
                                     </div>
-                                    <span className="text-sm font-mono font-bold text-primary">{stake * 2} PTS</span>
+                                    <div className="text-right">
+                                       <span className="text-sm font-mono font-bold text-primary block">{stake * 2} PTS</span>
+                                       <span className="text-[8px] font-black text-primary/40 uppercase tracking-widest">2× Stake</span>
+                                    </div>
                                  </div>
                               </div>
                            </div>

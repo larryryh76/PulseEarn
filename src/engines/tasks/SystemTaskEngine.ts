@@ -128,10 +128,14 @@ export class SystemTaskEngine {
         userId,
         amount: def.rewardPoints,
         type: 'task_reward', // Can add 'achievement_reward' to Transaction types later
-        source: `Platform Mission: ${def.title}`,
+        source: def.title,
         claimId,
         xpReward: def.rewardXp,
-        metadata: { systemTaskId }
+        metadata: {
+          systemTaskId,
+          taskName: def.title,
+          verificationStatus: 'APPROVED'
+        }
       });
 
       if (result.success) {

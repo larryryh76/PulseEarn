@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,10 +63,6 @@ const Predictions: React.FC = () => {
     return [...campaignMarkets, ...globalMarkets];
   }, [contextCampaigns, marketData]);
 
-  useEffect(() => {
-    // Campaigns are already handled by TaskContext/useTasks
-  }, [currentUser, contextCampaigns, marketData]);
-
   const activeMarket = allMarkets.find(m => m.id === selectedMarketId);
   const coinData = marketData.find(c => c.id === activeMarket?.assetId);
 
@@ -109,14 +105,20 @@ const Predictions: React.FC = () => {
   );
 
   const filteredPredictions = useMemo(() => {
-    return userPredictions.filter((p: PredictionRecord) => {
-        if (historyFilter === 'ALL') return true;
-        if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
-        if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
-        if (historyFilter === 'WON') return p.status === 'RESOLVED' && (p.rewardAmount || 0) > 0;
-        if (historyFilter === 'LOST') return p.status === 'RESOLVED' && (p.rewardAmount || 0) === 0;
-        return true;
-    });
+    return [...userPredictions]
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      })
+      .filter((p: PredictionRecord) => {
+          if (historyFilter === 'ALL') return true;
+          if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
+          if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
+          if (historyFilter === 'WON') return p.status === 'RESOLVED' && (p.rewardAmount || 0) > 0;
+          if (historyFilter === 'LOST') return p.status === 'RESOLVED' && (p.rewardAmount || 0) === 0;
+          return true;
+      });
   }, [userPredictions, historyFilter]);
 
   return (
@@ -128,7 +130,7 @@ const Predictions: React.FC = () => {
               <div className="flex items-center gap-6">
                  <div className="flex items-center gap-2">
                     <BarChart3 size={16} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Predictions</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Forecasting Terminal</span>
                  </div>
                  <div className="flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
                     <button
@@ -410,22 +412,22 @@ const Predictions: React.FC = () => {
                   <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
-                            <Activity size={14} className="text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Prediction History</span>
+                            <BarChart3 size={14} className="text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Capital Ledger</span>
                         </div>
-                        <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
-                            My Predictions
+                        <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase italic">
+                            My Forecasts
                         </h1>
                     </div>
 
-                    <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] overflow-x-auto no-scrollbar">
+                    <div className="flex bg-white/[0.03] p-1.5 rounded-2xl border border-white/[0.05] overflow-x-auto no-scrollbar">
                         {(['ALL', 'ACTIVE', 'COMPLETED', 'WON', 'LOST'] as const).map((f) => (
                             <button
                                 key={f}
                                 onClick={() => setHistoryFilter(f)}
                                 className={cn(
-                                    "px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all shrink-0",
-                                    historyFilter === f ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white"
+                                    "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
+                                    historyFilter === f ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-text-tertiary hover:text-white"
                                 )}
                             >
                                 {f}
@@ -434,78 +436,134 @@ const Predictions: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
-                     {filteredPredictions.map((pred: PredictionRecord) => (
-                        <div key={pred.id} className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/5 flex items-center justify-between group hover:bg-white/[0.01] transition-all">
-                           <div className="flex items-center gap-6">
-                              <div className={cn(
-                                "w-14 h-14 rounded-2xl flex items-center justify-center border text-lg transition-all",
-                                pred.status === 'RESOLVED' ? "bg-success/5 border-success/10 text-success" : "bg-primary/5 border-primary/10 text-primary"
-                              )}>
-                                 {pred.direction === 'UP' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                              </div>
-                              <div className="space-y-1">
-                                 <div className="flex items-center gap-3">
-                                    <p className="text-lg font-bold text-white uppercase tracking-tight italic">{pred.symbol} Forecast</p>
-                                    <span className={cn(
-                                      "text-[8px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded border",
-                                      pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-primary/10 text-primary border-primary/20"
-                                    )}>{pred.status}</span>
-                                 </div>
-                                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
-                                    {pred.createdAt?.toDate?.().toLocaleDateString() || 'Just Now'}
-                                 </p>
-                              </div>
-                           </div>
+                  <div className="grid grid-cols-1 gap-4">
+                     {filteredPredictions.map((pred: PredictionRecord) => {
+                        const isWin = pred.status === 'RESOLVED' && (pred.rewardAmount || 0) > 0;
 
-                           <div className="flex items-center gap-8 md:gap-12 text-right">
-                              <div className="hidden sm:block">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Stake</p>
-                                 <p className="text-xs md:text-sm font-mono font-bold text-white">{pred.stakeAmount} PTS</p>
-                              </div>
-                              <div className="hidden md:block">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Entry Price</p>
-                                 <p className="text-xs md:text-sm font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
-                              </div>
-                              {pred.status === 'RESOLVED' && (
-                                <div className="hidden md:block">
-                                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Exit Price</p>
-                                    <p className="text-xs md:text-sm font-mono font-bold text-white">${pred.exitPrice?.toLocaleString() || '---'}</p>
-                                </div>
-                              )}
-                              <div className="w-24 md:w-32">
-                                 <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Outcome</p>
-                                 {pred.status === 'RESOLVED' ? (
-                                    <div className="flex flex-col items-end">
-                                        <p className={cn(
-                                          "text-base md:text-lg font-mono font-bold leading-none",
-                                          (pred.rewardAmount || 0) > 0 ? "text-success" : "text-white/10"
+                        return (
+                          <div key={pred.id} className="group relative overflow-hidden">
+                            <div className={cn(
+                                "absolute inset-y-0 left-0 w-1 transition-all group-hover:w-2",
+                                pred.status === 'ACTIVE' ? "bg-primary" : isWin ? "bg-success" : "bg-white/10"
+                            )} />
+
+                            <div className="p-8 rounded-3xl bg-[#0A0A0F] border border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-8 transition-all hover:bg-white/[0.02] hover:border-white/10 shadow-xl">
+                               <div className="flex items-center gap-8">
+                                  <div className={cn(
+                                    "w-16 h-16 rounded-[1.5rem] flex items-center justify-center border text-lg transition-all shadow-inner",
+                                    pred.status === 'ACTIVE' ? "bg-primary/5 border-primary/20 text-primary shadow-primary/5" :
+                                    isWin ? "bg-success/5 border-success/20 text-success shadow-success/5" :
+                                    "bg-white/[0.02] border-white/10 text-white/20"
+                                  )}>
+                                     {pred.direction === 'UP' ? <TrendingUp size={28} /> : <TrendingDown size={28} />}
+                                  </div>
+
+                                  <div className="space-y-2">
+                                     <div className="flex items-center gap-3 flex-wrap">
+                                        <h3 className="text-xl font-bold text-white uppercase tracking-tighter italic">
+                                           {pred.symbol} Forecast
+                                        </h3>
+                                        <div className={cn(
+                                          "px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border",
+                                          pred.status === 'ACTIVE' ? "bg-primary/10 text-primary border-primary/20 animate-pulse" :
+                                          isWin ? "bg-success/10 text-success border-success/20" :
+                                          "bg-white/5 text-white/30 border-white/10"
                                         )}>
-                                           {(pred.rewardAmount || 0) > 0 ? `+${pred.rewardAmount}` : '0 PTS'}
-                                        </p>
-                                        <span className={cn(
-                                            "text-[7px] font-black uppercase tracking-widest mt-1",
-                                            (pred.rewardAmount || 0) > 0 ? "text-success/50" : "text-white/5"
-                                        )}>{(pred.rewardAmount || 0) > 0 ? 'Won' : 'Lost'}</span>
-                                    </div>
-                                 ) : (
-                                    <div className="flex flex-col items-end">
-                                        <div className="flex items-center justify-end gap-2 text-primary">
-                                            <Clock size={12} className="animate-pulse" />
-                                            <p className="text-base md:text-lg font-mono font-bold leading-none">+{pred.stakeAmount * 2}</p>
+                                          {pred.status === 'ACTIVE' ? 'Processing' : pred.status}
                                         </div>
-                                        <span className="text-[7px] font-black text-primary/50 uppercase tracking-widest mt-1 italic">Potential Return</span>
-                                    </div>
-                                 )}
-                              </div>
-                           </div>
-                        </div>
-                     ))}
+                                        {isWin && (
+                                           <div className="px-2.5 py-1 rounded-lg bg-success text-black text-[8px] font-black uppercase tracking-[0.2em]">
+                                              Winner
+                                           </div>
+                                        )}
+                                     </div>
+                                     <div className="flex items-center gap-4 text-text-tertiary">
+                                        <div className="flex items-center gap-1.5">
+                                           <Clock size={12} className="text-primary/40" />
+                                           <span className="text-[10px] font-bold uppercase tracking-widest">
+                                              {pred.createdAt?.toDate?.().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) || 'Pending Ledger'}
+                                           </span>
+                                        </div>
+                                        <div className="w-1 h-1 rounded-full bg-white/5" />
+                                        <span className="text-[10px] font-mono text-white/20">{pred.id.slice(-8).toUpperCase()}</span>
+                                     </div>
+                                  </div>
+                               </div>
+
+                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-12 flex-1 lg:max-w-3xl">
+                                  <div className="space-y-1.5">
+                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Capital Stake</p>
+                                     <div className="flex items-baseline gap-1.5">
+                                        <p className="text-lg font-mono font-bold text-white">{pred.stakeAmount.toLocaleString()}</p>
+                                        <span className="text-[10px] font-bold text-text-tertiary">PTS</span>
+                                     </div>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Entry Vector</p>
+                                     <p className="text-lg font-mono font-bold text-white">${pred.entryPrice.toLocaleString()}</p>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Settlement</p>
+                                     {pred.status === 'RESOLVED' ? (
+                                        <p className="text-lg font-mono font-bold text-white">${pred.exitPrice?.toLocaleString() || '---'}</p>
+                                     ) : (
+                                        <div className="flex items-center gap-2">
+                                           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                                           <p className="text-[10px] font-black text-primary uppercase tracking-widest">Live</p>
+                                        </div>
+                                     )}
+                                  </div>
+
+                                  <div className="space-y-1.5 text-right sm:text-left">
+                                     <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Yield Outcome</p>
+                                     {pred.status === 'RESOLVED' ? (
+                                        <div className="space-y-0.5">
+                                            <p className={cn(
+                                              "text-xl font-mono font-bold tracking-tighter",
+                                              isWin ? "text-success" : "text-white/10"
+                                            )}>
+                                               {isWin ? `+${pred.rewardAmount?.toLocaleString()}` : '0'}
+                                            </p>
+                                            <p className={cn(
+                                                "text-[8px] font-black uppercase tracking-widest",
+                                                isWin ? "text-success/50" : "text-white/5"
+                                            )}>{isWin ? 'Yield Distributed' : 'Capital Lost'}</p>
+                                        </div>
+                                     ) : (
+                                        <div className="space-y-0.5">
+                                            <div className="flex items-center justify-end sm:justify-start gap-1.5 text-primary">
+                                                <Zap size={14} />
+                                                <p className="text-xl font-mono font-bold tracking-tighter">+{pred.stakeAmount * 2}</p>
+                                            </div>
+                                            <p className="text-[8px] font-black text-primary/40 uppercase tracking-widest italic">Est. Return</p>
+                                        </div>
+                                     )}
+                                  </div>
+                               </div>
+                            </div>
+                          </div>
+                        );
+                     })}
 
                      {userPredictions.length === 0 && (
-                        <div className="py-32 text-center border border-dashed border-white/5 rounded-[3rem] flex flex-col items-center gap-6 opacity-20">
-                           <Activity size={48} />
-                           <p className="text-[10px] font-black uppercase tracking-[0.4em]">No Prediction History Detected</p>
+                        <div className="py-40 text-center border border-dashed border-white/5 rounded-[3rem] bg-white/[0.01] flex flex-col items-center gap-8 group hover:border-primary/20 transition-all">
+                           <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-white/10 group-hover:text-primary/20 group-hover:scale-110 transition-all duration-700">
+                              <Activity size={40} />
+                           </div>
+                           <div className="space-y-2">
+                              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">Zero Activity Detected</p>
+                              <p className="text-xs text-text-tertiary font-medium">Your forecasting ledger is currently empty.</p>
+                           </div>
+                           <Button
+                             onClick={() => setTerminalView('EXPLORE')}
+                             variant="primary"
+                             size="sm"
+                             className="rounded-xl px-8 h-12 shadow-2xl shadow-primary/20"
+                           >
+                             Open Markets
+                           </Button>
                         </div>
                      )}
                   </div>

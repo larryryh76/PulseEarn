@@ -140,6 +140,7 @@ export interface Campaign {
   predictionAsset?: string;
   predictionQuestion?: string;
   predictionTargetPrice?: number;
+  predictionSymbol?: string;
   predictionType?: 'UP_DOWN' | 'TARGET' | 'RANGE';
   validationSettings: {
     manualReview: boolean;
@@ -164,7 +165,33 @@ export interface Campaign {
 export interface Activity {
   id: string;
   userId: string;
-  type: 'reward_received' | 'referral_activated' | 'streak_updated' | 'prediction_settled' | 'task_approved' | 'reward_reversed' | 'moderation_notice' | 'level_achieved' | 'prediction_placed' | 'prediction_won' | 'prediction_lost' | 'task_completed' | 'mission_completed';
+  type:
+    | 'reward_received'
+    | 'referral_activated'
+    | 'streak_updated'
+    | 'prediction_settled'
+    | 'task_approved'
+    | 'reward_reversed'
+    | 'moderation_notice'
+    | 'level_achieved'
+    | 'prediction_placed'
+    | 'prediction_won'
+    | 'prediction_lost'
+    | 'task_completed'
+    | 'mission_completed'
+    | 'campaign_joined'
+    | 'campaign_completed'
+    | 'withdrawal_requested'
+    | 'withdrawal_approved'
+    | 'withdrawal_completed'
+    | 'admin_reward_adjustment'
+    | 'streak_milestone_reached'
+    | 'referral_registered'
+    | 'referral_reward_earned'
+    | 'xp_milestone_reached'
+    | 'support_ticket_created'
+    | 'support_ticket_updated'
+    | 'support_ticket_resolved';
   points: number;
   description: string;
   timestamp: Timestamp;

@@ -167,7 +167,14 @@ export class PointTransactionEngine {
             type: type === 'task_reward' ? 'task_completed' : 'reward_received',
             points: amount,
             description: source,
-            referenceId: request.referenceId
+            referenceId: request.referenceId,
+            metadata: {
+              taskName: source,
+              xpEarned: xpReward,
+              transactionReference: res.txId,
+              verificationStatus: 'APPROVED',
+              ...(request.metadata || {})
+            }
           });
 
           if (type === 'task_reward') await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
@@ -291,7 +298,16 @@ export class PointTransactionEngine {
             type: 'prediction_placed',
             points: -amount,
             description: `Placed forecast on ${symbol.toUpperCase()}`,
-            referenceId: res.predictionId
+            referenceId: res.predictionId,
+            metadata: {
+              assetId,
+              symbol,
+              direction,
+              stakeAmount: amount,
+              entryPrice,
+              predictionStatus: 'ACTIVE',
+              transactionReference: res.txId
+            }
           });
 
           await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
@@ -409,7 +425,18 @@ export class PointTransactionEngine {
               description: isWin
                 ? `Forecast successful on ${data.symbol.toUpperCase()}! +${data.rewardAmount} PTS`
                 : `Forecast settled for ${data.symbol.toUpperCase()}`,
-              referenceId: predictionId
+              referenceId: predictionId,
+              metadata: {
+                assetId: data.assetId,
+                symbol: data.symbol,
+                direction: data.direction,
+                stakeAmount: data.stakeAmount,
+                entryPrice: data.entryPrice,
+                exitPrice: currentPrice,
+                payoutMultiplier: isWin ? 2.0 : 0,
+                predictionStatus: 'RESOLVED',
+                transactionReference: data.transactionReference
+              }
             });
 
             await SystemTaskEngine.processEvent(data.userId, 'prediction_completed');

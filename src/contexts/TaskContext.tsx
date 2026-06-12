@@ -90,15 +90,22 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
     }));
 
-    // 6. Fetch Predictions History
+    // 6. Fetch Predictions History (Simplified query to avoid index latency/missing issues)
     const predictionsQuery = query(
       collection(db, 'user_predictions'),
       where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(predictionsQuery, (snapshot) => {
-      setPredictions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord)));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord));
+      // Sort in frontend to ensure immediate display even before Firestore index is fully optimized
+      setPredictions(data.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() || Date.now();
+          const timeB = b.createdAt?.toMillis?.() || Date.now();
+          return timeB - timeA;
+      }));
+    }, (err) => {
+        console.error("[TaskContext] Prediction History Error:", err);
     }));
 
     // 7. Fetch System Missions

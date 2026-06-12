@@ -104,6 +104,17 @@ const Predictions: React.FC = () => {
     [userPredictions]
   );
 
+  if (marketLoading && allMarkets.length === 0) return (
+    <MainLayout>
+      <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
+        <div className="h-12 w-64 bg-white/5 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => <div key={i} className="h-64 bg-white/5 rounded-[2.5rem] animate-pulse" />)}
+        </div>
+      </div>
+    </MainLayout>
+  );
+
   const filteredPredictions = useMemo(() => {
     return [...userPredictions]
       .sort((a, b) => {
@@ -125,12 +136,14 @@ const Predictions: React.FC = () => {
     <MainLayout>
       <div className="pt-24 min-h-screen bg-[#050507] flex flex-col">
         {/* TOP NAV BAR - TERMINAL STYLE */}
-        <div className="border-b border-white/5 bg-black/40 backdrop-blur-md sticky top-16 z-30 px-6 py-4">
+        <div className="border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-16 z-30 px-6 py-5">
            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-              <div className="flex items-center gap-6">
-                 <div className="flex items-center gap-2">
-                    <BarChart3 size={16} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Forecasting Terminal</span>
+              <div className="flex items-center gap-8">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 shadow-[0_0_15px_rgba(0,112,255,0.2)]">
+                       <BarChart3 size={16} className="text-primary" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white italic">Forecasting Terminal</span>
                  </div>
                  <div className="flex bg-white/[0.03] p-1 rounded-lg border border-white/[0.05]">
                     <button

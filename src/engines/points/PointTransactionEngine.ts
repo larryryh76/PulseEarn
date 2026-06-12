@@ -63,12 +63,17 @@ export class PointTransactionEngine {
           }
         }
 
-        // 3. Centralized Reward Validation Rules
+        // 3. Centralized Reward Validation Rules (Calendar-Day Reset Logic)
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          if (lastReward && lastReward >= today) {
+          const now = new Date();
+
+          // Implementation of proper calendar-day reset based on system date
+          // This allows claiming as soon as the day changes, even if <24h have passed.
+          const currentDayStr = now.toISOString().split('T')[0];
+          const lastDayStr = lastReward ? lastReward.toISOString().split('T')[0] : 'NEVER';
+
+          if (lastReward && currentDayStr === lastDayStr) {
              throw new Error("DAILY_REWARD_COOLDOWN");
           }
         }
@@ -110,11 +115,15 @@ export class PointTransactionEngine {
 
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const lastRewardTime = lastReward ? lastReward.getTime() : 0;
-          const oneDayMs = 24 * 60 * 60 * 1000;
-          const isStreak = lastRewardTime > 0 && (today.getTime() - lastRewardTime) <= oneDayMs * 1.5;
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+          const lastRewardDate = lastReward ? new Date(lastReward.getFullYear(), lastReward.getMonth(), lastReward.getDate()) : null;
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+
+          // If last reward was exactly yesterday, increment streak. Otherwise, reset to 1.
+          const isStreak = lastRewardDate && lastRewardDate.getTime() === yesterday.getTime();
           updates.streak = isStreak ? increment(1) : 1;
         }
 

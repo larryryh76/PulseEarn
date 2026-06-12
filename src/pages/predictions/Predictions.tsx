@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
-import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTasks } from '../../hooks/useTasks';
 import { Campaign, PredictionRecord } from '../../types';
 import {
   TrendingUp,
@@ -29,8 +28,7 @@ const STAKE_OPTIONS = [10, 50, 100, 500, 1000];
 const Predictions: React.FC = () => {
   const { marketData, loading: marketLoading } = useCryptoData();
   const { currentUser, userData } = useAuth();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [userPredictions, setUserPredictions] = useState<PredictionRecord[]>([]);
+  const { predictions: userPredictions, campaigns: contextCampaigns } = useTasks();
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<'UP' | 'DOWN' | null>(null);
   const [stake, setStake] = useState<number>(100);
@@ -40,7 +38,7 @@ const Predictions: React.FC = () => {
 
   // Unified global markets from live data + admin campaigns
   const allMarkets = useMemo(() => {
-    const campaignMarkets = campaigns.map(c => ({
+    const campaignMarkets = contextCampaigns.filter((c: Campaign) => c.category === 'PREDICTION').map((c: Campaign) => ({
       id: c.id,
       assetId: (c as any).predictionAsset || 'bitcoin',
       symbol: (c as any).predictionSymbol || 'BTC',
@@ -63,28 +61,11 @@ const Predictions: React.FC = () => {
     }));
 
     return [...campaignMarkets, ...globalMarkets];
-  }, [campaigns, marketData]);
+  }, [contextCampaigns, marketData]);
 
   useEffect(() => {
-    const q = query(collection(db, 'campaigns'), where('category', '==', 'PREDICTION'), where('active', '==', true));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
-    });
-
-    if (currentUser) {
-      const predQ = query(
-        collection(db, 'user_predictions'),
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-      );
-      onSnapshot(predQ, (snap) => {
-        setUserPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() } as PredictionRecord)));
-      });
-    }
-
-    return () => unsubscribe();
-  }, [currentUser]);
+    // Campaigns are already handled by TaskContext/useTasks
+  }, [currentUser, contextCampaigns, marketData]);
 
   const activeMarket = allMarkets.find(m => m.id === selectedMarketId);
   const coinData = marketData.find(c => c.id === activeMarket?.assetId);
@@ -122,9 +103,9 @@ const Predictions: React.FC = () => {
     }
   };
 
-  const activePositions = userPredictions.filter(p => p.status === 'ACTIVE');
+  const activePositions = userPredictions.filter((p: PredictionRecord) => p.status === 'ACTIVE');
 
-  const filteredPredictions = userPredictions.filter(p => {
+  const filteredPredictions = userPredictions.filter((p: PredictionRecord) => {
     if (historyFilter === 'ALL') return true;
     if (historyFilter === 'ACTIVE') return p.status === 'ACTIVE';
     if (historyFilter === 'COMPLETED') return p.status === 'RESOLVED';
@@ -449,7 +430,7 @@ const Predictions: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                     {filteredPredictions.map((pred) => (
+                     {filteredPredictions.map((pred: PredictionRecord) => (
                         <div key={pred.id} className="p-6 rounded-[2rem] bg-[#0A0A0F] border border-white/5 flex items-center justify-between group hover:bg-white/[0.01] transition-all">
                            <div className="flex items-center gap-6">
                               <div className={cn(

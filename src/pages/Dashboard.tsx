@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
@@ -19,7 +19,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
 import { formatUSD } from '../utils/finance';
 import Card from '../components/ui/Card';
@@ -27,13 +27,63 @@ import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { userData } = useAuth();
-  const { activities, tasks, campaigns, loading, getTaskStatus, subtasks } = useTasks();
+  const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
 
-  const activeTasks = tasks.filter(t => t.active && getTaskStatus(t).status === 'available');
   const activeCampaigns = (campaigns || []).filter(c => c.active);
   const featuredCampaign = activeCampaigns.find(c => c.featured) || activeCampaigns[0];
   const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
+
+  // Unified Dynamic Task Engine: Prioritize system milestones then campaign tasks
+  const dynamicObjectives = useMemo(() => {
+    const objectives: any[] = [];
+
+    // 1. Unfinished System Tasks (Milestones)
+    systemTasks.forEach(st => {
+       if (st.progress?.status !== 'CLAIMED') {
+          objectives.push({
+             id: st.id,
+             title: st.definition.title,
+             reward: st.definition.rewardPoints,
+             category: st.definition.category,
+             progress: st.progress?.progress || 0,
+             target: st.definition.targetValue,
+             status: st.progress?.status || 'IN_PROGRESS',
+             type: 'SYSTEM',
+             path: st.definition.category === 'PREDICTION' ? '/predictions' :
+                   st.definition.category === 'REFERRAL' ? '/referrals' : '/tasks'
+          });
+       }
+    });
+
+    // 2. Actionable Campaign Tasks
+    tasks.filter(t => t.active && getTaskStatus(t).status === 'available').forEach(t => {
+       objectives.push({
+          id: t.id,
+          title: t.title,
+          reward: t.rewardAmount,
+          category: t.category,
+          status: 'available',
+          type: 'CAMPAIGN',
+          path: `/campaigns/${t.campaignId}`
+       });
+    });
+
+    // Sort: Completed (ready to claim) first, then by progress ratio, then by reward
+    return objectives.sort((a, b) => {
+       if (a.status === 'COMPLETED' && b.status !== 'COMPLETED') return -1;
+       if (b.status === 'COMPLETED' && a.status !== 'COMPLETED') return 1;
+
+       if (a.target && b.target) {
+          const ratioA = a.progress / a.target;
+          const ratioB = b.progress / b.target;
+          if (ratioB !== ratioA) return ratioB - ratioA;
+       }
+
+       return b.reward - a.reward;
+    });
+  }, [systemTasks, tasks, getTaskStatus]);
 
   if (loading) return (
     <MainLayout>
@@ -199,43 +249,69 @@ const Dashboard: React.FC = () => {
 
 
 
-            {/* TASKS */}
-            {activeTasks.length > 0 && (
+            {/* DYNAMIC OBJECTIVES ENGINE */}
+            {dynamicObjectives.length > 0 && (
               <section className="space-y-8">
                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold tracking-tight">Tasks</h2>
+                    <div className="flex items-center gap-3">
+                       <Target size={18} className="text-primary" />
+                       <h2 className="text-xl font-bold tracking-tight">Active Objectives</h2>
+                    </div>
                     <Link to="/tasks" className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest hover:text-white transition-colors">
-                       View All
+                       View Hub
                     </Link>
                  </div>
 
                  <div className="grid grid-cols-1 gap-3">
-                    {activeTasks.slice(0, 4).map((task) => (
+                    {dynamicObjectives.slice(0, 5).map((obj: any) => (
                       <Link
-                        key={task.id}
-                        to={`/campaigns/${task.campaignId}`}
-                        className="group flex items-center justify-between p-5 rounded-2xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.03] hover:border-primary/20 transition-all"
+                        key={obj.id}
+                        to={obj.path}
+                        className={cn(
+                           "group flex items-center justify-between p-6 rounded-3xl transition-all border",
+                           obj.status === 'COMPLETED'
+                              ? "bg-primary/10 border-primary/30 shadow-[0_0_30px_rgba(94,106,210,0.1)]"
+                              : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] hover:border-primary/20"
+                        )}
                       >
-                        <div className="flex items-center gap-5">
-                           <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/20 transition-all">
-                              <Target size={20} className="text-text-tertiary group-hover:text-primary transition-colors" />
+                        <div className="flex items-center gap-6">
+                           <div className={cn(
+                              "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-all shadow-lg",
+                              obj.status === 'COMPLETED' ? "bg-primary text-white border-primary" : "bg-white/[0.03] border-white/5 text-text-tertiary group-hover:border-primary/20"
+                           )}>
+                              {obj.status === 'COMPLETED' ? <CheckCircle2 size={24} /> : <Target size={24} className="group-hover:text-primary" />}
                            </div>
-                           <div>
-                              <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">{task.category}</p>
-                              <h3 className="text-sm font-bold text-white group-hover:text-primary transition-colors">{task.title}</h3>
+                           <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                 <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">{obj.category}</p>
+                                 {obj.status === 'COMPLETED' && <span className="text-[7px] font-black bg-primary text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">Claim Ready</span>}
+                              </div>
+                              <h3 className="text-base font-bold text-white group-hover:text-primary transition-colors leading-tight">{obj.title}</h3>
+                              {obj.target > 0 && (
+                                 <div className="flex items-center gap-3 pt-1">
+                                    <div className="h-1 w-24 bg-white/5 rounded-full overflow-hidden">
+                                       <motion.div
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${(obj.progress / obj.target) * 100}%` }}
+                                          className="h-full bg-primary"
+                                       />
+                                    </div>
+                                    <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{obj.progress} / {obj.target}</span>
+                                 </div>
+                              )}
                            </div>
                         </div>
 
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-8">
                            <div className="hidden sm:block text-right">
                               <div className="flex items-center gap-1.5 justify-end">
-                                 <Zap size={10} className="text-primary" />
-                                 <span className="text-sm font-mono font-bold text-white">+{task.rewardAmount}</span>
+                                 <Zap size={12} className="text-primary" />
+                                 <span className="text-base font-mono font-bold text-white">+{obj.reward}</span>
                               </div>
-                              <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Available</p>
+                              <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">{obj.status === 'COMPLETED' ? 'Claimable' : 'Reward'}</p>
                            </div>
-                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
-                              <ChevronRight size={14} />
+                           <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
+                              <ChevronRight size={18} />
                            </div>
                         </div>
                       </Link>
@@ -255,10 +331,31 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  {activities.slice(0, 6).map((activity) => {
+                  {activities.slice(0, 8).map((activity) => {
                     const isPositive = activity.points > 0;
+
+                    const handleActivityClick = () => {
+                      const type = activity.type as string;
+                      if (type === 'prediction_placed' || type === 'prediction_won' || type === 'prediction_lost') {
+                        navigate('/predictions');
+                      } else if (type === 'campaign_joined' || type === 'campaign_completed') {
+                        if (activity.referenceId) navigate(`/campaigns/${activity.referenceId}`);
+                        else navigate('/tasks');
+                      } else if (type === 'task_completed' || type === 'reward_received' || type === 'mission_completed') {
+                        navigate('/tasks');
+                      } else if (type === 'level_achieved') {
+                        navigate('/me');
+                      } else if (type === 'referral_activated' || type === 'referral_reward_earned') {
+                        navigate('/referrals');
+                      }
+                    };
+
                     return (
-                      <div key={activity.id} className="p-4 rounded-xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] transition-all">
+                      <div
+                        key={activity.id}
+                        onClick={handleActivityClick}
+                        className="p-4 rounded-xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer"
+                      >
                         <div className="flex items-start gap-4">
                           <div className={cn(
                             "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
@@ -282,6 +379,9 @@ const Dashboard: React.FC = () => {
                                 {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "") : ""}
                                </span>
                             </div>
+                          </div>
+                          <div className="ml-auto self-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             <ChevronRight size={14} className="text-primary" />
                           </div>
                         </div>
                       </div>

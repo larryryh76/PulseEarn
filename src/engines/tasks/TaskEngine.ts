@@ -85,17 +85,39 @@ export class TaskEngine {
         // 5. Post-transaction reward if Automated
         return { success: true, claimId, task };
       }).then(async (res: any) => {
-        if (res.success && res.task.verificationType === 'automated') {
-           const { PointTransactionEngine } = await import('../points/PointTransactionEngine');
-           await PointTransactionEngine.execute({
-              userId,
-              amount: res.task.rewardAmount,
-              type: 'task_reward',
-              source: `Task Secured: ${res.task.title}`,
-              claimId: res.claimId,
-              xpReward: res.task.xpReward,
-              referenceId: taskId
-           });
+        if (res.success) {
+           if (res.task.verificationType === 'automated') {
+              const { PointTransactionEngine } = await import('../points/PointTransactionEngine');
+              await PointTransactionEngine.execute({
+                 userId,
+                 amount: res.task.rewardAmount,
+                 type: 'task_reward',
+                 source: res.task.title,
+                 claimId: res.claimId,
+                 xpReward: res.task.xpReward,
+                 referenceId: taskId,
+                 metadata: {
+                    campaignId: res.task.campaignId,
+                    taskName: res.task.title,
+                    verificationStatus: 'APPROVED'
+                 }
+              });
+           } else {
+              // Manual/Proof tasks still need an activity record for the submission
+              const { ActivityEngine } = await import('../system/ActivityEngine');
+              await ActivityEngine.log({
+                 userId,
+                 type: 'task_completed',
+                 points: 0,
+                 description: `Submitted proof for: ${res.task.title}`,
+                 referenceId: taskId,
+                 metadata: {
+                    campaignId: res.task.campaignId,
+                    taskName: res.task.title,
+                    verificationStatus: 'PENDING'
+                 }
+              });
+           }
         }
         return res;
       });

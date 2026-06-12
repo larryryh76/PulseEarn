@@ -134,6 +134,15 @@ export class PointTransactionEngine {
           metadata: { ...metadata, engineVersion: '5.0.0-PRO' }
         });
 
+        // 8.5 Activity Log
+        const activityRef = doc(collection(db, 'users', userId, 'activities'));
+        transaction.set(activityRef, {
+          type: 'reward_received',
+          points: amount,
+          description: source,
+          timestamp: serverTimestamp()
+        });
+
         // 9. Immutable Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
@@ -250,6 +259,15 @@ export class PointTransactionEngine {
         // 3. Mark Claim Nonce
         transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, executedAt: serverTimestamp() });
 
+        // 3.5 Activity Log
+        const activityRef = doc(collection(db, 'users', userId, 'activities'));
+        transaction.set(activityRef, {
+          type: 'prediction_placed',
+          points: -amount,
+          description: `Placed prediction on ${symbol.toUpperCase()}`,
+          timestamp: serverTimestamp()
+        });
+
         // 4. Ledger Entry
         transaction.set(txDoc, {
           userId,
@@ -351,6 +369,17 @@ export class PointTransactionEngine {
 
         // 4. Mark Nonce
         transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, executedAt: serverTimestamp() });
+
+        // 4.5 Activity Log
+        const activityRef = doc(collection(db, 'users', userId, 'activities'));
+        transaction.set(activityRef, {
+          type: isWin ? 'prediction_won' : 'prediction_lost',
+          points: payout,
+          description: isWin
+            ? `Won ${payout} PTS from ${data.symbol.toUpperCase()} Prediction`
+            : `Forecast settled for ${data.symbol.toUpperCase()}`,
+          timestamp: serverTimestamp()
+        });
 
         // 5. Notification
         const notifDoc = doc(notificationsRef);

@@ -5,7 +5,6 @@ import {
   Users,
   Copy,
   Share2,
-  Trophy,
   History,
   TrendingUp,
   Gift,
@@ -63,7 +62,7 @@ const Referrals: React.FC = () => {
     { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
     { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * 50 || 0)?.toLocaleString(), icon: Zap, color: 'text-accent' },
     { label: 'Pending', value: referrals.filter(r => r.status !== 'REWARDED').length, icon: Clock, color: 'text-warning' },
-    { label: 'Global Rank', value: '#---', icon: Trophy, color: 'text-success' },
+    { label: 'Successful', value: referrals.filter(r => r.status === 'REWARDED').length, icon: CheckCircle2, color: 'text-success' },
   ];
 
   return (
@@ -72,13 +71,13 @@ const Referrals: React.FC = () => {
         <header className="space-y-4">
           <div className="flex items-center gap-2">
              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-             <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Growth Protocol</span>
+             <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Referrals</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
              Invite <span className="text-text-tertiary">& Earn</span>
           </h1>
           <p className="text-text-secondary max-w-xl font-medium">
-             Expand the PulseEarn ecosystem and earn recurring rewards for every verified user you onboard.
+             Invite friends and earn rewards for every user you onboard.
           </p>
         </header>
 
@@ -91,10 +90,10 @@ const Referrals: React.FC = () => {
                 <div className="space-y-6">
                    <h2 className="text-xl font-bold uppercase tracking-tight flex items-center gap-3">
                       <Gift className="text-primary" size={24} />
-                      Your Invitation Hub
+                      Invite Friends
                    </h2>
                    <p className="text-sm text-text-secondary leading-relaxed font-medium">
-                      Share your unique referral code or link. Once your invitee completes their first task, you both receive premium rewards.
+                      Share your unique referral code or link. When your friends join and complete tasks, you'll earn points.
                    </p>
                 </div>
 
@@ -213,9 +212,9 @@ const Referrals: React.FC = () => {
 
                    <div className="pt-6 border-t border-white/5 space-y-4">
                       {[
-                        { label: 'Direct Comtask', value: '50 PTS' },
-                        { label: 'Task Revenue Share', value: '5%' },
-                        { label: 'Tier Multiplier', value: '1.0x' },
+                        { label: 'Referral Bonus', value: '50 PTS' },
+                        { label: 'Task Share', value: '5%' },
+                        { label: 'Multiplier', value: '1.0x' },
                       ].map((rule, i) => (
                         <div key={i} className="flex justify-between items-center">
                            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{rule.label}</span>

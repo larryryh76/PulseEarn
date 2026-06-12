@@ -80,7 +80,7 @@ const PredictionPreview: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-bold text-sm text-white">BTC/USDT</h4>
-                      <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Market Session #429</p>
+                      <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Live Market</p>
                     </div>
                   </div>
                   <div className="text-right space-y-0.5">
@@ -119,19 +119,19 @@ const PredictionPreview: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate('/predict')}
+                    onClick={() => navigate('/predictions')}
                     className="w-full py-5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-white/90 active:scale-95 transition-all"
                   >
-                    Confirm Prediction
+                    View Market
                   </button>
                 </div>
 
                 <div className="px-6 py-4 bg-white/[0.01] border-t border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-3 text-white/30">
                     <Clock size={12} />
-                    <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-success">Active Session</span>
+                    <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-success">Active</span>
                   </div>
-                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Verified Participation</span>
+                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Market Feed</span>
                 </div>
               </Card>
             </motion.div>

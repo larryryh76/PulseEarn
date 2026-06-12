@@ -103,7 +103,7 @@ const Tasks: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Available Tasks</span>
                  </div>
                  <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
-                    Tasks
+                    Quest Hub
                  </h1>
               </div>
 
@@ -158,19 +158,19 @@ const Tasks: React.FC = () => {
                           <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Featured</h4>
                           <div className="h-px flex-1 bg-white/[0.03]" />
                        </div>
-                       <div className="grid grid-cols-1 gap-6 pb-12">
+                       <div className="grid grid-cols-1 gap-8 pb-12">
                           {activeCampaigns.map((camp) => (
                              <div
                                key={camp.id}
                                onClick={() => navigate(`/campaigns/${camp.id}`)}
-                               className="group relative aspect-[16/6] md:aspect-[21/7] rounded-[2.5rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5 bg-[#0A0A0F]"
+                               className="group relative h-[300px] md:h-[400px] rounded-[3rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 bg-[#0A0A0F]"
                              >
                                 {camp.bannerUrl || camp.thumbnailUrl ? (
-                                   <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000" alt="" />
+                                   <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000 grayscale-[50%] group-hover:grayscale-0" alt="" />
                                 ) : (
-                                   <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-transparent" />
+                                   <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-8 md:p-12 flex flex-col justify-end">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-10 md:p-16 flex flex-col justify-end">
                                    <div className="space-y-4 max-w-2xl">
                                       <div className="flex items-center gap-3">
                                          <span className="px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/30 text-[9px] font-black text-primary uppercase tracking-widest">{camp.category}</span>
@@ -181,20 +181,26 @@ const Tasks: React.FC = () => {
                                             </div>
                                          )}
                                       </div>
-                                      <h3 className="text-3xl md:text-5xl font-bold text-white tracking-tighter leading-none uppercase">{camp.name}</h3>
-                                      <p className="text-white/60 text-sm md:text-base font-medium line-clamp-2 max-w-xl">{camp.description}</p>
-                                      <div className="flex items-center gap-8 pt-4">
-                                         <div className="flex items-center gap-2">
-                                            <Zap size={14} className="text-primary" />
-                                            <span className="text-xs font-mono font-bold text-white">+{(camp.totalPrizePool || 0).toLocaleString()} <span className="text-primary text-[10px]">PTS</span></span>
+                                      <h3 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-[0.9] uppercase italic">{camp.name}</h3>
+                                      <p className="text-white/40 text-sm md:text-lg font-medium line-clamp-2 max-w-2xl">{camp.description}</p>
+                                      <div className="flex items-center gap-10 pt-6">
+                                         <div className="flex flex-col gap-1">
+                                            <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Allocation</span>
+                                            <div className="flex items-center gap-2">
+                                               <Zap size={14} className="text-primary" />
+                                               <span className="text-sm font-mono font-bold text-white">+{(camp.totalPrizePool || 0).toLocaleString()} <span className="text-primary text-[10px]">PTS</span></span>
+                                            </div>
                                          </div>
-                                         <div className="flex items-center gap-2">
-                                            <Target size={14} className="text-success" />
-                                            <span className="text-xs font-mono font-bold text-white">{camp.taskIds?.length || 0} <span className="text-success text-[10px]">Tasks</span></span>
+                                         <div className="flex flex-col gap-1">
+                                            <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Objectives</span>
+                                            <div className="flex items-center gap-2">
+                                               <Target size={14} className="text-success" />
+                                               <span className="text-sm font-mono font-bold text-white">{camp.taskIds?.length || 0}</span>
+                                            </div>
                                          </div>
-                                         <div className="hidden md:flex items-center gap-2 text-white/40">
-                                            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Start Now</span>
+                                         <div className="ml-auto hidden md:flex items-center gap-4 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-primary hover:text-white transition-all shadow-2xl">
+                                            Start Quest
+                                            <ArrowRight size={14} />
                                          </div>
                                       </div>
                                    </div>

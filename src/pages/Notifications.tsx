@@ -347,12 +347,12 @@ const Notifications: React.FC = () => {
                         <Button
                            onClick={() => {
                               const type = selectedActivity.type as string;
-                              if (type.includes('prediction')) navigate('/predictions', { state: { view: 'PORTFOLIO' } });
+                              if (type.includes('prediction')) navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               else if (type.includes('campaign')) {
                                  if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
                                  else navigate('/tasks');
                               }
-                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks', { state: { view: 'COMPLETED' } });
+                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               else if (type.includes('referral')) navigate('/referrals');
                               else if (type.includes('withdrawal')) navigate('/wallet');
                               setSelectedActivity(null);

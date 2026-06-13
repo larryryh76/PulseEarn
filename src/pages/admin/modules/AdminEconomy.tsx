@@ -8,12 +8,22 @@ import {
   Activity,
   ShieldAlert,
   ArrowUpRight,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Plus,
+  Minus,
+  RefreshCw,
+  User,
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import { collection, query, orderBy, limit, getDocs, getCountFromServer, where, onSnapshot } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { ECONOMY_RULES } from '../../../engines/points/EconomyAuthority';
+import { AnimatePresence, motion } from 'framer-motion';
+import Button from "../../../components/ui/Button";
+import toast from "react-hot-toast";
+import { cn } from '../../../utils';
 
 const AdminEconomy = () => {
   const [stats, setStats] = React.useState({
@@ -26,6 +36,18 @@ const AdminEconomy = () => {
 
   const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
   const [anomalies, setAnomalies] = React.useState<any[]>([]);
+
+  // Adjustment Modal State
+  const [isAdjusting, setIsAdjusting] = React.useState(false);
+  const [adjustForm, setAdjustForm] = React.useState({
+     userId: '',
+     amount: 0,
+     type: 'admin_adjustment' as any,
+     source: 'Manual Adjustment',
+     description: '',
+     isXp: false
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     const fetchStats = async () => {
@@ -40,9 +62,8 @@ const AdminEconomy = () => {
         });
 
         const withdrawalsSnap = await getCountFromServer(query(
-          collection(db, 'system_claims'),
-          where('type', '==', 'withdrawal_debit'),
-          where('adminStatus', '==', 'PENDING')
+          collection(db, 'withdrawals'),
+          where('status', '==', 'PENDING')
         ));
 
         const activePredictionsSnap = await getDocs(query(
@@ -84,6 +105,39 @@ const AdminEconomy = () => {
     };
   }, []);
 
+  const handleAdjust = async () => {
+     if (!adjustForm.userId || adjustForm.amount === 0) return toast.error('Required fields missing');
+
+     setIsSubmitting(true);
+     try {
+        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
+        const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
+
+        const result = await PointTransactionEngine.execute({
+           userId: adjustForm.userId,
+           amount: adjustForm.isXp ? 0 : adjustForm.amount,
+           xpReward: adjustForm.isXp ? adjustForm.amount : 0,
+           type: adjustForm.type,
+           source: adjustForm.source,
+           claimId,
+           description: adjustForm.description,
+           bypassLock: true
+        });
+
+        if (result.success) {
+           toast.success('Economy Mutation Authorized');
+           setIsAdjusting(false);
+           setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
+        } else {
+           toast.error(result.error);
+        }
+     } catch (err) {
+        toast.error('Authority Engine Failure');
+     } finally {
+        setIsSubmitting(false);
+     }
+  };
+
   return (
     <div className="space-y-12 pb-24">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -92,9 +146,15 @@ const AdminEconomy = () => {
           <p className="text-text-secondary text-sm font-medium">Real-time oversight of platform liquidity and reward distribution.</p>
         </div>
         <div className="flex items-center gap-3">
-           <div className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-2">
+           <button
+             onClick={() => setIsAdjusting(true)}
+             className="px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+           >
+              <RefreshCw size={14} /> Adjust Economy
+           </button>
+           <div className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">System Sync Active</span>
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Live Authority</span>
            </div>
         </div>
       </header>
@@ -123,6 +183,117 @@ const AdminEconomy = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+         {/* ADJUSTMENT MODAL */}
+         <AnimatePresence>
+            {isAdjusting && (
+               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    onClick={() => setIsAdjusting(false)}
+                    className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                  />
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                    className="relative w-full max-w-lg bg-[#0A0A0F] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+                  >
+                     <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl">
+                              <RefreshCw size={24} />
+                           </div>
+                           <div>
+                              <h3 className="text-xl font-bold text-white tracking-tight uppercase italic leading-none mb-2">Economy Mutation</h3>
+                              <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Authorized Administrative adjustment</p>
+                           </div>
+                        </div>
+                        <button onClick={() => setIsAdjusting(false)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                           <X size={18} />
+                        </button>
+                     </div>
+
+                     <div className="p-10 space-y-8">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">User Identifier (UID)</label>
+                           <div className="relative group">
+                              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" size={16} />
+                              <input
+                                value={adjustForm.userId}
+                                onChange={e => setAdjustForm(prev => ({ ...prev, userId: e.target.value }))}
+                                placeholder="Enter system user ID"
+                                className="w-full bg-white/[0.02] border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm text-white focus:border-primary/50 outline-none transition-all font-mono"
+                              />
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Asset Value</label>
+                              <div className="relative group">
+                                 <input
+                                   type="number"
+                                   value={adjustForm.amount}
+                                   onChange={e => setAdjustForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                                   placeholder="0.00"
+                                   className="w-full bg-white/[0.02] border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary/50 outline-none transition-all font-mono"
+                                 />
+                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
+                                    <button onClick={() => setAdjustForm(prev => ({ ...prev, amount: Math.abs(prev.amount) }))} className={cn("p-1 rounded-md transition-all", adjustForm.amount >= 0 ? "bg-success/20 text-success" : "bg-white/5 text-white/20")}><Plus size={12} /></button>
+                                    <button onClick={() => setAdjustForm(prev => ({ ...prev, amount: -Math.abs(prev.amount) }))} className={cn("p-1 rounded-md transition-all", adjustForm.amount < 0 ? "bg-danger/20 text-danger" : "bg-white/5 text-white/20")}><Minus size={12} /></button>
+                                 </div>
+                              </div>
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Ledger Type</label>
+                              <select
+                                value={adjustForm.isXp ? 'XP' : 'POINTS'}
+                                onChange={e => setAdjustForm(prev => ({ ...prev, isXp: e.target.value === 'XP' }))}
+                                className="w-full bg-white/[0.02] border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary/50 outline-none transition-all font-bold uppercase tracking-widest appearance-none"
+                              >
+                                 <option value="POINTS" className="bg-[#0A0A0F]">Pulse Points</option>
+                                 <option value="XP" className="bg-[#0A0A0F]">System XP</option>
+                              </select>
+                           </div>
+                        </div>
+
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Internal Reference / Notes</label>
+                           <textarea
+                             rows={3}
+                             value={adjustForm.description}
+                             onChange={e => setAdjustForm(prev => ({ ...prev, description: e.target.value }))}
+                             placeholder="Provide context for this manual adjustment..."
+                             className="w-full bg-white/[0.02] border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary/50 outline-none transition-all font-medium resize-none"
+                           />
+                        </div>
+
+                        <div className="p-6 bg-white/[0.01] border border-white/5 rounded-2xl flex items-center gap-4">
+                           <ShieldCheck size={20} className="text-success" />
+                           <p className="text-[10px] text-text-tertiary font-medium leading-relaxed italic">This action will be permanently recorded in the immutable audit trail and will trigger a user notification.</p>
+                        </div>
+
+                        <div className="flex gap-4 pt-2">
+                           <Button
+                             onClick={handleAdjust}
+                             isLoading={isSubmitting}
+                             className="flex-1 py-5 rounded-2xl shadow-xl italic font-black uppercase tracking-[0.2em] text-[11px]"
+                           >
+                              Authorize Mutation
+                           </Button>
+                           <button
+                             onClick={() => setIsAdjusting(false)}
+                             className="px-8 py-5 rounded-2xl bg-white/[0.02] border border-white/10 text-white/20 hover:text-white transition-colors font-bold uppercase tracking-widest text-[9px]"
+                           >
+                              Abort
+                           </button>
+                        </div>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+
          <div className="xl:col-span-2 space-y-8">
             <section className="bg-white/[0.01] border border-white/5 rounded-[2.5rem] p-8 sm:p-10">
                <div className="flex items-center justify-between mb-10">

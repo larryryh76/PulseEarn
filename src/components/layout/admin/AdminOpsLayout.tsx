@@ -36,17 +36,20 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
     </div>
   );
 
-  const isAdmin = currentUser?.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
+  const isAdmin = React.useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
+  }, [currentUser, userData]);
 
-  if (!isAdmin) {
+  if (!loading && !isAdmin) {
      return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6 text-center">
-           <div>
+           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
               <ShieldAlert size={48} className="text-danger mx-auto mb-6" />
               <h1 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Management Authorization Required</h1>
               <p className="text-white/40 text-sm mb-8">Access to the PulseEarn Operations Hub is restricted to authorized personnel only.</p>
               <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-white/90 transition-all">Return to Home</button>
-           </div>
+           </motion.div>
         </div>
      );
   }

@@ -18,6 +18,7 @@ const AdminOverview = () => {
     pendingValidations: 0,
     fraudAlerts: 0,
     pendingWithdrawals: 0,
+    pendingTickets: 0,
     transactionVolume: 0
   });
   const [loading, setLoading] = React.useState(true);
@@ -31,7 +32,8 @@ const AdminOverview = () => {
         const usersCount = await getCountFromServer(collection(db, 'users'));
         const campaignsCount = await getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true)));
         const claimsCount = await getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING')));
-        const withdrawalsCount = await getCountFromServer(query(collection(db, 'system_claims'), where('type', '==', 'withdrawal_debit'), where('adminStatus', '==', 'PENDING')));
+        const withdrawalsCount = await getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'PENDING')));
+        const ticketsCount = await getCountFromServer(query(collection(db, 'support_tickets'), where('status', '==', 'OPEN')));
         const anomaliesCount = await getCountFromServer(collection(db, 'system_anomalies'));
 
         // Calculate transaction volume (points moved in last 24h)
@@ -50,6 +52,7 @@ const AdminOverview = () => {
           pendingValidations: claimsCount.data()?.count || 0,
           fraudAlerts: anomaliesCount.data()?.count || 0,
           pendingWithdrawals: withdrawalsCount.data()?.count || 0,
+          pendingTickets: ticketsCount.data()?.count || 0,
           transactionVolume: volume
         });
         setError(null);
@@ -62,6 +65,7 @@ const AdminOverview = () => {
           pendingValidations: 0,
           fraudAlerts: 0,
           pendingWithdrawals: 0,
+          pendingTickets: 0,
           transactionVolume: 0
         });
       } finally {
@@ -74,10 +78,11 @@ const AdminOverview = () => {
   const metricCards = [
     { label: 'Total Users', val: stats.totalUsers, icon: Users, color: 'text-primary' },
     { label: 'Active Campaigns', val: stats.activeCampaigns, icon: Target, color: 'text-success' },
-    { label: 'Pending Reviews', val: stats.pendingValidations, icon: ShieldCheck, color: 'text-warning' },
-    { label: 'Fraud Alerts', val: stats.fraudAlerts, icon: ShieldAlert, color: 'text-danger' },
+    { label: 'Pending Tasks', val: stats.pendingValidations, icon: ShieldCheck, color: 'text-warning' },
+    { label: 'Pending Support', val: stats.pendingTickets, icon: ShieldCheck, color: 'text-indigo-400' },
     { label: 'Withdrawal Queue', val: stats.pendingWithdrawals, icon: Wallet, color: 'text-accent' },
     { label: 'Tx Volume (24h)', val: stats.transactionVolume, icon: Activity, color: 'text-accent' },
+    { label: 'Fraud Alerts', val: stats.fraudAlerts, icon: ShieldAlert, color: 'text-danger' },
   ];
 
   const runCleanup = async () => {

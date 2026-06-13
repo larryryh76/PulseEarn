@@ -1,193 +1,221 @@
-import { useState, useEffect } from "react";
-import { X, Zap, ShieldCheck, ExternalLink, Info, Layers } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
+import * as React from 'react';
+import { Zap, X, Save, ShieldCheck } from 'lucide-react';
 import { db } from '../../../../firebase/config';
+import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Task, TaskCategory, VerificationType, SocialPlatform } from '../../../../types';
+import { motion } from 'framer-motion';
+import Button from '../../../../components/ui/Button';
 import toast from 'react-hot-toast';
-import { TaskCategory, VerificationType, SocialPlatform } from '../../../../types';
+import { cn } from '../../../../utils';
 
-const TaskBuilderModal = ({ isOpen, onClose, initialTask, onSave }: any) => {
-  const [formData, setFormData] = useState<any>({
+interface TaskBuilderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialTask?: Task | null;
+}
+
+const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, initialTask }) => {
+  const [formData, setFormData] = React.useState<Partial<Task>>({
     title: '',
     description: '',
     instructions: '',
-    proofRequirements: '',
-    rewardAmount: 0,
+    category: 'ENGAGEMENT' as TaskCategory,
+    verificationType: 'manual' as VerificationType,
+    rewardAmount: 100,
     xpReward: 50,
-    category: 'SOCIAL',
-    type: 'once',
-    platform: 'NONE',
-    verificationType: 'manual',
-    actionUrl: '',
-    cooldownPeriod: 0,
-    status: 'ACTIVE'
+    platform: 'NONE' as SocialPlatform,
+    active: true,
+    status: 'ACTIVE',
+    minLevel: 1,
+    estimatedTime: '2 mins',
+    fraudProtection: {
+      duplicatePrevention: true,
+      abuseDetection: true,
+      multiAccountDetection: true
+    }
   });
 
-  useEffect(() => {
-    if (isOpen && initialTask) {
-      setFormData(initialTask);
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        instructions: '',
-        proofRequirements: '',
-        rewardAmount: 0,
-        xpReward: 50,
-        category: 'SOCIAL',
-        type: 'once',
-        platform: 'NONE',
-        verificationType: 'manual',
-        actionUrl: '',
-        cooldownPeriod: 0,
-        status: 'ACTIVE'
-      });
-    }
-  }, [isOpen, initialTask]);
+  React.useEffect(() => {
+    if (initialTask) setFormData(initialTask);
+  }, [initialTask, isOpen]);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const loadingToast = toast.loading('Synchronizing execution node...');
     try {
-      const taskId = initialTask?.id || doc(collection(db, 'tasks')).id;
-      const taskData = {
+      const id = initialTask?.id || doc(collection(db, 'tasks')).id;
+      const taskRef = doc(db, 'tasks', id);
+
+      const payload = {
         ...formData,
-        id: taskId,
+        id,
         updatedAt: serverTimestamp(),
-        createdAt: initialTask?.createdAt || serverTimestamp(),
-        active: formData.status === 'ACTIVE'
+        createdAt: initialTask ? initialTask.createdAt : serverTimestamp(),
+        providerId: 'SYSTEM',
+        providerName: 'PulseEarn Authority'
       };
 
-      await setDoc(doc(db, 'tasks', taskId), taskData, { merge: true });
-      toast.success('Task saved');
-      if (onSave) onSave(taskData);
+      await setDoc(taskRef, payload, { merge: true });
+      toast.dismiss(loadingToast);
+      toast.success('Vector Synchronized');
       onClose();
     } catch (err) {
-      toast.error('Failed to save task');
+      toast.dismiss(loadingToast);
+      toast.error('Sync failure');
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-0 sm:p-6 overflow-y-auto">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-3xl bg-surface sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-white/10 my-auto">
-        <div className="flex justify-between items-center p-6 border-b border-white/5">
-          <div>
-             <h2 className="text-xl font-bold uppercase tracking-tight">{initialTask ? 'Edit' : 'Create'} Task Unit</h2>
-             <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mt-1">Configure individual execution vector</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl"><X size={20} /></button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-8 space-y-10 max-h-[80vh] overflow-y-auto no-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* COLUMN 1: IDENTITY */}
-            <section className="space-y-6">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                <Info size={14} />
-                Task Identity
-              </h3>
-
-              <div className="space-y-4">
-                                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Linked Campaign ID</label>
-                  <input value={formData.campaignId} onChange={e => setFormData({...formData, campaignId: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all font-mono" placeholder="campaign_id_..." />
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+       <motion.div
+         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+         className="relative w-full max-w-4xl bg-[#0A0A0F] border border-white/10 rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+       >
+          <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+             <div className="flex items-center gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
+                   <Zap size={28} />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Task Title</label>
-                  <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-primary/50 outline-none transition-all" placeholder="Follow PulseEarn on X" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Short Description</label>
-                  <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm h-20 resize-none focus:border-primary/50 outline-none transition-all" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Reward (PTS)</label>
-                    <input type="number" required value={formData.rewardAmount} onChange={e => setFormData({...formData, rewardAmount: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-mono focus:border-primary/50 outline-none transition-all" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">XP Grant</label>
-                    <input type="number" required value={formData.xpReward} onChange={e => setFormData({...formData, xpReward: parseInt(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm font-mono focus:border-primary/50 outline-none transition-all" />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* COLUMN 2: EXECUTION */}
-            <section className="space-y-6">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-accent flex items-center gap-2">
-                <Layers size={14} />
-                Execution Logic
-              </h3>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Category</label>
-                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
-                      {(['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'EVENTS', 'SPONSORED'] as TaskCategory[]).map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Platform</label>
-                    <select value={formData.platform} onChange={e => setFormData({...formData, platform: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
-                      {(['TELEGRAM', 'TWITTER', 'TIKTOK', 'YOUTUBE', 'DISCORD', 'WEBSITE', 'APP_STORE', 'NONE'] as SocialPlatform[]).map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Verification Method</label>
-                  <select value={formData.verificationType} onChange={e => setFormData({...formData, verificationType: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-bold uppercase">
-                    {(['automated', 'manual', 'proof', 'timer', 'activity', 'link', 'api', 'referral', 'prediction'] as VerificationType[]).map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Action URL</label>
-                  <div className="relative">
-                     <input value={formData.actionUrl} onChange={e => setFormData({...formData, actionUrl: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-primary/50 outline-none transition-all" placeholder="https://x.com/pulseearn" />
-                     <ExternalLink size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <section className="space-y-6 pt-6 border-t border-white/5">
-             <h3 className="text-xs font-bold uppercase tracking-widest text-success flex items-center gap-2">
-                <ShieldCheck size={14} />
-                Detailed Instructions & Proof
-             </h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Instructions for User</label>
-                  <textarea value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm h-32 resize-none focus:border-primary/50 outline-none transition-all" placeholder="1. Click the button below\n2. Follow the account\n3. Return and submit your handle" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/40">Proof Requirements</label>
-                  <textarea value={formData.proofRequirements} onChange={e => setFormData({...formData, proofRequirements: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm h-32 resize-none focus:border-primary/50 outline-none transition-all" placeholder="Please upload a screenshot of your following status or provide your handle." />
+                <div>
+                   <h2 className="text-2xl font-bold text-white uppercase italic leading-none mb-2">Vector Architect</h2>
+                   <p className="text-white/40 text-[10px] font-black uppercase tracking-widest leading-none">Atomic Execution & Provisioning Logic</p>
                 </div>
              </div>
-          </section>
-
-          <div className="pt-6">
-            <button type="submit" className="w-full py-5 bg-primary text-white font-bold uppercase tracking-widest text-xs rounded-2xl hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3">
-              <Zap size={18} />
-              {initialTask ? 'Update Task Unit' : 'Authorize New Task'}
-            </button>
+             <button onClick={onClose} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all flex items-center justify-center text-text-tertiary">
+                <X size={24} />
+             </button>
           </div>
-        </form>
-      </motion.div>
+
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar">
+             <div className="grid grid-cols-2 gap-10">
+                <div className="space-y-6">
+                   <div className="space-y-2.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Vector Identifier</label>
+                      <input
+                        required value={formData.title}
+                        onChange={e => setFormData({...formData, title: e.target.value})}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-sm text-white focus:border-primary/50 outline-none transition-all font-bold uppercase italic tracking-tight"
+                      />
+                   </div>
+                   <div className="space-y-2.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Executive Brief</label>
+                      <textarea
+                        required value={formData.description}
+                        onChange={e => setFormData({...formData, description: e.target.value})}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-6 text-sm text-white h-24 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                      />
+                   </div>
+                   <div className="space-y-2.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Execution Logic (Instructions)</label>
+                      <textarea
+                        required value={formData.instructions}
+                        onChange={e => setFormData({...formData, instructions: e.target.value})}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-6 text-sm text-white h-32 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                      />
+                   </div>
+                </div>
+
+                <div className="space-y-8">
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Asset Category</label>
+                         <select
+                           value={formData.category}
+                           onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
+                         >
+                            {['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION'].map(c => <option key={c} value={c} className="bg-[#0A0A0F]">{c}</option>)}
+                         </select>
+                      </div>
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Validation Vector</label>
+                         <select
+                           value={formData.verificationType}
+                           onChange={e => setFormData({...formData, verificationType: e.target.value as VerificationType})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
+                         >
+                            {['automated', 'manual', 'proof', 'activity', 'link'].map(v => <option key={v} value={v} className="bg-[#0A0A0F] uppercase">{v}</option>)}
+                         </select>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Point Provision</label>
+                         <input
+                           type="number"
+                           value={formData.rewardAmount}
+                           onChange={e => setFormData({...formData, rewardAmount: Number(e.target.value)})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
+                         />
+                      </div>
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">XP Provision</label>
+                         <input
+                           type="number"
+                           value={formData.xpReward}
+                           onChange={e => setFormData({...formData, xpReward: Number(e.target.value)})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
+                         />
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Min Level THR</label>
+                         <input
+                           type="number"
+                           value={formData.minLevel}
+                           onChange={e => setFormData({...formData, minLevel: Number(e.target.value)})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
+                         />
+                      </div>
+                      <div className="space-y-2.5">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Logic Platform</label>
+                         <select
+                           value={formData.platform}
+                           onChange={e => setFormData({...formData, platform: e.target.value as SocialPlatform})}
+                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
+                         >
+                            {['TELEGRAM', 'TWITTER', 'TIKTOK', 'YOUTUBE', 'DISCORD', 'WEBSITE', 'NONE'].map(p => <option key={p} value={p} className="bg-[#0A0A0F]">{p}</option>)}
+                         </select>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[2rem] space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 flex items-center gap-2 px-1">
+                   <ShieldCheck size={14} /> Integrity Matrix
+                </h3>
+                <div className="grid grid-cols-3 gap-6">
+                   {Object.keys(formData.fraudProtection || {}).map((key) => (
+                      <button
+                        key={key} type="button"
+                        onClick={() => setFormData({...formData, fraudProtection: { ...formData.fraudProtection!, [key]: !formData.fraudProtection![key as keyof typeof formData.fraudProtection] }})}
+                        className={cn("px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
+                           formData.fraudProtection?.[key as keyof typeof formData.fraudProtection] ? "bg-primary border-primary text-white" : "bg-white/5 border-white/5 text-white/20 hover:text-white"
+                        )}
+                      >
+                         {key.replace(/([A-Z])/g, ' $1')}
+                         <div className={cn("w-2 h-2 rounded-full", formData.fraudProtection?.[key as keyof typeof formData.fraudProtection] ? "bg-white" : "bg-white/10 group-hover:bg-white/20")} />
+                      </button>
+                   ))}
+                </div>
+             </div>
+          </form>
+
+          <div className="p-10 border-t border-white/5 bg-black/40 flex gap-6">
+             <Button type="submit" onClick={handleSubmit} className="flex-1 py-6 bg-white text-black font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl hover:bg-white/90 transition-all flex items-center justify-center gap-4 italic shadow-2xl">
+                <Save size={20} /> Synchronize Vector
+             </Button>
+             <button onClick={onClose} className="px-12 py-6 rounded-2xl bg-white/[0.02] border border-white/10 text-white/20 hover:text-white transition-colors font-black uppercase tracking-widest text-[10px]">
+                Abort
+             </button>
+          </div>
+       </motion.div>
     </div>
   );
 };

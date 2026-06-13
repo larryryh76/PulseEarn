@@ -276,12 +276,12 @@ const CampaignDetails: React.FC = () => {
                                {isCompleted ? (
                                   <div className="self-start sm:self-center px-4 py-1.5 rounded-lg bg-success/10 border border-success/20 text-success flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
                                      <CheckCircle2 size={14} />
-                                     <span className="text-[9px] font-black uppercase tracking-widest">Protocol Verified</span>
+                                     <span className="text-[9px] font-black uppercase tracking-widest">Completed</span>
                                   </div>
                                ) : isPending ? (
                                   <div className="self-start sm:self-center px-4 py-1.5 rounded-lg bg-warning/5 border border-warning/10 text-warning/60 flex items-center gap-2">
                                      <Clock size={14} className="animate-pulse" />
-                                     <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Audit</span>
+                                     <span className="text-[9px] font-black uppercase tracking-widest">Pending Review</span>
                                   </div>
                                ) : null}
                             </div>
@@ -359,7 +359,7 @@ const CampaignDetails: React.FC = () => {
                                           variant="primary"
                                           className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
                                         >
-                                          Validate Contribution <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                                          Submit for Review <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
                                         </Button>
                                      )}
                                   </div>

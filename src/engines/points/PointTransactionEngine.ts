@@ -145,7 +145,7 @@ export class PointTransactionEngine {
 
         // 8.5 Activity Log (Handled via ActivityEngine post-transaction)
 
-        // 9. Immutable Transaction Log
+        // 9. Secure Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           id: txDoc.id,
@@ -160,7 +160,7 @@ export class PointTransactionEngine {
           metadata,
           timestamp: serverTimestamp(),
           processedAt: serverTimestamp(),
-          auditTrail: [`SYSTEM_AUTHORIZED:${type}`, `NONCE_CLAIMED:${claimId}`],
+          auditTrail: [`AUTHORIZED:${type}`, `CLAIMED:${claimId}`],
           engineVersion: '5.0.0-PRO'
         });
 

@@ -16,11 +16,10 @@ import {
   Share2,
   Calendar,
   Flame,
-  ArrowRight,
   Shield,
   Star,
-  ExternalLink,
-  Boxes
+  ChevronRight,
+  ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -210,10 +209,10 @@ const Tasks: React.FC = () => {
               <div className="space-y-4">
                  <div className="flex items-center gap-2">
                     <Shield size={14} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Available Tasks</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Available Objectives</span>
                  </div>
                  <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
-                    Quest Hub
+                    Quests
                  </h1>
               </div>
 
@@ -261,56 +260,40 @@ const Tasks: React.FC = () => {
         <div className="space-y-12">
            {view === 'AVAILABLE' ? (
               <>
-                 {/* CAMPAIGN BANNERS */}
-                 {activeCampaigns.length > 0 && (filter === 'ALL' || filter === 'SPONSORED' || activeCampaigns.some(c => c.category === filter as any)) && (
+                 {/* CAMPAIGN CARDS */}
+                 {activeCampaigns.length > 0 && (filter === 'ALL' || activeCampaigns.some(c => c.category === filter as any)) && (
                     <div className="space-y-6">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Featured</h4>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Active Campaigns</h4>
                           <div className="h-px flex-1 bg-white/[0.03]" />
                        </div>
-                       <div className="grid grid-cols-1 gap-8 pb-12">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {activeCampaigns.map((camp) => (
                              <div
                                key={camp.id}
                                onClick={() => navigate(`/campaigns/${camp.id}`)}
-                               className="group relative h-[300px] md:h-[400px] rounded-[3rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 bg-[#0A0A0F]"
+                               className="group relative h-[240px] rounded-[2rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 bg-[#0A0A0F]"
                              >
                                 {camp.bannerUrl || camp.thumbnailUrl ? (
-                                   <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-1000 grayscale-[50%] group-hover:grayscale-0" alt="" />
+                                   <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:scale-105 transition-transform duration-1000 grayscale-[50%] group-hover:grayscale-0" alt="" />
                                 ) : (
                                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-10 md:p-16 flex flex-col justify-end">
-                                   <div className="space-y-4 max-w-2xl">
-                                      <div className="flex items-center gap-3">
-                                         <span className="px-2.5 py-1 rounded-lg bg-primary/20 border border-primary/30 text-[9px] font-black text-primary uppercase tracking-widest">{camp.category}</span>
-                                         {camp.featured && (
-                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-warning/10 border border-warning/30 text-[9px] font-black text-warning uppercase tracking-widest">
-                                               <Star size={10} fill="currentColor" />
-                                               Featured
-                                            </div>
-                                         )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-8 flex flex-col justify-end">
+                                   <div className="space-y-3">
+                                      <div className="flex items-center gap-2">
+                                         <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">{camp.category}</span>
+                                         {camp.featured && <Star size={10} className="text-warning" fill="currentColor" />}
                                       </div>
-                                      <h3 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-[0.9] uppercase italic">{camp.name}</h3>
-                                      <p className="text-white/40 text-sm md:text-lg font-medium line-clamp-2 max-w-2xl">{camp.description}</p>
-                                      <div className="flex items-center gap-10 pt-6">
-                                         <div className="flex flex-col gap-1">
-                                            <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Allocation</span>
-                                            <div className="flex items-center gap-2">
-                                               <Zap size={14} className="text-primary" />
-                                               <span className="text-sm font-mono font-bold text-white">+{(camp.totalPrizePool || 0).toLocaleString()} <span className="text-primary text-[10px]">PTS</span></span>
-                                            </div>
+                                      <h3 className="text-2xl font-bold text-white tracking-tighter uppercase italic">{camp.name}</h3>
+                                      <div className="flex items-center gap-6 pt-2">
+                                         <div className="flex items-center gap-2">
+                                            <Zap size={12} className="text-primary" />
+                                            <span className="text-xs font-mono font-bold text-white">+{ (camp.totalPrizePool || 0).toLocaleString() }</span>
                                          </div>
-                                         <div className="flex flex-col gap-1">
-                                            <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Objectives</span>
-                                            <div className="flex items-center gap-2">
-                                               <Target size={14} className="text-success" />
-                                               <span className="text-sm font-mono font-bold text-white">{camp.taskIds?.length || 0}</span>
-                                            </div>
-                                         </div>
-                                         <div className="ml-auto hidden md:flex items-center gap-4 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-primary hover:text-white transition-all shadow-2xl">
-                                            Start Quest
-                                            <ArrowRight size={14} />
+                                         <div className="flex items-center gap-2">
+                                            <Target size={12} className="text-success" />
+                                            <span className="text-xs font-mono font-bold text-white">{camp.taskIds?.length || 0}</span>
                                          </div>
                                       </div>
                                    </div>
@@ -321,82 +304,24 @@ const Tasks: React.FC = () => {
                     </div>
                  )}
 
-                 {/* SPONSORED / OFFERWALL PREPARATION SLOTS */}
-                 {(filter === 'ALL' || filter === 'SPONSORED') && (
-                    <div className="space-y-8">
-                       <div className="flex items-center justify-between px-2">
-                          <div className="flex items-center gap-3">
-                             <Boxes size={14} className="text-primary" />
-                             <h4 className="text-xl font-bold tracking-tight text-white italic">Partner Offers</h4>
-                          </div>
-                          <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] px-2 py-1 bg-primary/10 border border-primary/20 rounded-md">Bonus Yield</span>
-                       </div>
-
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Offerwall Slot 1: Preparation for BitLabs/Adscend/etc */}
-                          <div className="relative group p-8 rounded-[2.5rem] bg-gradient-to-br from-[#0D0D14] to-[#08080C] border border-white/5 overflow-hidden transition-all hover:border-primary/30">
-                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <Zap size={80} />
-                             </div>
-                             <div className="relative z-10 space-y-6">
-                                <div className="flex items-center gap-4">
-                                   <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-hover:border-primary/40 transition-all">
-                                      <Zap size={24} />
-                                   </div>
-                                   <div>
-                                      <h3 className="text-lg font-bold text-white tracking-tight uppercase italic">Global Offerwall</h3>
-                                      <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Multi-Task Ecosystem</p>
-                                   </div>
-                                </div>
-                                <p className="text-sm text-text-tertiary font-medium leading-relaxed italic max-w-xs">
-                                   Access external objectives, surveys, and app trials to earn massive Pulse rewards.
-                                </p>
-                                <button className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                                   Open Wall
-                                   <ExternalLink size={14} />
-                                </button>
-                             </div>
-                          </div>
-
-                          {/* AdSense / Video Reward Placeholder */}
-                          <div className="relative group p-8 rounded-[2.5rem] bg-gradient-to-br from-[#0D0D14] to-[#08080C] border border-white/5 overflow-hidden transition-all hover:border-success/30">
-                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <TrendingUp size={80} />
-                             </div>
-                             <div className="relative z-10 space-y-6">
-                                <div className="flex items-center gap-4">
-                                   <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-success group-hover:bg-success/20 group-hover:border-success/40 transition-all">
-                                      <TrendingUp size={24} />
-                                   </div>
-                                   <div>
-                                      <h3 className="text-lg font-bold text-white tracking-tight uppercase italic">Sponsored Intel</h3>
-                                      <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Ad-Based Earnings</p>
-                                   </div>
-                                </div>
-                                <p className="text-sm text-text-tertiary font-medium leading-relaxed italic max-w-xs">
-                                   Watch quick sponsor segments to receive immediate point distributions and XP.
-                                </p>
-                                <button className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-white uppercase tracking-widest hover:bg-success hover:text-black transition-all">
-                                   Initialize
-                                   <Zap size={14} fill="currentColor" />
-                                </button>
-                             </div>
-                          </div>
-                       </div>
+                 {/* SPONSORED PLACEHOLDER (PREPARED FOR FUTURE ADS) */}
+                 {filter === 'SPONSORED' && (
+                    <div className="py-24 text-center border border-dashed border-white/5 rounded-[2rem] opacity-20">
+                       <Zap size={32} className="mx-auto mb-4 text-white/10" />
+                       <p className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Offers Coming Soon</p>
                     </div>
                  )}
 
-                 {activeMissions.length > 0 && (
-                    <div className="space-y-10 mt-12">
+                 {activeMissions.length > 0 && (filter === 'ALL' || filter === 'CHALLENGES') && (
+                    <div className="space-y-6">
                        <div className="flex items-center justify-between px-2">
                           <div className="flex items-center gap-3">
-                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                             <h4 className="text-xl font-bold tracking-tight text-white italic">Challenges</h4>
+                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Daily Objectives</h4>
+                             <div className="h-px w-24 bg-white/[0.03]" />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">{activeMissions.length} ACTIVE CHALLENGES</span>
                        </div>
 
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                       <div className="space-y-2">
                           {activeMissions.map((mission) => {
                              const isCompleted = mission.progress?.status === 'COMPLETED';
                              const progress = mission.progress?.progress || 0;
@@ -406,66 +331,43 @@ const Tasks: React.FC = () => {
                              return (
                                 <motion.div
                                   key={mission.id}
-                                  whileHover={{ y: -5 }}
+                                  whileHover={{ x: 4 }}
                                   onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
                                   className={cn(
-                                    "p-8 rounded-[2.5rem] bg-[#0A0A0F] border transition-all cursor-pointer flex flex-col justify-between group min-h-[300px] shadow-2xl",
+                                    "p-5 rounded-2xl bg-[#0A0A0F] border transition-all cursor-pointer flex items-center justify-between group",
                                     isCompleted ? "border-primary/40 bg-primary/[0.02]" : "border-white/5 hover:border-white/20"
                                   )}
                                 >
-                                   <div className="space-y-6">
-                                      <div className="flex justify-between items-start">
-                                         <div className={cn(
-                                           "w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner transition-all",
-                                           isCompleted ? "bg-primary/20 border-primary/30 text-white" : "bg-white/[0.03] border-white/5 text-text-tertiary group-hover:text-white"
-                                         )}>
-                                            <TaskIcon category={mission.definition.category} size={28} />
-                                         </div>
-                                         <div className="text-right">
-                                            <div className="flex items-center gap-1.5 justify-end">
-                                               <Zap size={12} className="text-primary" />
-                                               <span className="text-xl font-mono font-bold text-white">+{mission.definition.rewardPoints.toLocaleString()}</span>
-                                            </div>
-                                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">Authorized Reward</p>
-                                         </div>
+                                   <div className="flex items-center gap-5 min-w-0">
+                                      <div className={cn(
+                                        "w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner transition-all shrink-0",
+                                        isCompleted ? "bg-primary/20 border-primary/30 text-white" : "bg-white/[0.02] border-white/10 text-text-tertiary group-hover:text-white"
+                                      )}>
+                                         <TaskIcon category={mission.definition.category} size={20} />
                                       </div>
-
-                                      <div className="space-y-3">
-                                         <div className="flex items-center gap-2 mb-1">
-                                            <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                            <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{mission.definition.category}</p>
-                                         </div>
-                                         <h3 className="text-2xl font-bold text-white tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                      <div className="min-w-0">
+                                         <h3 className="text-sm font-bold text-white uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
                                             {mission.definition.title}
                                          </h3>
-                                         <p className="text-sm text-text-tertiary font-medium line-clamp-2 leading-relaxed opacity-60 italic">
-                                            {mission.definition.description || 'Secure this objective to claim your contribution rewards.'}
-                                         </p>
+                                         <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center gap-1">
+                                               <Zap size={10} className="text-primary" />
+                                               <span className="text-[10px] font-mono font-bold text-white">+{mission.definition.rewardPoints.toLocaleString()}</span>
+                                            </div>
+                                            <div className="w-1 h-1 rounded-full bg-white/10" />
+                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{Math.round(percent)}% Complete</span>
+                                         </div>
                                       </div>
                                    </div>
 
-                                   <div className="pt-8 flex items-center justify-between border-t border-white/5 mt-auto">
-                                      <div className="flex flex-col gap-2 flex-1 max-w-[140px]">
-                                         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                                            <motion.div
-                                               initial={{ width: 0 }}
-                                               animate={{ width: `${percent}%` }}
-                                               className={cn("h-full rounded-full transition-all duration-1000", isCompleted ? "bg-success" : "bg-primary")}
-                                            />
+                                   <div className="flex items-center gap-4">
+                                      {isCompleted ? (
+                                         <div className="px-4 py-1.5 rounded-lg bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 animate-pulse italic">
+                                            Claim
                                          </div>
-                                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{Math.round(percent)}% Protocol Sync</span>
-                                      </div>
-                                      <div className="flex items-center gap-4">
-                                         {isCompleted ? (
-                                            <div className="px-6 py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 animate-pulse italic">
-                                               Secure
-                                            </div>
-                                         ) : (
-                                            <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
-                                               <ArrowRight size={18} />
-                                            </div>
-                                         )}
-                                      </div>
+                                      ) : (
+                                         <ChevronRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
+                                      )}
                                    </div>
                                 </motion.div>
                              );
@@ -491,7 +393,7 @@ const Tasks: React.FC = () => {
                             <div>
                                <h3 className="text-sm font-bold text-white uppercase tracking-tight italic group-hover:text-success transition-colors">{item.definition?.title || item.title}</h3>
                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">Protocol Secured</span>
+                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">Completed</span>
                                   <div className="w-1 h-1 rounded-full bg-success/20" />
                                   <span className="text-[9px] font-mono text-white/20">{item.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'RECENT'}</span>
                                </div>
@@ -516,132 +418,115 @@ const Tasks: React.FC = () => {
            )}
         </div>
 
-        {/* TASK DETAIL PANEL */}
+        {/* REFINED TASK DETAIL OVERLAY */}
         <AnimatePresence>
            {selectedTask && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-end">
+              <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                  <motion.div
                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                   className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                   className="absolute inset-0 bg-black/90 backdrop-blur-xl"
                    onClick={() => setSelectedMarketTask(null)}
                  />
                  <motion.div
-                   initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-                   transition={{ type: 'spring', damping: 35, stiffness: 350 }}
-                   className="relative w-full max-w-lg h-full bg-[#08080C] border-l border-white/[0.05] shadow-2xl flex flex-col"
+                   initial={{ scale: 0.98, opacity: 0, y: 20 }}
+                   animate={{ scale: 1, opacity: 1, y: 0 }}
+                   exit={{ scale: 0.98, opacity: 0, y: 20 }}
+                   className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
                  >
-                    {/* Panel Header */}
-                    <div className="p-6 border-b border-white/[0.05] flex items-center justify-between shrink-0">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-xl text-primary border border-primary/20 flex items-center justify-center shadow-lg shadow-primary/10">
-                             <TaskIcon category={selectedTask.definition.category} size={18} />
+                          <div className="w-10 h-10 bg-primary/10 rounded-xl text-primary border border-primary/20 flex items-center justify-center">
+                             <TaskIcon category={selectedTask.definition.category} size={20} />
                           </div>
                           <div>
-                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block leading-none mb-1">Challenge</span>
-                             <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">{selectedTask.definition.category}</span>
+                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Objective</p>
+                             <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.definition.category}</h3>
                           </div>
                        </div>
-                       <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-white/[0.05] rounded-xl transition-all text-text-tertiary hover:text-white flex items-center justify-center">
+                       <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all text-text-tertiary flex items-center justify-center">
                           <X size={18} />
                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
+                    <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
                        <div className="space-y-4">
-                          <h2 className="text-3xl font-bold text-white tracking-tighter leading-tight uppercase italic">{selectedTask.definition.title}</h2>
-                          <p className="text-sm text-text-secondary font-medium leading-relaxed border-l-2 border-primary/20 pl-6 italic">{selectedTask.definition.description}</p>
+                          <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTask.definition.title}</h2>
+                          <p className="text-sm text-text-secondary font-medium leading-relaxed opacity-70 italic border-l-2 border-primary/20 pl-6">
+                             {selectedTask.definition.description || 'Complete this objective to earn rewards.'}
+                          </p>
                        </div>
 
-                       <div className="grid grid-cols-2 gap-3">
-                          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] space-y-2 group hover:bg-white/[0.04] transition-all">
-                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Yield</p>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</p>
                              <div className="flex items-baseline gap-1.5">
-                                <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
-                                <span className="text-[9px] font-black text-primary uppercase tracking-widest">pts</span>
+                                <p className="text-xl font-mono font-bold text-white">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
+                                <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">pts</span>
                              </div>
                           </div>
-                          <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] space-y-2 group hover:bg-white/[0.04] transition-all">
-                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Growth</p>
+                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">System XP</p>
                              <div className="flex items-baseline gap-1.5">
-                                <p className="text-2xl font-mono font-bold text-white tracking-tighter">+{selectedTask.definition.rewardXp.toLocaleString()}</p>
-                                <span className="text-[9px] font-black text-success uppercase tracking-widest">xp</span>
-                             </div>
-                          </div>
-                       </div>
-
-                       <div className="space-y-6">
-                          <div className="flex items-center justify-between">
-                             <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Instructions</h4>
-                             <div className="h-px flex-1 bg-white/[0.03] ml-4" />
-                          </div>
-                          <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.03] space-y-5 relative overflow-hidden">
-                             <div className="absolute top-0 right-0 p-6 opacity-[0.01]">
-                                <Target size={100} />
-                             </div>
-                             <div className="flex gap-4 relative z-10">
-                                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-[10px] font-black text-primary">01</div>
-                                <div className="space-y-1.5">
-                                   <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Primary Objective</p>
-                                   <p className="text-sm font-medium text-text-secondary leading-relaxed">
-                                      {selectedTask.definition.category === 'WELCOME' && "Secure your identity on the PulseEarn system to unlock basic rewards."}
-                                      {selectedTask.definition.category === 'REFERRAL' && `Deploy your invitation link and successfully onboard ${selectedTask.definition.targetValue} new participants.`}
-                                      {selectedTask.definition.category === 'PREDICTION' && `Execute ${selectedTask.definition.targetValue} successful market forecasts to demonstrate analytical proficiency.`}
-                                      {selectedTask.definition.category === 'LEVEL' && `Acquire enough experience points through platform interaction to reach Rank ${selectedTask.definition.targetValue}.`}
-                                      {selectedTask.definition.category === 'CAMPAIGN' && "Complete multiple campaign objectives to maximize your yield."}
-                                   </p>
-                                </div>
+                                <p className="text-xl font-mono font-bold text-primary">+{selectedTask.definition.rewardXp.toLocaleString()}</p>
+                                <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">xp</span>
                              </div>
                           </div>
                        </div>
 
                        {selectedTask.progress && (
-                          <div className="space-y-6">
-                             <div className="flex justify-between items-end px-2">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Progress</h4>
-                                <p className="text-sm font-mono font-bold text-white">{selectedTask.progress.progress} <span className="text-white/20">/</span> {selectedTask.progress.target}</p>
+                          <div className="space-y-4">
+                             <div className="flex justify-between items-end px-1">
+                                <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Goal Progress</h4>
+                                <p className="text-xs font-mono font-bold text-white">{selectedTask.progress.progress} / {selectedTask.progress.target}</p>
                              </div>
-                             <div className="h-2 w-full bg-white/[0.03] rounded-full overflow-hidden p-0.5 border border-white/5">
+                             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                                 <motion.div
                                    initial={{ width: 0 }}
                                    animate={{ width: `${Math.min((selectedTask.progress.progress / selectedTask.progress.target) * 100, 100)}%` }}
-                                   className="h-full bg-gradient-to-r from-primary to-primary-bright rounded-full shadow-[0_0_15px_rgba(94,106,210,0.4)]"
+                                   className="h-full bg-primary"
                                 />
                              </div>
                           </div>
                        )}
-                    </div>
 
-                    <div className="p-10 border-t border-white/[0.05] bg-black/60 backdrop-blur-xl shrink-0">
-                       {selectedTask.progress?.status === 'COMPLETED' ? (
-                          <Button
-                            className="w-full h-16 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl active:scale-[0.98] shadow-2xl shadow-primary/20"
-                            onClick={() => handleClaimMission(selectedTask.id)}
-                            isLoading={claimingId === selectedTask.id}
-                          >
-                             Claim Reward
-                          </Button>
-                       ) : selectedTask.progress?.status === 'CLAIMED' ? (
-                          <div className="h-16 flex items-center justify-center gap-4 text-success bg-success/5 border border-success/10 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px]">
-                             <CheckCircle2 size={20} />
-                             Reward Claimed
-                          </div>
-                       ) : (
-                          <div className="group relative">
-                             <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                             <button
+                       <div className="space-y-3 pt-4">
+                          {selectedTask.progress?.status === 'COMPLETED' ? (
+                             <Button
+                               className="w-full h-14 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[10px] rounded-2xl"
+                               onClick={() => handleClaimMission(selectedTask.id)}
+                               isLoading={claimingId === selectedTask.id}
+                             >
+                                Claim Reward
+                             </Button>
+                          ) : selectedTask.progress?.status === 'CLAIMED' ? (
+                             <div className="h-14 flex items-center justify-center gap-3 text-success bg-success/5 border border-success/10 rounded-2xl font-black uppercase tracking-[0.2em] text-[9px]">
+                                <CheckCircle2 size={16} />
+                                Reward Claimed
+                             </div>
+                          ) : (
+                             <Button
                                onClick={() => {
                                  if(selectedTask.definition.category === 'PREDICTION') navigate('/predictions');
-                                 if(selectedTask.definition.category === 'REFERRAL') navigate('/referrals');
+                                 else if(selectedTask.definition.category === 'REFERRAL') navigate('/referrals');
+                                 else navigate('/tasks');
                                  setSelectedMarketTask(null);
                                }}
-                               className="relative w-full h-16 flex items-center justify-between px-10 text-white bg-white/[0.03] border border-white/[0.08] rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] hover:bg-white/[0.06] transition-all group overflow-hidden"
+                               className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] group italic shadow-xl"
                              >
-                                <span className="relative z-10">Start Task</span>
-                                <ArrowRight size={18} className="relative z-10 group-hover:translate-x-2 transition-transform duration-300 text-primary" />
-                                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                             </button>
-                          </div>
-                       )}
+                                Initialize Quest <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                             </Button>
+                          )}
+                          <button
+                            onClick={() => setSelectedMarketTask(null)}
+                            className="w-full h-10 text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                          >
+                            Return
+                          </button>
+                       </div>
+                    </div>
+
+                    <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                       <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
                     </div>
                  </motion.div>
               </div>

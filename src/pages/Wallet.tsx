@@ -139,10 +139,10 @@ const Wallet: React.FC = () => {
             <div className="space-y-4">
                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Verified Assets</span>
+                  <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Available Balance</span>
                </div>
                <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white leading-tight">
-                  Economic <span className="text-text-tertiary">Inventory</span>
+                  Wallet <span className="text-text-tertiary">Assets</span>
                </h1>
             </div>
 
@@ -186,7 +186,7 @@ const Wallet: React.FC = () => {
                     </div>
                  </div>
                  <div className="p-6 rounded-2xl bg-background/40 border border-white/5">
-                    <p className="data-label">Total Earned</p>
+                    <p className="data-label">Lifetime Earnings</p>
                     <div className="flex items-center gap-2">
                        <TrendingUp size={14} className="text-success" />
                        <span className="text-lg font-bold text-white">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
@@ -206,7 +206,7 @@ const Wallet: React.FC = () => {
                  <ShieldCheck size={24} />
               </div>
               <div className="space-y-1">
-                 <p className="text-sm font-bold text-white">{thresholdMet ? 'Settlement Ready' : 'Processing Threshold'}</p>
+                 <p className="text-sm font-bold text-white">{thresholdMet ? 'Payout Available' : 'Payout Progress'}</p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTS Required</p>
               </div>
            </div>
@@ -502,7 +502,7 @@ const Wallet: React.FC = () => {
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Ledger Proof • Protocol V6.0</p>
+                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Wallet System</p>
                 </div>
              </motion.div>
           </div>

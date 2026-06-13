@@ -85,7 +85,7 @@ const AdminBroadcasts = () => {
         <div className="py-32 text-center bg-white/[0.01] border border-dashed border-white/10 rounded-[3rem]">
            <Bell size={48} className="mx-auto text-white/5 mb-6" />
            <h3 className="text-sm font-bold uppercase tracking-widest text-text-secondary mb-2">No active broadcasts</h3>
-           <p className="text-xs text-white/20">All communication nodes are currently silent.</p>
+           <p className="text-xs text-white/20">All communication channels are currently silent.</p>
         </div>
       </div>
 

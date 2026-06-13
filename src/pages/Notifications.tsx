@@ -75,7 +75,7 @@ const Notifications: React.FC = () => {
           >
             <div className="flex items-center gap-2">
                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-               <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Synchronization Center</span>
+               <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Updates Hub</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-white flex items-center gap-4">
               Notifications
@@ -185,8 +185,8 @@ const Notifications: React.FC = () => {
                   <ShieldAlert size={24} />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-white">Registry Clear</h2>
-                  <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">No synchronization signals detected</p>
+                  <h2 className="text-lg font-bold text-white">All Caught Up</h2>
+                  <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">No new alerts at this time</p>
                 </div>
               </div>
             )
@@ -335,14 +335,14 @@ const Notifications: React.FC = () => {
                          <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Ledger Status</span>
                          <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Immutable</span>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Confirmed</span>
                          </div>
                       </div>
                    </div>
 
                    <div className="space-y-4">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Reference ID</span>
                          <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
                       </div>
                       {(selectedActivity.type.includes('prediction') ||
@@ -374,7 +374,7 @@ const Notifications: React.FC = () => {
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
                 </div>
              </motion.div>
           </div>

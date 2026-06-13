@@ -15,9 +15,10 @@ import {
   ArrowLeft,
   BarChart3,
   History,
-  Clock,
   Calendar,
-  Search
+  Search,
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -177,102 +178,87 @@ const Predictions: React.FC = () => {
 
   return (
     <MainLayout>
-      {/* HISTORY MODAL (Sleek & Information Dense) */}
+      {/* REFINED HISTORY MODAL */}
       <AnimatePresence>
         {selectedHistoryItem && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
              <motion.div
                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                onClick={() => setSelectedHistoryItem(null)}
-               className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
              />
              <motion.div
-               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-               className="relative w-full max-w-sm bg-[#0C0C12] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,1)] flex flex-col overflow-hidden border border-white/10"
+               initial={{ scale: 0.98, opacity: 0, y: 10 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               exit={{ scale: 0.98, opacity: 0, y: 10 }}
+               className="relative w-full max-w-sm bg-[#08080C] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-white/10"
              >
-                {/* BETTING SLIP TOP DECORATION */}
-                <div className="h-4 bg-gradient-to-r from-primary via-primary/50 to-primary/80 opacity-80" />
-
-                <div className="p-8 flex-1 flex flex-col items-center text-center">
-                   <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6 shadow-inner">
-                      {selectedHistoryItem.direction === 'UP' ? <TrendingUp size={32} className="text-success" /> : <TrendingDown size={32} className="text-danger" />}
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                        <History size={14} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Forecast Ledger</span>
                    </div>
+                   <button onClick={() => setSelectedHistoryItem(null)} className="w-8 h-8 flex items-center justify-center hover:bg-white/5 rounded-lg transition-all text-text-tertiary">
+                      <X size={16} />
+                   </button>
+                </div>
 
-                   <div className="space-y-1 mb-8">
-                      <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Official Forecast Receipt</h3>
-                      <h2 className="text-4xl font-bold text-white tracking-tighter italic uppercase">{selectedHistoryItem.symbol}</h2>
-                      <div className="flex items-center justify-center gap-2 pt-2">
-                         <span className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                <div className="p-8 space-y-8">
+                   <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="flex items-center gap-3">
+                         <h2 className="text-4xl font-bold text-white tracking-tighter uppercase italic">{selectedHistoryItem.symbol}</h2>
+                         <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-[0.2em] border",
                             selectedHistoryItem.status === 'ACTIVE' ? "bg-primary/10 border-primary/20 text-primary" :
                             (selectedHistoryItem.rewardAmount || 0) > 0 ? "bg-success/10 border-success/20 text-success" : "bg-white/5 border-white/10 text-white/30")}>
                             {selectedHistoryItem.status === 'ACTIVE' ? 'Processing' : (selectedHistoryItem.rewardAmount || 0) > 0 ? 'Won' : 'Lost'}
-                         </span>
+                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-text-tertiary">
+                         <Calendar size={10} />
+                         <span className="text-[9px] font-bold uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                    </div>
 
-                   {/* SLIP BODY */}
-                   <div className="w-full space-y-6">
-                      <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
-                         <div className="bg-[#08080C] p-4 text-left">
-                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">STAKE</p>
-                            <p className="text-base font-mono font-bold text-white tabular-nums">{selectedHistoryItem.stakeAmount.toLocaleString()}<span className="text-[9px] ml-1 text-white/40">PTS</span></p>
-                         </div>
-                         <div className="bg-[#08080C] p-4 text-right">
-                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">DIRECTION</p>
-                            <p className={cn("text-base font-black uppercase italic", selectedHistoryItem.direction === 'UP' ? "text-success" : "text-danger")}>{selectedHistoryItem.direction}</p>
-                         </div>
-                         <div className="bg-[#08080C] p-4 text-left">
-                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">ENTRY</p>
-                            <p className="text-base font-mono font-bold text-white tabular-nums">${selectedHistoryItem.entryPrice.toLocaleString()}</p>
-                         </div>
-                         <div className="bg-[#08080C] p-4 text-right">
-                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">SETTLEMENT</p>
-                            <p className="text-base font-mono font-bold text-white tabular-nums">${selectedHistoryItem.exitPrice?.toLocaleString() || '---'}</p>
-                         </div>
+                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                      <div className="p-4 flex justify-between items-center">
+                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Entry Price</span>
+                         <span className="text-sm font-mono font-bold text-white">${selectedHistoryItem.entryPrice.toLocaleString()}</span>
                       </div>
-
-                      <div className="p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center space-y-4">
-                         {selectedHistoryItem.status === 'ACTIVE' ? (
-                            <div className="space-y-4">
-                               <div className="flex flex-col items-center gap-1.5">
-                                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Estimated Payout</p>
-                                  <p className="text-3xl font-mono font-bold text-primary tabular-nums">+{(selectedHistoryItem.stakeAmount * 2).toLocaleString()}<span className="text-xs ml-1 opacity-40">PTS</span></p>
-                               </div>
-                               <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/5 mt-4">
-                                  <Clock size={12} className="text-white/20" />
-                                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest italic">
-                                     Settling in: ~{(Math.max(1, 24 - Math.floor((Date.now() - (selectedHistoryItem.createdAt?.toMillis?.() || Date.now())) / (1000 * 60 * 60))))}H
-                                  </span>
-                               </div>
-                            </div>
-                         ) : (
-                            <div className="flex flex-col items-center gap-1.5">
-                               <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Final Return</p>
-                               <p className={cn("text-3xl font-mono font-bold tabular-nums", (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-white/10")}>
-                                  {(selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
-                                  <span className="text-xs ml-1 opacity-40">PTS</span>
-                               </p>
-                            </div>
-                         )}
+                      <div className="p-4 flex justify-between items-center">
+                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Settlement</span>
+                         <span className="text-sm font-mono font-bold text-white">{selectedHistoryItem.exitPrice ? `$${selectedHistoryItem.exitPrice.toLocaleString()}` : '---'}</span>
+                      </div>
+                      <div className="p-4 flex justify-between items-center">
+                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Stake / Vector</span>
+                         <div className="flex items-center gap-2">
+                            <span className="text-sm font-mono font-bold text-white">{selectedHistoryItem.stakeAmount.toLocaleString()} PTS</span>
+                            <div className={cn("w-1.5 h-1.5 rounded-full", selectedHistoryItem.direction === 'UP' ? "bg-success" : "bg-danger")} />
+                         </div>
                       </div>
                    </div>
 
-                   <div className="mt-8 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-4">
-                      <div className="flex items-center gap-2">
-                         <Calendar size={10} className="text-white/20" />
-                         <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <p className="text-[8px] font-mono text-white/10 uppercase tracking-widest break-all px-6">{selectedHistoryItem.id}</p>
+                   <div className="p-6 rounded-2xl bg-primary/[0.02] border border-primary/10 text-center">
+                      <p className="text-[9px] font-black text-primary/60 uppercase tracking-[0.2em] mb-2">{selectedHistoryItem.status === 'ACTIVE' ? 'Estimated Payout' : 'Final Yield'}</p>
+                      <p className={cn("text-3xl font-mono font-bold tracking-tighter",
+                         selectedHistoryItem.status === 'ACTIVE' ? "text-primary" :
+                         (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-white/10")}>
+                         {selectedHistoryItem.status === 'ACTIVE' ? `+${(selectedHistoryItem.stakeAmount * 2).toLocaleString()}` :
+                          (selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
+                         <span className="text-xs ml-1 opacity-40">PTS</span>
+                      </p>
+                   </div>
+
+                   <div className="flex justify-between items-center px-1">
+                      <span className="text-[8px] font-black text-white/10 uppercase tracking-[0.3em]">Reference ID</span>
+                      <span className="text-[8px] font-mono text-white/10 truncate max-w-[140px] uppercase">{selectedHistoryItem.id.slice(-16)}</span>
                    </div>
                 </div>
 
-                <div className="p-6 bg-black flex justify-center shrink-0">
-                   <button
-                     onClick={() => setSelectedHistoryItem(null)}
-                     className="px-10 py-3 rounded-full bg-white/[0.05] hover:bg-white/10 border border-white/10 text-[9px] font-black text-white uppercase tracking-[0.3em] transition-all active:scale-95"
-                   >
-                     Close Receipt
-                   </button>
+                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
                 </div>
              </motion.div>
           </div>
@@ -290,7 +276,7 @@ const Predictions: React.FC = () => {
                     </div>
                     <div className="hidden sm:block">
                        <h1 className="text-xs font-black text-white uppercase tracking-[0.3em] leading-none mb-1">Predictions</h1>
-                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">Market Center</p>
+                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">Trading Hub</p>
                     </div>
                  </div>
 
@@ -495,13 +481,13 @@ const Predictions: React.FC = () => {
                        <div className="space-y-4">
                           <div className="flex items-center gap-2">
                              <Target size={14} className="text-primary" />
-                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Discovery Matrix</span>
+                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Global Markets</span>
                           </div>
-                          <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter leading-none italic uppercase">Markets</h2>
+                          <h2 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">Explore</h2>
                        </div>
                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-text-tertiary">
                           <Search size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Scanning {allMarkets.length} Nodes</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Tracking {allMarkets.length} Assets</span>
                        </div>
                     </header>
 
@@ -536,7 +522,7 @@ const Predictions: React.FC = () => {
                                 <div className="space-y-6">
                                    <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
                                       <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
-                                      <span className="text-[8px] font-black text-success uppercase tracking-[0.2em]">Open Context</span>
+                                      <span className="text-[8px] font-black text-success uppercase tracking-[0.2em]">Market Active</span>
                                    </div>
                                    <h3 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors italic">
                                       {market.question}
@@ -559,7 +545,7 @@ const Predictions: React.FC = () => {
                                          <span className="text-[9px] font-black uppercase tracking-widest text-primary">Yield Enabled</span>
                                       </div>
                                       <div className="flex items-center gap-2 text-white/20 group-hover:text-white transition-all">
-                                         <span className="text-[10px] font-black uppercase tracking-widest">Enter Matrix</span>
+                                         <span className="text-[10px] font-black uppercase tracking-widest">View Details</span>
                                          <ArrowLeft className="rotate-180" size={14} />
                                       </div>
                                    </div>
@@ -579,9 +565,9 @@ const Predictions: React.FC = () => {
                        <div className="space-y-4">
                           <div className="flex items-center gap-2">
                              <BarChart3 size={14} className="text-primary" />
-                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Capital Ledger</span>
+                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20">Forecast History</span>
                           </div>
-                          <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter leading-none italic uppercase">History</h2>
+                          <h2 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">Portfolio</h2>
                        </div>
 
                        <div className="flex bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar shrink-0">
@@ -600,82 +586,54 @@ const Predictions: React.FC = () => {
                        </div>
                     </header>
 
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
                        {filteredPredictions.map((pred: PredictionRecord) => {
                           const isWin = pred.status === 'RESOLVED' && (pred.rewardAmount || 0) > 0;
                           return (
                             <motion.div
                                key={pred.id}
-                               whileHover={{ x: 5 }}
+                               whileHover={{ x: 4 }}
                                onClick={() => setSelectedHistoryItem(pred)}
                                className="group relative overflow-hidden cursor-pointer"
                             >
                               <div className={cn(
-                                  "absolute inset-y-0 left-0 w-1.5 transition-all group-hover:w-2",
+                                  "absolute inset-y-0 left-0 w-1 transition-all group-hover:w-1.5",
                                   pred.status === 'ACTIVE' ? "bg-primary" : isWin ? "bg-success" : "bg-white/10"
                               )} />
 
-                              <div className="p-6 sm:p-8 rounded-2xl bg-[#0A0A0F] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all hover:bg-white/[0.02] shadow-2xl">
-                                 <div className="flex items-center gap-6">
+                              <div className="p-4 sm:p-5 rounded-xl bg-[#0A0A0F] border border-white/5 flex items-center justify-between gap-6 transition-all hover:bg-white/[0.02]">
+                                 <div className="flex items-center gap-4 min-w-0">
                                     <div className={cn(
-                                      "w-14 h-14 rounded-2xl flex items-center justify-center border transition-all shadow-inner shrink-0",
+                                      "w-10 h-10 rounded-lg flex items-center justify-center border transition-all shadow-inner shrink-0",
                                       pred.status === 'ACTIVE' ? "bg-primary/5 border-primary/20 text-primary" :
                                       isWin ? "bg-success/5 border-success/20 text-success" :
                                       "bg-white/[0.02] border-white/10 text-white/10"
                                     )}>
-                                       {pred.direction === 'UP' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                                       {pred.direction === 'UP' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
                                     </div>
 
-                                    <div className="space-y-2 min-w-0">
-                                       <div className="flex items-center gap-3 flex-wrap">
-                                          <h3 className="text-xl font-bold text-white uppercase tracking-tighter italic truncate">
-                                             {pred.symbol} / USD
-                                          </h3>
-                                          <div className={cn(
-                                            "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-[0.2em] border",
-                                            pred.status === 'ACTIVE' ? "bg-primary/10 text-primary border-primary/20" :
-                                            isWin ? "bg-success/10 text-success border-success/20" :
-                                            "bg-white/5 text-white/20 border-white/10"
-                                          )}>
-                                            {pred.status}
-                                          </div>
-                                       </div>
-                                       <div className="flex flex-wrap items-center gap-3 text-text-tertiary">
-                                          <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
-                                             {pred.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'PENDING'}
-                                          </span>
-                                          <div className="w-1 h-1 rounded-full bg-white/5" />
-                                          {pred.status === 'ACTIVE' ? (
-                                             <div className="flex items-center gap-1.5">
-                                                <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                                <span className="text-[10px] font-bold text-primary uppercase tracking-widest italic">Awaiting Oracle</span>
-                                             </div>
-                                          ) : (
-                                             <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Protocol Secured</span>
-                                          )}
-                                       </div>
+                                    <div className="min-w-0">
+                                       <h3 className="text-sm font-bold text-white uppercase tracking-tight italic truncate">
+                                          {pred.symbol}
+                                       </h3>
+                                       <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mt-0.5">
+                                          {pred.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'PENDING'}
+                                       </p>
                                     </div>
                                  </div>
 
-                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 sm:gap-12 flex-1 md:max-w-2xl border-t md:border-t-0 border-white/5 pt-6 md:pt-0">
-                                    <div className="space-y-1">
-                                       <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Stake</p>
-                                       <p className="text-base font-mono font-bold text-white tabular-nums">{pred.stakeAmount.toLocaleString()}</p>
+                                 <div className="flex items-center gap-8 sm:gap-12 text-right">
+                                    <div className="hidden xs:block">
+                                       <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Entry</p>
+                                       <p className="text-xs font-mono font-bold text-white tabular-nums">${pred.entryPrice.toLocaleString()}</p>
                                     </div>
-                                    <div className="space-y-1">
-                                       <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Entry</p>
-                                       <p className="text-base font-mono font-bold text-white tabular-nums">${pred.entryPrice.toLocaleString()}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                       <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Final</p>
-                                       <p className="text-base font-mono font-bold text-white tabular-nums">${pred.exitPrice?.toLocaleString() || '---'}</p>
-                                    </div>
-                                    <div className="space-y-1 text-right">
-                                       <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Yield</p>
-                                       <p className={cn("text-xl font-mono font-bold tabular-nums", isWin ? "text-success" : "text-white/10")}>
-                                          {isWin ? `+${pred.rewardAmount?.toLocaleString()}` : '0'}
+                                    <div>
+                                       <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Result</p>
+                                       <p className={cn("text-sm font-mono font-bold tabular-nums", isWin ? "text-success" : "text-white/10")}>
+                                          {pred.status === 'ACTIVE' ? '---' : isWin ? `+${pred.rewardAmount?.toLocaleString()}` : '0'}
                                        </p>
                                     </div>
+                                    <ChevronRight size={14} className="text-white/10 group-hover:text-primary transition-colors" />
                                  </div>
                               </div>
                             </motion.div>
@@ -688,8 +646,8 @@ const Predictions: React.FC = () => {
                                 <Activity size={40} />
                              </div>
                              <div className="space-y-2">
-                                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-white/20">Empty Ledger</p>
-                                <p className="text-xs text-text-tertiary font-medium">No forecast records detected in your node.</p>
+                                <p className="text-[11px] font-black uppercase tracking-[0.5em] text-white/20">Empty History</p>
+                                <p className="text-xs text-text-tertiary font-medium">No forecast records detected in your account.</p>
                              </div>
                           </div>
                        )}

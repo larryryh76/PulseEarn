@@ -244,10 +244,10 @@ const Dashboard: React.FC = () => {
                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                     <h2 className="text-xl font-bold tracking-tight italic">Earning Discovery</h2>
+                     <h2 className="text-xl font-bold tracking-tight italic">Earn</h2>
                   </div>
                   <Link to="/tasks" className="flex items-center gap-2 group">
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover:text-primary transition-colors">Marketplace</span>
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover:text-primary transition-colors">View All</span>
                      <ChevronRight size={14} className="text-white/10 group-hover:text-primary transition-colors" />
                   </Link>
                </div>
@@ -278,7 +278,7 @@ const Dashboard: React.FC = () => {
                                  )}>
                                     {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
                                      item.category === 'REFERRAL' ? <UserPlus size={20} /> :
-                                     item.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
+                                     item.type === 'MISSION' ? <Calendar size={20} /> : <Target size={20} />}
                                  </div>
                                  <div className="text-right">
                                     <div className="flex items-center gap-1.5 justify-end">
@@ -344,8 +344,8 @@ const Dashboard: React.FC = () => {
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Growth Vector</h4>
-                      <p className="text-xs text-text-tertiary leading-relaxed">Your ecosystem participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep forecasting to maintain yield.</p>
+                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Earning Stats</h4>
+                      <p className="text-xs text-text-tertiary leading-relaxed">Your participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep active to maximize rewards.</p>
                    </div>
                 </div>
 
@@ -621,7 +621,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
                 </div>
              </motion.div>
           </div>
@@ -651,8 +651,8 @@ const Dashboard: React.FC = () => {
                         {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">{selectedTask.campaignName || 'System Directive'}</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.type} PROTOCOL</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.type}</h3>
                       </div>
                    </div>
                    <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
@@ -697,7 +697,7 @@ const Dashboard: React.FC = () => {
                    {selectedTask.type === 'MISSION' && selectedTask.target > 0 && (
                       <div className="p-6 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 space-y-4">
                          <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Sync Progress</span>
+                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Quest Progress</span>
                             <span className="text-[10px] font-mono text-primary font-bold">{Math.round((selectedTask.progress / selectedTask.target) * 100)}%</span>
                          </div>
                          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
@@ -725,7 +725,7 @@ const Dashboard: React.FC = () => {
                         variant="primary"
                         className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group italic"
                       >
-                         Initialize Objective <ArrowUpRight size={16} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                         Continue <ArrowUpRight size={16} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                       </Button>
                       <button
                         onClick={() => setSelectedTask(null)}
@@ -737,7 +737,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn contribution node • active session</p>
+                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Rewards</p>
                 </div>
              </motion.div>
           </div>

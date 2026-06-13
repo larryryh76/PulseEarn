@@ -61,8 +61,13 @@ const Tasks: React.FC = () => {
     if (location.state?.highlightId) {
        const mission = systemTasks.find(m => m.id === location.state.highlightId);
        if (mission) {
-          setSelectedHistoryItem({ ...mission, type: 'MISSION' });
-          setView('COMPLETED');
+          if (mission.progress?.status === 'CLAIMED') {
+             setSelectedHistoryItem({ ...mission, type: 'MISSION' });
+             setView('COMPLETED');
+          } else {
+             setSelectedMarketTask({ ...mission, type: 'CHALLENGE' });
+             setView('AVAILABLE');
+          }
        }
     }
   }, [location.state, systemTasks]);
@@ -316,13 +321,16 @@ const Tasks: React.FC = () => {
                  )}
 
                  {activeMissions.length > 0 && (
-                    <div className="space-y-8">
-                       <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Challenges</h4>
-                          <div className="h-px flex-1 bg-white/[0.03]" />
+                    <div className="space-y-10">
+                       <div className="flex items-center justify-between px-2">
+                          <div className="flex items-center gap-3">
+                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                             <h4 className="text-xl font-bold tracking-tight text-white italic">Challenges</h4>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">{activeMissions.length} ACTIVE NODES</span>
                        </div>
 
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                           {activeMissions.map((mission) => {
                              const isCompleted = mission.progress?.status === 'COMPLETED';
                              const progress = mission.progress?.progress || 0;
@@ -335,57 +343,60 @@ const Tasks: React.FC = () => {
                                   whileHover={{ y: -5 }}
                                   onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
                                   className={cn(
-                                    "p-6 rounded-[2.5rem] bg-[#0A0A0F] border transition-all cursor-pointer flex flex-col justify-between group h-[280px]",
+                                    "p-8 rounded-[2.5rem] bg-[#0A0A0F] border transition-all cursor-pointer flex flex-col justify-between group min-h-[300px] shadow-2xl",
                                     isCompleted ? "border-primary/40 bg-primary/[0.02]" : "border-white/5 hover:border-white/20"
                                   )}
                                 >
                                    <div className="space-y-6">
                                       <div className="flex justify-between items-start">
                                          <div className={cn(
-                                           "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner transition-all",
+                                           "w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner transition-all",
                                            isCompleted ? "bg-primary/20 border-primary/30 text-white" : "bg-white/[0.03] border-white/5 text-text-tertiary group-hover:text-white"
                                          )}>
-                                            <TaskIcon category={mission.definition.category} size={24} />
+                                            <TaskIcon category={mission.definition.category} size={28} />
                                          </div>
                                          <div className="text-right">
                                             <div className="flex items-center gap-1.5 justify-end">
                                                <Zap size={12} className="text-primary" />
-                                               <span className="text-lg font-mono font-bold text-white">+{mission.definition.rewardPoints.toLocaleString()}</span>
+                                               <span className="text-xl font-mono font-bold text-white">+{mission.definition.rewardPoints.toLocaleString()}</span>
                                             </div>
-                                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20">Authorized Reward</p>
+                                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">Authorized Reward</p>
                                          </div>
                                       </div>
 
-                                      <div className="space-y-2">
-                                         <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{mission.definition.category}</p>
-                                         <h3 className="text-xl font-bold text-white tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                      <div className="space-y-3">
+                                         <div className="flex items-center gap-2 mb-1">
+                                            <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                                            <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{mission.definition.category}</p>
+                                         </div>
+                                         <h3 className="text-2xl font-bold text-white tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
                                             {mission.definition.title}
                                          </h3>
-                                         <p className="text-xs text-text-tertiary font-medium line-clamp-2 leading-relaxed min-h-[32px]">
+                                         <p className="text-sm text-text-tertiary font-medium line-clamp-2 leading-relaxed opacity-60 italic">
                                             {mission.definition.description || 'Secure this objective to claim your contribution rewards.'}
                                          </p>
                                       </div>
                                    </div>
 
-                                   <div className="pt-6 flex items-center justify-between border-t border-white/5 mt-auto">
-                                      <div className="flex flex-col gap-1.5 flex-1 max-w-[120px]">
-                                         <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                   <div className="pt-8 flex items-center justify-between border-t border-white/5 mt-auto">
+                                      <div className="flex flex-col gap-2 flex-1 max-w-[140px]">
+                                         <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
                                             <motion.div
                                                initial={{ width: 0 }}
                                                animate={{ width: `${percent}%` }}
-                                               className={cn("h-full", isCompleted ? "bg-success" : "bg-primary")}
+                                               className={cn("h-full rounded-full transition-all duration-1000", isCompleted ? "bg-success" : "bg-primary")}
                                             />
                                          </div>
-                                         <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">{Math.round(percent)}% Complete</span>
+                                         <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{Math.round(percent)}% Protocol Sync</span>
                                       </div>
-                                      <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-4">
                                          {isCompleted ? (
-                                            <div className="px-5 py-2 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 animate-pulse">
-                                               Claim
+                                            <div className="px-6 py-2.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 animate-pulse italic">
+                                               Secure
                                             </div>
                                          ) : (
-                                            <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
-                                               <ArrowRight size={14} />
+                                            <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center text-white/10 group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                                               <ArrowRight size={18} />
                                             </div>
                                          )}
                                       </div>

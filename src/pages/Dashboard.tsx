@@ -266,6 +266,7 @@ const Dashboard: React.FC = () => {
                               if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
                               else if (item.category === 'PREDICTION') navigate('/predictions');
                               else if (item.category === 'REFERRAL') navigate('/referrals');
+                              else if (item.type === 'MISSION') navigate('/tasks', { state: { highlightId: item.originalId } });
                               else navigate('/tasks');
                            }}
                         >

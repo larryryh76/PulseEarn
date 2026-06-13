@@ -13,6 +13,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
@@ -45,7 +46,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
 
     const fetchData = async () => {
       try {
-        setLoading(true);
+        if (isMounted) setLoading(true);
         // Fetch 24h data from CoinGecko
         const res = await axios.get(`https://api.coingecko.com/api/v3/coins/${assetId}/market_chart`, {
            params: { vs_currency: 'usd', days: '1' }
@@ -57,8 +58,10 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
            value: p[1]
         }));
 
-        series.setData(chartData);
-        chart.timeScale().fitContent();
+        if (isMounted) {
+           series.setData(chartData);
+           chart.timeScale().fitContent();
+        }
       } catch (err) {
         console.error('Chart Data Error:', err);
         // Generate simulated data on network failure
@@ -70,9 +73,9 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
           data.push({ time: time as any, value });
           time += 60;
         }
-        series.setData(data);
+        if (isMounted) series.setData(data);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
@@ -88,6 +91,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
     window.addEventListener('resize', handleResize);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };

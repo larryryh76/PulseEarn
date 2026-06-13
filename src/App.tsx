@@ -12,22 +12,22 @@ import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import CampaignDetails from './pages/CampaignDetails'
 import SupportCenter from './pages/SupportCenter'
-import AdminOpsLayout from './components/layout/admin/AdminOpsLayout'
+import OpsLayout from './pages/admin/OpsLayout'
 import {
-  AdminOverview,
-  AdminCampaigns,
-  AdminValidation,
-  AdminLedger,
-  AdminUsers,
-  AdminSecurity,
-  AdminEconomy,
-  AdminBroadcasts,
-  AdminAudit,
-  AdminTasks,
-  AdminPredictions,
-  AdminWithdrawals,
-  AdminMissions,
-  AdminSupport
+  OpsOverview as AdminOverview,
+  OpsCampaigns as AdminCampaigns,
+  OpsValidation as AdminValidation,
+  OpsLedger as AdminLedger,
+  OpsUsers as AdminUsers,
+  OpsSecurity as AdminSecurity,
+  OpsEconomy as AdminEconomy,
+  OpsBroadcasts as AdminBroadcasts,
+  OpsAudit as AdminAudit,
+  OpsTasks as AdminTasks,
+  OpsPredictions as AdminPredictions,
+  OpsWithdrawals as AdminWithdrawals,
+  OpsMissions as AdminMissions,
+  OpsSupport as AdminSupport
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -155,20 +155,20 @@ function App() {
 
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
-        <Route path="/admin/overview" element={<AdminRoute><AdminOpsLayout><AdminOverview /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/campaigns" element={<AdminRoute><AdminOpsLayout><AdminCampaigns /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/validation" element={<AdminRoute><AdminOpsLayout><AdminValidation /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/ledger" element={<AdminRoute><AdminOpsLayout><AdminLedger /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminOpsLayout><AdminUsers /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/security" element={<AdminRoute><AdminOpsLayout><AdminSecurity /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/economy" element={<AdminRoute><AdminOpsLayout><AdminEconomy /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/broadcasts" element={<AdminRoute><AdminOpsLayout><AdminBroadcasts /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/audit" element={<AdminRoute><AdminOpsLayout><AdminAudit /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/tasks" element={<AdminRoute><AdminOpsLayout><AdminTasks /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/predictions" element={<AdminRoute><AdminOpsLayout><AdminPredictions /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/withdrawals" element={<AdminRoute><AdminOpsLayout><AdminWithdrawals /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/missions" element={<AdminRoute><AdminOpsLayout><AdminMissions /></AdminOpsLayout></AdminRoute>} />
-        <Route path="/admin/support" element={<AdminRoute><AdminOpsLayout><AdminSupport /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/campaigns" element={<AdminRoute><OpsLayout><AdminCampaigns /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/validation" element={<AdminRoute><OpsLayout><AdminValidation /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><OpsLayout><AdminUsers /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminSecurity /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/economy" element={<AdminRoute><OpsLayout><AdminEconomy /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/broadcasts" element={<AdminRoute><OpsLayout><AdminBroadcasts /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/audit" element={<AdminRoute><OpsLayout><AdminAudit /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/tasks" element={<AdminRoute><OpsLayout><AdminTasks /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/predictions" element={<AdminRoute><OpsLayout><AdminPredictions /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/missions" element={<AdminRoute><OpsLayout><AdminMissions /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -92,10 +92,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function checkDailyReward(uid: string) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    // Use UTC date string to ensure midnight reset is consistent globally
+    const todayStr = now.toISOString().split('T')[0];
     const claimId = `daily_${todayStr}_${uid}`;
 
     try {
+      console.log(`[DailyReward] Checking for ${uid} (Claim: ${claimId})`);
       const result = await PointTransactionEngine.execute({
         userId: uid,
         amount: 10,
@@ -106,12 +109,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!result.success) {
-        // Silent fail for "ALREADY_CLAIMED" as it's an automated background check
-        if (result.error !== 'REWARD_ALREADY_CLAIMED' && result.error !== 'DAILY_REWARD_COOLDOWN') {
-           console.warn(`[DailyReward] Failed: ${result.error}`);
+        if (result.error === 'REWARD_ALREADY_CLAIMED' || result.error === 'DAILY_REWARD_COOLDOWN') {
+           console.log(`[DailyReward] Already claimed for ${todayStr}`);
+        } else {
+           console.warn(`[DailyReward] Execution failure: ${result.error}`);
         }
         return;
       }
+
+      console.log(`[DailyReward] Success! Granting points and triggering events.`);
 
       await addDoc(collection(db, 'users', uid, 'notifications'), {
         title: 'Daily Reward Claimed!',
@@ -121,13 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: serverTimestamp()
       });
 
-      // Trigger System Task Engine for daily login progression
       const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
       await SystemTaskEngine.processEvent(uid, 'daily_login');
 
       toast.success('Daily Reward Claimed!', { icon: '🎁' });
-    } catch (error) {
-      // Background process safety
+    } catch (error: any) {
+      console.error("[DailyReward] System Error:", error.message);
     }
   }
 

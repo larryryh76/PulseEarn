@@ -16,7 +16,6 @@ import {
   BarChart3,
   History,
   Clock,
-  X,
   Calendar,
   Search
 } from 'lucide-react';
@@ -41,6 +40,7 @@ const Predictions: React.FC = () => {
   const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED'>('ALL');
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PredictionRecord | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
 
   // Sync with location state for deep linking
   useEffect(() => {
@@ -53,6 +53,32 @@ const Predictions: React.FC = () => {
        }
     }
   }, [location.state, userPredictions]);
+
+  // Auto-Resolution Logic (Ensures payouts happen when user views history)
+  useEffect(() => {
+    if (terminalView === 'PORTFOLIO' && !isResolving) {
+       const expired = userPredictions.filter(p => {
+          if (p.status !== 'ACTIVE') return false;
+          const createdAt = p.createdAt?.toDate?.() || new Date();
+          return (Date.now() - createdAt.getTime()) > (24 * 60 * 60 * 1000);
+       });
+
+       if (expired.length > 0) {
+          const runResolution = async () => {
+             setIsResolving(true);
+             try {
+                const { MarketResolutionEngine } = await import('../../engines/predictions/MarketResolutionEngine');
+                await MarketResolutionEngine.resolveExpiredPredictions();
+             } catch (err) {
+                console.error("Auto-Resolution failed:", err);
+             } finally {
+                setIsResolving(false);
+             }
+          };
+          runResolution();
+       }
+    }
+  }, [terminalView, userPredictions, isResolving]);
 
   // Unified Markets Engine (Stable)
   const allMarkets = useMemo(() => {
@@ -161,112 +187,92 @@ const Predictions: React.FC = () => {
                className="absolute inset-0 bg-black/95 backdrop-blur-xl"
              />
              <motion.div
-               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col"
+               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+               className="relative w-full max-w-sm bg-[#0C0C12] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,1)] flex flex-col overflow-hidden border border-white/10"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/10">
-                        <History size={18} />
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Position Record</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedHistoryItem.status}</h3>
+                {/* BETTING SLIP TOP DECORATION */}
+                <div className="h-4 bg-gradient-to-r from-primary via-primary/50 to-primary/80 opacity-80" />
+
+                <div className="p-8 flex-1 flex flex-col items-center text-center">
+                   <div className="w-16 h-16 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6 shadow-inner">
+                      {selectedHistoryItem.direction === 'UP' ? <TrendingUp size={32} className="text-success" /> : <TrendingDown size={32} className="text-danger" />}
+                   </div>
+
+                   <div className="space-y-1 mb-8">
+                      <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Official Forecast Receipt</h3>
+                      <h2 className="text-4xl font-bold text-white tracking-tighter italic uppercase">{selectedHistoryItem.symbol}</h2>
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                         <span className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                            selectedHistoryItem.status === 'ACTIVE' ? "bg-primary/10 border-primary/20 text-primary" :
+                            (selectedHistoryItem.rewardAmount || 0) > 0 ? "bg-success/10 border-success/20 text-success" : "bg-white/5 border-white/10 text-white/30")}>
+                            {selectedHistoryItem.status === 'ACTIVE' ? 'Processing' : (selectedHistoryItem.rewardAmount || 0) > 0 ? 'Won' : 'Lost'}
+                         </span>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary hover:text-white">
-                      <X size={18} />
+
+                   {/* SLIP BODY */}
+                   <div className="w-full space-y-6">
+                      <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
+                         <div className="bg-[#08080C] p-4 text-left">
+                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">STAKE</p>
+                            <p className="text-base font-mono font-bold text-white tabular-nums">{selectedHistoryItem.stakeAmount.toLocaleString()}<span className="text-[9px] ml-1 text-white/40">PTS</span></p>
+                         </div>
+                         <div className="bg-[#08080C] p-4 text-right">
+                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">DIRECTION</p>
+                            <p className={cn("text-base font-black uppercase italic", selectedHistoryItem.direction === 'UP' ? "text-success" : "text-danger")}>{selectedHistoryItem.direction}</p>
+                         </div>
+                         <div className="bg-[#08080C] p-4 text-left">
+                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">ENTRY</p>
+                            <p className="text-base font-mono font-bold text-white tabular-nums">${selectedHistoryItem.entryPrice.toLocaleString()}</p>
+                         </div>
+                         <div className="bg-[#08080C] p-4 text-right">
+                            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">SETTLEMENT</p>
+                            <p className="text-base font-mono font-bold text-white tabular-nums">${selectedHistoryItem.exitPrice?.toLocaleString() || '---'}</p>
+                         </div>
+                      </div>
+
+                      <div className="p-6 rounded-2xl bg-white/[0.02] border border-dashed border-white/10 text-center space-y-4">
+                         {selectedHistoryItem.status === 'ACTIVE' ? (
+                            <div className="space-y-4">
+                               <div className="flex flex-col items-center gap-1.5">
+                                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">Estimated Payout</p>
+                                  <p className="text-3xl font-mono font-bold text-primary tabular-nums">+{(selectedHistoryItem.stakeAmount * 2).toLocaleString()}<span className="text-xs ml-1 opacity-40">PTS</span></p>
+                               </div>
+                               <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/5 mt-4">
+                                  <Clock size={12} className="text-white/20" />
+                                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest italic">
+                                     Settling in: ~{(Math.max(1, 24 - Math.floor((Date.now() - (selectedHistoryItem.createdAt?.toMillis?.() || Date.now())) / (1000 * 60 * 60))))}H
+                                  </span>
+                               </div>
+                            </div>
+                         ) : (
+                            <div className="flex flex-col items-center gap-1.5">
+                               <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Final Return</p>
+                               <p className={cn("text-3xl font-mono font-bold tabular-nums", (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-white/10")}>
+                                  {(selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
+                                  <span className="text-xs ml-1 opacity-40">PTS</span>
+                               </p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+
+                   <div className="mt-8 pt-8 border-t border-white/5 w-full flex flex-col items-center gap-4">
+                      <div className="flex items-center gap-2">
+                         <Calendar size={10} className="text-white/20" />
+                         <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-[8px] font-mono text-white/10 uppercase tracking-widest break-all px-6">{selectedHistoryItem.id}</p>
+                   </div>
+                </div>
+
+                <div className="p-6 bg-black flex justify-center shrink-0">
+                   <button
+                     onClick={() => setSelectedHistoryItem(null)}
+                     className="px-10 py-3 rounded-full bg-white/[0.05] hover:bg-white/10 border border-white/10 text-[9px] font-black text-white uppercase tracking-[0.3em] transition-all active:scale-95"
+                   >
+                     Close Receipt
                    </button>
-                </div>
-
-                <div className="p-8 space-y-8">
-                   <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-text-tertiary mb-1">
-                         <Calendar size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                         <span className="text-white/5">•</span>
-                         <Clock size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <h2 className="text-3xl font-bold text-white tracking-tighter leading-none italic">{selectedHistoryItem.symbol} Forecast</h2>
-                   </div>
-
-                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Execution Stake</span>
-                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-white tabular-nums">{selectedHistoryItem.stakeAmount.toLocaleString()}</span>
-                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
-                         </div>
-                      </div>
-
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Direction</span>
-                         <div className="flex items-center gap-2">
-                            {selectedHistoryItem.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
-                            <span className={cn("text-xs font-bold uppercase tracking-widest", selectedHistoryItem.direction === 'UP' ? "text-success" : "text-danger")}>{selectedHistoryItem.direction}</span>
-                         </div>
-                      </div>
-
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Entry Price</span>
-                         <span className="text-xs font-mono font-bold text-white tabular-nums">${selectedHistoryItem.entryPrice.toLocaleString()}</span>
-                      </div>
-
-                      <div className="p-5 flex justify-between items-center bg-primary/[0.01]">
-                         <span className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em]">Potential Payout</span>
-                         <div className="text-right">
-                             <span className="text-lg font-mono font-bold text-primary block tabular-nums">+{(selectedHistoryItem.stakeAmount * 2).toLocaleString()} PTS</span>
-                             <span className="text-[8px] font-black text-primary/20 uppercase tracking-widest leading-none">Fixed 2.00x Mult</span>
-                         </div>
-                      </div>
-
-                      {selectedHistoryItem.status === 'RESOLVED' ? (
-                         <>
-                            <div className="p-5 flex justify-between items-center">
-                               <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Settlement Price</span>
-                               <span className="text-xs font-mono font-bold text-white tabular-nums">${selectedHistoryItem.exitPrice?.toLocaleString() || '---'}</span>
-                            </div>
-                            <div className="p-5 flex justify-between items-center bg-white/[0.02]">
-                               <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Final Yield</span>
-                               <div className="flex items-baseline gap-1.5">
-                                  <span className={cn("text-xl font-mono font-bold tabular-nums", (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-white/10")}>
-                                     {(selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
-                                  </span>
-                                  <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
-                               </div>
-                            </div>
-                         </>
-                      ) : (
-                         <div className="p-5 flex justify-between items-center">
-                            <div className="space-y-1">
-                               <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Oracle Logic</span>
-                               <div className="flex items-center gap-2">
-                                  <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                  <span className="text-[8px] font-black text-primary uppercase tracking-widest">Verifying Feed</span>
-                               </div>
-                            </div>
-                            <div className="text-right space-y-1">
-                               <div className="flex items-center justify-end gap-1.5">
-                                  <Clock size={12} className="text-primary animate-pulse" />
-                                  <span className="text-[10px] font-bold text-white tabular-nums">
-                                     ~{(Math.max(1, 24 - Math.floor((Date.now() - (selectedHistoryItem.createdAt?.toMillis?.() || Date.now())) / (1000 * 60 * 60))))}H REMAINING
-                                  </span>
-                               </div>
-                               <p className="text-[8px] font-black text-white/10 uppercase tracking-widest italic">24H SETTLEMENT WINDOW</p>
-                            </div>
-                         </div>
-                      )}
-                   </div>
-
-                   <div className="pt-4 flex items-center justify-between px-1">
-                      <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
-                      <span className="text-[9px] font-mono text-white/20 truncate max-w-[200px]">{selectedHistoryItem.id}</span>
-                   </div>
-                </div>
-
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center shrink-0">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • V6.0</p>
                 </div>
              </motion.div>
           </div>
@@ -283,8 +289,8 @@ const Predictions: React.FC = () => {
                        <BarChart3 size={18} className="text-primary" />
                     </div>
                     <div className="hidden sm:block">
-                       <h1 className="text-xs font-black text-white uppercase tracking-[0.3em] leading-none mb-1">Forecasting</h1>
-                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">Terminal Protocol</p>
+                       <h1 className="text-xs font-black text-white uppercase tracking-[0.3em] leading-none mb-1">Predictions</h1>
+                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">Market Center</p>
                     </div>
                  </div>
 
@@ -384,7 +390,7 @@ const Predictions: React.FC = () => {
                              <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-3">
                                    <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Market Node Active</span>
+                                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Market Live</span>
                                 </div>
                                 <LineChart size={14} className="text-primary/40" />
                              </div>
@@ -450,18 +456,18 @@ const Predictions: React.FC = () => {
                                 </div>
                                 <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 space-y-5 shadow-inner">
                                    <div className="flex justify-between items-center text-[11px] font-black uppercase tracking-widest text-text-tertiary">
-                                      <span>Initial Stake</span>
+                                      <span>Stake Amount</span>
                                       <span className="text-white font-mono">{stake.toLocaleString()} PTS</span>
                                    </div>
                                    <div className="h-px bg-white/5" />
                                    <div className="flex justify-between items-center">
                                       <div className="flex items-center gap-2">
                                          <Zap size={14} className="text-primary animate-pulse" />
-                                         <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Est. Return</span>
+                                         <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Potential Win</span>
                                       </div>
                                       <div className="text-right">
                                          <span className="text-xl font-mono font-bold text-primary block leading-none">{(stake * 2).toLocaleString()} PTS</span>
-                                         <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED 2.0X PROTOCOL</span>
+                                         <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED 2.0X REWARD</span>
                                       </div>
                                    </div>
                                 </div>

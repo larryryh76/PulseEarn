@@ -11,6 +11,7 @@ import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import CampaignDetails from './pages/CampaignDetails'
+import SupportCenter from './pages/SupportCenter'
 import AdminOpsLayout from './components/layout/admin/AdminOpsLayout'
 import {
   AdminOverview,
@@ -25,7 +26,8 @@ import {
   AdminTasks,
   AdminPredictions,
   AdminWithdrawals,
-  AdminMissions
+  AdminMissions,
+  AdminSupport
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -33,8 +35,6 @@ import CookiePolicy from './pages/legal/CookiePolicy'
 import RewardPolicy from './pages/legal/RewardPolicy'
 import FraudPolicy from './pages/legal/FraudPolicy'
 import VerificationPolicy from './pages/legal/VerificationPolicy'
-import Contact from './pages/legal/Contact'
-import Support from './pages/legal/Support'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -143,6 +143,7 @@ function App() {
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
         <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        <Route path="/support" element={<ProtectedRoute><SupportCenter /></ProtectedRoute>} />
 
         {/* Legal Routes */}
         <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -151,8 +152,6 @@ function App() {
         <Route path="/reward-policy" element={<RewardPolicy />} />
         <Route path="/fraud-policy" element={<FraudPolicy />} />
         <Route path="/verification-policy" element={<VerificationPolicy />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/support" element={<Support />} />
 
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
@@ -169,6 +168,7 @@ function App() {
         <Route path="/admin/predictions" element={<AdminRoute><AdminOpsLayout><AdminPredictions /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/withdrawals" element={<AdminRoute><AdminOpsLayout><AdminWithdrawals /></AdminOpsLayout></AdminRoute>} />
         <Route path="/admin/missions" element={<AdminRoute><AdminOpsLayout><AdminMissions /></AdminOpsLayout></AdminRoute>} />
+        <Route path="/admin/support" element={<AdminRoute><AdminOpsLayout><AdminSupport /></AdminOpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

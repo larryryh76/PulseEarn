@@ -1,0 +1,545 @@
+import React, { useState, useEffect } from 'react';
+import MainLayout from '../components/layout/MainLayout';
+import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebase/config';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { SupportTicket, SupportMessage, TicketCategory } from '../types';
+import { SupportEngine } from '../engines/system/SupportEngine';
+import {
+  LifeBuoy,
+  MessageSquare,
+  Plus,
+  Search,
+  Send,
+  Paperclip,
+  Clock,
+  CheckCircle2,
+  ChevronRight,
+  User,
+  Shield,
+  ArrowLeft
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../utils';
+import Button from '../components/ui/Button';
+import toast from 'react-hot-toast';
+import MediaUploader from '../components/admin/MediaUploader';
+
+const CATEGORIES: { value: TicketCategory; label: string }[] = [
+  { value: 'GENERAL', label: 'General Support' },
+  { value: 'ACCOUNT', label: 'Account Issue' },
+  { value: 'CAMPAIGN', label: 'Campaign Issue' },
+  { value: 'VERIFICATION', label: 'Task Verification' },
+  { value: 'PREDICTION', label: 'Prediction Issue' },
+  { value: 'WITHDRAWAL', label: 'Withdrawal Issue' },
+  { value: 'BUG_REPORT', label: 'Bug Report' },
+  { value: 'FEEDBACK', label: 'Feedback / Suggestion' }
+];
+
+const SupportCenter: React.FC = () => {
+  const { currentUser, userData } = useAuth();
+  const [view, setView] = useState<'EXPLORE' | 'CREATE' | 'THREAD'>('EXPLORE');
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+
+  // Create Form State
+  const [formData, setFormData] = useState({
+    category: 'GENERAL' as TicketCategory,
+    subject: '',
+    message: '',
+    attachments: [] as { url: string; name: string; type: string; size: number }[]
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reply State
+  const [replyText, setReplyText] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<{ url: string; name: string; type: string; size: number }[]>([]);
+
+  // Subscription for User Tickets
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'support_tickets'),
+      where('userId', '==', currentUser.uid),
+      orderBy('updatedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => doc.data() as SupportTicket);
+      setTickets(docs);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Subscription for Thread Messages
+  useEffect(() => {
+    if (!selectedTicket) return;
+    const q = query(
+      collection(db, 'support_messages'),
+      where('ticketId', '==', selectedTicket.id),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => doc.data() as SupportMessage));
+    });
+
+    return () => unsubscribe();
+  }, [selectedTicket]);
+
+  const handleCreateTicket = async () => {
+    if (!currentUser || !userData) return;
+    if (!formData.subject || !formData.message) return toast.error('Please fill in all required fields.');
+
+    setIsSubmitting(true);
+    try {
+      const result = await SupportEngine.createTicket({
+        userId: currentUser.uid,
+        username: userData.username,
+        email: userData.email || '',
+        ...formData
+      });
+
+      if (result.success) {
+        toast.success('Support Ticket Created');
+        setView('EXPLORE');
+        setFormData({ category: 'GENERAL', subject: '', message: '', attachments: [] });
+      } else {
+        toast.error(result.error || 'Failed to create ticket');
+      }
+    } catch (err) {
+      toast.error('System error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!currentUser || !userData || !selectedTicket || !replyText.trim()) return;
+
+    try {
+      const result = await SupportEngine.sendMessage({
+        ticketId: selectedTicket.id,
+        senderId: currentUser.uid,
+        senderName: userData.username,
+        senderType: 'USER',
+        text: replyText,
+        attachments: replyAttachments
+      });
+
+      if (result.success) {
+        setReplyText('');
+        setReplyAttachments([]);
+      } else {
+        toast.error('Failed to send reply');
+      }
+    } catch (err) {
+      toast.error('System error');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'OPEN': return 'text-primary bg-primary/10 border-primary/20';
+      case 'PENDING': return 'text-warning bg-warning/10 border-warning/20';
+      case 'AWAITING_USER': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+      case 'RESOLVED': return 'text-success bg-success/10 border-success/20';
+      case 'CLOSED': return 'text-text-tertiary bg-white/5 border-white/10';
+      default: return 'text-white bg-white/5 border-white/10';
+    }
+  };
+
+  return (
+    <MainLayout>
+      <div className="pt-32 pb-32 px-6 max-w-6xl mx-auto min-h-screen">
+
+        {/* HEADER */}
+        <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-8">
+           <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                 <Shield size={14} className="text-primary" />
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Operations & Support</span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
+                 Support Hub
+              </h1>
+           </div>
+
+           <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] shrink-0">
+               <button
+                 onClick={() => { setView('EXPLORE'); setSelectedTicket(null); }}
+                 className={cn(
+                   "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                   view === 'EXPLORE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                 )}
+               >
+                 Explore
+               </button>
+               <button
+                 onClick={() => setView('CREATE')}
+                 className={cn(
+                   "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                   view === 'CREATE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                 )}
+               >
+                 New Ticket
+               </button>
+            </div>
+        </header>
+
+        <AnimatePresence mode="wait">
+           {view === 'EXPLORE' && (
+              <motion.div key="explore" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-12">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* TICKETS LIST */}
+                    <div className="md:col-span-2 space-y-6">
+                       <div className="flex items-center gap-3 px-2">
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Active Inquiries</h4>
+                          <div className="h-px flex-1 bg-white/[0.03]" />
+                       </div>
+
+                       <div className="space-y-2">
+                          {loading ? (
+                             Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="h-20 bg-white/[0.02] border border-white/5 rounded-xl animate-pulse" />
+                             ))
+                          ) : tickets.length > 0 ? (
+                             tickets.map((ticket) => (
+                                <div
+                                  key={ticket.id}
+                                  onClick={() => { setSelectedTicket(ticket); setView('THREAD'); }}
+                                  className="p-5 rounded-2xl bg-[#0A0A0F] border border-white/5 hover:border-white/20 transition-all cursor-pointer group flex items-center justify-between"
+                                >
+                                   <div className="flex items-center gap-5 min-w-0">
+                                      <div className={cn(
+                                        "w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner shrink-0",
+                                        getStatusColor(ticket.status).split(' ').slice(1).join(' ')
+                                      )}>
+                                         <MessageSquare size={20} className={getStatusColor(ticket.status).split(' ')[0]} />
+                                      </div>
+                                      <div className="min-w-0">
+                                         <h3 className="text-sm font-bold text-white uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
+                                            {ticket.subject}
+                                         </h3>
+                                         <div className="flex items-center gap-3 mt-1">
+                                            <span className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", getStatusColor(ticket.status))}>
+                                               {ticket.status.replace(/_/g, ' ')}
+                                            </span>
+                                            <div className="w-1 h-1 rounded-full bg-white/10" />
+                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{ticket.category.replace(/_/g, ' ')}</span>
+                                         </div>
+                                      </div>
+                                   </div>
+                                   <div className="flex items-center gap-8 text-right shrink-0">
+                                      <div className="hidden sm:block">
+                                         <p className="text-[8px] font-black text-white/10 uppercase tracking-widest">Updated</p>
+                                         <p className="text-[10px] font-mono text-white/40">{ticket.updatedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                      </div>
+                                      <ChevronRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
+                                   </div>
+                                </div>
+                             ))
+                          ) : (
+                             <div className="py-32 text-center border border-dashed border-white/5 rounded-[2rem] opacity-20">
+                                <Search size={48} className="mx-auto mb-6 text-white/10" />
+                                <p className="text-[11px] font-black uppercase tracking-[0.5em]">No Support Records Found</p>
+                             </div>
+                          )}
+                       </div>
+                    </div>
+
+                    {/* QUICK ACTIONS / INFO */}
+                    <div className="space-y-8">
+                       <div className="p-8 rounded-[2rem] bg-primary/[0.02] border border-primary/10 space-y-6">
+                          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl">
+                             <LifeBuoy size={24} />
+                          </div>
+                          <div className="space-y-2">
+                             <h3 className="text-lg font-bold text-white uppercase tracking-tight italic">Operations Hub</h3>
+                             <p className="text-xs text-text-tertiary leading-relaxed font-medium">Our integrity team is available to assist with account, withdrawal, and verification queries. Response times vary by load.</p>
+                          </div>
+                          <Button onClick={() => setView('CREATE')} className="w-full py-4 text-[10px] uppercase tracking-widest font-black italic shadow-2xl">
+                             Open New Signal
+                          </Button>
+                       </div>
+
+                       <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/5 space-y-6">
+                          <div className="flex items-center gap-3">
+                             <Clock size={16} className="text-text-tertiary" />
+                             <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">System Status</h4>
+                          </div>
+                          <div className="space-y-4">
+                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-white uppercase">System Channels</span>
+                                <span className="text-[9px] font-black text-success uppercase tracking-widest">Operational</span>
+                             </div>
+                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-white uppercase">Reward Matrix</span>
+                                <span className="text-[9px] font-black text-success uppercase tracking-widest">Synchronized</span>
+                             </div>
+                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-white uppercase">Support Load</span>
+                                <span className="text-[9px] font-black text-warning uppercase tracking-widest">Moderate</span>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </motion.div>
+           )}
+
+           {view === 'CREATE' && (
+              <motion.div key="create" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-2xl mx-auto">
+                 <div className="glass-card p-8 md:p-12 rounded-[2.5rem] border-white/[0.08] shadow-2xl space-y-10 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
+
+                    <div className="flex items-center gap-6">
+                       <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl">
+                          <Plus size={32} />
+                       </div>
+                       <div>
+                          <h2 className="text-3xl font-bold text-white tracking-tighter uppercase italic leading-none mb-2">Initiate Ticket</h2>
+                          <p className="text-white/40 text-sm font-medium">Please provide accurate details for efficient resolution.</p>
+                       </div>
+                    </div>
+
+                    <div className="space-y-6">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Inquiry Category</label>
+                          <select
+                            value={formData.category}
+                            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as TicketCategory }))}
+                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium appearance-none"
+                          >
+                             {CATEGORIES.map(cat => <option key={cat.value} value={cat.value} className="bg-[#08080C]">{cat.label}</option>)}
+                          </select>
+                       </div>
+
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Subject</label>
+                          <input
+                            type="text"
+                            placeholder="Brief summary of your inquiry"
+                            value={formData.subject}
+                            onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium"
+                          />
+                       </div>
+
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Full Message</label>
+                          <textarea
+                            rows={6}
+                            placeholder="Describe your issue in detail. Include IDs, dates, and amounts if applicable."
+                            value={formData.message}
+                            onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
+                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                          />
+                       </div>
+
+                       <div className="space-y-4">
+                          <MediaUploader
+                            label="Evidence / Screenshots (Optional)"
+                            path="support_attachments"
+                            onChange={(url: string) => setFormData(prev => ({ ...prev, attachments: [...prev.attachments, { url, name: 'Evidence Image', type: 'image/png', size: 0 }] }))}
+                          />
+                          {formData.attachments.length > 0 && (
+                             <div className="flex flex-wrap gap-2">
+                                {formData.attachments.map((at, i) => (
+                                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-[10px] text-white/40 flex items-center gap-2">
+                                      <Paperclip size={10} />
+                                      {at.name}
+                                   </div>
+                                ))}
+                             </div>
+                          )}
+                       </div>
+
+                       <div className="pt-4 flex gap-4">
+                          <Button
+                            className="flex-1 py-5 rounded-2xl shadow-xl italic font-black uppercase tracking-[0.2em] text-[11px]"
+                            onClick={handleCreateTicket}
+                            isLoading={isSubmitting}
+                          >
+                             Submit Request
+                          </Button>
+                          <button
+                            onClick={() => setView('EXPLORE')}
+                            className="px-8 py-5 rounded-2xl bg-white/[0.02] border border-white/10 text-white/20 hover:text-white transition-colors font-bold uppercase tracking-widest text-[9px]"
+                          >
+                             Cancel
+                          </button>
+                       </div>
+                    </div>
+                 </div>
+              </motion.div>
+           )}
+
+           {view === 'THREAD' && selectedTicket && (
+              <motion.div key="thread" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                 {/* CONVERSATION RAIL */}
+                 <div className="lg:col-span-8 flex flex-col h-[700px] bg-[#0A0A0F] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                       <div className="flex items-center gap-4">
+                          <button onClick={() => setView('EXPLORE')} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                             <ArrowLeft size={18} />
+                          </button>
+                          <div>
+                             <h2 className="text-base font-bold text-white uppercase tracking-tight italic leading-none mb-1">{selectedTicket.subject}</h2>
+                             <div className="flex items-center gap-3">
+                                <span className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", getStatusColor(selectedTicket.status))}>
+                                   {selectedTicket.status}
+                                </span>
+                                <span className="text-[9px] font-black text-white/10 uppercase tracking-widest">#{selectedTicket.id.slice(-8).toUpperCase()}</span>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* MESSAGES FEED */}
+                    <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+                       {messages.map((msg) => (
+                          <div key={msg.id} className={cn("flex gap-4 max-w-[85%]", msg.senderType === 'ADMIN' ? "mr-auto" : "ml-auto flex-row-reverse")}>
+                             <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 shadow-lg",
+                                msg.senderType === 'ADMIN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.05] border-white/10 text-white/40"
+                             )}>
+                                {msg.senderType === 'ADMIN' ? <Shield size={18} /> : <User size={18} />}
+                             </div>
+                             <div className="space-y-2">
+                                <div className={cn(
+                                   "p-5 rounded-2xl text-sm font-medium leading-relaxed shadow-inner",
+                                   msg.senderType === 'ADMIN' ? "bg-white/[0.03] border border-white/5 text-text-secondary" : "bg-primary text-white"
+                                )}>
+                                   {msg.text}
+
+                                   {msg.attachments && msg.attachments.length > 0 && (
+                                      <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                                         {msg.attachments.map((at, i) => (
+                                            <a key={i} href={at.storageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/20 text-[9px] font-bold text-white/60 hover:text-white hover:bg-black/40 transition-all">
+                                               <Paperclip size={10} />
+                                               {at.fileName}
+                                            </a>
+                                         ))}
+                                      </div>
+                                   )}
+                                </div>
+                                <div className={cn("flex items-center gap-2 px-1", msg.senderType === 'ADMIN' ? "justify-start" : "justify-end")}>
+                                   <span className="text-[9px] font-black uppercase tracking-widest text-white/10">{msg.senderName}</span>
+                                   <span className="text-white/5">•</span>
+                                   <span className="text-[9px] font-bold text-white/10">{msg.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+
+                    {/* REPLY ZONE */}
+                    {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'RESOLVED' ? (
+                       <div className="p-6 bg-black border-t border-white/5 space-y-4">
+                          <div className="relative group">
+                             <textarea
+                               rows={3}
+                               placeholder="Draft your reply..."
+                               value={replyText}
+                               onChange={(e) => setReplyText(e.target.value)}
+                               className="w-full bg-white/[0.02] border border-white/[0.08] rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                             />
+                             <div className="absolute right-4 bottom-4 flex items-center gap-3">
+                                <Button
+                                  onClick={handleSendReply}
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center p-0"
+                                >
+                                   <Send size={16} />
+                                </Button>
+                             </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                             <div className="flex items-center gap-4">
+                                <button className="flex items-center gap-2 text-[10px] font-bold text-white/20 hover:text-white transition-colors uppercase tracking-widest">
+                                   <Paperclip size={14} />
+                                   Add Evidence
+                                </button>
+                             </div>
+                             <p className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Security: Thread is encrypted and immutable</p>
+                          </div>
+                       </div>
+                    ) : (
+                       <div className="p-12 text-center bg-black border-t border-white/5">
+                          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/10 mx-auto mb-4 border border-dashed border-white/10">
+                             <CheckCircle2 size={32} />
+                          </div>
+                          <h4 className="text-sm font-bold text-white/40 uppercase tracking-widest">Inquiry Successfully Resolved</h4>
+                          <p className="text-[10px] text-white/20 mt-2 uppercase tracking-widest">This ticket is now closed for comments.</p>
+                       </div>
+                    )}
+                 </div>
+
+                 {/* TICKET DETAILS SIDEBAR */}
+                 <div className="lg:col-span-4 space-y-8">
+                    <div className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/10 space-y-10">
+                       <div className="space-y-6">
+                          <h3 className="text-sm font-black text-white/20 uppercase tracking-[0.3em]">Ledger Details</h3>
+                          <div className="space-y-5">
+                             <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-text-tertiary uppercase">Inquiry ID</span>
+                                <span className="text-[10px] font-mono font-bold text-white">{selectedTicket.id.slice(-12).toUpperCase()}</span>
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-text-tertiary uppercase">Category</span>
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">{selectedTicket.category.replace(/_/g, ' ')}</span>
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-text-tertiary uppercase">Priority</span>
+                                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                   selectedTicket.priority === 'URGENT' ? "text-danger border-danger/20 bg-danger/5" : "text-white/40 border-white/10 bg-white/5")}>
+                                   {selectedTicket.priority}
+                                </span>
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-text-tertiary uppercase">Created</span>
+                                <span className="text-[10px] font-mono font-bold text-white">{selectedTicket.createdAt?.toDate?.().toLocaleDateString()}</span>
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="h-px bg-white/5" />
+
+                       <div className="space-y-6">
+                          <h3 className="text-sm font-black text-white/20 uppercase tracking-[0.3em]">Integrity Status</h3>
+                          <div className="space-y-4">
+                             <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                                <span className="text-[10px] font-bold text-white uppercase italic">Valid User Match</span>
+                             </div>
+                             <div className="flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                                <span className="text-[10px] font-bold text-white uppercase italic">Thread Immutable</span>
+                             </div>
+                             <div className="flex items-center gap-3 opacity-20">
+                                <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                <span className="text-[10px] font-bold text-white uppercase italic">Audit Required</span>
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="pt-4">
+                          <p className="text-[10px] text-text-tertiary italic leading-relaxed">Tickets are monitored by our Platform Integrity team. Please do not submit duplicate inquiries for the same issue.</p>
+                       </div>
+                    </div>
+                 </div>
+              </motion.div>
+           )}
+        </AnimatePresence>
+
+      </div>
+    </MainLayout>
+  );
+};
+
+export default SupportCenter;

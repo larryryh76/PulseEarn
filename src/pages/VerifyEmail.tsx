@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { auth } from '../firebase/config';
 
 const VerifyEmail: React.FC = () => {
@@ -132,10 +132,10 @@ const VerifyEmail: React.FC = () => {
                      <LogOut size={14} />
                      Sign Out and try another email
                   </button>
-                  <a href="mailto:support@pulseearn.com" className="flex items-center gap-2 text-white/20 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
-                     <ExternalLink size={14} />
-                     Contact Support
-                  </a>
+                  <Link to="/support" className="flex items-center gap-2 text-white/20 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+                     <HelpCircle size={14} />
+                     Support Hub
+                  </Link>
                </div>
             </div>
           </div>

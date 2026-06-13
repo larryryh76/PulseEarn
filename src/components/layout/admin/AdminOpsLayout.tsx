@@ -7,6 +7,7 @@ import {
   Users,
   ShieldAlert,
   BarChart3,
+  MessageSquare,
   Bell,
   FileText,
   LogOut,
@@ -63,6 +64,7 @@ const AdminOpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
     { id: 'NOTIFICATIONS', label: 'Notifications', icon: Bell, path: '/admin/broadcasts' },
     { id: 'MISSIONS', label: 'Missions', icon: Trophy, path: '/admin/missions' },
     { id: 'ECONOMY', label: 'Economy', icon: BarChart3, path: '/admin/economy' },
+    { id: 'SUPPORT', label: 'Support Center', icon: MessageSquare, path: '/admin/support' },
     { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit' },
   ];
 

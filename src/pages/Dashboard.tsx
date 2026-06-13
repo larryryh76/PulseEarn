@@ -609,6 +609,7 @@ const Dashboard: React.FC = () => {
                               }
                               else if (type.includes('referral')) navigate('/referrals');
                               else if (type.includes('withdrawal')) navigate('/wallet');
+                              else if (type.includes('support')) navigate('/support');
                               setSelectedActivity(null);
                            }}
                            variant="primary"

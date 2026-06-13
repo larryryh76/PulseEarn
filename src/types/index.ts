@@ -9,9 +9,18 @@ export type TaskCategory = 'SOCIAL' | 'ENGAGEMENT' | 'REFERRAL' | 'PREDICTION' |
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 
 export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_USER' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'OPEN' | 'PENDING' | 'AWAITING_USER' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-export type TicketCategory = 'REWARD' | 'REFERRAL' | 'PAYOUT' | 'ACCOUNT' | 'FRAUD' | 'SYSTEM' | 'OTHER';
+export type TicketCategory =
+  | 'GENERAL'
+  | 'ACCOUNT'
+  | 'CAMPAIGN'
+  | 'VERIFICATION'
+  | 'PREDICTION'
+  | 'WITHDRAWAL'
+  | 'BUG_REPORT'
+  | 'FEEDBACK'
+  | 'OTHER';
 
 export interface Task {
   id: string;
@@ -285,21 +294,41 @@ export interface ReferralRecord {
 export interface SupportTicket {
   id: string;
   userId: string;
+  username: string;
+  email: string;
   category: TicketCategory;
   priority: TicketPriority;
   status: TicketStatus;
   subject: string;
-  description: string;
   assignedAdminId?: string;
+  lastReplyAt: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   resolvedAt?: Timestamp;
-  attachedLogIds: string[];
-  messages: {
-    senderId: string;
-    text: string;
-    timestamp: Timestamp;
-  }[];
+  closedAt?: Timestamp;
+  lastMessagePreview?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderType: 'USER' | 'ADMIN' | 'SYSTEM';
+  senderName: string;
+  text: string;
+  attachments?: SupportAttachment[];
+  createdAt: Timestamp;
+}
+
+export interface SupportAttachment {
+  id: string;
+  ticketId: string;
+  storageUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: Timestamp;
 }
 
 export interface SystemSettings {

@@ -400,8 +400,8 @@ const Profile: React.FC = () => {
                       <p className="text-lg font-bold text-white">Need a direct link?</p>
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest">Open a direct support signal</p>
                    </div>
-                   <Button className="h-14 px-10 rounded-2xl">
-                      Request Support Access
+                   <Button className="h-14 px-10 rounded-2xl" onClick={() => navigate('/support')}>
+                      Support Center
                    </Button>
                 </div>
               </motion.div>

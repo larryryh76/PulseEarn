@@ -22,20 +22,13 @@ export const ECONOMY_RULES = {
 };
 
 export class EconomyAuthority {
-  static validateAction(type: string, data: any, userData: any): { valid: boolean; error?: string } {
+  static validateAction(_type: string, data: any, userData: any): { valid: boolean; error?: string } {
     // 1. Transactional Velocity Check
     if (data.amount > ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD) {
       return { valid: false, error: "REWARD_CAP_EXCEEDED" };
     }
 
-    // 2. Cooldown Enforcement (if applicable)
-    if (type === 'daily_reward') {
-      const lastReward = userData.lastRewardDate?.toDate() || new Date(0);
-      const now = new Date();
-      if (now.getTime() - lastReward.getTime() < ECONOMY_RULES.REWARDS.COOLDOWN_DAILY_MS) {
-        return { valid: false, error: "COOLDOWN_ACTIVE" };
-      }
-    }
+    // 2. Cooldown Enforcement (Note: daily_reward uses calendar-day reset in PointTransactionEngine)
 
     // 3. User State Validation
     if (userData.status === 'restricted' || userData.status === 'frozen') {

@@ -12,14 +12,15 @@ import {
   Trophy,
   Target,
   Sparkles,
-  Clock,
   X,
   Share2,
   Calendar,
   Flame,
   ArrowRight,
   Shield,
-  Star
+  Star,
+  ExternalLink,
+  Boxes
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -138,8 +139,8 @@ const Tasks: React.FC = () => {
                         <CheckCircle2 size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Quest Ledger</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">COMPLETED OBJECTIVE</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Task Details</p>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">SECURED</h3>
                       </div>
                    </div>
                    <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
@@ -148,15 +149,15 @@ const Tasks: React.FC = () => {
                 </div>
 
                 <div className="p-8 space-y-8">
-                   <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-text-tertiary mb-2">
-                         <Calendar size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
-                         <span className="text-white/10">•</span>
-                         <Clock size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">Protocol Verified</span>
+                   <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-text-tertiary mb-1">
+                         <Calendar size={10} className="text-primary/40" />
+                         <span className="text-[9px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
+                         <span className="text-white/5">•</span>
+                         <CheckCircle2 size={10} className="text-success/40" />
+                         <span className="text-[9px] font-bold uppercase tracking-widest text-success/60">Verified</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
+                      <h2 className="text-2xl font-bold text-white tracking-tighter uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
                    </div>
 
                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
@@ -177,24 +178,24 @@ const Tasks: React.FC = () => {
                       </div>
 
                       <div className="p-5 flex justify-between items-center bg-success/[0.01]">
-                         <span className="text-[10px] font-black text-success/40 uppercase tracking-[0.2em]">Ledger Status</span>
+                         <span className="text-[10px] font-black text-success/40 uppercase tracking-[0.2em]">Status</span>
                          <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[9px] font-black text-success uppercase tracking-widest italic">Immutable Proof</span>
+                            <span className="text-[9px] font-black text-success uppercase tracking-widest italic">Approved</span>
                          </div>
                       </div>
                    </div>
 
-                   <div className="pt-4">
+                   <div className="pt-2">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
+                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Reference ID</span>
                          <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedHistoryItem.id || 'N/A'}</span>
                       </div>
                    </div>
                 </div>
 
                 <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Secure Ledger • Protocol V6.0</p>
+                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
                 </div>
              </motion.div>
           </div>
@@ -261,7 +262,7 @@ const Tasks: React.FC = () => {
            {view === 'AVAILABLE' ? (
               <>
                  {/* CAMPAIGN BANNERS */}
-                 {activeCampaigns.length > 0 && (
+                 {activeCampaigns.length > 0 && (filter === 'ALL' || filter === 'SPONSORED' || activeCampaigns.some(c => c.category === filter as any)) && (
                     <div className="space-y-6">
                        <div className="flex items-center gap-3 px-2">
                           <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Featured</h4>
@@ -320,14 +321,79 @@ const Tasks: React.FC = () => {
                     </div>
                  )}
 
+                 {/* SPONSORED / OFFERWALL PREPARATION SLOTS */}
+                 {(filter === 'ALL' || filter === 'SPONSORED') && (
+                    <div className="space-y-8">
+                       <div className="flex items-center justify-between px-2">
+                          <div className="flex items-center gap-3">
+                             <Boxes size={14} className="text-primary" />
+                             <h4 className="text-xl font-bold tracking-tight text-white italic">Partner Offers</h4>
+                          </div>
+                          <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] px-2 py-1 bg-primary/10 border border-primary/20 rounded-md">Bonus Yield</span>
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Offerwall Slot 1: Preparation for BitLabs/Adscend/etc */}
+                          <div className="relative group p-8 rounded-[2.5rem] bg-gradient-to-br from-[#0D0D14] to-[#08080C] border border-white/5 overflow-hidden transition-all hover:border-primary/30">
+                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <Zap size={80} />
+                             </div>
+                             <div className="relative z-10 space-y-6">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary/20 group-hover:border-primary/40 transition-all">
+                                      <Zap size={24} />
+                                   </div>
+                                   <div>
+                                      <h3 className="text-lg font-bold text-white tracking-tight uppercase italic">Global Offerwall</h3>
+                                      <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Multi-Task Ecosystem</p>
+                                   </div>
+                                </div>
+                                <p className="text-sm text-text-tertiary font-medium leading-relaxed italic max-w-xs">
+                                   Access external objectives, surveys, and app trials to earn massive Pulse rewards.
+                                </p>
+                                <button className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                                   Open Wall
+                                   <ExternalLink size={14} />
+                                </button>
+                             </div>
+                          </div>
+
+                          {/* AdSense / Video Reward Placeholder */}
+                          <div className="relative group p-8 rounded-[2.5rem] bg-gradient-to-br from-[#0D0D14] to-[#08080C] border border-white/5 overflow-hidden transition-all hover:border-success/30">
+                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <TrendingUp size={80} />
+                             </div>
+                             <div className="relative z-10 space-y-6">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-success group-hover:bg-success/20 group-hover:border-success/40 transition-all">
+                                      <TrendingUp size={24} />
+                                   </div>
+                                   <div>
+                                      <h3 className="text-lg font-bold text-white tracking-tight uppercase italic">Sponsored Intel</h3>
+                                      <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Ad-Based Earnings</p>
+                                   </div>
+                                </div>
+                                <p className="text-sm text-text-tertiary font-medium leading-relaxed italic max-w-xs">
+                                   Watch quick sponsor segments to receive immediate point distributions and XP.
+                                </p>
+                                <button className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-[10px] font-black text-white uppercase tracking-widest hover:bg-success hover:text-black transition-all">
+                                   Initialize
+                                   <Zap size={14} fill="currentColor" />
+                                </button>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                 )}
+
                  {activeMissions.length > 0 && (
-                    <div className="space-y-10">
+                    <div className="space-y-10 mt-12">
                        <div className="flex items-center justify-between px-2">
                           <div className="flex items-center gap-3">
                              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                              <h4 className="text-xl font-bold tracking-tight text-white italic">Challenges</h4>
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">{activeMissions.length} ACTIVE NODES</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">{activeMissions.length} ACTIVE CHALLENGES</span>
                        </div>
 
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -517,7 +583,7 @@ const Tasks: React.FC = () => {
                                 <div className="space-y-1.5">
                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Primary Objective</p>
                                    <p className="text-sm font-medium text-text-secondary leading-relaxed">
-                                      {selectedTask.definition.category === 'WELCOME' && "Secure your identity on the PulseEarn protocol to unlock basic rewards."}
+                                      {selectedTask.definition.category === 'WELCOME' && "Secure your identity on the PulseEarn system to unlock basic rewards."}
                                       {selectedTask.definition.category === 'REFERRAL' && `Deploy your invitation link and successfully onboard ${selectedTask.definition.targetValue} new participants.`}
                                       {selectedTask.definition.category === 'PREDICTION' && `Execute ${selectedTask.definition.targetValue} successful market forecasts to demonstrate analytical proficiency.`}
                                       {selectedTask.definition.category === 'LEVEL' && `Acquire enough experience points through platform interaction to reach Rank ${selectedTask.definition.targetValue}.`}

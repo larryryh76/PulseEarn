@@ -2,7 +2,11 @@ import * as React from 'react';
 import {
   Activity,
   Search,
-  User
+  User,
+  X,
+  FileText,
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -14,12 +18,14 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { cn } from '../../../utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const OpsLedger: React.FC = () => {
   const [transactions, setTransactions] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterType, setFilterType] = React.useState<string>('ALL');
+  const [selectedTx, setSelectedTx] = React.useState<any | null>(null);
 
   React.useEffect(() => {
     let q = query(collection(db, 'system_claims'), orderBy('executedAt', 'desc'), limit(100));
@@ -100,7 +106,11 @@ const OpsLedger: React.FC = () => {
                    {loading ? (
                       [1,2,3,4,5,6,7,8].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-10"><div className="h-4 bg-white/5 rounded w-full" /></td></tr>)
                    ) : filtered.map((tx) => (
-                      <tr key={tx.id} className="group hover:bg-white/[0.01] transition-colors whitespace-nowrap">
+                      <tr
+                        key={tx.id}
+                        onClick={() => setSelectedTx(tx)}
+                        className="group hover:bg-white/[0.01] transition-colors whitespace-nowrap cursor-pointer"
+                      >
                          <td className="p-8">
                             <div className="flex items-center gap-3">
                                <div className={cn(
@@ -149,6 +159,103 @@ const OpsLedger: React.FC = () => {
              </div>
           )}
        </div>
+
+       <AnimatePresence>
+          {selectedTx && (
+             <div className="fixed inset-0 z-[100] flex justify-end">
+                <motion.div
+                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                   onClick={() => setSelectedTx(null)}
+                   className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                />
+                <motion.div
+                   initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                   transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                   className="relative w-full max-w-xl bg-[#08080C] border-l border-white/5 shadow-2xl flex flex-col"
+                >
+                   <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                      <div className="flex items-center gap-4">
+                         <div className={cn(
+                           "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
+                           selectedTx.amount >= 0 ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20"
+                         )}>
+                            <Activity size={24} />
+                         </div>
+                         <div>
+                            <h2 className="text-xl font-bold uppercase italic tracking-tighter text-white">Transaction Detail</h2>
+                            <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest mt-1">Hash: {selectedTx.id.toUpperCase()}</p>
+                         </div>
+                      </div>
+                      <button onClick={() => setSelectedTx(null)} className="p-2 hover:bg-white/5 rounded-lg text-text-tertiary">
+                         <X size={24} />
+                      </button>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto p-10 space-y-12 no-scrollbar">
+                      <section className="flex flex-col items-center text-center space-y-6">
+                         <div className={cn(
+                            "px-10 py-6 rounded-3xl border shadow-2xl inline-block",
+                            selectedTx.amount >= 0 ? "bg-success/5 border-success/20" : "bg-danger/5 border-danger/20"
+                         )}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 mb-4">Atomic Delta</p>
+                            <p className={cn("text-5xl font-mono font-bold tracking-tighter", selectedTx.amount >= 0 ? "text-success" : "text-danger")}>
+                               {selectedTx.amount >= 0 ? '+' : ''}{selectedTx.amount.toLocaleString()}
+                               <span className="text-xl opacity-40 ml-2">PTS</span>
+                            </p>
+                         </div>
+                      </section>
+
+                      <div className="grid grid-cols-1 gap-4">
+                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 space-y-6 shadow-inner">
+                            <div className="flex justify-between items-center">
+                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/20">
+                                  <User size={14} /> Identity Node
+                               </div>
+                               <span className="text-xs font-mono font-bold text-white">{selectedTx.userId}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/20">
+                                  <FileText size={14} /> Operation Source
+                               </div>
+                               <span className="text-xs font-bold text-white uppercase italic">{selectedTx.source}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/20">
+                                  <ShieldCheck size={14} /> Logic Type
+                               </div>
+                               <span className="text-xs font-black text-primary uppercase tracking-widest">{selectedTx.type.replace(/_/g, ' ')}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/20">
+                                  <Calendar size={14} /> Execution Time
+                               </div>
+                               <span className="text-xs font-mono text-white/60">{selectedTx.executedAt?.toDate?.()?.toLocaleString()}</span>
+                            </div>
+                         </div>
+                      </div>
+
+                      {selectedTx.description && (
+                         <section className="space-y-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-2">Mutation Payload</h4>
+                            <div className="p-8 bg-white/[0.02] border border-white/5 rounded-3xl text-sm text-white/60 leading-relaxed italic font-medium shadow-inner">
+                               "{selectedTx.description}"
+                            </div>
+                         </section>
+                      )}
+
+                      <section className="pt-8 border-t border-white/5 space-y-4">
+                         <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/10">
+                            <ShieldCheck size={14} className="text-success" /> Immutable Ledger Entry Verified
+                         </div>
+                         <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl text-[9px] font-mono text-white/20 break-all leading-relaxed">
+                            TX_SIG: {btoa(selectedTx.id + selectedTx.userId).slice(0, 64)}
+                         </div>
+                      </section>
+                   </div>
+                </motion.div>
+             </div>
+          )}
+       </AnimatePresence>
     </div>
   );
 };

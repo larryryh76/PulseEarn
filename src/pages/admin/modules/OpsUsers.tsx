@@ -9,7 +9,9 @@ import {
   Smartphone,
   Activity,
   CheckCircle,
-  Ban
+  Ban,
+  Plus,
+  Minus
 } from 'lucide-react';
 import {
   collection,
@@ -60,6 +62,41 @@ const OpsUsers: React.FC = () => {
     };
     fetchUserHistory();
   }, [selectedUser]);
+
+   const handleManualAdjustment = async (isXp: boolean, amount: number) => {
+      if (!selectedUser) return;
+      const action = amount >= 0 ? 'GRANT' : 'REVOKE';
+      if (!window.confirm(`AUTHORIZE: ${action} ${Math.abs(amount)} ${isXp ? 'XP' : 'PTS'} for node "${selectedUser.username}"?`)) return;
+
+      const loadingToast = toast.loading('Synchronizing manual mutation...');
+      try {
+         const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
+         const claimId = `admin_${Date.now()}_${selectedUser.id.slice(0, 8)}`;
+
+         const result = await PointTransactionEngine.execute({
+            userId: selectedUser.id,
+            amount: isXp ? 0 : amount,
+            xpReward: isXp ? amount : 0,
+            type: 'admin_adjustment',
+            source: 'Manual Ops Mutation',
+            claimId,
+            description: `Administrative ${isXp ? 'XP' : 'Point'} adjustment`,
+            bypassLock: true
+         });
+
+         if (result.success) {
+            toast.dismiss(loadingToast);
+            toast.success('Mutation Ledger Synchronized');
+            // Refresh local user state if needed (snapshot will handle it normally)
+         } else {
+            toast.dismiss(loadingToast);
+            toast.error(result.error);
+         }
+      } catch (err) {
+         toast.dismiss(loadingToast);
+         toast.error('Integrity Protocol Failure');
+      }
+   };
 
   const handleStatusToggle = async (user: any, action: 'BAN' | 'REINSTATE') => {
      if (!window.confirm(`AUTHORIZED ACTION: ${action} user "${user.username}"?`)) return;
@@ -223,13 +260,21 @@ const OpsUsers: React.FC = () => {
                       </section>
 
                       <div className="grid grid-cols-3 gap-4">
-                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner">
+                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner group relative overflow-hidden">
                             <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Liquid Balance</p>
                             <p className="text-xl font-mono font-bold text-white">{selectedUser.points?.toLocaleString()}</p>
+                            <div className="mt-4 flex justify-center gap-2">
+                               <button onClick={() => handleManualAdjustment(false, 100)} className="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success/20 transition-all"><Plus size={12} /></button>
+                               <button onClick={() => handleManualAdjustment(false, -100)} className="p-1.5 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-all"><Minus size={12} /></button>
+                            </div>
                          </div>
-                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner">
+                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner group relative overflow-hidden">
                             <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Progression</p>
                             <p className="text-xl font-mono font-bold text-primary">LVL {selectedUser.level || 1}</p>
+                            <div className="mt-4 flex justify-center gap-2">
+                               <button onClick={() => handleManualAdjustment(true, 50)} className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-all"><Plus size={12} /></button>
+                               <button onClick={() => handleManualAdjustment(true, -50)} className="p-1.5 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-all"><Minus size={12} /></button>
+                            </div>
                          </div>
                          <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner">
                             <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Login Streak</p>

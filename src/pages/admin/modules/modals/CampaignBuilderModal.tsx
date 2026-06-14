@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import Button from '../../../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { cn } from '../../../../utils';
+import MediaUploader from '../../../../components/admin/MediaUploader';
 
 interface CampaignBuilderModalProps {
   isOpen: boolean;
@@ -179,12 +180,12 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                    </div>
 
                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Visual Asset URL</label>
-                      <input
+                      <MediaUploader
+                        label="Campaign Banner (10MB)"
                         value={formData.bannerUrl}
-                        onChange={e => setFormData({...formData, bannerUrl: e.target.value})}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
-                        placeholder="https://..."
+                        onChange={url => setFormData({...formData, bannerUrl: url})}
+                        path="campaigns/banners"
+                        aspectRatio="video"
                       />
                    </div>
                 </div>

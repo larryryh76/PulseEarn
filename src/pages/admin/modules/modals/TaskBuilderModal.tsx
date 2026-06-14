@@ -19,6 +19,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
     title: '',
     description: '',
     instructions: '',
+    campaignId: '',
     category: 'ENGAGEMENT' as TaskCategory,
     verificationType: 'manual' as VerificationType,
     rewardAmount: 100,
@@ -91,6 +92,15 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar">
              <div className="grid grid-cols-2 gap-10">
                 <div className="space-y-6">
+                   <div className="space-y-2.5">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Parent Campaign ID</label>
+                      <input
+                        required value={formData.campaignId ?? ''}
+                        onChange={e => setFormData({...formData, campaignId: e.target.value})}
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-sm text-white focus:border-primary/50 outline-none transition-all font-mono"
+                        placeholder="UUID of the parent campaign..."
+                      />
+                   </div>
                    <div className="space-y-2.5">
                       <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Vector Identifier</label>
                       <input

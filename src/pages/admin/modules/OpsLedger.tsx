@@ -199,7 +199,7 @@ const OpsLedger: React.FC = () => {
                          )}>
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 mb-4">Atomic Delta</p>
                             <p className={cn("text-5xl font-mono font-bold tracking-tighter", selectedTx.amount >= 0 ? "text-success" : "text-danger")}>
-                               {selectedTx.amount >= 0 ? '+' : ''}{selectedTx.amount.toLocaleString()}
+                               {selectedTx.amount >= 0 ? '+' : ''}{(selectedTx.amount || 0).toLocaleString()}
                                <span className="text-xl opacity-40 ml-2">PTS</span>
                             </p>
                          </div>

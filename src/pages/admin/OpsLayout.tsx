@@ -25,6 +25,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
+import { AdminProvider, useAdmin } from './context/AdminContext';
+import { AdminErrorBoundary } from '../../components/admin/layout/AdminErrorBoundary';
 
 interface NavItem {
   id: string;
@@ -54,8 +56,9 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY' },
 ];
 
-const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, userData, currentUser, loading } = useAuth();
+  const { isInitialized, systemStatus } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
@@ -66,9 +69,20 @@ const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
   }, [currentUser, userData]);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#050507] flex items-center justify-center">
-      <div className="w-12 h-12 border-t-2 border-primary rounded-full animate-spin" />
+  if (loading || !isInitialized) return (
+    <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center gap-8">
+      <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-[0_0_30px_rgba(0,112,255,0.2)]" />
+      <div className="text-center space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 animate-pulse">Initializing Ops Matrix</p>
+        <div className="h-1 w-48 bg-white/5 rounded-full overflow-hidden relative">
+          <motion.div
+            initial={{ left: '-100%' }}
+            animate={{ left: '100%' }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-y-0 w-1/2 bg-primary shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+          />
+        </div>
+      </div>
     </div>
   );
 
@@ -188,10 +202,13 @@ const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </div>
 
             <div className="flex items-center gap-6">
-               <div className="flex items-center gap-4 text-white/20">
-                  <div className="flex items-center gap-1.5">
-                     <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                     <span className="text-[9px] font-mono uppercase tracking-widest">System Online</span>
+               <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/5 border border-success/10">
+                     <div className={cn(
+                       "w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]",
+                       systemStatus === 'ONLINE' ? "bg-success animate-pulse" : "bg-danger"
+                     )} />
+                     <span className="text-[9px] font-black uppercase tracking-widest text-success">Node {systemStatus}</span>
                   </div>
                </div>
                <button className="lg:hidden p-2 hover:bg-white/5 rounded" onClick={() => setIsMobileOpen(true)}>
@@ -201,9 +218,11 @@ const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
          </header>
 
          <main className="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12">
-            <div className="max-w-[1600px] mx-auto">
-               {children}
-            </div>
+            <AdminErrorBoundary>
+               <div className="max-w-[1600px] mx-auto">
+                  {children}
+               </div>
+            </AdminErrorBoundary>
          </main>
       </div>
 
@@ -245,5 +264,11 @@ const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     </div>
   );
 };
+
+const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <AdminProvider>
+    <OpsLayoutContent>{children}</OpsLayoutContent>
+  </AdminProvider>
+);
 
 export default OpsLayout;

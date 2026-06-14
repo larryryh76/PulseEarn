@@ -192,7 +192,7 @@ const OpsEconomy: React.FC = () => {
                          </div>
                          <div className="text-right">
                             <p className={cn("text-sm font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
-                               {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                               {tx.amount > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
                             </p>
                             <p className="text-[9px] font-mono text-white/20 uppercase mt-1">{(tx.executedAt?.toDate?.() || new Date()).toLocaleTimeString()}</p>
                          </div>

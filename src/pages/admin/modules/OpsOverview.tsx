@@ -229,7 +229,7 @@ const OpsOverview: React.FC = () => {
                       </div>
                       <div className="text-right">
                          <p className={cn("text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
-                           {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()} PTS
+                           {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
                          </p>
                          <p className="text-[9px] font-mono text-white/10 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
                       </div>

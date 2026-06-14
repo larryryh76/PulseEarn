@@ -19,10 +19,9 @@ import {
   OpsValidation as AdminValidation,
   OpsLedger as AdminLedger,
   OpsUsers as AdminUsers,
-  OpsSecurity as AdminSecurity,
   OpsEconomy as AdminEconomy,
   OpsBroadcasts as AdminBroadcasts,
-  OpsAudit as AdminAudit,
+  OpsAuditCenter as AdminAuditCenter,
   OpsTasks as AdminTasks,
   OpsPredictions as AdminPredictions,
   OpsWithdrawals as AdminWithdrawals,
@@ -61,17 +60,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
-  // If still loading, wait for auth state
   if (loading) return (
     <div className="min-h-screen bg-[#050507] flex items-center justify-center">
       <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
 
-  // No user, go to login
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Special check for hardcoded admin email during transition
   const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
   const isAdminRole = userData?.role === 'admin';
 
@@ -134,7 +130,6 @@ function App() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
 
-        {/* Core Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
         <Route path="/predictions" element={<ProtectedRoute><Predictions /></ProtectedRoute>} />
@@ -145,7 +140,6 @@ function App() {
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/support" element={<ProtectedRoute><SupportCenter /></ProtectedRoute>} />
 
-        {/* Legal Routes */}
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/cookies" element={<CookiePolicy />} />
@@ -153,17 +147,16 @@ function App() {
         <Route path="/fraud-policy" element={<FraudPolicy />} />
         <Route path="/verification-policy" element={<VerificationPolicy />} />
 
-        {/* Admin Routes */}
         <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
         <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />
         <Route path="/admin/campaigns" element={<AdminRoute><OpsLayout><AdminCampaigns /></OpsLayout></AdminRoute>} />
         <Route path="/admin/validation" element={<AdminRoute><OpsLayout><AdminValidation /></OpsLayout></AdminRoute>} />
         <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><OpsLayout><AdminUsers /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminSecurity /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
         <Route path="/admin/economy" element={<AdminRoute><OpsLayout><AdminEconomy /></OpsLayout></AdminRoute>} />
         <Route path="/admin/broadcasts" element={<AdminRoute><OpsLayout><AdminBroadcasts /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/audit" element={<AdminRoute><OpsLayout><AdminAudit /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/audit" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
         <Route path="/admin/tasks" element={<AdminRoute><OpsLayout><AdminTasks /></OpsLayout></AdminRoute>} />
         <Route path="/admin/predictions" element={<AdminRoute><OpsLayout><AdminPredictions /></OpsLayout></AdminRoute>} />
         <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />

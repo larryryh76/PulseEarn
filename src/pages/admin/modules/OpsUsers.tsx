@@ -295,7 +295,7 @@ const OpsUsers: React.FC = () => {
                                      <p className="text-[9px] font-mono text-white/20 mt-1">{(tx.executedAt?.toDate?.() || new Date()).toLocaleDateString()}</p>
                                   </div>
                                   <p className={cn("text-xs font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
-                                     {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                                     {tx.amount > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
                                   </p>
                                </div>
                             ))}

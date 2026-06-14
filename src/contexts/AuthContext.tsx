@@ -99,13 +99,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log(`[DailyReward] Checking for ${uid} (Claim: ${claimId})`);
+      const { EconomyConfigEngine } = await import('../engines/system/EconomyConfigEngine');
+      const config = await EconomyConfigEngine.getConfig();
+
       const result = await PointTransactionEngine.execute({
         userId: uid,
-        amount: 10,
+        amount: config.rewards.dailyLoginPoints,
         type: 'daily_reward',
         source: 'Daily Login Bonus',
         claimId,
-        xpReward: 20
+        xpReward: config.rewards.dailyLoginXP
       });
 
       if (!result.success) {
@@ -121,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await addDoc(collection(db, 'users', uid, 'notifications'), {
         title: 'Daily Reward Claimed!',
-        description: 'You earned +10 Pulse for checking in today.',
+        description: `You earned +${config.rewards.dailyLoginPoints} Pulse for checking in today.`,
         type: 'reward_claimed',
         read: false,
         timestamp: serverTimestamp()
@@ -170,12 +173,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const referrerDoc = querySnapshot.docs[0];
         referredBy = referrerDoc.id;
 
+        const { EconomyConfigEngine } = await import('../engines/system/EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+
         await PointTransactionEngine.execute({
           userId: referredBy,
-          amount: 50,
+          amount: config.rewards.referralBonusPoints,
           type: 'referral_bonus',
           source: `Referral bonus for ${username}`,
-          claimId: `referral_${referredBy}_${user.uid}`
+          claimId: `referral_${referredBy}_${user.uid}`,
+          xpReward: config.rewards.referralBonusXP
         });
 
         await addDoc(collection(db, 'users', referredBy, 'notifications'), {

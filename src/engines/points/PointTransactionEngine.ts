@@ -237,6 +237,15 @@ export class PointTransactionEngine {
 
         const userData = userSnap.data();
 
+        const { EconomyConfigEngine: EconomyConfigEngine_p1 } = await import('../system/EconomyConfigEngine');
+        const config_p1 = await EconomyConfigEngine_p1.getConfig();
+
+        // 0. Eligibility Check (Minimum Level based on config)
+        const unlockLevel = config_p1.thresholds.predictionUnlockLevel;
+        if ((userData.level || 1) < unlockLevel) {
+          throw new Error("PREDICTION_LOCKED_INSUFFICIENT_LEVEL");
+        }
+
         if ((userData.points || 0) < amount) throw new Error("INSUFFICIENT_FUNDS");
 
         const txDoc = doc(transactionsRef);
@@ -260,6 +269,9 @@ export class PointTransactionEngine {
           }
         }
 
+        const { EconomyConfigEngine: EconomyConfigEngine_p2 } = await import('../system/EconomyConfigEngine');
+        const config_p2 = await EconomyConfigEngine_p2.getConfig();
+
         // 2. Create Verifiable Prediction Record
         transaction.set(predDoc, {
           id: predDoc.id,
@@ -269,7 +281,7 @@ export class PointTransactionEngine {
           symbol,
           direction,
           stakeAmount: amount,
-          rewardAmount: amount * 2, // Strictly enforce 2x Reward Model for initial prod
+          rewardAmount: amount * config_p2.rewards.predictionWinMultiplier,
           entryPrice,
           status: 'ACTIVE',
           claimId,
@@ -353,9 +365,12 @@ export class PointTransactionEngine {
           ? currentPrice > data.entryPrice
           : currentPrice < data.entryPrice;
 
-        // Use stored rewardAmount (2x model) or fallback to manual pool
-        const payout = isWin ? (data.rewardAmount || manualRewardPool || (data.stakeAmount * 2)) : 0;
-        const xpReward = isWin ? 250 : 50;
+        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+
+        // Use stored rewardAmount (2x model) or fallback to manual pool/config
+        const payout = isWin ? (data.rewardAmount || manualRewardPool || (data.stakeAmount * config.rewards.predictionWinMultiplier)) : 0;
+        const xpReward = isWin ? config.rewards.predictionXP.win : config.rewards.predictionXP.loss;
 
         const claimId = `res_${predictionId}`;
         const claimRef = doc(db, 'system_claims', claimId);

@@ -26,7 +26,6 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
-import { ECONOMY_RULES } from '../../../engines/points/EconomyAuthority';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
@@ -41,6 +40,8 @@ const OpsEconomy: React.FC = () => {
   });
 
   const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
+  const [economyConfig, setEconomyConfig] = React.useState<any>(null);
+  const [isConfiguring, setIsConfiguring] = React.useState(false);
 
   const [isAdjusting, setIsAdjusting] = React.useState(false);
   const [adjustForm, setAdjustForm] = React.useState({
@@ -90,10 +91,32 @@ const OpsEconomy: React.FC = () => {
       setRecentTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const fetchConfig = async () => {
+       const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
+       const config = await EconomyConfigEngine.getConfig();
+       setEconomyConfig(config);
+    };
+    fetchConfig();
+
     return () => {
       unsubscribeTx();
     };
   }, []);
+
+  const handleUpdateConfig = async (newConfig: any) => {
+     setIsSubmitting(true);
+     try {
+        const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
+        await EconomyConfigEngine.updateConfig(newConfig);
+        setEconomyConfig(newConfig);
+        toast.success('Global Economy Configuration Updated');
+        setIsConfiguring(false);
+     } catch (err) {
+        toast.error('Config Update Failure');
+     } finally {
+        setIsSubmitting(false);
+     }
+  };
 
   const handleAdjust = async () => {
      if (!adjustForm.userId || adjustForm.amount === 0) return toast.error('Authority requires complete vector data');
@@ -140,6 +163,12 @@ const OpsEconomy: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+             <button
+               onClick={() => setIsConfiguring(true)}
+               className="px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
+             >
+                <Settings size={14} /> Rebalance Economy
+             </button>
              <button
                onClick={() => setIsAdjusting(true)}
                className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
@@ -205,13 +234,16 @@ const OpsEconomy: React.FC = () => {
           <div className="space-y-8">
              <section className="bg-surface border border-border rounded-[2.5rem] p-10 shadow-2xl">
                 <h2 className="text-sm font-black uppercase tracking-[0.3em] text-text-tertiary flex items-center gap-3 mb-10">
-                   <Settings size={18} className="text-primary" /> Rules
+                   <Settings size={18} className="text-primary" /> Live Configuration
                 </h2>
                 <div className="space-y-4">
                    {[
-                     { label: 'Min Payout', value: `${ECONOMY_RULES.PAYOUTS.MIN_THRESHOLD.toLocaleString()} PTS` },
-                     { label: 'Daily Cap', value: `${ECONOMY_RULES.REWARDS.DAILY_LIMIT.toLocaleString()} PTS` },
-                     { label: 'Fraud THR', value: `${ECONOMY_RULES.FRAUD.VELOCITY_THRESHOLD.toLocaleString()} / HR` },
+                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 10} PTS` },
+                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPoints || 50} PTS` },
+                     { label: 'Win Multiplier', value: `${economyConfig?.rewards?.predictionWinMultiplier?.toFixed(1) || '2.0'}X` },
+                     { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },
+                     { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPoints || 10000).toLocaleString()} PTS` },
+                     { label: 'Daily Point Cap', value: `${(economyConfig?.security?.dailyRewardCap || 5000).toLocaleString()} PTS` },
                    ].map((item) => (
                      <div key={item.label} className="flex items-center justify-between p-5 rounded-2xl bg-surface-bright/50 border border-border group hover:border-primary/20 transition-all">
                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">{item.label}</p>
@@ -224,6 +256,84 @@ const OpsEconomy: React.FC = () => {
        </div>
 
        <AnimatePresence>
+          {isConfiguring && (
+             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setIsConfiguring(false)}
+                  className="absolute inset-0 bg-background/90 backdrop-blur-xl"
+                />
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0, y: 30 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 30 }}
+                  className="relative w-full max-w-2xl bg-surface border border-border-bright rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,1)] overflow-hidden flex flex-col"
+                >
+                   <div className="p-10 border-b border-border flex items-center justify-between bg-surface-bright/50">
+                      <div className="flex items-center gap-6">
+                         <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
+                            <Settings size={28} />
+                         </div>
+                         <div>
+                            <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Economy Rebalance</h3>
+                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Global Variable Control Matrix</p>
+                         </div>
+                      </div>
+                      <button onClick={() => setIsConfiguring(false)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
+                         <X size={24} />
+                      </button>
+                   </div>
+
+                   <div className="p-10 overflow-y-auto max-h-[70vh] space-y-12 no-scrollbar">
+                      <section className="space-y-6">
+                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Reward Coefficients</h4>
+                         <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login PTS</label>
+                               <input type="number" value={economyConfig.rewards.dailyLoginPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login XP</label>
+                               <input type="number" value={economyConfig.rewards.dailyLoginXP} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginXP: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral PTS</label>
+                               <input type="number" value={economyConfig.rewards.referralBonusPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Win Multiplier</label>
+                               <input type="number" step="0.1" value={economyConfig.rewards.predictionWinMultiplier} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, predictionWinMultiplier: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                         </div>
+                      </section>
+
+                      <section className="space-y-6">
+                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">System Thresholds</h4>
+                         <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Prediction Unlock (LVL)</label>
+                               <input type="number" value={economyConfig.thresholds.predictionUnlockLevel} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, predictionUnlockLevel: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Withdrawal PTS</label>
+                               <input type="number" value={economyConfig.thresholds.minWithdrawalPoints} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, minWithdrawalPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                         </div>
+                      </section>
+
+                      <div className="pt-6 flex gap-4">
+                         <Button onClick={() => handleUpdateConfig(economyConfig)} isLoading={isSubmitting} className="flex-1 py-6 rounded-2xl shadow-2xl font-black uppercase tracking-[0.2em] text-[11px]">
+                            Commit Global State
+                         </Button>
+                         <button onClick={() => setIsConfiguring(false)} className="px-10 py-6 rounded-2xl bg-surface-bright border border-border-bright text-text-tertiary hover:text-text-primary transition-colors font-black uppercase tracking-widest text-[10px]">
+                            Abort
+                         </button>
+                      </div>
+                   </div>
+                </motion.div>
+             </div>
+          )}
+
           {isAdjusting && (
              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <motion.div

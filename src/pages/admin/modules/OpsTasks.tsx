@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Zap,
   Search,
@@ -14,7 +15,8 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  where
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { Task } from '../../../types';
@@ -23,6 +25,9 @@ import toast from 'react-hot-toast';
 import TaskBuilderModal from './modals/TaskBuilderModal';
 
 const OpsTasks: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const campaignIdFilter = searchParams.get('campaignId');
+
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -30,13 +35,22 @@ const OpsTasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+    let q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+
+    if (campaignIdFilter) {
+       q = query(
+         collection(db, 'tasks'),
+         where('campaignId', '==', campaignIdFilter),
+         orderBy('createdAt', 'desc')
+       );
+    }
+
     const unsubscribe = onSnapshot(q, (snap) => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [campaignIdFilter]);
 
   const handleToggleStatus = async (task: Task) => {
     try {
@@ -71,9 +85,13 @@ const OpsTasks: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3">
                 <Zap size={20} className="text-primary" />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Task Library</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic">
+                  {campaignIdFilter ? 'Campaign Task Nodes' : 'Global Task Library'}
+                </h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Global repository of atomic reward vectors and verification logic.</p>
+             <p className="text-xs font-medium text-text-tertiary">
+               {campaignIdFilter ? `Viewing execution vectors linked to campaign: ${campaignIdFilter}` : 'Global repository of atomic reward vectors and verification logic.'}
+             </p>
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto">
@@ -87,7 +105,10 @@ const OpsTasks: React.FC = () => {
                 />
              </div>
              <button
-               onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
+               onClick={() => {
+                 setSelectedTask(campaignIdFilter ? { campaignId: campaignIdFilter } as any : null);
+                 setIsModalOpen(true);
+               }}
                className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
              >
                 <Plus size={18} />

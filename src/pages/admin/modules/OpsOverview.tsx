@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Target,
@@ -13,11 +14,12 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import { formatUSD } from '../../../utils/finance';
 
 const OpsOverview: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = React.useState({
     totalUsers: 0,
     activeCampaigns: 0,
@@ -31,6 +33,7 @@ const OpsOverview: React.FC = () => {
   });
   const [loading, setLoading] = React.useState(true);
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
+  const [recentLedger, setRecentLedger] = React.useState<any[]>([]);
 
   const fetchOperationalData = async () => {
     setLoading(true);
@@ -66,6 +69,13 @@ const OpsOverview: React.FC = () => {
       let totalPts = 0;
       liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
 
+      const ledgerSnap = await getDocs(query(
+        collection(db, 'system_claims'),
+        orderBy('executedAt', 'desc'),
+        limit(5)
+      ));
+      setRecentLedger(ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       setStats({
         totalUsers: usersCount.data().count,
         activeCampaigns: campaignsCount.data().count,
@@ -89,12 +99,19 @@ const OpsOverview: React.FC = () => {
     fetchOperationalData();
   }, []);
 
-  const metricItem = (label: string, value: string | number, icon: any, color: string) => (
-    <div className="bg-[#0A0A0F] border border-white/5 p-6 rounded-xl hover:border-white/10 transition-all group shadow-2xl">
+  const metricItem = (label: string, value: string | number, icon: any, color: string, path?: string) => (
+    <div
+      onClick={() => path && navigate(path)}
+      className={cn(
+        "bg-[#0A0A0F] border border-white/5 p-6 rounded-xl hover:border-white/10 transition-all group shadow-2xl",
+        path && "cursor-pointer hover:bg-white/[0.02]"
+      )}
+    >
        <div className="flex justify-between items-start mb-4">
           <div className={cn("p-2.5 rounded-lg bg-white/5 transition-transform group-hover:scale-110 shadow-inner", color)}>
              {React.createElement(icon, { size: 18 })}
           </div>
+          {path && <div className="text-[8px] font-black uppercase tracking-widest text-white/10 group-hover:text-primary transition-colors">View Details</div>}
        </div>
        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">{label}</p>
        <p className="text-2xl font-mono font-bold tracking-tighter">
@@ -130,10 +147,10 @@ const OpsOverview: React.FC = () => {
        </header>
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {metricItem('Total Identity Nodes', stats.totalUsers, Users, 'text-primary')}
-          {metricItem('24h Asset Volume', stats.volume24h, Activity, 'text-success')}
-          {metricItem('Global USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent')}
-          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400')}
+          {metricItem('Total Identity Nodes', stats.totalUsers, Users, 'text-primary', '/admin/users')}
+          {metricItem('24h Asset Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
+          {metricItem('Global USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
+          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
        </div>
 
        <div className="space-y-6">
@@ -142,9 +159,11 @@ const OpsOverview: React.FC = () => {
              Operational Priority Queues
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className={cn(
+             <div
+               onClick={() => navigate('/admin/withdrawals')}
+               className={cn(
                "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingWithdrawals > 0 ? "border-orange-500/20 hover:border-orange-500/40" : "border-white/5"
+               stats.pendingWithdrawals > 0 ? "border-orange-500/20 hover:border-orange-500/40" : "border-white/5 hover:border-white/10"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Settlement Pressure</p>
@@ -155,9 +174,11 @@ const OpsOverview: React.FC = () => {
                 <CreditCard size={32} className={cn("transition-all", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-white/5")} />
              </div>
 
-             <div className={cn(
+             <div
+               onClick={() => navigate('/admin/validation')}
+               className={cn(
                "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingVerifications > 0 ? "border-primary/20 hover:border-primary/40" : "border-white/5"
+               stats.pendingVerifications > 0 ? "border-primary/20 hover:border-primary/40" : "border-white/5 hover:border-white/10"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Validation Ingress</p>
@@ -168,9 +189,11 @@ const OpsOverview: React.FC = () => {
                 <ShieldCheck size={32} className={cn("transition-all", stats.pendingVerifications > 0 ? "text-primary" : "text-white/5")} />
              </div>
 
-             <div className={cn(
+             <div
+               onClick={() => navigate('/admin/support')}
+               className={cn(
                "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingSupport > 0 ? "border-indigo-500/20 hover:border-indigo-500/40" : "border-white/5"
+               stats.pendingSupport > 0 ? "border-indigo-500/20 hover:border-indigo-500/40" : "border-white/5 hover:border-white/10"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Support Signal Flux</p>
@@ -192,21 +215,30 @@ const OpsOverview: React.FC = () => {
                 </h3>
              </div>
              <div className="space-y-1">
-                {[1,2,3,4,5].map(i => (
-                   <div key={i} className="flex items-center justify-between p-5 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-all cursor-pointer group">
+                {recentLedger.length > 0 ? recentLedger.map((tx) => (
+                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-5 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-all cursor-pointer group">
                       <div className="flex items-center gap-5">
-                         <div className="w-1.5 h-1.5 rounded-full bg-primary/20 group-hover:bg-primary transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]" />
+                         <div className={cn(
+                           "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
+                           tx.amount >= 0 ? "bg-success" : "bg-danger"
+                         )} />
                          <div>
-                            <p className="text-xs font-bold text-white uppercase italic tracking-tight">System Node Settlement</p>
-                            <p className="text-[9px] font-mono text-white/20 uppercase mt-1">Hash Identifier: {Math.random().toString(36).substring(7).toUpperCase()}</p>
+                            <p className="text-xs font-bold text-white uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                            <p className="text-[9px] font-mono text-white/20 uppercase mt-1">Ref: {tx.id.slice(0, 12).toUpperCase()}</p>
                          </div>
                       </div>
                       <div className="text-right">
-                         <p className="text-xs font-mono font-bold text-primary italic">AUTHORIZED</p>
-                         <p className="text-[9px] font-mono text-white/10 uppercase mt-1">{new Date().toLocaleTimeString()}</p>
+                         <p className={cn("text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                           {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString()} PTS
+                         </p>
+                         <p className="text-[9px] font-mono text-white/10 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
                       </div>
                    </div>
-                ))}
+                )) : (
+                  <div className="py-20 text-center opacity-20 text-[10px] font-black uppercase tracking-widest">
+                    No active ledger signals
+                  </div>
+                )}
              </div>
           </div>
 
@@ -225,7 +257,10 @@ const OpsOverview: React.FC = () => {
                    <p className="text-xs text-text-tertiary leading-relaxed font-medium">Ops identifies <span className="text-danger font-bold">{stats.fraudAnomalies}</span> logic violations requiring administrative termination.</p>
                 </div>
              </div>
-             <button className="w-full py-5 mt-10 bg-danger/10 text-danger border border-danger/20 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-danger/20 transition-all italic">
+             <button
+               onClick={() => navigate('/admin/security')}
+               className="w-full py-5 mt-10 bg-danger/10 text-danger border border-danger/20 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-danger/20 transition-all italic"
+             >
                 Scan Threat Matrix
              </button>
           </div>

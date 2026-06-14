@@ -19,10 +19,7 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Search,
-  Command,
-  Terminal,
-  Globe
+  Terminal
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -186,28 +183,15 @@ const OpsLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <div className="flex items-center gap-6">
                <div className="lg:hidden flex items-center gap-3">
                   <Terminal size={20} className="text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Ops</span>
-               </div>
-               <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-white/[0.03] border border-white/10 rounded-lg text-white/20">
-                  <Search size={14} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Search System...</span>
-                  <div className="flex items-center gap-1 ml-4 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
-                     <Command size={10} />
-                     <span className="text-[9px]">K</span>
-                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Ops Control</span>
                </div>
             </div>
 
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-4 text-white/20">
                   <div className="flex items-center gap-1.5">
-                     <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                     <span className="text-[9px] font-mono uppercase tracking-widest">Global Link Active</span>
-                  </div>
-                  <div className="h-4 w-px bg-white/10" />
-                  <div className="flex items-center gap-2">
-                     <Globe size={14} />
-                     <span className="text-[9px] font-mono uppercase tracking-widest">PROD_V5.4.0</span>
+                     <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                     <span className="text-[9px] font-mono uppercase tracking-widest">System Online</span>
                   </div>
                </div>
                <button className="lg:hidden p-2 hover:bg-white/5 rounded" onClick={() => setIsMobileOpen(true)}>

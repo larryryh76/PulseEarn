@@ -215,10 +215,10 @@ const OpsCampaigns: React.FC = () => {
                          </button>
 
                          <button
-                           onClick={() => navigate(`/campaigns/${camp.id}`)}
+                           onClick={() => navigate(`/admin/tasks?campaignId=${camp.id}`)}
                            className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all group/btn"
                          >
-                            Ops Detail
+                            Manage Tasks
                             <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
                          </button>
                       </div>

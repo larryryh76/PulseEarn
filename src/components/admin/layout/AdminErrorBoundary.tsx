@@ -52,7 +52,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => window.location.href = '/admin/overview'}
-                className="px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all italic text-white/40"
+                className="px-6 py-4 bg-surface-glass border border-border rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-glass-hover transition-all italic text-text-tertiary"
               >
                 Ops Home
               </button>

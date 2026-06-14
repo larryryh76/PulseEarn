@@ -260,7 +260,7 @@ const Dashboard: React.FC = () => {
                            whileHover={{ y: -5 }}
                            className={cn(
                               "w-80 p-6 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group",
-                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-white/20"
+                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright"
                            )}
                            onClick={() => {
                               if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);

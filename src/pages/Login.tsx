@@ -66,7 +66,7 @@ const Login: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full"
         >
-          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] border-white/[0.08] shadow-2xl relative overflow-hidden">
+          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
 
             <AnimatePresence mode="wait">
@@ -97,7 +97,7 @@ const Login: React.FC = () => {
                           placeholder="name@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                           required
                         />
                       </div>
@@ -123,7 +123,7 @@ const Login: React.FC = () => {
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                           required
                         />
                         <button
@@ -178,7 +178,7 @@ const Login: React.FC = () => {
                           placeholder="name@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                           required
                         />
                       </div>
@@ -200,7 +200,7 @@ const Login: React.FC = () => {
               )}
             </AnimatePresence>
 
-            <div className="mt-10 pt-8 border-t border-white/[0.05] space-y-6">
+            <div className="mt-10 pt-8 border-t border-border-bright space-y-6">
               <div className="flex items-center justify-center gap-2 text-text-tertiary">
                  <ShieldCheck size={16} className="text-success/40" />
                  <span className="text-[10px] font-bold uppercase tracking-widest">Your connection is secure</span>

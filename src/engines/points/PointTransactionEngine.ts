@@ -280,7 +280,7 @@ export class PointTransactionEngine {
         });
 
         // 3. Mark Claim Nonce
-        transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, executedAt: serverTimestamp() });
+        transaction.set(claimRef, { userId, type: 'prediction_entry', claimId, amount: -amount, executedAt: serverTimestamp() });
 
         // 3.5 Activity Log (Handled via ActivityEngine post-transaction)
 
@@ -403,7 +403,7 @@ export class PointTransactionEngine {
         }
 
         // 4. Mark Nonce
-        transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, executedAt: serverTimestamp() });
+        transaction.set(claimRef, { userId, type: 'prediction_settlement', claimId, amount: payout, executedAt: serverTimestamp() });
 
         // 4.5 Activity Log (Handled via ActivityEngine post-transaction)
 

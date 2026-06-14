@@ -75,7 +75,7 @@ const VerifyEmail: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] border-white/[0.08] shadow-2xl relative overflow-hidden text-center">
+          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] relative overflow-hidden text-center">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
 
             <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8 shadow-xl">
@@ -106,7 +106,7 @@ const VerifyEmail: React.FC = () => {
                </button>
             </div>
 
-            <div className="mt-10 pt-8 border-t border-white/[0.05] space-y-6">
+            <div className="mt-10 pt-8 border-t border-border-bright space-y-6">
                <div className="grid grid-cols-1 gap-4 text-left">
                   <div className="flex gap-4 p-4 rounded-2xl bg-surface-bright border border-border">
                      <CheckCircle2 size={20} className="text-success shrink-0" />

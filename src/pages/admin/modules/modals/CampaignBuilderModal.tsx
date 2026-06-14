@@ -106,7 +106,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                    <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Strategic Reward Deployment Vector</p>
                 </div>
              </div>
-             <button onClick={onClose} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all flex items-center justify-center text-text-tertiary">
+             <button onClick={onClose} className="w-10 h-10 hover:bg-surface-glass rounded-xl transition-all flex items-center justify-center text-text-tertiary">
                 <X size={24} />
              </button>
           </div>
@@ -150,7 +150,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                             <button
                               type="button"
                               onClick={() => setFormData({...formData, featured: !formData.featured})}
-                              className={cn("flex-1 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all", formData.featured ? "bg-warning border-warning text-black" : "bg-white/5 border-border text-text-tertiary")}
+                              className={cn("flex-1 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all", formData.featured ? "bg-warning border-warning text-black" : "bg-surface-glass border-border text-text-tertiary")}
                             >
                                Featured
                             </button>
@@ -201,7 +201,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                         key={key} type="button"
                         onClick={() => setFormData({...formData, validationSettings: { ...formData.validationSettings!, [key]: !formData.validationSettings![key as keyof typeof formData.validationSettings] }})}
                         className={cn("px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
-                           formData.validationSettings?.[key as keyof typeof formData.validationSettings] ? "bg-primary border-primary text-text-primary" : "bg-white/5 border-border text-text-tertiary hover:text-text-primary"
+                           formData.validationSettings?.[key as keyof typeof formData.validationSettings] ? "bg-primary border-primary text-text-primary" : "bg-surface-glass border-border text-text-tertiary hover:text-text-primary"
                         )}
                       >
                          {key.replace(/([A-Z])/g, ' $1')}

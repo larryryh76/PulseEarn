@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  /* LIGHT MODE (DEFAULT) */
-  --background: #F8F9FD;
+  /* LIGHT MODE (PRODUCTION PREMIUM) */
+  --background: #F4F7FA;
   --surface: #FFFFFF;
-  --surface-bright: #F1F3F9;
-  --surface-accent: #E8EBF2;
+  --surface-bright: #E9EEF5;
+  --surface-accent: #DFE5F0;
 
   --primary: #5E6AD2;
   --primary-bright: #4B55C4;
@@ -15,19 +15,22 @@
   --danger: #EF4444;
   --warning: #F59E0B;
 
-  --border: rgba(0, 0, 0, 0.06);
-  --border-bright: rgba(0, 0, 0, 0.12);
+  --border: rgba(0, 0, 0, 0.05);
+  --border-bright: rgba(0, 0, 0, 0.1);
+
+  --surface-glass: rgba(0, 0, 0, 0.03);
+  --surface-glass-hover: rgba(0, 0, 0, 0.06);
 
   --text-primary: #0F172A;
   --text-secondary: #475569;
   --text-tertiary: #94A3B8;
 
-  --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.05);
-  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.02);
+  --shadow-premium: 0 20px 50px rgba(0, 0, 0, 0.08);
+  --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .dark {
-  /* DARK MODE OVERRIDES */
+  /* DARK MODE (PRODUCTION PREMIUM) */
   --background: #08080C;
   --surface: #12121A;
   --surface-bright: #1A1A24;
@@ -36,15 +39,23 @@
   --primary: #5E6AD2;
   --primary-bright: #707DFF;
 
+  --accent: #635BFF;
+  --success: #10B981;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+
   --border: rgba(255, 255, 255, 0.08);
   --border-bright: rgba(255, 255, 255, 0.15);
+
+  --surface-glass: rgba(255, 255, 255, 0.05);
+  --surface-glass-hover: rgba(255, 255, 255, 0.1);
 
   --text-primary: #FFFFFF;
   --text-secondary: #A1A1AA;
   --text-tertiary: #71717A;
 
-  --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.5);
-  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-premium: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 @theme {
@@ -67,6 +78,9 @@
   --color-border: var(--border);
   --color-border-bright: var(--border-bright);
 
+  --color-surface-glass: var(--surface-glass);
+  --color-surface-glass-hover: var(--surface-glass-hover);
+
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
@@ -76,8 +90,8 @@
   --font-mono: "JetBrains Mono", monospace;
 
   /* SHADOWS & EFFECTS */
-  --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.5);
-  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-premium: var(--shadow-premium);
+  --shadow-subtle: var(--shadow-subtle);
 }
 
 @layer base {
@@ -94,24 +108,24 @@
 
   /* SYSTEM TYPOGRAPHY HIERARCHY */
   h1 {
-    @apply text-[32px] md:text-[40px] font-bold tracking-[-0.03em] leading-[1.1] text-text-primary;
+    @apply text-[32px] md:text-[48px] font-extrabold tracking-[-0.03em] leading-[1.05] text-text-primary;
   }
 
   h2 {
-    @apply text-[20px] md:text-[24px] font-semibold tracking-[-0.02em] leading-[1.2] text-text-primary;
+    @apply text-[22px] md:text-[28px] font-bold tracking-[-0.02em] leading-[1.1] text-text-primary;
   }
 
   h3 {
-    @apply text-[16px] md:text-[18px] font-semibold tracking-tight text-text-primary;
+    @apply text-[16px] md:text-[20px] font-bold tracking-tight text-text-primary;
   }
 
   p {
-    @apply text-[14px] md:text-[15px] leading-[1.6] text-text-secondary font-medium;
+    @apply text-[14px] md:text-[16px] leading-[1.6] text-text-secondary font-medium;
   }
 
   /* INPUT SYSTEM */
   input, select, textarea {
-    @apply bg-surface border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200;
+    @apply bg-surface border border-border rounded-2xl px-5 py-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all duration-300;
   }
 
   button {
@@ -122,69 +136,56 @@
 @layer components {
   /* OPERATIONAL SURFACES */
   .system-card {
-    @apply bg-surface border border-border rounded-2xl p-8 shadow-subtle transition-all duration-300 hover:border-border-bright hover:shadow-premium;
+    @apply bg-surface border border-border rounded-[2.5rem] p-10 shadow-subtle transition-all duration-500 hover:border-border-bright hover:shadow-premium;
   }
 
   .system-card-compact {
-    @apply bg-surface border border-border rounded-xl p-5 shadow-subtle transition-all duration-200 hover:border-border-bright;
+    @apply bg-surface border border-border rounded-2xl p-6 shadow-subtle transition-all duration-300 hover:border-border-bright;
   }
 
   .system-modal {
-    @apply bg-surface border border-border-bright rounded-[2rem] shadow-premium overflow-hidden;
+    @apply bg-surface border border-border-bright rounded-[3rem] shadow-premium overflow-hidden;
   }
 
   /* BUTTON SYSTEM */
   .btn-system-primary {
-    @apply bg-white text-black px-6 py-3 rounded-xl font-bold text-[11px] uppercase tracking-[0.1em] transition-all hover:bg-white/90 shadow-lg shadow-white/5;
+    @apply bg-text-primary text-background px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all hover:opacity-90 shadow-xl shadow-primary/10;
   }
 
   .btn-system-secondary {
-    @apply bg-surface-bright text-white px-6 py-3 rounded-xl font-bold text-[11px] uppercase tracking-[0.1em] border border-border hover:bg-surface-accent transition-all;
+    @apply bg-surface-bright text-text-primary px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] border border-border hover:bg-surface-accent transition-all;
   }
 
   .btn-system-ghost {
-    @apply text-text-secondary px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider hover:bg-white/5 hover:text-white transition-all;
+    @apply text-text-secondary px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-surface-bright hover:text-text-primary transition-all;
   }
 
   /* BADGE SYSTEM */
   .badge-system {
-    @apply px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-surface-bright border border-border text-text-secondary;
+    @apply px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest bg-surface-bright border border-border text-text-secondary;
   }
 
   .badge-primary {
     @apply bg-primary/10 border border-primary/20 text-primary;
   }
 
-  /* NAVIGATION PATTERNS */
-  .nav-item {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200;
-  }
-
-  .nav-item-active {
-    @apply bg-white/5 text-white border border-white/10;
-  }
-
-  .nav-item-inactive {
-    @apply text-text-tertiary hover:text-text-secondary hover:bg-white/[0.02];
-  }
-
   /* DATA & LABELS */
   .data-label {
-    @apply text-[10px] font-bold text-text-tertiary uppercase tracking-[0.15em] mb-1;
+    @apply text-[10px] font-black text-text-tertiary uppercase tracking-[0.25em] mb-1.5;
   }
 
   .data-mono {
-    @apply font-mono text-[12px] text-white tracking-tight font-medium;
+    @apply font-mono text-[12px] text-text-primary tracking-tight font-bold;
   }
 
   .ledger-row {
-    @apply flex items-center justify-between py-4 border-b border-border last:border-0 hover:bg-white/[0.01] px-4 -mx-4 rounded-xl transition-colors;
+    @apply flex items-center justify-between py-6 border-b border-border last:border-0 hover:bg-surface-bright px-6 -mx-6 rounded-[1.5rem] transition-all;
   }
 }
 
 /* UTILITIES */
 .transition-smooth {
-  @apply transition-all duration-300;
+  @apply transition-all duration-500;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -197,5 +198,13 @@
 }
 
 .glass-surface {
-  @apply bg-surface/80 backdrop-blur-xl border border-white/10;
+  @apply bg-surface/70 backdrop-blur-2xl border border-border;
+}
+
+  .glass-card {
+    @apply bg-surface/60 backdrop-blur-xl border border-border-bright shadow-premium;
+  }
+
+.hero-gradient {
+  background: radial-gradient(circle at top center, var(--primary), transparent 70%);
 }

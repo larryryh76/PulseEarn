@@ -155,6 +155,9 @@ const Predictions: React.FC = () => {
 
       toast.success('Position Opened Successfully');
       setPrediction(null);
+
+      // Update history and navigate to Portfolio to prevent double-submit and show confirmation
+      setTerminalView('PORTFOLIO');
       setSelectedMarketId(null);
     } catch (err: any) {
       toast.error(err.message || 'Submission failed.');
@@ -434,7 +437,7 @@ const Predictions: React.FC = () => {
                                         onClick={() => setStake(opt)}
                                         className={cn(
                                           "px-4 py-2.5 rounded-xl border text-[10px] font-mono font-bold transition-all",
-                                          stake === opt ? "bg-primary border-primary text-text-primary shadow-lg shadow-primary/20" : "bg-surface-accent border-border-bright text-text-primary/30 hover:border-white/20"
+                                          stake === opt ? "bg-primary border-primary text-text-primary shadow-lg shadow-primary/20" : "bg-surface-accent border-border-bright text-text-primary/30 hover:border-border-bright transition-colors"
                                         )}
                                       >
                                          {opt}
@@ -502,7 +505,7 @@ const Predictions: React.FC = () => {
                              <motion.div
                                key={market.id}
                                whileHover={{ y: -5 }}
-                               onClick={() => { setSelectedMarketId(market.id); setPrediction(null); window.scrollTo(0,0); }}
+                               onClick={() => { setSelectedMarketId(market.id); setPrediction(null); }}
                                className="group p-8 rounded-[2.5rem] bg-surface border border-border hover:border-primary/40 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-2xl"
                              >
                                 <div className="flex justify-between items-start">

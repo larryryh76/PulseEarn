@@ -106,7 +106,7 @@ const Notifications: React.FC = () => {
             )}
           </div>
 
-          <div className="flex bg-surface-accent p-1 rounded-xl border border-white/[0.05] w-full sm:w-fit">
+          <div className="flex bg-surface-accent p-1 rounded-xl border border-border w-full sm:w-fit">
               <button
                 onClick={() => setTab('ALERTS')}
                 className={cn(

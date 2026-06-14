@@ -45,7 +45,7 @@ const Features: React.FC = () => {
   ];
 
   return (
-    <section id="features" className="py-24 relative overflow-hidden bg-[#050507]">
+    <section id="features" className="py-24 md:py-32 relative overflow-hidden bg-background">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-8 mb-12 md:mb-16 text-center md:text-left">
           <div className="max-w-2xl">
@@ -61,10 +61,10 @@ const Features: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-4xl sm:text-5xl md:text-6xl font-bold text-text-primary tracking-tight"
+              className="text-4xl sm:text-5xl md:text-7xl font-black text-text-primary tracking-tighter uppercase italic leading-[1]"
             >
               Simple. Fast. <br className="hidden sm:block" />
-              <span className="text-text-secondary">Rewarding.</span>
+              <span className="text-text-tertiary opacity-30">Rewarding.</span>
             </motion.h2>
           </div>
           <motion.div
@@ -83,16 +83,16 @@ const Features: React.FC = () => {
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: index * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Card className="h-full border border-border bg-surface-bright/50 hover:bg-surface-accent hover:border-primary/20 transition-all duration-500 rounded-3xl p-8 md:p-10 group relative overflow-hidden">
+              <Card className="h-full border border-border bg-surface-bright/30 backdrop-blur-sm hover:bg-surface transition-all duration-700 rounded-[2.5rem] p-8 md:p-10 group relative overflow-hidden hover:border-primary/20 hover:shadow-premium">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 md:mb-8 bg-white/5 border border-border-bright group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors",
+                  "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 md:mb-8 bg-surface-glass border border-border-bright group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors",
                   feature.color
                 )}>
                   <feature.icon size={24} />

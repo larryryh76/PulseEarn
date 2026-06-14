@@ -96,12 +96,12 @@ const OpsTasks: React.FC = () => {
 
           <div className="flex items-center gap-4 w-full md:w-auto">
              <div className="relative flex-1 md:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Scan library by Title or ID..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
              <button
@@ -109,7 +109,7 @@ const OpsTasks: React.FC = () => {
                  setSelectedTask(campaignIdFilter ? { campaignId: campaignIdFilter } as any : null);
                  setIsModalOpen(true);
                }}
-               className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+               className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
              >
                 <Plus size={18} />
                 Create Vector
@@ -117,50 +117,50 @@ const OpsTasks: React.FC = () => {
           </div>
        </header>
 
-       <div className="bg-[#0A0A0F] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
+       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
                 <thead>
-                   <tr className="bg-white/[0.02] border-b border-white/5 whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Instruction Node</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Verification</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Provision</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Status</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 text-right">Ops</th>
+                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Instruction Node</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Verification</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Provision</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
                    {loading ? (
-                      [1,2,3,4,5].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-white/5 rounded w-full" /></td></tr>)
+                      [1,2,3,4,5].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((task) => (
-                      <tr key={task.id} className="group hover:bg-white/[0.01] transition-colors whitespace-nowrap">
+                      <tr key={task.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
                          <td className="p-8">
                             <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/20 group-hover:text-primary transition-all">
+                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all">
                                   <Zap size={18} />
                                </div>
                                <div>
-                                  <p className="text-sm font-bold text-white uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
-                                  <p className="text-[9px] font-mono text-white/20 mt-1">Ref: {task.id.slice(0, 16).toUpperCase()}</p>
+                                  <p className="text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
+                                  <p className="text-[9px] font-mono text-text-tertiary mt-1">Ref: {task.id.slice(0, 16).toUpperCase()}</p>
                                </div>
                             </div>
                          </td>
                          <td className="p-8">
                             <div className="flex items-center gap-2">
                                <MousePointer2 size={12} className="text-indigo-400" />
-                               <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{task.verificationType}</span>
+                               <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
                             </div>
                          </td>
                          <td className="p-8">
                             <div className="flex items-center gap-5">
                                <div>
                                   <p className="text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-white/10">Points</p>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">Points</p>
                                </div>
-                               <div className="w-px h-6 bg-white/5" />
+                               <div className="w-px h-6 bg-surface-bright" />
                                <div>
                                   <p className="text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-white/10">XP</p>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">XP</p>
                                </div>
                             </div>
                          </td>
@@ -169,7 +169,7 @@ const OpsTasks: React.FC = () => {
                               onClick={() => handleToggleStatus(task)}
                               className={cn(
                                 "px-3 py-1 rounded text-[9px] font-black uppercase tracking-[0.2em] border",
-                                task.active ? "bg-success/10 text-success border-success/20" : "bg-white/5 text-white/20 border-white/10"
+                                task.active ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
                               )}
                             >
                                {task.active ? 'Active' : 'Suspended'}
@@ -179,13 +179,13 @@ const OpsTasks: React.FC = () => {
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                <button
                                  onClick={() => { setSelectedTask(task); setIsModalOpen(true); }}
-                                 className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all"
+                                 className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all"
                                >
                                   <Edit3 size={16} />
                                </button>
                                <button
                                  onClick={() => handleDelete(task)}
-                                 className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-danger transition-all"
+                                 className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all"
                                >
                                   <Trash2 size={16} />
                                </button>
@@ -197,9 +197,9 @@ const OpsTasks: React.FC = () => {
              </table>
           </div>
           {filtered.length === 0 && !loading && (
-             <div className="py-32 text-center border-t border-white/5">
-                <Zap size={48} className="mx-auto text-white/5 mb-6" />
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20">Empty Vector Registry</p>
+             <div className="py-32 text-center border-t border-border">
+                <Zap size={48} className="mx-auto text-text-primary/5 mb-6" />
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-text-tertiary">Empty Vector Registry</p>
              </div>
           )}
        </div>

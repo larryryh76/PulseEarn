@@ -86,15 +86,15 @@ const Signup: React.FC = () => {
                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 shadow-xl">
                   <UserPlus className="text-primary" size={32} />
                </div>
-               <h1 className="text-3xl font-bold mb-2 tracking-tight text-white">Create Account</h1>
-               <p className="text-white/40 text-sm font-medium">Join PulseEarn and start earning rewards</p>
+               <h1 className="text-3xl font-bold mb-2 tracking-tight text-text-primary">Create Account</h1>
+               <p className="text-text-secondary text-sm font-medium">Join PulseEarn and start earning rewards</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Username</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Username</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
                     <User size={18} />
                   </div>
                   <input
@@ -103,16 +103,16 @@ const Signup: React.FC = () => {
                     placeholder="Choose a username"
                     value={formData.username}
                     onChange={handleChange}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Email</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Email</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
                     <Mail size={18} />
                   </div>
                   <input
@@ -121,16 +121,16 @@ const Signup: React.FC = () => {
                     placeholder="name@example.com"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Password</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Password</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
                     <Lock size={18} />
                   </div>
                   <input
@@ -139,13 +139,13 @@ const Signup: React.FC = () => {
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-12 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -154,7 +154,7 @@ const Signup: React.FC = () => {
                 {/* Strength Meter */}
                 {formData.password && (
                   <div className="px-1 pt-1.5 space-y-1.5">
-                    <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest text-white/20">
+                    <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest text-text-tertiary">
                        <span>Security Strength</span>
                        <span className={cn(
                           passwordStrength <= 25 ? "text-danger" :
@@ -166,7 +166,7 @@ const Signup: React.FC = () => {
                            passwordStrength <= 75 ? 'Good' : 'Strong'}
                        </span>
                     </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden flex gap-0.5">
+                    <div className="h-1 bg-surface-bright rounded-full overflow-hidden flex gap-0.5">
                        <div className={cn("h-full transition-all duration-500", passwordStrength >= 25 ? "bg-danger" : "bg-transparent")} style={{ width: '25%' }} />
                        <div className={cn("h-full transition-all duration-500", passwordStrength >= 50 ? "bg-orange-500" : "bg-transparent")} style={{ width: '25%' }} />
                        <div className={cn("h-full transition-all duration-500", passwordStrength >= 75 ? "bg-primary" : "bg-transparent")} style={{ width: '25%' }} />
@@ -177,9 +177,9 @@ const Signup: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Confirm Password</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Confirm Password</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
                     <Lock size={18} />
                   </div>
                   <input
@@ -188,7 +188,7 @@ const Signup: React.FC = () => {
                     placeholder="Repeat your password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
                     required
                   />
                 </div>
@@ -196,11 +196,11 @@ const Signup: React.FC = () => {
 
               <div className="space-y-1.5 pt-2">
                 <div className="flex justify-between items-center px-1">
-                   <label className="text-[10px] font-bold uppercase tracking-widest text-white/30">Referral Code</label>
-                   <span className="text-[8px] font-bold text-white/10 uppercase tracking-widest">Optional</span>
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30">Referral Code</label>
+                   <span className="text-[8px] font-bold text-text-tertiary/50 uppercase tracking-widest">Optional</span>
                 </div>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
                     <ShieldCheck size={18} />
                   </div>
                   <input
@@ -209,7 +209,7 @@ const Signup: React.FC = () => {
                     placeholder="PULSE-XXXX"
                     value={formData.referralCode}
                     onChange={handleChange}
-                    className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-mono"
+                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-mono"
                   />
                 </div>
               </div>
@@ -231,13 +231,13 @@ const Signup: React.FC = () => {
 
             <div className="mt-8 pt-8 border-t border-white/[0.05] space-y-6">
               <div className="flex flex-col gap-4 items-center">
-                <p className="text-white/40 text-xs font-medium text-center">
-                  By signing up, you agree to our <span className="text-white/60 underline cursor-pointer">Terms</span> and <span className="text-white/60 underline cursor-pointer">Privacy Policy</span>
+                <p className="text-text-secondary text-xs font-medium text-center">
+                  By signing up, you agree to our <span className="text-text-secondary underline cursor-pointer">Terms</span> and <span className="text-text-secondary underline cursor-pointer">Privacy Policy</span>
                 </p>
-                <p className="text-white/40 text-xs font-medium">
+                <p className="text-text-secondary text-xs font-medium">
                   Already have an account? <Link to="/login" className="text-primary hover:text-accent transition-colors font-bold ml-1">Log in</Link>
                 </p>
-                <Link to="/" className="text-white/20 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">Back to Home</Link>
+                <Link to="/" className="text-text-tertiary hover:text-text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Back to Home</Link>
               </div>
             </div>
           </div>

@@ -77,7 +77,7 @@ const Notifications: React.FC = () => {
                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Updates Hub</span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-white flex items-center gap-4">
+            <h1 className="text-4xl font-bold tracking-tight text-text-primary flex items-center gap-4">
               Notifications
               {unreadCount > 0 && (
                 <div className="badge-system badge-primary h-6 px-3 flex items-center text-[9px]">
@@ -99,19 +99,19 @@ const Notifications: React.FC = () => {
                 Mark All as Read
               </Button>
             ) : (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-bright border border-border">
                  <ActivityIcon size={14} className="text-primary" />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{activities.length} Events Logged</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">{activities.length} Events Logged</span>
               </div>
             )}
           </div>
 
-          <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] w-full sm:w-fit">
+          <div className="flex bg-surface-accent p-1 rounded-xl border border-white/[0.05] w-full sm:w-fit">
               <button
                 onClick={() => setTab('ALERTS')}
                 className={cn(
                   "flex-1 sm:flex-none px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                  tab === 'ALERTS' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                  tab === 'ALERTS' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-text-primary"
                 )}
               >
                 Alerts
@@ -120,7 +120,7 @@ const Notifications: React.FC = () => {
                 onClick={() => setTab('ACTIVITY')}
                 className={cn(
                   "flex-1 sm:flex-none px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                  tab === 'ACTIVITY' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                  tab === 'ACTIVITY' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-text-primary"
                 )}
               >
                 Activity
@@ -158,7 +158,7 @@ const Notifications: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <h3 className={cn(
                           "text-sm font-bold tracking-tight transition-colors",
-                          !notification.read ? "text-white" : "text-text-secondary"
+                          !notification.read ? "text-text-primary" : "text-text-secondary"
                         )}>{notification.title}</h3>
                         <span className="text-[9px] font-mono font-bold text-text-tertiary uppercase">
                           {notification.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -185,7 +185,7 @@ const Notifications: React.FC = () => {
                   <ShieldAlert size={24} />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-white">All Caught Up</h2>
+                  <h2 className="text-lg font-bold text-text-primary">All Caught Up</h2>
                   <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">No new alerts at this time</p>
                 </div>
               </div>
@@ -202,10 +202,10 @@ const Notifications: React.FC = () => {
               >
                 <Card
                   variant="compact"
-                  className="p-6 flex items-center gap-5 cursor-pointer transition-all hover:border-primary/20 bg-[#0A0A0F] border-white/5"
+                  className="p-6 flex items-center gap-5 cursor-pointer transition-all hover:border-primary/20 bg-surface border-border"
                 >
                   <div className={cn(
-                    "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all bg-white/[0.02] border-white/10 text-white/20 group-hover:text-primary",
+                    "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all bg-surface-bright border-border-bright text-text-tertiary group-hover:text-primary",
                   )}>
                     {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
                       activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
@@ -214,7 +214,7 @@ const Notifications: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold tracking-tight text-white group-hover:text-primary transition-colors truncate uppercase italic leading-none">
+                      <h3 className="text-sm font-bold tracking-tight text-text-primary group-hover:text-primary transition-colors truncate uppercase italic leading-none">
                         {activity.description}
                       </h3>
                       <span className="text-[9px] font-mono font-bold text-text-tertiary uppercase">
@@ -237,7 +237,7 @@ const Notifications: React.FC = () => {
                 <ActivityIcon size={24} />
               </div>
               <div className="space-y-1">
-                <h2 className="text-lg font-bold text-white">No Activity</h2>
+                <h2 className="text-lg font-bold text-text-primary">No Activity</h2>
                 <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Your interaction ledger is empty</p>
               </div>
             </div>
@@ -254,25 +254,25 @@ const Notifications: React.FC = () => {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedActivity(null)}
-               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
              />
              <motion.div
                initial={{ scale: 0.95, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg">
                         <ActivityIcon size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Activity Log</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Activity Log</p>
+                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                       <X size={18} />
                    </button>
                 </div>
@@ -282,16 +282,16 @@ const Notifications: React.FC = () => {
                       <div className="flex items-center gap-2 text-text-tertiary mb-2">
                          <Calendar size={12} className="text-primary/40" />
                          <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                         <span className="text-white/10">•</span>
+                         <span className="text-text-tertiary/50">•</span>
                          <Clock size={12} className="text-primary/40" />
                          <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
                    </div>
 
-                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                   <div className="bg-surface-bright border border-border rounded-2xl overflow-hidden divide-y divide-white/5">
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Transaction Yield</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Transaction Yield</span>
                          <div className="flex items-baseline gap-1.5">
                             <span className={cn("text-xl font-mono font-bold", selectedActivity.points >= 0 ? "text-success" : "text-danger")}>
                                {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points.toLocaleString()}
@@ -302,14 +302,14 @@ const Notifications: React.FC = () => {
 
                       {selectedActivity.metadata?.symbol && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Asset Index</span>
-                            <span className="text-xs font-bold text-white uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Asset Index</span>
+                            <span className="text-xs font-bold text-text-primary uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
                          </div>
                       )}
 
                       {selectedActivity.metadata?.direction && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Forecast Vector</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Forecast Vector</span>
                             <div className="flex items-center gap-2">
                                {selectedActivity.metadata.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
                                <span className={cn("text-xs font-bold uppercase tracking-widest", selectedActivity.metadata.direction === 'UP' ? "text-success" : "text-danger")}>{selectedActivity.metadata.direction}</span>
@@ -319,31 +319,31 @@ const Notifications: React.FC = () => {
 
                       {selectedActivity.metadata?.entryPrice && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Execution Price</span>
-                            <span className="text-xs font-mono font-bold text-white">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Execution Price</span>
+                            <span className="text-xs font-mono font-bold text-text-primary">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
                          </div>
                       )}
 
                       {selectedActivity.metadata?.taskName && (
                          <div className="p-5 flex justify-between items-start gap-4">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
-                            <span className="text-[11px] font-bold text-white uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
+                            <span className="text-[11px] font-bold text-text-primary uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
                          </div>
                       )}
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Ledger Status</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Ledger Status</span>
                          <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Confirmed</span>
+                            <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">Confirmed</span>
                          </div>
                       </div>
                    </div>
 
                    <div className="space-y-4">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Reference ID</span>
-                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Reference ID</span>
+                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
                       </div>
                       {(selectedActivity.type.includes('prediction') ||
                         selectedActivity.type.includes('campaign') ||
@@ -373,8 +373,8 @@ const Notifications: React.FC = () => {
                    </div>
                 </div>
 
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
+                <div className="p-8 bg-background border-t border-border flex justify-center">
+                   <p className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
                 </div>
              </motion.div>
           </div>

@@ -57,24 +57,24 @@ const DailyRewardsPreview: React.FC = () => {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <Card className="flex items-center gap-6 p-6 border border-white/5 bg-white/[0.01] group hover:bg-white/[0.03] hover:border-primary/20 transition-all rounded-3xl">
-                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/5 group-hover:bg-primary/10 group-hover:border-primary/20 transition-all", reward.color)}>
+                  <Card className="flex items-center gap-6 p-6 border border-border bg-surface-bright/50 group hover:bg-surface-accent hover:border-primary/20 transition-all rounded-3xl">
+                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all", reward.color)}>
                       <reward.icon size={24} />
                     </div>
                     <div className="flex-grow">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-bold text-base text-white">{reward.title}</h4>
+                        <h4 className="font-bold text-base text-text-primary">{reward.title}</h4>
                         <span className="px-2 py-0.5 rounded-md bg-success/10 border border-success/20 text-success text-[8px] font-bold uppercase tracking-widest">
                           {reward.status}
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-white/40 text-xs font-bold">{reward.amount}</span>
+                        <span className="font-mono text-text-secondary text-xs font-bold">{reward.amount}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => navigate('/signup')}
-                      className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-white/20 group-hover:text-white group-hover:bg-primary group-hover:border-primary transition-all"
+                      className="w-10 h-10 rounded-xl bg-surface-accent border border-border-bright flex items-center justify-center text-text-tertiary group-hover:text-text-primary group-hover:bg-primary group-hover:border-primary transition-all"
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -95,11 +95,11 @@ const DailyRewardsPreview: React.FC = () => {
                 <Gift size={16} className="text-primary" />
                 Daily Rewards
               </div>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight">
                 Grow Your <br className="hidden sm:block" />
-                <span className="text-white/20">Earnings Daily.</span>
+                <span className="text-text-tertiary">Earnings Daily.</span>
               </h2>
-              <p className="text-white/60 text-base sm:text-lg font-medium max-w-xl leading-relaxed">
+              <p className="text-text-secondary text-base sm:text-lg font-medium max-w-xl leading-relaxed">
                 Our platform provides daily earning opportunities. Complete tasks and see your balance grow in real-time.
               </p>
 
@@ -110,12 +110,12 @@ const DailyRewardsPreview: React.FC = () => {
                   { step: '03', title: 'Get Paid', desc: 'Earn points and redeem them for rewards.' }
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-6 group">
-                    <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors">
+                    <div className="w-12 h-12 rounded-2xl bg-surface-bright border border-border flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors">
                       <span className="text-xs font-bold text-primary font-mono">{item.step}</span>
                     </div>
                     <div className="space-y-1">
-                      <h4 className="font-bold text-[13px] text-white uppercase tracking-wider">{item.title}</h4>
-                      <p className="text-white/30 text-[11px] font-medium uppercase tracking-tighter">{item.desc}</p>
+                      <h4 className="font-bold text-[13px] text-text-primary uppercase tracking-wider">{item.title}</h4>
+                      <p className="text-text-primary/30 text-[11px] font-medium uppercase tracking-tighter">{item.desc}</p>
                     </div>
                   </div>
                 ))}

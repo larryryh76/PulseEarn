@@ -106,14 +106,14 @@ const OpsWithdrawals: React.FC = () => {
              <p className="text-xs font-medium text-text-tertiary">Strategic asset settlement management and user payout authorization.</p>
           </div>
 
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+          <div className="flex bg-surface-bright p-1 rounded-xl border border-border">
              {['PENDING', 'APPROVED', 'REJECTED', 'PAID'].map((s) => (
                 <button
                   key={s}
                   onClick={() => setFilter(s as any)}
                   className={cn(
                     "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                    filter === s ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-white/20 hover:text-white"
+                    filter === s ? "bg-primary text-text-primary shadow-lg shadow-primary/20" : "text-text-tertiary hover:text-text-primary"
                   )}
                 >
                    {s}
@@ -123,15 +123,15 @@ const OpsWithdrawals: React.FC = () => {
        </header>
 
        {/* QUEUE TABLE */}
-       <div className="bg-[#0A0A0F] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="p-8 border-b border-white/5 bg-white/[0.01]">
+       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
+          <div className="p-8 border-b border-border bg-surface-bright/50">
              <div className="relative group w-full md:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Scan queue by Email or Wallet..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
           </div>
@@ -139,38 +139,38 @@ const OpsWithdrawals: React.FC = () => {
           <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
                 <thead>
-                   <tr className="bg-white/[0.02] border-b border-white/5 whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Target Identity</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Asset Value</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Destination Node</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 text-right">Ops</th>
+                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Target Identity</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Asset Value</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Destination Node</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
                    {loading ? (
-                      [1,2,3,4].map(i => <tr key={i} className="animate-pulse"><td colSpan={4} className="p-12"><div className="h-4 bg-white/5 rounded w-full" /></td></tr>)
+                      [1,2,3,4].map(i => <tr key={i} className="animate-pulse"><td colSpan={4} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((req) => (
-                      <tr key={req.id} className="group hover:bg-white/[0.01] transition-colors whitespace-nowrap">
+                      <tr key={req.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
                          <td className="p-8">
                             <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-white/10">
+                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50">
                                   <User size={18} />
                                </div>
                                <div>
-                                  <p className="text-sm font-bold text-white uppercase italic">{req.username}</p>
-                                  <p className="text-[10px] font-mono text-white/20 mt-1 uppercase tracking-widest">{req.userEmail}</p>
+                                  <p className="text-sm font-bold text-text-primary uppercase italic">{req.username}</p>
+                                  <p className="text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{req.userEmail}</p>
                                </div>
                             </div>
                          </td>
                          <td className="p-8">
                             <div>
-                               <p className="text-sm font-mono font-bold text-white">{req.amountPoints.toLocaleString()} PTS</p>
+                               <p className="text-sm font-mono font-bold text-text-primary">{req.amountPoints.toLocaleString()} PTS</p>
                                <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1 italic">{formatUSD(req.amountUSD)} VALUATION</p>
                             </div>
                          </td>
                          <td className="p-8">
                             <div className="space-y-1.5">
-                               <p className="text-[10px] font-mono text-white/40 uppercase tracking-tighter truncate max-w-[200px]">{req.walletAddress}</p>
+                               <p className="text-[10px] font-mono text-text-secondary uppercase tracking-tighter truncate max-w-[200px]">{req.walletAddress}</p>
                                <div className="flex items-center gap-2">
                                   <div className="w-1 h-1 rounded-full bg-primary shadow-[0_0_5px_rgba(0,102,255,1)]" />
                                   <span className="text-[9px] font-black uppercase tracking-widest text-primary">{req.network}</span>
@@ -200,13 +200,13 @@ const OpsWithdrawals: React.FC = () => {
                                {req.status === 'APPROVED' && (
                                   <button
                                     onClick={() => handleAction(req.id, 'PAID', req.userId)}
-                                    className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
+                                    className="px-6 py-3 bg-primary text-text-primary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
                                   >
                                      Confirm Payout
                                   </button>
                                )}
                                {req.status === 'PAID' && (
-                                  <div className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/20 italic">
+                                  <div className="px-6 py-3 bg-surface-bright border border-border-bright rounded-xl text-[10px] font-black uppercase tracking-widest text-text-tertiary italic">
                                      Settlement Closed
                                   </div>
                                )}
@@ -218,10 +218,10 @@ const OpsWithdrawals: React.FC = () => {
              </table>
           </div>
           {filtered.length === 0 && !loading && (
-             <div className="py-40 text-center border-t border-white/5 opacity-40">
-                <CreditCard size={48} className="mx-auto text-white/5 mb-6" />
+             <div className="py-40 text-center border-t border-border opacity-40">
+                <CreditCard size={48} className="mx-auto text-text-primary/5 mb-6" />
                 <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary">Queue Clear</h3>
-                <p className="text-[10px] font-mono text-white/10 uppercase tracking-widest mt-2">No active settlement requests identified</p>
+                <p className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest mt-2">No active settlement requests identified</p>
              </div>
           )}
        </div>

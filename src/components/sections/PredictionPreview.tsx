@@ -29,11 +29,11 @@ const PredictionPreview: React.FC = () => {
                 <Target size={16} className="text-primary" />
                 Market Predictions
               </div>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight">
                 Predict & <br className="hidden sm:block" />
-                <span className="text-white/20">Earn More.</span>
+                <span className="text-text-tertiary">Earn More.</span>
               </h2>
-              <p className="text-white/60 text-base sm:text-lg font-medium max-w-xl leading-relaxed">
+              <p className="text-text-secondary text-base sm:text-lg font-medium max-w-xl leading-relaxed">
                 Use your market knowledge to predict price movements. Correct predictions result in bonus points and rewards.
               </p>
 
@@ -44,8 +44,8 @@ const PredictionPreview: React.FC = () => {
                   'Instant Settlements',
                   'Bonus Multipliers'
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 md:gap-4 text-white/50 group">
-                    <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                  <div key={i} className="flex items-center gap-3 md:gap-4 text-text-primary/50 group">
+                    <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary group-hover:text-text-primary transition-all">
                       <div className="w-1.5 h-1.5 rounded-full bg-primary group-hover:bg-white" />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-widest">{item}</span>
@@ -56,7 +56,7 @@ const PredictionPreview: React.FC = () => {
                   <div className="pt-8">
                  <button
                   onClick={() => navigate('/predict')}
-                  className="px-10 py-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="px-10 py-5 rounded-xl bg-white/5 border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-3"
                  >
                     Start Predicting <TrendingUp size={16} />
                  </button>
@@ -72,26 +72,26 @@ const PredictionPreview: React.FC = () => {
               viewport={{ once: true }}
               className="relative"
             >
-              <Card className="p-0 border border-white/10 bg-black overflow-hidden rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)]">
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+              <Card className="p-0 border border-border-bright bg-background overflow-hidden rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-[#F7931A]/10 border border-[#F7931A]/20 flex items-center justify-center text-[#F7931A]">
                       <Bitcoin size={20} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm text-white">BTC/USDT</h4>
-                      <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Live Market</p>
+                      <h4 className="font-bold text-sm text-text-primary">BTC/USDT</h4>
+                      <p className="text-[10px] text-text-primary/30 font-bold uppercase tracking-widest">Live Market</p>
                     </div>
                   </div>
                   <div className="text-right space-y-0.5">
-                    <p className="text-xl font-mono font-bold text-white tracking-tight leading-none">{loading ? '---' : formatUSD(btc?.current_price || 0)}</p>
+                    <p className="text-xl font-mono font-bold text-text-primary tracking-tight leading-none">{loading ? '---' : formatUSD(btc?.current_price || 0)}</p>
                     <span className="text-[10px] font-bold text-success uppercase tracking-widest">Live</span>
                   </div>
                 </div>
 
                 <div className="p-8 md:p-10">
                   <div className="text-center mb-8">
-                    <p className="text-white/30 text-[10px] uppercase tracking-[0.2em] font-bold">What is your prediction?</p>
+                    <p className="text-text-primary/30 text-[10px] uppercase tracking-[0.2em] font-bold">What is your prediction?</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-8">
@@ -99,7 +99,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('up')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-white/[0.01] border-white/5 text-white/30 hover:border-white/20"
+                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-white/20"
                       )}
                     >
                       <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -110,7 +110,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('down')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-white/[0.01] border-white/5 text-white/30 hover:border-white/20"
+                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-white/20"
                       )}
                     >
                       <TrendingDown className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -126,12 +126,12 @@ const PredictionPreview: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="px-6 py-4 bg-white/[0.01] border-t border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-white/30">
+                <div className="px-6 py-4 bg-surface-bright/50 border-t border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-text-primary/30">
                     <Clock size={12} />
                     <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-success">Active</span>
                   </div>
-                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Market Feed</span>
+                  <span className="text-[10px] text-text-primary/30 font-bold uppercase tracking-widest">Market Feed</span>
                 </div>
               </Card>
             </motion.div>

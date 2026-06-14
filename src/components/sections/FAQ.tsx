@@ -42,8 +42,8 @@ const FAQ: React.FC = () => {
             >
               FAQ
             </motion.div>
-            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-6 text-white tracking-tight">Got <span className="text-white/20">Questions?</span></h2>
-            <p className="text-white/60 text-base sm:text-lg font-medium">Everything you need to know about getting started with PulseEarn.</p>
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-6 text-text-primary tracking-tight">Got <span className="text-text-tertiary">Questions?</span></h2>
+            <p className="text-text-secondary text-base sm:text-lg font-medium">Everything you need to know about getting started with PulseEarn.</p>
           </div>
 
           <div className="space-y-4">
@@ -68,7 +68,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
       transition={{ delay: index * 0.05 }}
       className={cn(
         "border rounded-[2rem] transition-all duration-500 overflow-hidden",
-        isOpen ? "bg-white/[0.04] border-white/20 shadow-2xl" : "bg-white/[0.01] border-white/5 hover:border-white/10"
+        isOpen ? "bg-white/[0.04] border-white/20 shadow-2xl" : "bg-surface-bright/50 border-border hover:border-border-bright"
       )}
     >
       <button
@@ -77,11 +77,11 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
       >
         <span className={cn(
           "text-base md:text-lg font-bold tracking-tight transition-colors pr-4",
-          isOpen ? "text-primary" : "text-white/80 group-hover:text-white"
+          isOpen ? "text-primary" : "text-text-primary/80 group-hover:text-text-primary"
         )}>{faq.question}</span>
         <div className={cn(
           "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-500 border shrink-0",
-          isOpen ? "bg-primary border-primary text-white" : "bg-white/5 border-white/10 text-white/40"
+          isOpen ? "bg-primary border-primary text-text-primary" : "bg-white/5 border-border-bright text-text-secondary"
         )}>
           {isOpen ? <Minus size={16} /> : <Plus size={16} />}
         </div>
@@ -95,7 +95,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="px-6 md:px-8 pb-6 md:pb-8 text-white/50 text-sm md:text-base leading-relaxed font-medium border-t border-white/5 pt-5 md:pt-6">
+            <div className="px-6 md:px-8 pb-6 md:pb-8 text-text-primary/50 text-sm md:text-base leading-relaxed font-medium border-t border-border pt-5 md:pt-6">
               {faq.answer}
             </div>
           </motion.div>

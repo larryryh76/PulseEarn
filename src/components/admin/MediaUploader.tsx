@@ -92,26 +92,26 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
 
   return (
     <div className="space-y-2">
-      <label className="text-[10px] font-bold uppercase tracking-widest text-white/40 ml-1">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary ml-1">{label}</label>
 
       <div className={cn(
         "relative group border-2 border-dashed rounded-2xl overflow-hidden transition-all",
-        value ? "border-success/20 bg-success/[0.02]" : "border-white/5 bg-white/[0.02] hover:border-primary/20",
+        value ? "border-success/20 bg-success/[0.02]" : "border-border bg-surface-bright hover:border-primary/20",
         aspectRatio === 'video' ? "aspect-video" : aspectRatio === 'square' ? "aspect-square" : "min-h-[120px]"
       )}>
         {value ? (
           <>
             <img src={value} alt="Preview" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+            <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                <button
                  type="button"
                  onClick={() => onChange('')}
-                 className="p-3 bg-danger text-white rounded-xl hover:scale-110 transition-transform"
+                 className="p-3 bg-danger text-text-primary rounded-xl hover:scale-110 transition-transform"
                >
                   <X size={18} />
                </button>
             </div>
-            <div className="absolute top-4 right-4 p-2 bg-success text-white rounded-lg">
+            <div className="absolute top-4 right-4 p-2 bg-success text-text-primary rounded-lg">
                <CheckCircle2 size={14} />
             </div>
           </>
@@ -129,10 +129,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
             ) : (
               <>
                 <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
-                  <Upload size={20} className="text-white/20 group-hover:text-primary transition-colors" />
+                  <Upload size={20} className="text-text-tertiary group-hover:text-primary transition-colors" />
                 </div>
-                <p className="text-xs font-bold text-white/40 group-hover:text-white transition-colors">Select Asset to Upload</p>
-                <p className="text-[9px] font-medium text-white/10 uppercase tracking-widest mt-1">JPG, PNG or WEBP (Max 5MB)</p>
+                <p className="text-xs font-bold text-text-secondary group-hover:text-text-primary transition-colors">Select Asset to Upload</p>
+                <p className="text-[9px] font-medium text-text-tertiary/50 uppercase tracking-widest mt-1">JPG, PNG or WEBP (Max 5MB)</p>
               </>
             )}
           </label>

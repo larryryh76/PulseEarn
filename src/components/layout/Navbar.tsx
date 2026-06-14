@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
 import Logo from '../ui/Logo';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../hooks/useNotifications';
 
@@ -14,6 +15,7 @@ const Navbar: React.FC = () => {
   const { currentUser, userData, logout } = useAuth();
   const { tasks, userTasks, systemTasks, campaigns } = useTasks();
   const { unreadCount } = useNotifications();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,7 +54,7 @@ const Navbar: React.FC = () => {
       <nav className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         isMobileMenuOpen ? "bg-background py-4" :
-        isScrolled ? "bg-background/80 backdrop-blur-md border-b border-white/5 py-4" :
+        isScrolled ? "bg-background/80 backdrop-blur-md border-b border-border py-4" :
         "bg-transparent py-6"
       )}>
         <div className="container mx-auto px-6 flex items-center justify-between">
@@ -71,13 +73,13 @@ const Navbar: React.FC = () => {
                       to={link.path}
                       className={cn(
                         "text-[10px] font-bold uppercase tracking-[0.1em] transition-colors relative py-1 group/link",
-                        location.pathname === link.path ? "text-white" : "text-text-secondary hover:text-white"
+                        location.pathname === link.path ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
                       )}
                     >
                       <div className="flex items-center gap-1.5">
                         {link.name}
                         {link.path === '/tasks' && totalActionableCount > 0 && (
-                          <span className="w-4 h-4 bg-danger rounded-full flex items-center justify-center text-[7px] font-bold text-white shadow-[0_0_8px_rgba(239,68,68,0.4)]">
+                          <span className="w-4 h-4 bg-danger rounded-full flex items-center justify-center text-[7px] font-bold text-text-primary shadow-[0_0_8px_rgba(239,68,68,0.4)]">
                             {totalActionableCount}
                           </span>
                         )}
@@ -92,10 +94,18 @@ const Navbar: React.FC = () => {
                 <div className="h-4 w-px bg-white/10" />
 
                 <div className="flex items-center gap-6">
+                   <button
+                     onClick={toggleTheme}
+                     className="p-2 text-text-secondary hover:text-text-primary transition-all bg-white/5 rounded-lg border border-border"
+                     aria-label="Toggle Theme"
+                   >
+                     {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                   </button>
+
                    <Link to="/notifications" className="relative group" aria-label="View Notifications" title="Notifications">
                       <Bell size={18} className={cn(
-                        "text-text-secondary group-hover:text-white transition-colors",
-                        location.pathname === '/notifications' && "text-white"
+                        "text-text-secondary group-hover:text-text-primary transition-colors",
+                        location.pathname === '/notifications' && "text-text-primary"
                       )} />
                       {unreadCount > 0 && (
                         <div className="absolute -top-1 -right-1 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_rgba(255,59,48,0.8)]" />
@@ -115,7 +125,7 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <div className="flex items-center gap-8">
-                <Link to="/login" className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors">Sign In</Link>
+                <Link to="/login" className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors">Sign In</Link>
                 <Link to="/signup" className="btn-system-primary py-2.5 px-8 text-[10px]">Get Started</Link>
               </div>
             )}
@@ -123,8 +133,16 @@ const Navbar: React.FC = () => {
 
           {/* Mobile Actions */}
           <div className="flex md:hidden items-center gap-4 z-50">
+            <button
+               onClick={toggleTheme}
+               className="p-2 text-text-secondary hover:text-text-primary transition-all bg-white/5 rounded-lg border border-border"
+               aria-label="Toggle Theme"
+            >
+               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             {currentUser && (
-              <Link to="/notifications" className="relative p-2 text-text-secondary hover:text-white transition-colors">
+              <Link to="/notifications" className="relative p-2 text-text-secondary hover:text-text-primary transition-colors">
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <div className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_rgba(255,59,48,0.8)]" />
@@ -132,7 +150,7 @@ const Navbar: React.FC = () => {
               </Link>
             )}
             <button
-              className="p-2 text-text-secondary hover:text-white transition-colors"
+              className="p-2 text-text-secondary hover:text-text-primary transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMobileMenuOpen}
@@ -164,7 +182,7 @@ const Navbar: React.FC = () => {
                             onClick={() => setIsMobileMenuOpen(false)}
                             className={cn(
                               "flex items-center justify-between p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] transition-all",
-                              location.pathname === link.path ? "bg-white/5 text-white border border-white/5" : "text-text-secondary hover:bg-white/[0.02]"
+                              location.pathname === link.path ? "bg-surface-bright text-text-primary border border-border" : "text-text-secondary hover:bg-surface-bright/50"
                             )}
                           >
                             <div className="flex items-center gap-4">
@@ -172,7 +190,7 @@ const Navbar: React.FC = () => {
                               {link.name}
                             </div>
                             {link.path === '/tasks' && totalActionableCount > 0 && (
-                              <span className="w-5 h-5 bg-danger rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-lg">
+                              <span className="w-5 h-5 bg-danger rounded-full flex items-center justify-center text-[9px] font-black text-text-primary shadow-lg">
                                 {totalActionableCount}
                               </span>
                             )}
@@ -181,7 +199,7 @@ const Navbar: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-8 border-t border-white/5 flex flex-col gap-4">
+                    <div className="pt-8 border-t border-border flex flex-col gap-4">
                       {userData?.role === 'admin' && (
                         <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-primary bg-primary/5 border border-primary/10">
                           <Terminal size={20} />
@@ -210,7 +228,7 @@ const Navbar: React.FC = () => {
 
       {/* Mobile Bottom Tab Bar */}
       {currentUser && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-white/5 px-6 py-4">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl border-t border-border px-6 py-4">
           <div className="flex items-center justify-between">
             {navLinks.map((link) => (
               <Link
@@ -225,7 +243,7 @@ const Navbar: React.FC = () => {
                    <link.icon size={22} strokeWidth={location.pathname === link.path ? 2.5 : 2} />
                    {link.path === '/tasks' && totalActionableCount > 0 && (
                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg">
-                        <span className="text-[7px] font-bold text-white">{totalActionableCount}</span>
+                        <span className="text-[7px] font-bold text-text-primary">{totalActionableCount}</span>
                      </div>
                    )}
                 </div>

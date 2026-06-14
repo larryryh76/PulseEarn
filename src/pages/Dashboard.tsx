@@ -120,9 +120,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto space-y-20">
+      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
         {/* HEADER */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-12">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 md:gap-12">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -154,31 +154,31 @@ const Dashboard: React.FC = () => {
                 className="flex items-center gap-3 px-5 py-3 rounded-xl bg-surface-bright border border-border hover:bg-surface-accent hover:border-primary/40 transition-all group"
                >
                  <action.icon size={14} className="text-text-tertiary group-hover:text-primary transition-colors" />
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary group-hover:text-white transition-colors">{action.name}</span>
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary group-hover:text-text-primary transition-colors">{action.name}</span>
                </Link>
              ))}
           </motion.div>
         </div>
 
         {/* METRICS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-8 flex flex-col justify-between min-h-[160px] relative overflow-hidden group">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] -mr-16 -mt-16 group-hover:bg-primary/20 transition-all duration-700" />
               <div className="flex justify-between items-start">
                  <p className="data-label text-primary">Balance</p>
                  <WalletIcon size={18} className="text-primary" />
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{(userData?.points || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
+                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{(userData?.points || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 relative overflow-hidden group">
+           <Card variant="compact" className="p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="flex justify-between items-start relative z-10">
                  <p className="data-label">Progression</p>
-                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10", getLevelTier(userData?.level || 1).color)}>
+                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-surface-accent border border-border-bright", getLevelTier(userData?.level || 1).color)}>
                     <TrendingUp size={16} />
                  </div>
               </div>
@@ -186,8 +186,8 @@ const Dashboard: React.FC = () => {
                  <div className="flex flex-col">
                     <div className="flex items-center justify-between">
                        <div className="flex items-baseline gap-2">
-                          <p className="text-2xl font-bold text-white tracking-tight">LVL {userData?.level || 1}</p>
-                          <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/5", getLevelTier(userData?.level || 1).color)}>
+                          <p className="text-2xl font-bold text-text-primary tracking-tight">LVL {userData?.level || 1}</p>
+                          <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-border", getLevelTier(userData?.level || 1).color)}>
                              {getLevelTier(userData?.level || 1).title}
                           </span>
                        </div>
@@ -197,7 +197,7 @@ const Dashboard: React.FC = () => {
                        {(userData?.xp || 0)?.toLocaleString()} / {getXpProgress(userData?.xp || 0).nextLevelXp?.toLocaleString()} XP
                     </p>
                  </div>
-                 <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10 mt-2">
+                 <div className="h-2 w-full bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border-bright mt-2">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
@@ -209,29 +209,29 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 group">
+           <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
               <div className="flex justify-between items-start">
                  <p className="data-label">Streak</p>
-                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10", userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")}>
+                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-surface-bright border border-border", userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")}>
                     <Flame size={16} />
                  </div>
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Login Streak</p>
+                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Streak</p>
               </div>
            </Card>
 
-           <Card variant="compact" className="p-8 flex flex-col justify-between min-h-[160px] bg-white/[0.02] border-white/10 group">
+           <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
               <div className="flex justify-between items-start">
                  <p className="data-label">Pending</p>
-                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/10 text-white/40 group-hover:text-warning transition-colors">
+                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-bright border border-border text-text-tertiary group-hover:text-warning transition-colors">
                     <Clock size={16} />
                  </div>
               </div>
               <div className="space-y-1">
-                 <p className="text-3xl font-bold text-white tracking-tighter">{pendingSubtasks.length} <span className="text-[10px] font-mono text-text-tertiary uppercase">Tasks</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Reviewing</p>
+                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{pendingSubtasks.length}</p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">In Review</p>
               </div>
            </Card>
         </div>
@@ -247,8 +247,8 @@ const Dashboard: React.FC = () => {
                      <h2 className="text-xl font-bold tracking-tight italic">Earn</h2>
                   </div>
                   <Link to="/tasks" className="flex items-center gap-2 group">
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 group-hover:text-primary transition-colors">View All</span>
-                     <ChevronRight size={14} className="text-white/10 group-hover:text-primary transition-colors" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary group-hover:text-primary transition-colors">View All</span>
+                     <ChevronRight size={14} className="text-text-tertiary/50 group-hover:text-primary transition-colors" />
                   </Link>
                </div>
 
@@ -259,8 +259,8 @@ const Dashboard: React.FC = () => {
                            key={item.id}
                            whileHover={{ y: -5 }}
                            className={cn(
-                              "w-80 p-6 rounded-[2.5rem] bg-[#0A0A0F] border transition-all cursor-pointer flex flex-col justify-between group",
-                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-white/5 hover:border-white/20"
+                              "w-80 p-6 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group",
+                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-white/20"
                            )}
                            onClick={() => {
                               if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
@@ -274,7 +274,7 @@ const Dashboard: React.FC = () => {
                               <div className="flex justify-between items-start">
                                  <div className={cn(
                                     "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
-                                    item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.02] border-white/5 text-text-tertiary group-hover:text-white"
+                                    item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary group-hover:text-text-primary"
                                  )}>
                                     {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
                                      item.category === 'REFERRAL' ? <UserPlus size={20} /> :
@@ -283,15 +283,15 @@ const Dashboard: React.FC = () => {
                                  <div className="text-right">
                                     <div className="flex items-center gap-1.5 justify-end">
                                        <Zap size={12} className="text-primary" />
-                                       <span className="text-lg font-mono font-bold text-white">+{item.reward.toLocaleString()}</span>
+                                       <span className="text-lg font-mono font-bold text-text-primary">+{item.reward.toLocaleString()}</span>
                                     </div>
-                                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20">Authorized Reward</p>
+                                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-text-tertiary">Authorized Reward</p>
                                  </div>
                               </div>
 
                               <div className="space-y-2">
                                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.category || item.type}</p>
-                                 <h3 className="text-xl font-bold text-white tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                 <h3 className="text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
                                     {item.title}
                                  </h3>
                                  <p className="text-xs text-text-tertiary font-medium line-clamp-2 leading-relaxed min-h-[32px]">
@@ -300,19 +300,19 @@ const Dashboard: React.FC = () => {
                               </div>
                            </div>
 
-                           <div className="pt-8 flex items-center justify-between border-t border-white/5 mt-8">
+                           <div className="pt-8 flex items-center justify-between border-t border-border mt-8">
                               <div className="flex items-center gap-3">
                                  {item.type === 'MISSION' && item.target > 0 ? (
                                     <div className="flex flex-col gap-1.5">
-                                       <div className="w-20 h-1 bg-white/5 rounded-full overflow-hidden">
+                                       <div className="w-20 h-1 bg-surface-bright rounded-full overflow-hidden">
                                           <div className="h-full bg-primary" style={{ width: `${(item.progress / item.target) * 100}%` }} />
                                        </div>
-                                       <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">{Math.round((item.progress / item.target) * 100)}% Complete</span>
+                                       <span className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{Math.round((item.progress / item.target) * 100)}% Complete</span>
                                     </div>
                                  ) : item.type === 'CAMPAIGN' ? (
                                     <div className="flex -space-x-2">
                                        {[1,2,3].map(i => <div key={i} className="w-5 h-5 rounded-full border border-black bg-surface-bright" />)}
-                                       <span className="pl-4 text-[9px] font-black text-white/20 uppercase tracking-widest">+{item.participants || 0}</span>
+                                       <span className="pl-4 text-[9px] font-black text-text-tertiary uppercase tracking-widest">+{item.participants || 0}</span>
                                     </div>
                                  ) : (
                                     <div className="flex items-center gap-1.5 text-success">
@@ -321,7 +321,7 @@ const Dashboard: React.FC = () => {
                                     </div>
                                  )}
                               </div>
-                              <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
+                              <div className="w-8 h-8 rounded-xl bg-surface-bright flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-text-primary transition-all">
                                  <ArrowRight size={14} />
                               </div>
                            </div>
@@ -333,34 +333,34 @@ const Dashboard: React.FC = () => {
 
             {/* DASHBOARD ANALYTICS / STATS OVERVIEW */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/5 space-y-8 group hover:border-primary/20 transition-all">
+                <div className="p-8 rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-8 group hover:border-primary/20 transition-all">
                    <div className="flex justify-between items-start">
                       <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
                          <TrendingUp size={20} />
                       </div>
                       <div className="text-right">
-                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Global Rank</p>
-                         <p className="text-xl font-bold text-white tracking-tighter italic">TOP 1%</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Global Rank</p>
+                         <p className="text-xl font-bold text-text-primary tracking-tighter italic">TOP 1%</p>
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Earning Stats</h4>
+                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Earning Stats</h4>
                       <p className="text-xs text-text-tertiary leading-relaxed">Your participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep active to maximize rewards.</p>
                    </div>
                 </div>
 
-                <div className="p-8 rounded-[2.5rem] bg-white/[0.01] border border-white/5 space-y-8 group hover:border-orange-500/20 transition-all">
+                <div className="p-8 rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-8 group hover:border-orange-500/20 transition-all">
                    <div className="flex justify-between items-start">
                       <div className="w-12 h-12 rounded-2xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center text-orange-500">
                          <Flame size={20} />
                       </div>
                       <div className="text-right">
-                         <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Hot Streak</p>
-                         <p className="text-xl font-bold text-white tracking-tighter italic">{userData?.streak || 0} DAYS</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Hot Streak</p>
+                         <p className="text-xl font-bold text-text-primary tracking-tighter italic">{userData?.streak || 0} DAYS</p>
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-white uppercase tracking-widest">Loyalty Multiplier</h4>
+                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Loyalty Multiplier</h4>
                       <p className="text-xs text-text-tertiary leading-relaxed">Daily login recorded. Maintain your streak to unlock <span className="text-orange-500 font-bold">Bonus Yield</span> multipliers.</p>
                    </div>
                 </div>
@@ -376,7 +376,7 @@ const Dashboard: React.FC = () => {
                     <ActivityIcon size={18} className="text-primary" />
                     <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
                   </div>
-                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-primary transition-colors">See All</Link>
+                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">See All</Link>
                 </div>
 
                 <div className="space-y-2">
@@ -387,7 +387,7 @@ const Dashboard: React.FC = () => {
                       <div
                         key={activity.id}
                         onClick={() => setSelectedActivity(activity)}
-                        className="p-5 rounded-2xl bg-[#0A0A0F] border border-white/5 group hover:bg-white/[0.03] hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                        className="p-5 rounded-2xl bg-surface border border-border group hover:bg-surface-accent hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
                       >
                         <div className={cn(
                            "absolute inset-y-0 left-0 w-0.5 transition-all group-hover:w-1",
@@ -397,7 +397,7 @@ const Dashboard: React.FC = () => {
                         <div className="flex items-center gap-5">
                           <div className={cn(
                             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-inner",
-                            isPositive ? "bg-success/5 border-success/10 text-success" : "bg-white/[0.02] border-white/10 text-white/20"
+                            isPositive ? "bg-success/5 border-success/10 text-success" : "bg-surface-bright border-border-bright text-text-tertiary"
                           )}>
                             {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
                              activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
@@ -406,7 +406,7 @@ const Dashboard: React.FC = () => {
                           </div>
 
                           <div className="flex-grow min-w-0">
-                            <p className="text-[11px] font-bold text-white leading-tight group-hover:text-primary transition-colors truncate uppercase tracking-tight italic">
+                            <p className="text-[11px] font-bold text-text-primary leading-tight group-hover:text-primary transition-colors truncate uppercase tracking-tight italic">
                                {activity.description}
                             </p>
                             <div className="flex items-center gap-3 mt-1.5">
@@ -416,14 +416,14 @@ const Dashboard: React.FC = () => {
                                )}>
                                  {isPositive ? `+${activity.points.toLocaleString()} PTS` : 'Event Registered'}
                                </span>
-                               <div className="w-1 h-1 rounded-full bg-white/5" />
+                               <div className="w-1 h-1 rounded-full bg-surface-bright" />
                                <span className="text-[8px] text-text-tertiary font-bold uppercase tracking-widest">
                                 {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "") : ""}
                                </span>
                             </div>
                           </div>
 
-                          <div className="shrink-0 text-white/10 group-hover:text-primary transition-colors">
+                          <div className="shrink-0 text-text-tertiary/50 group-hover:text-primary transition-colors">
                              <ChevronRight size={16} />
                           </div>
                         </div>
@@ -445,7 +445,7 @@ const Dashboard: React.FC = () => {
                      {pendingSubtasks.slice(0, 3).map(s => (
                         <div key={s.id} className="p-4 rounded-xl border border-warning/10 bg-warning/[0.02] flex items-center justify-between">
                            <div className="min-w-0">
-                              <p className="text-[10px] font-bold text-white truncate max-w-[140px]">{s.metadata?.taskTitle || 'Campaign'}</p>
+                              <p className="text-[10px] font-bold text-text-primary truncate max-w-[140px]">{s.metadata?.taskTitle || 'Campaign'}</p>
                               <p className="text-[8px] font-bold text-warning uppercase tracking-widest mt-1">Verification Active</p>
                            </div>
                            <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
@@ -458,7 +458,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* COMPLETED SUMMARY / NEXT MILESTONE */}
-            <section className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/5 relative overflow-hidden group">
+            <section className="p-8 rounded-[2.5rem] bg-surface border border-border relative overflow-hidden group">
                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                   <Trophy size={80} />
                </div>
@@ -467,15 +467,15 @@ const Dashboard: React.FC = () => {
                      <CheckCircle2 size={32} />
                   </div>
                   <div className="text-center space-y-1">
-                     <p className="text-4xl font-bold text-white tracking-tighter leading-none">{userData?.stats?.tasksCompleted || 0}</p>
+                     <p className="text-4xl font-bold text-text-primary tracking-tighter leading-none">{userData?.stats?.tasksCompleted || 0}</p>
                      <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Verified Contributions</p>
                   </div>
                   <div className="w-full space-y-3">
                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Next Milestone</span>
-                        <span className="text-[9px] font-mono text-white/40">Level {userData?.level ? userData.level + 1 : 2}</span>
+                        <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Next Milestone</span>
+                        <span className="text-[9px] font-mono text-text-secondary">Level {userData?.level ? userData.level + 1 : 2}</span>
                      </div>
-                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                     <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary"
                           style={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
@@ -497,25 +497,25 @@ const Dashboard: React.FC = () => {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedActivity(null)}
-               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
              />
              <motion.div
                initial={{ scale: 0.95, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg">
                         <ActivityIcon size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Activity Log</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Activity Log</p>
+                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                       <X size={18} />
                    </button>
                 </div>
@@ -525,16 +525,16 @@ const Dashboard: React.FC = () => {
                       <div className="flex items-center gap-2 text-text-tertiary mb-2">
                          <Calendar size={12} className="text-primary/40" />
                          <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                         <span className="text-white/10">•</span>
+                         <span className="text-text-tertiary/50">•</span>
                          <Clock size={12} className="text-primary/40" />
                          <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
                    </div>
 
-                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                   <div className="bg-surface-bright border border-border rounded-2xl overflow-hidden divide-y divide-white/5">
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Transaction Yield</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Transaction Yield</span>
                          <div className="flex items-baseline gap-1.5">
                             <span className={cn("text-xl font-mono font-bold", selectedActivity.points >= 0 ? "text-success" : "text-danger")}>
                                {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points.toLocaleString()}
@@ -545,14 +545,14 @@ const Dashboard: React.FC = () => {
 
                       {selectedActivity.metadata?.symbol && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Asset Index</span>
-                            <span className="text-xs font-bold text-white uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Asset Index</span>
+                            <span className="text-xs font-bold text-text-primary uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
                          </div>
                       )}
 
                       {selectedActivity.metadata?.direction && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Forecast Vector</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Forecast Vector</span>
                             <div className="flex items-center gap-2">
                                {selectedActivity.metadata.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
                                <span className={cn("text-xs font-bold uppercase tracking-widest", selectedActivity.metadata.direction === 'UP' ? "text-success" : "text-danger")}>{selectedActivity.metadata.direction}</span>
@@ -562,31 +562,31 @@ const Dashboard: React.FC = () => {
 
                       {selectedActivity.metadata?.entryPrice && (
                          <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Execution Price</span>
-                            <span className="text-xs font-mono font-bold text-white">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Execution Price</span>
+                            <span className="text-xs font-mono font-bold text-text-primary">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
                          </div>
                       )}
 
                       {selectedActivity.metadata?.taskName && (
                          <div className="p-5 flex justify-between items-start gap-4">
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
-                            <span className="text-[11px] font-bold text-white uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
+                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
+                            <span className="text-[11px] font-bold text-text-primary uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
                          </div>
                       )}
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Ledger Status</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Ledger Status</span>
                          <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Immutable</span>
+                            <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">Immutable</span>
                          </div>
                       </div>
                    </div>
 
                    <div className="space-y-4">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Network Hash</span>
-                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Network Hash</span>
+                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
                       </div>
                       {(selectedActivity.type.includes('prediction') ||
                         selectedActivity.type.includes('campaign') ||
@@ -621,8 +621,8 @@ const Dashboard: React.FC = () => {
                    </div>
                 </div>
 
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
+                <div className="p-8 bg-background border-t border-border flex justify-center">
+                   <p className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
                 </div>
              </motion.div>
           </div>
@@ -638,48 +638,48 @@ const Dashboard: React.FC = () => {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedTask(null)}
-               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
              />
              <motion.div
                initial={{ scale: 0.95, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                         {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.type}</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>
+                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTask.type}</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                   <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                       <X size={18} />
                    </button>
                 </div>
 
                 <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
                    <div className="space-y-4">
-                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTask.title}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTask.title}</h2>
                       <p className="text-sm text-text-secondary leading-relaxed opacity-70">
                          {selectedTask.description || selectedTask.instructions || 'Execute this objective to secure authorized contribution rewards.'}
                       </p>
                    </div>
 
                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                         <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Reward</p>
+                      <div className="p-5 rounded-2xl bg-surface-bright border border-border space-y-2">
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Reward</p>
                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-white">{selectedTask.reward.toLocaleString()}</span>
+                            <span className="text-xl font-mono font-bold text-text-primary">{selectedTask.reward.toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
                          </div>
                       </div>
 
-                      <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                         <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Provision</p>
+                      <div className="p-5 rounded-2xl bg-surface-bright border border-border space-y-2">
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Provision</p>
                          <div className="flex items-baseline gap-1.5">
                             <span className="text-xl font-mono font-bold text-primary">{selectedTask.xp?.toLocaleString() || '100'}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
@@ -687,21 +687,21 @@ const Dashboard: React.FC = () => {
                       </div>
                    </div>
 
-                   <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex justify-between items-center">
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Method</span>
+                   <div className="p-5 rounded-2xl bg-surface-bright border border-border flex justify-between items-center">
+                      <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Method</span>
                       <div className="flex items-center gap-2">
                          <MousePointer2 size={14} className="text-success" />
-                         <span className="text-[10px] font-black text-white uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</span>
+                         <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</span>
                       </div>
                    </div>
 
                    {selectedTask.type === 'MISSION' && selectedTask.target > 0 && (
-                      <div className="p-6 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 space-y-4">
+                      <div className="p-6 rounded-2xl bg-surface-bright/50 border border-dashed border-border-bright space-y-4">
                          <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Quest Progress</span>
+                            <span className="text-[9px] font-black text-text-primary/30 uppercase tracking-[0.2em]">Quest Progress</span>
                             <span className="text-[10px] font-mono text-primary font-bold">{Math.round((selectedTask.progress / selectedTask.target) * 100)}%</span>
                          </div>
-                         <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                         <div className="w-full h-1 bg-surface-bright rounded-full overflow-hidden">
                             <motion.div
                                initial={{ width: 0 }}
                                animate={{ width: `${(selectedTask.progress / selectedTask.target) * 100}%` }}
@@ -730,15 +730,15 @@ const Dashboard: React.FC = () => {
                       </Button>
                       <button
                         onClick={() => setSelectedTask(null)}
-                        className="w-full h-12 text-[10px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                        className="w-full h-12 text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em] hover:text-text-primary transition-colors"
                       >
                          Return to Session
                       </button>
                    </div>
                 </div>
 
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Rewards</p>
+                <div className="p-8 bg-background border-t border-border flex justify-center">
+                   <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Rewards</p>
                 </div>
              </motion.div>
           </div>

@@ -132,16 +132,17 @@ const Wallet: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-32 pb-24 px-6 max-w-5xl mx-auto">
+      <div className="bg-background transition-colors duration-300">
+      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
         {/* ASSET INFRASTRUCTURE HEADER */}
-        <section className="mb-16">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
+        <section className="mb-12 md:mb-16">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 md:gap-12">
             <div className="space-y-4">
                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                   <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Available Balance</span>
                </div>
-               <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white leading-tight">
+               <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight">
                   Wallet <span className="text-text-tertiary">Assets</span>
                </h1>
             </div>
@@ -160,36 +161,36 @@ const Wallet: React.FC = () => {
         </section>
 
         {/* PRIMARY WALLET CARD */}
-        <Card className="mb-12 p-12 bg-surface-bright/30 border-white/5 rounded-[3rem] relative overflow-hidden">
-           <div className="absolute top-0 right-0 p-12 opacity-5">
+        <Card className="mb-12 p-6 md:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
+           <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
               <Zap size={200} />
            </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-center">
               <div className="lg:col-span-7 space-y-2">
                  <p className="data-label">Available Balance</p>
                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-6xl md:text-7xl font-bold text-white tracking-tighter">{(points || 0)?.toLocaleString()}</h2>
+                    <h2 className="text-5xl md:text-7xl font-bold text-text-primary tracking-tighter">{(points || 0)?.toLocaleString()}</h2>
                     <span className="text-xl font-mono text-primary font-bold">PTS</span>
                  </div>
-                 <p className="text-2xl text-text-secondary font-medium tracking-tight">
+                 <p className="text-xl md:text-2xl text-text-secondary font-medium tracking-tight">
                     &asymp; {formatUSD(usdValue)} <span className="text-[10px] font-bold text-text-tertiary uppercase ml-2 tracking-widest">Market Value</span>
                  </p>
               </div>
 
-              <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div className="p-6 rounded-2xl bg-background/40 border border-white/5">
+              <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+                 <div className="p-4 md:p-6 rounded-2xl bg-background/40 border border-border">
                     <p className="data-label">Pending</p>
                     <div className="flex items-center gap-2">
                        <Clock size={14} className="text-text-tertiary" />
-                       <span className="text-lg font-bold text-white">0 <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
+                       <span className="text-lg font-bold text-text-primary">0 <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
-                 <div className="p-6 rounded-2xl bg-background/40 border border-white/5">
-                    <p className="data-label">Lifetime Earnings</p>
+                 <div className="p-4 md:p-6 rounded-2xl bg-background/40 border border-border">
+                    <p className="data-label">Lifetime</p>
                     <div className="flex items-center gap-2">
                        <TrendingUp size={14} className="text-success" />
-                       <span className="text-lg font-bold text-white">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
+                       <span className="text-lg font-bold text-text-primary">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
               </div>
@@ -201,12 +202,12 @@ const Wallet: React.FC = () => {
            <div className="flex items-center gap-4">
               <div className={cn(
                  "w-12 h-12 rounded-2xl flex items-center justify-center border",
-                 thresholdMet ? "bg-success/5 border-success/20 text-success" : "bg-white/5 border-white/5 text-text-tertiary"
+                 thresholdMet ? "bg-success/5 border-success/20 text-success" : "bg-surface-bright border-border text-text-tertiary"
               )}>
                  <ShieldCheck size={24} />
               </div>
               <div className="space-y-1">
-                 <p className="text-sm font-bold text-white">{thresholdMet ? 'Payout Available' : 'Payout Progress'}</p>
+                 <p className="text-sm font-bold text-text-primary">{thresholdMet ? 'Payout Available' : 'Payout Progress'}</p>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTS Required</p>
               </div>
            </div>
@@ -214,9 +215,9 @@ const Wallet: React.FC = () => {
            <div className="flex-grow max-w-md w-full space-y-3">
               <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
                  <span className="text-text-tertiary">Progress to payout</span>
-                 <span className="text-white">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
+                 <span className="text-text-primary">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
               </div>
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
                  <motion.div
                    initial={{ width: 0 }}
                    animate={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
@@ -242,12 +243,12 @@ const Wallet: React.FC = () => {
                   <div className="flex items-center gap-6">
                     <div className={cn(
                       "w-12 h-12 rounded-xl border flex items-center justify-center transition-all",
-                      tx.amount > 0 ? "bg-success/5 text-success border-success/10" : "bg-surface-bright text-white border-border group-hover:border-primary/30"
+                      tx.amount > 0 ? "bg-success/5 text-success border-success/10" : "bg-surface-bright text-text-primary border-border group-hover:border-primary/30"
                     )}>
                       {tx.amount > 0 ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white group-hover:text-primary transition-colors">{mapTransactionType(tx.type)}</p>
+                      <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{mapTransactionType(tx.type)}</p>
                       <p className="text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em]">
                         {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
@@ -257,7 +258,7 @@ const Wallet: React.FC = () => {
                     <div>
                       <p className={cn(
                         "text-sm font-bold font-mono tracking-tight",
-                        tx.amount > 0 ? "text-success" : "text-white"
+                        tx.amount > 0 ? "text-success" : "text-text-primary"
                       )}>
                         {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()}
                       </p>
@@ -303,7 +304,7 @@ const Wallet: React.FC = () => {
                   <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">System Action</p>
                   <h2 className="text-2xl font-bold tracking-tight">Initiate Settlement</h2>
                 </div>
-                <button onClick={() => setIsWithdrawModalOpen(false)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5">
+                <button onClick={() => setIsWithdrawModalOpen(false)} className="p-3 bg-surface-bright hover:bg-surface-accent rounded-xl transition-all border border-border">
                   <X size={20} className="text-text-tertiary" />
                 </button>
               </div>
@@ -317,7 +318,7 @@ const Wallet: React.FC = () => {
                        <div className="space-y-2">
                           <h3 className="text-xl font-bold">Policy Restriction</h3>
                           <p className="text-sm text-text-secondary leading-relaxed font-medium">
-                            Withdrawal operations are restricted until the inventory floor of <span className="text-white font-bold">{(WITHDRAWAL_MIN_PTS || 0)?.toLocaleString()} PTS</span> is verified.
+                            Withdrawal operations are restricted until the inventory floor of <span className="text-text-primary font-bold">{(WITHDRAWAL_MIN_PTS || 0)?.toLocaleString()} PTS</span> is verified.
                           </p>
                        </div>
                     </div>
@@ -330,7 +331,7 @@ const Wallet: React.FC = () => {
                        <Check size={40} />
                     </div>
                     <div className="space-y-2">
-                       <h3 className="text-2xl font-bold text-white">Request Submitted</h3>
+                       <h3 className="text-2xl font-bold text-text-primary">Request Submitted</h3>
                        <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-[0.2em] leading-relaxed">
                           Your settlement request has been queued for verification. <br/> Funds will be released upon manual audit.
                        </p>
@@ -342,35 +343,35 @@ const Wallet: React.FC = () => {
                 <div className="space-y-8">
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Withdrawal Amount (PTS)</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Withdrawal Amount (PTS)</label>
                       <input
                         type="number"
                         value={withdrawalForm.amount}
                         onChange={e => setWithdrawalForm({...withdrawalForm, amount: parseInt(e.target.value) || 0})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white font-mono focus:border-primary/50 outline-none transition-all"
+                        className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-text-primary font-mono focus:border-primary/50 outline-none transition-all"
                       />
                       <div className="flex justify-between px-1">
-                        <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Min: 10,000 PTS</span>
+                        <span className="text-[10px] text-text-tertiary uppercase tracking-widest font-bold">Min: 10,000 PTS</span>
                         <span className="text-[10px] text-primary uppercase tracking-widest font-bold cursor-pointer" onClick={() => setWithdrawalForm({...withdrawalForm, amount: points})}>Max Balance</span>
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Wallet Address</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Wallet Address</label>
                       <input
                         placeholder="0x... or Wallet ID"
                         value={withdrawalForm.walletAddress}
                         onChange={e => setWithdrawalForm({...withdrawalForm, walletAddress: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white font-mono text-sm focus:border-primary/50 outline-none transition-all"
+                        className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-text-primary font-mono text-sm focus:border-primary/50 outline-none transition-all"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Preferred Network</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Preferred Network</label>
                       <select
                         value={withdrawalForm.network}
                         onChange={e => setWithdrawalForm({...withdrawalForm, network: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-xs font-bold uppercase focus:border-primary/50 outline-none transition-all appearance-none cursor-pointer"
+                        className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-text-primary text-xs font-bold uppercase focus:border-primary/50 outline-none transition-all appearance-none cursor-pointer"
                       >
                         <option value="ERC20">Ethereum (ERC20)</option>
                         <option value="BEP20">Binance Smart Chain (BEP20)</option>
@@ -381,13 +382,13 @@ const Wallet: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+                  <div className="p-6 rounded-2xl bg-surface-bright border border-border space-y-3">
                     <div className="flex justify-between items-center">
-                       <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">USD Value</span>
-                       <span className="text-sm font-mono font-bold text-white">{formatUSD(PTS_TO_USD(withdrawalForm.amount))}</span>
+                       <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">USD Value</span>
+                       <span className="text-sm font-mono font-bold text-text-primary">{formatUSD(PTS_TO_USD(withdrawalForm.amount))}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                       <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Processing Fee</span>
+                       <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Processing Fee</span>
                        <span className="text-sm font-mono font-bold text-success">FREE</span>
                     </div>
                   </div>
@@ -423,19 +424,19 @@ const Wallet: React.FC = () => {
                initial={{ scale: 0.95, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                         <History size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Audit Ledger</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTx.type.replace(/_/g, ' ')}</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Audit Ledger</p>
+                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTx.type.replace(/_/g, ' ')}</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedTx(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                   <button onClick={() => setSelectedTx(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                       <X size={18} />
                    </button>
                 </div>
@@ -446,13 +447,13 @@ const Wallet: React.FC = () => {
                          <Clock size={12} className="text-primary/40" />
                          <span className="text-[10px] font-bold uppercase tracking-widest">{selectedTx.timestamp?.toDate?.().toLocaleString()}</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTx.source}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTx.source}</h2>
                       {selectedTx.description && <p className="text-sm text-text-tertiary">{selectedTx.description}</p>}
                    </div>
 
-                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                   <div className="bg-surface-bright border border-border rounded-2xl overflow-hidden divide-y divide-white/5">
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Inventory Change</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Inventory Change</span>
                          <div className="flex items-baseline gap-1.5">
                             <span className={cn("text-xl font-mono font-bold", selectedTx.amount >= 0 ? "text-success" : "text-danger")}>
                                {selectedTx.amount > 0 ? '+' : ''}{selectedTx.amount.toLocaleString()}
@@ -462,23 +463,23 @@ const Wallet: React.FC = () => {
                       </div>
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">USD Offset</span>
-                         <span className="text-xs font-mono font-bold text-white">{formatUSD(PTS_TO_USD(selectedTx.amount))}</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">USD Offset</span>
+                         <span className="text-xs font-mono font-bold text-text-primary">{formatUSD(PTS_TO_USD(selectedTx.amount))}</span>
                       </div>
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Verification Status</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Verification Status</span>
                          <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">{selectedTx.status || 'COMPLETED'}</span>
+                            <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">{selectedTx.status || 'COMPLETED'}</span>
                          </div>
                       </div>
                    </div>
 
                    <div className="space-y-4">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Transaction Ref</span>
-                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px] uppercase">{selectedTx.id.slice(-12)}</span>
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Transaction Ref</span>
+                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px] uppercase">{selectedTx.id.slice(-12)}</span>
                       </div>
 
                       {(selectedTx.type.includes('prediction') || selectedTx.type.includes('task') || selectedTx.type.includes('referral')) && (
@@ -501,13 +502,14 @@ const Wallet: React.FC = () => {
                    </div>
                 </div>
 
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.6em]">PulseEarn Wallet System</p>
+                <div className="p-8 bg-background border-t border-border flex justify-center">
+                   <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Wallet System</p>
                 </div>
              </motion.div>
           </div>
         )}
       </AnimatePresence>
+      </div>
     </MainLayout>
   );
 };

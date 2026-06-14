@@ -1,28 +1,75 @@
 @import "tailwindcss";
 
+:root {
+  /* LIGHT MODE (DEFAULT) */
+  --background: #F8F9FD;
+  --surface: #FFFFFF;
+  --surface-bright: #F1F3F9;
+  --surface-accent: #E8EBF2;
+
+  --primary: #5E6AD2;
+  --primary-bright: #4B55C4;
+
+  --accent: #635BFF;
+  --success: #10B981;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+
+  --border: rgba(0, 0, 0, 0.06);
+  --border-bright: rgba(0, 0, 0, 0.12);
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+
+  --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.05);
+  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.dark {
+  /* DARK MODE OVERRIDES */
+  --background: #08080C;
+  --surface: #12121A;
+  --surface-bright: #1A1A24;
+  --surface-accent: #22222E;
+
+  --primary: #5E6AD2;
+  --primary-bright: #707DFF;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(255, 255, 255, 0.15);
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+
+  --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.5);
+  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 @theme {
   /* THEME SYSTEM 2.0: OPERATIONAL PREMIUM */
 
-  /* COLORS: NUANCED DARK */
-  --color-background: #08080C;
-  --color-surface: #12121A;
-  --color-surface-bright: #1A1A24;
-  --color-surface-accent: #22222E;
+  /* MAP CSS VARIABLES TO TAILWIND COLORS */
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-accent: var(--surface-accent);
 
-  --color-primary: #5E6AD2;
-  --color-primary-bright: #707DFF;
+  --color-primary: var(--primary);
+  --color-primary-bright: var(--primary-bright);
 
-  --color-accent: #635BFF;
-  --color-success: #10B981;
-  --color-danger: #EF4444;
-  --color-warning: #F59E0B;
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
 
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-bright: rgba(255, 255, 255, 0.15);
+  --color-border: var(--border);
+  --color-border-bright: var(--border-bright);
 
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #A1A1AA;
-  --color-text-tertiary: #71717A;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
 
   /* TYPOGRAPHY SYSTEM */
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
@@ -39,7 +86,7 @@
   }
 
   body {
-    @apply bg-background text-text-primary antialiased selection:bg-primary/30 selection:text-white;
+    @apply bg-background text-text-primary antialiased selection:bg-primary/30;
     font-feature-settings: "cv02", "cv03", "cv04", "ss01";
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
@@ -47,15 +94,15 @@
 
   /* SYSTEM TYPOGRAPHY HIERARCHY */
   h1 {
-    @apply text-[32px] md:text-[40px] font-bold tracking-[-0.03em] leading-[1.1] text-white;
+    @apply text-[32px] md:text-[40px] font-bold tracking-[-0.03em] leading-[1.1] text-text-primary;
   }
 
   h2 {
-    @apply text-[20px] md:text-[24px] font-semibold tracking-[-0.02em] leading-[1.2] text-white;
+    @apply text-[20px] md:text-[24px] font-semibold tracking-[-0.02em] leading-[1.2] text-text-primary;
   }
 
   h3 {
-    @apply text-[16px] md:text-[18px] font-semibold tracking-tight text-white;
+    @apply text-[16px] md:text-[18px] font-semibold tracking-tight text-text-primary;
   }
 
   p {
@@ -64,7 +111,7 @@
 
   /* INPUT SYSTEM */
   input, select, textarea {
-    @apply bg-surface border border-border rounded-xl px-4 py-3 text-sm text-white placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200;
+    @apply bg-surface border border-border rounded-xl px-4 py-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200;
   }
 
   button {

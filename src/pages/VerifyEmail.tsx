@@ -82,9 +82,9 @@ const VerifyEmail: React.FC = () => {
                <Mail className="text-primary animate-bounce" size={40} />
             </div>
 
-            <h1 className="text-3xl font-bold mb-4 tracking-tight text-white">Verify Your Email</h1>
-            <p className="text-white/50 text-sm mb-8 leading-relaxed">
-              We've sent a verification link to <span className="text-white font-bold">{currentUser.email}</span>. Please click the link in your email to activate your account.
+            <h1 className="text-3xl font-bold mb-4 tracking-tight text-text-primary">Verify Your Email</h1>
+            <p className="text-text-primary/50 text-sm mb-8 leading-relaxed">
+              We've sent a verification link to <span className="text-text-primary font-bold">{currentUser.email}</span>. Please click the link in your email to activate your account.
             </p>
 
             <div className="space-y-4">
@@ -99,7 +99,7 @@ const VerifyEmail: React.FC = () => {
                <button
                 onClick={handleResend}
                 disabled={isSending || countdown > 0}
-                className="w-full py-4 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-xl bg-surface-bright border border-border-bright text-text-secondary hover:text-text-primary hover:bg-surface-accent transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                >
                   {isSending ? <RefreshCw className="animate-spin" size={16} /> : null}
                   {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Email'}
@@ -108,18 +108,18 @@ const VerifyEmail: React.FC = () => {
 
             <div className="mt-10 pt-8 border-t border-white/[0.05] space-y-6">
                <div className="grid grid-cols-1 gap-4 text-left">
-                  <div className="flex gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <div className="flex gap-4 p-4 rounded-2xl bg-surface-bright border border-border">
                      <CheckCircle2 size={20} className="text-success shrink-0" />
                      <div>
-                        <p className="text-[11px] font-bold text-white/80 uppercase">No email received?</p>
-                        <p className="text-[10px] text-white/30 mt-1 leading-relaxed">Check your spam folder or try resending the verification link.</p>
+                        <p className="text-[11px] font-bold text-text-primary/80 uppercase">No email received?</p>
+                        <p className="text-[10px] text-text-primary/30 mt-1 leading-relaxed">Check your spam folder or try resending the verification link.</p>
                      </div>
                   </div>
-                  <div className="flex gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <div className="flex gap-4 p-4 rounded-2xl bg-surface-bright border border-border">
                      <AlertTriangle size={20} className="text-orange-500 shrink-0" />
                      <div>
-                        <p className="text-[11px] font-bold text-white/80 uppercase">Expired link?</p>
-                        <p className="text-[10px] text-white/30 mt-1 leading-relaxed">Verification links are valid for 24 hours. Request a new link if needed.</p>
+                        <p className="text-[11px] font-bold text-text-primary/80 uppercase">Expired link?</p>
+                        <p className="text-[10px] text-text-primary/30 mt-1 leading-relaxed">Verification links are valid for 24 hours. Request a new link if needed.</p>
                      </div>
                   </div>
                </div>
@@ -132,7 +132,7 @@ const VerifyEmail: React.FC = () => {
                      <LogOut size={14} />
                      Sign Out and try another email
                   </button>
-                  <Link to="/support" className="flex items-center gap-2 text-white/20 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+                  <Link to="/support" className="flex items-center gap-2 text-text-tertiary hover:text-text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">
                      <HelpCircle size={14} />
                      Support Hub
                   </Link>

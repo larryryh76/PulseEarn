@@ -30,13 +30,13 @@ class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 text-center space-y-4">
+        <div className="p-8 rounded-3xl bg-surface-bright border border-border text-center space-y-4">
            <div className="w-12 h-12 rounded-2xl bg-danger/10 flex items-center justify-center mx-auto text-danger">
               <ShieldAlert size={24} />
            </div>
            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest">System Error</h3>
-              <p className="text-[11px] text-white/40 mt-1">The {this.props.name || 'component'} encountered a runtime error.</p>
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-widest">System Error</h3>
+              <p className="text-[11px] text-text-secondary mt-1">The {this.props.name || 'component'} encountered a runtime error.</p>
            </div>
            <Button
              variant="outline"

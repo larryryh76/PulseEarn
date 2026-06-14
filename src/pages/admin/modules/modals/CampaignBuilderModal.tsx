@@ -91,19 +91,19 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-background/90 backdrop-blur-xl">
        <motion.div
          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-         className="relative w-full max-w-4xl bg-[#0A0A0F] border border-white/10 rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+         className="relative w-full max-w-4xl bg-surface border border-border-bright rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
        >
-          <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+          <div className="p-10 border-b border-border flex justify-between items-center bg-surface-bright/50">
              <div className="flex items-center gap-6">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
                    <Target size={28} />
                 </div>
                 <div>
-                   <h2 className="text-2xl font-bold text-white uppercase italic leading-none mb-2">Campaign Architect</h2>
-                   <p className="text-white/40 text-[10px] font-black uppercase tracking-widest leading-none">Strategic Reward Deployment Vector</p>
+                   <h2 className="text-2xl font-bold text-text-primary uppercase italic leading-none mb-2">Campaign Architect</h2>
+                   <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Strategic Reward Deployment Vector</p>
                 </div>
              </div>
              <button onClick={onClose} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all flex items-center justify-center text-text-tertiary">
@@ -115,19 +115,19 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
              <div className="grid grid-cols-2 gap-10">
                 <div className="space-y-6">
                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Campaign Identifier</label>
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Campaign Identifier</label>
                       <input
                         required value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-5 text-sm text-white focus:border-primary/50 outline-none transition-all font-bold uppercase italic tracking-tight"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-bold uppercase italic tracking-tight"
                       />
                    </div>
                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Operational Brief</label>
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Operational Brief</label>
                       <textarea
                         required value={formData.description}
                         onChange={e => setFormData({...formData, description: e.target.value})}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-6 text-sm text-white h-40 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-6 text-sm text-text-primary h-40 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
                       />
                    </div>
                 </div>
@@ -135,22 +135,22 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                 <div className="space-y-8">
                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Asset Category</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Asset Category</label>
                          <select
                            value={formData.category}
                            onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
-                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
+                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
                          >
-                            {['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION'].map(c => <option key={c} value={c} className="bg-[#0A0A0F]">{c}</option>)}
+                            {['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION'].map(c => <option key={c} value={c} className="bg-surface">{c}</option>)}
                          </select>
                       </div>
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Priority State</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Priority State</label>
                          <div className="flex gap-2 h-full py-1">
                             <button
                               type="button"
                               onClick={() => setFormData({...formData, featured: !formData.featured})}
-                              className={cn("flex-1 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all", formData.featured ? "bg-warning border-warning text-black" : "bg-white/5 border-white/5 text-white/20")}
+                              className={cn("flex-1 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all", formData.featured ? "bg-warning border-warning text-black" : "bg-white/5 border-border text-text-tertiary")}
                             >
                                Featured
                             </button>
@@ -160,21 +160,21 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
 
                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">Total Prize Matrix</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Total Prize Matrix</label>
                          <input
                            type="number"
                            value={formData.totalPrizePool}
                            onChange={e => setFormData({...formData, totalPrizePool: Number(e.target.value)})}
-                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
+                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary font-mono"
                          />
                       </div>
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 ml-1">XP Provision</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">XP Provision</label>
                          <input
                            type="number"
                            value={formData.xpReward}
                            onChange={e => setFormData({...formData, xpReward: Number(e.target.value)})}
-                           className="w-full bg-white/[0.02] border border-white/10 rounded-xl p-4 text-sm text-white font-mono"
+                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary font-mono"
                          />
                       </div>
                    </div>
@@ -191,8 +191,8 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                 </div>
              </div>
 
-             <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[2rem] space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 flex items-center gap-2 px-1">
+             <div className="p-8 bg-surface-bright/50 border border-border rounded-[2rem] space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-2 px-1">
                    <ShieldCheck size={14} /> Validation Matrix
                 </h3>
                 <div className="grid grid-cols-3 gap-6">
@@ -201,7 +201,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                         key={key} type="button"
                         onClick={() => setFormData({...formData, validationSettings: { ...formData.validationSettings!, [key]: !formData.validationSettings![key as keyof typeof formData.validationSettings] }})}
                         className={cn("px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
-                           formData.validationSettings?.[key as keyof typeof formData.validationSettings] ? "bg-primary border-primary text-white" : "bg-white/5 border-white/5 text-white/20 hover:text-white"
+                           formData.validationSettings?.[key as keyof typeof formData.validationSettings] ? "bg-primary border-primary text-text-primary" : "bg-white/5 border-border text-text-tertiary hover:text-text-primary"
                         )}
                       >
                          {key.replace(/([A-Z])/g, ' $1')}
@@ -212,11 +212,11 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
              </div>
           </form>
 
-          <div className="p-10 border-t border-white/5 bg-black/40 flex gap-6">
+          <div className="p-10 border-t border-border bg-background/40 flex gap-6">
              <Button type="submit" onClick={handleSubmit} className="flex-1 py-6 bg-white text-black font-black uppercase tracking-[0.3em] text-[11px] rounded-2xl hover:bg-white/90 transition-all flex items-center justify-center gap-4 italic shadow-2xl">
                 <Save size={20} /> Synchronize Config
              </Button>
-             <button onClick={onClose} className="px-12 py-6 rounded-2xl bg-white/[0.02] border border-white/10 text-white/20 hover:text-white transition-colors font-black uppercase tracking-widest text-[10px]">
+             <button onClick={onClose} className="px-12 py-6 rounded-2xl bg-surface-bright border border-border-bright text-text-tertiary hover:text-text-primary transition-colors font-black uppercase tracking-widest text-[10px]">
                 Abort
              </button>
           </div>

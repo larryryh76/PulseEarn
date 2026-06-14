@@ -115,14 +115,14 @@ const OpsValidation: React.FC = () => {
              <p className="text-xs font-medium text-text-tertiary">Administrative review and reward authorization for user contribution evidence.</p>
           </div>
 
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+          <div className="flex bg-surface-bright p-1 rounded-xl border border-border">
              {(['PENDING', 'APPROVED', 'REJECTED'] as SubtaskStatus[]).map((s) => (
                 <button
                   key={s}
                   onClick={() => setFilter(s)}
                   className={cn(
                     "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                    filter === s ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-white/20 hover:text-white"
+                    filter === s ? "bg-primary text-text-primary shadow-lg shadow-primary/20" : "text-text-tertiary hover:text-text-primary"
                   )}
                 >
                    {s}
@@ -134,18 +134,18 @@ const OpsValidation: React.FC = () => {
        {/* VALIDATION QUEUE */}
        <div className="space-y-4">
           {loading ? (
-             [1,2,3,4].map(i => <div key={i} className="h-32 bg-white/[0.02] border border-white/5 rounded-2xl animate-pulse" />)
+             [1,2,3,4].map(i => <div key={i} className="h-32 bg-surface-bright border border-border rounded-2xl animate-pulse" />)
           ) : claims.length > 0 ? (
              claims.map((claim) => (
-                <div key={claim.id} className="p-8 rounded-[2rem] bg-[#0A0A0F] border border-white/5 hover:border-white/10 transition-all group relative overflow-hidden shadow-2xl">
+                <div key={claim.id} className="p-8 rounded-[2rem] bg-surface border border-border hover:border-border-bright transition-all group relative overflow-hidden shadow-2xl">
                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                       <div className="flex items-center gap-6">
-                         <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/10 group-hover:text-primary transition-all shadow-inner">
+                         <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50 group-hover:text-primary transition-all shadow-inner">
                             <User size={24} />
                          </div>
                          <div>
                             <div className="flex items-center gap-3 mb-2">
-                               <h3 className="font-mono text-sm font-bold text-white uppercase tracking-tighter">{claim.userId.slice(0, 24)}</h3>
+                               <h3 className="font-mono text-sm font-bold text-text-primary uppercase tracking-tighter">{claim.userId.slice(0, 24)}</h3>
                                <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">Identified</span>
                             </div>
                             <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
@@ -153,8 +153,8 @@ const OpsValidation: React.FC = () => {
                                   <Zap size={12} />
                                   {claim.taskId}
                                </div>
-                               <div className="w-1 h-1 rounded-full bg-white/10" />
-                               <div className="flex items-center gap-2 text-white/20">
+                               <div className="w-1 h-1 rounded-full bg-surface-accent" />
+                               <div className="flex items-center gap-2 text-text-tertiary">
                                   <Clock size={12} />
                                   {claim.createdAt?.toDate?.()?.toLocaleString()}
                                </div>
@@ -163,26 +163,26 @@ const OpsValidation: React.FC = () => {
                       </div>
 
                       <div className="flex-1 lg:max-w-md">
-                         <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 shadow-inner">
-                            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-3">Ingress Payload</p>
+                         <div className="p-5 rounded-2xl bg-surface-bright border border-border shadow-inner">
+                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-3">Ingress Payload</p>
                             {claim.submittedProof ? (
                                <div className="flex items-center justify-between">
                                   {claim.submittedProof.startsWith('http') ? (
                                      <div className="flex items-center gap-4 w-full">
-                                        <img src={claim.submittedProof} alt="" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+                                        <img src={claim.submittedProof} alt="" className="w-12 h-12 rounded-xl object-cover border border-border-bright" />
                                         <div className="min-w-0 flex-1">
-                                           <p className="text-[10px] text-white/40 font-mono truncate mb-1">IMAGE_VECTOR_LINK</p>
+                                           <p className="text-[10px] text-text-secondary font-mono truncate mb-1">IMAGE_VECTOR_LINK</p>
                                            <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="text-[10px] font-black text-primary hover:underline uppercase flex items-center gap-2">
                                               <ExternalLink size={12} /> Inspect Asset
                                            </a>
                                         </div>
                                      </div>
                                   ) : (
-                                     <p className="text-xs font-mono text-white/60 truncate">{claim.submittedProof}</p>
+                                     <p className="text-xs font-mono text-text-secondary truncate">{claim.submittedProof}</p>
                                   )}
                                </div>
                             ) : (
-                               <p className="text-[10px] font-black text-white/10 uppercase tracking-widest italic">No proof available</p>
+                               <p className="text-[10px] font-black text-text-tertiary/50 uppercase tracking-widest italic">No proof available</p>
                             )}
                          </div>
                       </div>
@@ -198,7 +198,7 @@ const OpsValidation: React.FC = () => {
                                </button>
                                <button
                                  onClick={() => handleReview(claim.id, 'APPROVED')}
-                                 className="px-8 py-4 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
+                                 className="px-8 py-4 rounded-xl bg-primary text-text-primary text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
                                >
                                   Authorize
                                </button>
@@ -216,10 +216,10 @@ const OpsValidation: React.FC = () => {
                 </div>
              ))
           ) : (
-             <div className="py-40 text-center border border-dashed border-white/10 rounded-[3rem] bg-[#0A0A0F] opacity-40">
+             <div className="py-40 text-center border border-dashed border-border-bright rounded-[3rem] bg-surface opacity-40">
                 <CheckCircle size={48} className="mx-auto text-success/40 mb-6" />
                 <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary">Desk Neutral</h3>
-                <p className="text-[10px] font-mono text-white/10 uppercase tracking-widest mt-2">No ingress signals requiring administrative action</p>
+                <p className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest mt-2">No ingress signals requiring administrative action</p>
              </div>
           )}
        </div>

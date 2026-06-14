@@ -101,12 +101,12 @@ const Referrals: React.FC = () => {
                    <div className="space-y-3">
                       <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Unique Invite Code</p>
                       <div className="flex gap-2">
-                         <div className="flex-1 bg-background border border-white/10 rounded-xl px-5 py-4 font-mono font-bold text-lg tracking-widest text-white">
+                         <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-mono font-bold text-lg tracking-widest text-text-primary">
                             {userData?.referralCode || '-------'}
                          </div>
                          <button
                            onClick={copyCode}
-                           className="w-14 h-full bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-all"
+                           className="w-14 h-full bg-surface-bright border border-border-bright rounded-xl flex items-center justify-center text-text-primary hover:bg-surface-accent transition-all"
                          >
                             <Copy size={20} />
                          </button>
@@ -115,12 +115,12 @@ const Referrals: React.FC = () => {
                    <div className="space-y-3">
                       <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Referral Link</p>
                       <div className="flex gap-2">
-                         <div className="flex-1 bg-background border border-white/10 rounded-xl px-5 py-4 font-medium text-sm truncate text-white/40">
+                         <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-medium text-sm truncate text-text-secondary">
                             pulseearn.app/join?ref={userData?.referralCode}
                          </div>
                          <button
                            onClick={copyLink}
-                           className="w-14 h-full bg-primary text-white rounded-xl flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                           className="w-14 h-full bg-primary text-text-primary rounded-xl flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                          >
                             <Share2 size={20} />
                          </button>
@@ -149,20 +149,20 @@ const Referrals: React.FC = () => {
                      [1,2,3].map(i => <div key={i} className="h-20 bg-surface rounded-2xl animate-pulse" />)
                    ) : referrals.length > 0 ? (
                      referrals.map(ref => (
-                       <div key={ref.id} className="p-6 bg-white/[0.01] border border-white/5 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-all">
+                       <div key={ref.id} className="p-6 bg-surface-bright/50 border border-border rounded-2xl flex items-center justify-between group hover:border-border-bright transition-all">
                           <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-text-tertiary">
+                             <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border-bright flex items-center justify-center text-text-tertiary">
                                 <Users size={18} />
                              </div>
                              <div>
-                                <p className="text-sm font-bold text-white uppercase tracking-tight">{ref.refereeUsername || 'New User'}</p>
-                                <p className="text-[10px] font-mono text-white/20 mt-0.5 uppercase">Joined {ref.createdAt?.toDate?.() ? (ref.createdAt?.toDate?.()?.toLocaleDateString() || "N/A") : 'N/A'}</p>
+                                <p className="text-sm font-bold text-text-primary uppercase tracking-tight">{ref.refereeUsername || 'New User'}</p>
+                                <p className="text-[10px] font-mono text-text-tertiary mt-0.5 uppercase">Joined {ref.createdAt?.toDate?.() ? (ref.createdAt?.toDate?.()?.toLocaleDateString() || "N/A") : 'N/A'}</p>
                              </div>
                           </div>
                           <div className="text-right">
                              <span className={cn(
                                "px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest border",
-                               ref.status === 'REWARDED' ? "bg-success/10 text-success border-success/20" : "bg-white/5 text-white/20 border-white/10"
+                               ref.status === 'REWARDED' ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
                              )}>
                                 {ref.status}
                              </span>
@@ -170,8 +170,8 @@ const Referrals: React.FC = () => {
                        </div>
                      ))
                    ) : (
-                     <div className="py-20 text-center border border-dashed border-white/10 rounded-[2.5rem] bg-white/[0.01]">
-                        <Users size={40} className="mx-auto text-white/5 mb-4" />
+                     <div className="py-20 text-center border border-dashed border-border-bright rounded-[2.5rem] bg-surface-bright/50">
+                        <Users size={40} className="mx-auto text-text-primary/5 mb-4" />
                         <p className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">No referrals recorded yet</p>
                      </div>
                    )}
@@ -188,12 +188,12 @@ const Referrals: React.FC = () => {
                         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">{stat.label}</p>
                         <stat.icon size={14} className={stat.color} />
                      </div>
-                     <p className="text-2xl font-mono font-bold text-white">{stat.value}</p>
+                     <p className="text-2xl font-mono font-bold text-text-primary">{stat.value}</p>
                   </Card>
                 ))}
              </section>
 
-             <Card className="p-8 space-y-8 bg-surface-bright/30 border-white/5">
+             <Card className="p-8 space-y-8 bg-surface-bright/30 border-border">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-accent flex items-center gap-2">
                    <TrendingUp size={14} />
                    Referral Performance
@@ -203,14 +203,14 @@ const Referrals: React.FC = () => {
                    <div className="space-y-2">
                       <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
                          <span className="text-text-tertiary">Progress to Tier 2</span>
-                         <span className="text-white">{referrals.length} / 10</span>
+                         <span className="text-text-primary">{referrals.length} / 10</span>
                       </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-surface-bright rounded-full overflow-hidden">
                          <div className="h-full bg-accent w-[30%] shadow-[0_0_10px_rgba(0,210,255,0.3)]" />
                       </div>
                    </div>
 
-                   <div className="pt-6 border-t border-white/5 space-y-4">
+                   <div className="pt-6 border-t border-border space-y-4">
                       {[
                         { label: 'Referral Bonus', value: '50 PTS' },
                         { label: 'Task Share', value: '5%' },
@@ -218,15 +218,15 @@ const Referrals: React.FC = () => {
                       ].map((rule, i) => (
                         <div key={i} className="flex justify-between items-center">
                            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{rule.label}</span>
-                           <span className="text-[10px] font-mono font-bold text-white">{rule.value}</span>
+                           <span className="text-[10px] font-mono font-bold text-text-primary">{rule.value}</span>
                         </div>
                       ))}
                    </div>
                 </div>
              </Card>
 
-             <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[2rem] space-y-6">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-white/40 flex items-center gap-2">
+             <div className="p-8 bg-surface-bright/50 border border-border rounded-[2rem] space-y-6">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-text-secondary flex items-center gap-2">
                    <CheckCircle2 size={14} />
                    Verification Rules
                 </h3>

@@ -97,35 +97,36 @@ const Profile: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="pt-32 pb-24 px-6 max-w-5xl mx-auto">
+      <div className="bg-background transition-colors duration-300">
+      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
         {/* PROFILE HEADER */}
-        <header className="mb-16">
-          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12 text-center lg:text-left">
+        <header className="mb-12 md:mb-16">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8 md:gap-12 text-center lg:text-left">
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-               <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-white/5 relative z-10", getLevelTier(userData?.level || 1).glow)}>
-                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-white/5">
+               <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
+                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
                      alt=""
                      className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
                    />
                  </div>
-                 <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-white/10 flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
+                 <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
                    <Award size={24} />
                  </div>
                </div>
             </div>
 
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 w-full">
               <div className="space-y-2">
                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
-                   <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">{userData?.username}</h1>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userData?.level || 1).color, "bg-white/5")}>
+                   <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-text-primary">{userData?.username}</h1>
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
                       <TrendingUp size={12} />
                       LVL {userData?.level || 1}
                    </div>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userData?.level || 1).color, "bg-white/5")}>
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
                       {getLevelTier(userData?.level || 1).title}
                    </div>
                  </div>
@@ -136,18 +137,18 @@ const Profile: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                      <Zap size={14} className="text-primary" />
-                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-white/20">XP Earned</span>
+                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-text-tertiary">XP Earned</span>
                    </div>
                  </div>
               </div>
 
               {/* XP PROGRESSION */}
-              <div className="max-w-md mx-auto lg:mx-0 p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+              <div className="max-w-md mx-auto lg:mx-0 p-6 bg-surface-bright border border-border rounded-2xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
                   <span>Progress to Level {xpStats.level + 1}</span>
                   <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}%</span>
                 </div>
-                <div className="h-3 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <div className="h-3 bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border-bright">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${xpStats.progress}%` }}
@@ -166,7 +167,7 @@ const Profile: React.FC = () => {
         </header>
 
         {/* NAVIGATION SYSTEM */}
-        <div className="flex gap-1.5 mb-12 p-1.5 bg-surface-bright/50 border border-border rounded-[1.5rem] overflow-x-auto no-scrollbar">
+        <div className="flex gap-1.5 mb-8 md:mb-12 p-1.5 bg-surface-bright/50 border border-border rounded-2xl md:rounded-[1.5rem] overflow-x-auto no-scrollbar">
           {[
             { id: 'IDENTITY', label: 'Identity', icon: UserIcon },
             { id: 'REWARDS', label: 'Rewards', icon: Zap },
@@ -179,7 +180,7 @@ const Profile: React.FC = () => {
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
                 "flex items-center gap-3 px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] transition-all whitespace-nowrap",
-                activeTab === tab.id ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-white hover:bg-white/5"
+                activeTab === tab.id ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-text-primary hover:bg-surface-bright"
               )}
             >
               <tab.icon size={14} />
@@ -221,18 +222,18 @@ const Profile: React.FC = () => {
                        <h2 className="text-lg font-bold tracking-tight">Device Status</h2>
                     </div>
                     <Card variant="compact" className="flex items-center gap-6">
-                      <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-white/5 flex items-center justify-center text-text-tertiary group hover:border-primary/20 transition-colors">
+                      <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group hover:border-primary/20 transition-colors">
                         <Smartphone size={24} />
                       </div>
                       <div className="space-y-1">
-                         <p className="text-sm font-bold text-white">Device Pairing</p>
+                         <p className="text-sm font-bold text-text-primary">Device Pairing</p>
                          <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">Linked</p>
                       </div>
                     </Card>
                   </section>
                 </div>
 
-                <div className="pt-12 border-t border-white/5">
+                <div className="pt-12 border-t border-border">
                    <Button variant="danger" className="w-full h-16 rounded-2xl opacity-60 hover:opacity-100 italic font-black uppercase tracking-widest text-[11px]" onClick={handleLogout}>
                       <LogOut size={16} />
                       Sign Out
@@ -251,28 +252,28 @@ const Profile: React.FC = () => {
                     <div className="space-y-3">
                        <h2 className="text-3xl font-bold tracking-tight italic">Invite Friends</h2>
                        <p className="text-base text-text-secondary leading-relaxed font-medium italic">
-                          Grow your network and earn rewards. You'll receive <span className="text-white font-bold tracking-tight">50 PTS</span> for every friend who joins PulseEarn using your code.
+                          Grow your network and earn rewards. You'll receive <span className="text-text-primary font-bold tracking-tight">50 PTS</span> for every friend who joins PulseEarn using your code.
                        </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-4">
-                      <div className="flex-1 w-full bg-background/60 border border-white/10 px-8 py-5 rounded-2xl font-mono text-xl tracking-[0.2em] text-white flex items-center justify-between">
+                      <div className="flex-1 w-full bg-background/60 border border-border-bright px-8 py-5 rounded-2xl font-mono text-xl tracking-[0.2em] text-text-primary flex items-center justify-between">
                         {userData?.referralCode}
-                        <div className="w-px h-6 bg-white/10 mx-2" />
-                        <button onClick={copyReferral} className="text-text-tertiary hover:text-white transition-colors">
+                        <div className="w-px h-6 bg-surface-accent mx-2" />
+                        <button onClick={copyReferral} className="text-text-tertiary hover:text-text-primary transition-colors">
                            {hasCopied ? <Check size={20} className="text-success" /> : <Copy size={20} />}
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-12 pt-12 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-12 pt-12 border-t border-border-bright">
                       <div className="space-y-2">
                         <p className="data-label">Total Referrals</p>
-                        <p className="text-4xl font-bold text-white tracking-tighter">{userData?.stats?.referralsCount || 0}</p>
+                        <p className="text-4xl font-bold text-text-primary tracking-tighter">{userData?.stats?.referralsCount || 0}</p>
                       </div>
                       <div className="space-y-2">
                         <p className="data-label">Total Earned</p>
-                        <p className="text-4xl font-bold text-white tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
+                        <p className="text-4xl font-bold text-text-primary tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
                   </div>
@@ -294,7 +295,7 @@ const Profile: React.FC = () => {
                           <Zap size={14} />
                         </div>
                         <div>
-                          <p className="text-[13px] font-bold text-white leading-none mb-1.5">{tx.source || 'Ecosystem Reward'}</p>
+                          <p className="text-[13px] font-bold text-text-primary leading-none mb-1.5">{tx.source || 'Ecosystem Reward'}</p>
                           <p className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest">
                             {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                           </p>
@@ -321,15 +322,15 @@ const Profile: React.FC = () => {
                     <div className="w-1 h-5 bg-primary rounded-full" />
                     <h2 className="text-lg font-bold tracking-tight">System Communications</h2>
                   </div>
-                  <Card className="divide-y divide-white/5 p-0 overflow-hidden bg-white/[0.01] border-white/5">
+                  <Card className="divide-y divide-white/5 p-0 overflow-hidden bg-surface-bright/50 border-border">
                     {[
                       { id: 'notifications', label: 'Security Alerts', desc: 'Critical security and account updates' },
                       { id: 'rewardAlerts', label: 'Reward Notifications', desc: 'Real-time alerts for earned points and XP' },
                       { id: 'marketing', label: 'Product Updates', desc: 'News about new campaigns and platform features' }
                     ].map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-8 hover:bg-white/[0.01] transition-colors">
+                      <div key={item.id} className="flex items-center justify-between p-8 hover:bg-surface-bright/50 transition-colors">
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-white">{item.label}</p>
+                          <p className="text-sm font-bold text-text-primary">{item.label}</p>
                           <p className="text-xs text-text-tertiary leading-relaxed max-w-sm font-medium">{item.desc}</p>
                         </div>
                         <button
@@ -397,7 +398,7 @@ const Profile: React.FC = () => {
 
                 <div className="p-10 border border-border bg-surface-bright/20 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-8">
                    <div className="space-y-1 text-center md:text-left">
-                      <p className="text-lg font-bold text-white">Need a direct link?</p>
+                      <p className="text-lg font-bold text-text-primary">Need a direct link?</p>
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest">Open a direct support signal</p>
                    </div>
                    <Button className="h-14 px-10 rounded-2xl" onClick={() => navigate('/support')}>
@@ -408,6 +409,7 @@ const Profile: React.FC = () => {
             )}
           </AnimatePresence>
         </div>
+      </div>
       </div>
     </MainLayout>
   );

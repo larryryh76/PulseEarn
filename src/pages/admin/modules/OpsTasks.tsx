@@ -154,12 +154,12 @@ const OpsTasks: React.FC = () => {
                          <td className="p-8">
                             <div className="flex items-center gap-5">
                                <div>
-                                  <p className="text-sm font-mono font-bold text-primary">+{task.rewardAmount.toLocaleString()}</p>
+                                  <p className="text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
                                   <p className="text-[8px] font-black uppercase tracking-widest text-white/10">Points</p>
                                </div>
                                <div className="w-px h-6 bg-white/5" />
                                <div>
-                                  <p className="text-sm font-mono font-bold text-indigo-400">+{task.xpReward.toLocaleString()}</p>
+                                  <p className="text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
                                   <p className="text-[8px] font-black uppercase tracking-widest text-white/10">XP</p>
                                </div>
                             </div>

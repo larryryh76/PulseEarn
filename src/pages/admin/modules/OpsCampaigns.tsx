@@ -122,17 +122,17 @@ const OpsCampaigns: React.FC = () => {
 
           <div className="flex items-center gap-4 w-full md:w-auto">
              <div className="relative flex-1 md:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Filter campaigns by Name or ID..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
              <button
                onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
-               className="px-8 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+               className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
              >
                 <Plus size={18} />
                 New Campaign
@@ -142,27 +142,27 @@ const OpsCampaigns: React.FC = () => {
 
        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {loading ? (
-             [1,2,3,4,5,6].map(i => <div key={i} className="h-[400px] bg-white/[0.02] border border-white/5 rounded-[2rem] animate-pulse" />)
+             [1,2,3,4,5,6].map(i => <div key={i} className="h-[400px] bg-surface-bright border border-border rounded-[2rem] animate-pulse" />)
           ) : filtered.length > 0 ? (
              filtered.map((camp) => (
-                <div key={camp.id} className="group bg-[#0A0A0F] border border-white/5 rounded-[2.5rem] overflow-hidden hover:border-primary/30 transition-all duration-500 flex flex-col shadow-2xl">
-                   <div className="h-44 relative overflow-hidden bg-white/5">
+                <div key={camp.id} className="group bg-surface border border-border rounded-[2.5rem] overflow-hidden hover:border-primary/30 transition-all duration-500 flex flex-col shadow-2xl">
+                   <div className="h-44 relative overflow-hidden bg-surface-bright">
                       {camp.bannerUrl ? (
                          <img src={camp.bannerUrl} alt="" className="w-full h-full object-cover opacity-40 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 grayscale-[50%] group-hover:grayscale-0" />
                       ) : (
                          <div className="w-full h-full flex items-center justify-center">
-                            <Target size={40} className="text-white/5" />
+                            <Target size={40} className="text-text-primary/5" />
                          </div>
                       )}
                       <div className="absolute top-6 left-6">
-                         <span className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[8px] font-black uppercase tracking-[0.3em] text-white">
+                         <span className="px-3 py-1.5 rounded-lg bg-background/60 backdrop-blur-md border border-border-bright text-[8px] font-black uppercase tracking-[0.3em] text-text-primary">
                             {camp.category}
                          </span>
                       </div>
                       <div className="absolute top-6 right-6">
                          <div className={cn(
                            "px-3 py-1.5 rounded-lg font-black uppercase tracking-[0.2em] text-[8px] border",
-                           camp.active ? "bg-success/10 text-success border-success/20" : "bg-white/5 text-white/20 border-white/10"
+                           camp.active ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
                          )}>
                             {camp.status}
                          </div>
@@ -172,13 +172,13 @@ const OpsCampaigns: React.FC = () => {
                    <div className="p-8 flex-1 flex flex-col">
                       <div className="flex justify-between items-start mb-4">
                          <div className="min-w-0">
-                            <h3 className="text-lg font-bold text-white tracking-tight uppercase italic truncate group-hover:text-primary transition-colors">{camp.name}</h3>
-                            <p className="text-[9px] font-mono text-white/20 uppercase tracking-widest mt-1">ID: {camp.id}</p>
+                            <h3 className="text-lg font-bold text-text-primary tracking-tight uppercase italic truncate group-hover:text-primary transition-colors">{camp.name}</h3>
+                            <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {camp.id}</p>
                          </div>
                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleClone(camp)} className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-success transition-all" title="Clone"><Copy size={14} /></button>
-                            <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all" title="Edit"><Edit3 size={14} /></button>
-                            <button onClick={() => handleDelete(camp)} className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-danger transition-all" title="Delete"><Trash2 size={14} /></button>
+                            <button onClick={() => handleClone(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-success transition-all" title="Clone"><Copy size={14} /></button>
+                            <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all" title="Edit"><Edit3 size={14} /></button>
+                            <button onClick={() => handleDelete(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all" title="Delete"><Trash2 size={14} /></button>
                          </div>
                       </div>
 
@@ -187,23 +187,23 @@ const OpsCampaigns: React.FC = () => {
                       </p>
 
                       <div className="grid grid-cols-2 gap-4 mb-8">
-                         <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                         <div className="bg-surface-bright rounded-2xl p-4 border border-border">
                             <div className="flex items-center gap-2 mb-1">
                                <Users size={12} className="text-primary" />
-                               <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Participants</span>
+                               <span className="text-[9px] font-black uppercase tracking-widest text-text-tertiary">Participants</span>
                             </div>
-                            <p className="text-lg font-mono font-bold text-white">{camp.participantsCount || 0}</p>
+                            <p className="text-lg font-mono font-bold text-text-primary">{camp.participantsCount || 0}</p>
                          </div>
-                         <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                         <div className="bg-surface-bright rounded-2xl p-4 border border-border">
                             <div className="flex items-center gap-2 mb-1">
                                <Zap size={12} className="text-success" />
-                               <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Total Prize</span>
+                               <span className="text-[9px] font-black uppercase tracking-widest text-text-tertiary">Total Prize</span>
                             </div>
                             <p className="text-lg font-mono font-bold text-success">{camp.totalPrizePool?.toLocaleString() || 0}</p>
                          </div>
                       </div>
 
-                      <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
+                      <div className="mt-auto pt-6 border-t border-border flex items-center justify-between">
                          <button
                            onClick={() => handleToggleStatus(camp)}
                            className={cn(
@@ -216,7 +216,7 @@ const OpsCampaigns: React.FC = () => {
 
                          <button
                            onClick={() => navigate(`/admin/tasks?campaignId=${camp.id}`)}
-                           className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-primary transition-all group/btn"
+                           className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary hover:text-primary transition-all group/btn"
                          >
                             Manage Tasks
                             <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
@@ -226,8 +226,8 @@ const OpsCampaigns: React.FC = () => {
                 </div>
              ))
           ) : (
-             <div className="col-span-full py-40 text-center border border-dashed border-white/10 rounded-[3rem] bg-white/[0.01]">
-                <Target size={48} className="mx-auto text-white/5 mb-6" />
+             <div className="col-span-full py-40 text-center border border-dashed border-border-bright rounded-[3rem] bg-surface-bright/50">
+                <Target size={48} className="mx-auto text-text-primary/5 mb-6" />
                 <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary">No campaign entities identified</h3>
              </div>
           )}

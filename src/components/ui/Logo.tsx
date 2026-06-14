@@ -8,10 +8,10 @@ const Logo: React.FC<{ className?: string }> = ({ className = "" }) => {
         <div className="absolute inset-0 bg-primary/20 rounded-lg blur-md group-hover:bg-primary/30 transition-colors" />
 
         {/* Minimalist Icon */}
-        <div className="relative w-full h-full bg-background border border-white/10 rounded-lg flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-primary/50">
+        <div className="relative w-full h-full bg-background border border-border-bright rounded-lg flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-primary/50">
           <svg
             viewBox="0 0 24 24"
-            className="w-5 h-5 text-white"
+            className="w-5 h-5 text-text-primary"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -32,8 +32,8 @@ const Logo: React.FC<{ className?: string }> = ({ className = "" }) => {
       </div>
 
       <div className="flex flex-col -gap-1">
-        <span className="font-heading font-bold text-xl tracking-tight text-white leading-tight">
-          Pulse<span className="text-white/60 font-medium">Earn</span>
+        <span className="font-heading font-bold text-xl tracking-tight text-text-primary leading-tight">
+          Pulse<span className="text-text-secondary font-medium">Earn</span>
         </span>
         <span className="text-[8px] font-bold uppercase tracking-widest text-primary/80 leading-none">
           Rewards

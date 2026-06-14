@@ -103,17 +103,17 @@ const OpsOverview: React.FC = () => {
     <div
       onClick={() => path && navigate(path)}
       className={cn(
-        "bg-[#0A0A0F] border border-white/5 p-6 rounded-xl hover:border-white/10 transition-all group shadow-2xl",
-        path && "cursor-pointer hover:bg-white/[0.02]"
+        "bg-surface border border-border p-6 rounded-xl hover:border-border-bright transition-all group shadow-2xl",
+        path && "cursor-pointer hover:bg-surface-bright"
       )}
     >
        <div className="flex justify-between items-start mb-4">
-          <div className={cn("p-2.5 rounded-lg bg-white/5 transition-transform group-hover:scale-110 shadow-inner", color)}>
+          <div className={cn("p-2.5 rounded-lg bg-surface-bright transition-transform group-hover:scale-110 shadow-inner", color)}>
              {React.createElement(icon, { size: 18 })}
           </div>
-          {path && <div className="text-[8px] font-black uppercase tracking-widest text-white/10 group-hover:text-primary transition-colors">View Details</div>}
+          {path && <div className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50 group-hover:text-primary transition-colors">View Details</div>}
        </div>
-       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">{label}</p>
+       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-1">{label}</p>
        <p className="text-2xl font-mono font-bold tracking-tighter">
           {loading ? '---' : typeof value === 'number' ? value.toLocaleString() : value}
        </p>
@@ -126,27 +126,27 @@ const OpsOverview: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Terminal size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-white">Ops Control Center</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Ops Control Center</h1>
              </div>
              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
                 <span className="flex items-center gap-2">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                    System Authority: Active
                 </span>
-                <span className="w-1 h-1 rounded-full bg-white/10" />
+                <span className="w-1 h-1 rounded-full bg-surface-accent" />
                 <span>Sync Node: {lastSync.toLocaleTimeString()}</span>
              </div>
           </div>
           <button
             onClick={fetchOperationalData}
-            className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+            className="px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
              Reload Matrix
           </button>
        </header>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
           {metricItem('Total Identity Nodes', stats.totalUsers, Users, 'text-primary', '/admin/users')}
           {metricItem('24h Asset Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
           {metricItem('Global USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
@@ -154,84 +154,84 @@ const OpsOverview: React.FC = () => {
        </div>
 
        <div className="space-y-6">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 flex items-center gap-3 px-1">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-3 px-1">
              <Clock size={14} />
              Operational Priority Queues
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
              <div
                onClick={() => navigate('/admin/withdrawals')}
                className={cn(
-               "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingWithdrawals > 0 ? "border-orange-500/20 hover:border-orange-500/40" : "border-white/5 hover:border-white/10"
+               "p-8 rounded-2xl bg-surface border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
+               stats.pendingWithdrawals > 0 ? "border-orange-500/20 hover:border-orange-500/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Settlement Pressure</p>
-                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-white/10")}>
+                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-text-tertiary/50")}>
                       {stats.pendingWithdrawals}
                    </p>
                 </div>
-                <CreditCard size={32} className={cn("transition-all", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-white/5")} />
+                <CreditCard size={32} className={cn("transition-all", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-text-primary/5")} />
              </div>
 
              <div
                onClick={() => navigate('/admin/validation')}
                className={cn(
-               "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingVerifications > 0 ? "border-primary/20 hover:border-primary/40" : "border-white/5 hover:border-white/10"
+               "p-8 rounded-2xl bg-surface border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
+               stats.pendingVerifications > 0 ? "border-primary/20 hover:border-primary/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Validation Ingress</p>
-                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingVerifications > 0 ? "text-primary" : "text-white/10")}>
+                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingVerifications > 0 ? "text-primary" : "text-text-tertiary/50")}>
                       {stats.pendingVerifications}
                    </p>
                 </div>
-                <ShieldCheck size={32} className={cn("transition-all", stats.pendingVerifications > 0 ? "text-primary" : "text-white/5")} />
+                <ShieldCheck size={32} className={cn("transition-all", stats.pendingVerifications > 0 ? "text-primary" : "text-text-primary/5")} />
              </div>
 
              <div
                onClick={() => navigate('/admin/support')}
                className={cn(
-               "p-8 rounded-2xl bg-[#0A0A0F] border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
-               stats.pendingSupport > 0 ? "border-indigo-500/20 hover:border-indigo-500/40" : "border-white/5 hover:border-white/10"
+               "p-8 rounded-2xl bg-surface border transition-all flex items-center justify-between group cursor-pointer shadow-2xl",
+               stats.pendingSupport > 0 ? "border-indigo-500/20 hover:border-indigo-500/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Support Signal Flux</p>
-                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingSupport > 0 ? "text-indigo-500" : "text-white/10")}>
+                   <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingSupport > 0 ? "text-indigo-500" : "text-text-tertiary/50")}>
                       {stats.pendingSupport}
                    </p>
                 </div>
-                <MessageSquare size={32} className={cn("transition-all", stats.pendingSupport > 0 ? "text-indigo-500" : "text-white/5")} />
+                <MessageSquare size={32} className={cn("transition-all", stats.pendingSupport > 0 ? "text-indigo-500" : "text-text-primary/5")} />
              </div>
           </div>
        </div>
 
        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-[#0A0A0F] border border-white/5 rounded-2xl p-10 space-y-10 shadow-2xl">
+          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-10 space-y-10 shadow-2xl">
              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-white/40">
+                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
                    <Activity size={18} className="text-primary" />
                    Ecosystem Ledger Stream
                 </h3>
              </div>
              <div className="space-y-1">
                 {recentLedger.length > 0 ? recentLedger.map((tx) => (
-                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-5 border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-all cursor-pointer group">
+                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-5 border-b border-border last:border-0 hover:bg-surface-bright/50 transition-all cursor-pointer group">
                       <div className="flex items-center gap-5">
                          <div className={cn(
                            "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
                            tx.amount >= 0 ? "bg-success" : "bg-danger"
                          )} />
                          <div>
-                            <p className="text-xs font-bold text-white uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                            <p className="text-[9px] font-mono text-white/20 uppercase mt-1">Ref: {tx.id.slice(0, 12).toUpperCase()}</p>
+                            <p className="text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                            <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">Ref: {tx.id.slice(0, 12).toUpperCase()}</p>
                          </div>
                       </div>
                       <div className="text-right">
                          <p className={cn("text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
                            {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
                          </p>
-                         <p className="text-[9px] font-mono text-white/10 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                         <p className="text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
                       </div>
                    </div>
                 )) : (
@@ -253,7 +253,7 @@ const OpsOverview: React.FC = () => {
                    </div>
                 </div>
                 <div className="space-y-3">
-                   <h3 className="text-2xl font-bold text-white uppercase italic tracking-tighter">Security Anomalies</h3>
+                   <h3 className="text-2xl font-bold text-text-primary uppercase italic tracking-tighter">Security Anomalies</h3>
                    <p className="text-xs text-text-tertiary leading-relaxed font-medium">Ops identifies <span className="text-danger font-bold">{stats.fraudAnomalies}</span> logic violations requiring administrative termination.</p>
                 </div>
              </div>

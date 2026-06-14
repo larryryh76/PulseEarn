@@ -73,7 +73,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center gap-8">
       <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-[0_0_30px_rgba(0,112,255,0.2)]" />
       <div className="text-center space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 animate-pulse">Initializing Ops Matrix</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">Initializing Ops Matrix</p>
         <div className="h-1 w-48 bg-white/5 rounded-full overflow-hidden relative">
           <motion.div
             initial={{ left: '-100%' }}
@@ -88,11 +88,11 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 max-w-md">
            <Terminal size={48} className="text-danger mx-auto" />
            <h1 className="text-2xl font-bold tracking-tighter uppercase">Access Denied</h1>
-           <p className="text-white/40 text-sm">Your credentials are not authorized for PulseEarn Operations. This attempt has been logged.</p>
+           <p className="text-text-secondary text-sm">Your credentials are not authorized for PulseEarn Operations. This attempt has been logged.</p>
            <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded hover:bg-white/90 transition-all">Return to Home</button>
         </motion.div>
       </div>
@@ -102,7 +102,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   const renderNavGroup = (category: string) => (
     <div className="space-y-1 mb-8">
        <p className={cn(
-         "text-[9px] font-black uppercase tracking-[0.2em] px-4 mb-2 text-white/20 transition-all",
+         "text-[9px] font-black uppercase tracking-[0.2em] px-4 mb-2 text-text-tertiary transition-all",
          isSidebarCollapsed && "opacity-0 invisible h-0"
        )}>
          {category}
@@ -116,15 +116,15 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
              className={cn(
                "flex items-center gap-4 px-4 py-3 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all group relative",
                isActive
-                ? "bg-primary text-white shadow-lg shadow-primary/20"
-                : "text-text-tertiary hover:text-white hover:bg-white/5"
+                ? "bg-primary text-text-primary shadow-lg shadow-primary/20"
+                : "text-text-tertiary hover:text-text-primary hover:bg-white/5"
              )}
            >
-             <item.icon size={18} className={cn("shrink-0", isActive ? "text-white" : "text-white/20 group-hover:text-primary")} />
+             <item.icon size={18} className={cn("shrink-0", isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-primary")} />
              {!isSidebarCollapsed && <span>{item.label}</span>}
              {isActive && !isSidebarCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
              {isSidebarCollapsed && (
-                <div className="absolute left-full ml-4 px-3 py-2 bg-[#12121A] border border-white/10 rounded text-[10px] font-bold whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none uppercase tracking-widest">
+                <div className="absolute left-full ml-4 px-3 py-2 bg-[#12121A] border border-border-bright rounded text-[10px] font-bold whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none uppercase tracking-widest">
                    {item.label}
                 </div>
              )}
@@ -135,46 +135,46 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   );
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white selection:bg-primary/30 flex overflow-hidden font-sans">
+    <div className="min-h-screen bg-background text-text-primary selection:bg-primary/30 flex overflow-hidden font-sans transition-colors duration-300">
 
       <aside className={cn(
-        "hidden lg:flex flex-col border-r border-white/5 bg-[#08080C] transition-all duration-300 relative z-50",
+        "hidden lg:flex flex-col border-r border-border bg-surface-bright transition-all duration-300 relative z-50",
         isSidebarCollapsed ? "w-20" : "w-72"
       )}>
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <div className="p-6 border-b border-border flex items-center justify-between">
            <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded bg-primary flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-                 <Terminal size={18} className="text-white" />
+                 <Terminal size={18} className="text-text-primary" />
               </div>
               {!isSidebarCollapsed && <span className="text-xs font-black uppercase tracking-[0.3em]">Ops Control</span>}
            </div>
-           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 hover:bg-white/5 rounded text-white/20 hover:text-white">
+           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 hover:bg-white/5 rounded text-text-tertiary hover:text-text-primary">
               {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
            </button>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto no-scrollbar pt-8">
+        <nav className="flex-1 p-4 overflow-y-auto no-scrollbar pt-8 bg-surface-bright">
            {renderNavGroup('CORE')}
            {renderNavGroup('ECONOMY')}
            {renderNavGroup('SYSTEM')}
            {renderNavGroup('SECURITY')}
         </nav>
 
-        <div className="p-4 border-t border-white/5 space-y-2">
+        <div className="p-4 border-t border-border space-y-2 bg-surface-bright">
            <div className={cn(
-             "p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all",
+             "p-4 bg-surface border border-border rounded-xl transition-all",
              isSidebarCollapsed && "p-2 items-center flex justify-center"
            )}>
               <div className="flex items-center gap-3">
                  <img
                    src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid}`}
                    alt=""
-                   className="w-8 h-8 rounded border border-white/10"
+                   className="w-8 h-8 rounded border border-border-bright"
                  />
                  {!isSidebarCollapsed && (
                     <div className="min-w-0">
                        <p className="text-[10px] font-bold truncate uppercase">{userData?.username || 'Admin'}</p>
-                       <p className="text-[9px] font-mono text-white/20 truncate">{currentUser?.email}</p>
+                       <p className="text-[9px] font-mono text-text-tertiary truncate">{currentUser?.email}</p>
                     </div>
                  )}
               </div>
@@ -193,7 +193,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-         <header className="h-16 border-b border-white/5 px-8 flex items-center justify-between sticky top-0 bg-[#050507]/80 backdrop-blur-md z-40">
+         <header className="h-16 border-b border-border px-8 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-40">
             <div className="flex items-center gap-6">
                <div className="lg:hidden flex items-center gap-3">
                   <Terminal size={20} className="text-primary" />
@@ -228,8 +228,8 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
 
       <AnimatePresence>
          {isMobileOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] lg:hidden bg-black flex flex-col">
-               <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] lg:hidden bg-background flex flex-col">
+               <div className="p-6 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
                      <Terminal size={24} className="text-primary" />
                      <span className="text-sm font-black uppercase tracking-widest">Ops Control</span>
@@ -244,7 +244,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                        onClick={() => setIsMobileOpen(false)}
                        className={cn(
                          "flex items-center gap-6 p-6 rounded-2xl text-[13px] font-bold uppercase tracking-widest mb-2 transition-all",
-                         location.pathname === item.path ? "bg-primary text-white" : "text-white/20"
+                         location.pathname === item.path ? "bg-primary text-text-primary" : "text-text-tertiary"
                        )}
                      >
                         <item.icon size={24} />
@@ -252,7 +252,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                      </Link>
                   ))}
                </div>
-               <div className="p-6 border-t border-white/5">
+               <div className="p-6 border-t border-border">
                   <button onClick={() => logout()} className="w-full py-6 rounded-2xl bg-danger/10 text-danger font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-4">
                      <LogOut size={20} />
                      Terminate Session

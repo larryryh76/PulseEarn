@@ -137,58 +137,58 @@ const OpsUsers: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Users size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-white">User Directory</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">User Directory</h1>
              </div>
              <p className="text-xs font-medium text-text-tertiary">Platform user base management and account integrity auditing.</p>
           </div>
 
           <div className="relative group w-full md:w-96">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
              <input
                value={searchTerm}
                onChange={e => setSearchTerm(e.target.value)}
                placeholder="Scan directory by UID, Email, Username..."
-               className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+               className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
              />
           </div>
        </header>
 
-       <div className="bg-[#0A0A0F] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
+       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
                 <thead>
-                   <tr className="bg-white/[0.02] border-b border-white/5">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Identity Node</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Asset Balance</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Progression</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Status</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 text-right">Ops</th>
+                   <tr className="bg-surface-bright border-b border-border">
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Identity Node</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Asset Balance</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
                    {loading ? (
-                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-white/5 rounded w-full" /></td></tr>)
+                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((user) => (
-                      <tr key={user.id} className="group hover:bg-white/[0.01] transition-colors whitespace-nowrap cursor-pointer" onClick={() => setSelectedUser(user)}>
+                      <tr key={user.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap cursor-pointer" onClick={() => setSelectedUser(user)}>
                          <td className="p-8">
                             <div className="flex items-center gap-4">
-                               <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-12 h-12 rounded-xl bg-white/5 border border-white/10" />
+                               <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-12 h-12 rounded-xl bg-surface-bright border border-border-bright" />
                                <div>
-                                  <p className="text-sm font-bold text-white group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
-                                  <p className="text-[10px] font-mono text-white/20 mt-1 uppercase tracking-widest">{user.email}</p>
+                                  <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
+                                  <p className="text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{user.email}</p>
                                </div>
                             </div>
                          </td>
                          <td className="p-8">
-                            <p className="text-sm font-mono font-bold text-white">{(user.points || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
+                            <p className="text-sm font-mono font-bold text-text-primary">{(user.points || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
                             <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1">&asymp; {formatUSD((user.points || 0) / 1000)}</p>
                          </td>
                          <td className="p-8">
                             <div className="flex items-center gap-2 mb-1.5">
                                <TrendingUp size={14} className="text-primary" />
-                               <span className="text-[10px] font-black uppercase tracking-widest text-white/60">LVL {user.level || 1}</span>
+                               <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
                             </div>
-                            <p className="text-[10px] font-mono text-white/20 uppercase">{(user.xp || 0).toLocaleString()} XP Provisioned</p>
+                            <p className="text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP Provisioned</p>
                          </td>
                          <td className="p-8">
                             <div className={cn(
@@ -199,7 +199,7 @@ const OpsUsers: React.FC = () => {
                             </div>
                          </td>
                          <td className="p-8 text-right">
-                            <button className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all">
+                            <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
                                <MoreVertical size={16} />
                             </button>
                          </td>
@@ -216,30 +216,30 @@ const OpsUsers: React.FC = () => {
                 <motion.div
                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                    onClick={() => setSelectedUser(null)}
-                   className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                   className="absolute inset-0 bg-background/80 backdrop-blur-sm"
                 />
                 <motion.div
                    initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                   className="relative w-full max-w-2xl bg-[#08080C] border-l border-white/5 shadow-2xl flex flex-col"
+                   className="relative w-full max-w-2xl bg-surface border-l border-border shadow-2xl flex flex-col"
                 >
-                   <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                   <div className="p-8 border-b border-border flex items-center justify-between bg-surface-bright/50">
                       <div className="flex items-center gap-4">
-                         <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/5 rounded-lg text-text-tertiary mr-2"><ArrowLeft size={20} /></button>
-                         <h2 className="text-xl font-bold uppercase italic tracking-tighter text-white">Identity Inspection</h2>
+                         <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary mr-2"><ArrowLeft size={20} /></button>
+                         <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">Identity Inspection</h2>
                       </div>
                       <div className="flex items-center gap-3">
                          {selectedUser.isBanned ? (
                             <button
                               onClick={() => handleStatusToggle(selectedUser, 'REINSTATE')}
-                              className="px-6 py-2.5 rounded-xl bg-success text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-success/20 italic"
+                              className="px-6 py-2.5 rounded-xl bg-success text-text-primary text-[10px] font-black uppercase tracking-widest shadow-lg shadow-success/20 italic"
                             >
                                Reinstate Node
                             </button>
                          ) : (
                             <button
                               onClick={() => handleStatusToggle(selectedUser, 'BAN')}
-                              className="px-6 py-2.5 rounded-xl bg-danger text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-danger/20 italic"
+                              className="px-6 py-2.5 rounded-xl bg-danger text-text-primary text-[10px] font-black uppercase tracking-widest shadow-lg shadow-danger/20 italic"
                             >
                                Terminate Access
                             </button>
@@ -249,76 +249,76 @@ const OpsUsers: React.FC = () => {
 
                    <div className="flex-1 overflow-y-auto p-10 space-y-12 no-scrollbar">
                       <section className="flex flex-col items-center text-center">
-                         <div className="w-24 h-24 rounded-3xl border border-white/5 p-1 mb-6 relative">
+                         <div className="w-24 h-24 rounded-3xl border border-border p-1 mb-6 relative">
                             <img src={selectedUser.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${selectedUser.id}`} alt="" className="w-full h-full rounded-2xl" />
-                            <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center shadow-2xl", selectedUser.isBanned ? "bg-danger text-white" : "bg-success text-white")}>
+                            <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 rounded-xl border border-border-bright flex items-center justify-center shadow-2xl", selectedUser.isBanned ? "bg-danger text-text-primary" : "bg-success text-text-primary")}>
                                {selectedUser.isBanned ? <Ban size={16} /> : <CheckCircle size={16} />}
                             </div>
                          </div>
-                         <h3 className="text-2xl font-bold text-white uppercase tracking-tighter italic leading-none">{selectedUser.username}</h3>
-                         <p className="text-[10px] font-mono text-white/20 mt-3 uppercase tracking-[0.2em]">{selectedUser.id}</p>
+                         <h3 className="text-2xl font-bold text-text-primary uppercase tracking-tighter italic leading-none">{selectedUser.username}</h3>
+                         <p className="text-[10px] font-mono text-text-tertiary mt-3 uppercase tracking-[0.2em]">{selectedUser.id}</p>
                       </section>
 
                       <div className="grid grid-cols-3 gap-4">
-                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner group relative overflow-hidden">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Liquid Balance</p>
-                            <p className="text-xl font-mono font-bold text-white">{selectedUser.points?.toLocaleString()}</p>
+                         <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner group relative overflow-hidden">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Liquid Balance</p>
+                            <p className="text-xl font-mono font-bold text-text-primary">{selectedUser.points?.toLocaleString()}</p>
                             <div className="mt-4 flex justify-center gap-2">
                                <button onClick={() => handleManualAdjustment(false, 100)} className="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success/20 transition-all"><Plus size={12} /></button>
                                <button onClick={() => handleManualAdjustment(false, -100)} className="p-1.5 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-all"><Minus size={12} /></button>
                             </div>
                          </div>
-                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner group relative overflow-hidden">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Progression</p>
+                         <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner group relative overflow-hidden">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Progression</p>
                             <p className="text-xl font-mono font-bold text-primary">LVL {selectedUser.level || 1}</p>
                             <div className="mt-4 flex justify-center gap-2">
                                <button onClick={() => handleManualAdjustment(true, 50)} className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-all"><Plus size={12} /></button>
                                <button onClick={() => handleManualAdjustment(true, -50)} className="p-1.5 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-all"><Minus size={12} /></button>
                             </div>
                          </div>
-                         <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center shadow-inner">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-2">Login Streak</p>
+                         <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Login Streak</p>
                             <p className="text-xl font-mono font-bold text-warning">{selectedUser.streak || 0} D</p>
                          </div>
                       </div>
 
                       <section className="space-y-6">
-                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 flex items-center gap-3">
+                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary flex items-center gap-3">
                             <Activity size={14} className="text-primary" />
                             Administrative Ledger
                          </h4>
-                         <div className="space-y-1 bg-white/[0.01] border border-white/5 rounded-2xl overflow-hidden shadow-inner">
+                         <div className="space-y-1 bg-surface-bright/50 border border-border rounded-2xl overflow-hidden shadow-inner">
                             {userActivity.map(tx => (
-                               <div key={tx.id} className="p-4 flex justify-between items-center border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                               <div key={tx.id} className="p-4 flex justify-between items-center border-b border-border last:border-0 hover:bg-surface-bright transition-colors">
                                   <div>
-                                     <p className="text-[11px] font-bold text-white uppercase italic">{tx.source}</p>
-                                     <p className="text-[9px] font-mono text-white/20 mt-1">{(tx.executedAt?.toDate?.() || new Date()).toLocaleDateString()}</p>
+                                     <p className="text-[11px] font-bold text-text-primary uppercase italic">{tx.source}</p>
+                                     <p className="text-[9px] font-mono text-text-tertiary mt-1">{(tx.executedAt?.toDate?.() || new Date()).toLocaleDateString()}</p>
                                   </div>
-                                  <p className={cn("text-xs font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
+                                  <p className={cn("text-xs font-mono font-bold", tx.amount > 0 ? "text-success" : "text-text-primary")}>
                                      {tx.amount > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
                                   </p>
                                </div>
                             ))}
                             {userActivity.length === 0 && (
-                               <div className="p-12 text-center text-white/10 uppercase font-black text-[10px] tracking-widest">
+                               <div className="p-12 text-center text-text-tertiary/50 uppercase font-black text-[10px] tracking-widest">
                                   No Ledger Events Identified
                                </div>
                             )}
                          </div>
                       </section>
 
-                      <section className="grid grid-cols-2 gap-4 pt-8 border-t border-white/5">
+                      <section className="grid grid-cols-2 gap-4 pt-8 border-t border-border">
                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-white/20">
+                            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-text-tertiary">
                                <Calendar size={12} /> Joined Platform
                             </div>
-                            <p className="text-xs font-bold text-white uppercase italic">{selectedUser.createdAt?.toDate?.()?.toLocaleDateString() || 'PRE-MIGRATION'}</p>
+                            <p className="text-xs font-bold text-text-primary uppercase italic">{selectedUser.createdAt?.toDate?.()?.toLocaleDateString() || 'PRE-MIGRATION'}</p>
                          </div>
                          <div className="space-y-2 text-right">
-                            <div className="flex items-center justify-end gap-2 text-[9px] font-black uppercase tracking-widest text-white/20">
+                            <div className="flex items-center justify-end gap-2 text-[9px] font-black uppercase tracking-widest text-text-tertiary">
                                <Smartphone size={12} /> Device Authority
                             </div>
-                            <p className="text-xs font-bold text-white uppercase italic">Active Session Linked</p>
+                            <p className="text-xs font-bold text-text-primary uppercase italic">Active Session Linked</p>
                          </div>
                       </section>
                    </div>

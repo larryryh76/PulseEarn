@@ -105,9 +105,9 @@ const Tasks: React.FC = () => {
   if (loading) return (
     <MainLayout>
       <div className="pt-32 px-6 max-w-5xl mx-auto space-y-8">
-        <div className="h-10 w-48 bg-white/[0.03] rounded-lg animate-pulse" />
+        <div className="h-10 w-48 bg-surface-accent rounded-lg animate-pulse" />
         <div className="space-y-3">
-          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-20 bg-white/[0.02] rounded-xl animate-pulse" />)}
+          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-20 bg-surface-bright rounded-xl animate-pulse" />)}
         </div>
       </div>
     </MainLayout>
@@ -115,6 +115,7 @@ const Tasks: React.FC = () => {
 
   return (
     <MainLayout>
+      <div className="bg-background transition-colors duration-300">
       {/* HISTORY DETAIL MODAL */}
       <AnimatePresence>
         {selectedHistoryItem && (
@@ -124,25 +125,25 @@ const Tasks: React.FC = () => {
                animate={{ opacity: 1 }}
                exit={{ opacity: 0 }}
                onClick={() => setSelectedHistoryItem(null)}
-               className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
              />
              <motion.div
                initial={{ scale: 0.95, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
                exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-premium overflow-hidden flex flex-col"
              >
-                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success shadow-lg">
                         <CheckCircle2 size={18} />
                       </div>
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Task Details</p>
-                        <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">SECURED</h3>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Task Details</p>
+                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">SECURED</h3>
                       </div>
                    </div>
-                   <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                   <button onClick={() => setSelectedHistoryItem(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                       <X size={18} />
                    </button>
                 </div>
@@ -151,17 +152,17 @@ const Tasks: React.FC = () => {
                    <div className="space-y-3">
                       <div className="flex items-center gap-2 text-text-tertiary mb-1">
                          <Calendar size={10} className="text-primary/40" />
-                         <span className="text-[9px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
-                         <span className="text-white/5">•</span>
+                         <span className="text-[9px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
+                         <span className="text-text-tertiary/50">•</span>
                          <CheckCircle2 size={10} className="text-success/40" />
                          <span className="text-[9px] font-bold uppercase tracking-widest text-success/60">Verified</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-white tracking-tighter uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tighter uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
                    </div>
 
-                   <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                   <div className="bg-surface-bright/50 border border-border rounded-2xl overflow-hidden divide-y divide-border">
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Authorized Reward</span>
                          <div className="flex items-baseline gap-1.5">
                             <span className="text-xl font-mono font-bold text-success tabular-nums">+{ (selectedHistoryItem.definition?.rewardPoints || selectedHistoryItem.rewardAmount || 0).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
@@ -169,7 +170,7 @@ const Tasks: React.FC = () => {
                       </div>
 
                       <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">System XP</span>
+                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">System XP</span>
                          <div className="flex items-baseline gap-1.5">
                             <span className="text-xl font-mono font-bold text-primary tabular-nums">+{ (selectedHistoryItem.definition?.rewardXp || selectedHistoryItem.xpReward || 100).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
@@ -187,41 +188,41 @@ const Tasks: React.FC = () => {
 
                    <div className="pt-2">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em]">Reference ID</span>
-                         <span className="text-[9px] font-mono text-white/20 truncate max-w-[140px]">{selectedHistoryItem.id || 'N/A'}</span>
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Reference ID</span>
+                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedHistoryItem.id || 'N/A'}</span>
                       </div>
                    </div>
                 </div>
 
-                <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                   <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
+                <div className="p-8 bg-background border-t border-border flex justify-center">
+                   <p className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
                 </div>
              </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      <div className="pt-32 pb-32 px-6 max-w-5xl mx-auto">
+      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
 
         {/* HEADER */}
-        <header className="mb-16">
+        <header className="mb-12 md:mb-16">
            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
               <div className="space-y-4">
                  <div className="flex items-center gap-2">
                     <Shield size={14} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Available Objectives</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary/50">Available Objectives</span>
                  </div>
-                 <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
+                 <h1 className="text-4xl md:text-6xl font-bold text-text-primary tracking-tighter leading-none uppercase">
                     Quests
                  </h1>
               </div>
 
-              <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] shrink-0">
+              <div className="flex bg-surface-bright p-1 rounded-xl border border-border shrink-0">
                   <button
                     onClick={() => setView('AVAILABLE')}
                     className={cn(
-                      "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                      view === 'AVAILABLE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                      "px-6 md:px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                      view === 'AVAILABLE' ? "bg-surface text-text-primary shadow-xl" : "text-text-tertiary hover:text-text-primary"
                     )}
                   >
                     Available
@@ -229,8 +230,8 @@ const Tasks: React.FC = () => {
                   <button
                     onClick={() => setView('COMPLETED')}
                     className={cn(
-                      "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                      view === 'COMPLETED' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                      "px-6 md:px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                      view === 'COMPLETED' ? "bg-surface text-text-primary shadow-xl" : "text-text-tertiary hover:text-text-primary"
                     )}
                   >
                     History
@@ -239,14 +240,14 @@ const Tasks: React.FC = () => {
            </div>
 
            {view === 'AVAILABLE' && (
-              <div className="mt-12 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+              <div className="mt-8 md:mt-12 flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
                  {(['ALL', 'SOCIAL', 'REFERRAL', 'PREDICTION', 'EDUCATION', 'SPONSORED', 'CHALLENGES'] as const).map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setFilter(cat)}
                       className={cn(
-                        "px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shrink-0",
-                        filter === cat ? "bg-primary/10 border-primary/30 text-primary" : "bg-white/[0.02] border-white/[0.05] text-text-tertiary hover:border-white/[0.1] hover:text-white"
+                        "px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border shrink-0",
+                        filter === cat ? "bg-primary/10 border-primary/30 text-primary" : "bg-surface-bright border-border text-text-tertiary hover:border-text-tertiary hover:text-text-primary"
                       )}
                     >
                       {cat}
@@ -264,36 +265,36 @@ const Tasks: React.FC = () => {
                  {activeCampaigns.length > 0 && (filter === 'ALL' || activeCampaigns.some(c => c.category === filter as any)) && (
                     <div className="space-y-6">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Active Campaigns</h4>
-                          <div className="h-px flex-1 bg-white/[0.03]" />
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Active Campaigns</h4>
+                          <div className="h-px flex-1 bg-border" />
                        </div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {activeCampaigns.map((camp) => (
                              <div
                                key={camp.id}
                                onClick={() => navigate(`/campaigns/${camp.id}`)}
-                               className="group relative h-[240px] rounded-[2rem] border border-white/5 overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 bg-[#0A0A0F]"
+                               className="group relative h-[240px] rounded-[2rem] border border-border overflow-hidden cursor-pointer transition-all hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 bg-surface"
                              >
                                 {camp.bannerUrl || camp.thumbnailUrl ? (
                                    <img src={camp.bannerUrl || camp.thumbnailUrl} className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:scale-105 transition-transform duration-1000 grayscale-[50%] group-hover:grayscale-0" alt="" />
                                 ) : (
                                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-8 flex flex-col justify-end">
+                                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent p-8 flex flex-col justify-end">
                                    <div className="space-y-3">
                                       <div className="flex items-center gap-2">
                                          <span className="px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-[8px] font-black text-primary uppercase tracking-widest">{camp.category}</span>
                                          {camp.featured && <Star size={10} className="text-warning" fill="currentColor" />}
                                       </div>
-                                      <h3 className="text-2xl font-bold text-white tracking-tighter uppercase italic">{camp.name}</h3>
+                                      <h3 className="text-2xl font-bold text-text-primary tracking-tighter uppercase italic">{camp.name}</h3>
                                       <div className="flex items-center gap-6 pt-2">
                                          <div className="flex items-center gap-2">
                                             <Zap size={12} className="text-primary" />
-                                            <span className="text-xs font-mono font-bold text-white">+{ (camp.totalPrizePool || 0).toLocaleString() }</span>
+                                            <span className="text-xs font-mono font-bold text-text-primary">+{ (camp.totalPrizePool || 0).toLocaleString() }</span>
                                          </div>
                                          <div className="flex items-center gap-2">
                                             <Target size={12} className="text-success" />
-                                            <span className="text-xs font-mono font-bold text-white">{camp.taskIds?.length || 0}</span>
+                                            <span className="text-xs font-mono font-bold text-text-primary">{camp.taskIds?.length || 0}</span>
                                          </div>
                                       </div>
                                    </div>
@@ -306,8 +307,8 @@ const Tasks: React.FC = () => {
 
                  {/* SPONSORED PLACEHOLDER (PREPARED FOR FUTURE ADS) */}
                  {filter === 'SPONSORED' && (
-                    <div className="py-24 text-center border border-dashed border-white/5 rounded-[2rem] opacity-20">
-                       <Zap size={32} className="mx-auto mb-4 text-white/10" />
+                    <div className="py-24 text-center border border-dashed border-border rounded-[2rem] opacity-20">
+                       <Zap size={32} className="mx-auto mb-4 text-text-tertiary/50" />
                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Offers Coming Soon</p>
                     </div>
                  )}
@@ -316,8 +317,8 @@ const Tasks: React.FC = () => {
                     <div className="space-y-6">
                        <div className="flex items-center justify-between px-2">
                           <div className="flex items-center gap-3">
-                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Daily Objectives</h4>
-                             <div className="h-px w-24 bg-white/[0.03]" />
+                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Daily Objectives</h4>
+                             <div className="h-px w-24 bg-border" />
                           </div>
                        </div>
 
@@ -334,39 +335,39 @@ const Tasks: React.FC = () => {
                                   whileHover={{ x: 4 }}
                                   onClick={() => setSelectedMarketTask({ ...mission, type: 'CHALLENGE' })}
                                   className={cn(
-                                    "p-5 rounded-2xl bg-[#0A0A0F] border transition-all cursor-pointer flex items-center justify-between group",
-                                    isCompleted ? "border-primary/40 bg-primary/[0.02]" : "border-white/5 hover:border-white/20"
+                                    "p-5 rounded-2xl bg-surface border transition-all cursor-pointer flex items-center justify-between group",
+                                    isCompleted ? "border-primary/40 bg-primary/[0.02]" : "border-border hover:border-border-bright"
                                   )}
                                 >
                                    <div className="flex items-center gap-5 min-w-0">
                                       <div className={cn(
                                         "w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner transition-all shrink-0",
-                                        isCompleted ? "bg-primary/20 border-primary/30 text-white" : "bg-white/[0.02] border-white/10 text-text-tertiary group-hover:text-white"
+                                        isCompleted ? "bg-primary/20 border-primary/30 text-text-primary" : "bg-surface-bright border-border text-text-tertiary group-hover:text-text-primary"
                                       )}>
                                          <TaskIcon category={mission.definition.category} size={20} />
                                       </div>
                                       <div className="min-w-0">
-                                         <h3 className="text-sm font-bold text-white uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
+                                         <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
                                             {mission.definition.title}
                                          </h3>
                                          <div className="flex items-center gap-3 mt-1">
                                             <div className="flex items-center gap-1">
                                                <Zap size={10} className="text-primary" />
-                                               <span className="text-[10px] font-mono font-bold text-white">+{mission.definition.rewardPoints.toLocaleString()}</span>
+                                               <span className="text-[10px] font-mono font-bold text-text-primary">+{mission.definition.rewardPoints.toLocaleString()}</span>
                                             </div>
-                                            <div className="w-1 h-1 rounded-full bg-white/10" />
-                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{Math.round(percent)}% Complete</span>
+                                            <div className="w-1 h-1 rounded-full bg-border" />
+                                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">{Math.round(percent)}% Complete</span>
                                          </div>
                                       </div>
                                    </div>
 
                                    <div className="flex items-center gap-4">
                                       {isCompleted ? (
-                                         <div className="px-4 py-1.5 rounded-lg bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 animate-pulse italic">
+                                         <div className="px-4 py-1.5 rounded-lg bg-primary text-text-primary text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 animate-pulse italic">
                                             Claim
                                          </div>
                                       ) : (
-                                         <ChevronRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
+                                         <ChevronRight size={16} className="text-text-tertiary/50 group-hover:text-primary transition-colors" />
                                       )}
                                    </div>
                                 </motion.div>
@@ -391,17 +392,17 @@ const Tasks: React.FC = () => {
                                <CheckCircle2 size={18} />
                             </div>
                             <div>
-                               <h3 className="text-sm font-bold text-white uppercase tracking-tight italic group-hover:text-success transition-colors">{item.definition?.title || item.title}</h3>
+                               <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic group-hover:text-success transition-colors">{item.definition?.title || item.title}</h3>
                                <div className="flex items-center gap-2 mt-1">
                                   <span className="text-[9px] font-black text-success uppercase tracking-widest">Completed</span>
                                   <div className="w-1 h-1 rounded-full bg-success/20" />
-                                  <span className="text-[9px] font-mono text-white/20">{item.claimedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'RECENT'}</span>
+                                  <span className="text-[9px] font-mono text-text-tertiary">{(item.claimedAt?.toDate?.() || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                </div>
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-base font-mono font-bold text-success">+{item.definition?.rewardPoints || item.rewardAmount} PTS</p>
-                            <p className="text-[8px] font-black text-white/10 uppercase tracking-widest">Permanent Ledger</p>
+                            <p className="text-base font-mono font-bold text-success">+{ (item.definition?.rewardPoints || item.rewardAmount || 0).toLocaleString()} PTS</p>
+                            <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-widest">Permanent Ledger</p>
                          </div>
                       </div>
                    ))}
@@ -411,8 +412,8 @@ const Tasks: React.FC = () => {
 
            {/* EMPTY STATES */}
            {((view === 'AVAILABLE' && activeCampaigns.length === 0 && activeMissions.length === 0) || (view === 'COMPLETED' && completedTasks.length === 0 && completedMissions.length === 0)) && (
-              <div className="py-32 text-center border border-dashed border-white/[0.03] rounded-[3rem] opacity-20">
-                 <Search size={48} className="mx-auto mb-6 text-white/10" />
+              <div className="py-32 text-center border border-dashed border-border rounded-[3rem] opacity-20">
+                 <Search size={48} className="mx-auto mb-6 text-text-tertiary/50" />
                  <p className="text-[11px] font-black uppercase tracking-[0.5em]">No Objectives Detected</p>
               </div>
            )}
@@ -424,48 +425,48 @@ const Tasks: React.FC = () => {
               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                  <motion.div
                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                   className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                   className="absolute inset-0 bg-background/90 backdrop-blur-xl"
                    onClick={() => setSelectedMarketTask(null)}
                  />
                  <motion.div
                    initial={{ scale: 0.98, opacity: 0, y: 20 }}
                    animate={{ scale: 1, opacity: 1, y: 0 }}
                    exit={{ scale: 0.98, opacity: 0, y: 20 }}
-                   className="relative w-full max-w-lg bg-[#08080C] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
+                   className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
                  >
-                    <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                    <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                        <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-primary/10 rounded-xl text-primary border border-primary/20 flex items-center justify-center">
                              <TaskIcon category={selectedTask.definition.category} size={20} />
                           </div>
                           <div>
-                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 leading-none mb-1">Objective</p>
-                             <h3 className="text-[10px] font-black text-white uppercase tracking-[0.15em]">{selectedTask.definition.category}</h3>
+                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Objective</p>
+                             <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTask.definition.category}</h3>
                           </div>
                        </div>
-                       <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all text-text-tertiary flex items-center justify-center">
+                       <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-surface-bright rounded-xl transition-all text-text-tertiary flex items-center justify-center">
                           <X size={18} />
                        </button>
                     </div>
 
                     <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
                        <div className="space-y-4">
-                          <h2 className="text-2xl font-bold text-white tracking-tight uppercase italic leading-tight">{selectedTask.definition.title}</h2>
+                          <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTask.definition.title}</h2>
                           <p className="text-sm text-text-secondary font-medium leading-relaxed opacity-70 italic border-l-2 border-primary/20 pl-6">
                              {selectedTask.definition.description || 'Complete this objective to earn rewards.'}
                           </p>
                        </div>
 
                        <div className="grid grid-cols-2 gap-4">
-                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Authorized Reward</p>
+                          <div className="p-5 rounded-2xl bg-surface-bright/50 border border-border space-y-1.5">
+                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Authorized Reward</p>
                              <div className="flex items-baseline gap-1.5">
-                                <p className="text-xl font-mono font-bold text-white">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
+                                <p className="text-xl font-mono font-bold text-text-primary">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
                                 <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">pts</span>
                              </div>
                           </div>
-                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">System XP</p>
+                          <div className="p-5 rounded-2xl bg-surface-bright/50 border border-border space-y-1.5">
+                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">System XP</p>
                              <div className="flex items-baseline gap-1.5">
                                 <p className="text-xl font-mono font-bold text-primary">+{selectedTask.definition.rewardXp.toLocaleString()}</p>
                                 <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">xp</span>
@@ -477,9 +478,9 @@ const Tasks: React.FC = () => {
                           <div className="space-y-4">
                              <div className="flex justify-between items-end px-1">
                                 <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Goal Progress</h4>
-                                <p className="text-xs font-mono font-bold text-white">{selectedTask.progress.progress} / {selectedTask.progress.target}</p>
+                                <p className="text-xs font-mono font-bold text-text-primary">{selectedTask.progress.progress} / {selectedTask.progress.target}</p>
                              </div>
-                             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                             <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
                                 <motion.div
                                    initial={{ width: 0 }}
                                    animate={{ width: `${Math.min((selectedTask.progress.progress / selectedTask.progress.target) * 100, 100)}%` }}
@@ -492,7 +493,7 @@ const Tasks: React.FC = () => {
                        <div className="space-y-3 pt-4">
                           {selectedTask.progress?.status === 'COMPLETED' ? (
                              <Button
-                               className="w-full h-14 bg-white text-black hover:bg-primary hover:text-white transition-all font-black uppercase tracking-[0.3em] text-[10px] rounded-2xl"
+                               className="w-full h-14 bg-text-primary text-background hover:bg-primary hover:text-text-primary transition-all font-black uppercase tracking-[0.3em] text-[10px] rounded-2xl"
                                onClick={() => handleClaimMission(selectedTask.id)}
                                isLoading={claimingId === selectedTask.id}
                              >
@@ -518,21 +519,21 @@ const Tasks: React.FC = () => {
                           )}
                           <button
                             onClick={() => setSelectedMarketTask(null)}
-                            className="w-full h-10 text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white transition-colors"
+                            className="w-full h-10 text-[9px] font-black text-text-tertiary uppercase tracking-[0.3em] hover:text-text-primary transition-colors"
                           >
                             Return
                           </button>
                        </div>
                     </div>
 
-                    <div className="p-8 bg-black border-t border-white/5 flex justify-center">
-                       <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
+                    <div className="p-8 bg-background border-t border-border flex justify-center">
+                       <p className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
                     </div>
                  </motion.div>
               </div>
            )}
         </AnimatePresence>
-
+      </div>
       </div>
     </MainLayout>
   );

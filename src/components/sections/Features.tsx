@@ -61,10 +61,10 @@ const Features: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight"
+              className="text-4xl sm:text-5xl md:text-6xl font-bold text-text-primary tracking-tight"
             >
               Simple. Fast. <br className="hidden sm:block" />
-              <span className="text-white/40">Rewarding.</span>
+              <span className="text-text-secondary">Rewarding.</span>
             </motion.h2>
           </div>
           <motion.div
@@ -73,7 +73,7 @@ const Features: React.FC = () => {
             viewport={{ once: true }}
             className="hidden md:block"
           >
-             <p className="text-white/50 text-base font-medium max-w-sm text-right">
+             <p className="text-text-primary/50 text-base font-medium max-w-sm text-right">
                 A secure infrastructure for campaign-based rewards and verified user engagement.
              </p>
           </motion.div>
@@ -88,17 +88,17 @@ const Features: React.FC = () => {
               viewport={{ once: true }}
               transition={{ delay: index * 0.05 }}
             >
-              <Card className="h-full border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-primary/20 transition-all duration-500 rounded-3xl p-8 md:p-10 group relative overflow-hidden">
+              <Card className="h-full border border-border bg-surface-bright/50 hover:bg-surface-accent hover:border-primary/20 transition-all duration-500 rounded-3xl p-8 md:p-10 group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 md:mb-8 bg-white/5 border border-white/10 group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors",
+                  "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 md:mb-8 bg-white/5 border border-border-bright group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors",
                   feature.color
                 )}>
                   <feature.icon size={24} />
                 </div>
-                <h3 className="text-xl font-bold mb-3 md:mb-4 text-white uppercase tracking-tight">{feature.title}</h3>
-                <p className="text-white/30 leading-relaxed text-sm font-medium uppercase tracking-tighter">
+                <h3 className="text-xl font-bold mb-3 md:mb-4 text-text-primary uppercase tracking-tight">{feature.title}</h3>
+                <p className="text-text-primary/30 leading-relaxed text-sm font-medium uppercase tracking-tighter">
                   {feature.description}
                 </p>
               </Card>

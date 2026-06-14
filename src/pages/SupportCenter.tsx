@@ -148,8 +148,8 @@ const SupportCenter: React.FC = () => {
       case 'PENDING': return 'text-warning bg-warning/10 border-warning/20';
       case 'AWAITING_USER': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
       case 'RESOLVED': return 'text-success bg-success/10 border-success/20';
-      case 'CLOSED': return 'text-text-tertiary bg-white/5 border-white/10';
-      default: return 'text-white bg-white/5 border-white/10';
+      case 'CLOSED': return 'text-text-tertiary bg-surface-bright border-border-bright';
+      default: return 'text-text-primary bg-surface-bright border-border-bright';
     }
   };
 
@@ -162,19 +162,19 @@ const SupportCenter: React.FC = () => {
            <div className="space-y-4">
               <div className="flex items-center gap-2">
                  <Shield size={14} className="text-primary" />
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Operations & Support</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-primary/30">Operations & Support</span>
               </div>
-              <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter leading-none uppercase">
+              <h1 className="text-4xl md:text-6xl font-bold text-text-primary tracking-tighter leading-none uppercase">
                  Support Hub
               </h1>
            </div>
 
-           <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/[0.05] shrink-0">
+           <div className="flex bg-surface-accent p-1 rounded-xl border border-white/[0.05] shrink-0">
                <button
                  onClick={() => { setView('EXPLORE'); setSelectedTicket(null); }}
                  className={cn(
                    "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                   view === 'EXPLORE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                   view === 'EXPLORE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-text-primary"
                  )}
                >
                  Explore
@@ -183,7 +183,7 @@ const SupportCenter: React.FC = () => {
                  onClick={() => setView('CREATE')}
                  className={cn(
                    "px-8 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                   view === 'CREATE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-white"
+                   view === 'CREATE' ? "bg-white text-black shadow-xl" : "text-text-tertiary hover:text-text-primary"
                  )}
                >
                  New Ticket
@@ -198,21 +198,21 @@ const SupportCenter: React.FC = () => {
                     {/* TICKETS LIST */}
                     <div className="md:col-span-2 space-y-6">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Active Inquiries</h4>
-                          <div className="h-px flex-1 bg-white/[0.03]" />
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Active Inquiries</h4>
+                          <div className="h-px flex-1 bg-surface-accent" />
                        </div>
 
                        <div className="space-y-2">
                           {loading ? (
                              Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-20 bg-white/[0.02] border border-white/5 rounded-xl animate-pulse" />
+                                <div key={i} className="h-20 bg-surface-bright border border-border rounded-xl animate-pulse" />
                              ))
                           ) : tickets.length > 0 ? (
                              tickets.map((ticket) => (
                                 <div
                                   key={ticket.id}
                                   onClick={() => { setSelectedTicket(ticket); setView('THREAD'); }}
-                                  className="p-5 rounded-2xl bg-[#0A0A0F] border border-white/5 hover:border-white/20 transition-all cursor-pointer group flex items-center justify-between"
+                                  className="p-5 rounded-2xl bg-surface border border-border hover:border-white/20 transition-all cursor-pointer group flex items-center justify-between"
                                 >
                                    <div className="flex items-center gap-5 min-w-0">
                                       <div className={cn(
@@ -222,30 +222,30 @@ const SupportCenter: React.FC = () => {
                                          <MessageSquare size={20} className={getStatusColor(ticket.status).split(' ')[0]} />
                                       </div>
                                       <div className="min-w-0">
-                                         <h3 className="text-sm font-bold text-white uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
+                                         <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
                                             {ticket.subject}
                                          </h3>
                                          <div className="flex items-center gap-3 mt-1">
                                             <span className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", getStatusColor(ticket.status))}>
                                                {ticket.status.replace(/_/g, ' ')}
                                             </span>
-                                            <div className="w-1 h-1 rounded-full bg-white/10" />
-                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">{ticket.category.replace(/_/g, ' ')}</span>
+                                            <div className="w-1 h-1 rounded-full bg-surface-accent" />
+                                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">{ticket.category.replace(/_/g, ' ')}</span>
                                          </div>
                                       </div>
                                    </div>
                                    <div className="flex items-center gap-8 text-right shrink-0">
                                       <div className="hidden sm:block">
-                                         <p className="text-[8px] font-black text-white/10 uppercase tracking-widest">Updated</p>
-                                         <p className="text-[10px] font-mono text-white/40">{ticket.updatedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                                         <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-widest">Updated</p>
+                                         <p className="text-[10px] font-mono text-text-secondary">{ticket.updatedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                                       </div>
-                                      <ChevronRight size={16} className="text-white/10 group-hover:text-primary transition-colors" />
+                                      <ChevronRight size={16} className="text-text-tertiary/50 group-hover:text-primary transition-colors" />
                                    </div>
                                 </div>
                              ))
                           ) : (
-                             <div className="py-32 text-center border border-dashed border-white/5 rounded-[2rem] opacity-20">
-                                <Search size={48} className="mx-auto mb-6 text-white/10" />
+                             <div className="py-32 text-center border border-dashed border-border rounded-[2rem] opacity-20">
+                                <Search size={48} className="mx-auto mb-6 text-text-tertiary/50" />
                                 <p className="text-[11px] font-black uppercase tracking-[0.5em]">No Support Records Found</p>
                              </div>
                           )}
@@ -259,7 +259,7 @@ const SupportCenter: React.FC = () => {
                              <LifeBuoy size={24} />
                           </div>
                           <div className="space-y-2">
-                             <h3 className="text-lg font-bold text-white uppercase tracking-tight italic">Operations Hub</h3>
+                             <h3 className="text-lg font-bold text-text-primary uppercase tracking-tight italic">Operations Hub</h3>
                              <p className="text-xs text-text-tertiary leading-relaxed font-medium">Our integrity team is available to assist with account, withdrawal, and verification queries. Response times vary by load.</p>
                           </div>
                           <Button onClick={() => setView('CREATE')} className="w-full py-4 text-[10px] uppercase tracking-widest font-black italic shadow-2xl">
@@ -267,22 +267,22 @@ const SupportCenter: React.FC = () => {
                           </Button>
                        </div>
 
-                       <div className="p-8 rounded-[2rem] bg-white/[0.01] border border-white/5 space-y-6">
+                       <div className="p-8 rounded-[2rem] bg-surface-bright/50 border border-border space-y-6">
                           <div className="flex items-center gap-3">
                              <Clock size={16} className="text-text-tertiary" />
-                             <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">System Status</h4>
+                             <h4 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">System Status</h4>
                           </div>
                           <div className="space-y-4">
                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-white uppercase">System Channels</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase">System Channels</span>
                                 <span className="text-[9px] font-black text-success uppercase tracking-widest">Operational</span>
                              </div>
                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-white uppercase">Reward Matrix</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase">Reward Matrix</span>
                                 <span className="text-[9px] font-black text-success uppercase tracking-widest">Synchronized</span>
                              </div>
                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-white uppercase">Support Load</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase">Support Load</span>
                                 <span className="text-[9px] font-black text-warning uppercase tracking-widest">Moderate</span>
                              </div>
                           </div>
@@ -302,42 +302,42 @@ const SupportCenter: React.FC = () => {
                           <Plus size={32} />
                        </div>
                        <div>
-                          <h2 className="text-3xl font-bold text-white tracking-tighter uppercase italic leading-none mb-2">Initiate Ticket</h2>
-                          <p className="text-white/40 text-sm font-medium">Please provide accurate details for efficient resolution.</p>
+                          <h2 className="text-3xl font-bold text-text-primary tracking-tighter uppercase italic leading-none mb-2">Initiate Ticket</h2>
+                          <p className="text-text-secondary text-sm font-medium">Please provide accurate details for efficient resolution.</p>
                        </div>
                     </div>
 
                     <div className="space-y-6">
                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Inquiry Category</label>
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Inquiry Category</label>
                           <select
                             value={formData.category}
                             onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as TicketCategory }))}
-                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium appearance-none"
+                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium appearance-none"
                           >
-                             {CATEGORIES.map(cat => <option key={cat.value} value={cat.value} className="bg-[#08080C]">{cat.label}</option>)}
+                             {CATEGORIES.map(cat => <option key={cat.value} value={cat.value} className="bg-surface">{cat.label}</option>)}
                           </select>
                        </div>
 
                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Subject</label>
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Subject</label>
                           <input
                             type="text"
                             placeholder="Brief summary of your inquiry"
                             value={formData.subject}
                             onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium"
+                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                           />
                        </div>
 
                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 ml-1">Full Message</label>
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Full Message</label>
                           <textarea
                             rows={6}
                             placeholder="Describe your issue in detail. Include IDs, dates, and amounts if applicable."
                             value={formData.message}
                             onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                            className="w-full bg-white/[0.02] border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
                           />
                        </div>
 
@@ -350,7 +350,7 @@ const SupportCenter: React.FC = () => {
                           {formData.attachments.length > 0 && (
                              <div className="flex flex-wrap gap-2">
                                 {formData.attachments.map((at, i) => (
-                                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-[10px] text-white/40 flex items-center gap-2">
+                                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-bright text-[10px] text-text-secondary flex items-center gap-2">
                                       <Paperclip size={10} />
                                       {at.name}
                                    </div>
@@ -369,7 +369,7 @@ const SupportCenter: React.FC = () => {
                           </Button>
                           <button
                             onClick={() => setView('EXPLORE')}
-                            className="px-8 py-5 rounded-2xl bg-white/[0.02] border border-white/10 text-white/20 hover:text-white transition-colors font-bold uppercase tracking-widest text-[9px]"
+                            className="px-8 py-5 rounded-2xl bg-surface-bright border border-border-bright text-text-tertiary hover:text-text-primary transition-colors font-bold uppercase tracking-widest text-[9px]"
                           >
                              Cancel
                           </button>
@@ -382,19 +382,19 @@ const SupportCenter: React.FC = () => {
            {view === 'THREAD' && selectedTicket && (
               <motion.div key="thread" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                  {/* CONVERSATION RAIL */}
-                 <div className="lg:col-span-8 flex flex-col h-[700px] bg-[#0A0A0F] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                    <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                 <div className="lg:col-span-8 flex flex-col h-[700px] bg-surface border border-border-bright rounded-[2.5rem] overflow-hidden shadow-2xl">
+                    <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                        <div className="flex items-center gap-4">
-                          <button onClick={() => setView('EXPLORE')} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-text-tertiary">
+                          <button onClick={() => setView('EXPLORE')} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
                              <ArrowLeft size={18} />
                           </button>
                           <div>
-                             <h2 className="text-base font-bold text-white uppercase tracking-tight italic leading-none mb-1">{selectedTicket.subject}</h2>
+                             <h2 className="text-base font-bold text-text-primary uppercase tracking-tight italic leading-none mb-1">{selectedTicket.subject}</h2>
                              <div className="flex items-center gap-3">
                                 <span className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", getStatusColor(selectedTicket.status))}>
                                    {selectedTicket.status}
                                 </span>
-                                <span className="text-[9px] font-black text-white/10 uppercase tracking-widest">#{selectedTicket.id.slice(-8).toUpperCase()}</span>
+                                <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-widest">#{selectedTicket.id.slice(-8).toUpperCase()}</span>
                              </div>
                           </div>
                        </div>
@@ -406,21 +406,21 @@ const SupportCenter: React.FC = () => {
                           <div key={msg.id} className={cn("flex gap-4 max-w-[85%]", msg.senderType === 'ADMIN' ? "mr-auto" : "ml-auto flex-row-reverse")}>
                              <div className={cn(
                                 "w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 shadow-lg",
-                                msg.senderType === 'ADMIN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.05] border-white/10 text-white/40"
+                                msg.senderType === 'ADMIN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.05] border-border-bright text-text-secondary"
                              )}>
                                 {msg.senderType === 'ADMIN' ? <Shield size={18} /> : <User size={18} />}
                              </div>
                              <div className="space-y-2">
                                 <div className={cn(
                                    "p-5 rounded-2xl text-sm font-medium leading-relaxed shadow-inner",
-                                   msg.senderType === 'ADMIN' ? "bg-white/[0.03] border border-white/5 text-text-secondary" : "bg-primary text-white"
+                                   msg.senderType === 'ADMIN' ? "bg-surface-accent border border-border text-text-secondary" : "bg-primary text-text-primary"
                                 )}>
                                    {msg.text}
 
                                    {msg.attachments && msg.attachments.length > 0 && (
-                                      <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-2">
+                                      <div className="mt-4 pt-4 border-t border-border flex flex-wrap gap-2">
                                          {msg.attachments.map((at, i) => (
-                                            <a key={i} href={at.storageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/20 text-[9px] font-bold text-white/60 hover:text-white hover:bg-black/40 transition-all">
+                                            <a key={i} href={at.storageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background/20 text-[9px] font-bold text-text-secondary hover:text-text-primary hover:bg-background/40 transition-all">
                                                <Paperclip size={10} />
                                                {at.fileName}
                                             </a>
@@ -429,9 +429,9 @@ const SupportCenter: React.FC = () => {
                                    )}
                                 </div>
                                 <div className={cn("flex items-center gap-2 px-1", msg.senderType === 'ADMIN' ? "justify-start" : "justify-end")}>
-                                   <span className="text-[9px] font-black uppercase tracking-widest text-white/10">{msg.senderName}</span>
-                                   <span className="text-white/5">•</span>
-                                   <span className="text-[9px] font-bold text-white/10">{msg.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                   <span className="text-[9px] font-black uppercase tracking-widest text-text-tertiary/50">{msg.senderName}</span>
+                                   <span className="text-text-primary/5">•</span>
+                                   <span className="text-[9px] font-bold text-text-tertiary/50">{msg.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                              </div>
                           </div>
@@ -440,14 +440,14 @@ const SupportCenter: React.FC = () => {
 
                     {/* REPLY ZONE */}
                     {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'RESOLVED' ? (
-                       <div className="p-6 bg-black border-t border-white/5 space-y-4">
+                       <div className="p-6 bg-background border-t border-border space-y-4">
                           <div className="relative group">
                              <textarea
                                rows={3}
                                placeholder="Draft your reply..."
                                value={replyText}
                                onChange={(e) => setReplyText(e.target.value)}
-                               className="w-full bg-white/[0.02] border border-white/[0.08] rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                               className="w-full bg-surface-bright border border-white/[0.08] rounded-2xl px-6 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
                              />
                              <div className="absolute right-4 bottom-4 flex items-center gap-3">
                                 <Button
@@ -461,69 +461,69 @@ const SupportCenter: React.FC = () => {
 
                           <div className="flex items-center justify-between">
                              <div className="flex items-center gap-4">
-                                <button className="flex items-center gap-2 text-[10px] font-bold text-white/20 hover:text-white transition-colors uppercase tracking-widest">
+                                <button className="flex items-center gap-2 text-[10px] font-bold text-text-tertiary hover:text-text-primary transition-colors uppercase tracking-widest">
                                    <Paperclip size={14} />
                                    Add Evidence
                                 </button>
                              </div>
-                             <p className="text-[9px] font-bold text-white/10 uppercase tracking-widest">Security: Thread is encrypted and immutable</p>
+                             <p className="text-[9px] font-bold text-text-tertiary/50 uppercase tracking-widest">Security: Thread is encrypted and immutable</p>
                           </div>
                        </div>
                     ) : (
-                       <div className="p-12 text-center bg-black border-t border-white/5">
-                          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-white/10 mx-auto mb-4 border border-dashed border-white/10">
+                       <div className="p-12 text-center bg-background border-t border-border">
+                          <div className="w-16 h-16 rounded-full bg-surface-bright flex items-center justify-center text-text-tertiary/50 mx-auto mb-4 border border-dashed border-border-bright">
                              <CheckCircle2 size={32} />
                           </div>
-                          <h4 className="text-sm font-bold text-white/40 uppercase tracking-widest">Inquiry Successfully Resolved</h4>
-                          <p className="text-[10px] text-white/20 mt-2 uppercase tracking-widest">This ticket is now closed for comments.</p>
+                          <h4 className="text-sm font-bold text-text-secondary uppercase tracking-widest">Inquiry Successfully Resolved</h4>
+                          <p className="text-[10px] text-text-tertiary mt-2 uppercase tracking-widest">This ticket is now closed for comments.</p>
                        </div>
                     )}
                  </div>
 
                  {/* TICKET DETAILS SIDEBAR */}
                  <div className="lg:col-span-4 space-y-8">
-                    <div className="p-8 rounded-[2.5rem] bg-[#0A0A0F] border border-white/10 space-y-10">
+                    <div className="p-8 rounded-[2.5rem] bg-surface border border-border-bright space-y-10">
                        <div className="space-y-6">
-                          <h3 className="text-sm font-black text-white/20 uppercase tracking-[0.3em]">Ledger Details</h3>
+                          <h3 className="text-sm font-black text-text-tertiary uppercase tracking-[0.3em]">Ledger Details</h3>
                           <div className="space-y-5">
                              <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-tertiary uppercase">Inquiry ID</span>
-                                <span className="text-[10px] font-mono font-bold text-white">{selectedTicket.id.slice(-12).toUpperCase()}</span>
+                                <span className="text-[10px] font-mono font-bold text-text-primary">{selectedTicket.id.slice(-12).toUpperCase()}</span>
                              </div>
                              <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-tertiary uppercase">Category</span>
-                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">{selectedTicket.category.replace(/_/g, ' ')}</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase tracking-wider">{selectedTicket.category.replace(/_/g, ' ')}</span>
                              </div>
                              <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-tertiary uppercase">Priority</span>
                                 <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
-                                   selectedTicket.priority === 'URGENT' ? "text-danger border-danger/20 bg-danger/5" : "text-white/40 border-white/10 bg-white/5")}>
+                                   selectedTicket.priority === 'URGENT' ? "text-danger border-danger/20 bg-danger/5" : "text-text-secondary border-border-bright bg-surface-bright")}>
                                    {selectedTicket.priority}
                                 </span>
                              </div>
                              <div className="flex justify-between items-center">
                                 <span className="text-[10px] font-bold text-text-tertiary uppercase">Created</span>
-                                <span className="text-[10px] font-mono font-bold text-white">{selectedTicket.createdAt?.toDate?.().toLocaleDateString()}</span>
+                                <span className="text-[10px] font-mono font-bold text-text-primary">{selectedTicket.createdAt?.toDate?.().toLocaleDateString()}</span>
                              </div>
                           </div>
                        </div>
 
-                       <div className="h-px bg-white/5" />
+                       <div className="h-px bg-surface-bright" />
 
                        <div className="space-y-6">
-                          <h3 className="text-sm font-black text-white/20 uppercase tracking-[0.3em]">Integrity Status</h3>
+                          <h3 className="text-sm font-black text-text-tertiary uppercase tracking-[0.3em]">Integrity Status</h3>
                           <div className="space-y-4">
                              <div className="flex items-center gap-3">
                                 <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                                <span className="text-[10px] font-bold text-white uppercase italic">Valid User Match</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase italic">Valid User Match</span>
                              </div>
                              <div className="flex items-center gap-3">
                                 <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                                <span className="text-[10px] font-bold text-white uppercase italic">Thread Immutable</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase italic">Thread Immutable</span>
                              </div>
                              <div className="flex items-center gap-3 opacity-20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                                <span className="text-[10px] font-bold text-white uppercase italic">Audit Required</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase italic">Audit Required</span>
                              </div>
                           </div>
                        </div>

@@ -25,7 +25,7 @@ const Card: React.FC<CardProps> = ({
         "bg-surface border border-border transition-all duration-300 relative overflow-hidden group",
         variant === 'default' && "rounded-2xl p-8",
         variant === 'compact' && "rounded-xl p-5",
-        variant === 'ghost' && "bg-transparent border-transparent p-0 shadow-none hover:bg-white/[0.01]",
+        variant === 'ghost' && "bg-transparent border-transparent p-0 shadow-none hover:bg-surface-bright/50",
         hover && onClick && "cursor-pointer hover:border-border-bright hover:shadow-premium",
         className
       )}

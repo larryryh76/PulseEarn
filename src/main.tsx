@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { TaskProvider } from './contexts/TaskContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import { seedTasks } from './firebase/seed'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
@@ -20,13 +21,15 @@ seedTasks();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary name="App Root">
-      <AuthProvider>
-        <TaskProvider>
-          <Suspense fallback={<div className="min-h-screen bg-[#050507] flex items-center justify-center"><div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}>
-            <App />
-          </Suspense>
-        </TaskProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <TaskProvider>
+            <Suspense fallback={<div className="min-h-screen bg-[#050507] flex items-center justify-center"><div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}>
+              <App />
+            </Suspense>
+          </TaskProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

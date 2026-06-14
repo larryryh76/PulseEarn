@@ -135,9 +135,9 @@ const OpsLedger: React.FC = () => {
                          <td className="p-8 text-right">
                             <p className={cn(
                                "text-sm font-mono font-bold",
-                               (tx.amount || 0) >= 0 ? "text-success" : "text-danger"
+                               (tx.amount || 0) !== 0 ? ((tx.amount || 0) > 0 ? "text-success" : "text-danger") : "text-text-tertiary"
                             )}>
-                               {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
+                               {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
                                <span className="text-[9px] opacity-40 ml-1">PTS</span>
                             </p>
                          </td>

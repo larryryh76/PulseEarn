@@ -81,7 +81,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
         )}>{faq.question}</span>
         <div className={cn(
           "w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-500 border shrink-0",
-          isOpen ? "bg-primary border-primary text-text-primary" : "bg-white/5 border-border-bright text-text-secondary"
+          isOpen ? "bg-primary border-primary text-text-primary" : "bg-surface-glass border-border-bright text-text-secondary"
         )}>
           {isOpen ? <Minus size={16} /> : <Plus size={16} />}
         </div>

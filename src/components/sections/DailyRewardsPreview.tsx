@@ -44,7 +44,10 @@ const DailyRewardsPreview: React.FC = () => {
   ];
 
   return (
-    <section id="rewards" className="py-20 md:py-24 relative overflow-hidden bg-[#050507]">
+    <section id="rewards" className="py-20 md:py-32 relative overflow-hidden bg-background">
+      {/* Background Decor */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/5 blur-[120px] -z-10" />
+
       <div className="container mx-auto px-6">
         <div className="flex flex-col lg:flex-row gap-12 md:gap-16 lg:gap-24 items-center">
           <div className="lg:w-1/2 order-2 lg:order-1 w-full max-w-xl">
@@ -52,12 +55,12 @@ const DailyRewardsPreview: React.FC = () => {
               {rewards.map((reward, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: i * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <Card className="flex items-center gap-6 p-6 border border-border bg-surface-bright/50 group hover:bg-surface-accent hover:border-primary/20 transition-all rounded-3xl">
+                  <Card className="flex items-center gap-6 p-6 border border-border bg-surface-bright/30 backdrop-blur-sm group hover:bg-surface-accent hover:border-primary/20 transition-all rounded-[2rem] shadow-subtle hover:shadow-premium">
                     <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all", reward.color)}>
                       <reward.icon size={24} />
                     </div>
@@ -95,9 +98,9 @@ const DailyRewardsPreview: React.FC = () => {
                 <Gift size={16} className="text-primary" />
                 Daily Rewards
               </div>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight">
+              <h2 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter text-text-primary leading-[1] uppercase italic">
                 Grow Your <br className="hidden sm:block" />
-                <span className="text-text-tertiary">Earnings Daily.</span>
+                <span className="text-text-tertiary opacity-30">Earnings.</span>
               </h2>
               <p className="text-text-secondary text-base sm:text-lg font-medium max-w-xl leading-relaxed">
                 Our platform provides daily earning opportunities. Complete tasks and see your balance grow in real-time.
@@ -110,7 +113,7 @@ const DailyRewardsPreview: React.FC = () => {
                   { step: '03', title: 'Get Paid', desc: 'Earn points and redeem them for rewards.' }
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-6 group">
-                    <div className="w-12 h-12 rounded-2xl bg-surface-bright border border-border flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors">
+                    <div className="w-12 h-12 rounded-2xl bg-surface-bright border border-border flex items-center justify-center shrink-0 group-hover:border-primary/40 group-hover:bg-primary/5 transition-all">
                       <span className="text-xs font-bold text-primary font-mono">{item.step}</span>
                     </div>
                     <div className="space-y-1">

@@ -327,7 +327,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 <Logo />
              </div>
              <div className="flex flex-col items-center gap-3">
-                <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden relative">
+                <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
                    <motion.div
                      initial={{ left: '-100%' }}
                      animate={{ left: '100%' }}

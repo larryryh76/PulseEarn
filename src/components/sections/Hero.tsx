@@ -37,22 +37,25 @@ const Hero: React.FC = () => {
           {/* MAIN TITLE */}
           <motion.div
             style={{ opacity }}
-            className="space-y-6 mb-8 md:mb-12 w-full"
+            className="space-y-6 mb-8 md:mb-12 w-full relative"
           >
+            {/* Background Glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-primary/5 blur-[120px] -z-10" />
+
             <motion.h1
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] sm:leading-[1.1] tracking-tight text-text-primary break-words"
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-5xl sm:text-7xl lg:text-8xl font-black leading-[1.05] sm:leading-[1.05] tracking-tight text-text-primary break-words uppercase"
             >
               EARN <br className="hidden sm:block" />
               <span className="bg-clip-text text-transparent bg-gradient-to-b from-primary to-primary-bright">REWARDS.</span>
             </motion.h1>
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-text-secondary text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-medium px-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-text-secondary text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-medium px-4"
             >
               Discover a transparent reward ecosystem. Earn points through verified community activities and market-based forecasting campaigns.
             </motion.p>
@@ -60,21 +63,21 @@ const Hero: React.FC = () => {
 
           {/* PRIMARY ACTIONS */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-24"
+            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-24 relative"
           >
             <button
               onClick={() => navigate('/signup')}
-              className="px-10 py-5 rounded-xl bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3"
+              className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-3"
             >
               Get Started
               <ArrowRight size={18} />
             </button>
             <button
               onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-10 py-5 rounded-xl bg-white/5 border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center"
+              className="px-10 py-5 rounded-xl bg-surface-glass border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-surface-glass-hover active:scale-95 transition-all flex items-center justify-center"
             >
               Learn More
             </button>
@@ -82,9 +85,9 @@ const Hero: React.FC = () => {
 
           {/* HIGH-FIDELITY DASHBOARD MOCKUP */}
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            initial={{ opacity: 0, y: 60, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className="relative w-full max-w-5xl mx-auto group"
           >
              <div className="absolute -inset-4 bg-gradient-to-b from-primary/20 to-transparent blur-3xl opacity-30 group-hover:opacity-50 transition duration-1000" />
@@ -96,7 +99,7 @@ const Hero: React.FC = () => {
                       <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20" />
                       <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
                    </div>
-                   <div className="px-4 py-1 rounded-md bg-white/5 border border-border text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
+                   <div className="px-4 py-1 rounded-md bg-surface-glass border border-border text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
                       pulseearn.online/dashboard
                    </div>
                    <div className="w-20" />
@@ -122,7 +125,7 @@ const Hero: React.FC = () => {
                                <TrendingUp size={16} />
                                <span className="text-[10px] font-bold uppercase">Daily Profit</span>
                             </div>
-                            <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-1 w-full bg-surface-glass rounded-full overflow-hidden">
                                <div className="h-full w-2/3 bg-success/40" />
                             </div>
                             <div className="flex -space-x-2 pt-2 md:pt-4">
@@ -137,9 +140,9 @@ const Hero: React.FC = () => {
                                <span className="text-[10px] font-bold uppercase">System Status</span>
                             </div>
                             <div className="space-y-2 pt-2">
-                               <div className="h-2 w-full bg-white/5 rounded-sm" />
-                               <div className="h-2 w-4/5 bg-white/5 rounded-sm" />
-                               <div className="h-2 w-3/5 bg-white/5 rounded-sm" />
+                               <div className="h-2 w-full bg-surface-glass rounded-sm" />
+                               <div className="h-2 w-4/5 bg-surface-glass rounded-sm" />
+                               <div className="h-2 w-3/5 bg-surface-glass rounded-sm" />
                             </div>
                          </div>
                       </div>
@@ -155,14 +158,14 @@ const Hero: React.FC = () => {
                             {[1,2,3].map(i => (
                               <div key={i} className="flex items-center gap-3">
                                  <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                                 <div className="flex-1 h-2 bg-white/5 rounded-full" />
+                                 <div className="flex-1 h-2 bg-surface-glass rounded-full" />
                                  <div className="w-8 h-2 bg-primary/20 rounded-full" />
                               </div>
                             ))}
                          </div>
                       </div>
                       <div className="rounded-2xl md:rounded-3xl border border-border bg-surface-bright/50 p-5 md:p-6 flex flex-col items-center gap-4 text-center">
-                         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-border-bright flex items-center justify-center text-text-tertiary">
+                         <div className="w-12 h-12 rounded-2xl bg-surface-glass border border-border-bright flex items-center justify-center text-text-tertiary">
                             <Target size={24} />
                          </div>
                          <div className="space-y-1">

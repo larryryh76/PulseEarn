@@ -56,7 +56,7 @@ const PredictionPreview: React.FC = () => {
                   <div className="pt-8">
                  <button
                   onClick={() => navigate('/predict')}
-                  className="px-10 py-5 rounded-xl bg-white/5 border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-3"
+                  className="px-10 py-5 rounded-xl bg-surface-glass border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-surface-glass-hover active:scale-95 transition-all flex items-center justify-center gap-3"
                  >
                     Start Predicting <TrendingUp size={16} />
                  </button>
@@ -99,7 +99,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('up')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-white/20"
+                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-border-bright transition-colors"
                       )}
                     >
                       <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -110,7 +110,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('down')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-white/20"
+                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-border-bright transition-colors"
                       )}
                     >
                       <TrendingDown className="w-6 h-6 group-hover:scale-110 transition-transform" />

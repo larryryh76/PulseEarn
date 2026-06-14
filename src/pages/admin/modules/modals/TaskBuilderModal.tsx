@@ -84,7 +84,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                    <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Atomic Execution & Provisioning Logic</p>
                 </div>
              </div>
-             <button onClick={onClose} className="w-10 h-10 hover:bg-white/5 rounded-xl transition-all flex items-center justify-center text-text-tertiary">
+             <button onClick={onClose} className="w-10 h-10 hover:bg-surface-glass rounded-xl transition-all flex items-center justify-center text-text-tertiary">
                 <X size={24} />
              </button>
           </div>
@@ -206,7 +206,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                         key={key} type="button"
                         onClick={() => setFormData({...formData, fraudProtection: { ...formData.fraudProtection!, [key]: !formData.fraudProtection![key as keyof typeof formData.fraudProtection] }})}
                         className={cn("px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
-                           formData.fraudProtection?.[key as keyof typeof formData.fraudProtection] ? "bg-primary border-primary text-text-primary" : "bg-white/5 border-border text-text-tertiary hover:text-text-primary"
+                           formData.fraudProtection?.[key as keyof typeof formData.fraudProtection] ? "bg-primary border-primary text-text-primary" : "bg-surface-glass border-border text-text-tertiary hover:text-text-primary"
                         )}
                       >
                          {key.replace(/([A-Z])/g, ' $1')}

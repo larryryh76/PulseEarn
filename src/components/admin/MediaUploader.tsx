@@ -121,14 +121,14 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
             {isUploading ? (
               <div className="space-y-4 flex flex-col items-center">
                  <Loader2 size={32} className="text-primary animate-spin" />
-                 <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                 <div className="w-32 h-1.5 bg-surface-glass rounded-full overflow-hidden">
                     <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
                  </div>
                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{Math.round(progress)}% Uploaded</p>
               </div>
             ) : (
               <>
-                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-surface-glass flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
                   <Upload size={20} className="text-text-tertiary group-hover:text-primary transition-colors" />
                 </div>
                 <p className="text-xs font-bold text-text-secondary group-hover:text-text-primary transition-colors">Select Asset to Upload</p>

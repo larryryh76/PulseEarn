@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useEffect } from 'react';
 import {
   LayoutGrid,
   Target,
@@ -60,9 +61,13 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   const { logout, userData, currentUser, loading } = useAuth();
   const { isInitialized, systemStatus } = useAdmin();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { pathname } = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   const isAdmin = React.useMemo(() => {
     if (!currentUser) return false;
@@ -74,7 +79,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
       <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-[0_0_30px_rgba(0,112,255,0.2)]" />
       <div className="text-center space-y-2">
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">Initializing Ops Matrix</p>
-        <div className="h-1 w-48 bg-white/5 rounded-full overflow-hidden relative">
+        <div className="h-1 w-48 bg-surface-glass rounded-full overflow-hidden relative">
           <motion.div
             initial={{ left: '-100%' }}
             animate={{ left: '100%' }}
@@ -108,7 +113,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
          {category}
        </p>
        {NAV_ITEMS.filter(item => item.category === category).map(item => {
-         const isActive = location.pathname === item.path;
+         const isActive = pathname === item.path;
          return (
            <Link
              key={item.id}
@@ -117,7 +122,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                "flex items-center gap-4 px-4 py-3 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all group relative",
                isActive
                 ? "bg-primary text-text-primary shadow-lg shadow-primary/20"
-                : "text-text-tertiary hover:text-text-primary hover:bg-white/5"
+                : "text-text-tertiary hover:text-text-primary hover:bg-surface-glass"
              )}
            >
              <item.icon size={18} className={cn("shrink-0", isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-primary")} />
@@ -148,7 +153,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
               </div>
               {!isSidebarCollapsed && <span className="text-xs font-black uppercase tracking-[0.3em]">Ops Control</span>}
            </div>
-           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 hover:bg-white/5 rounded text-text-tertiary hover:text-text-primary">
+           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 hover:bg-surface-glass rounded text-text-tertiary hover:text-text-primary">
               {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
            </button>
         </div>
@@ -211,7 +216,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                      <span className="text-[9px] font-black uppercase tracking-widest text-success">Node {systemStatus}</span>
                   </div>
                </div>
-               <button className="lg:hidden p-2 hover:bg-white/5 rounded" onClick={() => setIsMobileOpen(true)}>
+               <button className="lg:hidden p-2 hover:bg-surface-glass rounded" onClick={() => setIsMobileOpen(true)}>
                   <Menu size={20} />
                </button>
             </div>
@@ -234,7 +239,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                      <Terminal size={24} className="text-primary" />
                      <span className="text-sm font-black uppercase tracking-widest">Ops Control</span>
                   </div>
-                  <button onClick={() => setIsMobileOpen(false)} className="p-2 bg-white/5 rounded-full"><X size={24} /></button>
+                  <button onClick={() => setIsMobileOpen(false)} className="p-2 bg-surface-glass rounded-full"><X size={24} /></button>
                </div>
                <div className="flex-1 p-6 overflow-y-auto">
                   {NAV_ITEMS.map(item => (
@@ -244,7 +249,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                        onClick={() => setIsMobileOpen(false)}
                        className={cn(
                          "flex items-center gap-6 p-6 rounded-2xl text-[13px] font-bold uppercase tracking-widest mb-2 transition-all",
-                         location.pathname === item.path ? "bg-primary text-text-primary" : "text-text-tertiary"
+                         pathname === item.path ? "bg-primary text-text-primary" : "text-text-tertiary"
                        )}
                      >
                         <item.icon size={24} />

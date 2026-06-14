@@ -96,7 +96,7 @@ const Navbar: React.FC = () => {
                 <div className="flex items-center gap-6">
                    <button
                      onClick={toggleTheme}
-                     className="p-2 text-text-secondary hover:text-text-primary transition-all bg-white/5 rounded-lg border border-border"
+                     className="p-2 text-text-secondary hover:text-text-primary transition-all bg-surface-glass rounded-lg border border-border"
                      aria-label="Toggle Theme"
                    >
                      {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -135,7 +135,7 @@ const Navbar: React.FC = () => {
           <div className="flex md:hidden items-center gap-4 z-50">
             <button
                onClick={toggleTheme}
-               className="p-2 text-text-secondary hover:text-text-primary transition-all bg-white/5 rounded-lg border border-border"
+               className="p-2 text-text-secondary hover:text-text-primary transition-all bg-surface-glass rounded-lg border border-border"
                aria-label="Toggle Theme"
             >
                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}

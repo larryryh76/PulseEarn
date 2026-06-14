@@ -79,7 +79,7 @@ const Signup: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full"
         >
-          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] border-white/[0.08] shadow-2xl relative overflow-hidden">
+          <div className="glass-card p-8 md:p-12 rounded-[2.5rem] relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
 
             <div className="flex flex-col items-center text-center mb-10">
@@ -103,7 +103,7 @@ const Signup: React.FC = () => {
                     placeholder="Choose a username"
                     value={formData.username}
                     onChange={handleChange}
-                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                     required
                   />
                 </div>
@@ -139,7 +139,7 @@ const Signup: React.FC = () => {
                     placeholder="Create a password"
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                     required
                   />
                   <button
@@ -188,7 +188,7 @@ const Signup: React.FC = () => {
                     placeholder="Repeat your password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-medium"
+                    className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                     required
                   />
                 </div>
@@ -209,7 +209,7 @@ const Signup: React.FC = () => {
                     placeholder="PULSE-XXXX"
                     value={formData.referralCode}
                     onChange={handleChange}
-                    className="w-full bg-surface-bright border border-white/[0.08] rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 focus:bg-white/[0.04] transition-all font-mono"
+                    className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-mono"
                   />
                 </div>
               </div>
@@ -229,7 +229,7 @@ const Signup: React.FC = () => {
               </Button>
             </form>
 
-            <div className="mt-8 pt-8 border-t border-white/[0.05] space-y-6">
+            <div className="mt-8 pt-8 border-t border-border-bright space-y-6">
               <div className="flex flex-col gap-4 items-center">
                 <p className="text-text-secondary text-xs font-medium text-center">
                   By signing up, you agree to our <span className="text-text-secondary underline cursor-pointer">Terms</span> and <span className="text-text-secondary underline cursor-pointer">Privacy Policy</span>

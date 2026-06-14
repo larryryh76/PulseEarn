@@ -169,7 +169,7 @@ const SupportCenter: React.FC = () => {
               </h1>
            </div>
 
-           <div className="flex bg-surface-accent p-1 rounded-xl border border-white/[0.05] shrink-0">
+           <div className="flex bg-surface-accent p-1 rounded-xl border border-border shrink-0">
                <button
                  onClick={() => { setView('EXPLORE'); setSelectedTicket(null); }}
                  className={cn(
@@ -212,7 +212,7 @@ const SupportCenter: React.FC = () => {
                                 <div
                                   key={ticket.id}
                                   onClick={() => { setSelectedTicket(ticket); setView('THREAD'); }}
-                                  className="p-5 rounded-2xl bg-surface border border-border hover:border-white/20 transition-all cursor-pointer group flex items-center justify-between"
+                                  className="p-5 rounded-2xl bg-surface border border-border hover:border-border-bright transition-all cursor-pointer group flex items-center justify-between"
                                 >
                                    <div className="flex items-center gap-5 min-w-0">
                                       <div className={cn(
@@ -294,7 +294,7 @@ const SupportCenter: React.FC = () => {
 
            {view === 'CREATE' && (
               <motion.div key="create" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="max-w-2xl mx-auto">
-                 <div className="glass-card p-8 md:p-12 rounded-[2.5rem] border-white/[0.08] shadow-2xl space-y-10 relative overflow-hidden">
+                 <div className="glass-card p-8 md:p-12 rounded-[2.5rem] space-y-10 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
 
                     <div className="flex items-center gap-6">
@@ -313,7 +313,7 @@ const SupportCenter: React.FC = () => {
                           <select
                             value={formData.category}
                             onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as TicketCategory }))}
-                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium appearance-none"
+                            className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium appearance-none"
                           >
                              {CATEGORIES.map(cat => <option key={cat.value} value={cat.value} className="bg-surface">{cat.label}</option>)}
                           </select>
@@ -326,7 +326,7 @@ const SupportCenter: React.FC = () => {
                             placeholder="Brief summary of your inquiry"
                             value={formData.subject}
                             onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
+                            className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
                           />
                        </div>
 
@@ -337,7 +337,7 @@ const SupportCenter: React.FC = () => {
                             placeholder="Describe your issue in detail. Include IDs, dates, and amounts if applicable."
                             value={formData.message}
                             onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                            className="w-full bg-surface-bright border border-white/[0.08] rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                            className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
                           />
                        </div>
 
@@ -406,7 +406,7 @@ const SupportCenter: React.FC = () => {
                           <div key={msg.id} className={cn("flex gap-4 max-w-[85%]", msg.senderType === 'ADMIN' ? "mr-auto" : "ml-auto flex-row-reverse")}>
                              <div className={cn(
                                 "w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 shadow-lg",
-                                msg.senderType === 'ADMIN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/[0.05] border-border-bright text-text-secondary"
+                                msg.senderType === 'ADMIN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-glass border-border-bright text-text-secondary"
                              )}>
                                 {msg.senderType === 'ADMIN' ? <Shield size={18} /> : <User size={18} />}
                              </div>
@@ -447,7 +447,7 @@ const SupportCenter: React.FC = () => {
                                placeholder="Draft your reply..."
                                value={replyText}
                                onChange={(e) => setReplyText(e.target.value)}
-                               className="w-full bg-surface-bright border border-white/[0.08] rounded-2xl px-6 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
+                               className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium resize-none"
                              />
                              <div className="absolute right-4 bottom-4 flex items-center gap-3">
                                 <Button

@@ -16,75 +16,106 @@ interface MediaUploaderProps {
 const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, path, aspectRatio = 'any' }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError(null);
     console.log(`[MediaUploader] Initiating upload for: ${file.name} (${file.size} bytes)`);
 
-    if (!file.type.startsWith('image/')) {
-      return toast.error('Please select an image file');
+    // 1. Validation
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      return toast.error('Please select a valid media file (image/video)');
     }
 
-    if (file.size > 10 * 1024 * 1024) { // Increased limit to 10MB as requested by "professionalization"
+    if (file.size > 10 * 1024 * 1024) {
       return toast.error('File size must be under 10MB');
     }
 
     setIsUploading(true);
     setProgress(0);
 
+    // Create a controller for the timeout
+    let timeoutId: any = null;
+
     try {
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const fullPath = `${path}/${fileName}`;
-      console.log(`[MediaUploader] Storage Path: ${fullPath}`);
+
+      // Ensure storage is initialized
+      if (!storage) {
+        throw new Error('Storage service not initialized');
+      }
 
       const storageRef = ref(storage, fullPath);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
+      // Timeout logic
+      timeoutId = setTimeout(() => {
+        if (isUploading && progress === 0) {
+          uploadTask.cancel();
+          const err = 'Upload timed out at 0%. Please check your connection or storage permissions.';
+          console.error('[MediaUploader] Timeout:', err);
+          setError(err);
+          toast.error(err);
+          setIsUploading(false);
+        }
+      }, 15000); // 15s for 0% hang detection
+
       uploadTask.on('state_changed',
         (snapshot) => {
-          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`[MediaUploader] Progress: ${Math.round(p)}%`);
+          const p = snapshot.totalBytes > 0
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            : 0;
+
+          console.log(`[MediaUploader] Progress: ${Math.round(p)}% (State: ${snapshot.state})`);
           setProgress(p);
+
+          // Reset timeout if we're moving
+          if (p > 0 && timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
         },
         (error) => {
-          console.error('[MediaUploader] Upload Task Error:', error);
-          toast.error(`Upload failed: ${error.message}`);
+          if (timeoutId) clearTimeout(timeoutId);
+          console.error('[MediaUploader] Upload Task Error:', error.code, error.message);
+
+          let msg = 'Upload failed';
+          if (error.code === 'storage/unauthorized') msg = 'Storage Access Denied: Please check permissions.';
+          if (error.code === 'storage/canceled') msg = 'Upload canceled.';
+
+          setError(msg);
+          toast.error(msg);
           setIsUploading(false);
           setProgress(0);
         },
-        () => {
-          // Wrap in a promise-based approach to ensure sequential completion
-          console.log('[MediaUploader] Upload complete, generating URL...');
-          getDownloadURL(uploadTask.snapshot.ref)
-            .then((downloadURL) => {
-              console.log('[MediaUploader] Success! URL:', downloadURL);
-              onChange(downloadURL);
-              toast.success('Media uploaded successfully');
-              setIsUploading(false);
-              setProgress(100);
-            })
-            .catch((err) => {
-              console.error('[MediaUploader] URL Generation Error:', err);
-              toast.error('Failed to retrieve file URL');
-              setIsUploading(false);
-              setProgress(0);
-            });
+        async () => {
+          if (timeoutId) clearTimeout(timeoutId);
+          try {
+            console.log('[MediaUploader] Finalizing upload...');
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log('[MediaUploader] Success! URL:', downloadURL);
+
+            onChange(downloadURL);
+            toast.success('Media uploaded successfully');
+            setIsUploading(false);
+            setProgress(100);
+          } catch (err: any) {
+            console.error('[MediaUploader] URL Finalization Error:', err);
+            setError('Failed to finalize file URL');
+            toast.error('Failed to retrieve file URL');
+            setIsUploading(false);
+          }
         }
       );
 
-      // Add a safety timeout for the upload
-      setTimeout(() => {
-        if (isUploading && progress < 100) {
-          console.warn('[MediaUploader] Upload timeout reached');
-          // We don't cancel here to avoid breaking slow connections, but we log it
-        }
-      }, 60000); // 60s timeout
-
     } catch (err: any) {
+      if (timeoutId) clearTimeout(timeoutId);
       console.error('[MediaUploader] Initialization Error:', err);
-      toast.error('Failed to initialize upload');
+      toast.error(`Failed to initialize: ${err.message}`);
       setIsUploading(false);
       setProgress(0);
     }
@@ -124,7 +155,21 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
                  <div className="w-32 h-1.5 bg-surface-glass rounded-full overflow-hidden">
                     <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
                  </div>
-                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{Math.round(progress)}% Uploaded</p>
+                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                   {progress === 0 ? 'Connecting...' : `${Math.round(progress)}% Uploaded`}
+                 </p>
+              </div>
+            ) : error ? (
+              <div className="space-y-4 flex flex-col items-center px-6">
+                 <X size={32} className="text-danger" />
+                 <p className="text-[10px] font-bold text-danger uppercase tracking-widest text-center">{error}</p>
+                 <button
+                   type="button"
+                   onClick={(e) => { e.preventDefault(); setError(null); }}
+                   className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-text-primary underline"
+                 >
+                   Try Again
+                 </button>
               </div>
             ) : (
               <>

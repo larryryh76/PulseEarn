@@ -16,10 +16,14 @@ import {
 import { SystemTaskDefinition } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
+import MissionBuilderModal from './modals/MissionBuilderModal';
+import { Plus } from 'lucide-react';
 
 const OpsMissions: React.FC = () => {
   const [missions, setMissions] = React.useState<SystemTaskDefinition[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [selectedMission, setSelectedMission] = React.useState<SystemTaskDefinition | null>(null);
 
   React.useEffect(() => {
     const q = query(collection(db, 'system_task_definitions'), orderBy('priority', 'desc'));
@@ -51,6 +55,13 @@ const OpsMissions: React.FC = () => {
              </div>
              <p className="text-xs font-medium text-text-tertiary">Strategic platform-wide objectives and automated progression logic.</p>
           </div>
+
+          <button
+            onClick={() => { setSelectedMission(null); setIsModalOpen(true); }}
+            className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+             <Plus size={18} /> New Mission Node
+          </button>
        </header>
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -97,13 +108,22 @@ const OpsMissions: React.FC = () => {
 
                 <div className="mt-auto flex items-center justify-between relative z-10 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
                    <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest">Hash: {mission.id.slice(0, 12).toUpperCase()}</p>
-                   <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                   <button
+                     onClick={() => { setSelectedMission(mission); setIsModalOpen(true); }}
+                     className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all"
+                   >
                       <Edit3 size={16} />
                    </button>
                 </div>
              </div>
           ))}
        </div>
+
+       <MissionBuilderModal
+         isOpen={isModalOpen}
+         onClose={() => { setIsModalOpen(false); setSelectedMission(null); }}
+         initialMission={selectedMission}
+       />
     </div>
   );
 };

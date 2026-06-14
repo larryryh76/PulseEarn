@@ -12,6 +12,7 @@ import {
   Activity,
   LineChart,
   Target,
+  Shield,
   ArrowLeft,
   BarChart3,
   History,
@@ -34,6 +35,7 @@ const Predictions: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { predictions: userPredictions = [], campaigns: contextCampaigns = [] } = useTasks();
 
+  const [economyConfig, setEconomyConfig] = useState<any>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<'UP' | 'DOWN' | null>(null);
   const [stake, setStake] = useState<number>(100);
@@ -42,6 +44,18 @@ const Predictions: React.FC = () => {
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED'>('ALL');
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PredictionRecord | null>(null);
   const [isResolving, setIsResolving] = useState(false);
+
+  useEffect(() => {
+     const fetchConfig = async () => {
+        const { EconomyConfigEngine } = await import('../../engines/system/EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+        setEconomyConfig(config);
+     };
+     fetchConfig();
+  }, []);
+
+  const unlockLevel = economyConfig?.thresholds?.predictionUnlockLevel || 5;
+  const isLocked = useMemo(() => (userData?.level || 1) < unlockLevel, [userData, unlockLevel]);
 
   // Sync with location state for deep linking
   useEffect(() => {
@@ -249,7 +263,7 @@ const Predictions: React.FC = () => {
                       <p className={cn("text-3xl font-mono font-bold tracking-tighter",
                          selectedHistoryItem.status === 'ACTIVE' ? "text-primary" :
                          (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-text-tertiary/50")}>
-                         {selectedHistoryItem.status === 'ACTIVE' ? `+${(selectedHistoryItem.stakeAmount * 2).toLocaleString()}` :
+                         {selectedHistoryItem.status === 'ACTIVE' ? `+${(selectedHistoryItem.stakeAmount * (economyConfig?.rewards?.predictionWinMultiplier || 2)).toLocaleString()}` :
                           (selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
                          <span className="text-xs ml-1 opacity-40">PTS</span>
                       </p>
@@ -456,21 +470,38 @@ const Predictions: React.FC = () => {
                                          <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Potential Win</span>
                                       </div>
                                       <div className="text-right">
-                                         <span className="text-xl font-mono font-bold text-primary block leading-none">{(stake * 2).toLocaleString()} PTS</span>
-                                         <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED 2.0X REWARD</span>
+                                         <span className="text-xl font-mono font-bold text-primary block leading-none">{(stake * (economyConfig?.rewards?.predictionWinMultiplier || 2)).toLocaleString()} PTS</span>
+                                         <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED {(economyConfig?.rewards?.predictionWinMultiplier || 2).toFixed(1)}X REWARD</span>
                                       </div>
                                    </div>
                                 </div>
                              </div>
 
-                             <Button
-                               className="w-full h-16 bg-white text-black hover:bg-primary hover:text-text-primary transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98] disabled:opacity-10 italic"
-                               disabled={!prediction || isSubmitting}
-                               isLoading={isSubmitting}
-                               onClick={handlePredict}
-                             >
-                               INITIATE FORECAST
-                             </Button>
+                             <div className="space-y-4">
+                                {isLocked && (
+                                   <div className="p-6 rounded-2xl bg-warning/5 border border-warning/20 space-y-3">
+                                      <div className="flex items-center gap-3 text-warning">
+                                         <Shield size={16} />
+                                         <span className="text-[10px] font-black uppercase tracking-[0.2em]">Access Restricted</span>
+                                      </div>
+                                      <p className="text-[11px] text-text-tertiary leading-relaxed font-medium">
+                                         Predictions unlock at <span className="text-warning font-bold">Level {unlockLevel}</span>. Continue completing tasks to gain XP and unlock forecasting access.
+                                      </p>
+                                      <div className="h-1.5 w-full bg-surface-glass rounded-full overflow-hidden">
+                                         <div className="h-full bg-warning transition-all duration-1000" style={{ width: `${Math.min(100, (userData?.level || 1) / unlockLevel * 100)}%` }} />
+                                      </div>
+                                   </div>
+                                )}
+
+                                <Button
+                                  className="w-full h-16 bg-white text-black hover:bg-primary hover:text-text-primary transition-all font-black uppercase tracking-[0.4em] text-[11px] rounded-2xl shadow-2xl active:scale-[0.98] disabled:opacity-10 italic"
+                                  disabled={!prediction || isSubmitting || isLocked}
+                                  isLoading={isSubmitting}
+                                  onClick={handlePredict}
+                                >
+                                  {isLocked ? `LEVEL ${unlockLevel} REQUIRED` : 'INITIATE FORECAST'}
+                                </Button>
+                             </div>
                           </div>
                        </div>
                     </div>
@@ -535,7 +566,7 @@ const Predictions: React.FC = () => {
                                    <div className="grid grid-cols-2 gap-4 py-5 border-y border-border">
                                       <div className="space-y-1">
                                          <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">Multiplier</p>
-                                         <p className="text-xs font-mono font-bold text-text-primary">2.00x</p>
+                                         <p className="text-xs font-mono font-bold text-text-primary">{economyConfig?.rewards?.predictionWinMultiplier?.toFixed(2) || '2.00'}x</p>
                                       </div>
                                       <div className="space-y-1 text-right">
                                          <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">Settlement</p>

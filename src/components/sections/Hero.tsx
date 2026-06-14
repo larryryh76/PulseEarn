@@ -97,7 +97,7 @@ const Hero: React.FC = () => {
                       <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
                    </div>
                    <div className="px-4 py-1 rounded-md bg-white/5 border border-border text-[9px] font-bold text-text-tertiary uppercase tracking-widest">
-                      app.pulseearn.io/dashboard
+                      pulseearn.online/dashboard
                    </div>
                    <div className="w-20" />
                 </div>

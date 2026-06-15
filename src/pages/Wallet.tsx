@@ -132,7 +132,7 @@ const Wallet: React.FC = () => {
   return (
     <>
       <div className="bg-background transition-colors duration-300">
-      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
+      <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
         {/* ASSET INFRASTRUCTURE HEADER */}
         <section className="mb-12 md:mb-16">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 md:gap-12">
@@ -160,7 +160,7 @@ const Wallet: React.FC = () => {
         </section>
 
         {/* PRIMARY WALLET CARD */}
-        <Card className="mb-12 p-6 md:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
+        <Card className="mb-8 md:mb-12 p-6 md:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
               <Zap size={200} />
            </div>
@@ -197,7 +197,7 @@ const Wallet: React.FC = () => {
         </Card>
 
         {/* THRESHOLD PROGRESS */}
-        <Card variant="compact" className="mb-16 p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-8">
+        <Card variant="compact" className="mb-12 md:mb-16 p-6 md:p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
            <div className="flex items-center gap-4">
               <div className={cn(
                  "w-12 h-12 rounded-2xl flex items-center justify-center border",
@@ -296,9 +296,9 @@ const Wallet: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg system-modal p-12"
+              className="relative w-full max-w-lg system-modal p-6 md:p-12"
             >
-              <div className="flex justify-between items-start mb-12">
+              <div className="flex justify-between items-start mb-8 md:mb-12">
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">System Action</p>
                   <h2 className="text-2xl font-bold tracking-tight">Initiate Settlement</h2>
@@ -309,8 +309,8 @@ const Wallet: React.FC = () => {
               </div>
 
               {!thresholdMet ? (
-                 <div className="space-y-12">
-                    <div className="p-10 rounded-[2rem] bg-danger/[0.03] border border-danger/10 flex flex-col items-center text-center gap-6">
+                 <div className="space-y-8 md:space-y-12">
+                    <div className="p-6 md:p-10 rounded-[2rem] bg-danger/[0.03] border border-danger/10 flex flex-col items-center text-center gap-6">
                        <div className="w-16 h-16 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
                           <AlertCircle size={32} />
                        </div>
@@ -324,8 +324,8 @@ const Wallet: React.FC = () => {
                     <Button variant="outline" className="w-full h-16 rounded-[1.5rem]" onClick={() => setIsWithdrawModalOpen(false)}>Acknowledged</Button>
                  </div>
               ) : isCompleted ? (
-                <div className="space-y-12 py-6">
-                  <div className="p-10 rounded-[2rem] bg-success/[0.03] border border-success/10 flex flex-col items-center text-center gap-8">
+                <div className="space-y-8 md:space-y-12 py-6">
+                  <div className="p-6 md:p-10 rounded-[2rem] bg-success/[0.03] border border-success/10 flex flex-col items-center text-center gap-8">
                     <div className="w-20 h-20 rounded-[2rem] bg-success/10 border border-success/20 flex items-center justify-center text-success">
                        <Check size={40} />
                     </div>

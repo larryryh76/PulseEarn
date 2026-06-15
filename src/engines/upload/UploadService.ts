@@ -2,8 +2,7 @@ import {
   ref,
   uploadBytesResumable,
   getDownloadURL,
-  UploadTask,
-  StorageReference
+  UploadTask
 } from 'firebase/storage';
 import {
   doc,

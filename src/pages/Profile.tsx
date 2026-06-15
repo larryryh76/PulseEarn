@@ -20,8 +20,7 @@ import {
   TrendingUp,
   Award,
   Camera,
-  Loader2,
-  X as CloseIcon
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';

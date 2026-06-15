@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Upload, X, CheckCircle2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
@@ -47,7 +47,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
       <div className={cn(
         "relative group border-2 border-dashed rounded-[2.5rem] overflow-hidden transition-all duration-500",
         value ? "border-success/30 bg-success/[0.02]" :
-        uploadState.state === 'ERROR' ? "border-danger/30 bg-danger/[0.01]" :
+        status === 'ERROR' ? "border-danger/30 bg-danger/[0.01]" :
         "border-border bg-surface-bright/30 hover:border-primary/40 hover:bg-surface-bright/50 hover:shadow-subtle",
         aspectRatio === 'video' ? "aspect-video" : aspectRatio === 'square' ? "aspect-square" : "min-h-[160px]"
       )}>

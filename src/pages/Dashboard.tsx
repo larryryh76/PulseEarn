@@ -8,9 +8,7 @@ import {
   Clock,
   Activity as ActivityIcon,
   Target,
-  LayoutGrid,
-  BarChart3,
-  CreditCard,
+  Shield,
   UserPlus,
   ArrowRight,
   ChevronRight,
@@ -143,9 +141,9 @@ const Dashboard: React.FC = () => {
             className="flex flex-wrap gap-3"
           >
              {[
-               { name: 'Tasks', path: '/tasks', icon: LayoutGrid },
-               { name: 'Prediction', path: '/predictions', icon: BarChart3 },
-               { name: 'Withdraw', path: '/wallet', icon: CreditCard },
+               { name: 'Tasks', path: '/tasks', icon: Shield },
+               { name: 'Prediction', path: '/predictions', icon: TrendingUp },
+               { name: 'Withdraw', path: '/wallet', icon: WalletIcon },
                { name: 'Invite', path: '/referrals', icon: UserPlus },
              ].map((action) => (
                <Link
@@ -276,7 +274,7 @@ const Dashboard: React.FC = () => {
                                     "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
                                     item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary group-hover:text-text-primary"
                                  )}>
-                                    {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
+                                    {item.category === 'PREDICTION' ? <TrendingUp size={20} /> :
                                      item.category === 'REFERRAL' ? <UserPlus size={20} /> :
                                      item.type === 'MISSION' ? <Calendar size={20} /> : <Target size={20} />}
                                  </div>
@@ -399,8 +397,8 @@ const Dashboard: React.FC = () => {
                             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-inner",
                             isPositive ? "bg-success/5 border-success/10 text-success" : "bg-surface-bright border-border-bright text-text-tertiary"
                           )}>
-                            {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
-                             activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
+                            {activity.type.includes('prediction') ? <TrendingUp size={18} /> :
+                             activity.type.includes('task') || activity.type.includes('mission') ? <Shield size={18} /> :
                              activity.type.includes('referral') ? <UserPlus size={18} /> :
                              activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
                           </div>
@@ -649,7 +647,7 @@ const Dashboard: React.FC = () => {
                 <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
+                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Shield size={20} />}
                       </div>
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>

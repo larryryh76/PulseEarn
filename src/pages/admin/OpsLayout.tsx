@@ -75,7 +75,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   }, [currentUser, userData]);
 
   if (loading || !isInitialized) return (
-    <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center gap-8">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">
       <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-[0_0_30px_rgba(0,112,255,0.2)]" />
       <div className="text-center space-y-2">
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">Initializing Ops Matrix</p>

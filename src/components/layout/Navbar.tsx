@@ -33,7 +33,7 @@ const Navbar: React.FC = () => {
     { name: 'Prediction', path: '/predictions', icon: TrendingUp },
     { name: 'Tasks', path: '/tasks', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
-    { name: 'Profile', path: '/me', icon: User },
+    { name: 'Me', path: '/me', icon: User },
   ];
 
   const actionableCampaignCount = campaigns.filter(c => {

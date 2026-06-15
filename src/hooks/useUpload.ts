@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
-import { UploadService, UploadOptions, UploadProgress, UploadStatus } from '../engines/upload/UploadService';
+import { useState, useCallback } from 'react';
+import { useUploadContext } from '../contexts/UploadContext';
+import { UploadOptions, UploadStatus } from '../engines/upload/UploadEngineV2';
 
 export interface UseUploadReturn {
   upload: (file: File, options: UploadOptions) => Promise<string>;
@@ -10,68 +11,48 @@ export interface UseUploadReturn {
   downloadUrl?: string;
   isUploading: boolean;
   reset: () => void;
+  uploadId?: string;
 }
 
 export const useUpload = (): UseUploadReturn => {
-  const [state, setState] = useState<UploadProgress>({
-    progress: 0,
-    bytesTransferred: 0,
-    totalBytes: 0,
-    status: 'IDLE'
-  });
+  const { startUpload, cancelUpload, uploads, removeUpload } = useUploadContext();
+  const [currentUploadId, setCurrentUploadId] = useState<string | undefined>(undefined);
 
-  const cancelRef = useRef<(() => void) | null>(null);
-
-  const reset = useCallback(() => {
-    setState({
-      progress: 0,
-      bytesTransferred: 0,
-      totalBytes: 0,
-      status: 'IDLE'
-    });
-    cancelRef.current = null;
-  }, []);
+  const activeUpload = currentUploadId ? uploads[currentUploadId] : undefined;
 
   const upload = useCallback(async (file: File, options: UploadOptions): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      try {
-        const { cancel } = UploadService.startUpload(file, options, (progress) => {
-          setState(progress);
+    const { uploadId, promise } = startUpload(file, options);
+    setCurrentUploadId(uploadId);
 
-          if (progress.status === 'SUCCESS' && progress.downloadUrl) {
-            resolve(progress.downloadUrl);
-          }
-
-          if (progress.status === 'ERROR') {
-            reject(new Error(progress.error));
-          }
-
-          if (progress.status === 'CANCELLED') {
-            reject(new Error('Upload cancelled by user'));
-          }
-        });
-
-        cancelRef.current = cancel;
-      } catch (err) {
-        reject(err);
-      }
-    });
-  }, []);
+    try {
+      return await promise;
+    } catch (err) {
+      throw err;
+    }
+  }, [startUpload]);
 
   const cancel = useCallback(() => {
-    if (cancelRef.current) {
-      cancelRef.current();
+    if (currentUploadId) {
+      cancelUpload(currentUploadId);
     }
-  }, []);
+  }, [currentUploadId, cancelUpload]);
+
+  const reset = useCallback(() => {
+    if (currentUploadId) {
+      removeUpload(currentUploadId);
+      setCurrentUploadId(undefined);
+    }
+  }, [currentUploadId, removeUpload]);
 
   return {
     upload,
     cancel,
-    progress: state.progress,
-    status: state.status,
-    error: state.error,
-    downloadUrl: state.downloadUrl,
-    isUploading: ['VALIDATING', 'UPLOADING', 'FINALIZING'].includes(state.status),
-    reset
+    progress: activeUpload?.progress || 0,
+    status: activeUpload?.status || 'IDLE',
+    error: activeUpload?.error,
+    downloadUrl: activeUpload?.downloadUrl,
+    isUploading: activeUpload ? ['VALIDATING', 'UPLOADING', 'FINALIZING'].includes(activeUpload.status) : false,
+    reset,
+    uploadId: currentUploadId
   };
 };

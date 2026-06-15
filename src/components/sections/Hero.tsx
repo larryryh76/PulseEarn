@@ -130,7 +130,7 @@ const Hero: React.FC = () => {
                             </div>
                             <div className="flex -space-x-2 pt-2 md:pt-4">
                                {[1,2,3,4].map(i => (
-                                 <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-white/10" />
+                                 <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-surface-glass" />
                                ))}
                             </div>
                          </div>

@@ -51,7 +51,7 @@ const SignupCTA: React.FC = () => {
               </button>
             </div>
 
-            <div className="mt-12 pt-8 border-t border-border w-full max-w-3xl flex flex-wrap justify-center gap-8 text-[10px] font-bold text-text-primary/30 uppercase tracking-widest">
+            <div className="mt-12 pt-8 border-t border-border w-full max-w-3xl flex flex-wrap justify-center gap-8 text-[10px] font-bold text-text-secondary uppercase tracking-widest">
                <span>Secure Account</span>
                <span>Fast Payouts</span>
                <span>24/7 Support</span>

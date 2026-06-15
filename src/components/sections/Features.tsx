@@ -98,7 +98,7 @@ const Features: React.FC = () => {
                   <feature.icon size={24} />
                 </div>
                 <h3 className="text-xl font-bold mb-3 md:mb-4 text-text-primary uppercase tracking-tight">{feature.title}</h3>
-                <p className="text-text-primary/30 leading-relaxed text-sm font-medium uppercase tracking-tighter">
+                <p className="text-text-secondary leading-relaxed text-sm font-medium uppercase tracking-tighter">
                   {feature.description}
                 </p>
               </Card>

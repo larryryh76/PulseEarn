@@ -4,3 +4,4 @@ Disallow: /admin
 Disallow: /admin/*
 
 Sitemap: https://pulseearn.online/sitemap.xml
+Sitemap: https://pulseearn.online/sitemap_index.xml

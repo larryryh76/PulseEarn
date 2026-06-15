@@ -28,7 +28,7 @@ const FAQ: React.FC = () => {
   ];
 
   return (
-    <section id="faq" className="py-20 md:py-32 bg-[#050507] relative overflow-hidden">
+    <section id="faq" className="py-20 md:py-32 bg-background relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[160px] rounded-full -z-10" />
 
       <div className="container mx-auto px-6">
@@ -68,7 +68,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
       transition={{ delay: index * 0.05 }}
       className={cn(
         "border rounded-[2rem] transition-all duration-500 overflow-hidden",
-        isOpen ? "bg-white/[0.04] border-white/20 shadow-2xl" : "bg-surface-bright/50 border-border hover:border-border-bright"
+        isOpen ? "bg-surface-glass border-border-bright shadow-2xl" : "bg-surface-bright/50 border-border hover:border-border-bright"
       )}
     >
       <button
@@ -95,7 +95,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="px-6 md:px-8 pb-6 md:pb-8 text-text-primary/50 text-sm md:text-base leading-relaxed font-medium border-t border-border pt-5 md:pt-6">
+            <div className="px-6 md:px-8 pb-6 md:pb-8 text-text-secondary text-sm md:text-base leading-relaxed font-medium border-t border-border pt-5 md:pt-6">
               {faq.answer}
             </div>
           </motion.div>

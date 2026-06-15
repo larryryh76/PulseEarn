@@ -37,9 +37,6 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
     setIsUploading(true);
     setProgress(0);
 
-    // Create a controller for the timeout
-    let timeoutId: any = null;
-
     try {
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const fullPath = `${path}/${fileName}`;
@@ -52,17 +49,20 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
       const storageRef = ref(storage, fullPath);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
-      // Timeout logic
+      // Create a local variable for the timeout
+      let timeoutId: any = null;
+
+      // Timeout logic: if no progress after 10s, cancel
       timeoutId = setTimeout(() => {
-        if (isUploading && progress === 0) {
+        if (uploadTask.snapshot.state !== 'success' && uploadTask.snapshot.bytesTransferred === 0) {
           uploadTask.cancel();
-          const err = 'Upload timed out at 0%. Please check your connection or storage permissions.';
+          const err = 'Upload timed out: Storage connection could not be established.';
           console.error('[MediaUploader] Timeout:', err);
           setError(err);
           toast.error(err);
           setIsUploading(false);
         }
-      }, 15000); // 15s for 0% hang detection
+      }, 15000);
 
       uploadTask.on('state_changed',
         (snapshot) => {
@@ -73,8 +73,8 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
           console.log(`[MediaUploader] Progress: ${Math.round(p)}% (State: ${snapshot.state})`);
           setProgress(p);
 
-          // Reset timeout if we're moving
-          if (p > 0 && timeoutId) {
+          // Clear initial connection timeout once we have progress or a state change
+          if ((p > 0 || snapshot.state === 'running') && timeoutId) {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
@@ -83,9 +83,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
           if (timeoutId) clearTimeout(timeoutId);
           console.error('[MediaUploader] Upload Task Error:', error.code, error.message);
 
-          let msg = 'Upload failed';
-          if (error.code === 'storage/unauthorized') msg = 'Storage Access Denied: Please check permissions.';
+          let msg = 'Upload failed: ' + error.message;
+          if (error.code === 'storage/unauthorized') msg = 'Storage Access Denied: Check Firebase Storage Rules.';
           if (error.code === 'storage/canceled') msg = 'Upload canceled.';
+          if (error.code === 'storage/retry-limit-exceeded') msg = 'Upload failed: Network instability.';
 
           setError(msg);
           toast.error(msg);

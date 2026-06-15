@@ -15,7 +15,7 @@ const PredictionPreview: React.FC = () => {
   const btc = marketData.find(c => c.id === 'bitcoin');
 
   return (
-    <section id="predictions" className="py-20 md:py-32 bg-[#050507] relative overflow-hidden">
+    <section id="predictions" className="py-20 md:py-32 bg-background relative overflow-hidden">
       <div className="container mx-auto px-6">
         <div className="flex flex-col lg:flex-row gap-12 md:gap-20 lg:gap-32 items-center">
           <div className="lg:w-1/2 text-center lg:text-left space-y-8 md:space-y-10">
@@ -72,7 +72,7 @@ const PredictionPreview: React.FC = () => {
               viewport={{ once: true }}
               className="relative"
             >
-              <Card className="p-0 border border-border-bright bg-background overflow-hidden rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+              <Card className="p-0 border border-border-bright bg-background overflow-hidden rounded-[2.5rem] shadow-premium">
                 <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-[#F7931A]/10 border border-[#F7931A]/20 flex items-center justify-center text-[#F7931A]">
@@ -99,7 +99,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('up')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-border-bright transition-colors"
+                        selectedDirection === 'up' ? "bg-success/5 border-success text-success shadow-[0_0_20px_rgba(34,197,94,0.1)]" : "bg-surface-bright/50 border-border text-text-secondary hover:border-border-bright transition-colors"
                       )}
                     >
                       <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -110,7 +110,7 @@ const PredictionPreview: React.FC = () => {
                       onClick={() => setSelectedDirection('down')}
                       className={cn(
                         "h-24 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 group",
-                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-surface-bright/50 border-border text-text-primary/30 hover:border-border-bright transition-colors"
+                        selectedDirection === 'down' ? "bg-danger/5 border-danger text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]" : "bg-surface-bright/50 border-border text-text-secondary hover:border-border-bright transition-colors"
                       )}
                     >
                       <TrendingDown className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -120,7 +120,7 @@ const PredictionPreview: React.FC = () => {
 
                   <button
                     onClick={() => navigate('/predictions')}
-                    className="w-full py-5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-white/90 active:scale-95 transition-all"
+                    className="w-full py-5 rounded-xl bg-text-primary text-background text-xs font-bold uppercase tracking-widest shadow-xl hover:opacity-90 active:scale-95 transition-all"
                   >
                     View Market
                   </button>

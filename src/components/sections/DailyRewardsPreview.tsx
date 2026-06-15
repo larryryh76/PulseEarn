@@ -118,7 +118,7 @@ const DailyRewardsPreview: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-bold text-[13px] text-text-primary uppercase tracking-wider">{item.title}</h4>
-                      <p className="text-text-primary/30 text-[11px] font-medium uppercase tracking-tighter">{item.desc}</p>
+                      <p className="text-text-secondary text-[11px] font-medium uppercase tracking-tighter">{item.desc}</p>
                     </div>
                   </div>
                 ))}

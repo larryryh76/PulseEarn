@@ -7,55 +7,37 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://pulseearn.online/signup</loc>
-    <lastmod>2025-02-14</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://pulseearn.online/login</loc>
-    <lastmod>2025-02-14</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://pulseearn.online/privacy</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://pulseearn.online/terms</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://pulseearn.online/cookies</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://pulseearn.online/reward-policy</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://pulseearn.online/fraud-policy</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://pulseearn.online/verification-policy</loc>
-    <lastmod>2025-02-14</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://pulseearn.online/support</loc>
     <lastmod>2025-02-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>

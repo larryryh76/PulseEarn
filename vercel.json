@@ -2,16 +2,36 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/(assets|favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml)/(.*)",
-      "destination": "/$1/$2"
+      "source": "/(favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml|sitemap-core.xml|sitemap_core_index.xml)",
+      "destination": "/$1"
     },
     {
-      "source": "/(favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml)",
-      "destination": "/$1"
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain"
+        }
+      ]
     }
   ]
 }

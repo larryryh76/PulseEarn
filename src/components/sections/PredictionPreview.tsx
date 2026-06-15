@@ -31,7 +31,7 @@ const PredictionPreview: React.FC = () => {
               </div>
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight">
                 Predict & <br className="hidden sm:block" />
-                <span className="text-text-tertiary">Earn More.</span>
+                <span className="text-text-tertiary opacity-80 dark:opacity-100">Earn More.</span>
               </h2>
               <p className="text-text-secondary text-base sm:text-lg font-medium max-w-xl leading-relaxed">
                 Use your market knowledge to predict price movements. Correct predictions result in bonus points and rewards.

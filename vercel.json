@@ -19,15 +19,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml)",
-      "destination": "/$1"
-    },
-    {
-      "source": "/assets/(.*)",
-      "destination": "/assets/$1"
-    },
-    {
-      "source": "/((?!api|favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml|assets/).*)",
+      "source": "/((?!api|assets/|favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],

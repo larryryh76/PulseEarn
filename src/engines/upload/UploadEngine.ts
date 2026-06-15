@@ -3,8 +3,7 @@ import {
   uploadBytesResumable,
   uploadBytes,
   getDownloadURL,
-  UploadTask,
-  StorageError
+  UploadTask
 } from 'firebase/storage';
 import {
   doc,
@@ -79,8 +78,9 @@ export class UploadEngine {
         onStateChange({ progress: 100, state: 'SUCCESS', downloadUrl, uploadId });
         return downloadUrl;
       } catch (err: any) {
-        onStateChange({ progress: 0, state: 'ERROR', error: err.message, uploadId });
-        throw err;
+        const errorMsg = err.code === 'storage/retry-limit-exceeded' ? 'Network timeout. Please check your connection.' : err.message;
+        onStateChange({ progress: 0, state: 'ERROR', error: errorMsg, uploadId });
+        throw new Error(errorMsg);
       }
     }
 

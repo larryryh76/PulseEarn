@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, X, CheckCircle2, Loader2 } from 'lucide-react';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../../firebase/config';
+import { Upload, X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../../utils';
+import { UploadEngine, UploadProgress } from '../../engines/system/UploadEngine';
 import toast from 'react-hot-toast';
 
 interface MediaUploaderProps {
@@ -14,18 +13,18 @@ interface MediaUploaderProps {
 }
 
 const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, path, aspectRatio = 'any' }) => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<UploadProgress>({
+    progress: 0,
+    state: 'idle'
+  });
+
+  const isUploading = uploadState.state === 'connecting' || uploadState.state === 'uploading';
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setError(null);
-    console.log(`[MediaUploader] Initiating upload for: ${file.name} (${file.size} bytes)`);
-
-    // 1. Validation
+    // Validation
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
       return toast.error('Please select a valid media file (image/video)');
     }
@@ -34,91 +33,17 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
       return toast.error('File size must be under 10MB');
     }
 
-    setIsUploading(true);
-    setProgress(0);
-
-    // Create a local variable for the timeout
-    let timeoutId: any = null;
-
     try {
-      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-      const fullPath = `${path}/${fileName}`;
+      const url = await UploadEngine.upload(file, path, (progress) => {
+        setUploadState(progress);
+      });
 
-      // Ensure storage is initialized
-      if (!storage) {
-        throw new Error('Storage service not initialized');
-      }
-
-      const storageRef = ref(storage, fullPath);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      // Timeout logic: if no progress after 10s, cancel
-      timeoutId = setTimeout(() => {
-        if (uploadTask.snapshot.state !== 'success' && uploadTask.snapshot.bytesTransferred === 0) {
-          uploadTask.cancel();
-          const err = 'Upload timed out: Storage connection could not be established.';
-          console.error('[MediaUploader] Timeout:', err);
-          setError(err);
-          toast.error(err);
-          setIsUploading(false);
-        }
-      }, 15000);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const p = snapshot.totalBytes > 0
-            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : 0;
-
-          console.log(`[MediaUploader] Progress: ${Math.round(p)}% (State: ${snapshot.state})`);
-          setProgress(p);
-
-          // Clear initial connection timeout once we have progress or a state change
-          if ((p > 0 || snapshot.state === 'running') && timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-          }
-        },
-        (error) => {
-          if (timeoutId) clearTimeout(timeoutId);
-          console.error('[MediaUploader] Upload Task Error:', error.code, error.message);
-
-          let msg = 'Upload failed: ' + error.message;
-          if (error.code === 'storage/unauthorized') msg = 'Storage Access Denied: Check Firebase Storage Rules.';
-          if (error.code === 'storage/canceled') msg = 'Upload canceled.';
-          if (error.code === 'storage/retry-limit-exceeded') msg = 'Upload failed: Network instability.';
-
-          setError(msg);
-          toast.error(msg);
-          setIsUploading(false);
-          setProgress(0);
-        },
-        async () => {
-          if (timeoutId) clearTimeout(timeoutId);
-          try {
-            console.log('[MediaUploader] Finalizing upload...');
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log('[MediaUploader] Success! URL:', downloadURL);
-
-            onChange(downloadURL);
-            toast.success('Media uploaded successfully');
-            setIsUploading(false);
-            setProgress(100);
-          } catch (err: any) {
-            console.error('[MediaUploader] URL Finalization Error:', err);
-            setError('Failed to finalize file URL');
-            toast.error('Failed to retrieve file URL');
-            setIsUploading(false);
-          }
-        }
-      );
-
+      onChange(url);
+      toast.success('Media uploaded successfully');
     } catch (err: any) {
-      if (timeoutId) clearTimeout(timeoutId);
-      console.error('[MediaUploader] Initialization Error:', err);
-      toast.error(`Failed to initialize: ${err.message}`);
-      setIsUploading(false);
-      setProgress(0);
+      console.error('[MediaUploader] Upload Error:', err);
+      toast.error(err.message || 'Upload failed');
+      setUploadState({ progress: 0, state: 'error', error: err.message });
     }
   };
 
@@ -149,24 +74,24 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
           </>
         ) : (
           <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer p-6 text-center">
-            <input type="file" className="hidden" accept="image/*" onChange={handleUpload} disabled={isUploading} />
+            <input type="file" className="hidden" accept="image/*,video/*" onChange={handleUpload} disabled={isUploading} />
             {isUploading ? (
               <div className="space-y-4 flex flex-col items-center">
                  <Loader2 size={32} className="text-primary animate-spin" />
                  <div className="w-32 h-1.5 bg-surface-glass rounded-full overflow-hidden">
-                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
+                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadState.progress}%` }} />
                  </div>
                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                   {progress === 0 ? 'Connecting...' : `${Math.round(progress)}% Uploaded`}
+                   {uploadState.state === 'connecting' ? 'Connecting...' : `${Math.round(uploadState.progress)}% Uploaded`}
                  </p>
               </div>
-            ) : error ? (
+            ) : uploadState.state === 'error' ? (
               <div className="space-y-4 flex flex-col items-center px-6">
-                 <X size={32} className="text-danger" />
-                 <p className="text-[10px] font-bold text-danger uppercase tracking-widest text-center">{error}</p>
+                 <AlertCircle size={32} className="text-danger" />
+                 <p className="text-[10px] font-bold text-danger uppercase tracking-widest text-center">{uploadState.error || 'Upload failed'}</p>
                  <button
                    type="button"
-                   onClick={(e) => { e.preventDefault(); setError(null); }}
+                   onClick={(e) => { e.preventDefault(); setUploadState({ progress: 0, state: 'idle' }); }}
                    className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-text-primary underline"
                  >
                    Try Again
@@ -178,7 +103,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
                   <Upload size={20} className="text-text-tertiary group-hover:text-primary transition-colors" />
                 </div>
                 <p className="text-xs font-bold text-text-secondary group-hover:text-text-primary transition-colors">Select Asset to Upload</p>
-                <p className="text-[9px] font-medium text-text-tertiary/50 uppercase tracking-widest mt-1">JPG, PNG or WEBP (Max 5MB)</p>
+                <p className="text-[9px] font-medium text-text-tertiary/50 uppercase tracking-widest mt-1">JPG, PNG, WEBP or MP4 (Max 10MB)</p>
               </>
             )}
           </label>

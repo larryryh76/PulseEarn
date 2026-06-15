@@ -27,11 +27,14 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
     state: 'IDLE'
   });
 
-  const isUploading = ['INITIALIZING', 'UPLOADING', 'FINALIZING'].includes(uploadState.state);
+  const isUploading = ['VALIDATING', 'INITIALIZING', 'UPLOADING', 'FINALIZING'].includes(uploadState.state);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Reset internal state for new attempt
+    setUploadState({ progress: 0, state: 'IDLE' });
 
     try {
       const url = await UploadEngine.startUpload(
@@ -43,13 +46,13 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
       onChange(url);
       toast.success('Media successfully synced');
     } catch (err: any) {
-      console.error('[MediaUploader] Upload sequence failed:', err);
-      toast.error(err.message || 'Upload failed');
+      console.error('[MediaUploader] Upload failed:', err);
+      toast.error(err.message || 'Upload process failed');
       setUploadState(prev => ({ ...prev, state: 'ERROR', error: err.message }));
     }
   };
 
-  const reset = () => {
+  const retry = () => {
     setUploadState({ progress: 0, state: 'IDLE' });
   };
 
@@ -58,10 +61,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
       <label className="text-[10px] font-black uppercase tracking-[0.25em] text-text-tertiary ml-1">{label}</label>
 
       <div className={cn(
-        "relative group border-2 border-dashed rounded-[2rem] overflow-hidden transition-all duration-500",
+        "relative group border-2 border-dashed rounded-[2.5rem] overflow-hidden transition-all duration-500",
         value ? "border-success/30 bg-success/[0.02]" :
         uploadState.state === 'ERROR' ? "border-danger/30 bg-danger/[0.01]" :
-        "border-border bg-surface-bright/30 hover:border-primary/30 hover:bg-surface-bright/50",
+        "border-border bg-surface-bright/30 hover:border-primary/40 hover:bg-surface-bright/50 hover:shadow-subtle",
         aspectRatio === 'video' ? "aspect-video" : aspectRatio === 'square' ? "aspect-square" : "min-h-[160px]"
       )}>
         <AnimatePresence mode="wait">
@@ -92,23 +95,24 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
               <input type="file" className="hidden" accept="image/*" onChange={handleUpload} disabled={isUploading} />
 
               {isUploading ? (
-                <div className="space-y-6 flex flex-col items-center w-full max-w-[200px]">
+                <div className="space-y-6 flex flex-col items-center w-full max-w-[220px]">
                    <div className="relative">
                       <Loader2 size={40} className="text-primary animate-spin" />
-                      <div className="absolute inset-0 bg-primary/20 blur-xl animate-pulse" />
+                      <div className="absolute inset-0 bg-primary/20 blur-2xl animate-pulse" />
                    </div>
-                   <div className="w-full space-y-2">
-                      <div className="h-1.5 w-full bg-surface-glass rounded-full overflow-hidden">
+                   <div className="w-full space-y-2.5">
+                      <div className="h-2 w-full bg-surface-glass rounded-full overflow-hidden">
                          <motion.div
                            className="h-full bg-primary"
                            initial={{ width: 0 }}
                            animate={{ width: `${uploadState.progress}%` }}
-                           transition={{ duration: 0.3 }}
+                           transition={{ duration: 0.5, ease: "easeOut" }}
                          />
                       </div>
-                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                        {uploadState.state === 'INITIALIZING' ? 'Connecting...' :
-                         uploadState.state === 'FINALIZING' ? 'Finalizing...' :
+                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] animate-pulse">
+                        {uploadState.state === 'VALIDATING' ? 'Validating...' :
+                         uploadState.state === 'INITIALIZING' ? 'Connecting...' :
+                         uploadState.state === 'FINALIZING' ? 'Syncing...' :
                          `${Math.round(uploadState.progress)}% Uploaded`}
                       </p>
                    </div>
@@ -116,19 +120,19 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
               ) : uploadState.state === 'ERROR' ? (
                 <motion.div
                   key="error"
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="space-y-4 flex flex-col items-center px-6"
+                  className="space-y-5 flex flex-col items-center px-8"
                 >
-                   <div className="w-14 h-14 rounded-2xl bg-danger/10 flex items-center justify-center text-danger">
-                      <AlertCircle size={28} />
+                   <div className="w-16 h-16 rounded-[2rem] bg-danger/10 flex items-center justify-center text-danger">
+                      <AlertCircle size={32} />
                    </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-black text-danger uppercase tracking-widest">{uploadState.error || 'System Error'}</p>
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-danger uppercase tracking-[0.15em] max-w-[200px] leading-relaxed">{uploadState.error || 'System Failure'}</p>
                       <button
                         type="button"
-                        onClick={(e) => { e.preventDefault(); reset(); }}
-                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-text-primary mx-auto transition-colors"
+                        onClick={(e) => { e.preventDefault(); retry(); }}
+                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary hover:text-primary mx-auto transition-colors pt-2"
                       >
                         <RefreshCw size={12} />
                         Retry Upload
@@ -142,11 +146,13 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   className="flex flex-col items-center"
                 >
-                  <div className="w-16 h-16 rounded-[2rem] bg-surface-glass border border-border flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-primary/40 group-hover:bg-primary/5 transition-all duration-500">
+                  <div className="w-16 h-16 rounded-[2.5rem] bg-surface-glass border border-border flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-primary/40 group-hover:bg-primary/5 transition-all duration-500 shadow-sm">
                     <Upload size={24} className="text-text-tertiary group-hover:text-primary transition-colors" />
                   </div>
-                  <p className="text-xs font-black text-text-secondary uppercase tracking-[0.1em] group-hover:text-text-primary transition-colors">Select Asset to Upload</p>
-                  <p className="text-[9px] font-bold text-text-tertiary/40 uppercase tracking-[0.2em] mt-2">JPG, PNG or WEBP (Max {maxSizeMB}MB)</p>
+                  <div className="space-y-2">
+                    <p className="text-xs font-black text-text-secondary uppercase tracking-[0.1em] group-hover:text-text-primary transition-colors">Select Asset to Upload</p>
+                    <p className="text-[9px] font-bold text-text-tertiary/40 uppercase tracking-[0.2em]">JPG, PNG or WEBP (Max {maxSizeMB}MB)</p>
+                  </div>
                 </motion.div>
               )}
             </label>

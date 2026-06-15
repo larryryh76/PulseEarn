@@ -1,8 +1,25 @@
 {
   "version": 2,
+  "redirects": [
+    {
+      "source": "/prediction",
+      "destination": "/predictions",
+      "permanent": true
+    },
+    {
+      "source": "/profile",
+      "destination": "/me",
+      "permanent": true
+    },
+    {
+      "source": "/referral",
+      "destination": "/referrals",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
-      "source": "/(favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml|sitemap-core.xml|sitemap_core_index.xml)",
+      "source": "/(favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml)",
       "destination": "/$1"
     },
     {
@@ -10,7 +27,7 @@
       "destination": "/assets/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api|favicon.svg|icons.svg|og-image.png|robots.txt|sitemap.xml|sitemap_index.xml|assets/).*)",
       "destination": "/index.html"
     }
   ],

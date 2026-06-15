@@ -94,14 +94,6 @@ const Navbar: React.FC = () => {
                 <div className="h-4 w-px bg-white/10" />
 
                 <div className="flex items-center gap-6">
-                   <button
-                     onClick={toggleTheme}
-                     className="p-2 text-text-secondary hover:text-text-primary transition-all bg-surface-glass rounded-lg border border-border"
-                     aria-label="Toggle Theme"
-                   >
-                     {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                   </button>
-
                    <Link to="/notifications" className="relative group" aria-label="View Notifications" title="Notifications">
                       <Bell size={18} className={cn(
                         "text-text-secondary group-hover:text-text-primary transition-colors",
@@ -129,6 +121,14 @@ const Navbar: React.FC = () => {
                 <Link to="/signup" className="btn-system-primary py-2.5 px-8 text-[10px]">Get Started</Link>
               </div>
             )}
+
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-text-secondary hover:text-text-primary transition-all bg-surface-glass rounded-lg border border-border"
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
           </div>
 
           {/* Mobile Actions */}

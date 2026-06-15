@@ -2,10 +2,10 @@
 
 :root {
   /* LIGHT MODE (PRODUCTION PREMIUM) */
-  --background: #F4F7FA;
+  --background: #F8FAFC;
   --surface: #FFFFFF;
-  --surface-bright: #E9EEF5;
-  --surface-accent: #DFE5F0;
+  --surface-bright: #F1F5F9;
+  --surface-accent: #E2E8F0;
 
   --primary: #5E6AD2;
   --primary-bright: #4B55C4;

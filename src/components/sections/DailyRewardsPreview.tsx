@@ -60,8 +60,8 @@ const DailyRewardsPreview: React.FC = () => {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <Card className="flex items-center gap-6 p-6 border border-border bg-surface-bright/30 backdrop-blur-sm group hover:bg-surface-accent hover:border-primary/20 transition-all rounded-[2rem] shadow-subtle hover:shadow-premium">
-                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all", reward.color)}>
+                  <Card className="flex items-center gap-6 p-6 border border-border bg-surface group hover:bg-surface-bright hover:border-primary/20 transition-all rounded-[2rem] shadow-subtle hover:shadow-premium">
+                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-border group-hover:bg-primary/10 group-hover:border-primary/20 transition-all bg-surface-bright", reward.color)}>
                       <reward.icon size={24} />
                     </div>
                     <div className="flex-grow">

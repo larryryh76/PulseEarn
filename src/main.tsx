@@ -24,7 +24,16 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <TaskProvider>
-            <Suspense fallback={<div className="min-h-screen bg-[#050507] flex items-center justify-center"><div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>}>
+            <Suspense fallback={
+              <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="relative">
+                  <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            }>
               <App />
             </Suspense>
           </TaskProvider>

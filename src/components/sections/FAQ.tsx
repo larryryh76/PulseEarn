@@ -68,7 +68,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
       transition={{ delay: index * 0.05 }}
       className={cn(
         "border rounded-[2rem] transition-all duration-500 overflow-hidden",
-        isOpen ? "bg-surface-glass border-border-bright shadow-2xl" : "bg-surface-bright/50 border-border hover:border-border-bright"
+        isOpen ? "bg-surface border-border-bright shadow-2xl shadow-primary/5" : "bg-surface border-border hover:border-border-bright"
       )}
     >
       <button

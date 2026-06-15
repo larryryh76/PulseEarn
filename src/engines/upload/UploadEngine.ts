@@ -1,6 +1,7 @@
 import {
   ref,
   uploadBytesResumable,
+  uploadBytes,
   getDownloadURL,
   UploadTask,
   StorageError
@@ -49,7 +50,7 @@ export class UploadEngine {
 
   /**
    * Reconstructed Production-Grade Upload sequence.
-   * Atomic, observable, and backend-synchronized.
+   * Features: Atomic fallback for small files, watchdog for sessions, backend sync.
    */
   static async startUpload(
     file: File,
@@ -57,100 +58,93 @@ export class UploadEngine {
     onStateChange: (state: UploadState) => void
   ): Promise<string> {
     const user = auth.currentUser;
-    if (!user) {
-      throw new Error('You must be signed in to upload assets.');
-    }
+    if (!user) throw new Error('Authentication required.');
 
-    // 1. VALIDATION
     onStateChange({ progress: 0, state: 'VALIDATING' });
     this.validate(file, options);
 
-    // 2. INITIALIZATION
-    onStateChange({ progress: 0, state: 'INITIALIZING' });
-    const uploadId = `upl_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const uploadId = `upl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const fileName = `${uploadId}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const storagePath = `${options.path}/${fileName}`;
     const storageRef = ref(storage, storagePath);
 
+    // ATOMIC SPEED OPTIMIZATION: If file is < 1MB, use uploadBytes directly (no session overhead)
+    if (file.size < 1024 * 1024) {
+      onStateChange({ progress: 20, state: 'UPLOADING', uploadId });
+      try {
+        const result = await uploadBytes(storageRef, file);
+        onStateChange({ progress: 90, state: 'FINALIZING', uploadId });
+        const downloadUrl = await getDownloadURL(result.ref);
+        await this.syncMetadata(uploadId, user.uid, user.email || '', storagePath, downloadUrl, file, options);
+        onStateChange({ progress: 100, state: 'SUCCESS', downloadUrl, uploadId });
+        return downloadUrl;
+      } catch (err: any) {
+        onStateChange({ progress: 0, state: 'ERROR', error: err.message, uploadId });
+        throw err;
+      }
+    }
+
+    // RESUMABLE UPLOAD (with watchdog)
     return new Promise((resolve, reject) => {
-      let timeoutId: any = null;
+      let watchdog: any = null;
       const uploadTask: UploadTask = uploadBytesResumable(storageRef, file);
 
-      // connection watchdog: if no movement in 20s, fail explicitly.
-      timeoutId = setTimeout(() => {
-        if (uploadTask.snapshot.bytesTransferred === 0 && uploadTask.snapshot.state !== 'success') {
+      const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
+      const resetWatchdog = (ms = 10000) => {
+        clearWatchdog();
+        watchdog = setTimeout(() => {
           uploadTask.cancel();
-          const err = 'Cloud Storage connection failed (Timeout). Please check your network.';
-          onStateChange({ progress: 0, state: 'ERROR', error: err, uploadId });
-          reject(new Error(err));
-        }
-      }, 20000);
-
-      // 3. STORAGE UPLOAD & PROGRESS
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = snapshot.totalBytes > 0
-            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : 0;
-
-          onStateChange({
-            progress,
-            state: 'UPLOADING',
-            uploadId
-          });
-
-          // Reset timeout on first byte or movement
-          if (snapshot.bytesTransferred > 0 && timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-          }
-        },
-        (error: StorageError) => {
-          if (timeoutId) clearTimeout(timeoutId);
-          console.error('[UploadEngine] Storage Critical Error:', error.code, error.message);
-
-          let msg = 'Upload failed: ' + error.message;
-          if (error.code === 'storage/unauthorized') msg = 'Permission Denied: Unauthorized storage access.';
-          if (error.code === 'storage/canceled') msg = 'Upload was canceled.';
-          if (error.code === 'storage/retry-limit-exceeded') msg = 'Network instability: Retry limit exceeded.';
-
+          const msg = 'Upload timed out due to inactivity. Please try a smaller file or better connection.';
           onStateChange({ progress: 0, state: 'ERROR', error: msg, uploadId });
           reject(new Error(msg));
+        }, ms);
+      };
+
+      resetWatchdog(15000); // Initial connection timeout
+
+      uploadTask.on('state_changed',
+        (snap) => {
+          const progress = (snap.bytesTransferred / snap.totalBytes) * 100;
+          onStateChange({ progress, state: 'UPLOADING', uploadId });
+          if (snap.bytesTransferred > 0) resetWatchdog(12000); // Reset watchdog on activity
+        },
+        (error) => {
+          clearWatchdog();
+          onStateChange({ progress: 0, state: 'ERROR', error: error.message, uploadId });
+          reject(error);
         },
         async () => {
-          // 4. COMPLETION & FINALIZATION
-          if (timeoutId) clearTimeout(timeoutId);
-          onStateChange({ progress: 100, state: 'FINALIZING', uploadId });
-
+          clearWatchdog();
+          onStateChange({ progress: 95, state: 'FINALIZING', uploadId });
           try {
             const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-
-            // 5. FIRESTORE METADATA SYNC (Backend Authority)
-            await setDoc(doc(db, 'system_uploads', uploadId), {
-              uploadId,
-              userId: user.uid,
-              userEmail: user.email,
-              storagePath,
-              downloadUrl,
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size,
-              metadata: options.metadata || {},
-              createdAt: serverTimestamp(),
-              status: 'COMPLETED',
-              platform: 'web'
-            });
-
+            await this.syncMetadata(uploadId, user.uid, user.email || '', storagePath, downloadUrl, file, options);
             onStateChange({ progress: 100, state: 'SUCCESS', downloadUrl, uploadId });
             resolve(downloadUrl);
           } catch (err: any) {
-            console.error('[UploadEngine] Synchronization Failure:', err);
-            const msg = 'File uploaded but metadata synchronization failed.';
-            onStateChange({ progress: 100, state: 'ERROR', error: msg, uploadId });
-            reject(new Error(msg));
+            onStateChange({ progress: 0, state: 'ERROR', error: err.message, uploadId });
+            reject(err);
           }
         }
       );
+    });
+  }
+
+  private static async syncMetadata(
+    uploadId: string,
+    userId: string,
+    userEmail: string,
+    storagePath: string,
+    downloadUrl: string,
+    file: File,
+    options: UploadOptions
+  ) {
+    await setDoc(doc(db, 'system_uploads', uploadId), {
+      uploadId, userId, userEmail, storagePath, downloadUrl,
+      fileName: file.name, fileType: file.type, fileSize: file.size,
+      metadata: options.metadata || {},
+      createdAt: serverTimestamp(),
+      status: 'COMPLETED'
     });
   }
 }

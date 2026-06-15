@@ -181,6 +181,10 @@
   .ledger-row {
     @apply flex items-center justify-between py-6 border-b border-border last:border-0 hover:bg-surface-bright px-6 -mx-6 rounded-[1.5rem] transition-all;
   }
+
+  .safe-area-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* UTILITIES */

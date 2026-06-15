@@ -18,7 +18,9 @@ import {
   FileText,
   History,
   TrendingUp,
-  Award
+  Award,
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -26,6 +28,7 @@ import toast from 'react-hot-toast';
 import { useNavigate, Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useUpload } from '../hooks/useUpload';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
@@ -33,6 +36,7 @@ import { getXpProgress, getLevelTier } from '../utils/progression';
 const Profile: React.FC = () => {
   const { userData, logout } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
+  const { upload, progress, status, isUploading, reset } = useUpload();
   const [hasCopied, setHasCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'REWARDS' | 'ACTIVITY' | 'SETTINGS' | 'SUPPORT'>('IDENTITY');
   const navigate = useNavigate();
@@ -77,6 +81,31 @@ const Profile: React.FC = () => {
      navigate('/');
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userData?.uid) return;
+
+    try {
+      const downloadUrl = await upload(file, {
+        path: `avatars/${userData.uid}`,
+        maxSizeMB: 2,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
+      });
+
+      await updateDoc(doc(db, 'users', userData.uid), {
+        avatarUrl: downloadUrl
+      });
+
+      toast.success('Avatar updated successfully');
+    } catch (err: any) {
+      if (status !== 'CANCELLED') {
+        toast.error(err.message || 'Failed to upload avatar');
+      }
+    } finally {
+      reset();
+    }
+  };
+
   const xpStats = getXpProgress(userData?.xp || 0);
   const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
@@ -105,12 +134,30 @@ const Profile: React.FC = () => {
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
-                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border">
+                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border relative">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
                      alt=""
-                     className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
+                     className={cn(
+                       "w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700",
+                       isUploading && "opacity-40"
+                     )}
                    />
+
+                   {isUploading && (
+                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
+                        <Loader2 size={32} className="text-primary animate-spin mb-2" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(progress)}%</span>
+                     </div>
+                   )}
+
+                   {!isUploading && (
+                     <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                        <Camera size={24} className="text-white mb-2" />
+                        <span className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Update Avatar</span>
+                     </label>
+                   )}
                  </div>
                  <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
                    <Award size={24} />

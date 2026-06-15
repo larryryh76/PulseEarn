@@ -37,6 +37,9 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
     setIsUploading(true);
     setProgress(0);
 
+    // Create a local variable for the timeout
+    let timeoutId: any = null;
+
     try {
       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const fullPath = `${path}/${fileName}`;
@@ -48,9 +51,6 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({ label, value, onChange, p
 
       const storageRef = ref(storage, fullPath);
       const uploadTask = uploadBytesResumable(storageRef, file);
-
-      // Create a local variable for the timeout
-      let timeoutId: any = null;
 
       // Timeout logic: if no progress after 10s, cancel
       timeoutId = setTimeout(() => {

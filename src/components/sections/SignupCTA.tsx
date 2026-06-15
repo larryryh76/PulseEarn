@@ -25,7 +25,7 @@ const SignupCTA: React.FC = () => {
 
             <h2 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-6 max-w-4xl tracking-tighter text-text-primary leading-[1] uppercase italic">
               Ready to Start <br className="hidden sm:block" />
-              <span className="text-text-tertiary opacity-40 dark:opacity-30">Earning?</span>
+              <span className="text-text-tertiary opacity-40 dark:opacity-40">Earning?</span>
             </h2>
 
             <p className="text-text-secondary text-base sm:text-lg md:text-xl max-w-xl mb-8 md:mb-10 font-medium px-4">

@@ -100,7 +100,7 @@ const DailyRewardsPreview: React.FC = () => {
               </div>
               <h2 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter text-text-primary leading-[1] uppercase italic">
                 Grow Your <br className="hidden sm:block" />
-                <span className="text-text-tertiary opacity-40 dark:opacity-30">Earnings.</span>
+                <span className="text-text-tertiary opacity-40 dark:opacity-40">Earnings.</span>
               </h2>
               <p className="text-text-secondary text-base sm:text-lg font-medium max-w-xl leading-relaxed">
                 Our platform provides daily earning opportunities. Complete tasks and see your balance grow in real-time.

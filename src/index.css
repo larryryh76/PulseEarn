@@ -3,7 +3,7 @@
 :root {
   /* LIGHT MODE (PRODUCTION PREMIUM) */
   --background: #F8FAFC;
-  --surface: #FFFFFF;
+  --surface: #F8FAFC;
   --surface-bright: #F1F5F9;
   --surface-accent: #E2E8F0;
 
@@ -125,7 +125,7 @@
 
   /* INPUT SYSTEM */
   input, select, textarea {
-    @apply bg-surface border border-border rounded-2xl px-5 py-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all duration-300;
+    @apply bg-surface-bright border border-border rounded-2xl px-5 py-4 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 transition-all duration-300;
   }
 
   button {

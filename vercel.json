@@ -2,17 +2,6 @@
   "version": 2,
   "redirects": [
     {
-      "has": [
-        {
-          "type": "host",
-          "value": "www.pulseearn.online"
-        }
-      ],
-      "source": "/(.*)",
-      "destination": "https://pulseearn.online/$1",
-      "permanent": true
-    },
-    {
       "source": "/prediction",
       "destination": "/predictions",
       "permanent": true

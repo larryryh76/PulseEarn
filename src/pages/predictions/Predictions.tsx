@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import MainLayout from '../../components/layout/MainLayout';
 import { useCryptoData } from '../../hooks/useCryptoData';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
@@ -194,7 +193,7 @@ const Predictions: React.FC = () => {
   }, [userPredictions, historyFilter]);
 
   return (
-    <MainLayout>
+    <>
       <div className="bg-background transition-colors duration-300">
       {/* REFINED HISTORY MODAL */}
       <AnimatePresence>
@@ -693,7 +692,7 @@ const Predictions: React.FC = () => {
         </div>
       </div>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

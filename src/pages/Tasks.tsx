@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import MainLayout from '../components/layout/MainLayout';
 import { useTasks } from '../hooks/useTasks';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -103,18 +102,18 @@ const Tasks: React.FC = () => {
   };
 
   if (loading) return (
-    <MainLayout>
+    <>
       <div className="pt-32 px-6 max-w-5xl mx-auto space-y-8">
         <div className="h-10 w-48 bg-surface-accent rounded-lg animate-pulse" />
         <div className="space-y-3">
           {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-20 bg-surface-bright rounded-xl animate-pulse" />)}
         </div>
       </div>
-    </MainLayout>
+    </>
   );
 
   return (
-    <MainLayout>
+    <>
       <div className="bg-background transition-colors duration-300">
       {/* HISTORY DETAIL MODAL */}
       <AnimatePresence>
@@ -535,7 +534,7 @@ const Tasks: React.FC = () => {
         </AnimatePresence>
       </div>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

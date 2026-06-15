@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactions } from '../hooks/useTransactions';
 import {
@@ -18,9 +17,7 @@ import {
   FileText,
   History,
   TrendingUp,
-  Award,
-  Camera,
-  Loader2
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -28,7 +25,6 @@ import toast from 'react-hot-toast';
 import { useNavigate, Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { useUpload } from '../hooks/useUpload';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
@@ -36,7 +32,6 @@ import { getXpProgress, getLevelTier } from '../utils/progression';
 const Profile: React.FC = () => {
   const { userData, logout } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
-  const { upload, progress, status, isUploading, reset } = useUpload();
   const [hasCopied, setHasCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'REWARDS' | 'ACTIVITY' | 'SETTINGS' | 'SUPPORT'>('IDENTITY');
   const navigate = useNavigate();
@@ -81,36 +76,11 @@ const Profile: React.FC = () => {
      navigate('/');
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !userData?.uid) return;
-
-    try {
-      const downloadUrl = await upload(file, {
-        path: `avatars/${userData.uid}`,
-        maxSizeMB: 2,
-        allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
-      });
-
-      await updateDoc(doc(db, 'users', userData.uid), {
-        avatarUrl: downloadUrl
-      });
-
-      toast.success('Avatar updated successfully');
-    } catch (err: any) {
-      if (status !== 'CANCELLED') {
-        toast.error(err.message || 'Failed to upload avatar');
-      }
-    } finally {
-      reset();
-    }
-  };
-
   const xpStats = getXpProgress(userData?.xp || 0);
   const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
   if (txLoading && !userData) return (
-    <MainLayout>
+    <>
       <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">
         <div className="flex items-center gap-8">
            <div className="w-32 h-32 rounded-[2.5rem] bg-surface animate-pulse" />
@@ -121,11 +91,11 @@ const Profile: React.FC = () => {
         </div>
         <div className="h-[400px] bg-surface rounded-[2.5rem] animate-pulse" />
       </div>
-    </MainLayout>
+    </>
   );
 
   return (
-    <MainLayout>
+    <>
       <div className="bg-background transition-colors duration-300">
       <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
         {/* PROFILE HEADER */}
@@ -134,30 +104,12 @@ const Profile: React.FC = () => {
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
-                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border relative">
+                 <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
                      alt=""
-                     className={cn(
-                       "w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700",
-                       isUploading && "opacity-40"
-                     )}
+                     className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-700"
                    />
-
-                   {isUploading && (
-                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
-                        <Loader2 size={32} className="text-primary animate-spin mb-2" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(progress)}%</span>
-                     </div>
-                   )}
-
-                   {!isUploading && (
-                     <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                        <Camera size={24} className="text-white mb-2" />
-                        <span className="text-[8px] font-black text-white uppercase tracking-[0.2em]">Update Avatar</span>
-                     </label>
-                   )}
                  </div>
                  <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
                    <Award size={24} />
@@ -458,7 +410,7 @@ const Profile: React.FC = () => {
         </div>
       </div>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

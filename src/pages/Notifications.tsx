@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import MainLayout from '../components/layout/MainLayout';
 import { useNotifications } from '../hooks/useNotifications';
 import { useTasks } from '../hooks/useTasks';
 import {
@@ -55,16 +54,16 @@ const Notifications: React.FC = () => {
   };
 
   if (loading) return (
-    <MainLayout>
+    <>
       <div className="pt-32 px-6 max-w-2xl mx-auto space-y-4 animate-pulse">
         <div className="h-10 w-48 bg-surface rounded-xl mb-12" />
         {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-24 bg-surface rounded-2xl" />)}
       </div>
-    </MainLayout>
+    </>
   );
 
   return (
-    <MainLayout>
+    <>
       <div className="pt-32 pb-24 px-6 max-w-2xl mx-auto">
         <header className="mb-16">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10">
@@ -380,7 +379,7 @@ const Notifications: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-    </MainLayout>
+    </>
   );
 };
 

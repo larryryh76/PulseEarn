@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
@@ -37,6 +37,7 @@ import VerificationPolicy from './pages/legal/VerificationPolicy'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
+import MainLayout from './components/layout/MainLayout'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -88,6 +89,14 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const AppLayout: React.FC = () => {
+  return (
+    <MainLayout>
+       <Outlet />
+    </MainLayout>
+  );
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -130,15 +139,18 @@ function App() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
 
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-        <Route path="/predictions" element={<ProtectedRoute><Predictions /></ProtectedRoute>} />
-        <Route path="/referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
-        <Route path="/campaigns/:id" element={<ProtectedRoute><CampaignDetails /></ProtectedRoute>} />
-        <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
-        <Route path="/me" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-        <Route path="/support" element={<ProtectedRoute><SupportCenter /></ProtectedRoute>} />
+        {/* PERSISTENT APP ARCHITECTURE */}
+        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+           <Route path="/dashboard" element={<Dashboard />} />
+           <Route path="/tasks" element={<Tasks />} />
+           <Route path="/predictions" element={<Predictions />} />
+           <Route path="/referrals" element={<Referrals />} />
+           <Route path="/campaigns/:id" element={<CampaignDetails />} />
+           <Route path="/wallet" element={<Wallet />} />
+           <Route path="/me" element={<Profile />} />
+           <Route path="/notifications" element={<Notifications />} />
+           <Route path="/support" element={<SupportCenter />} />
+        </Route>
 
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />

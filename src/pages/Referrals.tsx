@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Users,
@@ -66,7 +65,7 @@ const Referrals: React.FC = () => {
   ];
 
   return (
-    <MainLayout>
+    <>
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto space-y-16">
         <header className="space-y-4">
           <div className="flex items-center gap-2">
@@ -247,7 +246,7 @@ const Referrals: React.FC = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

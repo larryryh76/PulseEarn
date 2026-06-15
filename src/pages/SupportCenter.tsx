@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -155,7 +154,7 @@ const SupportCenter: React.FC = () => {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="pt-32 pb-32 px-6 max-w-6xl mx-auto min-h-screen">
 
         {/* HEADER */}
@@ -555,7 +554,7 @@ const SupportCenter: React.FC = () => {
         </AnimatePresence>
 
       </div>
-    </MainLayout>
+    </>
   );
 };
 

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactions } from '../hooks/useTransactions';
 import {
@@ -59,7 +58,7 @@ const Wallet: React.FC = () => {
   };
 
   if (loading) return (
-    <MainLayout>
+    <>
       <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">
         <div className="h-48 bg-surface rounded-[2.5rem] animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -70,7 +69,7 @@ const Wallet: React.FC = () => {
           {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-16 bg-surface rounded-xl animate-pulse" />)}
         </div>
       </div>
-    </MainLayout>
+    </>
   );
 
   const handleWithdraw = async () => {
@@ -131,7 +130,7 @@ const Wallet: React.FC = () => {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="bg-background transition-colors duration-300">
       <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
         {/* ASSET INFRASTRUCTURE HEADER */}
@@ -510,7 +509,7 @@ const Wallet: React.FC = () => {
         )}
       </AnimatePresence>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

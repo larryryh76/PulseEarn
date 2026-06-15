@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import MainLayout from '../components/layout/MainLayout';
 import { Task, TaskClaim, Campaign } from '../types';
 import {
   Clock,
@@ -129,18 +128,18 @@ const CampaignDetails: React.FC = () => {
   };
 
   if (loading) return (
-    <MainLayout>
+    <>
       <div className="pt-32 px-6 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh]">
         <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin mb-8" />
         <p className="text-text-tertiary text-[10px] font-bold uppercase tracking-[0.2em]">Loading...</p>
       </div>
-    </MainLayout>
+    </>
   );
 
   if (!campaign) return null;
 
   return (
-    <MainLayout>
+    <>
       <div className="bg-background transition-colors duration-300">
       {/* PROFESSIONAL HERO SECTION */}
       <div className="relative pt-24 md:pt-32 pb-16 md:pb-20 overflow-hidden">
@@ -474,7 +473,7 @@ const CampaignDetails: React.FC = () => {
         )}
       </AnimatePresence>
       </div>
-    </MainLayout>
+    </>
   );
 };
 

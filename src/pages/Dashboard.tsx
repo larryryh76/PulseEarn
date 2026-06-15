@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
 import {
@@ -8,7 +7,9 @@ import {
   Clock,
   Activity as ActivityIcon,
   Target,
-  Shield,
+  LayoutGrid,
+  BarChart3,
+  CreditCard,
   UserPlus,
   ArrowRight,
   ChevronRight,
@@ -101,8 +102,8 @@ const Dashboard: React.FC = () => {
     return rail.sort((a, b) => b.priority - a.priority);
   }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
 
-  if (loading) return (
-    <MainLayout>
+  if (loading) return ( <>
+    <>
       <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
         <div className="h-12 w-64 bg-surface rounded-xl animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -112,12 +113,12 @@ const Dashboard: React.FC = () => {
            <div className="lg:col-span-2 h-[600px] bg-surface rounded-[2.5rem] animate-pulse" />
            <div className="h-[600px] bg-surface rounded-[2.5rem] animate-pulse" />
         </div>
-      </div>
-    </MainLayout>
+      </div> </>
+    </>
   );
 
   return (
-    <MainLayout>
+    <>
       <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
         {/* HEADER */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 md:gap-12">
@@ -141,9 +142,9 @@ const Dashboard: React.FC = () => {
             className="flex flex-wrap gap-3"
           >
              {[
-               { name: 'Tasks', path: '/tasks', icon: Shield },
-               { name: 'Prediction', path: '/predictions', icon: TrendingUp },
-               { name: 'Withdraw', path: '/wallet', icon: WalletIcon },
+               { name: 'Tasks', path: '/tasks', icon: LayoutGrid },
+               { name: 'Prediction', path: '/predictions', icon: BarChart3 },
+               { name: 'Withdraw', path: '/wallet', icon: CreditCard },
                { name: 'Invite', path: '/referrals', icon: UserPlus },
              ].map((action) => (
                <Link
@@ -274,7 +275,7 @@ const Dashboard: React.FC = () => {
                                     "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
                                     item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary group-hover:text-text-primary"
                                  )}>
-                                    {item.category === 'PREDICTION' ? <TrendingUp size={20} /> :
+                                    {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
                                      item.category === 'REFERRAL' ? <UserPlus size={20} /> :
                                      item.type === 'MISSION' ? <Calendar size={20} /> : <Target size={20} />}
                                  </div>
@@ -397,8 +398,8 @@ const Dashboard: React.FC = () => {
                             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-inner",
                             isPositive ? "bg-success/5 border-success/10 text-success" : "bg-surface-bright border-border-bright text-text-tertiary"
                           )}>
-                            {activity.type.includes('prediction') ? <TrendingUp size={18} /> :
-                             activity.type.includes('task') || activity.type.includes('mission') ? <Shield size={18} /> :
+                            {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
+                             activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
                              activity.type.includes('referral') ? <UserPlus size={18} /> :
                              activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
                           </div>
@@ -647,7 +648,7 @@ const Dashboard: React.FC = () => {
                 <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Shield size={20} />}
+                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
                       </div>
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>
@@ -742,7 +743,7 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-    </MainLayout>
+    </>
   );
 };
 

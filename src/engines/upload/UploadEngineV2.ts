@@ -67,8 +67,12 @@ export class UploadEngineV2 {
     options: UploadOptions,
     onProgress: UploadCallback
   ): { task: UploadTask; uploadId: string; cancel: () => void } {
+    console.log(`[UploadEngine] Initializing upload for: ${file.name} (${file.size} bytes)`);
     const user = auth.currentUser;
-    if (!user) throw new Error('Authentication required for uploads.');
+    if (!user) {
+      console.error('[UploadEngine] Error: Authentication required.');
+      throw new Error('Authentication required for uploads.');
+    }
 
     const uploadId = `upl_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const fileName = `${uploadId}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -96,6 +100,8 @@ export class UploadEngineV2 {
     }
 
     const storageRef = ref(storage, storagePath);
+    console.log(`[UploadEngine] Storage Path: ${storagePath}`);
+
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     // 2. Event Subscription
@@ -103,6 +109,7 @@ export class UploadEngineV2 {
       'state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`[UploadEngine] ${uploadId} Progress: ${progress.toFixed(2)}% (${snapshot.state})`);
 
         let status: UploadStatus = 'UPLOADING';
         if (snapshot.state === 'paused') status = 'IDLE';
@@ -142,8 +149,10 @@ export class UploadEngineV2 {
       },
       async () => {
         // 3. Completion
+        console.log(`[UploadEngine] ${uploadId} successfully uploaded to storage.`);
         try {
           const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log(`[UploadEngine] ${uploadId} Download URL retrieved: ${downloadUrl}`);
 
           await this.persistMetadata({
             uploadId,

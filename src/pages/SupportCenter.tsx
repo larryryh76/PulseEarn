@@ -17,7 +17,8 @@ import {
   ChevronRight,
   User,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  X as CloseIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -119,7 +120,7 @@ const SupportCenter: React.FC = () => {
   };
 
   const handleSendReply = async () => {
-    if (!currentUser || !userData || !selectedTicket || !replyText.trim()) return;
+    if (!currentUser || !userData || !selectedTicket || (!replyText.trim() && replyAttachments.length === 0)) return;
 
     try {
       const result = await SupportEngine.sendMessage({
@@ -440,7 +441,7 @@ const SupportCenter: React.FC = () => {
 
                     {/* REPLY ZONE */}
                     {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'RESOLVED' ? (
-                       <div className="p-6 bg-background border-t border-border space-y-4">
+                       <div className="p-6 bg-background border-t border-border space-y-6">
                           <div className="relative group">
                              <textarea
                                rows={3}
@@ -459,13 +460,29 @@ const SupportCenter: React.FC = () => {
                              </div>
                           </div>
 
-                          <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-4">
-                                <button className="flex items-center gap-2 text-[10px] font-bold text-text-tertiary hover:text-text-primary transition-colors uppercase tracking-widest">
-                                   <Paperclip size={14} />
-                                   Add Evidence
-                                </button>
-                             </div>
+                          <div className="space-y-4">
+                             <MediaUploader
+                               label="Reply Evidence (Optional)"
+                               path="support_attachments"
+                               onChange={(url: string) => setReplyAttachments(prev => [...prev, { url, name: 'Evidence Image', type: 'image/png', size: 0 }])}
+                             />
+
+                             {replyAttachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                   {replyAttachments.map((at, i) => (
+                                      <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-bright text-[10px] text-text-secondary flex items-center gap-2">
+                                         <Paperclip size={10} />
+                                         {at.name}
+                                         <button onClick={() => setReplyAttachments(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-danger">
+                                            <CloseIcon size={10} />
+                                         </button>
+                                      </div>
+                                   ))}
+                                </div>
+                             )}
+                          </div>
+
+                          <div className="flex items-center justify-between border-t border-border pt-4">
                              <p className="text-[9px] font-bold text-text-tertiary/50 uppercase tracking-widest">Security: Thread is encrypted and immutable</p>
                           </div>
                        </div>

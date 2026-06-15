@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Upload, X, CheckCircle2, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
-import { UploadEngine, UploadState } from '../../engines/upload/UploadEngine';
+import { useUpload } from '../../hooks/useUpload';
 import toast from 'react-hot-toast';
 
 interface MediaUploaderProps {
@@ -22,38 +22,22 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
   aspectRatio = 'any',
   maxSizeMB = 10
 }) => {
-  const [uploadState, setUploadState] = useState<UploadState>({
-    progress: 0,
-    state: 'IDLE'
-  });
-
-  const isUploading = ['VALIDATING', 'INITIALIZING', 'UPLOADING', 'FINALIZING'].includes(uploadState.state);
+  const { upload, cancel, progress, status, error, isUploading, reset } = useUpload();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset internal state for new attempt
-    setUploadState({ progress: 0, state: 'IDLE' });
-
     try {
-      const url = await UploadEngine.startUpload(
-        file,
-        { path, maxSizeMB },
-        (state) => setUploadState(state)
-      );
-
+      const url = await upload(file, { path, maxSizeMB });
       onChange(url);
       toast.success('Media successfully synced');
     } catch (err: any) {
-      console.error('[MediaUploader] Upload failed:', err);
-      toast.error(err.message || 'Upload process failed');
-      setUploadState(prev => ({ ...prev, state: 'ERROR', error: err.message }));
+      if (status !== 'CANCELLED') {
+        console.error('[MediaUploader] Upload failed:', err);
+        toast.error(err.message || 'Upload process failed');
+      }
     }
-  };
-
-  const retry = () => {
-    setUploadState({ progress: 0, state: 'IDLE' });
   };
 
   return (
@@ -105,19 +89,25 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
                          <motion.div
                            className="h-full bg-primary"
                            initial={{ width: 0 }}
-                           animate={{ width: `${uploadState.progress}%` }}
+                           animate={{ width: `${progress}%` }}
                            transition={{ duration: 0.5, ease: "easeOut" }}
                          />
                       </div>
                       <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] animate-pulse">
-                        {uploadState.state === 'VALIDATING' ? 'Validating...' :
-                         uploadState.state === 'INITIALIZING' ? 'Connecting...' :
-                         uploadState.state === 'FINALIZING' ? 'Syncing...' :
-                         `${Math.round(uploadState.progress)}% Uploaded`}
+                        {status === 'VALIDATING' ? 'Validating...' :
+                         status === 'FINALIZING' ? 'Syncing...' :
+                         `${Math.round(progress)}% Uploaded`}
                       </p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); cancel(); }}
+                        className="text-[9px] font-black text-text-tertiary hover:text-danger uppercase tracking-widest pt-2 transition-colors"
+                      >
+                        Cancel Upload
+                      </button>
                    </div>
                 </div>
-              ) : uploadState.state === 'ERROR' ? (
+              ) : status === 'ERROR' ? (
                 <motion.div
                   key="error"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -128,10 +118,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
                       <AlertCircle size={32} />
                    </div>
                    <div className="space-y-2">
-                      <p className="text-[10px] font-black text-danger uppercase tracking-[0.15em] max-w-[200px] leading-relaxed">{uploadState.error || 'System Failure'}</p>
+                      <p className="text-[10px] font-black text-danger uppercase tracking-[0.15em] max-w-[200px] leading-relaxed">{error || 'System Failure'}</p>
                       <button
                         type="button"
-                        onClick={(e) => { e.preventDefault(); retry(); }}
+                        onClick={(e) => { e.preventDefault(); reset(); }}
                         className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary hover:text-primary mx-auto transition-colors pt-2"
                       >
                         <RefreshCw size={12} />

@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Navbar from '../layout/Navbar';
+import BottomNav from '../layout/BottomNav';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { pathname } = useLocation();
+  const { currentUser } = useAuth();
 
   // Unified Navigation Policy: Always land at the top of the context
   useEffect(() => {
@@ -16,6 +19,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <main>
         {children}
       </main>
+      {currentUser && <BottomNav />}
       <footer className="py-24 px-8 border-t border-border bg-surface-bright/50">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
            <div className="flex flex-col items-center md:items-start gap-4">

@@ -70,7 +70,7 @@ const Hero: React.FC = () => {
           >
             <button
               onClick={() => navigate('/signup')}
-              className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-3"
+              className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl shadow-primary/20 flex items-center justify-center gap-3"
             >
               Get Started
               <ArrowRight size={18} />

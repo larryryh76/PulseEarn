@@ -64,7 +64,7 @@ const Features: React.FC = () => {
               className="text-4xl sm:text-5xl md:text-7xl font-black text-text-primary tracking-tighter uppercase italic leading-[1]"
             >
               Simple. Fast. <br className="hidden sm:block" />
-              <span className="text-text-tertiary opacity-30">Rewarding.</span>
+              <span className="text-text-tertiary opacity-40 dark:opacity-30">Rewarding.</span>
             </motion.h2>
           </div>
           <motion.div

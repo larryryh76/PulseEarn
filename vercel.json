@@ -5,7 +5,7 @@
       "has": [
         {
           "type": "host",
-          "value": "(?!pulseearn\\.online$).*"
+          "value": "^(?!pulseearn\\.online$).*$"
         }
       ],
       "source": "/(.*)",

@@ -5,3 +5,5 @@ Disallow: /admin/*
 
 Sitemap: https://pulseearn.online/sitemap.xml
 Sitemap: https://pulseearn.online/sitemap_index.xml
+Sitemap: https://pulseearn.online/sitemap_core_index.xml
+Sitemap: https://pulseearn.online/sitemap-core.xml

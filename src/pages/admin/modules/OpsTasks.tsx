@@ -58,19 +58,19 @@ const OpsTasks: React.FC = () => {
         active: !task.active,
         status: !task.active ? 'ACTIVE' : 'INACTIVE'
       });
-      toast.success(`Node ${!task.active ? 'Activated' : 'Suspended'}`);
+      toast.success(`Task ${!task.active ? 'Activated' : 'Paused'}`);
     } catch (err) {
-      toast.error("Instruction mutation failed");
+      toast.error("Failed to update task status");
     }
   };
 
   const handleDelete = async (task: Task) => {
-    if (!window.confirm(`PERMANENTLY PURGE: "${task.title}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete: "${task.title}"?`)) return;
     try {
       await deleteDoc(doc(db, 'tasks', task.id));
-      toast.success("Execution vector purged");
+      toast.success("Task deleted successfully");
     } catch (err) {
-      toast.error("Purge sequence failed");
+      toast.error("Failed to delete task");
     }
   };
 
@@ -86,11 +86,11 @@ const OpsTasks: React.FC = () => {
              <div className="flex items-center gap-3">
                 <Zap size={20} className="text-primary" />
                 <h1 className="text-3xl font-bold tracking-tight uppercase italic">
-                  {campaignIdFilter ? 'Campaign Task Nodes' : 'Global Task Library'}
+                  {campaignIdFilter ? 'Campaign Tasks' : 'Global Task Library'}
                 </h1>
              </div>
              <p className="text-xs font-medium text-text-tertiary">
-               {campaignIdFilter ? `Viewing execution vectors linked to campaign: ${campaignIdFilter}` : 'Global repository of atomic reward vectors and verification logic.'}
+               {campaignIdFilter ? `Viewing tasks linked to campaign ID: ${campaignIdFilter}` : 'Manage and organize tasks available across the platform.'}
              </p>
           </div>
 
@@ -100,7 +100,7 @@ const OpsTasks: React.FC = () => {
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan library by Title or ID..."
+                  placeholder="Search tasks by title or ID..."
                   className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
@@ -112,7 +112,7 @@ const OpsTasks: React.FC = () => {
                className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
              >
                 <Plus size={18} />
-                Create Vector
+                Create Task
              </button>
           </div>
        </header>
@@ -122,11 +122,11 @@ const OpsTasks: React.FC = () => {
              <table className="w-full text-left border-collapse">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Instruction Node</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Task Details</th>
                       <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Verification</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Provision</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Rewards</th>
                       <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -141,7 +141,7 @@ const OpsTasks: React.FC = () => {
                                </div>
                                <div>
                                   <p className="text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
-                                  <p className="text-[9px] font-mono text-text-tertiary mt-1">Ref: {task.id.slice(0, 16).toUpperCase()}</p>
+                                  <p className="text-[9px] font-mono text-text-tertiary mt-1">ID: {task.id.slice(0, 16).toUpperCase()}</p>
                                </div>
                             </div>
                          </td>
@@ -199,7 +199,7 @@ const OpsTasks: React.FC = () => {
           {filtered.length === 0 && !loading && (
              <div className="py-32 text-center border-t border-border">
                 <Zap size={48} className="mx-auto text-text-primary/5 mb-6" />
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-text-tertiary">Empty Vector Registry</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-text-tertiary">No Tasks Found</p>
              </div>
           )}
        </div>

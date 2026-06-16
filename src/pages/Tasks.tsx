@@ -293,7 +293,15 @@ const Tasks: React.FC = () => {
                                          </div>
                                          <div className="flex items-center gap-2">
                                             <Target size={12} className="text-success" />
-                                            <span className="text-xs font-mono font-bold text-text-primary">{camp.taskIds?.length || 0}</span>
+                                            <span className="text-xs font-mono font-bold text-text-primary">
+                                               {tasks.filter(t => t.campaignId === camp.id).length}
+                                            </span>
+                                         </div>
+                                         <div className="flex items-center gap-2">
+                                            <CheckCircle2 size={12} className="text-indigo-400" />
+                                            <span className="text-xs font-mono font-bold text-text-primary">
+                                               {subtasks.filter(s => s.campaignId === camp.id && s.validationState === 'APPROVED').length}
+                                            </span>
                                          </div>
                                       </div>
                                    </div>

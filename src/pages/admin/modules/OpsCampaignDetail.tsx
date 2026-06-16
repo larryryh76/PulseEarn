@@ -15,7 +15,9 @@ import {
   ArrowRight,
   Trash2,
   Pause,
-  Play
+  Play,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -26,7 +28,9 @@ import {
   where,
   orderBy,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  getDocs,
+  writeBatch
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
@@ -43,7 +47,7 @@ const OpsCampaignDetail: React.FC = () => {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [claims, setClaims] = React.useState<TaskClaim[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'STATS' | 'PARTICIPANTS' | 'LEDGER'>('OVERVIEW');
+  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'PARTICIPANTS' | 'STATS' | 'LEDGER' | 'AUDIT'>('OVERVIEW');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
@@ -96,6 +100,7 @@ const OpsCampaignDetail: React.FC = () => {
   const stats = {
     completions: claims.filter(c => c.validationState === 'APPROVED').length,
     pending: claims.filter(c => c.validationState === 'PENDING').length,
+    rejected: claims.filter(c => c.validationState === 'REJECTED').length,
     conversion: campaign.participantsCount > 0 ? (claims.filter(c => c.validationState === 'APPROVED').length / campaign.participantsCount * 100).toFixed(1) : '0'
   };
 
@@ -114,18 +119,18 @@ const OpsCampaignDetail: React.FC = () => {
        </nav>
 
        {/* OPERATIONAL HEADER */}
-       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 bg-surface border border-border p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 bg-surface border border-border p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
              <Target size={200} />
           </div>
 
-          <div className="flex items-center gap-8 relative z-10">
-             <div className="w-24 h-24 rounded-[2rem] bg-surface-bright border border-border overflow-hidden shrink-0">
-                {campaign.bannerUrl ? <img src={campaign.bannerUrl} className="w-full h-full object-cover" /> : <Target size={40} className="m-auto mt-7 text-text-tertiary" />}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 relative z-10 w-full md:w-auto">
+             <div className="w-20 h-20 md:w-24 md:h-24 rounded-[1.5rem] md:rounded-[2rem] bg-surface-bright border border-border overflow-hidden shrink-0">
+                {campaign.bannerUrl ? <img src={campaign.bannerUrl} className="w-full h-full object-cover" /> : <Target size={32} className="m-auto mt-6 md:mt-7 text-text-tertiary" />}
              </div>
              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                   <h1 className="text-4xl font-bold tracking-tight uppercase italic">{campaign.name}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                   <h1 className="text-2xl md:text-4xl font-bold tracking-tight uppercase italic">{campaign.name}</h1>
                    <div className={cn(
                      "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border",
                      campaign.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
@@ -133,16 +138,16 @@ const OpsCampaignDetail: React.FC = () => {
                       {campaign.status}
                    </div>
                 </div>
-                <p className="text-sm font-medium text-text-tertiary max-w-xl line-clamp-1">{campaign.description}</p>
+                <p className="text-xs md:text-sm font-medium text-text-tertiary max-w-xl line-clamp-2">{campaign.description}</p>
              </div>
           </div>
 
           <div className="flex items-center gap-4 relative z-10 w-full lg:w-auto">
-             <Button variant="outline" className="flex-1 lg:flex-none h-12 px-8 rounded-xl" onClick={() => setIsCampaignModalOpen(true)}>
+             <Button variant="outline" className="flex-1 lg:flex-none h-12 px-6 md:px-8 rounded-xl text-[10px]" onClick={() => setIsCampaignModalOpen(true)}>
                 <Edit3 size={16} />
-                Edit Campaign
+                Edit
              </Button>
-             <Button variant="primary" className="flex-1 lg:flex-none h-12 px-8 rounded-xl" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
+             <Button variant="primary" className="flex-1 lg:flex-none h-12 px-6 md:px-8 rounded-xl text-[10px]" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
                 <Plus size={16} />
                 Add Task
              </Button>
@@ -150,19 +155,20 @@ const OpsCampaignDetail: React.FC = () => {
        </header>
 
        {/* NAVIGATION TABS */}
-       <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-fit overflow-x-auto no-scrollbar max-w-full">
+       <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar">
           {[
             { id: 'OVERVIEW', label: 'Overview', icon: BarChart3 },
             { id: 'TASKS', label: 'Tasks', icon: Target },
-            { id: 'PARTICIPANTS', label: 'Participants', icon: Users },
+            { id: 'PARTICIPANTS', label: 'Users', icon: Users },
             { id: 'STATS', label: 'Analytics', icon: History },
             { id: 'LEDGER', label: 'Activity', icon: ShieldAlert },
+            { id: 'AUDIT', label: 'Audit', icon: FileText },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "flex items-center gap-3 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                "flex items-center gap-3 px-4 md:px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
                 activeTab === tab.id ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-text-primary hover:bg-surface-bright"
               )}
             >
@@ -181,7 +187,6 @@ const OpsCampaignDetail: React.FC = () => {
                       <Card className="p-8 border-border">
                          <div className="flex justify-between items-start mb-4">
                             <Users size={20} className="text-primary" />
-                            <span className="text-[10px] font-black text-success uppercase tracking-widest">+12%</span>
                          </div>
                          <p className="text-3xl font-mono font-bold text-text-primary">{campaign.participantsCount?.toLocaleString() || 0}</p>
                          <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Unique Participants</p>
@@ -189,7 +194,6 @@ const OpsCampaignDetail: React.FC = () => {
                       <Card className="p-8 border-border">
                          <div className="flex justify-between items-start mb-4">
                             <CheckCircle2 size={20} className="text-success" />
-                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{stats.conversion}%</span>
                          </div>
                          <p className="text-3xl font-mono font-bold text-text-primary">{stats.completions.toLocaleString()}</p>
                          <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Total Completions</p>
@@ -197,19 +201,18 @@ const OpsCampaignDetail: React.FC = () => {
                       <Card className="p-8 border-border">
                          <div className="flex justify-between items-start mb-4">
                             <Zap size={20} className="text-warning" />
-                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Budget</span>
                          </div>
                          <p className="text-3xl font-mono font-bold text-text-primary">{campaign.remainingPool?.toLocaleString() || 0}</p>
                          <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Remaining Points</p>
                       </Card>
                    </div>
 
-                   <Card className="p-10 border-border space-y-8">
+                   <Card className="p-6 md:p-10 border-border space-y-8">
                       <div className="flex items-center gap-3">
                          <div className="w-1.5 h-6 bg-primary rounded-full" />
                          <h2 className="text-xl font-bold uppercase italic">Campaign Configuration</h2>
                       </div>
-                      <div className="grid grid-cols-2 gap-12">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                          <div className="space-y-6">
                             <div>
                                <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Internal Category</p>
@@ -236,8 +239,8 @@ const OpsCampaignDetail: React.FC = () => {
              )}
 
              {activeTab === 'TASKS' && (
-                <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
+                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
+                <div className="overflow-x-auto no-scrollbar">
                    <table className="w-full text-left min-w-[700px]">
                       <thead>
                          <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
@@ -297,25 +300,6 @@ const OpsCampaignDetail: React.FC = () => {
                                </td>
                             </tr>
                          ))}
-                         {tasks.length === 0 && (
-                            <tr>
-                               <td colSpan={4} className="px-8 py-20 text-center">
-                                  <div className="max-w-xs mx-auto space-y-6">
-                                     <div className="w-16 h-16 rounded-[2rem] bg-surface-bright border border-border flex items-center justify-center text-text-tertiary mx-auto">
-                                        <Target size={32} />
-                                     </div>
-                                     <div className="space-y-2">
-                                        <p className="text-sm font-bold text-text-primary uppercase italic">No Tasks Defined</p>
-                                        <p className="text-xs text-text-tertiary leading-relaxed">This campaign is currently empty. Add your first task to start engaging users.</p>
-                                     </div>
-                                     <Button variant="primary" className="h-12 px-8 rounded-xl mx-auto" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
-                                        <Plus size={16} />
-                                        Create First Task
-                                     </Button>
-                                  </div>
-                               </td>
-                            </tr>
-                         )}
                       </tbody>
                    </table>
                 </div>
@@ -325,7 +309,7 @@ const OpsCampaignDetail: React.FC = () => {
              {activeTab === 'STATS' && (
                 <div className="space-y-8">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Card className="p-10 border-border">
+                      <Card className="p-6 md:p-10 border-border">
                          <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Submission Activity</h3>
                          <div className="h-48 flex items-end gap-2">
                             {[40, 70, 45, 90, 65, 80, 100].map((h, i) => (
@@ -333,21 +317,24 @@ const OpsCampaignDetail: React.FC = () => {
                             ))}
                          </div>
                       </Card>
-                      <Card className="p-10 border-border">
+                      <Card className="p-6 md:p-10 border-border">
                          <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Distribution Breakdown</h3>
                          <div className="space-y-6">
-                            {['Validated', 'Pending', 'Rejected'].map((label, i) => {
-                               const count = i === 0 ? stats.completions : i === 1 ? stats.pending : claims.filter(c => c.validationState === 'REJECTED').length;
+                            {[
+                               { label: 'Validated', count: stats.completions, color: 'bg-success' },
+                               { label: 'Pending', count: stats.pending, color: 'bg-warning' },
+                               { label: 'Rejected', count: stats.rejected, color: 'bg-danger' }
+                            ].map((item) => {
                                const total = Math.max(claims.length, 1);
-                               const percent = (count / total * 100).toFixed(0);
+                               const percent = (item.count / total * 100).toFixed(0);
                                return (
-                               <div key={label} className="space-y-2">
+                               <div key={item.label} className="space-y-2">
                                   <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                                     <span>{label}</span>
-                                     <span>{percent}%</span>
+                                     <span>{item.label}</span>
+                                     <span>{percent}% ({item.count})</span>
                                   </div>
                                   <div className="h-1.5 bg-surface-bright rounded-full overflow-hidden">
-                                     <div className={cn("h-full rounded-full", i === 0 ? "bg-success" : i === 1 ? "bg-warning" : "bg-danger")} style={{ width: `${percent}%` }} />
+                                     <div className={cn("h-full rounded-full", item.color)} style={{ width: `${percent}%` }} />
                                   </div>
                                </div>
                             )})}
@@ -358,8 +345,8 @@ const OpsCampaignDetail: React.FC = () => {
              )}
 
              {activeTab === 'PARTICIPANTS' && (
-                <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                   <div className="overflow-x-auto">
+                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
+                   <div className="overflow-x-auto no-scrollbar">
                    <table className="w-full text-left min-w-[500px]">
                       <thead>
                          <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
@@ -391,9 +378,6 @@ const OpsCampaignDetail: React.FC = () => {
                                </tr>
                             )
                          })}
-                         {claims.length === 0 && (
-                            <tr><td colSpan={3} className="px-8 py-20 text-center text-xs font-bold text-text-tertiary uppercase tracking-widest opacity-30">No participants registered</td></tr>
-                         )}
                       </tbody>
                    </table>
                    </div>
@@ -401,8 +385,8 @@ const OpsCampaignDetail: React.FC = () => {
              )}
 
              {activeTab === 'LEDGER' && (
-                <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                   <div className="overflow-x-auto">
+                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
+                   <div className="overflow-x-auto no-scrollbar">
                    <table className="w-full text-left min-w-[600px]">
                       <thead>
                          <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
@@ -436,20 +420,47 @@ const OpsCampaignDetail: React.FC = () => {
                                </td>
                             </tr>
                          ))}
-                         {claims.length === 0 && (
-                            <tr><td colSpan={3} className="px-8 py-20 text-center text-xs font-bold text-text-tertiary uppercase tracking-widest opacity-30">No activity recorded</td></tr>
-                         )}
                       </tbody>
                    </table>
                    </div>
+                </div>
+             )}
+
+             {activeTab === 'AUDIT' && (
+                <div className="space-y-6">
+                   <Card className="p-8 border-border bg-danger/[0.02] border-danger/10">
+                      <div className="flex items-center gap-4 text-danger mb-6">
+                         <ShieldAlert size={24} />
+                         <h3 className="text-sm font-black uppercase tracking-widest">Campaign Audit Trail</h3>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="p-4 rounded-xl bg-surface border border-border flex items-center justify-between">
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-bold text-text-primary uppercase tracking-tight">Campaign Initialized</p>
+                               <p className="text-[9px] text-text-tertiary font-mono">{campaign.createdAt?.toDate().toLocaleString()}</p>
+                            </div>
+                            <div className="text-[9px] font-black text-primary uppercase">System</div>
+                         </div>
+                         <div className="p-4 rounded-xl bg-surface border border-border flex items-center justify-between">
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-bold text-text-primary uppercase tracking-tight">Status Modification: {campaign.status}</p>
+                               <p className="text-[9px] text-text-tertiary font-mono">{campaign.updatedAt?.toDate().toLocaleString()}</p>
+                            </div>
+                            <div className="text-[9px] font-black text-primary uppercase">Ops User</div>
+                         </div>
+                      </div>
+                   </Card>
                 </div>
              )}
           </div>
 
           {/* SIDEBAR OPS */}
           <div className="lg:col-span-4 space-y-8">
-             <section className="bg-surface border border-border p-8 rounded-[2.5rem] space-y-8 shadow-xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Verification Queue</h3>
+             <section className="bg-surface border border-border p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] space-y-8 shadow-xl">
+                <div className="flex items-center justify-between">
+                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Validation Queue</h3>
+                   <span className="px-2 py-1 bg-warning/10 text-warning text-[8px] font-black rounded-lg border border-warning/20">{stats.pending} PENDING</span>
+                </div>
                 <div className="space-y-3">
                    {claims.filter(c => c.validationState === 'PENDING').slice(0, 5).map(claim => (
                       <div key={claim.id} className="p-4 rounded-xl bg-surface-bright border border-border flex items-center justify-between group hover:border-primary/40 transition-all cursor-pointer">
@@ -471,19 +482,25 @@ const OpsCampaignDetail: React.FC = () => {
                 </Button>
              </section>
 
-             <section className="bg-surface border border-border p-8 rounded-[2.5rem] space-y-8 shadow-xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Sponsor Information</h3>
+             <section className="bg-surface border border-border p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] space-y-8 shadow-xl">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Campaign Integrity</h3>
                 <div className="space-y-6">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center overflow-hidden">
-                         {campaign.sponsorLogoUrl ? <img src={campaign.sponsorLogoUrl} /> : <Users size={20} className="text-text-tertiary" />}
+                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-bright border border-border">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                         <Target size={20} />
                       </div>
                       <div>
-                         <p className="text-xs font-bold text-text-primary uppercase tracking-tight">{campaign.sponsorName || 'PulseEarn Internal'}</p>
-                         <a href={campaign.sponsorWebsite} target="_blank" className="text-[9px] font-black text-primary uppercase tracking-widest flex items-center gap-1 mt-1">
-                            <ExternalLink size={10} />
-                            Portal
-                         </a>
+                         <p className="text-xs font-bold text-text-primary uppercase">{tasks.length} Tasks Attached</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Operational</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-bright border border-border">
+                      <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success">
+                         <Zap size={20} />
+                      </div>
+                      <div>
+                         <p className="text-xs font-bold text-text-primary uppercase">{campaign.totalPrizePool?.toLocaleString()}</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Initial Budget</p>
                       </div>
                    </div>
                 </div>

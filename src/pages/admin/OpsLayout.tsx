@@ -158,7 +158,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
            </button>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto no-scrollbar pt-8 bg-surface-bright">
+        <nav className="flex-1 p-4 overflow-y-auto no-scrollbar pt-8 bg-surface-bright pb-20">
            {renderNavGroup('CORE')}
            {renderNavGroup('ECONOMY')}
            {renderNavGroup('SYSTEM')}
@@ -222,9 +222,9 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
             </div>
          </header>
 
-         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-8 lg:p-12 pb-24 md:pb-12 safe-area-bottom">
+         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-12 pb-24 md:pb-12 safe-area-bottom">
             <AdminErrorBoundary>
-               <div className="max-w-[1600px] mx-auto">
+               <div className="max-w-[1600px] mx-auto w-full">
                   {children}
                </div>
             </AdminErrorBoundary>

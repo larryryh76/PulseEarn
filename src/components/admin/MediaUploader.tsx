@@ -22,7 +22,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
   aspectRatio = 'any',
   maxSizeMB = 10
 }) => {
-  const { upload, cancel, progress, status, error, isUploading, reset } = useUpload();
+  const { upload, progress, status, error, isUploading, reset } = useUpload();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -31,12 +31,10 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
     try {
       const url = await upload(file, { path, maxSizeMB });
       onChange(url);
-      toast.success('Media successfully synced');
+      toast.success('Asset Synced');
     } catch (err: any) {
-      if (status !== 'CANCELLED') {
-        console.error('[MediaUploader] Upload failed:', err);
-        toast.error(err.message || 'Upload process failed');
-      }
+      console.error('[MediaUploader] Upload failed:', err);
+      toast.error(err.message || 'Upload Failed');
     }
   };
 
@@ -45,11 +43,11 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
       <label className="text-[10px] font-black uppercase tracking-[0.25em] text-text-tertiary ml-1">{label}</label>
 
       <div className={cn(
-        "relative group border-2 border-dashed rounded-[2.5rem] overflow-hidden transition-all duration-500",
+        "relative group border-2 border-dashed rounded-[2.5rem] overflow-hidden transition-all duration-500 min-h-[160px]",
         value ? "border-success/30 bg-success/[0.02]" :
         status === 'ERROR' ? "border-danger/30 bg-danger/[0.01]" :
         "border-border bg-surface-bright/30 hover:border-primary/40 hover:bg-surface-bright/50 hover:shadow-subtle",
-        aspectRatio === 'video' ? "aspect-video" : aspectRatio === 'square' ? "aspect-square" : "min-h-[160px]"
+        aspectRatio === 'video' ? "aspect-video" : aspectRatio === 'square' ? "aspect-square" : ""
       )}>
         <AnimatePresence mode="wait">
           {value ? (
@@ -64,7 +62,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
               <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                  <button
                    type="button"
-                   onClick={() => onChange('')}
+                   onClick={() => { onChange(''); reset(); }}
                    className="p-4 bg-danger text-text-primary rounded-2xl hover:scale-110 transition-transform shadow-2xl"
                  >
                     <X size={20} />
@@ -94,17 +92,8 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
                          />
                       </div>
                       <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] animate-pulse">
-                        {status === 'VALIDATING' ? 'Validating...' :
-                         status === 'FINALIZING' ? 'Syncing...' :
-                         `${Math.round(progress)}% Uploaded`}
+                         {Math.round(progress)}% Syncing...
                       </p>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); cancel(); }}
-                        className="text-[9px] font-black text-text-tertiary hover:text-danger uppercase tracking-widest pt-2 transition-colors"
-                      >
-                        Cancel Upload
-                      </button>
                    </div>
                 </div>
               ) : status === 'ERROR' ? (
@@ -140,7 +129,7 @@ const MediaUploader: React.FC<MediaUploaderProps> = ({
                     <Upload size={24} className="text-text-tertiary group-hover:text-primary transition-colors" />
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs font-black text-text-secondary uppercase tracking-[0.1em] group-hover:text-text-primary transition-colors">Select Asset to Upload</p>
+                    <p className="text-xs font-black text-text-secondary uppercase tracking-[0.1em] group-hover:text-text-primary transition-colors">Select Asset</p>
                     <p className="text-[9px] font-bold text-text-tertiary/40 uppercase tracking-[0.2em]">JPG, PNG or WEBP (Max {maxSizeMB}MB)</p>
                   </div>
                 </motion.div>

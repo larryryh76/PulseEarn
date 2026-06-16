@@ -69,19 +69,19 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-background/90 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6 bg-background/90 backdrop-blur-xl">
        <motion.div
-         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-         className="relative w-full max-w-4xl bg-surface border border-border-bright rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+         initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }}
+         className="relative w-full h-full md:h-auto md:max-w-4xl bg-surface md:border border-border-bright md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:max-h-[90vh]"
        >
-          <div className="p-8 border-b border-border flex justify-between items-center bg-surface-bright/50">
-             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                   <Zap size={24} />
+          <div className="p-6 md:p-8 border-b border-border flex justify-between items-center bg-surface-bright/50 shrink-0">
+             <div className="flex items-center gap-3 md:gap-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
+                   <Zap size={20} className="md:w-6 md:h-6" />
                 </div>
                 <div>
-                   <h2 className="text-xl font-bold text-text-primary uppercase italic leading-none mb-1.5">Manage Task</h2>
-                   <p className="text-text-tertiary text-[10px] font-black uppercase tracking-widest leading-none">Reward Configuration</p>
+                   <h2 className="text-lg md:text-xl font-bold text-text-primary uppercase italic leading-none mb-1 md:mb-1.5">Manage Task</h2>
+                   <p className="text-text-tertiary text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Reward Configuration</p>
                 </div>
              </div>
              <button onClick={onClose} className="p-2 hover:bg-surface-glass rounded-lg transition-all text-text-tertiary">
@@ -89,8 +89,8 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
              </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 md:space-y-10 no-scrollbar pb-32 md:pb-10">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
                 <div className="space-y-6">
                    <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Task Title</label>
@@ -98,7 +98,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                         required value={formData.title}
                         onChange={e => setFormData({...formData, title: e.target.value})}
                         placeholder="e.g. Follow on X"
-                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-bold"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 md:p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-bold"
                       />
                    </div>
                    <div className="space-y-2">
@@ -107,7 +107,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                         required value={formData.description}
                         onChange={e => setFormData({...formData, description: e.target.value})}
                         placeholder="Detailed task description..."
-                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-6 text-sm text-text-primary h-24 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 md:p-6 text-sm text-text-primary h-24 md:h-24 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
                       />
                    </div>
                    <div className="space-y-2">
@@ -116,13 +116,13 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                         required value={formData.instructions}
                         onChange={e => setFormData({...formData, instructions: e.target.value})}
                         placeholder="Step-by-step instructions for the user..."
-                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-6 text-sm text-text-primary h-32 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 md:p-6 text-sm text-text-primary h-32 md:h-32 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
                       />
                    </div>
                 </div>
 
-                <div className="space-y-8">
-                   <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-6 md:space-y-8">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Category</label>
                          <select
@@ -145,7 +145,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                       </div>
                    </div>
 
-                   <div className="grid grid-cols-2 gap-6">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Reward Amount (PTS)</label>
                          <input
@@ -166,7 +166,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                       </div>
                    </div>
 
-                   <div className="grid grid-cols-2 gap-6">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                       <div className="space-y-2.5">
                          <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Min Level THR</label>
                          <input
@@ -190,16 +190,16 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                 </div>
              </div>
 
-             <div className="p-8 bg-surface-bright/50 border border-border rounded-[2rem] space-y-6">
+             <div className="p-6 md:p-8 bg-surface-bright/50 border border-border rounded-[1.5rem] md:rounded-[2rem] space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-2 px-1">
                    <ShieldCheck size={14} /> Integrity Rules
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                    {Object.keys(formData.fraudProtection || {}).map((key) => (
                       <button
                         key={key} type="button"
                         onClick={() => setFormData({...formData, fraudProtection: { ...formData.fraudProtection!, [key]: !formData.fraudProtection![key as keyof typeof formData.fraudProtection] }})}
-                        className={cn("px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
+                        className={cn("px-4 py-3.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all text-left flex items-center justify-between group",
                            formData.fraudProtection?.[key as keyof typeof formData.fraudProtection] ? "bg-primary/10 border-primary text-primary" : "bg-surface-glass border-border text-text-tertiary hover:text-text-primary"
                         )}
                       >
@@ -211,11 +211,12 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
              </div>
           </form>
 
-          <div className="p-8 border-t border-border bg-background/40 flex gap-4">
-             <Button type="submit" onClick={handleSubmit} className="flex-1 h-14 bg-text-primary text-background font-black uppercase tracking-[0.2em] text-[10px] rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-3">
-                <Save size={18} /> Save Task
+          {/* ACTIONS */}
+          <div className="fixed bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-md border-t border-border md:relative md:p-8 md:bg-background/40 flex flex-col md:flex-row gap-3 md:gap-4 z-10">
+             <Button type="submit" onClick={handleSubmit} className="w-full md:flex-1 h-12 md:h-14 bg-text-primary text-background font-black uppercase tracking-[0.2em] text-[10px] rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-3">
+                <Save size={18} className="md:w-5 md:h-5" /> Save Task
              </Button>
-             <button onClick={onClose} className="px-10 h-14 rounded-xl bg-surface-bright border border-border text-text-tertiary hover:text-text-primary transition-colors font-black uppercase tracking-widest text-[10px]">
+             <button onClick={onClose} className="w-full md:px-10 h-12 md:h-14 rounded-xl bg-surface-bright border border-border text-text-tertiary hover:text-text-primary transition-colors font-black uppercase tracking-widest text-[10px]">
                 Discard
              </button>
           </div>

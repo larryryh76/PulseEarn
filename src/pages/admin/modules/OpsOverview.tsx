@@ -126,15 +126,15 @@ const OpsOverview: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Terminal size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Ops Control Center</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Admin Overview</h1>
              </div>
              <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
                 <span className="flex items-center gap-2">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                   System Authority: Active
+                   System Status: Online
                 </span>
                 <span className="w-1 h-1 rounded-full bg-surface-accent" />
-                <span>Sync Node: {lastSync.toLocaleTimeString()}</span>
+                <span>Last Synced: {lastSync.toLocaleTimeString()}</span>
              </div>
           </div>
           <button
@@ -142,14 +142,14 @@ const OpsOverview: React.FC = () => {
             className="px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
-             Reload Matrix
+             Refresh Data
           </button>
        </header>
 
        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-          {metricItem('Total Identity Nodes', stats.totalUsers, Users, 'text-primary', '/admin/users')}
-          {metricItem('24h Asset Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
-          {metricItem('Global USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
+          {metricItem('Total Users', stats.totalUsers, Users, 'text-primary', '/admin/users')}
+          {metricItem('24h Points Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
+          {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
           {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
        </div>
 
@@ -166,7 +166,7 @@ const OpsOverview: React.FC = () => {
                stats.pendingWithdrawals > 0 ? "border-orange-500/20 hover:border-orange-500/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Settlement Pressure</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Pending Withdrawals</p>
                    <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingWithdrawals > 0 ? "text-orange-500" : "text-text-tertiary/50")}>
                       {stats.pendingWithdrawals}
                    </p>
@@ -181,7 +181,7 @@ const OpsOverview: React.FC = () => {
                stats.pendingVerifications > 0 ? "border-primary/20 hover:border-primary/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Validation Ingress</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Pending Approvals</p>
                    <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingVerifications > 0 ? "text-primary" : "text-text-tertiary/50")}>
                       {stats.pendingVerifications}
                    </p>
@@ -196,7 +196,7 @@ const OpsOverview: React.FC = () => {
                stats.pendingSupport > 0 ? "border-indigo-500/20 hover:border-indigo-500/40" : "border-border hover:border-border-bright"
              )}>
                 <div className="space-y-2">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Support Signal Flux</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Open Tickets</p>
                    <p className={cn("text-4xl font-mono font-bold tracking-tighter", stats.pendingSupport > 0 ? "text-indigo-500" : "text-text-tertiary/50")}>
                       {stats.pendingSupport}
                    </p>
@@ -211,7 +211,7 @@ const OpsOverview: React.FC = () => {
              <div className="flex items-center justify-between">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
                    <Activity size={18} className="text-primary" />
-                   Ecosystem Ledger Stream
+                   Recent Transactions
                 </h3>
              </div>
              <div className="space-y-1">
@@ -224,7 +224,7 @@ const OpsOverview: React.FC = () => {
                          )} />
                          <div>
                             <p className="text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                            <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">Ref: {tx.id.slice(0, 12).toUpperCase()}</p>
+                            <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 12).toUpperCase()}</p>
                          </div>
                       </div>
                       <div className="text-right">
@@ -236,7 +236,7 @@ const OpsOverview: React.FC = () => {
                    </div>
                 )) : (
                   <div className="py-20 text-center opacity-20 text-[10px] font-black uppercase tracking-widest">
-                    No active ledger signals
+                    No recent transactions
                   </div>
                 )}
              </div>
@@ -249,19 +249,19 @@ const OpsOverview: React.FC = () => {
                       <ShieldAlert size={28} />
                    </div>
                    <div className="px-3 py-1 rounded-lg bg-danger/10 text-danger border border-danger/20 text-[8px] font-black uppercase tracking-widest">
-                      PERIMETER_SECURE
+                      SYSTEM_SECURE
                    </div>
                 </div>
                 <div className="space-y-3">
-                   <h3 className="text-2xl font-bold text-text-primary uppercase italic tracking-tighter">Security Anomalies</h3>
-                   <p className="text-xs text-text-tertiary leading-relaxed font-medium">Ops identifies <span className="text-danger font-bold">{stats.fraudAnomalies}</span> logic violations requiring administrative termination.</p>
+                   <h3 className="text-2xl font-bold text-text-primary uppercase italic tracking-tighter">Security Alerts</h3>
+                   <p className="text-xs text-text-tertiary leading-relaxed font-medium">System detected <span className="text-danger font-bold">{stats.fraudAnomalies}</span> security alerts requiring administrative review.</p>
                 </div>
              </div>
              <button
                onClick={() => navigate('/admin/security')}
                className="w-full py-5 mt-10 bg-danger/10 text-danger border border-danger/20 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-danger/20 transition-all italic"
              >
-                Scan Threat Matrix
+                Review Security
              </button>
           </div>
        </section>

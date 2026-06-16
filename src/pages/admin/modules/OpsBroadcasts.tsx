@@ -48,7 +48,7 @@ const OpsBroadcasts: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Bell size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Broadcast Matrix</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Broadcast Hub</h1>
              </div>
              <p className="text-xs font-medium text-text-tertiary">Global synchronization of platform announcements and critical system alerts.</p>
           </div>
@@ -117,7 +117,7 @@ const OpsBroadcasts: React.FC = () => {
                          </div>
                          <div>
                             <h2 className="text-2xl font-bold tracking-tight uppercase italic leading-none mb-2">Signal Dispatch</h2>
-                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Authorized Platform Communication Vector</p>
+                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Authorized Platform Communication Action</p>
                          </div>
                       </div>
                       <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 hover:bg-surface-bright rounded-xl transition-all flex items-center justify-center text-text-tertiary"><X size={24} /></button>
@@ -145,7 +145,7 @@ const OpsBroadcasts: React.FC = () => {
                          />
                       </div>
                       <div className="space-y-4">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Dispatch Matrix</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Dispatch Hub</label>
                          <div className="flex gap-3">
                             {['system', 'reward', 'alert'].map(type => (
                                <button

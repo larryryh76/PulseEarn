@@ -213,7 +213,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                        "w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]",
                        systemStatus === 'ONLINE' ? "bg-success animate-pulse" : "bg-danger"
                      )} />
-                     <span className="text-[9px] font-black uppercase tracking-widest text-success">Node {systemStatus}</span>
+                     <span className="text-[9px] font-black uppercase tracking-widest text-success"> {systemStatus}</span>
                   </div>
                </div>
                <button className="lg:hidden p-2 hover:bg-surface-glass rounded" onClick={() => setIsMobileOpen(true)}>

@@ -93,7 +93,7 @@ const OpsSupport: React.FC = () => {
       await SupportEngine.updateStatus(selectedTicket.id, status);
       toast.success(`Ticket Status: ${status}`);
     } catch (err) {
-      toast.error('Mutation Failed');
+      toast.error('Adjustment Failed');
     }
   };
 
@@ -154,7 +154,7 @@ const OpsSupport: React.FC = () => {
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[800px]">
           <div className="lg:col-span-4 flex flex-col bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl">
              <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Queue Matrix</h3>
+                <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Queue Hub</h3>
                 <span className="text-[10px] font-mono text-primary font-bold">{filteredTickets.length} NODES</span>
              </div>
              <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -263,7 +263,7 @@ const OpsSupport: React.FC = () => {
                            rows={4}
                            value={replyText}
                            onChange={e => setReplyText(e.target.value)}
-                           placeholder="Authorized Administrative Response Vector..."
+                           placeholder="Authorized Administrative Response Action..."
                            className="w-full bg-surface-bright border border-border-bright rounded-[2rem] px-8 py-6 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-medium resize-none shadow-2xl"
                          />
                          <div className="absolute right-6 bottom-6 flex items-center gap-4">
@@ -285,8 +285,8 @@ const OpsSupport: React.FC = () => {
                 <div className="flex-1 flex flex-col items-center justify-center space-y-8 opacity-20">
                    <X size={80} className="text-text-primary" />
                    <div className="text-center space-y-3">
-                      <h3 className="text-2xl font-bold text-text-primary uppercase tracking-widest italic">Select Node</h3>
-                      <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.6em]">System Ingress Pending Analysis</p>
+                      <h3 className="text-2xl font-bold text-text-primary uppercase tracking-widest italic">Select </h3>
+                      <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.6em]">System Submission Pending Analysis</p>
                    </div>
                 </div>
              )}

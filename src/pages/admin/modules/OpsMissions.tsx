@@ -39,9 +39,9 @@ const OpsMissions: React.FC = () => {
         await updateDoc(doc(db, 'system_task_definitions', mission.id), {
            active: !mission.active
         });
-        toast.success(`Mission Node ${!mission.active ? 'Activated' : 'Suspended'}`);
+        toast.success(`Mission  ${!mission.active ? 'Activated' : 'Suspended'}`);
      } catch (err) {
-        toast.error("Instruction Mutation Failure");
+        toast.error("Instruction Adjustment Failure");
      }
   };
 
@@ -60,7 +60,7 @@ const OpsMissions: React.FC = () => {
             onClick={() => { setSelectedMission(null); setIsModalOpen(true); }}
             className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
           >
-             <Plus size={18} /> New Mission Node
+             <Plus size={18} /> New Mission
           </button>
        </header>
 
@@ -101,7 +101,7 @@ const OpsMissions: React.FC = () => {
                       <p className="text-sm font-mono font-bold text-text-primary">+{(mission.rewardPoints || 0).toLocaleString()} PTS</p>
                    </div>
                    <div className="text-right">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Logic Node</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Settings </p>
                       <p className="text-sm font-mono font-bold text-indigo-400">THR: {mission.targetValue}</p>
                    </div>
                 </div>

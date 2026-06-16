@@ -49,14 +49,14 @@ const OpsValidation: React.FC = () => {
   }, [filter]);
 
   const handleReview = async (claimId: string, status: SubtaskStatus) => {
-    const loadingToast = toast.loading('Synchronizing validation state...');
+    const loadingToast = toast.loading('Updating validation status...');
     try {
       const claimRef = doc(db, 'task_claims', claimId);
       const claimSnap = await getDoc(claimRef);
 
       if (!claimSnap.exists()) {
         toast.dismiss(loadingToast);
-        return toast.error("Entity Not Found");
+        return toast.error("Claim not found");
       }
 
       const claimData = claimSnap.data();
@@ -67,7 +67,7 @@ const OpsValidation: React.FC = () => {
 
         if (!taskSnap.exists()) {
           toast.dismiss(loadingToast);
-          return toast.error("Execution Node Not Found");
+          return toast.error("Task not found");
         }
 
         const taskData = taskSnap.data();
@@ -77,7 +77,7 @@ const OpsValidation: React.FC = () => {
           userId: claimData.userId,
           amount: taskData.rewardAmount || 0,
           type: 'task_reward',
-          source: `Authorized: ${taskData.title}`,
+          source: `Approved: ${taskData.title}`,
           claimId: `val_${claimId}`,
           xpReward: taskData.xpReward || 50,
           referenceId: claimData.taskId
@@ -85,21 +85,21 @@ const OpsValidation: React.FC = () => {
 
         if (!result.success) {
           toast.dismiss(loadingToast);
-          return toast.error(`Authority Refused: ${result.error}`);
+          return toast.error(`Failed to grant reward: ${result.error}`);
         }
       }
 
       await updateDoc(claimRef, {
         validationState: status,
         resolvedAt: serverTimestamp(),
-        reviewedBy: 'OPS_AUTHORITY'
+        reviewedBy: 'ADMIN_HUB'
       });
 
       toast.dismiss(loadingToast);
-      toast.success(`Verification ${status} Logic Synchronized`);
+      toast.success(`Claim ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`);
     } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error("Integrity Protocol Failure");
+      toast.error("Failed to update claim status");
     }
   };
 
@@ -164,16 +164,16 @@ const OpsValidation: React.FC = () => {
 
                       <div className="flex-1 lg:max-w-md">
                          <div className="p-5 rounded-2xl bg-surface-bright border border-border shadow-inner">
-                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-3">Ingress Payload</p>
+                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-3">Submission Details</p>
                             {claim.submittedProof ? (
                                <div className="flex items-center justify-between">
                                   {claim.submittedProof.startsWith('http') ? (
                                      <div className="flex items-center gap-4 w-full">
                                         <img src={claim.submittedProof} alt="" className="w-12 h-12 rounded-xl object-cover border border-border-bright" />
                                         <div className="min-w-0 flex-1">
-                                           <p className="text-[10px] text-text-secondary font-mono truncate mb-1">IMAGE_VECTOR_LINK</p>
+                                           <p className="text-[10px] text-text-secondary font-mono truncate mb-1">IMAGE_ATTACHMENT</p>
                                            <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="text-[10px] font-black text-primary hover:underline uppercase flex items-center gap-2">
-                                              <ExternalLink size={12} /> Inspect Asset
+                                              <ExternalLink size={12} /> View Original
                                            </a>
                                         </div>
                                      </div>
@@ -194,13 +194,13 @@ const OpsValidation: React.FC = () => {
                                  onClick={() => handleReview(claim.id, 'REJECTED')}
                                  className="px-8 py-4 rounded-xl bg-danger/10 text-danger text-[10px] font-black uppercase tracking-[0.2em] hover:bg-danger/20 transition-all border border-danger/20"
                                >
-                                  Terminate
+                                  Reject
                                </button>
                                <button
                                  onClick={() => handleReview(claim.id, 'APPROVED')}
                                  className="px-8 py-4 rounded-xl bg-primary text-text-primary text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
                                >
-                                  Authorize
+                                  Approve
                                </button>
                             </>
                          ) : (

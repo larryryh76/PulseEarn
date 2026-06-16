@@ -138,7 +138,7 @@ const OpsEconomy: React.FC = () => {
         });
 
         if (result.success) {
-           toast.success('Economy Mutation Synchronized');
+           toast.success('Economy Adjustment Synchronized');
            setIsAdjusting(false);
            setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
         } else {
@@ -276,7 +276,7 @@ const OpsEconomy: React.FC = () => {
                          </div>
                          <div>
                             <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Economy Rebalance</h3>
-                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Global Variable Control Matrix</p>
+                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Global Variable Control Hub</p>
                          </div>
                       </div>
                       <button onClick={() => setIsConfiguring(false)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
@@ -393,7 +393,7 @@ const OpsEconomy: React.FC = () => {
                             </div>
                          </div>
                          <div className="space-y-3">
-                            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Asset Matrix</label>
+                            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Asset Hub</label>
                             <select
                               value={adjustForm.isXp ? 'XP' : 'POINTS'}
                               onChange={e => setAdjustForm(prev => ({ ...prev, isXp: e.target.value === 'XP' }))}

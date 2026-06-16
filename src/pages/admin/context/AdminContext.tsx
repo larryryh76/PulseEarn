@@ -58,7 +58,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         setSystemStatus('ONLINE');
         setIsInitialized(true);
-        logger.log('INFO', 'BOOT', 'Boot sequence finalized. Admin Node Online.');
+        logger.log('INFO', 'BOOT', 'Boot sequence finalized. Admin  Online.');
       } catch (err: any) {
         logger.log('FATAL', 'BOOT', 'Admin initialization sequence failed', { error: err.message });
         setLastError(err.message);

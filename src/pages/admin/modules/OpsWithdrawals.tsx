@@ -48,7 +48,7 @@ const OpsWithdrawals: React.FC = () => {
   }, [filter]);
 
   const handleAction = async (id: string, status: WithdrawalRequest['status'], userId: string) => {
-    const loadingToast = toast.loading('Executing settlement sequence...');
+    const loadingToast = toast.loading('Updating withdrawal status...');
     try {
       const updateData: any = {
         status,
@@ -71,9 +71,9 @@ const OpsWithdrawals: React.FC = () => {
                userId,
                amount: req.amountPoints,
                type: 'admin_adjustment',
-               source: 'Withdrawal Terminated',
+               source: 'Withdrawal Rejected',
                claimId: `rev_${id}`,
-               description: `System reversal for rejected settlement #${id.slice(0,8)}`,
+               description: `Points reversal for rejected withdrawal #${id.slice(0,8)}`,
                bypassLock: true
             });
          }
@@ -81,10 +81,10 @@ const OpsWithdrawals: React.FC = () => {
 
       await updateDoc(doc(db, 'withdrawals', id), updateData);
       toast.dismiss(loadingToast);
-      toast.success(`Settlement status: ${status}`);
+      toast.success(`Withdrawal ${status.toLowerCase()}`);
     } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error("Settlement Authority Refused");
+      toast.error("Failed to update withdrawal status");
     }
   };
 
@@ -101,9 +101,9 @@ const OpsWithdrawals: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3">
                 <CreditCard size={20} className="text-primary" />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Withdrawal Desk</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Withdrawal Management</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Strategic asset settlement management and user payout authorization.</p>
+             <p className="text-xs font-medium text-text-tertiary">Manage and process user withdrawal requests and payouts.</p>
           </div>
 
           <div className="flex bg-surface-bright p-1 rounded-xl border border-border">
@@ -140,10 +140,10 @@ const OpsWithdrawals: React.FC = () => {
              <table className="w-full text-left border-collapse">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Target Identity</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Asset Value</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Destination Node</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Amount</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Destination</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -157,15 +157,15 @@ const OpsWithdrawals: React.FC = () => {
                                   <User size={18} />
                                </div>
                                <div>
-                                  <p className="text-sm font-bold text-text-primary uppercase italic">{req.username}</p>
-                                  <p className="text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{req.userEmail}</p>
+                               <p className="text-sm font-bold text-text-primary uppercase italic leading-none mb-1">{req.username}</p>
+                               <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">{req.userEmail}</p>
                                </div>
                             </div>
                          </td>
                          <td className="p-8">
                             <div>
                                <p className="text-sm font-mono font-bold text-text-primary">{req.amountPoints.toLocaleString()} PTS</p>
-                               <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1 italic">{formatUSD(req.amountUSD)} VALUATION</p>
+                               <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1 italic">{formatUSD(req.amountUSD)}</p>
                             </div>
                          </td>
                          <td className="p-8">
@@ -184,14 +184,14 @@ const OpsWithdrawals: React.FC = () => {
                                      <button
                                        onClick={() => handleAction(req.id, 'REJECTED', req.userId)}
                                        className="p-3 bg-danger/10 text-danger rounded-xl hover:bg-danger/20 transition-all border border-danger/20"
-                                       title="Reject Settlement"
+                                       title="Reject Withdrawal"
                                      >
                                         <XCircle size={18} />
                                      </button>
                                      <button
                                        onClick={() => handleAction(req.id, 'APPROVED', req.userId)}
                                        className="p-3 bg-success/10 text-success rounded-xl hover:bg-success/20 transition-all border border-success/20 shadow-lg shadow-success/10"
-                                       title="Authorize Payout"
+                                       title="Approve Withdrawal"
                                      >
                                         <CheckCircle size={18} />
                                      </button>

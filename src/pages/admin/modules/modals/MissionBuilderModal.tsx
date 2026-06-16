@@ -66,10 +66,10 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
       };
 
       await setDoc(missionRef, payload, { merge: true });
-      toast.success('Mission Logic Synchronized');
+      toast.success('Mission Settings Synchronized');
       onClose();
     } catch (err) {
-      toast.error('Logic Serialization Failure');
+      toast.error('Settings Serialization Failure');
     } finally {
       setIsSubmitting(false);
     }
@@ -97,7 +97,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">
-                    {initialMission ? 'Calibrate Mission' : 'New Mission Node'}
+                    {initialMission ? 'Calibrate Mission' : 'New Mission '}
                   </h3>
                   <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Automated Progression Protocol</p>
                 </div>
@@ -134,7 +134,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
               </div>
 
               <div className="space-y-6">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Logic Configuration</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Settings Configuration</h4>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Execution Trigger</label>
@@ -213,7 +213,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
 
               <div className="pt-4 flex gap-4">
                 <Button type="submit" isLoading={isSubmitting} className="flex-1 py-6 rounded-2xl shadow-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-3">
-                  <Save size={18} /> Commit Mission Logic
+                  <Save size={18} /> Commit Mission Settings
                 </Button>
                 <button type="button" onClick={onClose} className="px-10 py-6 rounded-2xl bg-surface-bright border border-border-bright text-text-tertiary hover:text-text-primary transition-colors font-black uppercase tracking-widest text-[10px]">
                   Abort

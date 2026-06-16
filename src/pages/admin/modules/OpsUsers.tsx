@@ -286,7 +286,7 @@ const OpsUsers: React.FC = () => {
                               onClick={() => handleStatusToggle(selectedUser, 'REINSTATE')}
                               className="px-6 py-2.5 rounded-xl bg-success text-text-primary text-[10px] font-black uppercase tracking-widest shadow-lg shadow-success/20 italic"
                             >
-                               Reinstate Node
+                               Reinstate
                             </button>
                          ) : (
                             <button

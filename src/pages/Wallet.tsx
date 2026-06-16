@@ -132,10 +132,10 @@ const Wallet: React.FC = () => {
   return (
     <>
       <div className="bg-background transition-colors duration-300">
-      <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto">
+      <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-6 max-w-5xl mx-auto overflow-x-hidden">
         {/* ASSET INFRASTRUCTURE HEADER */}
-        <section className="mb-12 md:mb-16">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 md:gap-12">
+        <section className="mb-8 md:mb-16">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-12">
             <div className="space-y-4">
                <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -146,10 +146,10 @@ const Wallet: React.FC = () => {
                </h1>
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 w-full md:w-auto">
                <Button
                 variant="primary"
-                className="h-14 px-10 rounded-2xl"
+                className="h-14 px-10 rounded-2xl w-full md:w-auto"
                 onClick={() => setIsWithdrawModalOpen(true)}
                >
                   <CreditCard size={16} />
@@ -160,36 +160,36 @@ const Wallet: React.FC = () => {
         </section>
 
         {/* PRIMARY WALLET CARD */}
-        <Card className="mb-8 md:mb-12 p-6 md:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
-           <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+        <Card className="mb-8 md:mb-12 p-6 md:p-10 lg:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
+           <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none hidden sm:block">
               <Zap size={200} />
            </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-center">
-              <div className="lg:col-span-7 space-y-2">
+           <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 md:gap-12 items-start lg:items-center">
+              <div className="lg:col-span-7 space-y-2 w-full">
                  <p className="data-label">Available Balance</p>
-                 <div className="flex items-baseline gap-4">
-                    <h2 className="text-5xl md:text-7xl font-bold text-text-primary tracking-tighter">{(points || 0)?.toLocaleString()}</h2>
-                    <span className="text-xl font-mono text-primary font-bold">PTS</span>
+                 <div className="flex flex-wrap items-baseline gap-2 sm:gap-4">
+                    <h2 className="text-4xl sm:text-5xl md:text-7xl font-bold text-text-primary tracking-tighter truncate">{(points || 0)?.toLocaleString()}</h2>
+                    <span className="text-lg sm:text-xl font-mono text-primary font-bold">PTS</span>
                  </div>
-                 <p className="text-xl md:text-2xl text-text-secondary font-medium tracking-tight">
-                    &asymp; {formatUSD(usdValue)} <span className="text-[10px] font-bold text-text-tertiary uppercase ml-2 tracking-widest">Market Value</span>
+                 <p className="text-lg sm:text-xl md:text-2xl text-text-secondary font-medium tracking-tight">
+                    &asymp; {formatUSD(usdValue)} <span className="text-[9px] font-bold text-text-tertiary uppercase ml-2 tracking-widest">Market Value</span>
                  </p>
               </div>
 
-              <div className="lg:col-span-5 grid grid-cols-2 gap-4">
-                 <div className="p-4 md:p-6 rounded-2xl bg-background/40 border border-border">
+              <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                 <div className="p-4 sm:p-5 md:p-6 rounded-2xl bg-background/40 border border-border">
                     <p className="data-label">Pending</p>
                     <div className="flex items-center gap-2">
                        <Clock size={14} className="text-text-tertiary" />
                        <span className="text-lg font-bold text-text-primary">0 <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
-                 <div className="p-4 md:p-6 rounded-2xl bg-background/40 border border-border">
+                 <div className="p-4 sm:p-5 md:p-6 rounded-2xl bg-background/40 border border-border">
                     <p className="data-label">Lifetime</p>
                     <div className="flex items-center gap-2">
                        <TrendingUp size={14} className="text-success" />
-                       <span className="text-lg font-bold text-text-primary">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
+                       <span className="text-lg font-bold text-text-primary truncate">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
               </div>
@@ -227,9 +227,9 @@ const Wallet: React.FC = () => {
         </Card>
 
         {/* TRANSACTION LEDGER */}
-        <section className="space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+        <section className="space-y-6 sm:space-y-8">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-3">
               <Activity size={24} className="text-primary" />
               Activity Ledger
             </h2>
@@ -238,34 +238,34 @@ const Wallet: React.FC = () => {
           <div className="space-y-3">
             {transactions.length > 0 ? (
               transactions.map((tx) => (
-                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="ledger-row group cursor-pointer">
-                  <div className="flex items-center gap-6">
+                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="flex items-center justify-between p-4 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden">
+                  <div className="flex items-center gap-3 sm:gap-6 min-w-0">
                     <div className={cn(
-                      "w-12 h-12 rounded-xl border flex items-center justify-center transition-all",
+                      "w-10 h-10 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center transition-all shrink-0",
                       tx.amount > 0 ? "bg-success/5 text-success border-success/10" : "bg-surface-bright text-text-primary border-border group-hover:border-primary/30"
                     )}>
-                      {tx.amount > 0 ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                      {tx.amount > 0 ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{mapTransactionType(tx.type)}</p>
-                      <p className="text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em]">
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-bold text-text-primary group-hover:text-primary transition-colors truncate">{mapTransactionType(tx.type)}</p>
+                      <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em] truncate">
                         {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-6">
-                    <div>
+                  <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0">
+                    <div className="hidden xs:block">
                       <p className={cn(
-                        "text-sm font-bold font-mono tracking-tight",
+                        "text-xs sm:text-sm font-bold font-mono tracking-tight",
                         tx.amount > 0 ? "text-success" : "text-text-primary"
                       )}>
                         {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()}
                       </p>
-                      <p className="text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-widest">
+                      <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-widest">
                         {formatUSD(PTS_TO_USD(tx.amount))}
                       </p>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-surface-bright border border-border flex items-center justify-center text-text-tertiary">
+                    <div className="w-8 h-8 rounded-lg bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
                        <ChevronRight size={14} />
                     </div>
                   </div>

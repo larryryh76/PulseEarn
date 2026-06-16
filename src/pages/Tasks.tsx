@@ -43,7 +43,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const { tasks, campaigns, systemTasks, loading, getTaskStatus } = useTasks();
+  const { tasks, campaigns, systemTasks, subtasks, loading, getTaskStatus } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'SPONSORED' | 'CHALLENGES'>('ALL');
   const [view, setView] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
@@ -300,7 +300,7 @@ const Tasks: React.FC = () => {
                                          <div className="flex items-center gap-2">
                                             <CheckCircle2 size={12} className="text-indigo-400" />
                                             <span className="text-xs font-mono font-bold text-text-primary">
-                                               {subtasks.filter(s => s.campaignId === camp.id && s.validationState === 'APPROVED').length}
+                                               {subtasks.filter((s: any) => s.validationState === 'APPROVED' && s.campaignId === camp.id).length}
                                             </span>
                                          </div>
                                       </div>

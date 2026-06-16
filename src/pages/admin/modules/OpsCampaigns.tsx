@@ -5,14 +5,12 @@ import {
   Plus,
   Search,
   Target,
-  Users,
   Zap,
   Copy,
   Edit3,
   Trash2,
   Play,
-  Pause,
-  ArrowRight
+  Pause
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {

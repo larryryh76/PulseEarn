@@ -2,11 +2,9 @@ import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Settings,
   Zap,
   Users,
   CheckCircle2,
-  Clock,
   BarChart3,
   History,
   Target,
@@ -14,9 +12,7 @@ import {
   Edit3,
   ExternalLink,
   ShieldAlert,
-  ArrowRight,
-  TrendingUp,
-  TrendingDown
+  ArrowRight
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -25,10 +21,9 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  getDocs
+  orderBy
 } from 'firebase/firestore';
-import { Campaign, Task, TaskClaim, Transaction } from '../../../types';
+import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
@@ -41,7 +36,6 @@ const OpsCampaignDetail: React.FC = () => {
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [claims, setClaims] = React.useState<TaskClaim[]>([]);
-  const [transactions, setTransactions] = React.useState<Transaction[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'STATS' | 'LEDGER'>('OVERVIEW');
 

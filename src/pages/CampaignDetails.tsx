@@ -221,7 +221,7 @@ const CampaignDetails: React.FC = () => {
               <div className="space-y-6 relative z-10">
                 <div className="flex items-center gap-3">
                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(94,106,210,0.5)]" />
-                   <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Campaign Intel</h2>
+                   <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Campaign Details</h2>
                 </div>
                 <p className="text-lg text-text-secondary leading-relaxed font-medium">
                    {campaign.description}
@@ -245,9 +245,9 @@ const CampaignDetails: React.FC = () => {
                <div className="flex items-center justify-between px-2">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(94,106,210,0.5)]" />
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Operation Vectors</h2>
+                    <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Available Tasks</h2>
                   </div>
-                  <span className="text-[10px] font-mono text-text-tertiary font-bold uppercase">{tasks.length} Sub-Processes Identified</span>
+                  <span className="text-[10px] font-mono text-text-tertiary font-bold uppercase">{tasks.length} Steps Found</span>
                </div>
 
                <div className="grid grid-cols-1 gap-3">
@@ -367,8 +367,8 @@ const CampaignDetails: React.FC = () => {
                     <Zap size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">Task Protocol</h2>
-                    <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest mt-1">Ref: {selectedTask.id.slice(0, 16).toUpperCase()}</p>
+                    <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">Task Overview</h2>
+                    <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest mt-1">Ref: {selectedTask.id.slice(0, 12).toUpperCase()}</p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary">
@@ -413,7 +413,7 @@ const CampaignDetails: React.FC = () => {
                       >
                         <div className="flex items-center gap-4">
                           <ExternalLink size={20} />
-                          <span className="text-[11px] font-black uppercase tracking-[0.2em] italic">Open Protocol Terminal</span>
+                          <span className="text-[11px] font-black uppercase tracking-[0.2em] italic">Start Task</span>
                         </div>
                         <ChevronRight size={18} />
                       </a>
@@ -421,11 +421,11 @@ const CampaignDetails: React.FC = () => {
 
                     <div className="p-8 bg-surface-bright/50 border border-border rounded-[2.5rem] space-y-8">
                       <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Ingress Payload</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Submission Requirement</label>
                         <div className="bg-background/40 rounded-2xl border border-border overflow-hidden shadow-inner">
                           {selectedTask.verificationType === 'proof' ? (
                              <MediaUploader
-                                label="Upload Identity Evidence"
+                                label="Upload Screenshot Proof"
                                 value={proof[selectedTask.id]}
                                 onChange={(url) => setProof(prev => ({ ...prev, [selectedTask.id]: url }))}
                                 path={`proofs/${currentUser!.uid}`}
@@ -468,9 +468,9 @@ const CampaignDetails: React.FC = () => {
 
                 <section className="pt-8 border-t border-border space-y-4">
                    <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-text-tertiary/50">
-                      <ShieldCheck size={14} className="text-success/40" /> Verified Governance Protocol
+                      <ShieldCheck size={14} className="text-success/40" /> Verified Platform Action
                    </div>
-                   <p className="text-[9px] text-text-tertiary/50 leading-relaxed font-medium">By submitting proof, you authorize the administrative node to audit your activity for logic compliance.</p>
+                   <p className="text-[9px] text-text-tertiary/50 leading-relaxed font-medium">By submitting proof, you authorize our team to verify your activity for reward eligibility.</p>
                 </section>
               </div>
             </motion.div>

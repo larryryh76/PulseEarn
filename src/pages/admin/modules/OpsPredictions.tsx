@@ -100,25 +100,25 @@ const OpsPredictions: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <TrendingUp size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Market Management</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic text-text-primary">Market Management</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Monitor asset predictions and manage market settlements.</p>
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Monitor asset predictions and manage market settlements.</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
              <button
                onClick={runAutomatedResolution}
-               className="px-6 py-3 bg-surface-bright border border-border-bright rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2 italic"
+               className="w-full sm:w-auto px-6 py-3 bg-surface-bright border border-border-bright rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2 italic"
              >
-                <Activity size={14} /> Execute Global Auto-Resolve
+                <Activity size={14} /> Auto-Resolve
              </button>
-             <div className="relative group w-80">
+             <div className="relative group w-full sm:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan positions by User or Asset..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+                  placeholder="Scan positions..."
+                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-[11px] focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
           </div>
@@ -158,15 +158,15 @@ const OpsPredictions: React.FC = () => {
           </div>
        </section>
 
-       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
+          <div className="overflow-x-auto no-scrollbar">
+             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Prediction Details</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Direction</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Entry Price</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Status</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Prediction Details</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Direction</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Entry Price</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Status</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -174,31 +174,31 @@ const OpsPredictions: React.FC = () => {
                       [1,2,3,4].map(i => <tr key={i} className="animate-pulse"><td colSpan={4} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((pred) => (
                       <tr key={pred.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary">
+                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
                                   <DollarSign size={18} />
                                </div>
                                <div>
-                                  <p className="text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{pred.symbol} FORECAST</p>
-                                  <p className="text-[9px] font-mono text-text-tertiary mt-1 uppercase">ID: {pred.userId.slice(0, 16)}...</p>
+                                  <p className="text-xs md:text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{pred.symbol} FORECAST</p>
+                                  <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary mt-1 uppercase">ID: {pred.userId.slice(0, 12)}...</p>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8">
-                            <div className="flex items-center gap-3">
+                         <td className="p-6 md:p-8">
+                            <div className="flex items-center gap-2 md:gap-3">
                                {pred.direction === 'UP' ? <TrendingUp size={16} className="text-success" /> : <TrendingDown size={16} className="text-danger" />}
-                               <span className={cn("text-[10px] font-black uppercase tracking-[0.2em]", pred.direction === 'UP' ? 'text-success' : 'text-danger')}>
+                               <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em]", pred.direction === 'UP' ? 'text-success' : 'text-danger')}>
                                   MARKET {pred.direction}
                                </span>
                             </div>
                          </td>
-                         <td className="p-8">
-                            <p className="text-sm font-mono font-bold text-text-primary">${pred.entryPrice.toLocaleString()}</p>
+                         <td className="p-6 md:p-8">
+                            <p className="text-xs md:text-sm font-mono font-bold text-text-primary">${pred.entryPrice.toLocaleString()}</p>
                          </td>
-                         <td className="p-8 text-right">
+                         <td className="p-6 md:p-8 text-right">
                             <span className={cn(
-                               "px-3 py-1.5 rounded text-[8px] font-black uppercase tracking-[0.2em] border",
+                               "px-2 md:px-3 py-1 md:py-1.5 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border",
                                pred.status === 'RESOLVED' ? "bg-success/10 text-success border-success/20" : "bg-warning/10 text-warning border-warning/20"
                             )}>
                                {pred.status}

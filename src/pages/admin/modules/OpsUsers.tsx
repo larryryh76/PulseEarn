@@ -201,7 +201,7 @@ const OpsUsers: React.FC = () => {
           <div className="overflow-x-auto no-scrollbar">
              <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
                 <thead>
-                   <tr className="bg-surface-bright border-b border-border">
+                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
@@ -214,35 +214,35 @@ const OpsUsers: React.FC = () => {
                       [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((user) => (
                       <tr key={user.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap cursor-pointer" onClick={() => setSelectedUser(user)}>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-4">
-                               <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-12 h-12 rounded-xl bg-surface-bright border border-border-bright" />
+                               <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-surface-bright border border-border-bright" />
                                <div>
-                                  <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
-                                  <p className="text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{user.email}</p>
+                                  <p className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
+                                  <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{user.email}</p>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8">
-                            <p className="text-sm font-mono font-bold text-text-primary">{(user.points || 0).toLocaleString()} <span className="text-[9px] opacity-40">PTS</span></p>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1">&asymp; {formatUSD((user.points || 0) / 1000)}</p>
+                         <td className="p-6 md:p-8">
+                            <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{(user.points || 0).toLocaleString()} <span className="text-[8px] md:text-[9px] opacity-40">PTS</span></p>
+                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-success mt-1">&asymp; {formatUSD((user.points || 0) / 1000)}</p>
                          </td>
-                         <td className="p-8">
-                            <div className="flex items-center gap-2 mb-1.5">
-                               <TrendingUp size={14} className="text-primary" />
-                               <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
+                         <td className="p-6 md:p-8">
+                            <div className="flex items-center gap-2 mb-1 md:mb-1.5">
+                               <TrendingUp size={12} className="text-primary md:w-[14px] md:h-[14px]" />
+                               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
                             </div>
-                            <p className="text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP Provisioned</p>
+                            <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP</p>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className={cn(
-                              "px-3 py-1 rounded text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
                               user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
                             )}>
                                {user.isBanned ? 'Restricted' : 'Authenticated'}
                             </div>
                          </td>
-                         <td className="p-8 text-right">
+                         <td className="p-6 md:p-8 text-right">
                             <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
                                <MoreVertical size={16} />
                             </button>
@@ -270,7 +270,7 @@ const OpsUsers: React.FC = () => {
                    <div className="p-8 border-b border-border flex items-center justify-between bg-surface-bright/50">
                       <div className="flex items-center gap-4">
                          <button onClick={() => { setSelectedUser(null); setIsEditing(false); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary mr-2"><ArrowLeft size={20} /></button>
-                         <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">Identity Inspection</h2>
+                         <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">User Details</h2>
                       </div>
                       <div className="flex items-center gap-3">
                          {!isEditing && (

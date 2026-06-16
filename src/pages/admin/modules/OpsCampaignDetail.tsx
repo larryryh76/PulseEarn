@@ -207,7 +207,7 @@ const OpsCampaignDetail: React.FC = () => {
                    <Card className="p-10 border-border space-y-8">
                       <div className="flex items-center gap-3">
                          <div className="w-1.5 h-6 bg-primary rounded-full" />
-                         <h2 className="text-xl font-bold uppercase italic">Operational Configuration</h2>
+                         <h2 className="text-xl font-bold uppercase italic">Campaign Configuration</h2>
                       </div>
                       <div className="grid grid-cols-2 gap-12">
                          <div className="space-y-6">
@@ -217,7 +217,7 @@ const OpsCampaignDetail: React.FC = () => {
                             </div>
                             <div>
                                <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Validation Mode</p>
-                               <p className="text-sm font-bold text-text-primary">{campaign.validationSettings?.manualReview ? 'MANUAL APPROVAL' : 'AUTOMATED'}</p>
+                               <p className="text-sm font-bold text-text-primary">{campaign.validationSettings?.manualReview ? 'Manual Review' : 'Automated Approval'}</p>
                             </div>
                          </div>
                          <div className="space-y-6">
@@ -237,9 +237,10 @@ const OpsCampaignDetail: React.FC = () => {
 
              {activeTab === 'TASKS' && (
                 <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                   <table className="w-full text-left">
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left min-w-[700px]">
                       <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border">
+                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Task Details</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Rewards</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Validation</th>
@@ -248,15 +249,32 @@ const OpsCampaignDetail: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-border">
                          {tasks.map(task => (
-                            <tr key={task.id} className="hover:bg-surface-bright/30 transition-colors group">
+                            <tr key={task.id} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
                                <td className="px-8 py-6">
-                                  <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{task.title}</p>
-                                  <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {task.id.slice(0,8)}</p>
+                                  <div className="flex items-center gap-4">
+                                     <div className={cn(
+                                        "w-8 h-8 rounded-lg border flex items-center justify-center transition-colors",
+                                        task.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
+                                     )}>
+                                        <Zap size={14} />
+                                     </div>
+                                     <div>
+                                        <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{task.title}</p>
+                                        <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {task.id.slice(0,8)}</p>
+                                     </div>
+                                  </div>
                                </td>
                                <td className="px-8 py-6">
-                                  <div className="flex items-center gap-2">
-                                     <Zap size={12} className="text-primary" />
-                                     <span className="text-xs font-mono font-bold">+{task.rewardAmount}</span>
+                                  <div className="flex items-center gap-3">
+                                     <div>
+                                        <p className="text-xs font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
+                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">Points</p>
+                                     </div>
+                                     <div className="w-px h-4 bg-border" />
+                                     <div>
+                                        <p className="text-xs font-mono font-bold text-primary">+{task.xpReward}</p>
+                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">XP</p>
+                                     </div>
                                   </div>
                                </td>
                                <td className="px-8 py-6">
@@ -281,7 +299,7 @@ const OpsCampaignDetail: React.FC = () => {
                          ))}
                          {tasks.length === 0 && (
                             <tr>
-                               <td colSpan={4} className="px-8 py-32 text-center">
+                               <td colSpan={4} className="px-8 py-20 text-center">
                                   <div className="max-w-xs mx-auto space-y-6">
                                      <div className="w-16 h-16 rounded-[2rem] bg-surface-bright border border-border flex items-center justify-center text-text-tertiary mx-auto">
                                         <Target size={32} />
@@ -301,13 +319,14 @@ const OpsCampaignDetail: React.FC = () => {
                       </tbody>
                    </table>
                 </div>
+                </div>
              )}
 
              {activeTab === 'STATS' && (
                 <div className="space-y-8">
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <Card className="p-10 border-border">
-                         <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Performance Curve</h3>
+                         <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Submission Activity</h3>
                          <div className="h-48 flex items-end gap-2">
                             {[40, 70, 45, 90, 65, 80, 100].map((h, i) => (
                                <div key={i} className="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary" style={{ height: `${h}%` }} />
@@ -340,9 +359,10 @@ const OpsCampaignDetail: React.FC = () => {
 
              {activeTab === 'PARTICIPANTS' && (
                 <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                   <table className="w-full text-left">
+                   <div className="overflow-x-auto">
+                   <table className="w-full text-left min-w-[500px]">
                       <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border">
+                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Joined</th>
@@ -353,7 +373,7 @@ const OpsCampaignDetail: React.FC = () => {
                             const userClaims = claims.filter(c => c.userId === uid);
                             const latestClaim = userClaims[0];
                             return (
-                               <tr key={uid} className="hover:bg-surface-bright/30 transition-colors group">
+                               <tr key={uid} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
                                   <td className="px-8 py-6">
                                      <p className="text-sm font-bold text-text-primary uppercase">{latestClaim.metadata?.username || 'Anonymous'}</p>
                                      <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{uid.slice(0, 12)}</p>
@@ -376,22 +396,24 @@ const OpsCampaignDetail: React.FC = () => {
                          )}
                       </tbody>
                    </table>
+                   </div>
                 </div>
              )}
 
              {activeTab === 'LEDGER' && (
                 <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
-                   <table className="w-full text-left">
+                   <div className="overflow-x-auto">
+                   <table className="w-full text-left min-w-[600px]">
                       <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Event</th>
+                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Log Entry</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
                             <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Time</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                          {claims.map(claim => (
-                            <tr key={claim.id} className="hover:bg-surface-bright/30 transition-colors group">
+                            <tr key={claim.id} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
                                <td className="px-8 py-6">
                                   <div className="flex items-center gap-3">
                                      <div className={cn(
@@ -419,6 +441,7 @@ const OpsCampaignDetail: React.FC = () => {
                          )}
                       </tbody>
                    </table>
+                   </div>
                 </div>
              )}
           </div>
@@ -449,7 +472,7 @@ const OpsCampaignDetail: React.FC = () => {
              </section>
 
              <section className="bg-surface border border-border p-8 rounded-[2.5rem] space-y-8 shadow-xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Sponsor Intel</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary px-1">Sponsor Information</h3>
                 <div className="space-y-6">
                    <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center overflow-hidden">

@@ -278,7 +278,7 @@ const SupportCenter: React.FC = () => {
                                 <span className="text-[9px] font-black text-success uppercase tracking-widest">Operational</span>
                              </div>
                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-text-primary uppercase">Reward Matrix</span>
+                                <span className="text-[10px] font-bold text-text-primary uppercase">Reward System</span>
                                 <span className="text-[9px] font-black text-success uppercase tracking-widest">Synchronized</span>
                              </div>
                              <div className="flex items-center justify-between">

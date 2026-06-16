@@ -10,14 +10,12 @@ import {
   Target,
   Plus,
   Edit3,
-  ExternalLink,
   ShieldAlert,
   ArrowRight,
   Trash2,
   Pause,
   Play,
-  FileText,
-  AlertTriangle
+  FileText
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -28,9 +26,7 @@ import {
   where,
   orderBy,
   updateDoc,
-  deleteDoc,
-  getDocs,
-  writeBatch
+  deleteDoc
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';

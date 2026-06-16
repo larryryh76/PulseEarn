@@ -157,9 +157,9 @@ const OpsEconomy: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3">
                 <BarChart3 size={20} className="text-primary" />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Economy Hub</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Economy Controls</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Platform liquidity management and administrative asset mutations.</p>
+             <p className="text-xs font-medium text-text-tertiary">Manage platform rewards, liquidity, and administrative adjustments.</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -167,22 +167,22 @@ const OpsEconomy: React.FC = () => {
                onClick={() => setIsConfiguring(true)}
                className="px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
              >
-                <Settings size={14} /> Rebalance Economy
+                <Settings size={14} /> Update Config
              </button>
              <button
                onClick={() => setIsAdjusting(true)}
                className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
              >
-                <RefreshCw size={14} /> Adjust Ledger
+                <RefreshCw size={14} /> Manual Adjustment
              </button>
           </div>
        </header>
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Point Supply (Sample)</p>
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total Points Supply</p>
              <p className="text-3xl font-mono font-bold text-text-primary mb-2">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-primary font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Liquid Economy</div>
+             <div className="flex items-center gap-2 text-primary font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
           </div>
           <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total USD Liability</p>
@@ -195,9 +195,9 @@ const OpsEconomy: React.FC = () => {
              <div className="flex items-center gap-2 text-indigo-400 font-bold text-[9px] uppercase tracking-[0.2em]"><TrendingUp size={12} /> Forecast Stakes</div>
           </div>
           <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">XP Provisioned</p>
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total XP Distributed</p>
              <p className="text-3xl font-mono font-bold text-text-primary mb-2">{(stats.totalXp || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-warning font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Progression</div>
+             <div className="flex items-center gap-2 text-warning font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> XP Reward Hub</div>
           </div>
        </div>
 
@@ -353,8 +353,8 @@ const OpsEconomy: React.FC = () => {
                             <RefreshCw size={28} />
                          </div>
                          <div>
-                            <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Economy Mutation</h3>
-                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Authorized Admin Logic Vector</p>
+                            <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Manual Adjustment</h3>
+                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Authorized Reward Update</p>
                          </div>
                       </div>
                       <button onClick={() => setIsAdjusting(false)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
@@ -365,7 +365,7 @@ const OpsEconomy: React.FC = () => {
                    <div className="p-10 space-y-10">
                       <div className="space-y-3">
                          <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1 flex items-center gap-2">
-                            <User size={12} /> Target User Identifier
+                            <User size={12} /> Target User ID
                          </label>
                          <input
                            value={adjustForm.userId}
@@ -422,7 +422,7 @@ const OpsEconomy: React.FC = () => {
                            isLoading={isSubmitting}
                            className="flex-1 py-6 rounded-2xl shadow-2xl italic font-black uppercase tracking-[0.2em] text-[11px]"
                          >
-                            Authorize Mutation
+                            Apply Adjustment
                          </Button>
                          <button
                            type="button"

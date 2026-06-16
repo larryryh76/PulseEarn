@@ -134,13 +134,22 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          </select>
                       </div>
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Validation Type</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Validation Mode</label>
                          <select
                            value={formData.verificationType}
                            onChange={e => setFormData({...formData, verificationType: e.target.value as VerificationType})}
                            className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
                          >
-                            {['automated', 'manual', 'proof', 'activity', 'link'].map(v => <option key={v} value={v} className="bg-surface uppercase">{v}</option>)}
+                            {[
+                               { id: 'manual', label: 'Manual Approval' },
+                               { id: 'automated', label: 'Instant Validation' },
+                               { id: 'proof', label: 'Screenshot / Proof' },
+                               { id: 'link', label: 'Link Verification' },
+                               { id: 'referral', label: 'Referral Check' },
+                               { id: 'prediction', label: 'Prediction Check' },
+                               { id: 'activity', label: 'Activity Check' },
+                               { id: 'timer', label: 'Time Based' }
+                            ].map(v => <option key={v.id} value={v.id} className="bg-surface">{v.label}</option>)}
                          </select>
                       </div>
                    </div>

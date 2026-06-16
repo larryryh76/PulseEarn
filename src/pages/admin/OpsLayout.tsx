@@ -222,7 +222,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
             </div>
          </header>
 
-         <main className="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12">
+         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-8 lg:p-12 pb-24 md:pb-12 safe-area-bottom">
             <AdminErrorBoundary>
                <div className="max-w-[1600px] mx-auto">
                   {children}

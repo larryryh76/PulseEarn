@@ -51,24 +51,24 @@ const OpsMissions: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Trophy size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Global Missions</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic text-text-primary">Global Missions</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Strategic platform-wide objectives and automated progression logic.</p>
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Strategic platform-wide objectives and automated progression logic.</p>
           </div>
 
           <button
             onClick={() => { setSelectedMission(null); setIsModalOpen(true); }}
-            className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+            className="w-full md:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
           >
              <Plus size={18} /> New Mission
           </button>
        </header>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {loading ? (
              [1,2,3,4,5,6].map(i => <div key={i} className="h-64 bg-surface-bright border border-border rounded-[2rem] animate-pulse" />)
           ) : missions.map((mission) => (
-             <div key={mission.id} className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl flex flex-col group hover:border-primary/30 transition-all duration-500 relative overflow-hidden">
+             <div key={mission.id} className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl flex flex-col group hover:border-primary/30 transition-all duration-500 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Trophy size={80} /></div>
 
                 <div className="flex justify-between items-start mb-6 relative z-10">

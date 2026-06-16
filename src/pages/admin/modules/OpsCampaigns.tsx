@@ -119,24 +119,24 @@ const OpsCampaigns: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3">
                 <Layers size={20} className="text-primary" />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Campaign Center</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic">Campaign Center</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Strategic lifecycle management for platform reward distribution.</p>
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Manage and organize platform reward campaigns and distribution.</p>
           </div>
 
-          <div className="flex items-center gap-4 w-full md:w-auto">
-             <div className="relative flex-1 md:w-80">
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+             <div className="relative w-full sm:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Filter campaigns by Name or ID..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
+                  placeholder="Scan directory..."
+                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-[11px] focus:border-primary/50 outline-none transition-all font-medium"
                 />
              </div>
              <button
                onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
-               className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+               className="w-full sm:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
              >
                 <Plus size={18} />
                 New Campaign

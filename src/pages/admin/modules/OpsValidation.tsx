@@ -138,47 +138,49 @@ const OpsValidation: React.FC = () => {
           ) : claims.length > 0 ? (
              claims.map((claim) => (
                 <div key={claim.id} className="p-8 rounded-[2rem] bg-surface border border-border hover:border-border-bright transition-all group relative overflow-hidden shadow-2xl">
-                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                      <div className="flex items-center gap-6">
-                         <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50 group-hover:text-primary transition-all shadow-inner">
+                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8">
+                      <div className="flex items-center gap-4 md:gap-6">
+                         <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50 group-hover:text-primary transition-all shadow-inner shrink-0">
                             <User size={24} />
                          </div>
-                         <div>
-                            <div className="flex items-center gap-3 mb-2">
-                               <h3 className="font-mono text-sm font-bold text-text-primary uppercase tracking-tighter">{claim.userId.slice(0, 24)}</h3>
-                               <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">Identified</span>
+                         <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
+                               <h3 className="font-mono text-[11px] md:text-sm font-bold text-text-primary uppercase tracking-tighter truncate max-w-[120px] md:max-w-none">
+                                  {claim.metadata?.username || claim.userId.slice(0, 16)}
+                               </h3>
+                               <span className="text-[8px] md:text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded border border-primary/20">Identified</span>
                             </div>
-                            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                               <div className="flex items-center gap-2 text-indigo-400">
-                                  <Zap size={12} />
-                                  {claim.taskId}
+                            <div className="flex flex-wrap items-center gap-3 md:gap-4 text-[8px] md:text-[10px] font-bold uppercase tracking-widest">
+                               <div className="flex items-center gap-1.5 md:gap-2 text-indigo-400 truncate max-w-[150px]">
+                                  <Zap size={10} className="md:w-3 md:h-3" />
+                                  {claim.metadata?.taskTitle || claim.taskId}
                                </div>
-                               <div className="w-1 h-1 rounded-full bg-surface-accent" />
-                               <div className="flex items-center gap-2 text-text-tertiary">
-                                  <Clock size={12} />
-                                  {claim.createdAt?.toDate?.()?.toLocaleString()}
+                               <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
+                               <div className="flex items-center gap-1.5 md:gap-2 text-text-tertiary">
+                                  <Clock size={10} className="md:w-3 md:h-3" />
+                                  {claim.createdAt?.toDate?.()?.toLocaleDateString()}
                                </div>
                             </div>
                          </div>
                       </div>
 
-                      <div className="flex-1 lg:max-w-md">
-                         <div className="p-5 rounded-2xl bg-surface-bright border border-border shadow-inner">
-                            <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-3">Submission Details</p>
+                      <div className="flex-1 lg:max-w-md w-full">
+                         <div className="p-4 md:p-5 rounded-2xl bg-surface-bright border border-border shadow-inner">
+                            <p className="text-[8px] md:text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-2 md:mb-3">Submission Details</p>
                             {claim.submittedProof ? (
                                <div className="flex items-center justify-between">
                                   {claim.submittedProof.startsWith('http') ? (
-                                     <div className="flex items-center gap-4 w-full">
-                                        <img src={claim.submittedProof} alt="" className="w-12 h-12 rounded-xl object-cover border border-border-bright" />
+                                     <div className="flex items-center gap-3 md:gap-4 w-full">
+                                        <img src={claim.submittedProof} alt="" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover border border-border-bright shrink-0" />
                                         <div className="min-w-0 flex-1">
-                                           <p className="text-[10px] text-text-secondary font-mono truncate mb-1">IMAGE_ATTACHMENT</p>
-                                           <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="text-[10px] font-black text-primary hover:underline uppercase flex items-center gap-2">
-                                              <ExternalLink size={12} /> View Original
+                                           <p className="text-[9px] md:text-[10px] text-text-secondary font-mono truncate mb-0.5 md:mb-1">IMAGE_ATTACHMENT</p>
+                                           <a href={claim.submittedProof} target="_blank" rel="noreferrer" className="text-[9px] md:text-[10px] font-black text-primary hover:underline uppercase flex items-center gap-1.5 md:gap-2">
+                                              <ExternalLink size={10} className="md:w-3 md:h-3" /> View Original
                                            </a>
                                         </div>
                                      </div>
                                   ) : (
-                                     <p className="text-xs font-mono text-text-secondary truncate">{claim.submittedProof}</p>
+                                     <p className="text-[11px] md:text-xs font-mono text-text-secondary truncate">{claim.submittedProof}</p>
                                   )}
                                </div>
                             ) : (
@@ -187,25 +189,25 @@ const OpsValidation: React.FC = () => {
                          </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 w-full lg:w-auto">
                          {claim.validationState === 'PENDING' ? (
                             <>
                                <button
                                  onClick={() => handleReview(claim.id, 'REJECTED')}
-                                 className="px-8 py-4 rounded-xl bg-danger/10 text-danger text-[10px] font-black uppercase tracking-[0.2em] hover:bg-danger/20 transition-all border border-danger/20"
+                                 className="flex-1 lg:flex-none px-6 md:px-8 py-3.5 md:py-4 rounded-xl bg-danger/10 text-danger text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] hover:bg-danger/20 transition-all border border-danger/20"
                                >
                                   Reject
                                </button>
                                <button
                                  onClick={() => handleReview(claim.id, 'APPROVED')}
-                                 className="px-8 py-4 rounded-xl bg-primary text-text-primary text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
+                                 className="flex-1 lg:flex-none px-6 md:px-8 py-3.5 md:py-4 rounded-xl bg-primary text-text-primary text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
                                >
                                   Approve
                                </button>
                             </>
                          ) : (
                             <div className={cn(
-                               "px-8 py-4 rounded-xl border font-black text-[10px] uppercase tracking-[0.3em] italic",
+                               "w-full lg:w-auto px-8 py-3.5 md:py-4 rounded-xl border font-black text-[9px] md:text-[10px] uppercase tracking-[0.3em] italic text-center",
                                claim.validationState === 'APPROVED' ? "bg-success/5 text-success border-success/20" : "bg-danger/5 text-danger border-danger/20"
                             )}>
                                {claim.validationState}

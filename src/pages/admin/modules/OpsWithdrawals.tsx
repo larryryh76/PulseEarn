@@ -136,14 +136,14 @@ const OpsWithdrawals: React.FC = () => {
              </div>
           </div>
 
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto no-scrollbar">
+             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Amount</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Destination</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Amount</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Destination</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -151,46 +151,46 @@ const OpsWithdrawals: React.FC = () => {
                       [1,2,3,4].map(i => <tr key={i} className="animate-pulse"><td colSpan={4} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((req) => (
                       <tr key={req.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50">
+                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary/50 group-hover:text-primary transition-colors">
                                   <User size={18} />
                                </div>
                                <div>
-                               <p className="text-sm font-bold text-text-primary uppercase italic leading-none mb-1">{req.username}</p>
-                               <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest">{req.userEmail}</p>
+                               <p className="text-xs md:text-sm font-bold text-text-primary uppercase italic leading-none mb-1">{req.username}</p>
+                               <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary uppercase tracking-widest">{req.userEmail}</p>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div>
-                               <p className="text-sm font-mono font-bold text-text-primary">{req.amountPoints.toLocaleString()} PTS</p>
-                               <p className="text-[9px] font-black uppercase tracking-widest text-success mt-1 italic">{formatUSD(req.amountUSD)}</p>
+                               <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{req.amountPoints.toLocaleString()} PTS</p>
+                               <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-success mt-1 italic">{formatUSD(req.amountUSD)}</p>
                             </div>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="space-y-1.5">
-                               <p className="text-[10px] font-mono text-text-secondary uppercase tracking-tighter truncate max-w-[200px]">{req.walletAddress}</p>
+                               <p className="text-[9px] md:text-[10px] font-mono text-text-secondary uppercase tracking-tighter truncate max-w-[200px]">{req.walletAddress}</p>
                                <div className="flex items-center gap-2">
                                   <div className="w-1 h-1 rounded-full bg-primary shadow-[0_0_5px_rgba(0,102,255,1)]" />
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-primary">{req.network}</span>
+                                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-primary">{req.network}</span>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8 text-right">
-                            <div className="flex justify-end gap-3 translate-x-4 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 transition-all">
+                         <td className="p-6 md:p-8 text-right">
+                            <div className="flex justify-end gap-3 translate-x-4 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 transition-all w-full lg:w-auto">
                                {req.status === 'PENDING' && (
                                   <>
                                      <button
                                        onClick={() => handleAction(req.id, 'REJECTED', req.userId)}
-                                       className="p-3 bg-danger/10 text-danger rounded-xl hover:bg-danger/20 transition-all border border-danger/20"
+                                       className="flex-1 lg:flex-none p-3 bg-danger/10 text-danger rounded-xl hover:bg-danger/20 transition-all border border-danger/20 flex items-center justify-center"
                                        title="Reject Withdrawal"
                                      >
                                         <XCircle size={18} />
                                      </button>
                                      <button
                                        onClick={() => handleAction(req.id, 'APPROVED', req.userId)}
-                                       className="p-3 bg-success/10 text-success rounded-xl hover:bg-success/20 transition-all border border-success/20 shadow-lg shadow-success/10"
+                                       className="flex-1 lg:flex-none p-3 bg-success/10 text-success rounded-xl hover:bg-success/20 transition-all border border-success/20 shadow-lg shadow-success/10 flex items-center justify-center"
                                        title="Approve Withdrawal"
                                      >
                                         <CheckCircle size={18} />
@@ -200,13 +200,13 @@ const OpsWithdrawals: React.FC = () => {
                                {req.status === 'APPROVED' && (
                                   <button
                                     onClick={() => handleAction(req.id, 'PAID', req.userId)}
-                                    className="px-6 py-3 bg-primary text-text-primary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
+                                    className="flex-1 lg:flex-none px-6 py-3 bg-primary text-text-primary text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 italic"
                                   >
                                      Confirm Payout
                                   </button>
                                )}
                                {req.status === 'PAID' && (
-                                  <div className="px-6 py-3 bg-surface-bright border border-border-bright rounded-xl text-[10px] font-black uppercase tracking-widest text-text-tertiary italic">
+                                  <div className="flex-1 lg:flex-none px-6 py-3 bg-surface-bright border border-border-bright rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary italic text-center">
                                      Settlement Closed
                                   </div>
                                )}

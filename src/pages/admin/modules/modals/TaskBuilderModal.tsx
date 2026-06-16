@@ -37,7 +37,33 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
   });
 
   React.useEffect(() => {
-    if (initialTask) setFormData(initialTask);
+    if (isOpen) {
+      if (initialTask) {
+        setFormData(prev => ({ ...prev, ...initialTask }));
+      } else {
+        // Reset to defaults if no initial task and just opening
+        setFormData({
+          title: '',
+          description: '',
+          instructions: '',
+          campaignId: '',
+          category: 'ENGAGEMENT' as TaskCategory,
+          verificationType: 'manual' as VerificationType,
+          rewardAmount: 100,
+          xpReward: 50,
+          platform: 'NONE' as SocialPlatform,
+          active: true,
+          status: 'ACTIVE',
+          minLevel: 1,
+          estimatedTime: '2 mins',
+          fraudProtection: {
+            duplicatePrevention: true,
+            abuseDetection: true,
+            multiAccountDetection: true
+          }
+        });
+      }
+    }
   }, [initialTask, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,7 +142,16 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                         required value={formData.instructions}
                         onChange={e => setFormData({...formData, instructions: e.target.value})}
                         placeholder="Step-by-step instructions for the user..."
-                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 md:p-6 text-sm text-text-primary h-32 md:h-32 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-5 md:p-6 text-sm text-text-primary h-24 md:h-24 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed"
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Action URL (Destination)</label>
+                      <input
+                        value={formData.actionUrl || ''}
+                        onChange={e => setFormData({...formData, actionUrl: e.target.value})}
+                        placeholder="https://..."
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 md:p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
                       />
                    </div>
                 </div>
@@ -153,6 +188,18 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          </select>
                       </div>
                    </div>
+
+                   {formData.verificationType === 'proof' && (
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Proof Requirements</label>
+                         <textarea
+                           value={formData.proofRequirements || ''}
+                           onChange={e => setFormData({...formData, proofRequirements: e.target.value})}
+                           placeholder="Describe what the user should upload..."
+                           className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 text-sm text-text-primary h-20 resize-none focus:border-primary/50 outline-none transition-all font-medium"
+                         />
+                      </div>
+                   )}
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                       <div className="space-y-2">

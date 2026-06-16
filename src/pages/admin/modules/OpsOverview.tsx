@@ -103,18 +103,18 @@ const OpsOverview: React.FC = () => {
     <div
       onClick={() => path && navigate(path)}
       className={cn(
-        "bg-surface border border-border p-6 rounded-xl hover:border-border-bright transition-all group shadow-2xl",
+        "bg-surface border border-border p-5 md:p-6 rounded-xl hover:border-border-bright transition-all group shadow-2xl",
         path && "cursor-pointer hover:bg-surface-bright"
       )}
     >
-       <div className="flex justify-between items-start mb-4">
-          <div className={cn("p-2.5 rounded-lg bg-surface-bright transition-transform group-hover:scale-110 shadow-inner", color)}>
-             {React.createElement(icon, { size: 18 })}
+       <div className="flex justify-between items-start mb-3 md:mb-4">
+          <div className={cn("p-2 md:p-2.5 rounded-lg bg-surface-bright transition-transform group-hover:scale-110 shadow-inner", color)}>
+             {React.createElement(icon, { size: 16 })}
           </div>
-          {path && <div className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50 group-hover:text-primary transition-colors">View Details</div>}
+          {path && <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50 group-hover:text-primary transition-colors">Audit</div>}
        </div>
-       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-1">{label}</p>
-       <p className="text-2xl font-mono font-bold tracking-tighter">
+       <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-0.5 md:mb-1 truncate">{label}</p>
+       <p className="text-xl md:text-2xl font-mono font-bold tracking-tighter truncate">
           {loading ? '---' : typeof value === 'number' ? value.toLocaleString() : value}
        </p>
     </div>
@@ -126,23 +126,23 @@ const OpsOverview: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <Terminal size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Admin Overview</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic text-text-primary">Overview</h1>
              </div>
-             <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
                 <span className="flex items-center gap-2">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                   System Status: Online
+                   System: Online
                 </span>
-                <span className="w-1 h-1 rounded-full bg-surface-accent" />
-                <span>Last Synced: {lastSync.toLocaleTimeString()}</span>
+                <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
+                <span>Sync: {lastSync.toLocaleTimeString()}</span>
              </div>
           </div>
           <button
             onClick={fetchOperationalData}
-            className="px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
+            className="w-full md:w-auto px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
-             Refresh Data
+             Refresh Feed
           </button>
        </header>
 
@@ -207,59 +207,59 @@ const OpsOverview: React.FC = () => {
        </div>
 
        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-10 space-y-10 shadow-2xl">
+          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-6 md:p-10 space-y-8 md:space-y-10 shadow-2xl">
              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
-                   <Activity size={18} className="text-primary" />
+                <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
+                   <Activity size={16} className="text-primary" />
                    Recent Transactions
                 </h3>
              </div>
              <div className="space-y-1">
                 {recentLedger.length > 0 ? recentLedger.map((tx) => (
-                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-5 border-b border-border last:border-0 hover:bg-surface-bright/50 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-5">
+                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-4 md:p-5 border-b border-border last:border-0 hover:bg-surface-bright/50 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4 md:gap-5">
                          <div className={cn(
                            "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
                            tx.amount >= 0 ? "bg-success" : "bg-danger"
                          )} />
                          <div>
-                            <p className="text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                            <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 12).toUpperCase()}</p>
+                            <p className="text-[11px] md:text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                            <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 10).toUpperCase()}</p>
                          </div>
                       </div>
                       <div className="text-right">
-                         <p className={cn("text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                         <p className={cn("text-[11px] md:text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
                            {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
                          </p>
-                         <p className="text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                         <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
                       </div>
                    </div>
                 )) : (
-                  <div className="py-20 text-center opacity-20 text-[10px] font-black uppercase tracking-widest">
+                  <div className="py-20 text-center opacity-20 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                     No recent transactions
                   </div>
                 )}
              </div>
           </div>
 
-          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-10 flex flex-col justify-between group shadow-2xl">
-             <div className="space-y-8">
+          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-6 md:p-10 flex flex-col justify-between group shadow-2xl">
+             <div className="space-y-6 md:space-y-8">
                 <div className="flex items-center justify-between">
-                   <div className="w-14 h-14 rounded-2xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 group-hover:scale-110 transition-transform shadow-2xl shadow-danger/5">
-                      <ShieldAlert size={28} />
+                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 group-hover:scale-110 transition-transform shadow-2xl shadow-danger/5">
+                      <ShieldAlert size={24} />
                    </div>
-                   <div className="px-3 py-1 rounded-lg bg-danger/10 text-danger border border-danger/20 text-[8px] font-black uppercase tracking-widest">
+                   <div className="px-3 py-1 rounded-lg bg-danger/10 text-danger border border-danger/20 text-[7px] md:text-[8px] font-black uppercase tracking-widest">
                       SYSTEM_SECURE
                    </div>
                 </div>
-                <div className="space-y-3">
-                   <h3 className="text-2xl font-bold text-text-primary uppercase italic tracking-tighter">Security Alerts</h3>
-                   <p className="text-xs text-text-tertiary leading-relaxed font-medium">System detected <span className="text-danger font-bold">{stats.fraudAnomalies}</span> security alerts requiring administrative review.</p>
+                <div className="space-y-2 md:space-y-3">
+                   <h3 className="text-xl md:text-2xl font-bold text-text-primary uppercase italic tracking-tighter">Security Alerts</h3>
+                   <p className="text-[11px] md:text-xs text-text-tertiary leading-relaxed font-medium">System detected <span className="text-danger font-bold">{stats.fraudAnomalies}</span> security alerts requiring administrative review.</p>
                 </div>
              </div>
              <button
                onClick={() => navigate('/admin/security')}
-               className="w-full py-5 mt-10 bg-danger/10 text-danger border border-danger/20 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-danger/20 transition-all italic"
+               className="w-full py-4 md:py-5 mt-8 md:mt-10 bg-danger/10 text-danger border border-danger/20 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] hover:bg-danger/20 transition-all italic"
              >
                 Review Security
              </button>

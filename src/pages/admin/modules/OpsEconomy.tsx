@@ -157,47 +157,47 @@ const OpsEconomy: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3">
                 <BarChart3 size={20} className="text-primary" />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic">Economy Controls</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic">Economy Controls</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Manage platform rewards, liquidity, and administrative adjustments.</p>
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Manage platform rewards, liquidity, and administrative adjustments.</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
              <button
                onClick={() => setIsConfiguring(true)}
-               className="px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center gap-2"
+               className="w-full sm:w-auto px-6 md:px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
              >
                 <Settings size={14} /> Update Config
              </button>
              <button
                onClick={() => setIsAdjusting(true)}
-               className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+               className="w-full sm:w-auto px-6 md:px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
              >
-                <RefreshCw size={14} /> Manual Adjustment
+                <RefreshCw size={14} /> Adjustment
              </button>
           </div>
        </header>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total Points Supply</p>
-             <p className="text-3xl font-mono font-bold text-text-primary mb-2">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-primary font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total Points Supply</p>
+             <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
+             <div className="flex items-center gap-2 text-primary font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
           </div>
-          <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total USD Liability</p>
-             <p className="text-3xl font-mono font-bold text-text-primary mb-2">{formatUSD((stats.ecosystemPoints || 0) / 1000)}</p>
-             <div className="flex items-center gap-2 text-success font-bold text-[9px] uppercase tracking-[0.2em]"><DollarSign size={12} /> Payout Exposure</div>
+          <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">USD Liability</p>
+             <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{formatUSD((stats.ecosystemPoints || 0) / 1000)}</p>
+             <div className="flex items-center gap-2 text-success font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><DollarSign size={12} /> Payout Exposure</div>
           </div>
-          <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Market Liability</p>
-             <p className="text-3xl font-mono font-bold text-text-primary mb-2">{(stats.predictionLiability || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-indigo-400 font-bold text-[9px] uppercase tracking-[0.2em]"><TrendingUp size={12} /> Forecast Stakes</div>
+          <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Prediction Liability</p>
+             <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.predictionLiability || 0)?.toLocaleString()}</p>
+             <div className="flex items-center gap-2 text-indigo-400 font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><TrendingUp size={12} /> Forecast Stakes</div>
           </div>
-          <div className="bg-surface border border-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-4">Total XP Distributed</p>
-             <p className="text-3xl font-mono font-bold text-text-primary mb-2">{(stats.totalXp || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-warning font-bold text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> XP Reward Hub</div>
+          <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total XP Distributed</p>
+             <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.totalXp || 0)?.toLocaleString()}</p>
+             <div className="flex items-center gap-2 text-warning font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> XP Reward Hub</div>
           </div>
        </div>
 
@@ -269,14 +269,14 @@ const OpsEconomy: React.FC = () => {
                   exit={{ scale: 0.95, opacity: 0, y: 30 }}
                   className="relative w-full max-w-2xl bg-surface border border-border-bright rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,1)] overflow-hidden flex flex-col"
                 >
-                   <div className="p-10 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                      <div className="flex items-center gap-6">
-                         <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                            <Settings size={28} />
+                   <div className="p-6 md:p-10 border-b border-border flex items-center justify-between bg-surface-bright/50">
+                      <div className="flex items-center gap-4 md:gap-6">
+                         <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
+                            <Settings size={24} className="md:w-7 md:h-7" />
                          </div>
                          <div>
-                            <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Economy Rebalance</h3>
-                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Global Variable Control Hub</p>
+                            <h3 className="text-lg md:text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-1 md:mb-2">Economy Rebalance</h3>
+                            <p className="text-text-secondary text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Global Variable Control Hub</p>
                          </div>
                       </div>
                       <button onClick={() => setIsConfiguring(false)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
@@ -347,14 +347,14 @@ const OpsEconomy: React.FC = () => {
                   exit={{ scale: 0.95, opacity: 0, y: 30 }}
                   className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,1)] overflow-hidden flex flex-col"
                 >
-                   <div className="p-10 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                      <div className="flex items-center gap-6">
-                         <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                            <RefreshCw size={28} />
+                   <div className="p-6 md:p-10 border-b border-border flex items-center justify-between bg-surface-bright/50">
+                      <div className="flex items-center gap-4 md:gap-6">
+                         <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
+                            <RefreshCw size={24} className="md:w-7 md:h-7" />
                          </div>
                          <div>
-                            <h3 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-2">Manual Adjustment</h3>
-                            <p className="text-text-secondary text-[10px] font-black uppercase tracking-widest leading-none">Authorized Reward Update</p>
+                            <h3 className="text-lg md:text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-none mb-1 md:mb-2">Adjustment</h3>
+                            <p className="text-text-secondary text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Authorized Reward Update</p>
                          </div>
                       </div>
                       <button onClick={() => setIsAdjusting(false)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">

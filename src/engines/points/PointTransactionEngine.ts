@@ -97,7 +97,7 @@ export class PointTransactionEngine {
         const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
         const newLevel = calculateLevel(newXp);
 
-        // 7. Atomic Mutation
+        // 7. Atomic Write
         const updates: any = {
           points: increment(amount),
           xp: newXp,

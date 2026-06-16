@@ -106,11 +106,20 @@ export class UploadEngine {
         if (isCancelled) return;
         console.error('[UploadEngine] Storage Error:', error);
 
-        let message = 'Upload failed';
-        if (error.code === 'storage/unauthorized') message = 'Permission denied. Please log in again.';
-        else if (error.code === 'storage/canceled') return;
-        else if (error.code === 'storage/quota-exceeded') message = 'Storage quota exceeded.';
-        else message = error.message;
+        // Detailed error reporting for Admin visibility
+        let message = `Upload Failed: ${error.message}`;
+
+        if (error.code === 'storage/unauthorized') {
+          message = 'Storage Error: Permission denied. Verify storage security rules and authentication status.';
+        } else if (error.code === 'storage/canceled') {
+          return; // No error state for manual cancellation
+        } else if (error.code === 'storage/quota-exceeded') {
+          message = 'Storage Error: Project quota exceeded. Check Firebase billing.';
+        } else if (error.code === 'storage/object-not-found') {
+          message = 'Storage Error: Target path not found.';
+        } else if (error.code === 'storage/retry-limit-exceeded') {
+          message = 'Storage Error: Connection timed out. Please try again on a stable network.';
+        }
 
         onProgress({ id: uploadId, progress: 0, status: 'ERROR', error: message, fileName: file.name });
       },

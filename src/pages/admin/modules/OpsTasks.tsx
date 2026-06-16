@@ -89,8 +89,8 @@ const OpsTasks: React.FC = () => {
                   {campaignIdFilter ? 'Campaign Tasks' : 'Global Task Library'}
                 </h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">
-               {campaignIdFilter ? `Viewing tasks linked to campaign ID: ${campaignIdFilter}` : 'Manage and organize tasks available across the platform.'}
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">
+               {campaignIdFilter ? `Viewing tasks linked to campaign ID: ${campaignIdFilter}` : 'Manage and organize the platform task library.'}
              </p>
           </div>
 
@@ -117,16 +117,16 @@ const OpsTasks: React.FC = () => {
           </div>
        </header>
 
-       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
+          <div className="overflow-x-auto no-scrollbar">
+             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Task Details</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Verification</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Rewards</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Task Details</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Verification</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Rewards</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -134,48 +134,48 @@ const OpsTasks: React.FC = () => {
                       [1,2,3,4,5].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((task) => (
                       <tr key={task.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-4">
                                <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all">
                                   <Zap size={18} />
                                </div>
                                <div>
-                                  <p className="text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
+                                  <p className="text-xs md:text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
                                   <p className="text-[9px] font-mono text-text-tertiary mt-1">ID: {task.id.slice(0, 16).toUpperCase()}</p>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-2">
                                <MousePointer2 size={12} className="text-indigo-400" />
-                               <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
+                               <span className="text-[9px] md:text-[10px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
                             </div>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <div className="flex items-center gap-5">
                                <div>
-                                  <p className="text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">Points</p>
+                                  <p className="text-xs md:text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
+                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">Points</p>
                                </div>
                                <div className="w-px h-6 bg-surface-bright" />
                                <div>
-                                  <p className="text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
-                                  <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">XP</p>
+                                  <p className="text-xs md:text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
+                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">XP</p>
                                </div>
                             </div>
                          </td>
-                         <td className="p-8">
+                         <td className="p-6 md:p-8">
                             <button
                               onClick={() => handleToggleStatus(task)}
                               className={cn(
-                                "px-3 py-1 rounded text-[9px] font-black uppercase tracking-[0.2em] border",
+                                "px-3 py-1 rounded text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] border",
                                 task.active ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
                               )}
                             >
                                {task.active ? 'Active' : 'Suspended'}
                             </button>
                          </td>
-                         <td className="p-8 text-right">
+                         <td className="p-6 md:p-8 text-right">
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                <button
                                  onClick={() => { setSelectedTask(task); setIsModalOpen(true); }}

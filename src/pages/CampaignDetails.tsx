@@ -17,9 +17,9 @@ import {
   ShieldCheck,
   Info,
   ChevronRight,
-  X
+  X,
+  FileText
 } from 'lucide-react';
-import MediaUploader from '../components/admin/MediaUploader';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import { cn } from '../utils';
@@ -423,14 +423,7 @@ const CampaignDetails: React.FC = () => {
                       <div className="space-y-4">
                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Submission Requirement</label>
                         <div className="bg-background/40 rounded-2xl border border-border overflow-hidden shadow-inner">
-                          {selectedTask.verificationType === 'proof' ? (
-                             <MediaUploader
-                                label="Upload Screenshot Proof"
-                                value={proof[selectedTask.id]}
-                                onChange={(url) => setProof(prev => ({ ...prev, [selectedTask.id]: url }))}
-                                path={`proofs/${currentUser!.uid}`}
-                             />
-                          ) : selectedTask.verificationType === 'link' ? (
+                          {selectedTask.verificationType === 'link' ? (
                              <div className="relative group">
                                 <LinkIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors" size={16} />
                                 <input
@@ -442,12 +435,15 @@ const CampaignDetails: React.FC = () => {
                                 />
                              </div>
                           ) : (
-                             <textarea
-                               value={proof[selectedTask.id] || ''}
-                               onChange={(e) => setProof(prev => ({ ...prev, [selectedTask.id]: e.target.value }))}
-                               placeholder={selectedTask.proofRequirements || "Enter required submission details..."}
-                               className="w-full bg-transparent border-0 px-8 py-6 text-sm font-medium text-text-primary focus:outline-none transition-all min-h-[120px] resize-none placeholder:text-text-primary/5"
-                             />
+                             <div className="relative group">
+                                <FileText className="absolute left-6 top-6 text-text-tertiary" size={16} />
+                                <textarea
+                                  value={proof[selectedTask.id] || ''}
+                                  onChange={(e) => setProof(prev => ({ ...prev, [selectedTask.id]: e.target.value }))}
+                                  placeholder={selectedTask.verificationType === 'proof' ? "Enter description of proof (Image upload disabled)" : (selectedTask.proofRequirements || "Enter required submission details...")}
+                                  className="w-full bg-transparent border-0 pl-14 pr-8 py-6 text-sm font-medium text-text-primary focus:outline-none transition-all min-h-[120px] resize-none placeholder:text-text-primary/5"
+                                />
+                             </div>
                           )}
                         </div>
                       </div>

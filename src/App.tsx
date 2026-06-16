@@ -13,7 +13,6 @@ import Notifications from './pages/Notifications'
 import CampaignDetails from './pages/CampaignDetails'
 import SupportCenter from './pages/SupportCenter'
 import OpsLayout from './pages/admin/OpsLayout'
-import UploadTest from './pages/admin/UploadTest'
 import {
   OpsOverview as AdminOverview,
   OpsCampaigns as AdminCampaigns,
@@ -177,7 +176,6 @@ function App() {
         <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
         <Route path="/admin/missions" element={<AdminRoute><OpsLayout><AdminMissions /></OpsLayout></AdminRoute>} />
         <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/upload-test" element={<AdminRoute><OpsLayout><UploadTest /></OpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

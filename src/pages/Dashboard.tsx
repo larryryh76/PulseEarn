@@ -678,7 +678,7 @@ const Dashboard: React.FC = () => {
                       </div>
 
                       <div className="p-5 rounded-2xl bg-surface-bright border border-border space-y-2">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Provision</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">XP Reward</p>
                          <div className="flex items-baseline gap-1.5">
                             <span className="text-xl font-mono font-bold text-primary">{selectedTask.xp?.toLocaleString() || '100'}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>

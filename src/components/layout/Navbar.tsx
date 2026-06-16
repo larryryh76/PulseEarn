@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
 
   const actionableCampaignCount = campaigns.filter(c => {
     if (!c.active) return false;
-    const campaignTasks = tasks.filter(t => c.taskIds?.includes(t.id));
+    const campaignTasks = tasks.filter(t => t.campaignId === c.id);
     return campaignTasks.some(t => {
        const status = userTasks[t.id]?.status || 'available';
        return status === 'available' || status === 'rejected';

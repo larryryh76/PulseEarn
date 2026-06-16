@@ -55,14 +55,19 @@ const CampaignDetails: React.FC = () => {
           setCampaign(campData);
 
           // Fetch Tasks for this campaign
-          if (campData.taskIds?.length > 0) {
-            const tasksQ = query(collection(db, 'tasks'), where('id', 'in', campData.taskIds));
-            const tasksSnap = await getDocs(tasksQ);
-            const tasksData = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-            setTasks(tasksData);
+          const tasksQ = query(collection(db, 'tasks'), where('campaignId', '==', id));
+          const tasksSnap = await getDocs(tasksQ);
+          const tasksData = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
+          setTasks(tasksData);
 
-            // Fetch Claims for these tasks
-            const claimsQ = query(collection(db, 'task_claims'), where('userId', '==', currentUser.uid), where('taskId', 'in', campData.taskIds));
+          // Fetch Claims for these tasks
+          if (tasksData.length > 0) {
+            const taskIds = tasksData.map(t => t.id);
+            const claimsQ = query(
+              collection(db, 'task_claims'),
+              where('userId', '==', currentUser.uid),
+              where('taskId', 'in', taskIds)
+            );
             const claimsSnap = await getDocs(claimsQ);
             const claimsMap: Record<string, TaskClaim> = {};
             claimsSnap.docs.forEach(d => {
@@ -188,7 +193,7 @@ const CampaignDetails: React.FC = () => {
                      </div>
                      <div>
                         <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-0.5">Tasks</p>
-                        <p className="text-xl font-mono font-bold text-text-primary">{campaign.taskIds?.length || 0}</p>
+                        <p className="text-xl font-mono font-bold text-text-primary">{tasks.length}</p>
                      </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -454,7 +459,7 @@ const CampaignDetails: React.FC = () => {
                         variant="primary"
                         className="w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl group italic"
                       >
-                        {claims[selectedTask.id]?.validationState === 'PENDING' ? 'Processing Signal...' : claims[selectedTask.id]?.validationState === 'APPROVED' ? 'Vector Finalized' : 'Authorize Provision'}
+                        {claims[selectedTask.id]?.validationState === 'PENDING' ? 'Verifying...' : claims[selectedTask.id]?.validationState === 'APPROVED' ? 'Completed' : 'Submit Proof'}
                         {!claims[selectedTask.id] && <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />}
                       </Button>
                     </div>

@@ -119,7 +119,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-      <div className="pt-24 md:pt-32 pb-24 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
+      <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
         {/* HEADER */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 md:gap-12">
           <motion.div
@@ -251,14 +251,14 @@ const Dashboard: React.FC = () => {
                   </Link>
                </div>
 
-               <div className="relative -mx-6 px-6 overflow-x-auto no-scrollbar pb-8">
-                  <div className="flex gap-5 min-w-max">
+               <div className="relative -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto no-scrollbar pb-8">
+                  <div className="flex gap-4 md:gap-5 min-w-max">
                      {discoveredTasks.map((item) => (
                         <motion.div
                            key={item.id}
                            whileHover={{ y: -5 }}
                            className={cn(
-                              "w-80 p-6 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group",
+                              "w-[280px] md:w-80 p-6 rounded-[2rem] md:rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group",
                               item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright"
                            )}
                            onClick={() => {
@@ -331,8 +331,8 @@ const Dashboard: React.FC = () => {
             </section>
 
             {/* DASHBOARD ANALYTICS / STATS OVERVIEW */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-8 rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-8 group hover:border-primary/20 transition-all">
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-6 md:space-y-8 group hover:border-primary/20 transition-all">
                    <div className="flex justify-between items-start">
                       <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
                          <TrendingUp size={20} />
@@ -348,7 +348,7 @@ const Dashboard: React.FC = () => {
                    </div>
                 </div>
 
-                <div className="p-8 rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-8 group hover:border-orange-500/20 transition-all">
+                <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-6 md:space-y-8 group hover:border-orange-500/20 transition-all">
                    <div className="flex justify-between items-start">
                       <div className="w-12 h-12 rounded-2xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center text-orange-500">
                          <Flame size={20} />
@@ -457,7 +457,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* COMPLETED SUMMARY / NEXT MILESTONE */}
-            <section className="p-8 rounded-[2.5rem] bg-surface border border-border relative overflow-hidden group">
+            <section className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface border border-border relative overflow-hidden group">
                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
                   <Trophy size={80} />
                </div>

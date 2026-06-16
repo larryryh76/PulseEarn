@@ -66,94 +66,93 @@ export class UploadEngineV2 {
     file: File,
     options: UploadOptions,
     onProgress: UploadCallback
-  ): { task: UploadTask; uploadId: string; cancel: () => void } {
-    console.log(`[UploadEngine] Initializing upload for: ${file.name} (${file.size} bytes)`);
+  ): { uploadId: string; cancel: () => void } {
     const user = auth.currentUser;
-    if (!user) {
-      console.error('[UploadEngine] Error: Authentication required.');
-      throw new Error('Authentication required for uploads.');
-    }
+    if (!user) throw new Error('Authentication required');
 
-    const uploadId = `upl_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const fileName = `${uploadId}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    const storagePath = `${options.path}/${fileName}`;
+    const uploadId = `upl_${Date.now()}`;
+    let isCancelled = false;
+    let transport: XMLHttpRequest | UploadTask | null = null;
 
-    // 1. Initial State
-    onProgress({
-      id: uploadId,
-      progress: 0,
-      status: 'VALIDATING',
-      fileName: file.name
-    });
+    const cancel = () => {
+      isCancelled = true;
+      if (transport) {
+        if ('abort' in transport) transport.abort();
+        else transport.cancel();
+      }
+      onProgress({ id: uploadId, progress: 0, status: 'CANCELLED', fileName: file.name });
+    };
+
+    onProgress({ id: uploadId, progress: 0, status: 'VALIDATING', fileName: file.name });
 
     try {
       this.validate(file, options);
     } catch (err: any) {
-      onProgress({
-        id: uploadId,
-        progress: 0,
-        status: 'ERROR',
-        error: err.message,
-        fileName: file.name
-      });
-      throw err;
+      onProgress({ id: uploadId, progress: 0, status: 'ERROR', error: err.message, fileName: file.name });
+      return { uploadId, cancel: () => {} };
     }
 
-    const storageRef = ref(storage, storagePath);
-    console.log(`[UploadEngine] Storage Path: ${storagePath}`);
+    // 1. Attempt Industrial Python Backend
+    const runPythonUpload = () => {
+      const xhr = new XMLHttpRequest();
+      transport = xhr;
 
-    const uploadTask = uploadBytesResumable(storageRef, file);
+      const apiEndpoint = window.location.hostname === 'localhost' ? 'http://localhost:5000/api/upload' : '/api/upload';
+      xhr.open('POST', apiEndpoint, true);
 
-    // 2. Event Subscription
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        console.log(`[UploadEngine] ${uploadId} Progress: ${progress.toFixed(2)}% (${snapshot.state})`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const progress = (e.loaded / e.total) * 100;
+          onProgress({ id: uploadId, progress, status: 'UPLOADING', fileName: file.name });
+        }
+      };
 
-        let status: UploadStatus = 'UPLOADING';
-        if (snapshot.state === 'paused') status = 'IDLE';
-        if (snapshot.state === 'running' && progress === 100) status = 'FINALIZING';
+      xhr.onload = async () => {
+        if (isCancelled) return;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const result = JSON.parse(xhr.responseText);
+          onProgress({ id: uploadId, progress: 100, status: 'SUCCESS', downloadUrl: result.downloadUrl, fileName: file.name });
+        } else {
+          console.warn('[UploadEngine] Python backend failed, attempting fallback');
+          runFallback();
+        }
+      };
 
-        onProgress({
-          id: uploadId,
-          progress,
-          status,
-          fileName: file.name
-        });
-      },
-      async (error) => {
-        console.error(`[UploadEngine] Task ${uploadId} failed:`, error.code, error.message);
+      xhr.onerror = () => {
+        if (isCancelled) return;
+        runFallback();
+      };
 
-        const status = error.code === 'storage/canceled' ? 'CANCELLED' : 'ERROR';
-        onProgress({
-          id: uploadId,
-          progress: 0,
-          status,
-          error: error.message,
-          fileName: file.name
-        });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.uid);
+      formData.append('path', options.path);
+      formData.append('metadata', JSON.stringify(options.metadata || {}));
+      xhr.send(formData);
+    };
 
-        // Log failure to Firestore
-        await this.persistMetadata({
-          uploadId,
-          userId: user.uid,
-          userEmail: user.email || '',
-          storagePath,
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          status: 'FAILED',
-          metadata: { ...options.metadata, errorCode: error.code }
-        });
-      },
-      async () => {
-        // 3. Completion
-        console.log(`[UploadEngine] ${uploadId} successfully uploaded to storage.`);
-        try {
+    // 2. Client-side Fallback
+    const runFallback = () => {
+      if (isCancelled) return;
+      const fileName = `${uploadId}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const storagePath = `${options.path}/${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      transport = uploadTask;
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          onProgress({ id: uploadId, progress, status: 'UPLOADING', fileName: file.name });
+        },
+        (error) => {
+          if (isCancelled) return;
+          onProgress({ id: uploadId, progress: 0, status: 'ERROR', error: error.message, fileName: file.name });
+        },
+        async () => {
+          if (isCancelled) return;
           const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-          console.log(`[UploadEngine] ${uploadId} Download URL retrieved: ${downloadUrl}`);
-
           await this.persistMetadata({
             uploadId,
             userId: user.uid,
@@ -163,34 +162,16 @@ export class UploadEngineV2 {
             fileName: file.name,
             fileType: file.type,
             fileSize: file.size,
-            status: 'COMPLETED',
-            metadata: options.metadata
+            status: 'COMPLETED'
           });
-
-          onProgress({
-            id: uploadId,
-            progress: 100,
-            status: 'SUCCESS',
-            downloadUrl,
-            fileName: file.name
-          });
-        } catch (err: any) {
-          onProgress({
-            id: uploadId,
-            progress: 100,
-            status: 'ERROR',
-            error: err.message,
-            fileName: file.name
-          });
+          onProgress({ id: uploadId, progress: 100, status: 'SUCCESS', downloadUrl, fileName: file.name });
         }
-      }
-    );
-
-    return {
-      task: uploadTask,
-      uploadId,
-      cancel: () => uploadTask.cancel()
+      );
     };
+
+    runPythonUpload();
+
+    return { uploadId, cancel };
   }
 
   private static async persistMetadata(data: any) {

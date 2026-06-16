@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { UploadProgress, UploadOptions, UploadEngineV2 } from '../engines/upload/UploadEngineV2';
+import { UploadProgress, UploadOptions, UploadEngine } from '../engines/upload/UploadEngine';
 
 interface StartUploadResult {
   uploadId: string;
@@ -38,7 +38,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const promise = new Promise<string>((resolve, reject) => {
       try {
-        const { uploadId, cancel } = UploadEngineV2.startUpload(file, options, (progress) => {
+        const { uploadId, cancel } = UploadEngine.startUpload(file, options, (progress) => {
           updateUpload(progress.id, progress);
 
           if (progress.status === 'SUCCESS' && progress.downloadUrl) {

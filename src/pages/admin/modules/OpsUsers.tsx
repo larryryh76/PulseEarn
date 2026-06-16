@@ -75,7 +75,7 @@ const OpsUsers: React.FC = () => {
       const action = amount >= 0 ? 'GRANT' : 'REVOKE';
       if (!window.confirm(`AUTHORIZE: ${action} ${Math.abs(amount)} ${isXp ? 'XP' : 'PTS'} for node "${selectedUser.username}"?`)) return;
 
-      const loadingToast = toast.loading('Synchronizing manual mutation...');
+      const loadingToast = toast.loading('Synchronizing manual adjustment...');
       try {
          const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
          const claimId = `admin_${Date.now()}_${selectedUser.id.slice(0, 8)}`;
@@ -85,7 +85,7 @@ const OpsUsers: React.FC = () => {
             amount: isXp ? 0 : amount,
             xpReward: isXp ? amount : 0,
             type: 'admin_adjustment',
-            source: 'Manual Ops Mutation',
+            source: 'Manual Admin Adjustment',
             claimId,
             description: `Administrative ${isXp ? 'XP' : 'Point'} adjustment`,
             bypassLock: true
@@ -93,7 +93,7 @@ const OpsUsers: React.FC = () => {
 
          if (result.success) {
             toast.dismiss(loadingToast);
-            toast.success('Mutation Ledger Synchronized');
+            toast.success('Ledger Updated');
             // Refresh local user state if needed (snapshot will handle it normally)
          } else {
             toast.dismiss(loadingToast);
@@ -101,7 +101,7 @@ const OpsUsers: React.FC = () => {
          }
       } catch (err) {
          toast.dismiss(loadingToast);
-         toast.error('Integrity Protocol Failure');
+         toast.error('Failed to update ledger');
       }
    };
 
@@ -123,7 +123,7 @@ const OpsUsers: React.FC = () => {
            reason: 'ADMIN_MANUAL_MUTATION'
         });
 
-        toast.success(`Account status mutation synchronized`);
+        toast.success(`Account status updated`);
         if (selectedUser?.id === user.id) {
            setSelectedUser({...selectedUser, isBanned, status: isBanned ? 'restricted' : 'active'});
         }
@@ -134,7 +134,7 @@ const OpsUsers: React.FC = () => {
 
   const handleUpdateProfile = async () => {
       if (!selectedUser) return;
-      const loadingToast = toast.loading('Synchronizing identity mutation...');
+      const loadingToast = toast.loading('Updating user profile...');
       try {
           await updateDoc(doc(db, 'users', selectedUser.id), {
               ...editForm,
@@ -145,17 +145,17 @@ const OpsUsers: React.FC = () => {
               action: 'USER_PROFILE_UPDATED',
               targetId: selectedUser.id,
               timestamp: serverTimestamp(),
-              performedBy: 'OPS_AUTHORITY',
+              performedBy: 'ADMIN_HUB',
               changes: editForm
           });
 
           toast.dismiss(loadingToast);
-          toast.success('Identity node updated');
+          toast.success('User profile updated');
           setSelectedUser({ ...selectedUser, ...editForm });
           setIsEditing(false);
       } catch (err) {
           toast.dismiss(loadingToast);
-          toast.error('Identity mutation failed');
+          toast.error('Failed to update user profile');
       }
   };
 
@@ -197,16 +197,16 @@ const OpsUsers: React.FC = () => {
           </div>
        </header>
 
-       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
+          <div className="overflow-x-auto no-scrollbar">
+             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Identity Node</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Asset Balance</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Ops</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
@@ -354,7 +354,7 @@ const OpsUsers: React.FC = () => {
                                    onClick={handleUpdateProfile}
                                    className="flex-1 py-4 bg-primary text-text-primary rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
                                 >
-                                   Commit Mutation
+                                   Save Changes
                                 </button>
                                 <button
                                    onClick={() => setIsEditing(false)}

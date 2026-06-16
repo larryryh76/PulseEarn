@@ -144,18 +144,18 @@ const OpsCampaigns: React.FC = () => {
           </div>
        </header>
 
-       <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-             <table className="w-full text-left border-collapse">
+       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
+          <div className="overflow-x-auto no-scrollbar">
+             <table className="w-full text-left border-collapse min-w-[1000px] lg:min-w-0">
                 <thead>
                    <tr className="border-b border-border bg-surface-bright/50">
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Campaign</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Performance</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Reward Pool</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Budget</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Last Update</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary text-right">Actions</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Campaign</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Performance</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Reward Pool</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Budget</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Last Update</th>
+                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-border">

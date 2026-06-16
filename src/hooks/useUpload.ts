@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useUploadContext } from '../contexts/UploadContext';
-import { UploadOptions, UploadStatus } from '../engines/upload/UploadEngineV2';
+import { UploadOptions, UploadStatus } from '../engines/upload/UploadEngine';
 
 export interface UseUploadReturn {
   upload: (file: File, options: UploadOptions) => Promise<string>;

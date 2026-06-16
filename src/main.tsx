@@ -5,7 +5,6 @@ import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { TaskProvider } from './contexts/TaskContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { UploadProvider } from './contexts/UploadContext'
 import { seedTasks } from './firebase/seed'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
@@ -32,7 +31,6 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary name="App Root">
       <ThemeProvider>
         <AuthProvider>
-          <UploadProvider>
             <TaskProvider>
               <Suspense fallback={
               <div className="min-h-screen bg-background flex items-center justify-center">
@@ -47,7 +45,6 @@ createRoot(document.getElementById('root')!).render(
               <App />
               </Suspense>
             </TaskProvider>
-          </UploadProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -16,14 +16,12 @@ import {
   ChevronRight,
   User,
   Shield,
-  ArrowLeft,
-  X as CloseIcon
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
-import MediaUploader from '../components/admin/MediaUploader';
 
 const CATEGORIES: { value: TicketCategory; label: string }[] = [
   { value: 'GENERAL', label: 'General Support' },
@@ -341,22 +339,14 @@ const SupportCenter: React.FC = () => {
                           />
                        </div>
 
-                       <div className="space-y-4">
-                          <MediaUploader
-                            label="Evidence / Screenshots (Optional)"
-                            path="support_attachments"
-                            onChange={(url: string) => setFormData(prev => ({ ...prev, attachments: [...prev.attachments, { url, name: 'Evidence Image', type: 'image/png', size: 0 }] }))}
-                          />
-                          {formData.attachments.length > 0 && (
-                             <div className="flex flex-wrap gap-2">
-                                {formData.attachments.map((at, i) => (
-                                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-bright text-[10px] text-text-secondary flex items-center gap-2">
-                                      <Paperclip size={10} />
-                                      {at.name}
-                                   </div>
-                                ))}
-                             </div>
-                          )}
+                       <div className="p-6 rounded-2xl bg-surface-bright/50 border border-dashed border-border flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-surface-bright flex items-center justify-center text-text-tertiary/30">
+                             <Paperclip size={20} />
+                          </div>
+                          <div>
+                             <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Attachments Disabled</p>
+                             <p className="text-[9px] text-text-tertiary/50 uppercase font-bold mt-1">Image uploads are temporarily unavailable</p>
+                          </div>
                        </div>
 
                        <div className="pt-4 flex gap-4">
@@ -459,30 +449,9 @@ const SupportCenter: React.FC = () => {
                              </div>
                           </div>
 
-                          <div className="space-y-4">
-                             <MediaUploader
-                               label="Reply Evidence (Optional)"
-                               path="support_attachments"
-                               onChange={(url: string) => setReplyAttachments(prev => [...prev, { url, name: 'Evidence Image', type: 'image/png', size: 0 }])}
-                             />
-
-                             {replyAttachments.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                   {replyAttachments.map((at, i) => (
-                                      <div key={i} className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-border-bright text-[10px] text-text-secondary flex items-center gap-2">
-                                         <Paperclip size={10} />
-                                         {at.name}
-                                         <button onClick={() => setReplyAttachments(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-danger">
-                                            <CloseIcon size={10} />
-                                         </button>
-                                      </div>
-                                   ))}
-                                </div>
-                             )}
-                          </div>
-
                           <div className="flex items-center justify-between border-t border-border pt-4">
-                             <p className="text-[9px] font-bold text-text-tertiary/50 uppercase tracking-widest">Security: Thread is encrypted and immutable</p>
+                             <p className="text-[9px] font-bold text-text-tertiary/50 uppercase tracking-widest italic">Security: Thread is encrypted and immutable</p>
+                             <p className="text-[9px] font-bold text-text-tertiary/30 uppercase tracking-widest">Attachments Disabled</p>
                           </div>
                        </div>
                     ) : (

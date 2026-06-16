@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import Button from '../../../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { cn } from '../../../../utils';
-import MediaUploader from '../../../../components/admin/MediaUploader';
 
 interface CampaignBuilderModalProps {
   isOpen: boolean;
@@ -182,14 +181,15 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                       </div>
                    </div>
 
-                   <div className="space-y-2.5">
-                      <MediaUploader
-                        label="Campaign Banner (10MB)"
-                        value={formData.bannerUrl}
-                        onChange={url => setFormData({...formData, bannerUrl: url})}
-                        path="campaigns/banners"
-                        aspectRatio="video"
+                   <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Banner URL (Bundled Assets Only)</label>
+                      <input
+                        value={formData.bannerUrl || ''}
+                        onChange={e => setFormData({...formData, bannerUrl: e.target.value})}
+                        placeholder="https://..."
+                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 md:p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
                       />
+                      <p className="text-[8px] text-text-tertiary/50 uppercase font-bold mt-1 px-1">Native upload disabled. Use static URL.</p>
                    </div>
                 </div>
              </div>

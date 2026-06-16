@@ -191,13 +191,14 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
 
                    {formData.verificationType === 'proof' && (
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Proof Requirements</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Proof Requirements (Description Mode)</label>
                          <textarea
                            value={formData.proofRequirements || ''}
                            onChange={e => setFormData({...formData, proofRequirements: e.target.value})}
-                           placeholder="Describe what the user should upload..."
+                           placeholder="Describe what the user should write as proof (Image upload disabled)..."
                            className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 text-sm text-text-primary h-20 resize-none focus:border-primary/50 outline-none transition-all font-medium"
                          />
+                         <p className="text-[8px] text-text-tertiary/50 uppercase font-bold px-1">Native upload disabled. User must provide text-based evidence.</p>
                       </div>
                    )}
 

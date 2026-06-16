@@ -106,41 +106,9 @@ const Profile: React.FC = () => {
                <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
                  <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border group/avatar relative">
                    <img
-                     src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
+                     src={`https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
                      alt=""
                      className="w-full h-full object-cover grayscale-[0.2] group-hover/avatar:grayscale-0 transition-all duration-700"
-                   />
-                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-white">Click to Update</p>
-                   </div>
-                   <input
-                      type="file"
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      accept="image/*"
-                      onChange={async (e) => {
-                         const file = e.target.files?.[0];
-                         if (!file || !userData?.uid) return;
-                         const { UploadEngine } = await import('../engines/upload/UploadEngine');
-                         const loadingToast = toast.loading('Uploading avatar...');
-                         try {
-                            // Note: We use UploadEngine directly here as we are in an async handler
-                            UploadEngine.startUpload(file, { path: 'avatars' }, async (progress) => {
-                               if (progress.status === 'SUCCESS' && progress.downloadUrl) {
-                                  await updateDoc(doc(db, 'users', userData.uid), {
-                                     avatarUrl: progress.downloadUrl
-                                  });
-                                  toast.dismiss(loadingToast);
-                                  toast.success('Avatar updated');
-                               } else if (progress.status === 'ERROR') {
-                                  toast.dismiss(loadingToast);
-                                  toast.error(progress.error || 'Upload failed');
-                               }
-                            });
-                         } catch (err: any) {
-                            toast.dismiss(loadingToast);
-                            toast.error(err.message);
-                         }
-                      }}
                    />
                  </div>
                  <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>

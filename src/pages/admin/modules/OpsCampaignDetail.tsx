@@ -37,7 +37,7 @@ const OpsCampaignDetail: React.FC = () => {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [claims, setClaims] = React.useState<TaskClaim[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'STATS' | 'LEDGER'>('OVERVIEW');
+  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'STATS' | 'PARTICIPANTS' | 'LEDGER'>('OVERVIEW');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
@@ -122,12 +122,13 @@ const OpsCampaignDetail: React.FC = () => {
        </header>
 
        {/* NAVIGATION TABS */}
-       <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-fit">
+       <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-fit overflow-x-auto no-scrollbar max-w-full">
           {[
             { id: 'OVERVIEW', label: 'Overview', icon: BarChart3 },
-            { id: 'TASKS', label: 'Task List', icon: Target },
+            { id: 'TASKS', label: 'Tasks', icon: Target },
+            { id: 'PARTICIPANTS', label: 'Participants', icon: Users },
             { id: 'STATS', label: 'Analytics', icon: History },
-            { id: 'LEDGER', label: 'Audit Log', icon: ShieldAlert },
+            { id: 'LEDGER', label: 'Activity', icon: ShieldAlert },
           ].map(tab => (
             <button
               key={tab.id}
@@ -243,7 +244,23 @@ const OpsCampaignDetail: React.FC = () => {
                             </tr>
                          ))}
                          {tasks.length === 0 && (
-                            <tr><td colSpan={4} className="px-8 py-20 text-center text-xs font-bold text-text-tertiary uppercase tracking-widest opacity-30">No execution vectors defined</td></tr>
+                            <tr>
+                               <td colSpan={4} className="px-8 py-32 text-center">
+                                  <div className="max-w-xs mx-auto space-y-6">
+                                     <div className="w-16 h-16 rounded-[2rem] bg-surface-bright border border-border flex items-center justify-center text-text-tertiary mx-auto">
+                                        <Target size={32} />
+                                     </div>
+                                     <div className="space-y-2">
+                                        <p className="text-sm font-bold text-text-primary uppercase italic">No Tasks Defined</p>
+                                        <p className="text-xs text-text-tertiary leading-relaxed">This campaign is currently empty. Add your first task to start engaging users.</p>
+                                     </div>
+                                     <Button variant="primary" className="h-12 px-8 rounded-xl mx-auto" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
+                                        <Plus size={16} />
+                                        Create First Task
+                                     </Button>
+                                  </div>
+                               </td>
+                            </tr>
                          )}
                       </tbody>
                    </table>
@@ -252,7 +269,7 @@ const OpsCampaignDetail: React.FC = () => {
 
              {activeTab === 'STATS' && (
                 <div className="space-y-8">
-                   <div className="grid grid-cols-2 gap-8">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <Card className="p-10 border-border">
                          <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Performance Curve</h3>
                          <div className="h-48 flex items-end gap-2">
@@ -264,20 +281,108 @@ const OpsCampaignDetail: React.FC = () => {
                       <Card className="p-10 border-border">
                          <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Distribution Breakdown</h3>
                          <div className="space-y-6">
-                            {['Validated', 'Pending', 'Rejected'].map((label, i) => (
+                            {['Validated', 'Pending', 'Rejected'].map((label, i) => {
+                               const count = i === 0 ? stats.completions : i === 1 ? stats.pending : claims.filter(c => c.validationState === 'REJECTED').length;
+                               const total = Math.max(claims.length, 1);
+                               const percent = (count / total * 100).toFixed(0);
+                               return (
                                <div key={label} className="space-y-2">
                                   <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
                                      <span>{label}</span>
-                                     <span>{i === 0 ? '72%' : i === 1 ? '18%' : '10%'}</span>
+                                     <span>{percent}%</span>
                                   </div>
                                   <div className="h-1.5 bg-surface-bright rounded-full overflow-hidden">
-                                     <div className={cn("h-full rounded-full", i === 0 ? "bg-success" : i === 1 ? "bg-warning" : "bg-danger")} style={{ width: i === 0 ? '72%' : i === 1 ? '18%' : '10%' }} />
+                                     <div className={cn("h-full rounded-full", i === 0 ? "bg-success" : i === 1 ? "bg-warning" : "bg-danger")} style={{ width: `${percent}%` }} />
                                   </div>
                                </div>
-                            ))}
+                            )})}
                          </div>
                       </Card>
                    </div>
+                </div>
+             )}
+
+             {activeTab === 'PARTICIPANTS' && (
+                <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
+                   <table className="w-full text-left">
+                      <thead>
+                         <tr className="bg-surface-bright/50 border-b border-border">
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Joined</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                         {Array.from(new Set(claims.map(c => c.userId))).map(uid => {
+                            const userClaims = claims.filter(c => c.userId === uid);
+                            const latestClaim = userClaims[0];
+                            return (
+                               <tr key={uid} className="hover:bg-surface-bright/30 transition-colors group">
+                                  <td className="px-8 py-6">
+                                     <p className="text-sm font-bold text-text-primary uppercase">{latestClaim.metadata?.username || 'Anonymous'}</p>
+                                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{uid.slice(0, 12)}</p>
+                                  </td>
+                                  <td className="px-8 py-6">
+                                     <span className="text-[10px] font-bold text-primary uppercase">
+                                        {userClaims.filter(c => c.validationState === 'APPROVED').length} / {tasks.length} Tasks
+                                     </span>
+                                  </td>
+                                  <td className="px-8 py-6">
+                                     <p className="text-[10px] font-mono text-text-secondary uppercase">
+                                        {latestClaim.createdAt?.toDate().toLocaleDateString()}
+                                     </p>
+                                  </td>
+                               </tr>
+                            )
+                         })}
+                         {claims.length === 0 && (
+                            <tr><td colSpan={3} className="px-8 py-20 text-center text-xs font-bold text-text-tertiary uppercase tracking-widest opacity-30">No participants registered</td></tr>
+                         )}
+                      </tbody>
+                   </table>
+                </div>
+             )}
+
+             {activeTab === 'LEDGER' && (
+                <div className="bg-surface border border-border rounded-[2rem] overflow-hidden shadow-xl">
+                   <table className="w-full text-left">
+                      <thead>
+                         <tr className="bg-surface-bright/50 border-b border-border">
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Event</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Time</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                         {claims.map(claim => (
+                            <tr key={claim.id} className="hover:bg-surface-bright/30 transition-colors group">
+                               <td className="px-8 py-6">
+                                  <div className="flex items-center gap-3">
+                                     <div className={cn(
+                                        "w-2 h-2 rounded-full",
+                                        claim.validationState === 'APPROVED' ? "bg-success" : claim.validationState === 'REJECTED' ? "bg-danger" : "bg-warning"
+                                     )} />
+                                     <div>
+                                        <p className="text-sm font-bold text-text-primary uppercase tracking-tight italic">Task Claim: {claim.metadata?.taskTitle}</p>
+                                        <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Status: {claim.validationState}</p>
+                                     </div>
+                                  </div>
+                               </td>
+                               <td className="px-8 py-6">
+                                  <p className="text-[10px] font-bold text-text-secondary uppercase">{claim.metadata?.username || 'Anonymous'}</p>
+                               </td>
+                               <td className="px-8 py-6">
+                                  <p className="text-[10px] font-mono text-text-tertiary uppercase">
+                                     {claim.createdAt?.toDate().toLocaleString()}
+                                  </p>
+                               </td>
+                            </tr>
+                         ))}
+                         {claims.length === 0 && (
+                            <tr><td colSpan={3} className="px-8 py-20 text-center text-xs font-bold text-text-tertiary uppercase tracking-widest opacity-30">No activity recorded</td></tr>
+                         )}
+                      </tbody>
+                   </table>
                 </div>
              )}
           </div>

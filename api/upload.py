@@ -20,22 +20,24 @@ def initialize_firebase():
     if not firebase_admin._apps:
         try:
             service_account_info = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON')
-            bucket_name = os.environ.get('VITE_FIREBASE_STORAGE_BUCKET') or os.environ.get('FIREBASE_STORAGE_BUCKET')
+            # Check multiple possible env var names for the bucket
+            bucket_name = (
+                os.environ.get('VITE_FIREBASE_STORAGE_BUCKET') or
+                os.environ.get('FIREBASE_STORAGE_BUCKET') or
+                os.environ.get('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')
+            )
 
             if service_account_info:
-                logger.info("Initializing Firebase with service account JSON")
+                logger.info(f"Initializing Firebase with bucket: {bucket_name}")
                 cred_dict = json.loads(service_account_info)
                 cred = credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred, {
                     'storageBucket': bucket_name
                 })
             else:
-                logger.warning("No FIREBASE_SERVICE_ACCOUNT_JSON found. Service will likely fail.")
-                # We do NOT initialize with default credentials to avoid ADC errors in environments where it's not set.
-                # Instead, we let the handler report the missing config.
+                logger.warning("No FIREBASE_SERVICE_ACCOUNT_JSON found. Backend upload will be unavailable.")
         except Exception as e:
             logger.error(f"Firebase initialization error: {str(e)}")
-            # Do not raise here to prevent boot crash, let handle_upload report it
 
 initialize_firebase()
 
@@ -48,7 +50,7 @@ def handle_upload():
         # Check if initialized
         if not firebase_admin._apps:
             return jsonify({
-                'error': 'Cloud environment not configured: Missing FIREBASE_SERVICE_ACCOUNT_JSON.'
+                'error': 'Cloud infrastructure not initialized. Missing FIREBASE_SERVICE_ACCOUNT_JSON.'
             }), 503
 
         if 'file' not in request.files:
@@ -62,29 +64,38 @@ def handle_upload():
         if not user_id:
             return jsonify({'error': 'userId required'}), 401
 
-        bucket_name = os.environ.get('VITE_FIREBASE_STORAGE_BUCKET')
-        bucket = storage.bucket(bucket_name)
-
-        if not bucket.exists():
-            return jsonify({'error': f'Storage bucket {bucket_name} not found.'}), 500
+        # Get bucket instance
+        try:
+            bucket = storage.bucket()
+            if not bucket:
+                raise Exception("Default bucket not found")
+        except Exception as bucket_err:
+            logger.error(f"Bucket access error: {str(bucket_err)}")
+            return jsonify({'error': 'Storage bucket inaccessible. Verify FIREBASE_STORAGE_BUCKET config.'}), 500
 
         # Process File
         timestamp = int(datetime.now().timestamp())
-        filename = f"{timestamp}_{file.filename}"
-        storage_path = f"{path}/{user_id}/{filename}"
+        # Sanitize filename
+        safe_filename = "".join([c for c in file.filename if c.isalnum() or c in ('.', '_', '-')]).strip()
+        storage_path = f"{path}/{user_id}/{timestamp}_{safe_filename}"
 
         blob = bucket.blob(storage_path)
         blob.upload_from_file(file, content_type=file.content_type)
 
         # Generate signed URL
         try:
+            # Try to get a signed URL (requires service account with proper permissions)
             download_url = blob.generate_signed_url(expiration=timedelta(days=365*10), method='GET')
-        except Exception:
-            download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{storage_path.replace('/', '%2F')}?alt=media"
+        except Exception as signed_url_err:
+            logger.warning(f"Could not generate signed URL: {str(signed_url_err)}. Using public URL fallback.")
+            # Fallback to standard Firebase Storage public URL format
+            # Note: This requires the bucket to have public read access or appropriate rules
+            bucket_name = bucket.name
+            download_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{storage_path.replace('/', '%2F')}?alt=media"
 
         # Metadata persistence
         db = firestore.client()
-        upload_id = f"upl_{timestamp}"
+        upload_id = f"upl_{timestamp}_{user_id[:4]}"
 
         db.collection('system_uploads').document(upload_id).set({
             'uploadId': upload_id,
@@ -93,6 +104,7 @@ def handle_upload():
             'downloadUrl': download_url,
             'fileName': file.filename,
             'fileType': file.content_type,
+            'fileSize': os.fstat(file.fileno()).st_size if hasattr(file, 'fileno') else 0,
             'status': 'COMPLETED',
             'metadata': json.loads(metadata_json),
             'createdAt': firestore.SERVER_TIMESTAMP
@@ -106,7 +118,7 @@ def handle_upload():
 
     except Exception as e:
         logger.error(f"Critical Upload Failure: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f"Internal Upload Error: {str(e)}"}), 500
 
 # Vercel handler
 def handler(request):

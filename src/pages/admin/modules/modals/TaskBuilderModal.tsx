@@ -186,7 +186,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          />
                       </div>
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Logic Platform</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Settings Platform</label>
                          <select
                            value={formData.platform}
                            onChange={e => setFormData({...formData, platform: e.target.value as SocialPlatform})}

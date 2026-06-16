@@ -100,9 +100,9 @@ const OpsPredictions: React.FC = () => {
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
                 <TrendingUp size={20} />
-                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Market Desk</h1>
+                <h1 className="text-3xl font-bold tracking-tight uppercase italic text-text-primary">Market Management</h1>
              </div>
-             <p className="text-xs font-medium text-text-tertiary">Real-time forecast settlement and prediction reward distribution management.</p>
+             <p className="text-xs font-medium text-text-tertiary">Monitor asset predictions and manage market settlements.</p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -151,7 +151,7 @@ const OpsPredictions: React.FC = () => {
                      onClick={() => resolveCampaign(camp)}
                      className="w-full py-4 bg-primary text-text-primary text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-3 shadow-lg shadow-primary/20 italic"
                    >
-                      Settle Ingress Nodes <ArrowRight size={14} />
+                      Settle Predictions <ArrowRight size={14} />
                    </button>
                 </div>
              ))}
@@ -163,9 +163,9 @@ const OpsPredictions: React.FC = () => {
              <table className="w-full text-left border-collapse">
                 <thead>
                    <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Forecast Logic</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Vector</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Execution Price</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Prediction Details</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Direction</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Entry Price</th>
                       <th className="p-8 text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Status</th>
                    </tr>
                 </thead>

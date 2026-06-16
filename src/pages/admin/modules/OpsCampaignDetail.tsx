@@ -12,7 +12,10 @@ import {
   Edit3,
   ExternalLink,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Pause,
+  Play
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -21,10 +24,13 @@ import {
   collection,
   query,
   where,
-  orderBy
+  orderBy,
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
+import toast from 'react-hot-toast';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import TaskBuilderModal from './modals/TaskBuilderModal';
@@ -42,6 +48,28 @@ const OpsCampaignDetail: React.FC = () => {
   const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+
+  const handleToggleTaskStatus = async (task: Task) => {
+    try {
+      await updateDoc(doc(db, 'tasks', task.id), {
+        active: !task.active,
+        status: !task.active ? 'ACTIVE' : 'INACTIVE'
+      });
+      toast.success(`Task ${!task.active ? 'Activated' : 'Paused'}`);
+    } catch (err) {
+      toast.error("Failed to update task status");
+    }
+  };
+
+  const handleDeleteTask = async (task: Task) => {
+    if (!window.confirm(`Are you sure you want to delete: "${task.title}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'tasks', task.id));
+      toast.success("Task deleted successfully");
+    } catch (err) {
+      toast.error("Failed to delete task");
+    }
+  };
 
   React.useEffect(() => {
     if (!id) return;
@@ -237,9 +265,17 @@ const OpsCampaignDetail: React.FC = () => {
                                   </span>
                                </td>
                                <td className="px-8 py-6 text-right">
-                                  <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
-                                     <Edit3 size={14} />
-                                  </button>
+                                  <div className="flex justify-end gap-1">
+                                     <button onClick={() => handleToggleTaskStatus(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
+                                        {task.active ? <Pause size={14} /> : <Play size={14} />}
+                                     </button>
+                                     <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                                        <Edit3 size={14} />
+                                     </button>
+                                     <button onClick={() => handleDeleteTask(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all">
+                                        <Trash2 size={14} />
+                                     </button>
+                                  </div>
                                </td>
                             </tr>
                          ))}

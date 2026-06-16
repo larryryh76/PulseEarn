@@ -209,7 +209,7 @@ const OpsLedger: React.FC = () => {
                          <div className="bg-surface-bright rounded-2xl p-6 border border-border space-y-6 shadow-inner">
                             <div className="flex justify-between items-center">
                                <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
-                                  <User size={14} /> Identity Node
+                                  <User size={14} /> Identity
                                </div>
                                <span className="text-xs font-mono font-bold text-text-primary">{selectedTx.userId}</span>
                             </div>
@@ -221,7 +221,7 @@ const OpsLedger: React.FC = () => {
                             </div>
                             <div className="flex justify-between items-center">
                                <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
-                                  <ShieldCheck size={14} /> Logic Type
+                                  <ShieldCheck size={14} /> Settings Type
                                </div>
                                <span className="text-xs font-black text-primary uppercase tracking-widest">{selectedTx.type.replace(/_/g, ' ')}</span>
                             </div>
@@ -236,7 +236,7 @@ const OpsLedger: React.FC = () => {
 
                       {selectedTx.description && (
                          <section className="space-y-4">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-2">Mutation Payload</h4>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-2">Adjustment Payload</h4>
                             <div className="p-8 bg-surface-bright border border-border rounded-3xl text-sm text-text-secondary leading-relaxed italic font-medium shadow-inner">
                                "{selectedTx.description}"
                             </div>

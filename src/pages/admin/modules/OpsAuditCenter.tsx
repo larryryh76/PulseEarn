@@ -161,7 +161,7 @@ const OpsAuditCenter: React.FC = () => {
           {[
             { id: 'THREATS', icon: Activity, label: 'Threat Stream' },
             { id: 'AUDIT', icon: History, label: 'Audit Trail' },
-            { id: 'FLAGS', icon: AlertTriangle, label: 'Flagged Nodes' }
+            { id: 'FLAGS', icon: AlertTriangle, label: 'Flagged s' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -185,7 +185,7 @@ const OpsAuditCenter: React.FC = () => {
             <input
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Scan perimeter by ID, Action or Vector..."
+              placeholder="Scan perimeter by ID, Action or Action..."
               className="w-full bg-surface border border-border rounded-[1.5rem] py-5 pl-16 pr-8 text-sm focus:border-primary/50 outline-none transition-all font-medium shadow-2xl"
             />
           </div>
@@ -220,7 +220,7 @@ const OpsAuditCenter: React.FC = () => {
         <div className="space-y-6">
           <section className="bg-surface border border-border rounded-[2rem] p-8 shadow-2xl">
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary flex items-center gap-3 mb-8">
-              <Filter size={16} className="text-primary" /> Filter Logic
+              <Filter size={16} className="text-primary" /> Filter Settings
             </h2>
             <div className="space-y-3">
               {['ALL_EVENTS', 'AUTH_FAILURE', 'ECON_ANOMALY', 'API_BREACH'].map(f => (

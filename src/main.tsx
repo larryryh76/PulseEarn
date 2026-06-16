@@ -9,6 +9,14 @@ import { UploadProvider } from './contexts/UploadContext'
 import { seedTasks } from './firebase/seed'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
+// Global Handler for Chunk Load Errors (Deployment Refresh)
+window.addEventListener('error', (e) => {
+  if (e.message.includes('Loading chunk') || e.message.includes('CSS_CHUNK_LOAD_FAILED')) {
+    console.warn('Chunk load failed. A new version might be available. Refreshing...');
+    window.location.reload();
+  }
+});
+
 // Runtime Debug Telemetry
 console.log("-----------------------------------------");
 console.log("PULSE_EARN_BOOT: Initialize System");

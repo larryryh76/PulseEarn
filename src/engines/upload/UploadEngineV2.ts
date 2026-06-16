@@ -110,11 +110,30 @@ export class UploadEngineV2 {
       xhr.onload = async () => {
         if (isCancelled) return;
         if (xhr.status >= 200 && xhr.status < 300) {
-          const result = JSON.parse(xhr.responseText);
-          onProgress({ id: uploadId, progress: 100, status: 'SUCCESS', downloadUrl: result.downloadUrl, fileName: file.name });
-        } else {
-          console.warn('[UploadEngine] Python backend failed, attempting fallback');
+          try {
+             const result = JSON.parse(xhr.responseText);
+             if (result.success) {
+                onProgress({ id: uploadId, progress: 100, status: 'SUCCESS', downloadUrl: result.downloadUrl, fileName: file.name });
+             } else {
+                onProgress({ id: uploadId, progress: 0, status: 'ERROR', error: result.error || 'Upload failed', fileName: file.name });
+             }
+          } catch (err: any) {
+             console.error('[UploadEngine] Parse error:', err);
+             runFallback();
+          }
+        } else if (xhr.status === 404 || xhr.status === 503 || xhr.status === 0) {
+          // Fallback only on missing API, maintenance, or network block
+          console.warn(`[UploadEngine] Python path unavailable (${xhr.status}), attempting fallback`);
           runFallback();
+        } else {
+          // Explicit failure from backend should be shown, not hidden by fallback
+          let errorMessage = `Upload failed (${xhr.status})`;
+          try {
+             const result = JSON.parse(xhr.responseText);
+             errorMessage = result.error || errorMessage;
+          } catch { /* ignore parse error */ }
+
+          onProgress({ id: uploadId, progress: 0, status: 'ERROR', error: errorMessage, fileName: file.name });
         }
       };
 

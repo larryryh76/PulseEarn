@@ -49,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'WITHDRAWALS', label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals', category: 'ECONOMY' },
   { id: 'LEDGER', label: 'Transactions', icon: Activity, path: '/admin/ledger', category: 'ECONOMY' },
   { id: 'ECONOMY', label: 'Economy Hub', icon: BarChart3, path: '/admin/economy', category: 'ECONOMY' },
+  { id: 'XP', label: 'XP Engine', icon: Trophy, path: '/admin/xp', category: 'ECONOMY' },
 
   { id: 'USERS', label: 'User Directory', icon: Users, path: '/admin/users', category: 'SYSTEM' },
   { id: 'SUPPORT', label: 'Support Desk', icon: MessageSquare, path: '/admin/support', category: 'SYSTEM' },

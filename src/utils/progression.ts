@@ -6,44 +6,33 @@
  * Linear scaling with a base of 100 and 50 increment per level
  */
 
-export const calculateLevel = (xp: number): number => {
-  let level = 1;
-  let requiredXp = 100;
-  let cumulativeXp = 0;
-
-  while (xp >= cumulativeXp + requiredXp) {
-    cumulativeXp += requiredXp;
-    level++;
-    requiredXp += 50;
-  }
-
-  return level;
+/**
+ * Linear Progression Model
+ * To remain synchronized with the Ops XP Engine, we use a fixed interval per level.
+ * Default: 1000 XP per level.
+ */
+export const calculateLevel = (xp: number, xpPerLevel: number = 1000): number => {
+  if (xp <= 0) return 1;
+  return Math.floor(xp / xpPerLevel) + 1;
 };
 
-export const getXpForNextLevel = (level: number): number => {
-  return 100 + (level - 1) * 50;
+export const getXpForNextLevel = (_level: number, xpPerLevel: number = 1000): number => {
+  return xpPerLevel;
 };
 
-export const getXpProgress = (xp: number) => {
-  let level = 1;
-  let requiredXp = 100;
-  let cumulativeXp = 0;
+export const getXpProgress = (xp: number, xpPerLevel: number = 1000) => {
+  const level = calculateLevel(xp, xpPerLevel);
+  const cumulativeXpForCurrentLevel = (level - 1) * xpPerLevel;
+  const currentLevelXp = xp - cumulativeXpForCurrentLevel;
 
-  while (xp >= cumulativeXp + requiredXp) {
-    cumulativeXp += requiredXp;
-    level++;
-    requiredXp += 50;
-  }
-
-  const currentLevelXp = xp - cumulativeXp;
-  const progress = (currentLevelXp / requiredXp) * 100;
+  const progress = (currentLevelXp / xpPerLevel) * 100;
 
   return {
     level,
     currentLevelXp,
-    requiredXp,
-    nextLevelXp: cumulativeXp + requiredXp,
-    progress: Math.floor(progress)
+    requiredXp: xpPerLevel,
+    nextLevelXp: level * xpPerLevel,
+    progress: Math.min(Math.floor(progress), 100)
   };
 };
 

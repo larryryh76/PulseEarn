@@ -94,8 +94,12 @@ export class PointTransactionEngine {
         }
 
         // 6. Progression Calculation
+        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+        const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
+
         const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
-        const newLevel = calculateLevel(newXp);
+        const newLevel = calculateLevel(newXp, xpPerLevel);
 
         // 7. Atomic Write
         const updates: any = {
@@ -396,12 +400,13 @@ export class PointTransactionEngine {
         if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
 
         const userData = userSnap.data();
+        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+        const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
+
         const isWin = data.direction === 'UP'
           ? currentPrice > data.entryPrice
           : currentPrice < data.entryPrice;
-
-        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
-        const config = await EconomyConfigEngine.getConfig();
 
         // Use stored rewardAmount (2x model) or fallback to manual pool/config
         const payout = isWin ? (data.rewardAmount || manualRewardPool || (data.stakeAmount * config.rewards.predictionWinMultiplier)) : 0;
@@ -426,7 +431,7 @@ export class PointTransactionEngine {
         transaction.update(userRef, {
           points: increment(payout),
           xp: newXp,
-          level: calculateLevel(newXp),
+          level: calculateLevel(newXp, xpPerLevel),
           lastActionTimestamp: serverTimestamp(),
           'stats.totalWins': increment(isWin ? 1 : 0),
           'stats.predictionRewards': increment(payout)

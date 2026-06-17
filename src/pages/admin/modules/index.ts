@@ -13,4 +13,5 @@ export { default as OpsUsers } from './OpsUsers';
 export { default as OpsSupport } from './OpsSupport';
 export { default as OpsBroadcasts } from './OpsBroadcasts';
 export { default as OpsMissions } from './OpsMissions';
+export { default as OpsXP } from './OpsXP';
 export { default as OpsAuditCenter } from './OpsAuditCenter';

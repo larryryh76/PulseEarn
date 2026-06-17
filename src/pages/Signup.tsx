@@ -55,8 +55,8 @@ const Signup: React.FC = () => {
     try {
       setIsSubmitting(true);
       await signup(formData.email, formData.password, formData.username, formData.referralCode);
-      toast.success('Registration successful! Please verify your email.');
-      navigate('/dashboard'); // Will be intercepted by verification check if needed
+      toast.success('Registration successful! Welcome.');
+      navigate('/guide');
     } catch (error: any) {
       console.error(error);
       toast.error(mapAuthError(error));

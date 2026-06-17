@@ -12,7 +12,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   limit,
   onSnapshot,
   doc,
@@ -30,18 +29,26 @@ const OpsValidation: React.FC = () => {
   const [filter, setFilter] = React.useState<SubtaskStatus>('PENDING');
 
   React.useEffect(() => {
+    // Audit Note: Simplified query to avoid ordering-based index latency.
+    // Sorting is performed client-side to ensure no "ghost counts" and immediate data visibility.
     const q = query(
       collection(db, 'task_claims'),
       where('validationState', '==', filter),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setClaims(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Client-side sort by createdAt desc
+      setClaims(data.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
       setLoading(false);
     }, (error) => {
       console.error("[OpsValidation] Sync Failure:", error);
+      toast.error("Verification queue sync failed. Check connection.");
       setLoading(false);
     });
 

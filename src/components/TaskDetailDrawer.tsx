@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   X, Zap, ShieldCheck, ChevronRight, ExternalLink,
-  FileText, Link as LinkIcon, Info, Clock, CheckCircle2
+  FileText, Link as LinkIcon, Clock, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, TaskClaim } from '../types';
@@ -49,160 +49,167 @@ const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative w-full max-w-xl bg-surface border-l border-border shadow-2xl flex flex-col h-full"
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="relative w-full max-w-lg bg-surface border-l border-border shadow-2xl flex flex-col h-full overflow-hidden"
           >
-            {/* HEADER */}
-            <div className="p-6 md:p-8 border-b border-border flex items-center justify-between bg-surface-bright/50 shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                  <Zap size={20} className="md:w-6 md:h-6" />
+            {/* COMPACT PREMIUM HEADER */}
+            <div className="p-5 md:p-6 border-b border-border flex items-center justify-between bg-surface-bright/50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg shadow-primary/5">
+                  <Zap size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg md:text-xl font-bold uppercase italic tracking-tighter text-text-primary leading-none">Task Briefing</h2>
-                  <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1.5 md:mt-2">UID: {task.id.slice(0, 12).toUpperCase()}</p>
+                  <h2 className="text-sm font-bold uppercase italic tracking-tight text-text-primary leading-none">Task Details</h2>
+                  <p className="text-[8px] font-mono text-text-tertiary uppercase tracking-widest mt-1.5 opacity-50">Ref: {task.id.slice(0, 8)}</p>
                 </div>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            {/* CONTENT */}
-            <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 md:space-y-12 no-scrollbar">
-              <section className="space-y-6">
-                <div className="p-6 md:p-8 rounded-3xl bg-surface-bright border border-border shadow-inner group">
-                   <div className="flex items-center gap-3 mb-4 opacity-40 group-hover:opacity-100 transition-opacity">
-                      <Info size={14} className="text-primary" />
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">Description</span>
-                   </div>
-                   <h3 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight mb-4 uppercase italic leading-tight">{task.title}</h3>
-                   <p className="text-sm text-text-tertiary leading-relaxed font-medium">
+            {/* HIGH-DENSITY CONTENT RAIL */}
+            <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-8 no-scrollbar">
+              {/* REWARD SECTION (TOP HIERARCHY) */}
+              <section className="grid grid-cols-2 gap-3">
+                 <div className="p-4 rounded-2xl bg-surface-bright border border-border shadow-inner group">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-2 opacity-50 group-hover:opacity-100 transition-opacity">Reward Points</p>
+                    <div className="flex items-baseline gap-1.5">
+                       <span className="text-2xl font-mono font-bold text-success tabular-nums">{task.rewardAmount.toLocaleString()}</span>
+                       <span className="text-[9px] font-black text-text-tertiary uppercase">PTS</span>
+                    </div>
+                 </div>
+                 <div className="p-4 rounded-2xl bg-surface-bright border border-border shadow-inner group">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-2 opacity-50 group-hover:opacity-100 transition-opacity">XP Bonus</p>
+                    <div className="flex items-baseline gap-1.5">
+                       <span className="text-2xl font-mono font-bold text-primary tabular-nums">{task.xpReward.toLocaleString()}</span>
+                       <span className="text-[9px] font-black text-text-tertiary uppercase">XP</span>
+                    </div>
+                 </div>
+              </section>
+
+              {/* TASK INFORMATION */}
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                   <div className="w-1 h-1 rounded-full bg-primary" />
+                   <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary">Task Information</h4>
+                </div>
+                <div className="p-6 rounded-2xl bg-surface-bright/50 border border-border shadow-inner space-y-3">
+                   <h3 className="text-lg font-bold text-text-primary tracking-tight uppercase italic">{task.title}</h3>
+                   <p className="text-xs text-text-tertiary leading-relaxed font-medium">
                       {task.description}
                    </p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="p-5 md:p-6 rounded-2xl bg-surface-bright border border-border text-center shadow-inner">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-3">Reward Pool</p>
-                      <div className="flex items-center justify-center gap-1.5">
-                         <span className="text-xl md:text-2xl font-mono font-bold text-success">+{task.rewardAmount}</span>
-                         <span className="text-[10px] font-black text-text-tertiary uppercase">PTS</span>
-                      </div>
-                   </div>
-                   <div className="p-5 md:p-6 rounded-2xl bg-surface-bright border border-border text-center shadow-inner">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-3">Progression</p>
-                      <div className="flex items-center justify-center gap-1.5">
-                         <span className="text-xl md:text-2xl font-mono font-bold text-primary">+{task.xpReward}</span>
-                         <span className="text-[10px] font-black text-text-tertiary uppercase">XP</span>
-                      </div>
-                   </div>
-                </div>
               </section>
 
-              <section className="space-y-8">
-                <div className="flex items-center gap-3">
-                   <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,112,255,0.5)]" />
-                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Execution Protocol</h4>
+              {/* INSTRUCTIONS */}
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                   <div className="w-1 h-1 rounded-full bg-primary" />
+                   <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary">Requirements</h4>
                 </div>
+                <div className="p-6 rounded-2xl bg-background/40 border border-dashed border-border-bright space-y-4">
+                   <p className="text-xs text-text-secondary leading-relaxed font-medium italic">
+                      "{task.instructions || 'Follow the steps below to complete this task and earn your reward.'}"
+                   </p>
 
-                <div className="space-y-6">
-                   {task.actionUrl && (
+                   {task.actionUrl && !isCompleted && !isPending && (
                       <a
                         href={task.actionUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between bg-primary text-text-primary p-6 rounded-2xl md:rounded-[2.5rem] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/20 group"
+                        className="flex items-center justify-between bg-primary text-text-primary p-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/10 group"
                       >
-                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                               <ExternalLink size={18} />
-                            </div>
-                            <span className="text-[11px] font-black uppercase tracking-[0.2em] italic">Open Objective</span>
+                         <div className="flex items-center gap-3">
+                            <ExternalLink size={16} />
+                            <span className="text-[10px] font-black uppercase tracking-[0.1em] italic">Open Task URL</span>
                          </div>
-                         <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                         <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                       </a>
                    )}
-
-                   <div className="p-6 md:p-8 bg-surface-bright/50 border border-border rounded-[2rem] md:rounded-[3rem] space-y-8">
-                      <div className="space-y-4">
-                         <div className="flex justify-between items-center px-1">
-                            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Submission Data</label>
-                            <span className="text-[8px] font-black uppercase bg-surface-bright border border-border px-2 py-0.5 rounded text-text-tertiary tracking-widest">{task.verificationType}</span>
-                         </div>
-                         <div className="bg-background/40 rounded-2xl border border-border overflow-hidden shadow-inner relative group">
-                            {task.verificationType === 'link' ? (
-                               <div className="flex items-center">
-                                  <div className="w-12 h-14 flex items-center justify-center border-r border-border bg-surface-bright/50">
-                                     <LinkIcon size={14} className="text-text-tertiary" />
-                                  </div>
-                                  <input
-                                     type="url"
-                                     value={proofValue}
-                                     onChange={(e) => setProofValue(e.target.value)}
-                                     placeholder="https://source.evidence/..."
-                                     disabled={isCompleted || isPending}
-                                     className="flex-1 bg-transparent border-0 px-5 py-4 text-xs font-mono font-bold text-text-primary focus:outline-none transition-all placeholder:text-text-tertiary/20"
-                                  />
-                               </div>
-                            ) : (
-                               <div className="relative">
-                                  <div className="absolute left-5 top-5 opacity-20">
-                                     <FileText size={14} />
-                                  </div>
-                                  <textarea
-                                     value={proofValue}
-                                     onChange={(e) => setProofValue(e.target.value)}
-                                     placeholder={task.verificationType === 'proof' ? "Enter description of proof (Image upload disabled)" : (task.proofRequirements || "Enter required submission details...")}
-                                     disabled={isCompleted || isPending}
-                                     className="w-full bg-transparent border-0 pl-12 pr-6 py-5 text-xs font-medium text-text-primary focus:outline-none transition-all min-h-[100px] resize-none placeholder:text-text-tertiary/20"
-                                  />
-                               </div>
-                            )}
-                         </div>
-                      </div>
-
-                      <Button
-                        onClick={onAction}
-                        isLoading={isSubmitting}
-                        disabled={!proofValue.trim() || isPending || isCompleted}
-                        className={cn(
-                           "w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl italic group",
-                           isCompleted ? "bg-success/10 text-success border border-success/20 cursor-default" : ""
-                        )}
-                      >
-                         {isCompleted ? (
-                            <div className="flex items-center justify-center gap-2">
-                               <CheckCircle2 size={16} /> Mission Secured
-                            </div>
-                         ) : isPending ? (
-                            <div className="flex items-center justify-center gap-2">
-                               <Clock size={16} className="animate-pulse" /> Audit Active
-                            </div>
-                         ) : (
-                            <div className="flex items-center justify-center gap-2">
-                               Authorize Completion
-                               <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                            </div>
-                         )}
-                      </Button>
-                   </div>
                 </div>
               </section>
 
-              <section className="pt-8 border-t border-border space-y-5">
-                 <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-text-tertiary/40">
-                    <ShieldCheck size={14} className="text-success/40" /> Verified Platform Action
+              {/* SUBMISSION INTERFACE */}
+              <section className="space-y-4 pb-8">
+                 <div className="flex items-center gap-2 px-1">
+                    <div className="w-1 h-1 rounded-full bg-primary" />
+                    <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary">Proof of Completion</h4>
                  </div>
-                 <p className="text-[9px] text-text-tertiary/40 leading-relaxed font-medium uppercase tracking-wider">
-                    By authorizing this completion, you confirm that the action has been performed in accordance with partner requirements and platform integrity protocols.
-                 </p>
+
+                 <div className="p-6 rounded-2xl bg-surface-bright/50 border border-border space-y-6 shadow-xl">
+                    <div className="space-y-3">
+                       <label className="text-[9px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1 flex justify-between">
+                          <span>Evidence Log</span>
+                          <span className="opacity-30 italic">{task.verificationType}</span>
+                       </label>
+                       <div className="bg-background/60 rounded-xl border border-border overflow-hidden shadow-inner relative group focus-within:border-primary/30 transition-colors">
+                          {task.verificationType === 'link' ? (
+                             <div className="flex items-center">
+                                <div className="w-10 h-12 flex items-center justify-center border-r border-border bg-surface-bright/50">
+                                   <LinkIcon size={14} className="text-text-tertiary" />
+                                </div>
+                                <input
+                                   type="url"
+                                   value={proofValue}
+                                   onChange={(e) => setProofValue(e.target.value)}
+                                   placeholder="Enter URL as proof..."
+                                   disabled={isCompleted || isPending}
+                                   className="flex-1 bg-transparent border-0 px-4 py-3 text-xs font-mono font-bold text-text-primary focus:outline-none transition-all placeholder:text-text-tertiary/10"
+                                />
+                             </div>
+                          ) : (
+                             <div className="relative">
+                                <div className="absolute left-4 top-4 opacity-20 group-focus-within:opacity-40 transition-opacity">
+                                   <FileText size={14} />
+                                </div>
+                                <textarea
+                                   value={proofValue}
+                                   onChange={(e) => setProofValue(e.target.value)}
+                                   placeholder={task.verificationType === 'proof' ? "Describe your completed action (Image upload disabled)" : (task.proofRequirements || "Submit required task data...")}
+                                   disabled={isCompleted || isPending}
+                                   className="w-full bg-transparent border-0 pl-11 pr-5 py-4 text-xs font-medium text-text-primary focus:outline-none transition-all min-h-[90px] resize-none placeholder:text-text-tertiary/10"
+                                />
+                             </div>
+                          )}
+                       </div>
+                    </div>
+
+                    <Button
+                      onClick={onAction}
+                      isLoading={isSubmitting}
+                      disabled={!proofValue.trim() || isPending || isCompleted}
+                      className={cn(
+                         "w-full h-14 rounded-xl font-black uppercase tracking-[0.2em] text-[9px] shadow-2xl italic group transition-all",
+                         isCompleted ? "bg-success/10 text-success border border-success/20 cursor-default" :
+                         isPending ? "bg-warning/10 text-warning border border-warning/20" : ""
+                      )}
+                    >
+                       {isCompleted ? (
+                          <div className="flex items-center justify-center gap-2">
+                             <CheckCircle2 size={14} /> Task Completed
+                          </div>
+                       ) : isPending ? (
+                          <div className="flex items-center justify-center gap-2">
+                             <Clock size={14} className="animate-pulse" /> Under Review
+                          </div>
+                       ) : (
+                          <div className="flex items-center justify-center gap-2 group-hover:scale-105 transition-transform">
+                             Verify Task
+                             <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                          </div>
+                       )}
+                    </Button>
+                 </div>
               </section>
             </div>
 
-            {/* FOOTER */}
-            <div className="p-8 border-t border-border bg-background/50 flex justify-center shrink-0">
-               <p className="text-[9px] font-black text-text-tertiary/30 uppercase tracking-[0.6em]">PULSE REWARDS SYSTEM</p>
+            {/* COMPACT FOOTER */}
+            <div className="p-4 border-t border-border bg-background/80 backdrop-blur-md flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-2 text-[8px] font-black text-text-tertiary/40 uppercase tracking-widest">
+                  <ShieldCheck size={12} className="text-success/20" /> Integrity Enforced
+               </div>
+               <p className="text-[8px] font-black text-text-tertiary/20 uppercase tracking-[0.4em]">PULSE_EARN</p>
             </div>
           </motion.div>
         </div>

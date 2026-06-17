@@ -104,6 +104,8 @@ export class TaskEngine {
                  metadata: {
                     campaignId: res.task.campaignId,
                     taskName: res.task.title,
+                    category: res.task.category,
+                    verificationType: res.task.verificationType,
                     verificationStatus: 'APPROVED'
                  }
               });

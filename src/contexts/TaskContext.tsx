@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
-import { Task, UserTask, Activity, Campaign, TaskClaim, PredictionRecord } from '../types';
+import { Task, UserTask, Activity, Campaign, TaskClaim, PredictionRecord, TaskHistory } from '../types';
 import { TaskEngine } from '../engines/tasks/TaskEngine';
 
 export interface TaskContextType {
@@ -17,6 +17,7 @@ export interface TaskContextType {
   userTasks: Record<string, UserTask>;
   campaigns: Campaign[];
   subtasks: TaskClaim[];
+  taskHistory: TaskHistory[];
   activities: Activity[];
   systemTasks: { id: string; definition: any; progress: any }[];
   predictions: PredictionRecord[];
@@ -35,6 +36,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
+  const [taskHistory, setTaskHistory] = useState<TaskHistory[]>([]);
   const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemTasks, setSystemTasks] = useState<{ id: string; definition: any; progress: any }[]>([]);
@@ -82,6 +84,16 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const timeB = b.createdAt?.toMillis?.() || 0;
           return timeB - timeA;
       }));
+    }));
+
+    // 4.5 Fetch User Task History
+    const historyQuery = query(
+      collection(db, 'users', currentUser.uid, 'task_history'),
+      orderBy('resolvedAt', 'desc'),
+      limit(50)
+    );
+    unsubscribes.push(onSnapshot(historyQuery, (snapshot) => {
+      setTaskHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory)));
     }));
 
     // 5. Fetch activities
@@ -166,12 +178,22 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const claimTask = async (taskId: string) => submitTask(taskId);
 
   const filteredTasks = tasks.filter(t => {
-    // If it's a standalone task (no campaign), show it if it's active
-    if (!t.campaignId) return t.active;
+    // Basic Active Check
+    if (!t.active) return false;
 
-    // If it belongs to a campaign, only show it if the campaign is active
-    const campaign = campaigns.find(c => c.id === t.campaignId);
-    return campaign && campaign.active && t.active;
+    // Campaign Active Check
+    if (t.campaignId) {
+      const campaign = campaigns.find(c => c.id === t.campaignId);
+      if (!campaign || !campaign.active) return false;
+    }
+
+    // Completion/Cooldown Check
+    const status = getTaskStatus(t);
+    if (status.status === 'completed') return false;
+    if (status.status === 'cooldown') return false;
+    if (status.status === 'pending') return false;
+
+    return true;
   });
 
   return (
@@ -180,6 +202,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userTasks,
       campaigns,
       subtasks,
+      taskHistory,
       activities,
       systemTasks,
       predictions,

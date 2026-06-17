@@ -39,6 +39,7 @@ const OpsUsers: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedUser, setSelectedUser] = React.useState<any | null>(null);
   const [userActivity, setUserActivity] = React.useState<any[]>([]);
+  const [isAssigning, setIsAssigning] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editForm, setEditForm] = React.useState({
      username: '',
@@ -299,12 +300,20 @@ const OpsUsers: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-3">
                          {!isEditing && (
-                             <button
-                               onClick={startEditing}
-                               className="px-6 py-2.5 rounded-xl bg-surface-bright border border-border text-text-primary text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all"
-                             >
-                                Edit Identity
-                             </button>
+                            <>
+                               <button
+                                 onClick={() => setIsAssigning(true)}
+                                 className="px-6 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all shadow-lg"
+                               >
+                                  Assign Work
+                               </button>
+                               <button
+                                 onClick={startEditing}
+                                 className="px-6 py-2.5 rounded-xl bg-surface-bright border border-border text-text-primary text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all"
+                               >
+                                  Edit Identity
+                               </button>
+                            </>
                          )}
                          {selectedUser.isBanned ? (
                             <button
@@ -332,7 +341,71 @@ const OpsUsers: React.FC = () => {
                    </div>
 
                    <div className="flex-1 overflow-y-auto p-10 space-y-12 no-scrollbar">
-                      {isEditing ? (
+                      {isAssigning ? (
+                          <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Work Authorization Hub</h4>
+                             <p className="text-xs text-text-tertiary font-medium">Select a designated task to forcibly assign and reward this user node.</p>
+
+                             <div className="space-y-3">
+                                {users.filter(u => u.role === 'admin' && false).length === 0 && (
+                                   <div className="p-8 rounded-2xl bg-surface-bright border border-border text-center opacity-50 space-y-4">
+                                      <TrendingUp size={24} className="mx-auto" />
+                                      <p className="text-[9px] font-black uppercase tracking-widest">Library Access Synchronizing...</p>
+                                      <button
+                                        onClick={async () => {
+                                           const { getDocs, collection } = await import('firebase/firestore');
+                                           const ts = await getDocs(collection(db, 'tasks'));
+                                           const tList = ts.docs.map(d => ({ id: d.id, ...d.data() }));
+                                           (window as any).adminTaskList = tList;
+                                           toast.success("Task Library Loaded");
+                                        }}
+                                        className="text-[8px] text-primary underline"
+                                      >Manual Load</button>
+                                   </div>
+                                )}
+
+                                <div className="max-h-96 overflow-y-auto pr-2 space-y-2 no-scrollbar">
+                                   {((window as any).adminTaskList || []).map((t: any) => (
+                                      <button
+                                        key={t.id}
+                                        onClick={async () => {
+                                           if(!window.confirm(`ASSIGN AND REWARD: "${t.title}" to ${selectedUser.username}?`)) return;
+                                           setIsAssigning(false);
+                                           const load = toast.loading("Executing Force Reward...");
+                                           const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
+                                           const res = await PointTransactionEngine.execute({
+                                              userId: selectedUser.id,
+                                              amount: t.rewardAmount,
+                                              type: 'task_reward',
+                                              source: `Admin Assign: ${t.title}`,
+                                              claimId: `adm_force_${Date.now()}`,
+                                              xpReward: t.xpReward,
+                                              referenceId: t.id
+                                           });
+                                           toast.dismiss(load);
+                                           if(res.success) toast.success("Node Rewarded Successfully");
+                                           else toast.error(res.error);
+                                        }}
+                                        className="w-full p-4 rounded-xl bg-surface-bright border border-border hover:border-primary/40 text-left transition-all group flex items-center justify-between"
+                                      >
+                                         <div>
+                                            <p className="text-[11px] font-bold text-text-primary uppercase group-hover:text-primary transition-colors">{t.title}</p>
+                                            <p className="text-[9px] font-mono text-text-tertiary mt-1">+{t.rewardAmount} PTS | {t.category}</p>
+                                         </div>
+                                         <Plus size={14} className="text-text-tertiary group-hover:text-primary" />
+                                      </button>
+                                   ))}
+                                </div>
+                             </div>
+
+                             <button
+                               onClick={() => setIsAssigning(false)}
+                               className="w-full py-4 bg-surface-bright border border-border text-text-tertiary rounded-2xl text-[10px] font-black uppercase tracking-widest hover:text-text-primary transition-all"
+                             >
+                                Return to Details
+                             </button>
+                          </section>
+                      ) : isEditing ? (
                           <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                              <div className="space-y-6">
                                 <div className="space-y-2">

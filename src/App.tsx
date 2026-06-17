@@ -39,6 +39,11 @@ import CookiePolicy from './pages/legal/CookiePolicy'
 import RewardPolicy from './pages/legal/RewardPolicy'
 import FraudPolicy from './pages/legal/FraudPolicy'
 import VerificationPolicy from './pages/legal/VerificationPolicy'
+import WithdrawalPolicy from './pages/legal/WithdrawalPolicy'
+import ReferralPolicy from './pages/legal/ReferralPolicy'
+import CommunityGuidelines from './pages/legal/CommunityGuidelines'
+import SupportPolicy from './pages/legal/SupportPolicy'
+import HelpCenter from './pages/legal/HelpCenter'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -164,6 +169,11 @@ function App() {
         <Route path="/reward-policy" element={<RewardPolicy />} />
         <Route path="/fraud-policy" element={<FraudPolicy />} />
         <Route path="/verification-policy" element={<VerificationPolicy />} />
+        <Route path="/withdrawal-policy" element={<WithdrawalPolicy />} />
+        <Route path="/referral-policy" element={<ReferralPolicy />} />
+        <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+        <Route path="/support-policy" element={<SupportPolicy />} />
+        <Route path="/help" element={<HelpCenter />} />
 
         <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
         <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />

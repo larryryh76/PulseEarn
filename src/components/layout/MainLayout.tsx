@@ -31,7 +31,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                  <Link to="/terms" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Terms of Service</Link>
                  <Link to="/reward-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Reward Policy</Link>
                  <Link to="/fraud-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Fraud Policy</Link>
-                 <Link to="/support" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Contact</Link>
+                 <Link to="/withdrawal-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Withdrawal Policy</Link>
+                 <Link to="/help" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Help Center</Link>
                  <Link to="/support" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Support</Link>
               </div>
            </div>

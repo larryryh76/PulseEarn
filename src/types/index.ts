@@ -235,6 +235,11 @@ export interface UserData {
   avatarUrl?: string;
   segment?: 'new' | 'active' | 'power' | 'inactive' | 'suspicious';
   onboardingCompleted?: boolean;
+  fingerprint?: string;
+  lastSeen?: Timestamp;
+  riskScore?: number;
+  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  fraudFlags?: string[];
   stats?: {
     tasksCompleted: number;
     referralsCount: number;

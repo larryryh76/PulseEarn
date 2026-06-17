@@ -450,12 +450,32 @@ const Tasks: React.FC = () => {
                  {/* COMPLETED HISTORY */}
                  <div className="grid grid-cols-1 gap-3">
                    {/*
-                     Audit Note: Using taskHistory as the primary source of truth for rewarded tasks.
-                     Missions are also logged to taskHistory upon claim.
+                     Audit Note: Hybrid History resolution.
+                     Merges permanent history, reactive claim states, and claimed missions.
                    */}
-                   {taskHistory
-                   .sort((a, b) => (b.resolvedAt?.toMillis?.() || 0) - (a.resolvedAt?.toMillis?.() || 0))
-                   .map((item, i) => (
+                   {[
+                      ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
+                      ...subtasks.filter(s => s.validationState === 'APPROVED' && !taskHistory.find(h => h.claimId === s.id)).map(s => ({
+                         id: s.id,
+                         taskTitle: s.metadata?.taskTitle || 'Task Completed',
+                         rewardAmount: s.xpGranted > 0 ? 0 : 0, // Placeholder as claims don't store point amount directly
+                         resolvedAt: s.resolvedAt,
+                         type: 'LEGACY_CLAIM'
+                      })),
+                      ...completedMissions.map(m => ({
+                         id: m.id,
+                         taskTitle: m.definition?.title,
+                         rewardAmount: m.definition?.rewardPoints,
+                         resolvedAt: m.progress?.claimedAt,
+                         type: 'MISSION'
+                      }))
+                   ]
+                   .sort((a, b) => {
+                      const timeA = a.resolvedAt?.toMillis?.() || 0;
+                      const timeB = b.resolvedAt?.toMillis?.() || 0;
+                      return timeB - timeA;
+                   })
+                   .map((item: any, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => setSelectedHistoryItem(item)}

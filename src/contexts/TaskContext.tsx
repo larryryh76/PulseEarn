@@ -162,9 +162,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const claimTask = async (taskId: string) => submitTask(taskId);
 
   const filteredTasks = tasks.filter(t => {
-    if (!t.campaignId) return false;
+    // If it's a standalone task (no campaign), show it if it's active
+    if (!t.campaignId) return t.active;
+
+    // If it belongs to a campaign, only show it if the campaign is active
     const campaign = campaigns.find(c => c.id === t.campaignId);
-    return campaign && campaign.active;
+    return campaign && campaign.active && t.active;
   });
 
   return (

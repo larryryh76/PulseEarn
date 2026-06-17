@@ -143,7 +143,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                            onChange={e => setFormData({...formData, category: e.target.value as TaskCategory})}
                            className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
                          >
-                            {['SOCIAL', 'ENGAGEMENT', 'REFERRAL', 'PREDICTION', 'EDUCATION'].map(c => <option key={c} value={c} className="bg-surface">{c}</option>)}
+                            {['SOCIAL', 'REFERRAL', 'EDUCATION', 'PREDICTION', 'COMMUNITY', 'EVENTS', 'SPONSORED', 'CUSTOM'].map(c => <option key={c} value={c} className="bg-surface">{c}</option>)}
                          </select>
                       </div>
                       <div className="space-y-2">

@@ -18,7 +18,8 @@ import {
   Shield,
   Star,
   ChevronRight,
-  ArrowUpRight
+  ArrowUpRight,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
@@ -35,6 +36,9 @@ const TaskIcon = ({ category, size = 20, className = "" }: { category: string, s
     case 'SOCIAL': return <Award size={size} className={cn("text-indigo-400", className)} />;
     case 'DAILY': return <Calendar size={size} className={cn("text-orange-400", className)} />;
     case 'STREAK': return <Flame size={size} className={cn("text-danger", className)} />;
+    case 'EDUCATION': return <BookOpen size={size} className={cn("text-blue-500", className)} />;
+    case 'EVENTS': return <Target size={size} className={cn("text-purple-400", className)} />;
+    case 'SPONSORED': return <Zap size={size} className={cn("text-yellow-400", className)} />;
     default: return <Target size={size} className={cn("text-primary", className)} />;
   }
 };
@@ -82,6 +86,12 @@ const Tasks: React.FC = () => {
 
   const completedMissions = systemTasks.filter(m => m.progress?.status === 'CLAIMED');
   const completedTasks = tasks.filter(t => getTaskStatus(t).status === 'completed');
+
+  const availableStandaloneTasks = tasks.filter(t =>
+    !t.campaignId &&
+    getTaskStatus(t).status !== 'completed' &&
+    (filter === 'ALL' || t.category === filter as any)
+  );
 
   const handleClaimMission = async (taskId: string) => {
     if (!currentUser) return;
@@ -313,10 +323,51 @@ const Tasks: React.FC = () => {
                  )}
 
                  {/* SPONSORED PLACEHOLDER (PREPARED FOR FUTURE ADS) */}
-                 {filter === 'SPONSORED' && (
+                 {filter === 'SPONSORED' && availableStandaloneTasks.length === 0 && (
                     <div className="py-24 text-center border border-dashed border-border rounded-[2rem] opacity-20">
                        <Zap size={32} className="mx-auto mb-4 text-text-tertiary/50" />
                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Offers Coming Soon</p>
+                    </div>
+                 )}
+
+                 {/* STANDALONE TASKS */}
+                 {availableStandaloneTasks.length > 0 && (
+                    <div className="space-y-6">
+                       <div className="flex items-center gap-3 px-2">
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Community Quests</h4>
+                          <div className="h-px flex-1 bg-border" />
+                       </div>
+                       <div className="grid grid-cols-1 gap-3">
+                          {availableStandaloneTasks.map((task) => {
+                             return (
+                                <div
+                                  key={task.id}
+                                  onClick={() => navigate('/tasks', { state: { selectedTask: task } })}
+                                  className="group p-5 rounded-2xl bg-surface border border-border hover:border-primary/20 transition-all cursor-pointer flex items-center justify-between"
+                                >
+                                   <div className="flex items-center gap-5 min-w-0">
+                                      <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-primary shrink-0">
+                                         <TaskIcon category={task.category} size={20} />
+                                      </div>
+                                      <div className="min-w-0">
+                                         <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">
+                                            {task.title}
+                                         </h3>
+                                         <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center gap-1">
+                                               <Zap size={10} className="text-primary" />
+                                               <span className="text-[10px] font-mono font-bold text-text-secondary">+{task.rewardAmount}</span>
+                                            </div>
+                                            <div className="w-1 h-1 rounded-full bg-border" />
+                                            <span className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{task.verificationType}</span>
+                                         </div>
+                                      </div>
+                                   </div>
+                                   <ChevronRight size={16} className="text-text-tertiary/50 group-hover:text-primary transition-colors" />
+                                </div>
+                             );
+                          })}
+                       </div>
                     </div>
                  )}
 

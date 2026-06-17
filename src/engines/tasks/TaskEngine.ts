@@ -138,9 +138,11 @@ export class TaskEngine {
 
 export const TASK_CATEGORIES: TaskCategory[] = [
   'SOCIAL',
-  'ENGAGEMENT',
   'REFERRAL',
-  'PREDICTION',
   'EDUCATION',
-  'EVENTS'
+  'PREDICTION',
+  'COMMUNITY',
+  'EVENTS',
+  'SPONSORED',
+  'CUSTOM'
 ];

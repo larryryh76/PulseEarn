@@ -31,16 +31,39 @@ import { formatUSD } from '../utils/finance';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
+import OnboardingOverlay from '../components/OnboardingOverlay';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { userData } = useAuth();
+  const { userData, currentUser } = useAuth();
   const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
   const [selectedActivity, setSelectedActivity] = React.useState<any | null>(null);
 
   const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
   const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  React.useEffect(() => {
+    if (userData && userData.onboardingCompleted === false) {
+       setShowOnboarding(true);
+    }
+  }, [userData]);
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    if (currentUser) {
+       try {
+          await updateDoc(doc(db, 'users', currentUser.uid), {
+             onboardingCompleted: true
+          });
+       } catch (err) {
+          console.error("Failed to save onboarding state:", err);
+       }
+    }
+  };
 
   // Modern Intelligent Discovery Engine
   const discoveredTasks = useMemo(() => {
@@ -119,6 +142,10 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
+      <AnimatePresence>
+         {showOnboarding && <OnboardingOverlay onComplete={handleOnboardingComplete} />}
+      </AnimatePresence>
+
       <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
         {/* HEADER */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 md:gap-12">

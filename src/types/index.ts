@@ -234,6 +234,7 @@ export interface UserData {
   totalWithdrawn?: number;
   avatarUrl?: string;
   segment?: 'new' | 'active' | 'power' | 'inactive' | 'suspicious';
+  onboardingCompleted?: boolean;
   stats?: {
     tasksCompleted: number;
     referralsCount: number;
@@ -266,7 +267,7 @@ export interface UserData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty';
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus';
   amount: number;
   source: string; // source system name
   timestamp: Timestamp;

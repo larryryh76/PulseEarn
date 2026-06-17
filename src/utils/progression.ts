@@ -7,31 +7,39 @@
  */
 
 /**
- * Linear Progression Model
- * To remain synchronized with the Ops XP Engine, we use a fixed interval per level.
- * Default: 1000 XP per level.
+ * Exponential Progression Model (x3 Multiplier)
+ * Level 1: 0 - 999 XP
+ * Level 2: 1,000 XP
+ * Level 3: 3,000 XP
+ * Level 4: 9,000 XP
  */
-export const calculateLevel = (xp: number, xpPerLevel: number = 1000): number => {
-  if (xp <= 0) return 1;
-  return Math.floor(xp / xpPerLevel) + 1;
+export const calculateLevel = (xp: number, baseLevelXp: number = 1000): number => {
+  if (xp < baseLevelXp) return 1;
+  // level = floor(log_multiplier(xp / base)) + 2
+  const level = Math.floor(Math.log(xp / baseLevelXp) / Math.log(3)) + 2;
+  return level;
 };
 
-export const getXpForNextLevel = (_level: number, xpPerLevel: number = 1000): number => {
-  return xpPerLevel;
+export const getXpForLevel = (level: number, baseLevelXp: number = 1000): number => {
+  if (level <= 1) return 0;
+  return baseLevelXp * Math.pow(3, level - 2);
 };
 
-export const getXpProgress = (xp: number, xpPerLevel: number = 1000) => {
-  const level = calculateLevel(xp, xpPerLevel);
-  const cumulativeXpForCurrentLevel = (level - 1) * xpPerLevel;
-  const currentLevelXp = xp - cumulativeXpForCurrentLevel;
+export const getXpProgress = (xp: number, baseLevelXp: number = 1000) => {
+  const level = calculateLevel(xp, baseLevelXp);
+  const currentLevelThreshold = getXpForLevel(level, baseLevelXp);
+  const nextLevelThreshold = getXpForLevel(level + 1, baseLevelXp);
 
-  const progress = (currentLevelXp / xpPerLevel) * 100;
+  const xpInLevel = xp - currentLevelThreshold;
+  const xpNeededForNext = nextLevelThreshold - currentLevelThreshold;
+
+  const progress = (xpInLevel / xpNeededForNext) * 100;
 
   return {
     level,
-    currentLevelXp,
-    requiredXp: xpPerLevel,
-    nextLevelXp: level * xpPerLevel,
+    currentLevelXp: xpInLevel,
+    requiredXp: xpNeededForNext,
+    nextLevelXp: nextLevelThreshold,
     progress: Math.min(Math.floor(progress), 100)
   };
 };

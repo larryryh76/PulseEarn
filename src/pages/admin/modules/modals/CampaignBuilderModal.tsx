@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { Target, X, Save, ShieldCheck } from 'lucide-react';
+import { Target, X, Save, ShieldCheck, Zap } from 'lucide-react';
 import { db } from '../../../../firebase/config';
-import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Campaign, TaskCategory } from '../../../../types';
+import { doc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { Campaign, TaskCategory, VerificationType, SocialPlatform } from '../../../../types';
 import { motion } from 'framer-motion';
 import Button from '../../../../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -18,7 +18,8 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
   const [formData, setFormData] = React.useState<Partial<Campaign>>({
     name: '',
     description: '',
-    category: 'ENGAGEMENT' as TaskCategory,
+    category: 'SOCIAL' as TaskCategory,
+    sponsorName: '',
     bannerUrl: '',
     totalPrizePool: 1000,
     xpReward: 100,
@@ -35,6 +36,16 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
       apiValidation: false
     }
   });
+
+  const [initialTask, setInitialTask] = React.useState({
+     title: '',
+     rewardAmount: 100,
+     xpReward: 50,
+     verificationType: 'manual' as VerificationType,
+     instructions: ''
+  });
+
+  const [createWithTask, setCreateWithTask] = React.useState(false);
 
   React.useEffect(() => {
     if (initialCampaign) {
@@ -65,25 +76,53 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const loadingToast = toast.loading('Saving campaign...');
+    const loadingToast = toast.loading('Synchronizing Architecture...');
     try {
-      const id = initialCampaign?.id || doc(collection(db, 'campaigns')).id;
-      const campaignRef = doc(db, 'campaigns', id);
+      const batch = writeBatch(db);
+      const campId = initialCampaign?.id || doc(collection(db, 'campaigns')).id;
+      const campaignRef = doc(db, 'campaigns', campId);
 
       const payload = {
         ...formData,
-        id,
+        id: campId,
+        remainingPool: initialCampaign ? initialCampaign.remainingPool : formData.totalPrizePool,
         updatedAt: serverTimestamp(),
         createdAt: initialCampaign ? initialCampaign.createdAt : serverTimestamp()
       };
 
-      await setDoc(campaignRef, payload, { merge: true });
+      batch.set(campaignRef, payload, { merge: true });
+
+      // Deep Integration: Atomic Task Injection
+      if (!initialCampaign && createWithTask && initialTask.title) {
+         const taskId = doc(collection(db, 'tasks')).id;
+         const taskRef = doc(db, 'tasks', taskId);
+         batch.set(taskRef, {
+            ...initialTask,
+            id: taskId,
+            campaignId: campId,
+            active: true,
+            status: 'ACTIVE',
+            category: formData.category,
+            platform: 'NONE' as SocialPlatform,
+            providerId: 'SYSTEM',
+            providerName: 'PulseEarn Authority',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            fraudProtection: {
+               duplicatePrevention: true,
+               abuseDetection: true,
+               multiAccountDetection: true
+            }
+         });
+      }
+
+      await batch.commit();
       toast.dismiss(loadingToast);
-      toast.success('Campaign saved successfully');
+      toast.success('Mission Hub Synchronized');
       onClose();
     } catch (err) {
       toast.dismiss(loadingToast);
-      toast.error('Failed to save campaign');
+      toast.error('Architecture Sync Failure');
     }
   };
 
@@ -181,18 +220,92 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                       </div>
                    </div>
 
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Banner URL (Bundled Assets Only)</label>
-                      <input
-                        value={formData.bannerUrl || ''}
-                        onChange={e => setFormData({...formData, bannerUrl: e.target.value})}
-                        placeholder="https://..."
-                        className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 md:p-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
-                      />
-                      <p className="text-[8px] text-text-tertiary/50 uppercase font-bold mt-1 px-1">Native upload disabled. Use static URL.</p>
+                   <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Sponsor Authority</label>
+                        <input
+                          required value={formData.sponsorName}
+                          onChange={e => setFormData({...formData, sponsorName: e.target.value})}
+                          placeholder="e.g. Partner Labs"
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-bold"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Asset Reference URL</label>
+                        <input
+                          value={formData.bannerUrl || ''}
+                          onChange={e => setFormData({...formData, bannerUrl: e.target.value})}
+                          placeholder="https://..."
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
+                        />
+                        <p className="text-[8px] text-text-tertiary/50 uppercase font-bold mt-1 px-1">Native upload disabled. Use static URL.</p>
+                      </div>
                    </div>
                 </div>
              </div>
+
+             {!initialCampaign && (
+                <div className="p-8 bg-primary/5 border border-primary/10 rounded-[2.5rem] space-y-8 shadow-inner">
+                   <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <Zap size={18} className="text-primary" />
+                         <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-text-primary">Bootstrap First Work Unit</h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCreateWithTask(!createWithTask)}
+                        className={cn("px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all", createWithTask ? "bg-primary text-text-primary border-primary" : "text-text-tertiary border-border")}
+                      >
+                         {createWithTask ? 'Enabled' : 'Disabled'}
+                      </button>
+                   </div>
+
+                   {createWithTask && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                         <div className="space-y-4">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Task Title</label>
+                               <input
+                                 value={initialTask.title}
+                                 onChange={e => setInitialTask({...initialTask, title: e.target.value})}
+                                 className="w-full bg-surface border border-border rounded-xl p-3 text-xs focus:border-primary/50 outline-none"
+                                 placeholder="e.g. Follow Authority Profile"
+                               />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                  <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Bounty (PTS)</label>
+                                  <input
+                                    type="number" value={initialTask.rewardAmount}
+                                    onChange={e => setInitialTask({...initialTask, rewardAmount: Number(e.target.value)})}
+                                    className="w-full bg-surface border border-border rounded-xl p-3 text-xs font-mono focus:border-primary/50 outline-none"
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Provision (XP)</label>
+                                  <input
+                                    type="number" value={initialTask.xpReward}
+                                    onChange={e => setInitialTask({...initialTask, xpReward: Number(e.target.value)})}
+                                    className="w-full bg-surface border border-border rounded-xl p-3 text-xs font-mono focus:border-primary/50 outline-none"
+                                  />
+                               </div>
+                            </div>
+                         </div>
+                         <div className="space-y-4">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Operations Protocol (Instructions)</label>
+                               <textarea
+                                 value={initialTask.instructions}
+                                 onChange={e => setInitialTask({...initialTask, instructions: e.target.value})}
+                                 className="w-full bg-surface border border-border rounded-xl p-3 text-xs h-[104px] resize-none focus:border-primary/50 outline-none"
+                                 placeholder="Detail user requirements for validation..."
+                               />
+                            </div>
+                         </div>
+                      </div>
+                   )}
+                </div>
+             )}
 
              <div className="p-6 md:p-8 bg-surface-bright/50 border border-border rounded-[1.5rem] md:rounded-[2rem] space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-2 px-1">

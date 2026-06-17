@@ -188,6 +188,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           type: 'referral_joined'
         });
 
+        // 3. Log to Referrals Collection for UI Tracking
+        await setDoc(doc(collection(db, 'referrals')), {
+          referrerId: referredBy,
+          refereeId: user.uid,
+          refereeUsername: username,
+          status: 'REWARDED',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        // 4. Update Referrer Stats
+        await updateDoc(doc(db, 'users', referredBy), {
+          'stats.referralsCount': increment(1)
+        });
+
         // Trigger System Task Engine for referral completion
         const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
         await SystemTaskEngine.processEvent(referredBy, 'referral_completed');

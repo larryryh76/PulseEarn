@@ -231,6 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: role as 'admin' | 'user',
       isBanned: false,
       isFlagged: false,
+      onboardingCompleted: false,
       avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
       stats: {
         tasksCompleted: 0,
@@ -255,13 +256,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    // Award Welcome Bonus / Referee Reward
-    // If referred, give 30 PTS. If direct signup, give 10 PTS (Welcome Bonus).
+    // Award Welcome Bonus
+    // Standard 50 PTS for all new users as requested
     await PointTransactionEngine.execute({
       userId: user.uid,
-      amount: referredBy ? 30 : 10,
-      type: 'referral_bonus',
-      source: referredBy ? 'Referral Welcome Reward' : 'Signup Welcome Bonus',
+      amount: 50,
+      type: 'welcome_bonus',
+      source: 'Welcome Bonus',
       claimId: `welcome_${user.uid}`,
       xpReward: 50
     });

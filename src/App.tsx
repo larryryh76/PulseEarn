@@ -50,7 +50,7 @@ import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userData, loading } = useAuth();
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -60,7 +60,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  const isAdminRole = userData?.role === 'admin';
+  const isAdmin = isAdminEmail || isAdminRole;
+
   if (!currentUser.emailVerified && !isAdmin && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
@@ -93,7 +96,8 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    if (userData?.role === 'admin') return <Navigate to="/admin" replace />;
+    const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+    if (userData?.role === 'admin' || isAdminEmail) return <Navigate to="/admin" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;

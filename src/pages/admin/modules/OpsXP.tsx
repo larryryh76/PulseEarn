@@ -22,7 +22,9 @@ import {
   serverTimestamp,
   collection,
   getDocs,
-  writeBatch
+  writeBatch,
+  query,
+  where
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 
@@ -92,12 +94,35 @@ const OpsXP: React.FC = () => {
 
         for (const userDoc of usersSnap.docs) {
            const userData = userDoc.data();
+           const userRef = userDoc.ref;
 
            // 1. Progression Sync
            const correctLevel = calculateLevel(userData.xp || 0, formData.xpPerLevel);
            if (correctLevel !== userData.level) {
-              batch.update(userDoc.ref, { level: correctLevel });
+              batch.update(userRef, { level: correctLevel });
               levelUpdates++;
+           }
+
+           // 1.5 Stats Reconciliation (Referral Count Check)
+           const actualReferralsQuery = query(collection(db, 'referrals'), where('referrerId', '==', userDoc.id), where('status', '==', 'REWARDED'));
+           const actualReferralsSnap = await getDocs(actualReferralsQuery);
+           const actualCount = actualReferralsSnap.size;
+
+           if ((userData.stats?.referralsCount || 0) !== actualCount) {
+              batch.update(userRef, {
+                 'stats.referralsCount': actualCount
+              });
+           }
+
+           // 1.7 Task Stats Reconciliation
+           const historyQuery = query(collection(db, 'users', userDoc.id, 'task_history'), where('status', '==', 'COMPLETED'));
+           const historySnap = await getDocs(historyQuery);
+           const actualTasksCount = historySnap.size;
+
+           if ((userData.stats?.tasksCompleted || 0) !== actualTasksCount) {
+              batch.update(userRef, {
+                 'stats.tasksCompleted': actualTasksCount
+              });
            }
 
            // 2. Referral Bounty Sync (Referrer 50, Referee 30)

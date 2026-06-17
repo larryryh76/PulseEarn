@@ -32,6 +32,7 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
+import { calculateLevel } from '../../../utils/progression';
 
 const OpsUsers: React.FC = () => {
   const [users, setUsers] = React.useState<any[]>([]);
@@ -231,14 +232,20 @@ const OpsUsers: React.FC = () => {
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
+                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
                    {loading ? (
-                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
-                   ) : filtered.map((user) => (
+                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={6} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
+                   ) : filtered.map((user) => {
+                      const expectedLevel = calculateLevel(user.xp || 0);
+                      const isSynced = (user.level || 1) === expectedLevel;
+
+                      return (
                       <tr key={user.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap cursor-pointer" onClick={() => setSelectedUser(user)}>
                          <td className="p-6 md:p-8">
                             <div className="flex items-center gap-4">
@@ -263,6 +270,22 @@ const OpsUsers: React.FC = () => {
                          <td className="p-6 md:p-8">
                             <div className={cn(
                               "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                              isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
+                            )}>
+                               {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
+                            </div>
+                         </td>
+                         <td className="p-6 md:p-8">
+                            <div className={cn(
+                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                              isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
+                            )}>
+                               {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
+                            </div>
+                         </td>
+                         <td className="p-6 md:p-8">
+                            <div className={cn(
+                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
                               user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
                             )}>
                                {user.isBanned ? 'Restricted' : 'Authenticated'}
@@ -274,7 +297,8 @@ const OpsUsers: React.FC = () => {
                             </button>
                          </td>
                       </tr>
-                   ))}
+                      );
+                   })}
                 </tbody>
              </table>
           </div>

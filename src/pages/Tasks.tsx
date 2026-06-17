@@ -59,6 +59,7 @@ const Tasks: React.FC = () => {
   }, [location.state]);
   const [selectedTask, setSelectedMarketTask] = useState<any | null>(null);
   const [selectedTaskProof, setSelectedTaskProof] = useState('');
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
 
@@ -491,20 +492,26 @@ const Tasks: React.FC = () => {
            task={selectedTask}
            claim={selectedTask ? subtasks.find((s: any) => s.taskId === selectedTask.id) : undefined}
            onAction={async () => {
-              const { TaskEngine } = await import('../engines/tasks/TaskEngine');
-              const result = await TaskEngine.attemptTask({
-                 userId: currentUser!.uid,
-                 taskId: selectedTask!.id,
-                 proof: selectedTaskProof
-              });
-              if (result.success) {
-                 toast.success('Action Recorded');
-                 setSelectedMarketTask(null);
-              } else {
-                 toast.error(result.error || 'Sequence Failure');
+              setIsSubmittingTask(true);
+              try {
+                const { TaskEngine } = await import('../engines/tasks/TaskEngine');
+                const result = await TaskEngine.attemptTask({
+                   userId: currentUser!.uid,
+                   taskId: selectedTask!.id,
+                   proof: selectedTaskProof
+                });
+                if (result.success) {
+                   toast.success('Sequence Initiated: Under Review', { icon: '⏳' });
+                   setSelectedMarketTask(null);
+                   setSelectedTaskProof('');
+                } else {
+                   toast.error(result.error || 'Execution Failure');
+                }
+              } finally {
+                setIsSubmittingTask(false);
               }
            }}
-           isSubmitting={false}
+           isSubmitting={isSubmittingTask}
            proofValue={selectedTaskProof}
            setProofValue={setSelectedTaskProof}
         />

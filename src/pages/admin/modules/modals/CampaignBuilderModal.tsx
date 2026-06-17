@@ -20,6 +20,8 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
     description: '',
     category: 'SOCIAL' as TaskCategory,
     sponsorName: '',
+    sponsorLogoUrl: '',
+    sponsorWebsite: '',
     bannerUrl: '',
     totalPrizePool: 1000,
     xpReward: 100,
@@ -230,8 +232,28 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-bold"
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Logo URL</label>
+                            <input
+                               value={formData.sponsorLogoUrl}
+                               onChange={e => setFormData({...formData, sponsorLogoUrl: e.target.value})}
+                               placeholder="https://..."
+                               className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-xs text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
+                            />
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Website</label>
+                            <input
+                               value={formData.sponsorWebsite}
+                               onChange={e => setFormData({...formData, sponsorWebsite: e.target.value})}
+                               placeholder="https://..."
+                               className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-xs text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
+                            />
+                         </div>
+                      </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Asset Reference URL</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Banner Reference URL</label>
                         <input
                           value={formData.bannerUrl || ''}
                           onChange={e => setFormData({...formData, bannerUrl: e.target.value})}

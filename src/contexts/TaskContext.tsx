@@ -69,15 +69,19 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserTasks(data);
     }));
 
-    // 4. Fetch user claims
+    // 4. Fetch user claims (Audit: Simplified query for immediate reactivity)
     const subtasksQuery = query(
       collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc'),
-      limit(30)
+      limit(50)
     );
     unsubscribes.push(onSnapshot(subtasksQuery, (snapshot) => {
-      setSubtasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim));
+      setSubtasks(data.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() || 0;
+          const timeB = b.createdAt?.toMillis?.() || 0;
+          return timeB - timeA;
+      }));
     }));
 
     // 5. Fetch activities

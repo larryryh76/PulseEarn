@@ -53,6 +53,7 @@ export class TaskEngine {
           id: claimId,
           userId,
           taskId,
+          campaignId: task.campaignId,
           providerId: task.providerId,
           validationState: task.verificationType === 'automated' ? 'APPROVED' : 'PENDING',
           completionState: task.verificationType === 'automated' ? 'COMPLETED' : 'IN_PROGRESS',
@@ -61,6 +62,10 @@ export class TaskEngine {
           fraudFlags: [],
           submittedProof: proof || null,
           createdAt: serverTimestamp() as any,
+          metadata: {
+             taskTitle: task.title,
+             username: (await transaction.get(doc(db, 'users', userId))).data()?.username || 'Anonymous'
+          }
         };
 
         transaction.set(claimRef, claim);

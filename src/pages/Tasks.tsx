@@ -26,6 +26,7 @@ import { cn } from '../utils';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
+import TaskDetailDrawer from '../components/TaskDetailDrawer';
 
 const TaskIcon = ({ category, size = 20, className = "" }: { category: string, size?: number, className?: string }) => {
   switch (category) {
@@ -57,6 +58,7 @@ const Tasks: React.FC = () => {
     }
   }, [location.state]);
   const [selectedTask, setSelectedMarketTask] = useState<any | null>(null);
+  const [selectedTaskProof, setSelectedTaskProof] = useState('');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
 
@@ -482,9 +484,34 @@ const Tasks: React.FC = () => {
            )}
         </div>
 
-        {/* REFINED TASK DETAIL OVERLAY */}
+        {/* REFINED TASK DETAIL DRAWER */}
+        <TaskDetailDrawer
+           isOpen={!!selectedTask && selectedTask.type !== 'CHALLENGE'}
+           onClose={() => setSelectedMarketTask(null)}
+           task={selectedTask}
+           claim={selectedTask ? subtasks.find((s: any) => s.taskId === selectedTask.id) : undefined}
+           onAction={async () => {
+              const { TaskEngine } = await import('../engines/tasks/TaskEngine');
+              const result = await TaskEngine.attemptTask({
+                 userId: currentUser!.uid,
+                 taskId: selectedTask!.id,
+                 proof: selectedTaskProof
+              });
+              if (result.success) {
+                 toast.success('Action Recorded');
+                 setSelectedMarketTask(null);
+              } else {
+                 toast.error(result.error || 'Sequence Failure');
+              }
+           }}
+           isSubmitting={false}
+           proofValue={selectedTaskProof}
+           setProofValue={setSelectedTaskProof}
+        />
+
+        {/* SYSTEM CHALLENGE OVERLAY */}
         <AnimatePresence>
-           {selectedTask && (
+           {selectedTask && selectedTask.type === 'CHALLENGE' && (
               <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                  <motion.div
                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -497,14 +524,14 @@ const Tasks: React.FC = () => {
                    exit={{ scale: 0.98, opacity: 0, y: 20 }}
                    className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
                  >
-                    <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
+                    <div className="p-6 md:p-8 border-b border-border flex items-center justify-between bg-surface-bright/50">
                        <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-primary/10 rounded-xl text-primary border border-primary/20 flex items-center justify-center">
-                             <TaskIcon category={selectedTask.definition?.category || selectedTask.category} size={20} />
+                             <TaskIcon category={selectedTask.definition.category} size={20} />
                           </div>
                           <div>
-                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Objective</p>
-                             <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTask.definition?.category || selectedTask.category}</h3>
+                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Challenge</p>
+                             <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTask.definition.category}</h3>
                           </div>
                        </div>
                        <button onClick={() => setSelectedMarketTask(null)} className="w-10 h-10 hover:bg-surface-bright rounded-xl transition-all text-text-tertiary flex items-center justify-center">
@@ -512,11 +539,11 @@ const Tasks: React.FC = () => {
                        </button>
                     </div>
 
-                    <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+                    <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh] no-scrollbar">
                        <div className="space-y-4">
-                          <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTask.definition?.title || selectedTask.title}</h2>
+                          <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTask.definition.title}</h2>
                           <p className="text-sm text-text-secondary font-medium leading-relaxed opacity-70 italic border-l-2 border-primary/20 pl-6">
-                             {selectedTask.definition?.description || selectedTask.description || 'Complete this objective to earn rewards.'}
+                             {selectedTask.definition.description || 'Complete this objective to earn rewards.'}
                           </p>
                        </div>
 
@@ -524,14 +551,14 @@ const Tasks: React.FC = () => {
                           <div className="p-5 rounded-2xl bg-surface-bright/50 border border-border space-y-1.5">
                              <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Authorized Reward</p>
                              <div className="flex items-baseline gap-1.5">
-                                <p className="text-xl font-mono font-bold text-text-primary">+{ (selectedTask.definition?.rewardPoints || selectedTask.rewardAmount || 0).toLocaleString()}</p>
+                                <p className="text-xl font-mono font-bold text-text-primary">+{selectedTask.definition.rewardPoints.toLocaleString()}</p>
                                 <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">pts</span>
                              </div>
                           </div>
                           <div className="p-5 rounded-2xl bg-surface-bright/50 border border-border space-y-1.5">
                              <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">System XP</p>
                              <div className="flex items-baseline gap-1.5">
-                                <p className="text-xl font-mono font-bold text-primary">+{ (selectedTask.definition?.rewardXp || selectedTask.xpReward || 0).toLocaleString()}</p>
+                                <p className="text-xl font-mono font-bold text-primary">+{selectedTask.definition.rewardXp.toLocaleString()}</p>
                                 <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">xp</span>
                              </div>
                           </div>
@@ -547,95 +574,39 @@ const Tasks: React.FC = () => {
                                 <motion.div
                                    initial={{ width: 0 }}
                                    animate={{ width: `${Math.min((selectedTask.progress.progress / selectedTask.progress.target) * 100, 100)}%` }}
-                                   className="h-full bg-primary"
+                                   className="h-full bg-primary shadow-[0_0_10px_rgba(0,112,255,0.4)]"
                                 />
                              </div>
                           </div>
                        )}
 
                        <div className="space-y-3 pt-4">
-                          {selectedTask.type === 'CHALLENGE' ? (
-                             <>
-                                {selectedTask.progress?.status === 'COMPLETED' ? (
-                                   <Button
-                                     className="w-full h-14 bg-text-primary text-background hover:bg-primary hover:text-text-primary transition-all font-black uppercase tracking-[0.3em] text-[10px] rounded-2xl"
-                                     onClick={() => handleClaimMission(selectedTask.id)}
-                                     isLoading={claimingId === selectedTask.id}
-                                   >
-                                      Claim Reward
-                                   </Button>
-                                ) : selectedTask.progress?.status === 'CLAIMED' ? (
-                                   <div className="h-14 flex items-center justify-center gap-3 text-success bg-success/5 border border-success/10 rounded-2xl font-black uppercase tracking-[0.2em] text-[9px]">
-                                      <CheckCircle2 size={16} />
-                                      Reward Claimed
-                                   </div>
-                                ) : (
-                                   <Button
-                                     onClick={() => {
-                                       if(selectedTask.definition.category === 'PREDICTION') navigate('/predictions');
-                                       else if(selectedTask.definition.category === 'REFERRAL') navigate('/referrals');
-                                       else navigate('/tasks');
-                                       setSelectedMarketTask(null);
-                                     }}
-                                     className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] group italic shadow-xl"
-                                   >
-                                      Initialize Quest <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                                   </Button>
-                                )}
-                             </>
+                          {selectedTask.progress?.status === 'COMPLETED' ? (
+                             <Button
+                               className="w-full h-14 bg-text-primary text-background hover:bg-primary hover:text-text-primary transition-all font-black uppercase tracking-[0.3em] text-[10px] rounded-2xl shadow-xl"
+                               onClick={() => handleClaimMission(selectedTask.id)}
+                               isLoading={claimingId === selectedTask.id}
+                             >
+                                Claim Reward
+                             </Button>
+                          ) : selectedTask.progress?.status === 'CLAIMED' ? (
+                             <div className="h-14 flex items-center justify-center gap-3 text-success bg-success/5 border border-success/10 rounded-2xl font-black uppercase tracking-[0.2em] text-[9px]">
+                                <CheckCircle2 size={16} />
+                                Reward Claimed
+                             </div>
                           ) : (
-                             <>
-                                {getTaskStatus(selectedTask).status === 'completed' ? (
-                                   <div className="h-14 flex items-center justify-center gap-3 text-success bg-success/5 border border-success/10 rounded-2xl font-black uppercase tracking-[0.2em] text-[9px]">
-                                      <CheckCircle2 size={16} />
-                                      Mission Secured
-                                   </div>
-                                ) : (
-                                   <div className="space-y-6">
-                                      <div className="p-6 rounded-2xl bg-surface-bright border border-border space-y-4">
-                                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Operational Protocol</p>
-                                         <p className="text-sm font-medium text-text-secondary leading-relaxed">
-                                            {selectedTask.instructions || 'Follow the required steps to authorize your reward eligibility.'}
-                                         </p>
-                                      </div>
-
-                                      {selectedTask.actionUrl && (
-                                         <a
-                                           href={selectedTask.actionUrl}
-                                           target="_blank"
-                                           rel="noreferrer"
-                                           className="flex items-center justify-between bg-primary text-text-primary p-5 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
-                                         >
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Open Objective</span>
-                                            <ArrowUpRight size={16} />
-                                         </a>
-                                      )}
-
-                                      <Button
-                                        onClick={async () => {
-                                           const { TaskEngine } = await import('../engines/tasks/TaskEngine');
-                                           const result = await TaskEngine.attemptTask({ userId: currentUser!.uid, taskId: selectedTask.id });
-                                           if (result.success) {
-                                              toast.success('Action Recorded');
-                                              setSelectedMarketTask(null);
-                                           } else {
-                                              toast.error(result.error || 'Sequence Failure');
-                                           }
-                                        }}
-                                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl"
-                                      >
-                                         Authorize Completion
-                                      </Button>
-                                   </div>
-                                )}
-                             </>
+                             <Button
+                               onClick={() => {
+                                 if(selectedTask.definition.category === 'PREDICTION') navigate('/predictions');
+                                 else if(selectedTask.definition.category === 'REFERRAL') navigate('/referrals');
+                                 else navigate('/tasks');
+                                 setSelectedMarketTask(null);
+                               }}
+                               className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] group italic shadow-xl"
+                             >
+                                Initialize Quest <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                             </Button>
                           )}
-                          <button
-                            onClick={() => setSelectedMarketTask(null)}
-                            className="w-full h-10 text-[9px] font-black text-text-tertiary uppercase tracking-[0.3em] hover:text-text-primary transition-colors pt-4"
-                          >
-                            Return
-                          </button>
                        </div>
                     </div>
 

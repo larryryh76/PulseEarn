@@ -6,24 +6,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { Task, TaskClaim, Campaign } from '../types';
 import {
   Clock,
-  ExternalLink,
   CheckCircle2,
   Calendar,
   ChevronLeft,
   Users,
   Zap,
   Target,
-  Link as LinkIcon,
   ShieldCheck,
   Info,
-  ChevronRight,
-  X,
-  FileText
+  ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Button from '../components/ui/Button';
 import { cn } from '../utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import TaskDetailDrawer from '../components/TaskDetailDrawer';
 
 const CampaignDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -348,131 +343,16 @@ const CampaignDetails: React.FC = () => {
       </div>
 
       {/* TASK DETAIL DRAWER */}
-      <AnimatePresence>
-        {selectedTask && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setSelectedTask(null)}
-              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-xl bg-surface border-l border-border shadow-2xl flex flex-col"
-            >
-              <div className="p-8 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-2xl">
-                    <Zap size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold uppercase italic tracking-tighter text-text-primary">Task Overview</h2>
-                    <p className="text-[10px] font-mono text-text-tertiary uppercase tracking-widest mt-1">Ref: {selectedTask.id.slice(0, 12).toUpperCase()}</p>
-                  </div>
-                </div>
-                <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary">
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-10 space-y-12 no-scrollbar">
-                <section className="space-y-6">
-                  <div className="p-8 rounded-3xl bg-surface-bright border border-border shadow-inner">
-                    <h3 className="text-xl font-bold text-text-primary uppercase italic tracking-tight mb-4">{selectedTask.title}</h3>
-                    <p className="text-sm text-text-tertiary leading-relaxed font-medium">
-                      {selectedTask.description}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Point Bounty</p>
-                      <p className="text-xl font-mono font-bold text-success">+{selectedTask.rewardAmount}</p>
-                    </div>
-                    <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Progression</p>
-                      <p className="text-xl font-mono font-bold text-primary">+{selectedTask.xpReward} XP</p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="space-y-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(94,106,210,0.5)]" />
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Execution Requirement</h4>
-                  </div>
-
-                  <div className="space-y-6">
-                    {selectedTask.actionUrl && (
-                      <a
-                        href={selectedTask.actionUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between bg-primary text-text-primary p-6 rounded-[2rem] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
-                      >
-                        <div className="flex items-center gap-4">
-                          <ExternalLink size={20} />
-                          <span className="text-[11px] font-black uppercase tracking-[0.2em] italic">Start Task</span>
-                        </div>
-                        <ChevronRight size={18} />
-                      </a>
-                    )}
-
-                    <div className="p-8 bg-surface-bright/50 border border-border rounded-[2.5rem] space-y-8">
-                      <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Submission Requirement</label>
-                        <div className="bg-background/40 rounded-2xl border border-border overflow-hidden shadow-inner">
-                          {selectedTask.verificationType === 'link' ? (
-                             <div className="relative group">
-                                <LinkIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors" size={16} />
-                                <input
-                                   type="url"
-                                   value={proof[selectedTask.id] || ''}
-                                   onChange={(e) => setProof(prev => ({ ...prev, [selectedTask.id]: e.target.value }))}
-                                   placeholder="https://source.evidence/..."
-                                   className="w-full bg-transparent border-0 px-14 py-6 text-sm font-mono font-bold text-text-primary focus:outline-none transition-all placeholder:text-text-primary/5"
-                                />
-                             </div>
-                          ) : (
-                             <div className="relative group">
-                                <FileText className="absolute left-6 top-6 text-text-tertiary" size={16} />
-                                <textarea
-                                  value={proof[selectedTask.id] || ''}
-                                  onChange={(e) => setProof(prev => ({ ...prev, [selectedTask.id]: e.target.value }))}
-                                  placeholder={selectedTask.verificationType === 'proof' ? "Enter description of proof (Image upload disabled)" : (selectedTask.proofRequirements || "Enter required submission details...")}
-                                  className="w-full bg-transparent border-0 pl-14 pr-8 py-6 text-sm font-medium text-text-primary focus:outline-none transition-all min-h-[120px] resize-none placeholder:text-text-primary/5"
-                                />
-                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <Button
-                        onClick={() => handleSubmit(selectedTask.id)}
-                        isLoading={submittingTaskId === selectedTask.id}
-                        disabled={!proof[selectedTask.id]?.trim() || claims[selectedTask.id]?.validationState === 'PENDING' || claims[selectedTask.id]?.validationState === 'APPROVED'}
-                        variant="primary"
-                        className="w-full h-16 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl group italic"
-                      >
-                        {claims[selectedTask.id]?.validationState === 'PENDING' ? 'Verifying...' : claims[selectedTask.id]?.validationState === 'APPROVED' ? 'Completed' : 'Submit Proof'}
-                        {!claims[selectedTask.id] && <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />}
-                      </Button>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="pt-8 border-t border-border space-y-4">
-                   <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-text-tertiary/50">
-                      <ShieldCheck size={14} className="text-success/40" /> Verified Platform Action
-                   </div>
-                   <p className="text-[9px] text-text-tertiary/50 leading-relaxed font-medium">By submitting proof, you authorize our team to verify your activity for reward eligibility.</p>
-                </section>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <TaskDetailDrawer
+         isOpen={!!selectedTask}
+         onClose={() => setSelectedTask(null)}
+         task={selectedTask}
+         claim={selectedTask ? claims[selectedTask.id] : undefined}
+         onAction={async () => { await handleSubmit(selectedTask!.id); }}
+         isSubmitting={submittingTaskId === selectedTask?.id}
+         proofValue={selectedTask ? (proof[selectedTask.id] || '') : ''}
+         setProofValue={(val) => selectedTask && setProof(prev => ({ ...prev, [selectedTask.id]: val }))}
+      />
       </div>
     </>
   );

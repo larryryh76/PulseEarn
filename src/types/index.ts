@@ -75,6 +75,7 @@ export interface TaskClaim {
   id: string;
   userId: string;
   taskId: string;
+  campaignId: string | null;
   providerId: string;
   validationState: SubtaskStatus;
   completionState: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';

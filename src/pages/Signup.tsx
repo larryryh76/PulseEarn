@@ -240,7 +240,7 @@ const Signup: React.FC = () => {
             <div className="mt-8 pt-8 border-t border-border-bright space-y-6">
               <div className="flex flex-col gap-4 items-center">
                 <p className="text-text-secondary text-xs font-medium text-center">
-                  By signing up, you agree to our <span className="text-text-secondary underline cursor-pointer">Terms</span> and <span className="text-text-secondary underline cursor-pointer">Privacy Policy</span>
+                  By signing up, you agree to our <Link to="/terms" className="text-text-secondary underline">Terms</Link> and <Link to="/privacy" className="text-text-secondary underline">Privacy Policy</Link>
                 </p>
                 <p className="text-text-secondary text-xs font-medium">
                   Already have an account? <Link to="/login" className="text-primary hover:text-accent transition-colors font-bold ml-1">Log in</Link>

@@ -1,76 +1,71 @@
 import React from 'react';
-import MainLayout from '../../components/layout/MainLayout';
-import { motion } from 'framer-motion';
+import DocLayout from '../../components/layout/DocLayout';
 
 const TermsOfService: React.FC = () => {
   return (
-    <MainLayout>
-      <div className="pt-40 pb-24 px-6 max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="prose prose-invert max-w-none"
-        >
-          <h1 className="text-4xl font-bold mb-8">Terms of Service</h1>
-          <p className="text-text-secondary mb-12">Last Updated: June 2026</p>
+    <DocLayout title="Terms of Service" lastUpdated="June 20, 2026">
+      <section>
+        <h2>1. Agreement to Terms</h2>
+        <p>
+          By accessing or using PulseEarn (the "Platform"), you agree to be bound by these Terms of Service. If you do not agree to all of these terms, do not use the Platform.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">1. Eligibility</h2>
-            <p className="text-text-secondary leading-relaxed">
-              To use PulseEarn, you must be at least 18 years of age or the legal age of majority in your jurisdiction.
-              By creating an account, you represent and warrant that you meet these eligibility requirements.
-              Only one account per individual is permitted.
-            </p>
-          </section>
+      <section>
+        <h2>2. Eligibility & Account Security</h2>
+        <p>
+          You must be at least 18 years old or the legal age of majority in your jurisdiction to create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. <strong>Only one account per person is permitted.</strong> Multiple account creation for the purpose of reward exploitation will result in immediate termination.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">2. User Conduct</h2>
-            <p className="text-text-secondary leading-relaxed">
-              Users agree to provide accurate information and engage with the platform in good faith.
-              Prohibited activities include using automated scripts, bots, or any form of unauthorized software
-              to complete tasks or generate rewards. Any attempt to exploit system vulnerabilities is strictly prohibited.
-            </p>
-          </section>
+      <section>
+        <h2>3. Reward Program Rules</h2>
+        <p>
+          The Platform provides rewards (Points/XP) for completing specific tasks, campaigns, and referrals.
+        </p>
+        <ul>
+          <li><strong>Good Faith Participation:</strong> You must complete tasks honestly and according to the provided instructions.</li>
+          <li><strong>Verification:</strong> All task completions are subject to verification. We reserve the right to deny rewards for incomplete, inaccurate, or fraudulent submissions.</li>
+          <li><strong>Conversion:</strong> Points are convertible to rewards at the current rate specified in our Reward Policy (standard: 1,000 PTS = $1).</li>
+          <li><strong>Expiration:</strong> Inactive accounts (no login for 90 days) may have their point balances expired.</li>
+        </ul>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">3. Campaign & Reward Rules</h2>
-            <p className="text-text-secondary leading-relaxed">
-              Rewards (PTS) are granted based on the successful completion of verified tasks and campaigns.
-              PulseEarn reserves the right to define the specific requirements for each reward.
-              Rewards are subject to audit and may be reversed if the underlying activity is found to be invalid or fraudulent.
-              Withdrawals are subject to a minimum threshold of 10,000 PTS.
-            </p>
-          </section>
+      <section>
+        <h2>4. Prohibited Conduct</h2>
+        <p>
+          You agree not to:
+        </p>
+        <ul>
+          <li>Use any bots, scripts, or automated tools to complete tasks or simulate user activity.</li>
+          <li>Provide false or misleading information during registration or task verification.</li>
+          <li>Exploit system vulnerabilities or attempt to manipulate the reward economy.</li>
+          <li>Engage in referral fraud, including "self-referring" using multiple accounts.</li>
+          <li>Harass, abuse, or harm other users or our support staff.</li>
+        </ul>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">4. Fraud Policy</h2>
-            <p className="text-text-secondary leading-relaxed">
-              Our automated fraud detection systems monitor all platform activity.
-              Fraudulent behavior, including but not limited to referral abuse, duplicate submissions,
-              and identity masking, will result in immediate disqualification from the reward program.
-            </p>
-          </section>
+      <section>
+        <h2>5. Withdrawals</h2>
+        <p>
+          Withdrawals are subject to a minimum threshold (10,000 PTS) and must pass a security audit. We reserve the right to delay or deny withdrawals if fraud is suspected. Detailed rules are available in our Withdrawal Policy.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">5. Account Suspension & Termination</h2>
-            <p className="text-text-secondary leading-relaxed">
-              PulseEarn reserves the right to suspend or terminate any account at its sole discretion,
-              without prior notice, if a user is found to be in violation of these terms.
-              Forfeiture of all accumulated rewards will occur upon account termination for cause.
-            </p>
-          </section>
+      <section>
+        <h2>6. Termination</h2>
+        <p>
+          We reserve the right to suspend or terminate your account at our sole discretion, without notice, for conduct that we believe violates these Terms or is harmful to other users, us, or third parties, or for any other reason.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">6. Limitation of Liability</h2>
-            <p className="text-text-secondary leading-relaxed">
-              PulseEarn is provided "as is" without any warranties. We are not liable for any indirect,
-              incidental, or consequential damages arising from your use of the platform.
-              Our total liability for any claim shall not exceed the total rewards earned by the user in the preceding 30 days.
-            </p>
-          </section>
-        </motion.div>
-      </div>
-    </MainLayout>
+      <section>
+        <h2>7. Limitation of Liability</h2>
+        <p>
+          PulseEarn is provided "as is" and "as available." To the maximum extent permitted by law, we disclaim all warranties and shall not be liable for any indirect, incidental, special, or consequential damages.
+        </p>
+      </section>
+    </DocLayout>
   );
 };
 

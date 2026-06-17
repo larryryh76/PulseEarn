@@ -1,65 +1,76 @@
 import React from 'react';
-import MainLayout from '../../components/layout/MainLayout';
-import { motion } from 'framer-motion';
+import DocLayout from '../../components/layout/DocLayout';
 
 const PrivacyPolicy: React.FC = () => {
   return (
-    <MainLayout>
-      <div className="pt-40 pb-24 px-6 max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="prose prose-invert max-w-none"
-        >
-          <h1 className="text-4xl font-bold mb-8">Privacy Policy</h1>
-          <p className="text-text-secondary mb-12">Last Updated: June 2026</p>
+    <DocLayout title="Privacy Policy" lastUpdated="June 20, 2026">
+      <section>
+        <h2>1. Introduction</h2>
+        <p>
+          PulseEarn ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our platform.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">1. Data Collection</h2>
-            <p className="text-text-secondary leading-relaxed">
-              We collect information you provide directly to us when you create an account, such as your email address,
-              username, and any proof submitted for task verification. We also automatically collect technical data
-              including IP addresses, browser types, and device information to ensure platform security.
-            </p>
-          </section>
+      <section>
+        <h2>2. Information We Collect</h2>
+        <p>
+          We collect information that you provide directly to us when you create an account, participate in campaigns, or communicate with us. This includes:
+        </p>
+        <ul>
+          <li><strong>Account Data:</strong> Email address, username, and password.</li>
+          <li><strong>Verification Data:</strong> Proof of task completion, including text-based evidence and metadata.</li>
+          <li><strong>Technical Data:</strong> IP address, browser type, device information, and usage patterns.</li>
+          <li><strong>Referral Data:</strong> Linkage between referrers and referees for reward distribution.</li>
+        </ul>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">2. Data Usage</h2>
-            <p className="text-text-secondary leading-relaxed">
-              Your data is used to manage your account, verify task completions, and process reward distributions.
-              We may also use your information to communicate platform updates and security alerts.
-              We do not sell your personal data to third parties.
-            </p>
-          </section>
+      <section>
+        <h2>3. How We Use Your Information</h2>
+        <p>
+          We use the collected data for the following purposes:
+        </p>
+        <ul>
+          <li>To provide, operate, and maintain our platform.</li>
+          <li>To verify task completions and distribute rewards (Points/XP).</li>
+          <li>To prevent fraud, multiple account creation, and system abuse.</li>
+          <li>To communicate with you regarding account updates, security alerts, and support inquiries.</li>
+          <li>To analyze platform performance and improve user experience.</li>
+        </ul>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">3. Analytics & Cookies</h2>
-            <p className="text-text-secondary leading-relaxed">
-              We use internal analytics to monitor platform performance and user engagement.
-              Cookies are used to maintain your session state and provide a seamless user experience.
-              You can manage your cookie preferences through your browser settings.
-            </p>
-          </section>
+      <section>
+        <h2>4. Data Sharing & Disclosure</h2>
+        <p>
+          We do not sell your personal data to third parties. We may share information with:
+        </p>
+        <ul>
+          <li><strong>Service Providers:</strong> Partners who assist in platform operations (e.g., Firebase, Vercel).</li>
+          <li><strong>Legal Requirements:</strong> When required by law or to protect our rights and safety.</li>
+          <li><strong>Business Transfers:</strong> In connection with a merger, sale, or acquisition.</li>
+        </ul>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">4. Security</h2>
-            <p className="text-text-secondary leading-relaxed">
-              We implement industry-standard encryption and security protocols to protect your data.
-              While we strive to use commercially acceptable means to protect your personal information,
-              no method of transmission over the Internet is 100% secure.
-            </p>
-          </section>
+      <section>
+        <h2>5. Data Security</h2>
+        <p>
+          We implement industry-standard security measures, including encryption and secure protocols, to protect your data. However, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
+        </p>
+      </section>
 
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-4">5. User Rights</h2>
-            <p className="text-text-secondary leading-relaxed">
-              Users have the right to access, correct, or request the deletion of their personal data.
-              If you wish to exercise these rights, please contact our data protection officer through the support hub.
-            </p>
-          </section>
-        </motion.div>
-      </div>
-    </MainLayout>
+      <section>
+        <h2>6. Your Rights</h2>
+        <p>
+          You have the right to access, correct, or request the deletion of your personal data. You may also opt-out of non-essential communications through your profile settings. For data deletion requests, please contact our support hub.
+        </p>
+      </section>
+
+      <section>
+        <h2>7. Changes to This Policy</h2>
+        <p>
+          We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last Updated" date.
+        </p>
+      </section>
+    </DocLayout>
   );
 };
 

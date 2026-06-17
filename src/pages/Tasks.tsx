@@ -172,14 +172,14 @@ const Tasks: React.FC = () => {
                          <CheckCircle2 size={10} className="text-success/40" />
                          <span className="text-[9px] font-bold uppercase tracking-widest text-success/60">Verified</span>
                       </div>
-                      <h2 className="text-2xl font-bold text-text-primary tracking-tighter uppercase italic leading-tight">{selectedHistoryItem.definition?.title || selectedHistoryItem.title}</h2>
+                      <h2 className="text-2xl font-bold text-text-primary tracking-tighter uppercase italic leading-tight">{selectedHistoryItem.taskTitle || selectedHistoryItem.title}</h2>
                    </div>
 
                    <div className="bg-surface-bright/50 border border-border rounded-2xl overflow-hidden divide-y divide-border">
                       <div className="p-5 flex justify-between items-center">
                          <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Authorized Reward</span>
                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-success tabular-nums">+{ (selectedHistoryItem.definition?.rewardPoints || selectedHistoryItem.rewardAmount || 0).toLocaleString()}</span>
+                            <span className="text-xl font-mono font-bold text-success tabular-nums">+{ (selectedHistoryItem.rewardAmount || 0).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
                          </div>
                       </div>
@@ -187,7 +187,7 @@ const Tasks: React.FC = () => {
                       <div className="p-5 flex justify-between items-center">
                          <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">System XP</span>
                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-primary tabular-nums">+{ (selectedHistoryItem.definition?.rewardXp || selectedHistoryItem.xpReward || 100).toLocaleString()}</span>
+                            <span className="text-xl font-mono font-bold text-primary tabular-nums">+{ (selectedHistoryItem.xpReward || 100).toLocaleString()}</span>
                             <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
                          </div>
                       </div>
@@ -201,10 +201,14 @@ const Tasks: React.FC = () => {
                       </div>
                    </div>
 
-                   <div className="pt-2">
+                   <div className="pt-2 space-y-2">
                       <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Reference ID</span>
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">History ID</span>
                          <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedHistoryItem.id || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center px-1">
+                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Ledger TX</span>
+                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedHistoryItem.transactionReference || 'N/A'}</span>
                       </div>
                    </div>
                 </div>
@@ -445,28 +449,13 @@ const Tasks: React.FC = () => {
               <>
                  {/* COMPLETED HISTORY */}
                  <div className="grid grid-cols-1 gap-3">
-                   {/* Combined System Missions and Permanent Task History */}
-                   {[
-                      ...completedMissions.map(m => ({
-                         id: m.id,
-                         title: m.definition?.title,
-                         rewardAmount: m.definition?.rewardPoints,
-                         xpReward: m.definition?.rewardXp,
-                         resolvedAt: m.progress?.claimedAt,
-                         type: 'MISSION'
-                      })),
-                      ...taskHistory.map(h => ({
-                         id: h.id,
-                         title: h.taskTitle,
-                         rewardAmount: h.rewardAmount,
-                         xpReward: h.xpReward,
-                         resolvedAt: h.resolvedAt,
-                         type: 'TASK',
-                         campaignName: h.campaignName
-                      }))
-                   ]
+                   {/*
+                     Audit Note: Using taskHistory as the primary source of truth for rewarded tasks.
+                     Missions are also logged to taskHistory upon claim.
+                   */}
+                   {taskHistory
                    .sort((a, b) => (b.resolvedAt?.toMillis?.() || 0) - (a.resolvedAt?.toMillis?.() || 0))
-                   .map((item: any, i) => (
+                   .map((item, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => setSelectedHistoryItem(item)}
@@ -477,9 +466,9 @@ const Tasks: React.FC = () => {
                                <CheckCircle2 size={18} />
                             </div>
                             <div>
-                               <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic group-hover:text-success transition-colors">{item.title}</h3>
+                               <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic group-hover:text-success transition-colors">{item.taskTitle}</h3>
                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">{item.type === 'MISSION' ? 'Achievement' : 'Quest'}</span>
+                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">{ (item.category as any) === 'WELCOME' || (item.category as any) === 'LEVEL' ? 'Achievement' : 'Quest'}</span>
                                   <div className="w-1 h-1 rounded-full bg-success/20" />
                                   <span className="text-[9px] font-mono text-text-tertiary">{(item.resolvedAt?.toDate?.() || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                </div>

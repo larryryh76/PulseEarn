@@ -86,14 +86,18 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
     }));
 
-    // 4.5 Fetch User Task History
+    // 4.5 Fetch User Task History (Audit: Simplified query for immediate reactivity)
     const historyQuery = query(
       collection(db, 'users', currentUser.uid, 'task_history'),
-      orderBy('resolvedAt', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(historyQuery, (snapshot) => {
-      setTaskHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory)));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory));
+      setTaskHistory(data.sort((a, b) => {
+          const timeA = a.resolvedAt?.toMillis?.() || 0;
+          const timeB = b.resolvedAt?.toMillis?.() || 0;
+          return timeB - timeA;
+      }));
     }));
 
     // 5. Fetch activities

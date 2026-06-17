@@ -6,7 +6,7 @@
     { "source": "/referral", "destination": "/referrals", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/((?!assets|favicon|icons|og-image|robots|sitemap|.*\\.).*)", "destination": "/index.html" }
+    { "source": "/((?!api|assets|favicon|icons|og-image|robots|sitemap|.*\\.).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

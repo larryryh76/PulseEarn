@@ -16,6 +16,7 @@ import {
   Calendar,
   Flame,
   Shield,
+  Clock,
   Star,
   ChevronRight,
   ArrowUpRight,
@@ -166,8 +167,10 @@ const Tasks: React.FC = () => {
                 <div className="p-8 space-y-8">
                    <div className="space-y-3">
                       <div className="flex items-center gap-2 text-text-tertiary mb-1">
-                         <Calendar size={10} className="text-primary/40" />
-                         <span className="text-[9px] font-bold uppercase tracking-widest">{selectedHistoryItem.claimedAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}</span>
+                         <Clock size={10} className="text-primary/40" />
+                         <span className="text-[9px] font-bold uppercase tracking-widest">
+                            {(selectedHistoryItem.resolvedAt || selectedHistoryItem.claimedAt)?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'RECENT'}
+                         </span>
                          <span className="text-text-tertiary/50">•</span>
                          <CheckCircle2 size={10} className="text-success/40" />
                          <span className="text-[9px] font-bold uppercase tracking-widest text-success/60">Verified</span>
@@ -455,17 +458,25 @@ const Tasks: React.FC = () => {
                    */}
                    {[
                       ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
-                      ...subtasks.filter(s => s.validationState === 'APPROVED' && !taskHistory.find(h => h.claimId === s.id)).map(s => ({
+                      ...subtasks.filter(s =>
+                         s.validationState === 'APPROVED' &&
+                         !taskHistory.find(h => h.claimId === s.id) &&
+                         !taskHistory.find(h => h.taskId === s.taskId)
+                      ).map(s => ({
                          id: s.id,
                          taskTitle: s.metadata?.taskTitle || 'Task Completed',
-                         rewardAmount: s.xpGranted > 0 ? 0 : 0, // Placeholder as claims don't store point amount directly
+                         rewardAmount: 0, // Legacy claims don't store point amount
+                         xpReward: s.xpGranted || 0,
                          resolvedAt: s.resolvedAt,
                          type: 'LEGACY_CLAIM'
                       })),
-                      ...completedMissions.map(m => ({
+                      ...completedMissions.filter(m =>
+                         !taskHistory.find(h => h.taskId === m.id)
+                      ).map(m => ({
                          id: m.id,
                          taskTitle: m.definition?.title,
                          rewardAmount: m.definition?.rewardPoints,
+                         xpReward: m.definition?.rewardXp,
                          resolvedAt: m.progress?.claimedAt,
                          type: 'MISSION'
                       }))

@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Ban,
   Plus,
-  Minus
+  Minus,
+  Trash2
 } from 'lucide-react';
 import {
   collection,
@@ -69,6 +70,30 @@ const OpsUsers: React.FC = () => {
     };
     fetchUserHistory();
   }, [selectedUser]);
+
+   const handleDeleteUser = async (user: any) => {
+      if (!window.confirm(`CRITICAL ACTION: Permanently DELETE user "${user.username}" and all associated data? This cannot be undone.`)) return;
+      const loadingToast = toast.loading('Executing permanent deletion...');
+      try {
+          const { deleteDoc, doc } = await import('firebase/firestore');
+          await deleteDoc(doc(db, 'users', user.id));
+
+          await setDoc(doc(collection(db, 'system_audit')), {
+              action: 'USER_PERMANENT_DELETION',
+              targetId: user.id,
+              timestamp: serverTimestamp(),
+              performedBy: 'ROOT_AUTHORITY',
+              metadata: { username: user.username, email: user.email }
+          });
+
+          toast.dismiss(loadingToast);
+          toast.success('User permanently removed from ecosystem');
+          setSelectedUser(null);
+      } catch (err) {
+          toast.dismiss(loadingToast);
+          toast.error('Deletion protocol failed');
+      }
+   };
 
    const handleManualAdjustment = async (isXp: boolean, amount: number) => {
       if (!selectedUser) return;
@@ -296,6 +321,13 @@ const OpsUsers: React.FC = () => {
                                Terminate Access
                             </button>
                          )}
+                         <button
+                           onClick={() => handleDeleteUser(selectedUser)}
+                           className="p-2.5 rounded-xl bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 transition-all shadow-xl"
+                           title="Permanent Deletion"
+                         >
+                            <Trash2 size={18} />
+                         </button>
                       </div>
                    </div>
 

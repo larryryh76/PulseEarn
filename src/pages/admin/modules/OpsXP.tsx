@@ -7,16 +7,29 @@ import {
   TrendingUp,
   ShieldCheck,
   ChevronRight,
-  Info
+  Info,
+  Database,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { db } from '../../../firebase/config';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  getDocs,
+  writeBatch
+} from 'firebase/firestore';
+import { calculateLevel } from '../../../utils/progression';
 
 const OpsXP: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const [formData, setFormData] = React.useState({
     xpPerLevel: 1000,
     predictionUnlockLevel: 5,
@@ -61,6 +74,91 @@ const OpsXP: React.FC = () => {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleScanAndSync = async () => {
+     if (!window.confirm("CRITICAL OPERATION: Re-calculate all user levels and sync missing referral points? This affects the global user database.")) return;
+
+     setIsSyncing(true);
+     const syncToast = toast.loading("Executing Global Integrity Scan...");
+
+     try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const batch = writeBatch(db);
+        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
+
+        let levelUpdates = 0;
+        let referralRewards = 0;
+
+        for (const userDoc of usersSnap.docs) {
+           const userData = userDoc.data();
+
+           // 1. Progression Sync
+           const correctLevel = calculateLevel(userData.xp || 0, formData.xpPerLevel);
+           if (correctLevel !== userData.level) {
+              batch.update(userDoc.ref, { level: correctLevel });
+              levelUpdates++;
+           }
+
+           // 2. Referral Bounty Sync (Referrer 50, Referee 30)
+           if (userData.referredBy) {
+              const referrerId = userData.referredBy;
+              const refereeId = userDoc.id;
+
+              // Sync Referrer
+              const syncClaimReferrer = `ref_sync_rr_${referrerId}_${refereeId}`;
+              const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
+
+              const [cSnapR, lcSnapR] = await Promise.all([
+                 getDoc(doc(db, 'system_claims', syncClaimReferrer)),
+                 getDoc(doc(db, 'system_claims', legacyClaimReferrer))
+              ]);
+
+              if (!cSnapR.exists() && !lcSnapR.exists()) {
+                 const result = await PointTransactionEngine.execute({
+                    userId: referrerId,
+                    amount: 50,
+                    type: 'referral_bonus',
+                    source: `Legacy Referral (Referrer): ${userData.username}`,
+                    claimId: syncClaimReferrer,
+                    xpReward: 100
+                 });
+                 if (result.success) referralRewards++;
+              }
+
+              // Sync Referee
+              const syncClaimReferee = `ref_sync_re_${refereeId}`;
+              const legacyClaimReferee = `welcome_${refereeId}`;
+
+              const [cSnapE, lcSnapE] = await Promise.all([
+                 getDoc(doc(db, 'system_claims', syncClaimReferee)),
+                 getDoc(doc(db, 'system_claims', legacyClaimReferee))
+              ]);
+
+              if (!cSnapE.exists() && !lcSnapE.exists()) {
+                 const result = await PointTransactionEngine.execute({
+                    userId: refereeId,
+                    amount: 30,
+                    type: 'referral_bonus',
+                    source: `Legacy Referral (Referee)`,
+                    claimId: syncClaimReferee,
+                    xpReward: 50
+                 });
+                 if (result.success) referralRewards++;
+              }
+           }
+        }
+
+        await batch.commit();
+        toast.dismiss(syncToast);
+        toast.success(`Integrity Scan Complete: ${levelUpdates} levels adjusted, ${referralRewards} rewards issued.`);
+     } catch (err) {
+        console.error(err);
+        toast.dismiss(syncToast);
+        toast.error("Integrity Scan Failure");
+     } finally {
+        setIsSyncing(false);
+     }
   };
 
   if (loading) return (
@@ -144,6 +242,30 @@ const OpsXP: React.FC = () => {
                 </div>
              </section>
 
+             <section className="bg-danger/[0.02] border border-danger/10 rounded-[2.5rem] p-10 shadow-2xl space-y-10">
+                <div className="flex items-center gap-3">
+                   <ShieldAlert size={18} className="text-danger" />
+                   <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-danger">Maintenance Hub</h2>
+                </div>
+
+                <div className="space-y-4">
+                   <p className="text-xs text-text-tertiary font-medium leading-relaxed">
+                      Initialize a global scan to reconcile user levels with the current x3 exponential curve and distribute missing referral bonuses.
+                   </p>
+                   <Button
+                     onClick={handleScanAndSync}
+                     disabled={isSyncing}
+                     className="bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-none"
+                   >
+                      {isSyncing ? (
+                         <div className="flex items-center gap-2"><Loader2 className="animate-spin" size={14} /> Scanning Database...</div>
+                      ) : (
+                         <div className="flex items-center gap-2"><Database size={14} /> Scan & Sync Integrity</div>
+                      )}
+                   </Button>
+                </div>
+             </section>
+
              <section className="p-10 rounded-[2.5rem] bg-primary/[0.02] border border-primary/10 space-y-6 shadow-inner">
                 <div className="flex items-center gap-3 text-primary">
                    <Info size={16} />
@@ -160,15 +282,21 @@ const OpsXP: React.FC = () => {
              <div className="p-8 rounded-[2rem] bg-surface border border-border shadow-2xl space-y-8">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression Matrix</h3>
                 <div className="space-y-4">
-                   {[1, 5, 10, 25, 50].map((lvl) => (
+                   {[1, 2, 3, 4, 5].map((lvl) => (
                       <div key={lvl} className="p-5 rounded-2xl bg-surface-bright/50 border border-border flex items-center justify-between group">
                          <div>
                             <p className="text-[9px] font-black text-text-tertiary uppercase mb-1">LVL {lvl} Goal</p>
-                            <p className="text-sm font-mono font-bold text-text-primary">{(lvl * formData.xpPerLevel).toLocaleString()} XP</p>
+                            <p className="text-sm font-mono font-bold text-text-primary">
+                               {lvl === 1 ? '0' : (formData.xpPerLevel * Math.pow(3, lvl - 2)).toLocaleString()} XP
+                            </p>
                          </div>
                          <ChevronRight size={14} className="opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all text-primary" />
                       </div>
                    ))}
+                   <div className="pt-4 p-5 rounded-2xl bg-warning/5 border border-warning/20">
+                      <p className="text-[8px] font-black text-warning uppercase tracking-widest mb-1">Architecture Note</p>
+                      <p className="text-[10px] text-text-tertiary font-medium">The system now enforces an <span className="text-text-primary font-bold italic">Exponential x3 Curve</span>. Each level requires 3x more XP than the previous.</p>
+                   </div>
                 </div>
              </div>
           </div>

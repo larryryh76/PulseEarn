@@ -145,6 +145,9 @@ export class PointTransactionEngine {
 
         // 8.5 Activity Log (Handled via ActivityEngine post-transaction)
 
+        // 9. Secure Transaction Log
+        const txDoc = doc(transactionsRef);
+
         // 8.7 Task History Snapshot (Permanent Record)
         if (type === 'task_reward') {
           const historyRef = doc(collection(db, 'users', userId, 'task_history'));
@@ -161,15 +164,12 @@ export class PointTransactionEngine {
             completedAt: metadata.completedAt || serverTimestamp(),
             resolvedAt: serverTimestamp(),
             verificationType: metadata.verificationType || 'manual',
-            transactionReference: claimId,
+            transactionReference: txDoc.id,
             claimId,
             status: 'COMPLETED',
-            metadata: { ...metadata, txId: 'pending' }
+            metadata: { ...metadata, txId: txDoc.id }
           });
         }
-
-        // 9. Secure Transaction Log
-        const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
           id: txDoc.id,
           userId,

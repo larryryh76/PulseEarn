@@ -127,13 +127,16 @@ export class SystemTaskEngine {
       const result = await PointTransactionEngine.execute({
         userId,
         amount: def.rewardPoints,
-        type: 'task_reward', // Can add 'achievement_reward' to Transaction types later
+        type: 'task_reward',
         source: def.title,
         claimId,
         xpReward: def.rewardXp,
+        referenceId: systemTaskId,
         metadata: {
           systemTaskId,
           taskName: def.title,
+          category: def.category,
+          verificationType: 'automated',
           verificationStatus: 'APPROVED'
         }
       });

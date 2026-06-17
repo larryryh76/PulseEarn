@@ -12,6 +12,7 @@ import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import CampaignDetails from './pages/CampaignDetails'
 import SupportCenter from './pages/SupportCenter'
+import Guide from './pages/Guide'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
@@ -29,6 +30,7 @@ import {
   OpsPredictions as AdminPredictions,
   OpsWithdrawals as AdminWithdrawals,
   OpsMissions as AdminMissions,
+  OpsXP as AdminXP,
   OpsSupport as AdminSupport
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
@@ -153,6 +155,7 @@ function App() {
            <Route path="/me" element={<Profile />} />
            <Route path="/notifications" element={<Notifications />} />
            <Route path="/support" element={<SupportCenter />} />
+           <Route path="/guide" element={<Guide />} />
         </Route>
 
         <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -180,6 +183,7 @@ function App() {
         <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
         <Route path="/admin/missions" element={<AdminRoute><OpsLayout><AdminMissions /></OpsLayout></AdminRoute>} />
         <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

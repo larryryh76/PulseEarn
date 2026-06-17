@@ -121,14 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log(`[DailyReward] Success! Granting points and triggering events.`);
-
-      await addDoc(collection(db, 'users', uid, 'notifications'), {
-        title: 'Daily Reward Claimed!',
-        description: `You earned +${config.rewards.dailyLoginPoints} Pulse for checking in today.`,
-        type: 'reward_claimed',
-        read: false,
-        timestamp: serverTimestamp()
-      });
+      // Redundant notification removed. Handled by PointTransactionEngine.
 
       const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
       await SystemTaskEngine.processEvent(uid, 'daily_login');
@@ -176,21 +169,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { EconomyConfigEngine } = await import('../engines/system/EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
 
+        // 1. Reward Referrer (50 PTS)
         await PointTransactionEngine.execute({
           userId: referredBy,
-          amount: config.rewards.referralBonusPoints,
+          amount: 50,
           type: 'referral_bonus',
-          source: `Referral bonus for ${username}`,
-          claimId: `referral_${referredBy}_${user.uid}`,
-          xpReward: config.rewards.referralBonusXP
+          source: `Referral: ${username}`,
+          claimId: `ref_bonus_${referredBy}_${user.uid}`,
+          xpReward: config.rewards.referralBonusXP || 100
         });
 
-        await addDoc(collection(db, 'users', referredBy, 'notifications'), {
-          title: 'Referral task Success!',
-          description: `A new member (${username}) joined via your code.`,
-          type: 'system',
-          read: false,
-          timestamp: serverTimestamp()
+        // 2. Notify Referrer
+        const { NotificationEngine } = await import('../engines/system/NotificationEngine');
+        await NotificationEngine.send({
+          userId: referredBy,
+          title: 'Referral Success',
+          description: `${username} joined using your code. +50 PTS awarded.`,
+          type: 'referral_joined'
         });
 
         // Trigger System Task Engine for referral completion
@@ -243,12 +238,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    // Award Welcome Bonus and ensure it's logged in history
+    // Award Welcome Bonus / Referee Reward
+    // If referred, give 30 PTS. If direct signup, give 10 PTS (Welcome Bonus).
     await PointTransactionEngine.execute({
       userId: user.uid,
-      amount: 10,
+      amount: referredBy ? 30 : 10,
       type: 'referral_bonus',
-      source: 'Signup Welcome Reward',
+      source: referredBy ? 'Referral Welcome Reward' : 'Signup Welcome Bonus',
       claimId: `welcome_${user.uid}`,
       xpReward: 50
     });

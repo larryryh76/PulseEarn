@@ -266,7 +266,15 @@ const Dashboard: React.FC = () => {
                               else if (item.category === 'PREDICTION') navigate('/predictions');
                               else if (item.category === 'REFERRAL') navigate('/referrals');
                               else if (item.type === 'MISSION') navigate('/tasks', { state: { highlightId: item.originalId } });
-                              else navigate('/tasks');
+                              else {
+                                 // It's a task. We should find the full task object.
+                                 const fullTask = tasks.find(t => t.id === item.originalId);
+                                 if (fullTask) {
+                                    navigate('/tasks', { state: { selectedTask: fullTask } });
+                                 } else {
+                                    navigate('/tasks');
+                                 }
+                              }
                            }}
                         >
                            <div className="space-y-6">

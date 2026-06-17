@@ -2,6 +2,8 @@ export { default as OpsOverview } from './OpsOverview';
 export { default as OpsCampaigns } from './OpsCampaigns';
 export { default as OpsCampaignDetail } from './OpsCampaignDetail';
 export { default as OpsTasks } from './OpsTasks';
+export { default as OpsSponsoredCampaigns } from './OpsSponsoredCampaigns';
+export { default as OpsSponsoredCampaignDetail } from './OpsSponsoredCampaignDetail';
 export { default as OpsPredictions } from './OpsPredictions';
 export { default as OpsValidation } from './OpsValidation';
 export { default as OpsWithdrawals } from './OpsWithdrawals';

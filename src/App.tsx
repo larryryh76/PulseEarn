@@ -17,6 +17,8 @@ import {
   OpsOverview as AdminOverview,
   OpsCampaigns as AdminCampaigns,
   OpsCampaignDetail as AdminCampaignDetail,
+  OpsSponsoredCampaigns as AdminSponsored,
+  OpsSponsoredCampaignDetail as AdminSponsoredDetail,
   OpsValidation as AdminValidation,
   OpsLedger as AdminLedger,
   OpsUsers as AdminUsers,
@@ -164,6 +166,8 @@ function App() {
         <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />
         <Route path="/admin/campaigns" element={<AdminRoute><OpsLayout><AdminCampaigns /></OpsLayout></AdminRoute>} />
         <Route path="/admin/campaigns/:id" element={<AdminRoute><OpsLayout><AdminCampaignDetail /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/sponsored" element={<AdminRoute><OpsLayout><AdminSponsored /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/sponsored/:id" element={<AdminRoute><OpsLayout><AdminSponsoredDetail /></OpsLayout></AdminRoute>} />
         <Route path="/admin/validation" element={<AdminRoute><OpsLayout><AdminValidation /></OpsLayout></AdminRoute>} />
         <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
         <Route path="/admin/users" element={<AdminRoute><OpsLayout><AdminUsers /></OpsLayout></AdminRoute>} />

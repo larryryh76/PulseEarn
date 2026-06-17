@@ -145,6 +145,29 @@ export class PointTransactionEngine {
 
         // 8.5 Activity Log (Handled via ActivityEngine post-transaction)
 
+        // 8.7 Task History Snapshot (Permanent Record)
+        if (type === 'task_reward') {
+          const historyRef = doc(collection(db, 'users', userId, 'task_history'));
+          transaction.set(historyRef, {
+            id: historyRef.id,
+            userId,
+            taskId: request.referenceId,
+            campaignId: metadata.campaignId || null,
+            campaignName: metadata.campaignName || 'Community',
+            taskTitle: source,
+            category: metadata.category || 'CUSTOM',
+            rewardAmount: amount,
+            xpReward: xpReward,
+            completedAt: metadata.completedAt || serverTimestamp(),
+            resolvedAt: serverTimestamp(),
+            verificationType: metadata.verificationType || 'manual',
+            transactionReference: claimId,
+            claimId,
+            status: 'COMPLETED',
+            metadata: { ...metadata, txId: 'pending' }
+          });
+        }
+
         // 9. Secure Transaction Log
         const txDoc = doc(transactionsRef);
         transaction.set(txDoc, {
@@ -170,6 +193,18 @@ export class PointTransactionEngine {
         if (res.success) {
           const { ActivityEngine } = await import('../system/ActivityEngine');
           const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
+          const { NotificationEngine } = await import('../system/NotificationEngine');
+
+          // Send Reward Notification
+          if (type === 'task_reward' || amount > 0) {
+            await NotificationEngine.notifyReward(
+              userId,
+              source,
+              amount,
+              xpReward,
+              res.txId
+            );
+          }
 
           await ActivityEngine.log({
             userId,

@@ -351,6 +351,26 @@ export interface Notification {
   type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'subtask_update' | 'moderation_notice' | 'payout_processed';
   read: boolean;
   timestamp: Timestamp;
+  metadata?: Record<string, any>;
+}
+
+export interface TaskHistory {
+  id: string;
+  userId: string;
+  taskId: string;
+  campaignId: string | null;
+  campaignName: string;
+  taskTitle: string;
+  category: TaskCategory;
+  rewardAmount: number;
+  xpReward: number;
+  completedAt: Timestamp;
+  resolvedAt: Timestamp;
+  verificationType: VerificationType;
+  transactionReference: string;
+  claimId: string;
+  status: 'COMPLETED' | 'REJECTED';
+  metadata?: Record<string, any>;
 }
 
 export interface PredictionRecord {

@@ -48,7 +48,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const { tasks, campaigns, systemTasks, subtasks, loading, getTaskStatus } = useTasks();
+  const { tasks, campaigns, systemTasks, subtasks, taskHistory, loading } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'SPONSORED' | 'CHALLENGES'>('ALL');
   const [view, setView] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
@@ -93,11 +93,9 @@ const Tasks: React.FC = () => {
   );
 
   const completedMissions = systemTasks.filter(m => m.progress?.status === 'CLAIMED');
-  const completedTasks = tasks.filter(t => getTaskStatus(t).status === 'completed');
 
   const availableStandaloneTasks = tasks.filter(t =>
     !t.campaignId &&
-    getTaskStatus(t).status !== 'completed' &&
     (filter === 'ALL' || t.category === filter as any)
   );
 
@@ -447,7 +445,28 @@ const Tasks: React.FC = () => {
               <>
                  {/* COMPLETED HISTORY */}
                  <div className="grid grid-cols-1 gap-3">
-                   {[...completedMissions, ...completedTasks.map(t => ({...t, type: 'TASK'}))].map((item: any, i) => (
+                   {/* Combined System Missions and Permanent Task History */}
+                   {[
+                      ...completedMissions.map(m => ({
+                         id: m.id,
+                         title: m.definition?.title,
+                         rewardAmount: m.definition?.rewardPoints,
+                         xpReward: m.definition?.rewardXp,
+                         resolvedAt: m.progress?.claimedAt,
+                         type: 'MISSION'
+                      })),
+                      ...taskHistory.map(h => ({
+                         id: h.id,
+                         title: h.taskTitle,
+                         rewardAmount: h.rewardAmount,
+                         xpReward: h.xpReward,
+                         resolvedAt: h.resolvedAt,
+                         type: 'TASK',
+                         campaignName: h.campaignName
+                      }))
+                   ]
+                   .sort((a, b) => (b.resolvedAt?.toMillis?.() || 0) - (a.resolvedAt?.toMillis?.() || 0))
+                   .map((item: any, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => setSelectedHistoryItem(item)}
@@ -458,17 +477,17 @@ const Tasks: React.FC = () => {
                                <CheckCircle2 size={18} />
                             </div>
                             <div>
-                               <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic group-hover:text-success transition-colors">{item.definition?.title || item.title}</h3>
+                               <h3 className="text-sm font-bold text-text-primary uppercase tracking-tight italic group-hover:text-success transition-colors">{item.title}</h3>
                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">Completed</span>
+                                  <span className="text-[9px] font-black text-success uppercase tracking-widest">{item.type === 'MISSION' ? 'Achievement' : 'Quest'}</span>
                                   <div className="w-1 h-1 rounded-full bg-success/20" />
-                                  <span className="text-[9px] font-mono text-text-tertiary">{(item.claimedAt?.toDate?.() || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                  <span className="text-[9px] font-mono text-text-tertiary">{(item.resolvedAt?.toDate?.() || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                </div>
                             </div>
                          </div>
                          <div className="text-right">
-                            <p className="text-base font-mono font-bold text-success">+{ (item.definition?.rewardPoints || item.rewardAmount || 0).toLocaleString()} PTS</p>
-                            <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-widest">Permanent Ledger</p>
+                            <p className="text-base font-mono font-bold text-success">+{ item.rewardAmount?.toLocaleString()} PTS</p>
+                            <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-widest">Permanent Record</p>
                          </div>
                       </div>
                    ))}
@@ -477,7 +496,7 @@ const Tasks: React.FC = () => {
            )}
 
            {/* EMPTY STATES */}
-           {((view === 'AVAILABLE' && activeCampaigns.length === 0 && activeMissions.length === 0) || (view === 'COMPLETED' && completedTasks.length === 0 && completedMissions.length === 0)) && (
+           {((view === 'AVAILABLE' && activeCampaigns.length === 0 && activeMissions.length === 0 && availableStandaloneTasks.length === 0) || (view === 'COMPLETED' && taskHistory.length === 0 && completedMissions.length === 0)) && (
               <div className="py-32 text-center border border-dashed border-border rounded-[3rem] opacity-20">
                  <Search size={48} className="mx-auto mb-6 text-text-tertiary/50" />
                  <p className="text-[11px] font-black uppercase tracking-[0.5em]">No Objectives Detected</p>

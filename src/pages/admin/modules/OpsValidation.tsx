@@ -84,10 +84,17 @@ const OpsValidation: React.FC = () => {
           userId: claimData.userId,
           amount: taskData.rewardAmount || 0,
           type: 'task_reward',
-          source: `Approved: ${taskData.title}`,
+          source: taskData.title,
           claimId: `val_${claimId}`,
           xpReward: taskData.xpReward || 50,
-          referenceId: claimData.taskId
+          referenceId: claimData.taskId,
+          metadata: {
+            campaignId: taskData.campaignId || null,
+            campaignName: taskData.campaignName || 'Community',
+            category: taskData.category || 'CUSTOM',
+            verificationType: taskData.verificationType || 'manual',
+            completedAt: claimData.createdAt
+          }
         });
 
         if (!result.success) {

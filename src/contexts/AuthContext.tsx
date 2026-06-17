@@ -14,7 +14,6 @@ import {
   doc,
   setDoc,
   updateDoc,
-  increment,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -27,6 +26,7 @@ import {
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
+import { getDeviceFingerprint } from '../utils/fingerprint';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
@@ -90,6 +90,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (error) {
       console.error("Error logging activity:", error);
+    }
+  }
+
+  async function recordFingerprint(uid: string) {
+    try {
+      const fingerprint = await getDeviceFingerprint();
+      const fpRef = doc(db, 'system_fingerprints', `${uid}_${fingerprint}`);
+
+      await setDoc(fpRef, {
+        userId: uid,
+        fingerprint,
+        lastSeen: serverTimestamp(),
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      await updateDoc(doc(db, 'users', uid), {
+        fingerprint,
+        lastSeen: serverTimestamp()
+      });
+
+      // Simple Multi-Account Scan
+      const { FraudEngine } = await import('../engines/system/FraudEngine');
+      await FraudEngine.evaluateNodeIntegrity(uid, fingerprint);
+
+    } catch (err) {
+      console.warn("[Auth] Fingerprint recording failed:", err);
     }
   }
 
@@ -168,46 +194,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const referrerDoc = querySnapshot.docs[0];
         referredBy = referrerDoc.id;
 
-        const { EconomyConfigEngine } = await import('../engines/system/EconomyConfigEngine');
-        const config = await EconomyConfigEngine.getConfig();
-
-        // 1. Reward Referrer (50 PTS)
-        await PointTransactionEngine.execute({
-          userId: referredBy,
-          amount: 50,
-          type: 'referral_bonus',
-          source: `Referral: ${username}`,
-          claimId: `ref_bonus_${referredBy}_${user.uid}`,
-          xpReward: config.rewards.referralBonusXP || 100
-        });
-
-        // 2. Notify Referrer
-        const { NotificationEngine } = await import('../engines/system/NotificationEngine');
-        await NotificationEngine.send({
-          userId: referredBy,
-          title: 'Referral Success',
-          description: `${username} joined using your code. +50 PTS awarded.`,
-          type: 'referral_joined'
-        });
-
-        // 3. Log to Referrals Collection for UI Tracking
+        // 1. Log to Referrals Collection (Status: REGISTERED, Pending Qualification)
         await setDoc(doc(collection(db, 'referrals')), {
           referrerId: referredBy,
           refereeId: user.uid,
           refereeUsername: username,
-          status: 'REWARDED',
+          status: 'REGISTERED',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
 
-        // 4. Update Referrer Stats
-        await updateDoc(doc(db, 'users', referredBy), {
-          'stats.referralsCount': increment(1)
+        // 2. Notify Referrer of registration (but not yet rewarded)
+        const { NotificationEngine } = await import('../engines/system/NotificationEngine');
+        await NotificationEngine.send({
+          userId: referredBy,
+          title: 'New Referral Link',
+          description: `${username} joined using your code. Rewards will be granted once they complete their first task.`,
+          type: 'referral_joined'
         });
-
-        // Trigger System Task Engine for referral completion
-        const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
-        await SystemTaskEngine.processEvent(referredBy, 'referral_completed');
       }
     }
 
@@ -294,8 +298,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setUserData(resolvedData as UserData);
 
-            if (resolvedData.role !== 'admin' && user.emailVerified) {
-              checkDailyReward(user.uid);
+            if (resolvedData.role !== 'admin') {
+              recordFingerprint(user.uid);
+              if (user.emailVerified) {
+                checkDailyReward(user.uid);
+              }
             }
           }
           setLoading(false);

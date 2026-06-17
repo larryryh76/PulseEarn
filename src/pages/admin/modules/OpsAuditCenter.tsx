@@ -11,7 +11,8 @@ import {
   AlertTriangle,
   Fingerprint,
   ChevronRight,
-  Filter
+  Filter,
+  Eye
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -26,7 +27,7 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const OpsAuditCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS'>('THREATS');
+  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS' | 'NODES'>('THREATS');
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -39,8 +40,10 @@ const OpsAuditCenter: React.FC = () => {
       q = query(collection(db, 'system_anomalies'), orderBy('timestamp', 'desc'), limit(50));
     } else if (activeTab === 'AUDIT') {
       q = query(collection(db, 'system_audit'), orderBy('timestamp', 'desc'), limit(50));
+    } else if (activeTab === 'FLAGS') {
+      q = query(collection(db, 'users'), where('isFlagged', '==', true), limit(50));
     } else {
-      q = query(collection(db, 'users'), where('flagged', '==', true), limit(50));
+      q = query(collection(db, 'system_fingerprints'), orderBy('lastSeen', 'desc'), limit(50));
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -124,6 +127,7 @@ const OpsAuditCenter: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1.5 md:mb-2">
             <h3 className="font-bold text-text-primary uppercase tracking-tight text-[11px] md:text-sm truncate max-w-[120px] md:max-w-none">{user.username || 'ANONYMOUS_NODE'}</h3>
             <div className="flex flex-wrap gap-1">
+              <span className="bg-danger text-white text-[6px] md:text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">Risk: {user.riskLevel || 'HIGH'}</span>
               {user.fraudFlags?.map((f: string) => (
                 <span key={f} className="bg-danger/20 text-danger text-[6px] md:text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border border-danger/20">
                   {f}
@@ -131,17 +135,58 @@ const OpsAuditCenter: React.FC = () => {
               ))}
             </div>
           </div>
-          <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase tracking-widest truncate">{user.email || user.id.slice(0, 16)}</p>
+          <div className="flex items-center gap-3">
+             <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase tracking-widest truncate">{user.email}</p>
+             <span className="text-text-tertiary/20">|</span>
+             <p className="text-[8px] font-mono text-text-tertiary italic uppercase">FP: {user.fingerprint?.slice(0, 12)}</p>
+          </div>
         </div>
       </div>
       <div className="flex items-center justify-between lg:justify-end gap-6 w-full lg:w-auto">
         <div className="text-left lg:text-right">
-          <p className="text-[7px] md:text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-0.5 md:mb-1">XP_AUTHORITY</p>
-          <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{(user.xp || 0).toLocaleString()}</p>
+          <p className="text-[7px] md:text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-0.5 md:mb-1">Score</p>
+          <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{user.riskScore || 0}</p>
         </div>
-        <button className="px-4 py-2 bg-danger/10 text-danger text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg border border-danger/20 hover:bg-danger/20 transition-all italic">
-          ISOLATE
-        </button>
+        <div className="flex items-center gap-2">
+           <button
+             onClick={async () => {
+                const { doc, updateDoc } = await import('firebase/firestore');
+                await updateDoc(doc(db, 'users', user.id), { isFlagged: false, riskScore: 0, riskLevel: 'LOW' });
+             }}
+             className="px-4 py-2 bg-success/10 text-success text-[8px] font-black uppercase tracking-widest rounded-lg border border-success/20 hover:bg-success/20 transition-all"
+           >
+             Dismiss
+           </button>
+           <button className="px-4 py-2 bg-danger/10 text-danger text-[8px] font-black uppercase tracking-widest rounded-lg border border-danger/20 hover:bg-danger/20 transition-all italic">
+             Restrict
+           </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFingerprint = (fp: any) => (
+    <div key={fp.id} className="p-6 rounded-2xl border border-border bg-surface hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 group shadow-xl mb-4">
+      <div className="flex items-center gap-4 md:gap-6">
+        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all shrink-0">
+          <Fingerprint size={20} />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-1.5 md:mb-2">
+            <h3 className="font-bold text-text-primary uppercase tracking-tight text-[11px] md:text-sm truncate">NODE_FP: {fp.fingerprint}</h3>
+            <span className="text-[7px] md:text-[8px] font-black text-text-tertiary uppercase tracking-[0.2em] bg-surface-bright px-2 py-0.5 rounded border border-border">ACTIVE</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase tracking-widest">
+            <div className="flex items-center gap-1.5"><User size={10} className="text-primary" /> UID: {fp.userId?.slice(0, 12)}...</div>
+            <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-bright" />
+            <div className="flex items-center gap-1.5">Last Seen: {fp.lastSeen?.toDate?.()?.toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+         <button className="p-3 bg-surface-bright hover:bg-surface-accent rounded-xl transition-all border border-border">
+            <Eye size={16} className="text-text-tertiary" />
+         </button>
       </div>
     </div>
   );
@@ -161,7 +206,8 @@ const OpsAuditCenter: React.FC = () => {
           {[
             { id: 'THREATS', icon: Activity, label: 'Anomalies' },
             { id: 'AUDIT', icon: History, label: 'Log' },
-            { id: 'FLAGS', icon: AlertTriangle, label: 'Flags' }
+            { id: 'FLAGS', icon: AlertTriangle, label: 'Security Queue' },
+            { id: 'NODES', icon: Fingerprint, label: 'Nodes' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -204,7 +250,8 @@ const OpsAuditCenter: React.FC = () => {
                 data.map(item => {
                   if (activeTab === 'THREATS') return renderThreat(item);
                   if (activeTab === 'AUDIT') return renderAudit(item);
-                  return renderFlag(item);
+                  if (activeTab === 'FLAGS') return renderFlag(item);
+                  return renderFingerprint(item);
                 })
               ) : (
                 <div className="py-40 text-center border border-dashed border-border-bright rounded-[3rem] bg-surface opacity-40">

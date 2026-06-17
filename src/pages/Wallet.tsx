@@ -7,7 +7,6 @@ import {
   Clock,
   ShieldCheck,
   CreditCard,
-  AlertCircle,
   X,
   History,
   Check,
@@ -25,6 +24,7 @@ import { PTS_TO_USD, formatUSD, WITHDRAWAL_MIN_PTS } from '../utils/finance';
 import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { getWithdrawalEligibility } from '../utils/eligibility';
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
@@ -42,6 +42,7 @@ const Wallet: React.FC = () => {
 
   const points = userData?.points || 0;
   const usdValue = PTS_TO_USD(points);
+  const eligibility = getWithdrawalEligibility(userData);
   const thresholdMet = points >= WITHDRAWAL_MIN_PTS;
 
   const mapTransactionType = (type: Transaction['type']) => {
@@ -73,7 +74,8 @@ const Wallet: React.FC = () => {
   );
 
   const handleWithdraw = async () => {
-    if (!thresholdMet || isProcessing || isCompleted) return;
+    if (!eligibility.eligible) return toast.error(`Ineligible: ${eligibility.reason}`);
+    if (isProcessing || isCompleted) return;
     if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
     if (withdrawalForm.amount < WITHDRAWAL_MIN_PTS) return toast.error(`Minimum withdrawal is ${WITHDRAWAL_MIN_PTS} PTS`);
     if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
@@ -308,20 +310,32 @@ const Wallet: React.FC = () => {
                 </button>
               </div>
 
-              {!thresholdMet ? (
+              {!eligibility.eligible ? (
                  <div className="space-y-8 md:space-y-12">
-                    <div className="p-6 md:p-10 rounded-[2rem] bg-danger/[0.03] border border-danger/10 flex flex-col items-center text-center gap-6">
-                       <div className="w-16 h-16 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
-                          <AlertCircle size={32} />
+                    <div className="p-6 md:p-10 rounded-[2rem] bg-surface-bright border border-border flex flex-col items-start gap-8">
+                       <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl">
+                          <ShieldCheck size={32} />
                        </div>
                        <div className="space-y-2">
-                          <h3 className="text-xl font-bold">Policy Restriction</h3>
-                          <p className="text-sm text-text-secondary leading-relaxed font-medium">
-                            Withdrawal operations are restricted until the inventory floor of <span className="text-text-primary font-bold">{(WITHDRAWAL_MIN_PTS || 0)?.toLocaleString()} PTS</span> is verified.
-                          </p>
+                          <h3 className="text-xl font-black uppercase tracking-tight italic">Eligibility Audit</h3>
+                          <p className="text-xs text-text-tertiary font-medium">Your account must meet the following criteria to enable secure withdrawals.</p>
+                       </div>
+
+                       <div className="w-full space-y-3">
+                          {eligibility.requirements.map((req, i) => (
+                             <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-background/40 border border-border">
+                                <div className="flex items-center gap-3">
+                                   <div className={cn("w-5 h-5 rounded-full flex items-center justify-center border", req.met ? "bg-success/20 border-success/30 text-success" : "bg-white/5 border-white/10 text-text-tertiary")}>
+                                      {req.met ? <Check size={10} strokeWidth={4} /> : <div className="w-1 h-1 rounded-full bg-white/20" />}
+                                   </div>
+                                   <span className={cn("text-[10px] font-bold uppercase tracking-widest", req.met ? "text-text-primary" : "text-text-tertiary")}>{req.label}</span>
+                                </div>
+                                <span className="text-[10px] font-mono text-text-tertiary">{req.current} / {req.target}</span>
+                             </div>
+                          ))}
                        </div>
                     </div>
-                    <Button variant="outline" className="w-full h-16 rounded-[1.5rem]" onClick={() => setIsWithdrawModalOpen(false)}>Acknowledged</Button>
+                    <Button variant="outline" className="w-full h-16 rounded-[1.5rem] uppercase tracking-[0.3em] font-black text-[10px]" onClick={() => setIsWithdrawModalOpen(false)}>Acknowledge & Continue Earning</Button>
                  </div>
               ) : isCompleted ? (
                 <div className="space-y-8 md:space-y-12 py-6">

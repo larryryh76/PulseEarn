@@ -225,7 +225,13 @@ export class PointTransactionEngine {
             }
           });
 
-          if (type === 'task_reward') await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
+          if (type === 'task_reward') {
+             await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
+
+             // Check for Referral Qualification
+             const { ReferralProtectionEngine } = await import('../system/ReferralProtectionEngine');
+             await ReferralProtectionEngine.qualifyReferral(userId);
+          }
           if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
           if (type === 'referral_bonus') await SystemTaskEngine.processEvent(userId, 'referral_completed');
           if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_submitted');

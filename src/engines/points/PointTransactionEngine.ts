@@ -93,12 +93,18 @@ export class PointTransactionEngine {
           }, { merge: true });
         }
 
-        // 6. Progression Calculation
+        // 6. Progression Calculation (Authoritative Level Derivation)
         const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
-        const newXp = (userData.xp || 0) + (amount > 0 ? xpReward : 0);
+        // Ensure amount is handled correctly for XP (deductions don't usually affect XP unless specified)
+        const currentXp = userData.xp || 0;
+        // Permissive XP for Admins (allows downward correction)
+        const xpDelta = (type === 'admin_adjustment') ? xpReward : ((amount >= 0 || xpReward > 0) ? xpReward : 0);
+        const newXp = Math.max(0, currentXp + xpDelta);
+
+        // CRITICAL: Level is ALWAYS derived from XP
         const newLevel = calculateLevel(newXp, xpPerLevel);
 
         // 7. Atomic Write
@@ -433,11 +439,16 @@ export class PointTransactionEngine {
         });
 
         // 2. Award Points & XP if Win
-        const newXp = (userData.xp || 0) + xpReward;
+        const currentXp = userData.xp || 0;
+        const newXp = currentXp + xpReward;
+
+        // CRITICAL: Level is ALWAYS derived from XP
+        const newLevel = calculateLevel(newXp, xpPerLevel);
+
         transaction.update(userRef, {
           points: increment(payout),
           xp: newXp,
-          level: calculateLevel(newXp, xpPerLevel),
+          level: newLevel,
           lastActionTimestamp: serverTimestamp(),
           'stats.totalWins': increment(isWin ? 1 : 0),
           'stats.predictionRewards': increment(payout)

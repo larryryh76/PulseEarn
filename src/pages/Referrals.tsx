@@ -58,8 +58,8 @@ const Referrals: React.FC = () => {
   };
 
   const stats = [
-    { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
-    { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * 50 || 0)?.toLocaleString(), icon: Zap, color: 'text-accent' },
+    { label: 'Total Referrals', value: userData?.stats?.referralsCount || 0, icon: Users, color: 'text-primary' },
+    { label: 'Points Earned', value: ((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString(), icon: Zap, color: 'text-accent' },
     { label: 'Pending', value: referrals.filter(r => r.status !== 'REWARDED').length, icon: Clock, color: 'text-warning' },
     { label: 'Successful', value: referrals.filter(r => r.status === 'REWARDED').length, icon: CheckCircle2, color: 'text-success' },
   ];

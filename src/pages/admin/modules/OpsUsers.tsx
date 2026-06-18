@@ -12,7 +12,8 @@ import {
   Ban,
   Plus,
   Minus,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import {
   collection,
@@ -37,6 +38,7 @@ import { calculateLevel } from '../../../utils/progression';
 const OpsUsers: React.FC = () => {
   const [users, setUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [xpPerLevel, setXpPerLevel] = React.useState(1000);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedUser, setSelectedUser] = React.useState<any | null>(null);
   const [userActivity, setUserActivity] = React.useState<any[]>([]);
@@ -50,6 +52,19 @@ const OpsUsers: React.FC = () => {
   });
 
   React.useEffect(() => {
+    const fetchConfig = async () => {
+       try {
+          const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
+          const config = await EconomyConfigEngine.getConfig();
+          if (config.thresholds?.xpPerLevel) {
+             setXpPerLevel(config.thresholds.xpPerLevel);
+          }
+       } catch (err) {
+          console.warn("[OpsUsers] Failed to fetch economy config, using default thresholds.");
+       }
+    };
+    fetchConfig();
+
     const q = query(collection(db, 'users'), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -93,16 +108,16 @@ const OpsUsers: React.FC = () => {
           setSelectedUser(null);
       } catch (err) {
           toast.dismiss(loadingToast);
-          toast.error('Deletion protocol failed');
+          toast.error('Deletion operation failed');
       }
    };
 
    const handleManualAdjustment = async (isXp: boolean, amount: number) => {
       if (!selectedUser) return;
       const action = amount >= 0 ? 'GRANT' : 'REVOKE';
-      if (!window.confirm(`AUTHORIZE: ${action} ${Math.abs(amount)} ${isXp ? 'XP' : 'PTS'} for node "${selectedUser.username}"?`)) return;
+      if (!window.confirm(`AUTHORIZE: ${action} ${Math.abs(amount)} ${isXp ? 'XP' : 'PTS'} for user "${selectedUser.username}"?`)) return;
 
-      const loadingToast = toast.loading('Synchronizing manual adjustment...');
+      const loadingToast = toast.loading('Synchronizing adjustment...');
       try {
          const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
          const claimId = `admin_${Date.now()}_${selectedUser.id.slice(0, 8)}`;
@@ -112,7 +127,7 @@ const OpsUsers: React.FC = () => {
             amount: isXp ? 0 : amount,
             xpReward: isXp ? amount : 0,
             type: 'admin_adjustment',
-            source: 'Manual Admin Adjustment',
+            source: 'Manual Adjustment',
             claimId,
             description: `Administrative ${isXp ? 'XP' : 'Point'} adjustment`,
             bypassLock: true
@@ -147,7 +162,7 @@ const OpsUsers: React.FC = () => {
            targetId: user.id,
            timestamp: serverTimestamp(),
            performedBy: 'OPS_AUTHORITY',
-           reason: 'ADMIN_MANUAL_MUTATION'
+           reason: 'ADMIN_MANUAL_ADJUSTMENT'
         });
 
         toast.success(`Account status updated`);
@@ -155,9 +170,45 @@ const OpsUsers: React.FC = () => {
            setSelectedUser({...selectedUser, isBanned, status: isBanned ? 'restricted' : 'active'});
         }
      } catch (err) {
-        toast.error("Integrity Protocol Failure");
+        toast.error("Account status update failed");
      }
   };
+
+   const handleSyncUserLevel = async () => {
+      if (!selectedUser) return;
+      const expectedLevel = calculateLevel(selectedUser.xp || 0, xpPerLevel);
+      if (selectedUser.level === expectedLevel) {
+         toast.success("User level is already synchronized");
+         return;
+      }
+
+      const load = toast.loading("Recalculating level...");
+      try {
+         await updateDoc(doc(db, 'users', selectedUser.id), {
+            level: expectedLevel,
+            updatedAt: serverTimestamp()
+         });
+
+         await setDoc(doc(collection(db, 'system_audit')), {
+            action: 'USER_LEVEL_RECONCILED',
+            targetId: selectedUser.id,
+            timestamp: serverTimestamp(),
+            performedBy: 'ADMIN_HUB',
+            metadata: {
+               oldLevel: selectedUser.level || 1,
+               newLevel: expectedLevel,
+               xp: selectedUser.xp || 0
+            }
+         });
+
+         toast.dismiss(load);
+         toast.success(`Level synchronized to ${expectedLevel}`);
+         setSelectedUser({ ...selectedUser, level: expectedLevel });
+      } catch (err) {
+         toast.dismiss(load);
+         toast.error("Reconciliation failed");
+      }
+   };
 
   const handleUpdateProfile = async () => {
       if (!selectedUser) return;
@@ -233,7 +284,6 @@ const OpsUsers: React.FC = () => {
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
@@ -242,7 +292,7 @@ const OpsUsers: React.FC = () => {
                    {loading ? (
                       [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={6} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((user) => {
-                      const expectedLevel = calculateLevel(user.xp || 0);
+                      const expectedLevel = calculateLevel(user.xp || 0, xpPerLevel);
                       const isSynced = (user.level || 1) === expectedLevel;
 
                       return (
@@ -266,14 +316,6 @@ const OpsUsers: React.FC = () => {
                                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
                             </div>
                             <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP</p>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className={cn(
-                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
-                              isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
-                            )}>
-                               {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
-                            </div>
                          </td>
                          <td className="p-6 md:p-8">
                             <div className={cn(
@@ -337,6 +379,13 @@ const OpsUsers: React.FC = () => {
                                >
                                   Edit Identity
                                </button>
+                               <button
+                                 onClick={handleSyncUserLevel}
+                                 className="px-4 py-2.5 rounded-xl bg-surface-bright border border-border text-text-primary hover:bg-surface-accent transition-all shadow-sm"
+                                 title="Repair Level Sync"
+                               >
+                                  <RefreshCw size={16} className={cn((selectedUser.level || 1) !== calculateLevel(selectedUser.xp || 0, xpPerLevel) && "text-danger animate-pulse")} />
+                               </button>
                             </>
                          )}
                          {selectedUser.isBanned ? (
@@ -368,13 +417,13 @@ const OpsUsers: React.FC = () => {
                       {isAssigning ? (
                           <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Work Authorization Hub</h4>
-                             <p className="text-xs text-text-tertiary font-medium">Select a designated task to forcibly assign and reward this user node.</p>
+                             <p className="text-xs text-text-tertiary font-medium">Select a designated task to forcibly assign and reward this user.</p>
 
                              <div className="space-y-3">
                                 {users.filter(u => u.role === 'admin' && false).length === 0 && (
                                    <div className="p-8 rounded-2xl bg-surface-bright border border-border text-center opacity-50 space-y-4">
                                       <TrendingUp size={24} className="mx-auto" />
-                                      <p className="text-[9px] font-black uppercase tracking-widest">Library Access Synchronizing...</p>
+                                      <p className="text-[9px] font-black uppercase tracking-widest">Task Library Synchronizing...</p>
                                       <button
                                         onClick={async () => {
                                            const { getDocs, collection } = await import('firebase/firestore');
@@ -407,7 +456,7 @@ const OpsUsers: React.FC = () => {
                                               referenceId: t.id
                                            });
                                            toast.dismiss(load);
-                                           if(res.success) toast.success("Node Rewarded Successfully");
+                                           if(res.success) toast.success("User Rewarded Successfully");
                                            else toast.error(res.error);
                                         }}
                                         className="w-full p-4 rounded-xl bg-surface-bright border border-border hover:border-primary/40 text-left transition-all group flex items-center justify-between"
@@ -458,9 +507,9 @@ const OpsUsers: React.FC = () => {
                                          onChange={e => setEditForm({ ...editForm, role: e.target.value })}
                                          className="w-full"
                                       >
-                                         <option value="user">USER NODE</option>
-                                         <option value="moderator">OPS MODERATOR</option>
-                                         <option value="admin">ROOT AUTHORITY</option>
+                                         <option value="user">STANDARD USER</option>
+                                         <option value="moderator">MODERATOR</option>
+                                         <option value="admin">ADMINISTRATOR</option>
                                       </select>
                                    </div>
                                    <div className="space-y-2">
@@ -505,7 +554,7 @@ const OpsUsers: React.FC = () => {
                                 <h3 className="text-2xl font-bold text-text-primary uppercase tracking-tighter italic leading-none">{selectedUser.username}</h3>
                                 <p className="text-[10px] font-mono text-text-tertiary mt-3 uppercase tracking-[0.2em]">{selectedUser.id}</p>
                                 <div className="mt-4 flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-primary">{selectedUser.role || 'USER NODE'}</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-primary">{selectedUser.role || 'USER'}</span>
                                 </div>
                              </section>
 

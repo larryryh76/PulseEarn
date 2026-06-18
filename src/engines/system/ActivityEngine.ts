@@ -81,8 +81,8 @@ export class ActivityEngine {
         metadata: {
           ...metadata,
           eventTimestamp: new Date().toISOString(),
-          loggedBy: 'ActivityEngine_V6_PRO',
-          engineVersion: '6.0.0-PRO'
+          loggedBy: 'ActivityEngine_V5_PRO',
+          engineVersion: '5.0.0-PRO'
         }
       };
 

@@ -70,9 +70,9 @@ const OpsXP: React.FC = () => {
         'thresholds.minWithdrawalPoints': formData.minWithdrawalPoints,
         updatedAt: serverTimestamp()
       });
-      toast.success("Progression architecture updated");
+      toast.success("Economy configuration updated");
     } catch (err) {
-      toast.error("Authority sync failed");
+      toast.error("Configuration sync failed");
     } finally {
       setIsUpdating(false);
     }
@@ -310,7 +310,7 @@ const OpsXP: React.FC = () => {
                    {[1, 2, 3, 4, 5].map((lvl) => (
                       <div key={lvl} className="p-5 rounded-2xl bg-surface-bright/50 border border-border flex items-center justify-between group">
                          <div>
-                            <p className="text-[9px] font-black text-text-tertiary uppercase mb-1">LVL {lvl} Goal</p>
+                            <p className="text-[9px] font-black text-text-tertiary uppercase mb-1">Level {lvl} Requirement</p>
                             <p className="text-sm font-mono font-bold text-text-primary">
                                {lvl === 1 ? '0' : (formData.xpPerLevel * Math.pow(3, lvl - 2)).toLocaleString()} XP
                             </p>

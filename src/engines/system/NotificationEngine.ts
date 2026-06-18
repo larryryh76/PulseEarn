@@ -45,7 +45,7 @@ export class NotificationEngine {
         metadata: {
           ...metadata,
           sentAt: new Date().toISOString(),
-          engineVersion: '2.0.0-PRO'
+          engineVersion: '5.0.0-PRO'
         }
       };
 

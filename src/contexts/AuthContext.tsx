@@ -204,12 +204,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedAt: serverTimestamp()
         });
 
-        // 2. Notify Referrer of registration (but not yet rewarded)
+        // 2. Notify Referrer of registration
         const { NotificationEngine } = await import('../engines/system/NotificationEngine');
         await NotificationEngine.send({
           userId: referredBy,
           title: 'New Referral Link',
-          description: `${username} joined using your code. Rewards will be granted once they complete their first task.`,
+          description: `${username} joined using your code.`,
           type: 'referral_joined'
         });
       }
@@ -270,6 +270,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       claimId: `welcome_${user.uid}`,
       xpReward: 50
     });
+
+    // 3. Immediately trigger referral reward for referrer (No Qualifications)
+    const { ReferralProtectionEngine } = await import('../engines/system/ReferralProtectionEngine');
+    await ReferralProtectionEngine.qualifyReferral(user.uid);
   }
 
   function login(email: string, password: string) {

@@ -82,24 +82,40 @@ const OpsXP: React.FC = () => {
      if (!window.confirm("CRITICAL OPERATION: Re-calculate all user levels and sync missing referral points? This affects the global user database.")) return;
 
      setIsSyncing(true);
-     const syncToast = toast.loading("Executing Global Integrity Scan...");
+     const syncToast = toast.loading("Initializing Global Integrity Scan...");
 
      try {
         const usersSnap = await getDocs(collection(db, 'users'));
-        const batch = writeBatch(db);
         const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
 
         let levelUpdates = 0;
         let referralRewards = 0;
+        let batch = writeBatch(db);
+        let batchCount = 0;
 
-        for (const userDoc of usersSnap.docs) {
+        const commitBatch = async () => {
+           if (batchCount > 0) {
+              await batch.commit();
+              batch = writeBatch(db);
+              batchCount = 0;
+           }
+        };
+
+        for (let i = 0; i < usersSnap.docs.length; i++) {
+           const userDoc = usersSnap.docs[i];
            const userData = userDoc.data();
            const userRef = userDoc.ref;
+
+           toast.loading(`Processing User ${i + 1}/${usersSnap.docs.length}...`, { id: syncToast });
 
            // 1. Progression Sync
            const correctLevel = calculateLevel(userData.xp || 0, formData.xpPerLevel);
            if (correctLevel !== userData.level) {
-              batch.update(userRef, { level: correctLevel });
+              batch.update(userRef, {
+                level: correctLevel,
+                updatedAt: serverTimestamp()
+              });
+              batchCount++;
               levelUpdates++;
            }
 
@@ -112,6 +128,7 @@ const OpsXP: React.FC = () => {
               batch.update(userRef, {
                  'stats.referralsCount': actualCount
               });
+              batchCount++;
            }
 
            // 1.7 Task Stats Reconciliation
@@ -123,14 +140,19 @@ const OpsXP: React.FC = () => {
               batch.update(userRef, {
                  'stats.tasksCompleted': actualTasksCount
               });
+              batchCount++;
            }
 
+           // Commit if batch is getting large (limit is 500)
+           if (batchCount >= 400) await commitBatch();
+
            // 2. Referral Bounty Sync (Referrer 50, Referee 30)
+           // Note: Referral bounty sync uses PointTransactionEngine.execute which performs its own transactions.
+           // We do not add these to the batch.
            if (userData.referredBy) {
               const referrerId = userData.referredBy;
               const refereeId = userDoc.id;
 
-              // Sync Referrer
               const syncClaimReferrer = `ref_sync_rr_${referrerId}_${refereeId}`;
               const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
 
@@ -151,7 +173,6 @@ const OpsXP: React.FC = () => {
                  if (result.success) referralRewards++;
               }
 
-              // Sync Referee
               const syncClaimReferee = `ref_sync_re_${refereeId}`;
               const legacyClaimReferee = `welcome_${refereeId}`;
 
@@ -174,7 +195,7 @@ const OpsXP: React.FC = () => {
            }
         }
 
-        await batch.commit();
+        await commitBatch();
         toast.dismiss(syncToast);
         toast.success(`Integrity Scan Complete: ${levelUpdates} levels adjusted, ${referralRewards} rewards issued.`);
      } catch (err) {

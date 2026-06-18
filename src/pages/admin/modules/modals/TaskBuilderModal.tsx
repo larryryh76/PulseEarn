@@ -73,11 +73,14 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
       const id = initialTask?.id || doc(collection(db, 'tasks')).id;
       const taskRef = doc(db, 'tasks', id);
 
-      const payload = {
+      // Clean payload: ensure undefined fields don't break Firestore
+      const payload: any = {
         ...formData,
         id,
+        campaignId: formData.campaignId || null,
+        actionUrl: formData.actionUrl || '',
         updatedAt: serverTimestamp(),
-        createdAt: initialTask ? initialTask.createdAt : serverTimestamp(),
+        createdAt: (initialTask && (initialTask as any).createdAt) ? (initialTask as any).createdAt : serverTimestamp(),
         providerId: 'SYSTEM',
         providerName: 'PulseEarn System'
       };
@@ -213,7 +216,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          />
                       </div>
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">XP Provision</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">XP Reward</label>
                          <input
                            type="number"
                            value={formData.xpReward}

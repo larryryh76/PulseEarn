@@ -284,13 +284,12 @@ const OpsUsers: React.FC = () => {
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
                       <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 font-medium">
                    {loading ? (
-                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={6} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
+                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
                    ) : filtered.map((user) => {
                       const expectedLevel = calculateLevel(user.xp || 0, xpPerLevel);
                       const isSynced = (user.level || 1) === expectedLevel;
@@ -319,13 +318,11 @@ const OpsUsers: React.FC = () => {
                          </td>
                          <td className="p-6 md:p-8">
                             <div className={cn(
-                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit mb-2",
                               isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
                             )}>
                                {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
                             </div>
-                         </td>
-                         <td className="p-6 md:p-8">
                             <div className={cn(
                               "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
                               user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
@@ -507,9 +504,9 @@ const OpsUsers: React.FC = () => {
                                          onChange={e => setEditForm({ ...editForm, role: e.target.value })}
                                          className="w-full"
                                       >
-                                         <option value="user">STANDARD USER</option>
+                                         <option value="user">USER</option>
                                          <option value="moderator">MODERATOR</option>
-                                         <option value="admin">ADMINISTRATOR</option>
+                                         <option value="admin">ADMIN</option>
                                       </select>
                                    </div>
                                    <div className="space-y-2">

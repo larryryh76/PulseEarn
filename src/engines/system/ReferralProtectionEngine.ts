@@ -16,7 +16,7 @@ import { FraudEngine } from './FraudEngine';
 export class ReferralProtectionEngine {
   /**
    * Checks if a user has met the qualifications to reward their referrer.
-   * Qualifications: Email Verified AND (1 Task Completed OR Level 2 reached).
+   * Qualifications: None (Instant Rewards as requested).
    */
   static async qualifyReferral(userId: string): Promise<void> {
     try {
@@ -36,9 +36,8 @@ export class ReferralProtectionEngine {
       const userData = userSnap.data();
 
       // 2. Check Participation Requirements
-      const hasTasks = (userData.stats?.tasksCompleted || 0) >= 1;
-      const isLeveled = (userData.level || 1) >= 2;
-      const isQualified = hasTasks || isLeveled;
+      // REMOVED: No hindrances or qualifications as per requirements
+      const isQualified = true;
 
       if (!isQualified) return;
 
@@ -63,7 +62,7 @@ export class ReferralProtectionEngine {
           userId: referrerId,
           amount: 50,
           type: 'referral_bonus',
-          source: `Referral Qualified: ${userData.username}`,
+          source: `Referral Bonus (Referrer): ${userData.username}`,
           claimId,
           xpReward: 50
         });

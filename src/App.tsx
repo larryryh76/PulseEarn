@@ -32,7 +32,8 @@ import {
   OpsWithdrawals as AdminWithdrawals,
   OpsMissions as AdminMissions,
   OpsXP as AdminXP,
-  OpsSupport as AdminSupport
+  OpsSupport as AdminSupport,
+  OpsHealth as AdminHealth
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -199,6 +200,7 @@ function App() {
         <Route path="/admin/missions" element={<AdminRoute><OpsLayout><AdminMissions /></OpsLayout></AdminRoute>} />
         <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
         <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/health" element={<AdminRoute><OpsLayout><AdminHealth /></OpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

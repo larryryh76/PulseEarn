@@ -2,7 +2,6 @@ import { ShieldAlert, RefreshCcw, AlertTriangle } from 'lucide-react';
 import Button from './Button';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import Logo from './Logo';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   children?: ReactNode;

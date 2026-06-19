@@ -58,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
 
   { id: 'SECURITY', label: 'Threat Stream', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY' },
   { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY' },
+  { id: 'HEALTH', label: 'System Health', icon: Activity, path: '/admin/health', category: 'SECURITY' },
 ];
 
 const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {

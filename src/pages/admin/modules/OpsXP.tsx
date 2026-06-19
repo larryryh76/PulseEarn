@@ -102,12 +102,20 @@ const OpsXP: React.FC = () => {
            }
         };
 
-        // Pre-fetch all rewarded referrals to avoid O(N) queries
-        const allRewardedReferralsSnap = await getDocs(query(collection(db, 'referrals'), where('status', '==', 'REWARDED')));
+        // Pre-fetch all referral documents to accurately calculate stats
+        const allReferralsSnap = await getDocs(collection(db, 'referrals'));
         const referralCounts = new Map<string, number>();
-        allRewardedReferralsSnap.forEach(d => {
-           const rid = d.data().referrerId;
-           referralCounts.set(rid, (referralCounts.get(rid) || 0) + 1);
+        const rewardedReferralCounts = new Map<string, number>();
+
+        allReferralsSnap.forEach(d => {
+           const data = d.data();
+           const rid = data.referrerId;
+           if (rid) {
+              referralCounts.set(rid, (referralCounts.get(rid) || 0) + 1);
+              if (data.status === 'REWARDED') {
+                 rewardedReferralCounts.set(rid, (rewardedReferralCounts.get(rid) || 0) + 1);
+              }
+           }
         });
 
         for (let i = 0; i < usersSnap.docs.length; i++) {
@@ -130,9 +138,12 @@ const OpsXP: React.FC = () => {
            }
 
            // 1.5 Stats Reconciliation (Referral Count Check)
-           const actualCount = referralCounts.get(userDoc.id) || 0;
-           if ((userData.stats?.referralsCount || 0) !== actualCount) {
-              updates['stats.referralsCount'] = actualCount;
+           // We use rewardedReferralCounts for 'referralsCount' to match the authoritative points earned.
+           // However, if the user expected 'Total Invites', we should ensure 'referralsCount' is correctly defined.
+           // The Referrals.tsx page uses stats.referralsCount as the source for 'Total Referrals'.
+           const actualRewardedCount = rewardedReferralCounts.get(userDoc.id) || 0;
+           if ((userData.stats?.referralsCount || 0) !== actualRewardedCount) {
+              updates['stats.referralsCount'] = actualRewardedCount;
               hasUpdates = true;
            }
 

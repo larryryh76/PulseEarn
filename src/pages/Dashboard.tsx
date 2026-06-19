@@ -141,20 +141,41 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
+  const { systemError } = useAuth();
+
+  if (systemError) return null; // MaintenanceOverlay handled in AuthContext
+
   if (!userData && !loading) return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-6 px-6 text-center">
-       <div className="w-20 h-20 rounded-3xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
-          <ActivityIcon size={40} />
+    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-8 px-6 text-center">
+       <div className="relative">
+          <div className="absolute inset-0 bg-danger/10 blur-2xl rounded-full" />
+          <div className="relative w-20 h-20 rounded-3xl bg-[#12121A] border border-danger/20 flex items-center justify-center text-danger shadow-2xl">
+             <ActivityIcon size={32} />
+          </div>
        </div>
-       <div className="space-y-2">
-          <h2 className="text-2xl font-bold uppercase italic tracking-tighter">Identity Not Found</h2>
-          <p className="text-text-tertiary text-sm max-w-xs mx-auto uppercase font-bold tracking-widest leading-relaxed">
-             We couldn't synchronize your profile data. Please refresh or contact support if the issue persists.
-          </p>
+       <div className="space-y-3">
+          <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Authority Sync Failed</h2>
+          <div className="space-y-1">
+             <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: ENTITY_READ_FAILURE</p>
+             <p className="text-white/40 text-xs max-w-xs mx-auto font-bold uppercase tracking-widest leading-relaxed px-4">
+                We could not establish an authoritative handshake with your profile node.
+             </p>
+          </div>
        </div>
-       <Button onClick={() => window.location.reload()} className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic">
-          Retry Sync
-       </Button>
+       <div className="flex flex-col gap-4 w-full max-w-xs">
+          <Button
+            onClick={() => window.location.reload()}
+            className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic shadow-xl"
+          >
+             Re-Initialize Session
+          </Button>
+          <button
+             onClick={() => navigate('/support')}
+             className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-primary transition-colors"
+          >
+             Report Infrastructure Issue
+          </button>
+       </div>
     </div>
   );
 

@@ -28,13 +28,17 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Verification: Config must exist for the system to be "Healthy"
       if (snap.empty) {
-        throw new Error("CORE_CONFIG_MISSING: The 'system_config' collection is empty. Run seed or check database.");
+        throw new Error("CORE_CONFIG_MISSING: The 'system_config' collection is empty. Please run the seeding tool or check database integrity.");
       }
 
       return true;
     } catch (err: any) {
-      logger.log('ERROR', 'CORE', 'Health check failed', { error: err.message });
-      setLastError(err.message);
+      const errorMsg = err.code === 'permission-denied'
+        ? "AUTHORITY_REFUSED: Your administrative token was rejected by the security layer. Check Firestore rules."
+        : err.message;
+
+      logger.log('ERROR', 'CORE', 'Health check failed', { error: errorMsg });
+      setLastError(errorMsg);
       return false;
     }
   };
@@ -60,17 +64,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // 3. Backend Connectivity Check
         const isHealthy = await healthCheck();
         if (!isHealthy) {
-          throw new Error("Backend connection established but authority refused. Check network or Firestore rules.");
+          // Error already set in healthCheck
+          setSystemStatus('OFFLINE');
+        } else {
+          setSystemStatus('ONLINE');
+          setLastError(null);
         }
 
-        setSystemStatus('ONLINE');
         setIsInitialized(true);
-        logger.log('INFO', 'BOOT', 'Boot sequence finalized. Admin  Online.');
+        logger.log('INFO', 'BOOT', 'Boot sequence finalized.');
       } catch (err: any) {
         logger.log('FATAL', 'BOOT', 'Admin initialization sequence failed', { error: err.message });
         setLastError(err.message);
         setSystemStatus('OFFLINE');
-        setIsInitialized(true); // Still initialize but in error/offline state
+        setIsInitialized(true);
       }
     };
 

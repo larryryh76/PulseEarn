@@ -25,7 +25,6 @@ import {
   serverTimestamp,
   setDoc,
   getDocs,
-  orderBy,
   where
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
@@ -76,14 +75,23 @@ const OpsUsers: React.FC = () => {
   React.useEffect(() => {
     if (!selectedUser) return;
     const fetchUserHistory = async () => {
-       const q = query(
-         collection(db, 'system_claims'),
-         where('userId', '==', selectedUser.id),
-         orderBy('executedAt', 'desc'),
-         limit(20)
-       );
-       const snap = await getDocs(q);
-       setUserActivity(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+       try {
+          const q = query(
+            collection(db, 'system_claims'),
+            where('userId', '==', selectedUser.id),
+            limit(50)
+          );
+          const snap = await getDocs(q);
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          data.sort((a: any, b: any) => {
+             const timeA = a.executedAt?.toMillis?.() || 0;
+             const timeB = b.executedAt?.toMillis?.() || 0;
+             return timeB - timeA;
+          });
+          setUserActivity(data);
+       } catch (err) {
+          console.error("[OpsUsers] Ledger Sync Failure:", err);
+       }
     };
     fetchUserHistory();
   }, [selectedUser]);

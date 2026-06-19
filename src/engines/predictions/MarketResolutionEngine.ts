@@ -28,38 +28,60 @@ export class MarketResolutionEngine {
     const assetIds = Object.keys(groupedByAsset);
     if (assetIds.length === 0) return { resolved: 0, failed: 0 };
 
-    try {
-      // Batch fetch prices for all unique assets
-      const priceRes = await axios.get(`https://api.coingecko.com/api/v3/simple/price`, {
-        params: { ids: assetIds.join(','), vs_currencies: 'usd' }
-      });
-      const prices = priceRes.data;
+    // Process in smaller chunks to avoid URL length limits and 429s
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < assetIds.length; i += CHUNK_SIZE) {
+      const chunk = assetIds.slice(i, i + CHUNK_SIZE);
 
-      for (const assetId of assetIds) {
-        const currentPrice = prices[assetId]?.usd;
-        if (!currentPrice) continue;
+      try {
+        // Batch fetch prices for the current chunk
+        const priceRes = await axios.get(`https://api.coingecko.com/api/v3/simple/price`, {
+          params: { ids: chunk.join(','), vs_currencies: 'usd' },
+          timeout: 10000
+        });
+        const prices = priceRes.data;
 
-        for (const pred of groupedByAsset[assetId]) {
-          const createdAt = pred.createdAt?.toDate?.() || new Date();
-          const now = new Date();
-          // We resolve anything older than 24h or those marked for auto resolution
-          const isExpired = (now.getTime() - createdAt.getTime()) > (24 * 60 * 60 * 1000);
+        for (const assetId of chunk) {
+          const currentPrice = prices[assetId]?.usd;
+          if (currentPrice === undefined || currentPrice === null) {
+            console.warn(`[MarketResolver] No price data for ${assetId}`);
+            failed += groupedByAsset[assetId].length;
+            continue;
+          }
 
-          if (isExpired || pred.id.startsWith('auto_')) {
-            try {
-              // Standard resolution respects the reward model stored in the document
-              await PointTransactionEngine.resolvePrediction(pred.id, currentPrice);
-              resolved++;
-            } catch (err) {
-              console.error(`Failed to resolve prediction ${pred.id}:`, err);
-              failed++;
+          for (const pred of groupedByAsset[assetId]) {
+            const createdAt = pred.createdAt?.toDate?.() || new Date();
+            const now = new Date();
+            // Resolve anything older than 24h or those marked for auto resolution
+            const isExpired = (now.getTime() - createdAt.getTime()) > (24 * 60 * 60 * 1000);
+
+            if (isExpired || pred.id.startsWith('auto_')) {
+              try {
+                // Secondary safety: resolvePrediction is atomic and handles 'ALREADY_RESOLVED' internally
+                await PointTransactionEngine.resolvePrediction(pred.id, currentPrice);
+                resolved++;
+              } catch (err: any) {
+                // Silently skip already resolved to avoid polluting logs
+                if (err.message === 'PREDICTION_ALREADY_RESOLVED') {
+                  continue;
+                }
+                console.error(`[MarketResolver] Failed prediction ${pred.id}:`, err.message);
+                failed++;
+              }
             }
           }
         }
+
+        // Brief pause between chunks if there are many, to respect Coingecko rate limits
+        if (assetIds.length > CHUNK_SIZE) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+      } catch (err: any) {
+        console.error(`[MarketResolver] API Chunk Failure (${chunk.join(',')}):`, err.message);
+        // Mark all predictions in this chunk as failed for this run
+        chunk.forEach(id => failed += groupedByAsset[id].length);
       }
-    } catch (err) {
-      console.error("Failed to fetch batch prices for resolution:", err);
-      return { resolved: 0, failed: snap.docs.length };
     }
 
     return { resolved, failed };

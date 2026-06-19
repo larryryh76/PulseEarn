@@ -80,18 +80,33 @@ const Profile: React.FC = () => {
   const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
   if (txLoading && !userData) return (
-    <>
-      <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">
-        <div className="flex items-center gap-8">
-           <div className="w-32 h-32 rounded-[2.5rem] bg-surface animate-pulse" />
-           <div className="space-y-4">
-              <div className="h-10 w-64 bg-surface rounded-xl animate-pulse" />
-              <div className="h-6 w-48 bg-surface rounded-lg animate-pulse" />
-           </div>
-        </div>
-        <div className="h-[400px] bg-surface rounded-[2.5rem] animate-pulse" />
+    <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">
+      <div className="flex flex-col lg:flex-row items-center gap-8 md:gap-12">
+         <div className="w-36 h-36 rounded-[3rem] bg-surface animate-pulse" />
+         <div className="flex-1 space-y-4 w-full">
+            <div className="h-12 w-3/4 bg-surface rounded-xl animate-pulse mx-auto lg:mx-0" />
+            <div className="h-6 w-1/2 bg-surface rounded-lg animate-pulse mx-auto lg:mx-0" />
+         </div>
       </div>
-    </>
+      <div className="h-[400px] bg-surface rounded-[2.5rem] animate-pulse" />
+    </div>
+  );
+
+  if (!userData && !txLoading) return (
+    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-6 px-6 text-center">
+       <div className="w-20 h-20 rounded-3xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
+          <UserIcon size={40} />
+       </div>
+       <div className="space-y-2">
+          <h2 className="text-2xl font-bold uppercase italic tracking-tighter text-text-primary">Profile Inaccessible</h2>
+          <p className="text-text-tertiary text-sm max-w-xs mx-auto uppercase font-bold tracking-widest leading-relaxed italic">
+             Authorized identity data could not be retrieved from the network.
+          </p>
+       </div>
+       <Button onClick={() => window.location.reload()} className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic">
+          Attempt Recovery
+       </Button>
+    </div>
   );
 
   return (

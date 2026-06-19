@@ -140,11 +140,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setSystemTasks(sysTasksData as any);
         setLoading(false);
+      }, (err) => {
+        console.error("[TaskContext] User System Tasks Error:", err);
+        setLoading(false);
       });
       unsubscribes.push(unsubUserSys);
+    }, (err) => {
+      console.error("[TaskContext] System Definitions Error:", err);
+      setLoading(false);
     }));
 
-    return () => unsubscribes.forEach(unsub => unsub());
+    // Safety timeout: If loading is still true after 15 seconds, force it to false
+    const loadTimeout = setTimeout(() => {
+        setLoading(false);
+    }, 15000);
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+      clearTimeout(loadTimeout);
+    };
   }, [currentUser]);
 
   const getTaskStatus = (task: Task) => {

@@ -24,7 +24,8 @@ import {
   getDocs,
   writeBatch,
   query,
-  where
+  where,
+  limit
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 
@@ -153,22 +154,34 @@ const OpsXP: React.FC = () => {
               const referrerId = userData.referredBy;
               const refereeId = userDoc.id;
 
+              // Improved Deduplication: Check multiple possible legacy claim IDs and the referral record itself
+              const activeClaimReferrer = `ref_qualify_${referrerId}_${refereeId}`;
               const syncClaimReferrer = `ref_sync_rr_${referrerId}_${refereeId}`;
               const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
 
-              const [cSnapR, lcSnapR] = await Promise.all([
+              // Check the referral record status first
+              const refDocQuery = query(collection(db, 'referrals'),
+                where('referrerId', '==', referrerId),
+                where('refereeId', '==', refereeId),
+                limit(1)
+              );
+              const refDocSnap = await getDocs(refDocQuery);
+              const isAlreadyRewarded = !refDocSnap.empty && refDocSnap.docs[0].data().status === 'REWARDED';
+
+              const [cSnapR1, cSnapR2, cSnapR3] = await Promise.all([
+                 getDoc(doc(db, 'system_claims', activeClaimReferrer)),
                  getDoc(doc(db, 'system_claims', syncClaimReferrer)),
                  getDoc(doc(db, 'system_claims', legacyClaimReferrer))
               ]);
 
-              if (!cSnapR.exists() && !lcSnapR.exists()) {
+              if (!isAlreadyRewarded && !cSnapR1.exists() && !cSnapR2.exists() && !cSnapR3.exists()) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
                     amount: 50,
                     type: 'referral_bonus',
                     source: `Legacy Referral (Referrer): ${userData.username}`,
                     claimId: syncClaimReferrer,
-                    xpReward: 100
+                    xpReward: 50 // Standardized XP
                  });
                  if (result.success) referralRewards++;
               }
@@ -185,10 +198,10 @@ const OpsXP: React.FC = () => {
                  const result = await PointTransactionEngine.execute({
                     userId: refereeId,
                     amount: 30,
-                    type: 'referral_bonus',
+                    type: 'welcome_bonus', // Use welcome_bonus instead of referral_bonus to avoid triggering referral mission for referee
                     source: `Legacy Referral (Referee)`,
                     claimId: syncClaimReferee,
-                    xpReward: 50
+                    xpReward: 30
                  });
                  if (result.success) referralRewards++;
               }

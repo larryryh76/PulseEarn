@@ -183,6 +183,22 @@ const OpsXP: React.FC = () => {
               const activeClaimReferrer = `ref_qualify_${referrerId}_${refereeId}`;
               const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
 
+              // 2.1 Reconcile Missing Referral Document
+              if (!refRecord) {
+                 const newRefRef = doc(collection(db, 'referrals'));
+                 batch.set(newRefRef, {
+                    referrerId,
+                    refereeId,
+                    refereeUsername: userData.username || 'Anonymous',
+                    status: isAlreadyRewarded ? 'REWARDED' : 'REGISTERED',
+                    createdAt: userData.createdAt || serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                    fraudFlags: []
+                 });
+                 batchCount++;
+              }
+
+              // 2.2 Reconcile Missing Referral Reward
               if (!isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
@@ -192,7 +208,14 @@ const OpsXP: React.FC = () => {
                     claimId: syncClaimReferrer,
                     xpReward: 50
                  });
-                 if (result.success) referralRewards++;
+                 if (result.success) {
+                    referralRewards++;
+                    // If we just rewarded them, ensure the referral doc (new or old) reflects it
+                    if (refRecord) {
+                       batch.update(doc(db, 'referrals', refRecord.id), { status: 'REWARDED', updatedAt: serverTimestamp() });
+                       batchCount++;
+                    }
+                 }
               }
 
               const syncClaimReferee = `ref_sync_re_${refereeId}`;

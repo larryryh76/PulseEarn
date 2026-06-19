@@ -25,7 +25,8 @@ import {
   writeBatch,
   query,
   where,
-  limit
+  limit,
+  getCountFromServer
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 
@@ -102,8 +103,15 @@ const OpsXP: React.FC = () => {
            }
         };
 
-        // Pre-fetch all referral documents to accurately calculate stats
-        const allReferralsSnap = await getDocs(collection(db, 'referrals'));
+        // Pre-fetch referral documents in chunks if necessary, but for now we do a single reliable fetch
+        let allReferralsSnap;
+        try {
+           allReferralsSnap = await getDocs(collection(db, 'referrals'));
+        } catch (refErr: any) {
+           console.error("[IntegrityScan] Referral pre-fetch failed:", refErr.message);
+           throw new Error(`Referral pre-fetch failed: ${refErr.message}`);
+        }
+
         const referralCounts = new Map<string, number>();
         const rewardedReferralCounts = new Map<string, number>();
 
@@ -138,23 +146,25 @@ const OpsXP: React.FC = () => {
            }
 
            // 1.5 Stats Reconciliation (Referral Count Check)
-           // We use rewardedReferralCounts for 'referralsCount' to match the authoritative points earned.
-           // However, if the user expected 'Total Invites', we should ensure 'referralsCount' is correctly defined.
-           // The Referrals.tsx page uses stats.referralsCount as the source for 'Total Referrals'.
-           const actualRewardedCount = rewardedReferralCounts.get(userDoc.id) || 0;
-           if ((userData.stats?.referralsCount || 0) !== actualRewardedCount) {
-              updates['stats.referralsCount'] = actualRewardedCount;
+           // Authoritative Source: referrals collection (total invitations)
+           const actualInvitationCount = referralCounts.get(userDoc.id) || 0;
+           if ((userData.stats?.referralsCount || 0) !== actualInvitationCount) {
+              updates['stats.referralsCount'] = actualInvitationCount;
               hasUpdates = true;
            }
 
-           // 1.7 Task Stats Reconciliation
-           const historyQuery = query(collection(db, 'users', userDoc.id, 'task_history'), where('status', '==', 'COMPLETED'));
-           const historySnap = await getDocs(historyQuery);
-           const actualTasksCount = historySnap.size;
+           // 1.7 Task Stats Reconciliation (Using getCountFromServer for performance)
+           try {
+              const historyQuery = query(collection(db, 'users', userDoc.id, 'task_history'), where('status', '==', 'COMPLETED'));
+              const historySnap = await getCountFromServer(historyQuery);
+              const actualTasksCount = historySnap.data().count;
 
-           if ((userData.stats?.tasksCompleted || 0) !== actualTasksCount) {
-              updates['stats.tasksCompleted'] = actualTasksCount;
-              hasUpdates = true;
+              if ((userData.stats?.tasksCompleted || 0) !== actualTasksCount) {
+                 updates['stats.tasksCompleted'] = actualTasksCount;
+                 hasUpdates = true;
+              }
+           } catch (taskErr: any) {
+              console.warn(`[IntegrityScan] Could not sync task history for ${userDoc.id}:`, taskErr.message);
            }
 
            if (hasUpdates) {

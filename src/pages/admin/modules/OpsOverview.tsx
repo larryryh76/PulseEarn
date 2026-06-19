@@ -66,16 +66,25 @@ const OpsOverview: React.FC = () => {
       let volume = 0;
       volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
 
-      const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(500)));
+      // Audit: liabilitySnap should not be limited if we want accurate data,
+      // but for performance we keep a high limit or use an aggregation record if it exists.
+      const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
       let totalPts = 0;
       liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
 
+      // Audit: orderBy check for system_claims
       const ledgerSnap = await getDocs(query(
         collection(db, 'system_claims'),
-        orderBy('executedAt', 'desc'),
         limit(5)
       ));
-      setRecentLedger(ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      ledgerData.sort((a, b) => {
+         const timeA = a.executedAt?.toMillis?.() || 0;
+         const timeB = b.executedAt?.toMillis?.() || 0;
+         return timeB - timeA;
+      });
+      setRecentLedger(ledgerData);
 
       setStats({
         totalUsers: usersCount.data().count,

@@ -3,7 +3,7 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
+
   onSnapshot,
   where
 } from 'firebase/firestore';
@@ -39,11 +39,16 @@ const OpsSupport: React.FC = () => {
 
   React.useEffect(() => {
     const q = filter === 'ALL'
-      ? query(collection(db, 'support_tickets'), orderBy('updatedAt', 'desc'))
-      : query(collection(db, 'support_tickets'), where('status', '==', filter), orderBy('updatedAt', 'desc'));
+      ? query(collection(db, 'support_tickets'))
+      : query(collection(db, 'support_tickets'), where('status', '==', filter));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTickets(snapshot.docs.map(doc => doc.data() as SupportTicket));
+      const docs = snapshot.docs.map(doc => doc.data() as SupportTicket);
+      setTickets(docs.sort((a, b) => {
+        const timeA = (a.updatedAt as any)?.toMillis?.() || 0;
+        const timeB = (b.updatedAt as any)?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
     });
 
     return unsubscribe;
@@ -53,12 +58,16 @@ const OpsSupport: React.FC = () => {
     if (!selectedTicket) return;
     const q = query(
       collection(db, 'support_messages'),
-      where('ticketId', '==', selectedTicket.id),
-      orderBy('createdAt', 'asc')
+      where('ticketId', '==', selectedTicket.id)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => doc.data() as SupportMessage));
+      const docs = snapshot.docs.map(doc => doc.data() as SupportMessage);
+      setMessages(docs.sort((a, b) => {
+        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+        return timeA - timeB;
+      }));
     });
 
     return unsubscribe;

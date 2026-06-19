@@ -16,7 +16,7 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
+
   onSnapshot,
   doc,
   updateDoc,
@@ -40,9 +40,14 @@ const OpsCampaigns: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'campaigns'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'campaigns'));
     const unsubCamp = onSnapshot(q, (snap) => {
-      setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+      setCampaigns(docs.sort((a, b) => {
+        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
       setLoading(false);
     }, (err) => {
       console.error("[OpsCampaigns] Sync Failure:", err);

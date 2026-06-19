@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { SupportTicket, SupportMessage, TicketCategory } from '../types';
 import { SupportEngine } from '../engines/system/SupportEngine';
 import {
@@ -60,13 +60,16 @@ const SupportCenter: React.FC = () => {
     if (!currentUser) return;
     const q = query(
       collection(db, 'support_tickets'),
-      where('userId', '==', currentUser.uid),
-      orderBy('updatedAt', 'desc')
+      where('userId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => doc.data() as SupportTicket);
-      setTickets(docs);
+      setTickets(docs.sort((a, b) => {
+        const timeA = (a.updatedAt as any)?.toMillis?.() || 0;
+        const timeB = (b.updatedAt as any)?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
       setLoading(false);
     });
 
@@ -78,8 +81,7 @@ const SupportCenter: React.FC = () => {
     if (!selectedTicket) return;
     const q = query(
       collection(db, 'support_messages'),
-      where('ticketId', '==', selectedTicket.id),
-      orderBy('createdAt', 'asc')
+      where('ticketId', '==', selectedTicket.id)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

@@ -11,7 +11,7 @@ import {
   Lock
 } from 'lucide-react';
 import { db, auth } from '../../../firebase/config';
-import { collection, query, where, getDocs, limit, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit,  Timestamp } from 'firebase/firestore';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 
@@ -77,12 +77,15 @@ const OpsHealth: React.FC = () => {
       const anomalyQuery = query(
         collection(db, 'system_anomalies'),
         where('timestamp', '>=', Timestamp.fromDate(oneDayAgo)),
-        orderBy('timestamp', 'desc'),
         limit(20)
       );
       const snap = await getDocs(anomalyQuery);
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemAnomaly));
-      setRecentFailures(docs);
+      setRecentFailures(docs.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis?.() || 0;
+        const timeB = b.timestamp?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
 
       const permErrors = docs.filter(d => d.error?.toLowerCase().includes('permission') || d.severity === 'HIGH').length;
 

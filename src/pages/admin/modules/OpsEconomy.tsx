@@ -22,7 +22,7 @@ import {
   getDocs,
   getCountFromServer,
   where,
-  orderBy,
+
   onSnapshot
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
@@ -86,9 +86,14 @@ const OpsEconomy: React.FC = () => {
 
     fetchStats();
 
-    const txQuery = query(collection(db, 'system_claims'), orderBy('executedAt', 'desc'), limit(10));
+    const txQuery = query(collection(db, 'system_claims'), limit(10));
     const unsubscribeTx = onSnapshot(txQuery, (snap) => {
-      setRecentTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRecentTransactions(docs.sort((a: any, b: any) => {
+        const timeA = a.executedAt?.toMillis?.() || 0;
+        const timeB = b.executedAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
     });
 
     const fetchConfig = async () => {

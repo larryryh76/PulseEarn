@@ -12,12 +12,15 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isRoot == true);
     }
 
     // 1. Users Collection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      // Allow searching for referral codes during signup
+      allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && request.query.limit <= 1);
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -101,7 +104,8 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid));
+      allow delete: if isAdmin();
     }
 
     // 7. Support Tickets

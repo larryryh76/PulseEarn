@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Zap
 } from 'lucide-react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReferralRecord } from '../types';
 import { cn } from '../utils';
@@ -27,18 +27,30 @@ const Referrals: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Removing orderBy to prevent "Missing Index" failures.
+    // Sorting is performed client-side for maximum reliability.
     const q = query(
       collection(db, 'referrals'),
-      where('referrerId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
+      where('referrerId', '==', currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setReferrals(snap.docs.map(d => ({ id: d.id, ...d.data() } as ReferralRecord)));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as ReferralRecord));
+      // Client-side sort by createdAt
+      data.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || 0;
+        const timeB = b.createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+      setReferrals(data);
       setLoading(false);
-    }, (err) => {
-      console.error(err);
+    }, (err: any) => {
+      console.error("[Referrals] Authority Sync Failure:", err.message);
       setLoading(false);
+      // Fallback for permission/index issues
+      if (err.code === 'permission-denied') {
+        toast.error("Access Denied: Referral data locked.");
+      }
     });
 
     return unsubscribe;

@@ -22,14 +22,23 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Audit: Removed orderBy to prevent "Missing Index" failures on sub-collections.
+    // Client-side sorting used for stability.
     const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
-    const q = query(notificationsRef, orderBy('timestamp', 'desc'), limit(50));
+    const q = query(notificationsRef, limit(50));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const notificationsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Notification));
+
+      // Client-side sort by timestamp
+      notificationsData.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis?.() || 0;
+        const timeB = b.timestamp?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
 
       setNotifications(notificationsData);
       setUnreadCount(notificationsData.filter(n => !n.read).length);

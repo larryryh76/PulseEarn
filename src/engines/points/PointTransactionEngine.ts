@@ -256,7 +256,11 @@ export class PointTransactionEngine {
       });
     } catch (error: any) {
       console.error(`[PointEngine] System Failure: ${error.message} (Claim: ${claimId})`);
-      await this.logValidationFailure(userId, claimId, error.message, request);
+
+      // Auto-Log Anomalies for Health Monitoring
+      const severity = (error.code === 'permission-denied' || error.message?.includes('PERMISSION')) ? 'HIGH' : 'MEDIUM';
+      await this.logValidationFailure(userId, claimId, error.message, { ...request, severity, code: error.code });
+
       return { success: false, error: error.message };
     }
   }
@@ -535,10 +539,11 @@ export class PointTransactionEngine {
         userId,
         claimId,
         error,
-        requestType: request.type,
+        requestType: request.type || request.code || 'UNKNOWN',
         timestamp: serverTimestamp(),
-        severity: (error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM',
-        context: 'SYSTEM_VALIDATION_FAILURE'
+        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
+        context: 'SYSTEM_VALIDATION_FAILURE',
+        metadata: { ...request, engineVersion: '5.0.0-PRO' }
       });
     } catch (e) {
       // Background logging failsafe

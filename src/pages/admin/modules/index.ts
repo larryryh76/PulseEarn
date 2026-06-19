@@ -15,3 +15,4 @@ export { default as OpsBroadcasts } from './OpsBroadcasts';
 export { default as OpsMissions } from './OpsMissions';
 export { default as OpsXP } from './OpsXP';
 export { default as OpsAuditCenter } from './OpsAuditCenter';
+export { default as OpsHealth } from './OpsHealth';

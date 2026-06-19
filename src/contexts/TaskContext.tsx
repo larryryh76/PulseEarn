@@ -3,7 +3,6 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
   limit,
   collection
 } from 'firebase/firestore';
@@ -103,11 +102,15 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 5. Fetch activities
     const activitiesQuery = query(
       collection(db, 'users', currentUser.uid, 'activities'),
-      orderBy('timestamp', 'desc'),
-      limit(20)
+      limit(50)
     );
     unsubscribes.push(onSnapshot(activitiesQuery, (snapshot) => {
-      setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity));
+      setActivities(data.sort((a, b) => {
+          const timeA = a.timestamp?.toMillis?.() || 0;
+          const timeB = b.timestamp?.toMillis?.() || 0;
+          return timeB - timeA;
+      }));
     }));
 
     // 6. Fetch Predictions History (Simplified query to avoid index latency/missing issues)

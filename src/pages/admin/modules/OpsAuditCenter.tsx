@@ -18,7 +18,6 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
   limit,
   onSnapshot,
   where
@@ -37,17 +36,26 @@ const OpsAuditCenter: React.FC = () => {
     let q;
 
     if (activeTab === 'THREATS') {
-      q = query(collection(db, 'system_anomalies'), orderBy('timestamp', 'desc'), limit(50));
+      q = query(collection(db, 'system_anomalies'), limit(100));
     } else if (activeTab === 'AUDIT') {
-      q = query(collection(db, 'system_audit'), orderBy('timestamp', 'desc'), limit(50));
+      q = query(collection(db, 'system_audit'), limit(100));
     } else if (activeTab === 'FLAGS') {
-      q = query(collection(db, 'users'), where('isFlagged', '==', true), limit(50));
+      q = query(collection(db, 'users'), where('isFlagged', '==', true), limit(100));
     } else {
-      q = query(collection(db, 'system_fingerprints'), orderBy('lastSeen', 'desc'), limit(50));
+      q = query(collection(db, 'system_fingerprints'), limit(100));
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Client-side sorting to prevent Missing Index failures
+      docs.sort((a: any, b: any) => {
+        const timeA = (a.timestamp || a.lastSeen)?.toMillis?.() || 0;
+        const timeB = (b.timestamp || b.lastSeen)?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
+
+      setData(docs);
       setLoading(false);
     });
 

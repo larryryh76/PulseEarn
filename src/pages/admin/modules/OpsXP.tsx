@@ -187,6 +187,7 @@ const OpsXP: React.FC = () => {
               if (!refRecord) {
                  const newRefRef = doc(collection(db, 'referrals'));
                  batch.set(newRefRef, {
+                    id: newRefRef.id,
                     referrerId,
                     refereeId,
                     refereeUsername: userData.username || 'Anonymous',

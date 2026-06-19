@@ -16,6 +16,7 @@ import {
 import { db } from '../../../firebase/config';
 import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
 import { cn } from '../../../utils';
+import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
 
 const OpsOverview: React.FC = () => {
@@ -88,8 +89,9 @@ const OpsOverview: React.FC = () => {
         totalLiability: totalPts
       });
       setLastSync(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error("[OpsOverview] Authority Sync Failure:", error);
+      toast.error(`Sync Failure: ${error.message}`, { id: 'sync-error' });
     } finally {
       setLoading(false);
     }

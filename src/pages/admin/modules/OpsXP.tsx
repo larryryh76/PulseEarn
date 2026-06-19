@@ -102,6 +102,14 @@ const OpsXP: React.FC = () => {
            }
         };
 
+        // Pre-fetch all rewarded referrals to avoid O(N) queries
+        const allRewardedReferralsSnap = await getDocs(query(collection(db, 'referrals'), where('status', '==', 'REWARDED')));
+        const referralCounts = new Map<string, number>();
+        allRewardedReferralsSnap.forEach(d => {
+           const rid = d.data().referrerId;
+           referralCounts.set(rid, (referralCounts.get(rid) || 0) + 1);
+        });
+
         for (let i = 0; i < usersSnap.docs.length; i++) {
            const userDoc = usersSnap.docs[i];
            const userData = userDoc.data();
@@ -109,27 +117,23 @@ const OpsXP: React.FC = () => {
 
            toast.loading(`Processing User ${i + 1}/${usersSnap.docs.length}...`, { id: syncToast });
 
+           const updates: any = {};
+           let hasUpdates = false;
+
            // 1. Progression Sync
            const correctLevel = calculateLevel(userData.xp || 0, formData.xpPerLevel);
            if (correctLevel !== userData.level) {
-              batch.update(userRef, {
-                level: correctLevel,
-                updatedAt: serverTimestamp()
-              });
-              batchCount++;
+              updates.level = correctLevel;
+              updates.updatedAt = serverTimestamp();
               levelUpdates++;
+              hasUpdates = true;
            }
 
            // 1.5 Stats Reconciliation (Referral Count Check)
-           const actualReferralsQuery = query(collection(db, 'referrals'), where('referrerId', '==', userDoc.id), where('status', '==', 'REWARDED'));
-           const actualReferralsSnap = await getDocs(actualReferralsQuery);
-           const actualCount = actualReferralsSnap.size;
-
+           const actualCount = referralCounts.get(userDoc.id) || 0;
            if ((userData.stats?.referralsCount || 0) !== actualCount) {
-              batch.update(userRef, {
-                 'stats.referralsCount': actualCount
-              });
-              batchCount++;
+              updates['stats.referralsCount'] = actualCount;
+              hasUpdates = true;
            }
 
            // 1.7 Task Stats Reconciliation
@@ -138,9 +142,12 @@ const OpsXP: React.FC = () => {
            const actualTasksCount = historySnap.size;
 
            if ((userData.stats?.tasksCompleted || 0) !== actualTasksCount) {
-              batch.update(userRef, {
-                 'stats.tasksCompleted': actualTasksCount
-              });
+              updates['stats.tasksCompleted'] = actualTasksCount;
+              hasUpdates = true;
+           }
+
+           if (hasUpdates) {
+              batch.update(userRef, updates);
               batchCount++;
            }
 

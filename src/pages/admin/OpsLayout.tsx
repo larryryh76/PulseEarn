@@ -62,7 +62,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, userData, currentUser, loading } = useAuth();
-  const { isInitialized, systemStatus } = useAdmin();
+  const { isInitialized, systemStatus, lastError } = useAdmin();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
@@ -80,9 +80,17 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   if (loading || !isInitialized) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">
       <div className="w-16 h-16 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-[0_0_30px_rgba(0,112,255,0.2)]" />
-      <div className="text-center space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">Initializing Admin Hub</p>
-        <div className="h-1 w-48 bg-surface-glass rounded-full overflow-hidden relative">
+      <div className="text-center space-y-4 max-w-sm px-6">
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">
+          {systemStatus === 'OFFLINE' ? 'Initialization Halted' : 'Initializing Admin Hub'}
+        </p>
+        {lastError && (
+          <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl space-y-2">
+            <p className="text-[8px] font-black uppercase tracking-widest text-danger">Critical Authority Failure</p>
+            <p className="text-[10px] font-mono text-text-secondary leading-relaxed break-all uppercase">{lastError}</p>
+          </div>
+        )}
+        <div className="h-1 w-48 bg-surface-glass rounded-full overflow-hidden relative mx-auto">
           <motion.div
             initial={{ left: '-100%' }}
             animate={{ left: '100%' }}

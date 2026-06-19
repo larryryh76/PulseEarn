@@ -125,19 +125,37 @@ const Dashboard: React.FC = () => {
     return rail.sort((a, b) => b.priority - a.priority);
   }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
 
-  if (loading) return ( <>
-    <>
-      <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
-        <div className="h-12 w-64 bg-surface rounded-xl animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-surface rounded-[2rem] animate-pulse" />)}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-           <div className="lg:col-span-2 h-[600px] bg-surface rounded-[2.5rem] animate-pulse" />
-           <div className="h-[600px] bg-surface rounded-[2.5rem] animate-pulse" />
-        </div>
-      </div> </>
-    </>
+  if (loading) return (
+    <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-surface rounded-2xl animate-pulse" />
+        <div className="h-10 w-64 bg-surface rounded-xl animate-pulse" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-surface border border-border/5 rounded-[2rem] animate-pulse" />)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+         <div className="lg:col-span-2 h-[600px] bg-surface border border-border/5 rounded-[2.5rem] animate-pulse" />
+         <div className="h-[600px] bg-surface border border-border/5 rounded-[2.5rem] animate-pulse" />
+      </div>
+    </div>
+  );
+
+  if (!userData && !loading) return (
+    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-6 px-6 text-center">
+       <div className="w-20 h-20 rounded-3xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger">
+          <ActivityIcon size={40} />
+       </div>
+       <div className="space-y-2">
+          <h2 className="text-2xl font-bold uppercase italic tracking-tighter">Identity Not Found</h2>
+          <p className="text-text-tertiary text-sm max-w-xs mx-auto uppercase font-bold tracking-widest leading-relaxed">
+             We couldn't synchronize your profile data. Please refresh or contact support if the issue persists.
+          </p>
+       </div>
+       <Button onClick={() => window.location.reload()} className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic">
+          Retry Sync
+       </Button>
+    </div>
   );
 
   return (

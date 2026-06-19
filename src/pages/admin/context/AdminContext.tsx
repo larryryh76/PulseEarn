@@ -24,10 +24,17 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       // Perform a lightweight read to verify backend connectivity
       const testQuery = query(collection(db, 'system_config'), limit(1));
-      await getDocs(testQuery);
+      const snap = await getDocs(testQuery);
+
+      // Verification: Config must exist for the system to be "Healthy"
+      if (snap.empty) {
+        throw new Error("CORE_CONFIG_MISSING: The 'system_config' collection is empty. Run seed or check database.");
+      }
+
       return true;
     } catch (err: any) {
       logger.log('ERROR', 'CORE', 'Health check failed', { error: err.message });
+      setLastError(err.message);
       return false;
     }
   };

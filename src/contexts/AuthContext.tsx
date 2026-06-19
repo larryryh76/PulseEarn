@@ -30,6 +30,7 @@ import { getDeviceFingerprint } from '../utils/fingerprint';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
+import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -42,6 +43,7 @@ interface AuthContextType {
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
+  systemError: MaintenanceType | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,18 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [systemError, setSystemError] = useState<MaintenanceType | null>(null);
 
   // Safety: Initialization Timeout
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (loading) {
+      if (loading && !systemError) {
         console.warn("Auth initialization timed out. Forcing loading state to false.");
         setLoading(false);
         setIsRestoring(false);
       }
-    }, 10000); // 10 seconds
+    }, 12000); // 12 seconds
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, systemError]);
 
   const generateReferralCode = (uid: string) => {
     return `PULSE-${uid.slice(0, 6).toUpperCase()}`;
@@ -149,7 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log(`[DailyReward] Success! Granting points and triggering events.`);
-      // Redundant notification removed. Handled by PointTransactionEngine.
 
       const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
       await SystemTaskEngine.processEvent(uid, 'daily_login');
@@ -194,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const referrerDoc = querySnapshot.docs[0];
         referredBy = referrerDoc.id;
 
-        // 1. Log to Referrals Collection (Status: REGISTERED, Pending Qualification)
+        // 1. Log to Referrals Collection
         await setDoc(doc(collection(db, 'referrals')), {
           referrerId: referredBy,
           refereeId: user.uid,
@@ -204,7 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedAt: serverTimestamp()
         });
 
-        // 2. Notify Referrer of registration
+        // 2. Notify Referrer
         const { NotificationEngine } = await import('../engines/system/NotificationEngine');
         await NotificationEngine.send({
           userId: referredBy,
@@ -223,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: user.uid,
       email: user.email,
       username,
-      points: 0, // Start at 0, awarded via awardPoints for history consistency
+      points: 0,
       referralCode,
       referredBy,
       streak: 1,
@@ -261,7 +263,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Award Welcome Bonus
-    // Standard 50 PTS for all new users as requested
     await PointTransactionEngine.execute({
       userId: user.uid,
       amount: 50,
@@ -271,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       xpReward: 50
     });
 
-    // 3. Immediately trigger referral reward for referrer (No Qualifications)
+    // 3. Immediately trigger referral reward
     const { ReferralProtectionEngine } = await import('../engines/system/ReferralProtectionEngine');
     await ReferralProtectionEngine.qualifyReferral(user.uid);
   }
@@ -301,6 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
 
             setUserData(resolvedData as UserData);
+            setSystemError(null);
 
             if (resolvedData.role !== 'admin') {
               recordFingerprint(user.uid);
@@ -308,11 +310,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 checkDailyReward(user.uid);
               }
             }
+          } else {
+             // Auth exists but profile doesn't? Possible sync lag or deletion.
+             console.warn("[AuthContext] Profile document missing.");
           }
           setLoading(false);
           setIsRestoring(false);
-        }, (error) => {
-          console.error("[AuthContext] Firestore Error:", error);
+        }, (error: any) => {
+          console.error("[AuthContext] Firestore Fatal Error:", error.code, error.message);
+          if (error.code === 'permission-denied') {
+            setSystemError('PERMISSION_DENIED');
+          } else {
+            setSystemError('INITIALIZATION_FAILED');
+          }
           setLoading(false);
           setIsRestoring(false);
         });
@@ -343,13 +353,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity,
     sendVerification,
     resetPassword,
-    updateUserEmail
+    updateUserEmail,
+    systemError
   };
 
   return (
     <AuthContext.Provider value={value}>
       <AnimatePresence>
-        {isRestoring ? (
+        {systemError && (
+           <MaintenanceOverlay
+             type={systemError}
+             onRetry={() => window.location.reload()}
+           />
+        )}
+
+        {isRestoring && !systemError ? (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -372,7 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           </motion.div>
         ) : null}
       </AnimatePresence>
-      {!loading && children}
+      {!loading && !systemError && children}
     </AuthContext.Provider>
   );
 };

@@ -11,18 +11,18 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isAuthenticated() &&
-        (userDoc.role == 'admin' ||
-         userDoc.role == 'ADMIN' ||
-         userDoc.isRoot == true);
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isRoot == true
+      );
     }
 
     // 1. Users Collection
     match /users/{userId} {
       // Allow searching for referral codes during signup (limit 1)
       // Allow admins to read all users
-      allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && request.query.limit <= 1);
+      allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && request.auth != null && request.query.limit <= 1);
       allow list: if isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();

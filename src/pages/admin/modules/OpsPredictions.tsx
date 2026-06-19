@@ -15,7 +15,8 @@ import {
   getDocs,
   updateDoc,
   doc,
-  serverTimestamp
+  serverTimestamp,
+  limit
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { PredictionRecord, Campaign } from '../../../types';
@@ -33,9 +34,15 @@ const OpsPredictions: React.FC = () => {
   const { marketData } = useCryptoData();
 
   React.useEffect(() => {
-    const q = query(collection(db, 'user_predictions'));
+    const q = query(collection(db, 'user_predictions'), limit(200));
     const unsubscribe = onSnapshot(q, (snap) => {
-      setPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() } as PredictionRecord)));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as PredictionRecord));
+      data.sort((a, b) => {
+         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+         return timeB - timeA;
+      });
+      setPredictions(data);
       setLoading(false);
     });
 

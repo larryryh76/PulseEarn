@@ -57,6 +57,14 @@ export class MarketResolutionEngine {
 
             if (isExpired || pred.id.startsWith('auto_')) {
               try {
+                // Diagnostic: Force reconciliation for predictions stuck since June 17
+                const createdAtDate = pred.createdAt?.toDate?.() || new Date();
+                const isHistoricalStuck = createdAtDate.getTime() < new Date('2026-06-20').getTime();
+
+                if (isHistoricalStuck) {
+                   console.log(`[MarketResolver] Reconciling historical prediction: ${pred.id} (${createdAtDate.toISOString()})`);
+                }
+
                 // Secondary safety: resolvePrediction is atomic and handles 'ALREADY_RESOLVED' internally
                 await PointTransactionEngine.resolvePrediction(pred.id, currentPrice);
                 resolved++;

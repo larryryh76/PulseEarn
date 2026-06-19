@@ -11,7 +11,7 @@ import {
 import {
   collection,
   query,
-  orderBy,
+
   onSnapshot,
   doc,
   updateDoc,
@@ -35,18 +35,22 @@ const OpsTasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
   React.useEffect(() => {
-    let q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+    let q = query(collection(db, 'tasks'));
 
     if (campaignIdFilter) {
        q = query(
          collection(db, 'tasks'),
-         where('campaignId', '==', campaignIdFilter),
-         orderBy('createdAt', 'desc')
+         where('campaignId', '==', campaignIdFilter)
        );
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
+      setTasks(docs.sort((a, b) => {
+        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+        return timeB - timeA;
+      }));
       setLoading(false);
     });
     return unsubscribe;

@@ -240,7 +240,7 @@ export class PointTransactionEngine {
           }
           if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
           if (type === 'referral_bonus') await SystemTaskEngine.processEvent(userId, 'referral_completed');
-          if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
+          if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_completed');
 
           if (res.newLevel && res.newLevel > res.oldLevel) {
              await ActivityEngine.log({

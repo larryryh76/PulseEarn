@@ -12,7 +12,6 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
   limit,
   where,
   onSnapshot
@@ -28,20 +27,28 @@ const OpsLedger: React.FC = () => {
   const [selectedTx, setSelectedTx] = React.useState<any | null>(null);
 
   React.useEffect(() => {
-    let q = query(collection(db, 'system_claims'), orderBy('executedAt', 'desc'), limit(100));
+    let q = query(collection(db, 'system_claims'), limit(100));
 
     if (filterType !== 'ALL') {
        q = query(
          collection(db, 'system_claims'),
          where('type', '==', filterType),
-         orderBy('executedAt', 'desc'),
          limit(100)
        );
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      data.sort((a, b) => {
+         const timeA = a.executedAt?.toMillis?.() || 0;
+         const timeB = b.executedAt?.toMillis?.() || 0;
+         return timeB - timeA;
+      });
+      setTransactions(data);
       setLoading(false);
+    }, (err) => {
+       console.error("[OpsLedger] Query Failure:", err);
+       setLoading(false);
     });
 
     return unsubscribe;

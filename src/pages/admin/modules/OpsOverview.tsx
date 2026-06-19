@@ -14,7 +14,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
@@ -78,7 +78,7 @@ const OpsOverview: React.FC = () => {
         limit(5)
       ));
 
-      const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       ledgerData.sort((a, b) => {
          const timeA = a.executedAt?.toMillis?.() || 0;
          const timeB = b.executedAt?.toMillis?.() || 0;

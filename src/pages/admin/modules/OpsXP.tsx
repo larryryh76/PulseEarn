@@ -25,7 +25,6 @@ import {
   writeBatch,
   query,
   where,
-  limit,
   getCountFromServer
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
@@ -103,28 +102,27 @@ const OpsXP: React.FC = () => {
            }
         };
 
-        // Pre-fetch referral documents in chunks if necessary, but for now we do a single reliable fetch
-        let allReferralsSnap;
-        try {
-           allReferralsSnap = await getDocs(collection(db, 'referrals'));
-        } catch (refErr: any) {
-           console.error("[IntegrityScan] Referral pre-fetch failed:", refErr.message);
-           throw new Error(`Referral pre-fetch failed: ${refErr.message}`);
-        }
-
+        // 1. Initial Data Fetch (Refactored to avoid N+1)
+        toast.loading("Fetching Global Referral Index...", { id: syncToast });
+        const allReferralsSnap = await getDocs(collection(db, 'referrals'));
         const referralCounts = new Map<string, number>();
-        const rewardedReferralCounts = new Map<string, number>();
+        const referralRecords = new Map<string, any>(); // key: referrerId_refereeId
 
         allReferralsSnap.forEach(d => {
            const data = d.data();
            const rid = data.referrerId;
+           const eid = data.refereeId;
            if (rid) {
               referralCounts.set(rid, (referralCounts.get(rid) || 0) + 1);
-              if (data.status === 'REWARDED') {
-                 rewardedReferralCounts.set(rid, (rewardedReferralCounts.get(rid) || 0) + 1);
+              if (eid) {
+                referralRecords.set(`${rid}_${eid}`, { id: d.id, ...data });
               }
            }
         });
+
+        toast.loading("Fetching Global Claims Index...", { id: syncToast });
+        const allClaimsSnap = await getDocs(collection(db, 'system_claims'));
+        const claimIds = new Set(allClaimsSnap.docs.map(d => d.id));
 
         for (let i = 0; i < usersSnap.docs.length; i++) {
            const userDoc = usersSnap.docs[i];
@@ -146,14 +144,13 @@ const OpsXP: React.FC = () => {
            }
 
            // 1.5 Stats Reconciliation (Referral Count Check)
-           // Authoritative Source: referrals collection (total invitations)
            const actualInvitationCount = referralCounts.get(userDoc.id) || 0;
            if ((userData.stats?.referralsCount || 0) !== actualInvitationCount) {
               updates['stats.referralsCount'] = actualInvitationCount;
               hasUpdates = true;
            }
 
-           // 1.7 Task Stats Reconciliation (Using getCountFromServer for performance)
+           // 1.7 Task Stats Reconciliation (Using getCountFromServer - Still N+1 but much lighter)
            try {
               const historyQuery = query(collection(db, 'users', userDoc.id, 'task_history'), where('status', '==', 'COMPLETED'));
               const historySnap = await getCountFromServer(historyQuery);
@@ -164,7 +161,7 @@ const OpsXP: React.FC = () => {
                  hasUpdates = true;
               }
            } catch (taskErr: any) {
-              console.warn(`[IntegrityScan] Could not sync task history for ${userDoc.id}:`, taskErr.message);
+              console.warn(`[IntegrityScan] Task sync failed for ${userDoc.id}:`, taskErr.message);
            }
 
            if (hasUpdates) {
@@ -172,44 +169,28 @@ const OpsXP: React.FC = () => {
               batchCount++;
            }
 
-           // Commit if batch is getting large (limit is 500)
            if (batchCount >= 400) await commitBatch();
 
-           // 2. Referral Bounty Sync (Referrer 50, Referee 30)
-           // Note: Referral bounty sync uses PointTransactionEngine.execute which performs its own transactions.
-           // We do not add these to the batch.
+           // 2. Referral Bounty Sync (Deduplicated using pre-fetched claimIds)
            if (userData.referredBy) {
               const referrerId = userData.referredBy;
               const refereeId = userDoc.id;
 
-              // Improved Deduplication: Check multiple possible legacy claim IDs and the referral record itself
-              const activeClaimReferrer = `ref_qualify_${referrerId}_${refereeId}`;
+              const refRecord = referralRecords.get(`${referrerId}_${refereeId}`);
+              const isAlreadyRewarded = refRecord?.status === 'REWARDED';
+
               const syncClaimReferrer = `ref_sync_rr_${referrerId}_${refereeId}`;
+              const activeClaimReferrer = `ref_qualify_${referrerId}_${refereeId}`;
               const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
 
-              // Check the referral record status first
-              const refDocQuery = query(collection(db, 'referrals'),
-                where('referrerId', '==', referrerId),
-                where('refereeId', '==', refereeId),
-                limit(1)
-              );
-              const refDocSnap = await getDocs(refDocQuery);
-              const isAlreadyRewarded = !refDocSnap.empty && refDocSnap.docs[0].data().status === 'REWARDED';
-
-              const [cSnapR1, cSnapR2, cSnapR3] = await Promise.all([
-                 getDoc(doc(db, 'system_claims', activeClaimReferrer)),
-                 getDoc(doc(db, 'system_claims', syncClaimReferrer)),
-                 getDoc(doc(db, 'system_claims', legacyClaimReferrer))
-              ]);
-
-              if (!isAlreadyRewarded && !cSnapR1.exists() && !cSnapR2.exists() && !cSnapR3.exists()) {
+              if (!isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
                     amount: 50,
                     type: 'referral_bonus',
-                    source: `Legacy Referral (Referrer): ${userData.username}`,
+                    source: `Integrity Sync: ${userData.username || 'Anonymous'}`,
                     claimId: syncClaimReferrer,
-                    xpReward: 50 // Standardized XP
+                    xpReward: 50
                  });
                  if (result.success) referralRewards++;
               }
@@ -217,17 +198,12 @@ const OpsXP: React.FC = () => {
               const syncClaimReferee = `ref_sync_re_${refereeId}`;
               const legacyClaimReferee = `welcome_${refereeId}`;
 
-              const [cSnapE, lcSnapE] = await Promise.all([
-                 getDoc(doc(db, 'system_claims', syncClaimReferee)),
-                 getDoc(doc(db, 'system_claims', legacyClaimReferee))
-              ]);
-
-              if (!cSnapE.exists() && !lcSnapE.exists()) {
+              if (!claimIds.has(syncClaimReferee) && !claimIds.has(legacyClaimReferee)) {
                  const result = await PointTransactionEngine.execute({
                     userId: refereeId,
                     amount: 30,
-                    type: 'welcome_bonus', // Use welcome_bonus instead of referral_bonus to avoid triggering referral mission for referee
-                    source: `Legacy Referral (Referee)`,
+                    type: 'welcome_bonus',
+                    source: `Integrity Sync (Referee)`,
                     claimId: syncClaimReferee,
                     xpReward: 30
                  });

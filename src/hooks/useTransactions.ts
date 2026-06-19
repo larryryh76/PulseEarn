@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   onSnapshot,
   query,
-  orderBy,
   limit,
   collection
 } from 'firebase/firestore';

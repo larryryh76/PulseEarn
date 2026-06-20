@@ -215,7 +215,7 @@ const Wallet: React.FC = () => {
                     <p className="data-label">Lifetime</p>
                     <div className="flex items-center gap-2">
                        <TrendingUp size={14} className="text-success" />
-                       <span className="text-lg font-bold text-text-primary truncate">{(points || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
+                       <span className="text-lg font-bold text-text-primary truncate">{(userData?.stats?.totalEarnings || 0)?.toLocaleString()} <span className="text-[10px] text-text-tertiary font-mono uppercase">PTS</span></span>
                     </div>
                  </div>
               </div>

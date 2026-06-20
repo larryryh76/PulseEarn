@@ -262,7 +262,7 @@ const Predictions: React.FC = () => {
                       <p className={cn("text-3xl font-mono font-bold tracking-tighter",
                          selectedHistoryItem.status === 'ACTIVE' ? "text-primary" :
                          (selectedHistoryItem.rewardAmount || 0) > 0 ? "text-success" : "text-text-tertiary/50")}>
-                         {selectedHistoryItem.status === 'ACTIVE' ? `+${(selectedHistoryItem.stakeAmount * (economyConfig?.rewards?.predictionWinMultiplier || 2)).toLocaleString()}` :
+                         {selectedHistoryItem.status === 'ACTIVE' ? `+${(selectedHistoryItem.stakeAmount * (economyConfig?.rewards?.predictionWinMultiplier || 2.0)).toLocaleString()}` :
                           (selectedHistoryItem.rewardAmount || 0) > 0 ? `+${selectedHistoryItem.rewardAmount?.toLocaleString()}` : '0'}
                          <span className="text-xs ml-1 opacity-40">PTS</span>
                       </p>
@@ -469,8 +469,8 @@ const Predictions: React.FC = () => {
                                          <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Potential Win</span>
                                       </div>
                                       <div className="text-right">
-                                         <span className="text-xl font-mono font-bold text-primary block leading-none">{(stake * (economyConfig?.rewards?.predictionWinMultiplier || 2)).toLocaleString()} PTS</span>
-                                         <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED {(economyConfig?.rewards?.predictionWinMultiplier || 2).toFixed(1)}X REWARD</span>
+                                            <span className="text-xl font-mono font-bold text-primary block leading-none">{(stake * (economyConfig?.rewards?.predictionWinMultiplier || 2.0)).toLocaleString()} PTS</span>
+                                            <span className="text-[8px] font-black text-primary/30 uppercase tracking-[0.2em]">FIXED {(economyConfig?.rewards?.predictionWinMultiplier || 2.0).toFixed(1)}X REWARD</span>
                                       </div>
                                    </div>
                                 </div>

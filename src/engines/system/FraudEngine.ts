@@ -8,7 +8,9 @@ import {
   updateDoc,
   increment,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  addDoc,
+  getDoc
 } from 'firebase/firestore';
 
 export class FraudEngine {
@@ -51,7 +53,6 @@ export class FraudEngine {
       // 5. If High Risk, Log System Anomaly
       if (riskLevel === 'HIGH') {
          const anomalyRef = collection(db, 'system_anomalies');
-         const { addDoc } = await import('firebase/firestore');
          await addDoc(anomalyRef, {
             userId,
             error: `High Risk Detection: ${flags.join(', ')}`,
@@ -75,7 +76,6 @@ export class FraudEngine {
       const referrerRef = doc(db, 'users', referrerId);
       const refereeRef = doc(db, 'users', refereeId);
 
-      const { getDoc } = await import('firebase/firestore');
       const [rSnap, eSnap] = await Promise.all([getDoc(referrerRef), getDoc(refereeRef)]);
 
       if (!rSnap.exists() || !eSnap.exists()) return false;

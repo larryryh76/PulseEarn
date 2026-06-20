@@ -21,7 +21,9 @@ import {
   query,
   limit,
   onSnapshot,
-  where
+  where,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -161,7 +163,6 @@ const OpsAuditCenter: React.FC = () => {
         <div className="flex items-center gap-2">
            <button
              onClick={async () => {
-                const { doc, updateDoc } = await import('firebase/firestore');
                 await updateDoc(doc(db, 'users', user.id), { isFlagged: false, riskScore: 0, riskLevel: 'LOW' });
              }}
              className="px-4 py-2 bg-success/10 text-success text-[8px] font-black uppercase tracking-widest rounded-lg border border-success/20 hover:bg-success/20 transition-all"

@@ -25,7 +25,8 @@ import {
   serverTimestamp,
   setDoc,
   getDocs,
-  where
+  where,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
@@ -100,7 +101,6 @@ const OpsUsers: React.FC = () => {
       if (!window.confirm(`CRITICAL ACTION: Permanently DELETE user "${user.username}" and all associated data? This cannot be undone.`)) return;
       const loadingToast = toast.loading('Executing permanent deletion...');
       try {
-          const { deleteDoc, doc } = await import('firebase/firestore');
           await deleteDoc(doc(db, 'users', user.id));
 
           await setDoc(doc(collection(db, 'system_audit')), {
@@ -431,7 +431,6 @@ const OpsUsers: React.FC = () => {
                                       <p className="text-[9px] font-black uppercase tracking-widest">Task Library Synchronizing...</p>
                                       <button
                                         onClick={async () => {
-                                           const { getDocs, collection } = await import('firebase/firestore');
                                            const ts = await getDocs(collection(db, 'tasks'));
                                            const tList = ts.docs.map(d => ({ id: d.id, ...d.data() }));
                                            (window as any).adminTaskList = tList;

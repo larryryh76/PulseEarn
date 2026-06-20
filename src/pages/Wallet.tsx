@@ -25,6 +25,8 @@ import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
@@ -82,8 +84,6 @@ const Wallet: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-      const { db } = await import('../firebase/config');
       const { PointTransactionEngine } = await import('../engines/points/PointTransactionEngine');
 
       const claimId = `wd_${userData?.uid}_${Date.now()}`;

@@ -50,7 +50,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const { tasks, campaigns, systemTasks, subtasks, taskHistory, unifiedHistory, loading } = useTasks();
+  const { tasks, campaigns, systemTasks, subtasks, unifiedHistory, loading } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'SPONSORED' | 'CHALLENGES'>('ALL');
   const [view, setView] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
@@ -93,8 +93,6 @@ const Tasks: React.FC = () => {
     (filter === 'ALL' || filter === 'CHALLENGES') &&
     (!m.progress || m.progress.status !== 'CLAIMED')
   );
-
-  const completedMissions = systemTasks.filter(m => m.progress?.status === 'CLAIMED');
 
   const availableStandaloneTasks = tasks.filter(t =>
     !t.campaignId &&
@@ -483,7 +481,7 @@ const Tasks: React.FC = () => {
            )}
 
            {/* EMPTY STATES */}
-           {((view === 'AVAILABLE' && activeCampaigns.length === 0 && activeMissions.length === 0 && availableStandaloneTasks.length === 0) || (view === 'COMPLETED' && taskHistory.length === 0 && completedMissions.length === 0)) && (
+           {((view === 'AVAILABLE' && activeCampaigns.length === 0 && activeMissions.length === 0 && availableStandaloneTasks.length === 0) || (view === 'COMPLETED' && unifiedHistory.length === 0)) && (
               <div className="py-32 text-center border border-dashed border-border rounded-[3rem] opacity-20">
                  <Search size={48} className="mx-auto mb-6 text-text-tertiary/50" />
                  <p className="text-[11px] font-black uppercase tracking-[0.5em]">No Objectives Detected</p>

@@ -40,6 +40,7 @@ const OpsEconomy: React.FC = () => {
     totalXp: 0,
     predictionLiability: 0
   });
+  const [isLiabilitySampled, setIsLiabilitySampled] = React.useState(false);
 
   const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
   const [economyConfig, setEconomyConfig] = React.useState<any>(null);
@@ -68,6 +69,9 @@ const OpsEconomy: React.FC = () => {
           totalPts += (doc.data().points || 0);
           totalXp += (doc.data().xp || 0);
         });
+
+        // Set sampled flag since query is limited
+        setIsLiabilitySampled(true);
 
         const activePredictionsSnap = await getDocs(query(
           collection(db, 'user_predictions'),
@@ -185,12 +189,12 @@ const OpsEconomy: React.FC = () => {
 
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total Points Supply</p>
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">{isLiabilitySampled ? 'Sampled Points Supply' : 'Total Points Supply'}</p>
              <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
              <div className="flex items-center gap-2 text-primary font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
           </div>
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">USD Liability</p>
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">{isLiabilitySampled ? 'Sampled USD Liability' : 'USD Liability'}</p>
              <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{formatUSD((stats.ecosystemPoints || 0) / 1000)}</p>
              <div className="flex items-center gap-2 text-success font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><DollarSign size={12} /> Payout Exposure</div>
           </div>

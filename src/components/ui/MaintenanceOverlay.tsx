@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, RefreshCcw, ShieldAlert, WifiOff } from 'lucide-react';
+import { AlertTriangle, RefreshCcw, ShieldAlert, WifiOff, Activity } from 'lucide-react';
 import Logo from './Logo';
 
-export type MaintenanceType = 'PERMISSION_DENIED' | 'MAINTENANCE' | 'OFFLINE' | 'INITIALIZATION_FAILED';
+export type MaintenanceType = 'PERMISSION_DENIED' | 'MAINTENANCE' | 'OFFLINE' | 'INITIALIZATION_FAILED' | 'IDENTITY_NOT_FOUND';
 
 interface MaintenanceOverlayProps {
   type: MaintenanceType;
@@ -21,6 +21,7 @@ const MaintenanceOverlay: React.FC<MaintenanceOverlayProps> = ({
       case 'PERMISSION_DENIED': return <ShieldAlert className="w-12 h-12 text-red-500" />;
       case 'OFFLINE': return <WifiOff className="w-12 h-12 text-amber-500" />;
       case 'MAINTENANCE': return <AlertTriangle className="w-12 h-12 text-[#0070FF]" />;
+      case 'IDENTITY_NOT_FOUND': return <Activity className="w-12 h-12 text-red-500" />;
       default: return <RefreshCcw className="w-12 h-12 text-white/40 animate-spin" />;
     }
   };
@@ -30,6 +31,7 @@ const MaintenanceOverlay: React.FC<MaintenanceOverlayProps> = ({
       case 'PERMISSION_DENIED': return 'System Lockdown';
       case 'OFFLINE': return 'Connection Lost';
       case 'MAINTENANCE': return 'Scheduled Upgrade';
+      case 'IDENTITY_NOT_FOUND': return 'IDENTITY NOT FOUND';
       default: return 'Initialization Error';
     }
   };
@@ -40,6 +42,7 @@ const MaintenanceOverlay: React.FC<MaintenanceOverlayProps> = ({
       case 'PERMISSION_DENIED': return 'The backend is currently denying access. This is usually due to security rule updates or administrative lockdown.';
       case 'OFFLINE': return 'We cannot reach the PulseEarn servers. Please check your internet connection.';
       case 'MAINTENANCE': return 'We are currently optimizing the ecosystem. Please check back shortly.';
+      case 'IDENTITY_NOT_FOUND': return "WE COULDN'T SYNCHRONIZE YOUR PROFILE DATA. PLEASE REFRESH OR CONTACT SUPPORT IF THE ISSUE PERSISTS.";
       default: return 'An unexpected error occurred while connecting to the core engines.';
     }
   };
@@ -75,7 +78,7 @@ const MaintenanceOverlay: React.FC<MaintenanceOverlayProps> = ({
                 onClick={onRetry}
                 className="w-full py-5 bg-white text-black font-black uppercase italic tracking-[0.2em] text-[10px] rounded-2xl hover:bg-[#0070FF] hover:text-white transition-all duration-500 shadow-xl"
               >
-                Reconnect System
+                {type === 'IDENTITY_NOT_FOUND' ? 'RETRY SYNC' : 'Reconnect System'}
               </button>
             )}
           </div>

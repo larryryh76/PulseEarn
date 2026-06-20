@@ -60,46 +60,46 @@ const OpsValidation: React.FC = () => {
     const loadingToast = toast.loading('Updating validation status...');
     try {
       const claimRef = doc(db, 'task_claims', claimId);
-      const claimSnap = await getDoc(claimRef);
-
-      if (!claimSnap.exists()) {
-        toast.dismiss(loadingToast);
-        return toast.error("Claim not found");
-      }
-
-      const claimData = claimSnap.data();
 
       if (status === 'APPROVED') {
-        const taskRef = doc(db, 'tasks', claimData.taskId);
-        const taskSnap = await getDoc(taskRef);
+        const result = await runTransaction(db, async (transaction) => {
+          const claimSnap = await transaction.get(claimRef);
+          if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
 
-        if (!taskSnap.exists()) {
-          toast.dismiss(loadingToast);
-          return toast.error("Task not found");
-        }
+          const claimData = claimSnap.data();
+          if (claimData.validationState !== 'PENDING') throw new Error("CLAIM_ALREADY_RESOLVED");
 
-        const taskData = taskSnap.data();
+          const taskRef = doc(db, 'tasks', claimData.taskId);
+          const taskSnap = await transaction.get(taskRef);
+          if (!taskSnap.exists()) throw new Error("TASK_NOT_FOUND");
+          const taskData = taskSnap.data();
 
-        const result = await PointTransactionEngine.execute({
-          userId: claimData.userId,
-          amount: taskData.rewardAmount || 0,
+          // Execute reward via standard engine (internally transaction-safe)
+          // Since PointTransactionEngine.execute uses runTransaction, we cannot nest it.
+          // Instead, we perform the validation check here and prepare the reward.
+          return { claimData, taskData };
+        });
+
+        const rewardResult = await PointTransactionEngine.execute({
+          userId: result.claimData.userId,
+          amount: result.taskData.rewardAmount || 0,
           type: 'task_reward',
-          source: taskData.title,
+          source: result.taskData.title,
           claimId: `val_${claimId}`,
-          xpReward: taskData.xpReward || 50,
-          referenceId: claimData.taskId,
+          xpReward: result.taskData.xpReward || 50,
+          referenceId: result.claimData.taskId,
           metadata: {
-            campaignId: taskData.campaignId || null,
-            campaignName: taskData.campaignName || 'Community',
-            category: taskData.category || 'CUSTOM',
-            verificationType: taskData.verificationType || 'manual',
-            completedAt: claimData.createdAt
+            campaignId: result.taskData.campaignId || null,
+            campaignName: result.taskData.campaignName || 'Community',
+            category: result.taskData.category || 'CUSTOM',
+            verificationType: result.taskData.verificationType || 'manual',
+            completedAt: result.claimData.createdAt
           }
         });
 
-        if (!result.success) {
+        if (!rewardResult.success) {
           toast.dismiss(loadingToast);
-          return toast.error(`Failed to grant reward: ${result.error}`);
+          return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
       }
 
@@ -111,9 +111,10 @@ const OpsValidation: React.FC = () => {
 
       toast.dismiss(loadingToast);
       toast.success(`Claim ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`);
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[OpsValidation] Review Error:", err);
       toast.dismiss(loadingToast);
-      toast.error("Failed to update claim status");
+      toast.error(`Failed: ${err.message}`);
     }
   };
 

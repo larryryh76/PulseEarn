@@ -15,8 +15,22 @@ const Login: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'forgot'>('login');
 
-  const { login, resetPassword } = useAuth();
+  const { login, resetPassword, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsSubmitting(true);
+      await signInWithGoogle();
+      navigate('/dashboard');
+    } catch (error: any) {
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast.error(mapAuthError(error));
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +104,23 @@ const Login: React.FC = () => {
                     </div>
                     <h1 className="text-3xl font-bold mb-2 tracking-tight text-text-primary">Welcome Back</h1>
                     <p className="text-text-secondary text-sm font-medium">Sign in to your PulseEarn account</p>
+                  </div>
+
+                  <div className="space-y-4 mb-6">
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={isSubmitting}
+                      className="w-full flex items-center justify-center gap-3 py-4 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
+                    >
+                      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
+                      Continue with Google
+                    </button>
+
+                    <div className="relative flex items-center justify-center py-2">
+                       <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+                       <span className="relative px-4 bg-surface text-[10px] font-black text-text-tertiary uppercase tracking-widest">Or Secure Login</span>
+                    </div>
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-5">

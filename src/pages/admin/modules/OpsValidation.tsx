@@ -15,9 +15,10 @@ import {
   limit,
   onSnapshot,
   doc,
-  getDoc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction,
+  Transaction
 } from 'firebase/firestore';
 import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';
@@ -62,7 +63,7 @@ const OpsValidation: React.FC = () => {
       const claimRef = doc(db, 'task_claims', claimId);
 
       if (status === 'APPROVED') {
-        const result = await runTransaction(db, async (transaction) => {
+        const result = await runTransaction(db, async (transaction: Transaction) => {
           const claimSnap = await transaction.get(claimRef);
           if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
 

@@ -141,7 +141,7 @@ const OpsBroadcasts: React.FC = () => {
                            value={formData.description}
                            onChange={e => setFormData({...formData, description: e.target.value})}
                            className="w-full bg-surface-bright border border-border-bright rounded-2xl p-6 text-sm text-text-primary h-40 resize-none focus:border-primary/50 outline-none transition-all font-medium leading-relaxed shadow-inner"
-                           placeholder="Enter payload content for global distribution..."
+                           placeholder="Enter broadcast content for global distribution..."
                          />
                       </div>
                       <div className="space-y-4">
@@ -165,7 +165,7 @@ const OpsBroadcasts: React.FC = () => {
 
                       <div className="p-6 bg-surface-bright/50 border border-border rounded-2xl flex items-center gap-4">
                          <ShieldCheck size={24} className="text-success" />
-                         <p className="text-[10px] text-text-tertiary font-medium leading-relaxed italic uppercase tracking-widest">Broadcast will synchronize across all active platform nodes instantly.</p>
+                         <p className="text-[10px] text-text-tertiary font-medium leading-relaxed italic uppercase tracking-widest">Broadcast will synchronize across all active platform users instantly.</p>
                       </div>
 
                       <div className="pt-4 flex gap-4">

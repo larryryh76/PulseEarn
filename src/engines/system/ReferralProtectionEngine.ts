@@ -12,6 +12,7 @@ import {
 import { PointTransactionEngine } from '../points/PointTransactionEngine';
 import { NotificationEngine } from './NotificationEngine';
 import { FraudEngine } from './FraudEngine';
+import { EconomyConfigEngine } from './EconomyConfigEngine';
 
 export class ReferralProtectionEngine {
   /**
@@ -68,7 +69,6 @@ export class ReferralProtectionEngine {
         }
 
         // 4. Execute Reward for Referrer
-        const { EconomyConfigEngine } = await import('./EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
 
         const claimId = `ref_qualify_${referrerId}_${userId}`;

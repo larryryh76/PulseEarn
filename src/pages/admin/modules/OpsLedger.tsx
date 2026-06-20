@@ -243,7 +243,7 @@ const OpsLedger: React.FC = () => {
 
                       {selectedTx.description && (
                          <section className="space-y-4">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-2">Adjustment Payload</h4>
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-2">Adjustment Detail</h4>
                             <div className="p-8 bg-surface-bright border border-border rounded-3xl text-sm text-text-secondary leading-relaxed italic font-medium shadow-inner">
                                "{selectedTx.description}"
                             </div>

@@ -25,6 +25,9 @@ import { cn } from '../../utils';
 import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import PredictionChart from './components/PredictionChart';
+import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';
+import { MarketResolutionEngine } from '../../engines/predictions/MarketResolutionEngine';
+import { PointTransactionEngine } from '../../engines/points/PointTransactionEngine';
 
 const STAKE_OPTIONS = [10, 50, 100, 500, 1000];
 
@@ -46,7 +49,6 @@ const Predictions: React.FC = () => {
 
   useEffect(() => {
      const fetchConfig = async () => {
-        const { EconomyConfigEngine } = await import('../../engines/system/EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
         setEconomyConfig(config);
      };
@@ -81,7 +83,6 @@ const Predictions: React.FC = () => {
           const runResolution = async () => {
              setIsResolving(true);
              try {
-                const { MarketResolutionEngine } = await import('../../engines/predictions/MarketResolutionEngine');
                 await MarketResolutionEngine.resolveExpiredPredictions();
              } catch (err) {
                 console.error("Auto-Resolution failed:", err);
@@ -150,7 +151,6 @@ const Predictions: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const { PointTransactionEngine } = await import('../../engines/points/PointTransactionEngine');
       const predId = `${currentUser.uid}_${activeMarket.id}_${Date.now()}`;
 
       const result = await PointTransactionEngine.executePrediction({

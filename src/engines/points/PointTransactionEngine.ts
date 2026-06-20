@@ -11,6 +11,11 @@ import {
 import { Transaction } from '../../types';
 import { calculateLevel } from '../../utils/progression';
 import { EconomyAuthority } from './EconomyAuthority';
+import { EconomyConfigEngine } from '../system/EconomyConfigEngine';
+import { ActivityEngine } from '../system/ActivityEngine';
+import { SystemTaskEngine } from '../tasks/SystemTaskEngine';
+import { NotificationEngine } from '../system/NotificationEngine';
+import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
 
 export interface PointTransactionRequest {
   userId: string;
@@ -94,7 +99,6 @@ export class PointTransactionEngine {
         }
 
         // 6. Progression Calculation (Authoritative Level Derivation)
-        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
@@ -201,10 +205,6 @@ export class PointTransactionEngine {
       }).then(async (res: any) => {
         // Trigger background missions and activity logs after successful transaction
         if (res.success) {
-          const { ActivityEngine } = await import('../system/ActivityEngine');
-          const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
-          const { NotificationEngine } = await import('../system/NotificationEngine');
-
           // Send Reward Notification
           if (type === 'task_reward' || amount > 0) {
             await NotificationEngine.notifyReward(
@@ -235,7 +235,6 @@ export class PointTransactionEngine {
              await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
 
              // Check for Referral Qualification
-             const { ReferralProtectionEngine } = await import('../system/ReferralProtectionEngine');
              await ReferralProtectionEngine.qualifyReferral(userId);
           }
           if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
@@ -292,8 +291,7 @@ export class PointTransactionEngine {
 
         const userData = userSnap.data();
 
-        const { EconomyConfigEngine: EconomyConfigEngine_p1 } = await import('../system/EconomyConfigEngine');
-        const config_p1 = await EconomyConfigEngine_p1.getConfig();
+        const config_p1 = await EconomyConfigEngine.getConfig();
 
         // 0. Eligibility Check (Minimum Level based on config)
         const unlockLevel = config_p1.thresholds.predictionUnlockLevel;
@@ -324,8 +322,7 @@ export class PointTransactionEngine {
           }
         }
 
-        const { EconomyConfigEngine: EconomyConfigEngine_p2 } = await import('../system/EconomyConfigEngine');
-        const config_p2 = await EconomyConfigEngine_p2.getConfig();
+        const config_p2 = await EconomyConfigEngine.getConfig();
 
         // 2. Create Verifiable Prediction Record
         transaction.set(predDoc, {
@@ -366,9 +363,6 @@ export class PointTransactionEngine {
         return { success: true, txId: txDoc.id, predictionId: predDoc.id };
       }).then(async (res: any) => {
         if (res.success) {
-          const { ActivityEngine } = await import('../system/ActivityEngine');
-          const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
-
           await ActivityEngine.log({
             userId,
             type: 'prediction_placed',
@@ -416,7 +410,6 @@ export class PointTransactionEngine {
         if (!userSnap.exists()) throw new Error("USER_NOT_FOUND");
 
         const userData = userSnap.data();
-        const { EconomyConfigEngine } = await import('../system/EconomyConfigEngine');
         const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
@@ -495,9 +488,6 @@ export class PointTransactionEngine {
           timestamp: serverTimestamp()
         });
       }).then(async () => {
-         const { ActivityEngine } = await import('../system/ActivityEngine');
-         const { SystemTaskEngine } = await import('../tasks/SystemTaskEngine');
-
          const predSnap = await getDoc(predRef);
          if (predSnap.exists()) {
             const data = predSnap.data();

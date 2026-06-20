@@ -7,6 +7,7 @@ import {
   increment
 } from 'firebase/firestore';
 import { ActivityEngine } from '../system/ActivityEngine';
+import { SystemTaskEngine } from './SystemTaskEngine';
 
 export class CampaignEngine {
   /**
@@ -75,7 +76,6 @@ export class CampaignEngine {
       });
 
       // Trigger level/progress event
-      const { SystemTaskEngine } = await import('./SystemTaskEngine');
       await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
     } catch (error: any) {
       console.error(`[CampaignEngine] Completion failed for ${campaignId}:`, error.message);

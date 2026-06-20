@@ -17,6 +17,7 @@ export interface TaskContextType {
   campaigns: Campaign[];
   subtasks: TaskClaim[];
   taskHistory: TaskHistory[];
+  unifiedHistory: any[];
   activities: Activity[];
   systemTasks: { id: string; definition: any; progress: any }[];
   predictions: PredictionRecord[];
@@ -217,6 +218,38 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   });
 
+  const completedMissions = systemTasks.filter(m => m.progress?.status === 'CLAIMED');
+
+  const unifiedHistory = [
+    ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
+    ...subtasks.filter(s =>
+       s.validationState === 'APPROVED' &&
+       !taskHistory.find(h => h.claimId === s.id) &&
+       !taskHistory.find(h => h.taskId === s.taskId)
+    ).map(s => ({
+       id: s.id,
+       taskTitle: s.metadata?.taskTitle || 'Task Completed',
+       rewardAmount: 0,
+       xpReward: s.xpGranted || 0,
+       resolvedAt: s.resolvedAt,
+       type: 'LEGACY_CLAIM'
+    })),
+    ...completedMissions.filter(m =>
+       !taskHistory.find(h => h.taskId === m.id)
+    ).map(m => ({
+       id: m.id,
+       taskTitle: m.definition?.title,
+       rewardAmount: m.definition?.rewardPoints,
+       xpReward: m.definition?.rewardXp,
+       resolvedAt: m.progress?.claimedAt,
+       type: 'MISSION'
+    }))
+  ].sort((a, b) => {
+    const timeA = a.resolvedAt?.toMillis?.() || 0;
+    const timeB = b.resolvedAt?.toMillis?.() || 0;
+    return timeB - timeA;
+  });
+
   return (
     <TaskContext.Provider value={{
       tasks: filteredTasks,
@@ -224,6 +257,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       campaigns,
       subtasks,
       taskHistory,
+      unifiedHistory,
       activities,
       systemTasks,
       predictions,

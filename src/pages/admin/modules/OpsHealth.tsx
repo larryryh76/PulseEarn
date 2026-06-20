@@ -133,7 +133,7 @@ const OpsHealth: React.FC = () => {
           className="rounded-xl border-white/5 bg-white/5"
         >
           <RefreshCw size={14} className="mr-2" />
-          Refresh Nodes
+          Refresh System
         </Button>
       </header>
 

@@ -7,6 +7,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Task, UserTask, TaskClaim, TaskCategory } from '../../types';
+import { PointTransactionEngine } from '../points/PointTransactionEngine';
+import { ActivityEngine } from '../system/ActivityEngine';
 
 export class TaskEngine {
   /**
@@ -92,7 +94,6 @@ export class TaskEngine {
       }).then(async (res: any) => {
         if (res.success) {
            if (res.task.verificationType === 'automated') {
-              const { PointTransactionEngine } = await import('../points/PointTransactionEngine');
               await PointTransactionEngine.execute({
                  userId,
                  amount: res.task.rewardAmount,
@@ -111,7 +112,6 @@ export class TaskEngine {
               });
            } else {
               // Manual/Proof tasks still need an activity record for the submission
-              const { ActivityEngine } = await import('../system/ActivityEngine');
               await ActivityEngine.log({
                  userId,
                  type: 'task_completed',

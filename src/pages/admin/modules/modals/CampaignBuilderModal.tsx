@@ -212,7 +212,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                          />
                       </div>
                       <div className="space-y-2">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">XP Provision</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">XP Reward</label>
                          <input
                            type="number"
                            value={formData.xpReward}
@@ -304,7 +304,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                                   />
                                </div>
                                <div className="space-y-2">
-                                  <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Provision (XP)</label>
+                                  <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Reward (XP)</label>
                                   <input
                                     type="number" value={initialTask.xpReward}
                                     onChange={e => setInitialTask({...initialTask, xpReward: Number(e.target.value)})}

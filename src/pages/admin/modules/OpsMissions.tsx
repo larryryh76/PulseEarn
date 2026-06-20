@@ -99,7 +99,7 @@ const OpsMissions: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4 mb-8 pt-6 border-t border-border relative z-10">
                    <div>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Provision</p>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Reward</p>
                       <p className="text-sm font-mono font-bold text-text-primary">+{(mission.rewardPoints || 0).toLocaleString()} PTS</p>
                    </div>
                    <div className="text-right">

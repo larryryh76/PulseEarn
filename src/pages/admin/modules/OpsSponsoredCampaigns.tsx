@@ -133,7 +133,7 @@ const OpsSponsoredCampaigns: React.FC = () => {
                       <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                       <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Active Registry</h3>
                    </div>
-                   <span className="text-[10px] font-mono font-bold text-primary">{filtered.length} NODES</span>
+                   <span className="text-[10px] font-mono font-bold text-primary">{filtered.length} CAMPAIGNS</span>
                 </div>
 
                 <div className="overflow-x-auto no-scrollbar">

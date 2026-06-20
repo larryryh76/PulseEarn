@@ -27,6 +27,7 @@ import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
@@ -84,8 +85,6 @@ const Wallet: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const { PointTransactionEngine } = await import('../engines/points/PointTransactionEngine');
-
       const claimId = `wd_${userData?.uid}_${Date.now()}`;
 
       // 1. Log the debit in transactions

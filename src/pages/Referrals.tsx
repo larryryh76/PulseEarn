@@ -7,6 +7,7 @@ import {
   Share2,
   History,
   TrendingUp,
+  ChevronRight,
   Gift,
   CheckCircle2,
   Clock,
@@ -163,18 +164,34 @@ const Referrals: React.FC = () => {
                   </div>
                </Card>
              ) : (
-                <Card className="p-12 bg-surface-bright/50 border-dashed border-border flex flex-col items-center text-center gap-8 rounded-[3rem]">
-                   <div className="w-20 h-20 rounded-[2.5rem] bg-warning/10 border border-warning/20 flex items-center justify-center text-warning shadow-2xl">
-                      <Zap size={32} className="fill-warning/20" />
+                <Card className="p-10 md:p-16 bg-surface-bright/50 border-dashed border-border flex flex-col items-center text-center gap-10 rounded-[3rem] relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <Zap size={120} />
                    </div>
-                   <div className="space-y-4 max-w-sm">
-                      <h2 className="text-2xl font-bold tracking-tight italic uppercase">Referral System Locked</h2>
-                      <p className="text-xs text-text-secondary font-medium leading-relaxed uppercase tracking-wide italic">
-                         To protect the ecosystem economy, you must complete at least <span className="text-primary font-bold">1 Task</span> from the Quest Hub before you can invite friends and earn rewards.
+
+                   <div className="space-y-4">
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight italic uppercase">Unlock Your Network</h2>
+                      <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest max-w-xs mx-auto">
+                         Complete the authentication roadmap to enable rewards.
                       </p>
                    </div>
-                   <Button onClick={() => navigate('/tasks')} className="px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic shadow-xl">
-                      Unlock Quest Hub
+
+                   <div className="flex flex-col md:flex-row items-center gap-4 w-full max-w-md">
+                      <div className="flex-1 p-5 rounded-2xl bg-primary/10 border border-primary/20 flex flex-col items-center gap-3 relative">
+                         <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-black">01</div>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-primary">Complete 1 Task</p>
+                         <div className="absolute -right-2 top-1/2 -translate-y-1/2 hidden md:block text-primary/30">
+                            <ChevronRight size={16} />
+                         </div>
+                      </div>
+                      <div className="flex-1 p-5 rounded-2xl bg-white/5 border border-white/10 flex flex-col items-center gap-3 opacity-40">
+                         <div className="w-8 h-8 rounded-full bg-white/10 text-white/40 flex items-center justify-center text-[10px] font-black">02</div>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Share & Earn</p>
+                      </div>
+                   </div>
+
+                   <Button onClick={() => navigate('/tasks')} className="px-12 h-16 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] italic shadow-2xl group">
+                      Initialize First Task <ChevronRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
                    </Button>
                 </Card>
              )}

@@ -318,14 +318,14 @@ const Dashboard: React.FC = () => {
                </div>
 
                <div className="relative -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto no-scrollbar pb-8">
-                  <div className="flex gap-4 md:gap-5 min-w-max">
+                  <div className="flex gap-6 min-w-max py-2">
                      {discoveredTasks.map((item) => (
                         <motion.div
                            key={item.id}
                            whileHover={{ y: -5 }}
                            className={cn(
-                              "w-[280px] md:w-80 p-6 rounded-[2rem] md:rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group",
-                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright"
+                              "w-[300px] md:w-80 p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[380px]",
+                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
                            )}
                            onClick={() => {
                               if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);

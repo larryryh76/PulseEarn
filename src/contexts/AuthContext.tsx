@@ -13,7 +13,6 @@ import {
 import {
   doc,
   setDoc,
-  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -26,16 +25,15 @@ import {
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
-import { getDeviceFingerprint } from '../utils/fingerprint';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
-import { FraudEngine } from '../engines/system/FraudEngine';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
+import { UserEngine } from '../engines/system/UserEngine';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -101,40 +99,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function recordFingerprint(uid: string) {
-    try {
-      const fingerprint = await getDeviceFingerprint();
-      const fpRef = doc(db, 'system_fingerprints', `${uid}_${fingerprint}`);
-
-      await setDoc(fpRef, {
-        userId: uid,
-        fingerprint,
-        lastSeen: serverTimestamp(),
-        createdAt: serverTimestamp()
-      }, { merge: true });
-
-      await updateDoc(doc(db, 'users', uid), {
-        fingerprint,
-        lastSeen: serverTimestamp()
-      });
-
-      // Simple Multi-Account Scan
-      await FraudEngine.evaluateNodeIntegrity(uid, fingerprint);
-
-    } catch (err) {
-      console.warn("[Auth] Fingerprint recording failed:", err);
-    }
-  }
-
   async function checkDailyReward(uid: string) {
-    const now = new Date();
-    // Use UTC date string to ensure midnight reset is consistent globally
-    const todayStr = now.toISOString().split('T')[0];
-    const claimId = `daily_${todayStr}_${uid}`;
-
     try {
-      console.log(`[DailyReward] Checking for ${uid} (Claim: ${claimId})`);
       const config = await EconomyConfigEngine.getConfig();
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const claimId = `daily_${todayStr}_${uid}`;
 
       const result = await PointTransactionEngine.execute({
         userId: uid,
@@ -145,22 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         xpReward: config.rewards.dailyLoginXP
       });
 
-      if (!result.success) {
-        if (result.error === 'REWARD_ALREADY_CLAIMED' || result.error === 'DAILY_REWARD_COOLDOWN') {
-           console.log(`[DailyReward] Already claimed for ${todayStr}`);
-        } else {
-           console.warn(`[DailyReward] Execution failure: ${result.error}`);
-        }
-        return;
+      if (result.success) {
+        await SystemTaskEngine.processEvent(uid, 'daily_login');
+        toast.success('Daily Reward Claimed!', { icon: '🎁' });
       }
-
-      console.log(`[DailyReward] Success! Granting points and triggering events.`);
-
-      await SystemTaskEngine.processEvent(uid, 'daily_login');
-
-      toast.success('Daily Reward Claimed!', { icon: '🎁' });
     } catch (error: any) {
-      console.error("[DailyReward] System Error:", error.message);
+      console.error("[AuthContext] Daily Reward Sync Failed:", error.message);
     }
   }
 
@@ -306,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSystemError(null);
 
             if (resolvedData.role !== 'admin') {
-              recordFingerprint(user.uid);
+              UserEngine.recordFingerprint(user.uid);
               if (user.emailVerified) {
                 checkDailyReward(user.uid);
               }

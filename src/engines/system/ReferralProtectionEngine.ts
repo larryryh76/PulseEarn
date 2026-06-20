@@ -7,7 +7,8 @@ import {
   doc,
   getDoc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  getCountFromServer
 } from 'firebase/firestore';
 import { PointTransactionEngine } from '../points/PointTransactionEngine';
 import { NotificationEngine } from './NotificationEngine';
@@ -35,9 +36,13 @@ export class ReferralProtectionEngine {
       if (!userSnap.exists()) return;
       const userData = userSnap.data();
 
-      // 2. Check Participation Requirements
-      // REMOVED: No hindrances or qualifications as per requirements
-      const isQualified = true;
+      // 2. Check Participation Requirements (At least 1 task completed)
+      const historyQuery = query(
+        collection(db, 'users', userId, 'task_history'),
+        where('status', '==', 'COMPLETED')
+      );
+      const historySnap = await getCountFromServer(historyQuery);
+      const isQualified = historySnap.data().count > 0;
 
       if (!isQualified) return;
 
@@ -57,31 +62,36 @@ export class ReferralProtectionEngine {
         }
 
         // 4. Execute Reward for Referrer
+        const { EconomyConfigEngine } = await import('./EconomyConfigEngine');
+        const config = await EconomyConfigEngine.getConfig();
+
         const claimId = `ref_qualify_${referrerId}_${userId}`;
         const rewardResult = await PointTransactionEngine.execute({
           userId: referrerId,
-          amount: 50,
+          amount: config.rewards.referralBonusPoints,
           type: 'referral_bonus',
           source: `Referral Bonus (Referrer): ${userData.username}`,
           claimId,
-          xpReward: 50
+          xpReward: config.rewards.referralBonusXP
         });
 
-        if (rewardResult.success) {
-           // 5. Update Referral Status
+        if (rewardResult.success || rewardResult.error === 'REWARD_ALREADY_CLAIMED') {
+           // 5. Update Referral Status (Ensures eventual consistency even if race occurs)
            await updateDoc(doc(db, 'referrals', refDoc.id), {
               status: 'REWARDED',
-              rewardTransactionId: rewardResult.txId,
+              rewardTransactionId: rewardResult.success ? rewardResult.txId : 'ALREADY_CLAIMED',
               updatedAt: serverTimestamp()
            });
 
-           // 6. Notify Referrer
-           await NotificationEngine.send({
-              userId: referrerId,
-              title: 'Referral Qualified!',
-              description: `Your referral ${userData.username} has completed their first task. +50 PTS awarded.`,
-              type: 'referral_joined'
-           });
+           // 6. Notify Referrer (Only if this was the successful execution)
+           if (rewardResult.success) {
+              await NotificationEngine.send({
+                 userId: referrerId,
+                 title: 'Referral Qualified!',
+                 description: `Your referral ${userData.username} has completed their first task. +${config.rewards.referralBonusPoints} PTS awarded.`,
+                 type: 'referral_joined'
+              });
+           }
         }
       }
     } catch (err) {

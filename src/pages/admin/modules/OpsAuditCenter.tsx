@@ -12,7 +12,8 @@ import {
   Fingerprint,
   ChevronRight,
   Filter,
-  Eye
+  Eye,
+  Users
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -26,7 +27,7 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const OpsAuditCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS' | 'NODES'>('THREATS');
+  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS' | 'NODES' | 'REFERRALS'>('THREATS');
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -41,6 +42,8 @@ const OpsAuditCenter: React.FC = () => {
       q = query(collection(db, 'system_audit'), limit(100));
     } else if (activeTab === 'FLAGS') {
       q = query(collection(db, 'users'), where('isFlagged', '==', true), limit(100));
+    } else if (activeTab === 'REFERRALS') {
+      q = query(collection(db, 'referrals'), limit(100));
     } else {
       q = query(collection(db, 'system_fingerprints'), limit(100));
     }
@@ -173,6 +176,38 @@ const OpsAuditCenter: React.FC = () => {
     </div>
   );
 
+  const renderReferral = (ref: any) => (
+    <div key={ref.id} className="p-6 rounded-2xl border border-border bg-surface hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 group shadow-xl mb-4">
+      <div className="flex items-center gap-4 md:gap-6">
+        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+          <Users size={20} />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-1.5 md:mb-2">
+            <h3 className="font-bold text-text-primary uppercase tracking-tight text-[11px] md:text-sm truncate">REF: {ref.refereeUsername || 'ANONYMOUS'}</h3>
+            <span className={cn(
+              "text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border",
+              ref.status === 'REWARDED' ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border"
+            )}>
+              {ref.status}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase tracking-widest">
+            <div className="flex items-center gap-1.5"><Zap size={10} className="text-primary" /> Referrer: {ref.referrerId?.slice(0, 12)}...</div>
+            <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-bright" />
+            <div className="flex items-center gap-1.5">Referee UID: {ref.refereeId?.slice(0, 12)}...</div>
+            <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-bright" />
+            <div className="flex items-center gap-1.5">Date: {ref.createdAt?.toDate?.()?.toLocaleDateString()}</div>
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-[7px] md:text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-0.5 md:mb-1">TX ID</p>
+        <p className="text-[10px] font-mono font-bold text-text-primary">{ref.rewardTransactionId?.slice(0, 8) || 'NONE'}</p>
+      </div>
+    </div>
+  );
+
   const renderFingerprint = (fp: any) => (
     <div key={fp.id} className="p-6 rounded-2xl border border-border bg-surface hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 group shadow-xl mb-4">
       <div className="flex items-center gap-4 md:gap-6">
@@ -215,6 +250,7 @@ const OpsAuditCenter: React.FC = () => {
             { id: 'THREATS', icon: Activity, label: 'Anomalies' },
             { id: 'AUDIT', icon: History, label: 'Log' },
             { id: 'FLAGS', icon: AlertTriangle, label: 'Security Queue' },
+            { id: 'REFERRALS', icon: Users, label: 'Referrals' },
             { id: 'NODES', icon: Fingerprint, label: 'Nodes' }
           ].map((tab) => (
             <button
@@ -259,6 +295,7 @@ const OpsAuditCenter: React.FC = () => {
                   if (activeTab === 'THREATS') return renderThreat(item);
                   if (activeTab === 'AUDIT') return renderAudit(item);
                   if (activeTab === 'FLAGS') return renderFlag(item);
+                  if (activeTab === 'REFERRALS') return renderReferral(item);
                   return renderFingerprint(item);
                 })
               ) : (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactions } from '../hooks/useTransactions';
+import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import {
   User as UserIcon,
   Settings as SettingsIcon,
@@ -23,16 +24,41 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import { useNavigate, Link } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Profile: React.FC = () => {
-  const { userData, logout } = useAuth();
+  const { userData, logout, currentUser } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
   const [hasCopied, setHasCopied] = useState(false);
+  const [liveReferralCount, setLiveReferralCount] = useState<number | null>(null);
+  const [rewardAmount, setRewardAmount] = useState(50);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      const config = await EconomyConfigEngine.getConfig();
+      setRewardAmount(config.rewards.referralBonusPoints);
+    };
+    fetchConfig();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'referrals'),
+      where('referrerId', '==', currentUser.uid),
+      where('status', '==', 'REWARDED')
+    );
+
+    const unsubscribe = onSnapshot(q, (snap: any) => {
+      setLiveReferralCount(snap.size);
+    });
+
+    return unsubscribe;
+  }, [currentUser]);
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'REWARDS' | 'ACTIVITY' | 'SETTINGS' | 'SUPPORT'>('IDENTITY');
   const navigate = useNavigate();
 
@@ -266,7 +292,7 @@ const Profile: React.FC = () => {
                     <div className="space-y-3">
                        <h2 className="text-3xl font-bold tracking-tight italic">Invite Friends</h2>
                        <p className="text-base text-text-secondary leading-relaxed font-medium italic">
-                          Grow your network and earn rewards. You'll receive <span className="text-text-primary font-bold tracking-tight">50 PTS</span> for every friend who joins PulseEarn using your code.
+                          Grow your network and earn rewards. You'll receive <span className="text-text-primary font-bold tracking-tight">{rewardAmount} PTS</span> for every friend who joins PulseEarn using your code.
                        </p>
                     </div>
 
@@ -283,11 +309,11 @@ const Profile: React.FC = () => {
                     <div className="grid grid-cols-2 gap-12 pt-12 border-t border-border-bright">
                       <div className="space-y-2">
                         <p className="data-label">Total Referrals</p>
-                        <p className="text-4xl font-bold text-text-primary tracking-tighter">{userData?.stats?.referralsCount || 0}</p>
+                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{liveReferralCount ?? userData?.stats?.referralsCount ?? 0}</p>
                       </div>
                       <div className="space-y-2">
                         <p className="data-label">Total Earned</p>
-                        <p className="text-4xl font-bold text-text-primary tracking-tighter">{((userData?.stats?.referralsCount || 0) * 50)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
+                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{((liveReferralCount ?? userData?.stats?.referralsCount ?? 0) * rewardAmount)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
                   </div>

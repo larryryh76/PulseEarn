@@ -36,7 +36,9 @@ const OpsXP: React.FC = () => {
   const [formData, setFormData] = React.useState({
     xpPerLevel: 1000,
     predictionUnlockLevel: 5,
-    minWithdrawalPoints: 10000
+    minWithdrawalPoints: 10000,
+    referralBonusPoints: 50,
+    referralBonusXP: 50
   });
 
   React.useEffect(() => {
@@ -49,7 +51,9 @@ const OpsXP: React.FC = () => {
           setFormData({
             xpPerLevel: data.thresholds?.xpPerLevel || 1000,
             predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
-            minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000
+            minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
+            referralBonusPoints: data.rewards?.referralBonusPoints || 50,
+            referralBonusXP: data.rewards?.referralBonusXP || 50
           });
         }
       } catch (err) {
@@ -69,6 +73,8 @@ const OpsXP: React.FC = () => {
         'thresholds.xpPerLevel': formData.xpPerLevel,
         'thresholds.predictionUnlockLevel': formData.predictionUnlockLevel,
         'thresholds.minWithdrawalPoints': formData.minWithdrawalPoints,
+        'rewards.referralBonusPoints': formData.referralBonusPoints,
+        'rewards.referralBonusXP': formData.referralBonusXP,
         updatedAt: serverTimestamp()
       });
       toast.success("Economy configuration updated");
@@ -200,14 +206,19 @@ const OpsXP: React.FC = () => {
               }
 
               // 2.2 Reconcile Missing Referral Reward
-              if (!isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
+              // IMPORTANT: Only reward if they have at least 1 completed task
+              const historyQuery = query(collection(db, 'users', refereeId, 'task_history'), where('status', '==', 'COMPLETED'));
+              const historySnap = await getCountFromServer(historyQuery);
+              const tasksCompleted = historySnap.data().count;
+
+              if (tasksCompleted > 0 && !isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
-                    amount: 50,
+                    amount: formData.referralBonusPoints,
                     type: 'referral_bonus',
                     source: `Integrity Sync: ${userData.username || 'Anonymous'}`,
                     claimId: syncClaimReferrer,
-                    xpReward: 50
+                    xpReward: formData.referralBonusXP
                  });
                  if (result.success) {
                     referralRewards++;
@@ -215,6 +226,9 @@ const OpsXP: React.FC = () => {
                     if (refRecord) {
                        batch.update(doc(db, 'referrals', refRecord.id), { status: 'REWARDED', updatedAt: serverTimestamp() });
                        batchCount++;
+                    } else {
+                       // If we created it above, it will be updated in the next sync or we could handle it here.
+                       // For simplicity, the next scan will pick it up or the setDoc above already has status: REWARDED if we could determine it.
                     }
                  }
               }
@@ -225,11 +239,11 @@ const OpsXP: React.FC = () => {
               if (!claimIds.has(syncClaimReferee) && !claimIds.has(legacyClaimReferee)) {
                  const result = await PointTransactionEngine.execute({
                     userId: refereeId,
-                    amount: 30,
+                    amount: 50, // Welcome bonus standard is 50
                     type: 'welcome_bonus',
                     source: `Integrity Sync (Referee)`,
                     claimId: syncClaimReferee,
-                    xpReward: 30
+                    xpReward: 50
                  });
                  if (result.success) referralRewards++;
               }
@@ -314,6 +328,32 @@ const OpsXP: React.FC = () => {
                            className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
                          />
                          <ShieldCheck className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-50 transition-opacity" size={16} />
+                      </div>
+                   </div>
+
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Referral Reward (PTS)</label>
+                      <div className="relative group">
+                         <input
+                           type="number"
+                           value={formData.referralBonusPoints}
+                           onChange={e => setFormData({...formData, referralBonusPoints: Number(e.target.value)})}
+                           className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                         />
+                         <Trophy className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-50 transition-opacity" size={16} />
+                      </div>
+                   </div>
+
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Referral Reward (XP)</label>
+                      <div className="relative group">
+                         <input
+                           type="number"
+                           value={formData.referralBonusXP}
+                           onChange={e => setFormData({...formData, referralBonusXP: Number(e.target.value)})}
+                           className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                         />
+                         <Zap className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-50 transition-opacity" size={16} />
                       </div>
                    </div>
                 </div>

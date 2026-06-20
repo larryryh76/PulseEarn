@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import {
   Users,
   Copy,
@@ -23,6 +24,15 @@ const Referrals: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rewardAmount, setRewardAmount] = useState(50);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      const config = await EconomyConfigEngine.getConfig();
+      setRewardAmount(config.rewards.referralBonusPoints);
+    };
+    fetchConfig();
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -70,9 +80,9 @@ const Referrals: React.FC = () => {
   };
 
   const stats = [
-    { label: 'Total Referrals', value: userData?.stats?.referralsCount || referrals.length, icon: Users, color: 'text-primary' },
-    { label: 'Points Earned', value: ((userData?.stats?.referralsCount || referrals.filter(r => r.status === 'REWARDED').length) * 50)?.toLocaleString(), icon: Zap, color: 'text-accent' },
-    { label: 'Pending', value: Math.max(0, (userData?.stats?.referralsCount || 0) - referrals.filter(r => r.status === 'REWARDED').length), icon: Clock, color: 'text-warning' },
+    { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
+    { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * rewardAmount).toLocaleString(), icon: Zap, color: 'text-accent' },
+    { label: 'Pending', value: referrals.filter(r => r.status === 'REGISTERED').length, icon: Clock, color: 'text-warning' },
     { label: 'Successful', value: referrals.filter(r => r.status === 'REWARDED').length, icon: CheckCircle2, color: 'text-success' },
   ];
 
@@ -223,7 +233,7 @@ const Referrals: React.FC = () => {
 
                    <div className="pt-6 border-t border-border space-y-4">
                       {[
-                        { label: 'Referral Bonus', value: '50 PTS' },
+                        { label: 'Referral Bonus', value: `${rewardAmount} PTS` },
                         { label: 'Task Share', value: '5%' },
                         { label: 'Multiplier', value: '1.0x' },
                       ].map((rule, i) => (

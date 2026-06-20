@@ -272,9 +272,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       xpReward: 50
     });
 
-    // 3. Immediately trigger referral reward
-    const { ReferralProtectionEngine } = await import('../engines/system/ReferralProtectionEngine');
-    await ReferralProtectionEngine.qualifyReferral(user.uid);
   }
 
   function login(email: string, password: string) {

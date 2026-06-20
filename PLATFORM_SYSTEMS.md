@@ -118,5 +118,5 @@ A high-density operational dashboard for:
 ## 7. Known System Constraints
 - **Price Feed**: Dependent on CoinGecko Free Tier (rate limited).
 - **History Limits**: Client-side sorting on a 50-100 record limit for performance.
-- **Deletion**: Admin deletion is currently non-recursive (orphans data).
-- **Google Auth**: Provider configured in Firebase but UI integration is missing.
+- **Recursive Deletion**: Admin user deletion now purges all linked top-level documents and sub-collections (Ledger, Notifications, Tasks, Activity).
+- **Google Auth**: Fully integrated into AuthContext and UI (Login/Signup).

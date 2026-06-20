@@ -8,11 +8,14 @@ import {
   UserCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
-  updateEmail as firebaseUpdateEmail
+  updateEmail as firebaseUpdateEmail,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import {
   doc,
   setDoc,
+  getDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -41,6 +44,7 @@ interface AuthContextType {
   loading: boolean;
   signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
+  signInWithGoogle: (referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -140,14 +144,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+  async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
 
-    // Send initial verification
-    await sendEmailVerification(user);
+    if (userSnap.exists()) return;
 
-    const isAdmin = email.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+    const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
     const role = isAdmin ? 'admin' : 'user';
 
     let referredBy = null;
@@ -199,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,
-      avatarUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
+      avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
       stats: {
         tasksCompleted: 0,
         referralsCount: 0,
@@ -218,7 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    await setDoc(doc(db, 'users', user.uid), {
+    await setDoc(userRef, {
       ...newUserData,
       createdAt: serverTimestamp()
     });
@@ -235,7 +238,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       claimId: `welcome_${user.uid}`,
       xpReward: 50
     });
+  }
 
+  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Send initial verification
+    await sendEmailVerification(user);
+    await initializeUserProfile(user, username, referralCodeInput);
+  }
+
+  async function signInWithGoogle(referralCodeInput?: string) {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput);
   }
 
   function login(email: string, password: string) {
@@ -274,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
              // Auth exists but profile doesn't? Possible sync lag or deletion.
              console.warn("[AuthContext] Profile document missing.");
+             setSystemError('IDENTITY_NOT_FOUND');
           }
           setLoading(false);
           setIsRestoring(false);
@@ -310,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signup,
     login,
+    signInWithGoogle,
     logout,
     logActivity,
     sendVerification,

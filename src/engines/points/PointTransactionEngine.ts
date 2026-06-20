@@ -68,6 +68,14 @@ export class PointTransactionEngine {
           }
         }
 
+        // Apply Lock if not bypassed
+        if (!request.bypassLock) {
+           transaction.update(userRef, {
+              execution_lock: true,
+              execution_lock_at: serverTimestamp()
+           });
+        }
+
         // 3. Centralized Reward Validation Rules (Calendar-Day Reset Logic)
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();

@@ -334,11 +334,12 @@ const Tasks: React.FC = () => {
                     </div>
                  )}
 
-                 {/* SPONSORED PLACEHOLDER (PREPARED FOR FUTURE ADS) */}
+                 {/* SPONSORED OFFERS */}
                  {filter === 'SPONSORED' && availableStandaloneTasks.length === 0 && (
-                    <div className="py-24 text-center border border-dashed border-border rounded-[2rem] opacity-20">
-                       <Zap size={32} className="mx-auto mb-4 text-text-tertiary/50" />
-                       <p className="text-[10px] font-black uppercase tracking-[0.3em]">Premium Offers Coming Soon</p>
+                    <div className="py-24 text-center border border-dashed border-border rounded-[2rem] opacity-40 bg-surface-bright/20">
+                       <Zap size={32} className="mx-auto mb-4 text-primary animate-pulse" />
+                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-primary">Awaiting Sponsored Inventory</p>
+                       <p className="text-[8px] font-bold uppercase tracking-widest text-text-tertiary mt-2">Check back later for high-yield premium tasks</p>
                     </div>
                  )}
 

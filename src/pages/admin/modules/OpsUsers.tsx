@@ -26,7 +26,8 @@ import {
   setDoc,
   getDocs,
   where,
-  deleteDoc
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
@@ -100,24 +101,61 @@ const OpsUsers: React.FC = () => {
 
    const handleDeleteUser = async (user: any) => {
       if (!window.confirm(`CRITICAL ACTION: Permanently DELETE user "${user.username}" and all associated data? This cannot be undone.`)) return;
-      const loadingToast = toast.loading('Executing permanent deletion...');
+      const loadingToast = toast.loading('Executing deep recursive deletion...');
       try {
-          await deleteDoc(doc(db, 'users', user.id));
+          const userId = user.id;
+
+          // 1. Purge Linked Top-Level Records
+          const collectionsToPurge = [
+             { name: 'referrals', field: 'referrerId' },
+             { name: 'referrals', field: 'refereeId' },
+             { name: 'user_predictions', field: 'userId' },
+             { name: 'withdrawals', field: 'userId' },
+             { name: 'task_claims', field: 'userId' },
+             { name: 'system_anomalies', field: 'userId' },
+             { name: 'system_audit', field: 'targetId' }
+          ];
+
+          // Helper to delete in chunks of 500
+          const deleteInChunks = async (docs: any[]) => {
+             for (let i = 0; i < docs.length; i += 500) {
+                const batch = writeBatch(db);
+                docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+                await batch.commit();
+             }
+          };
+
+          for (const col of collectionsToPurge) {
+             const q = query(collection(db, col.name), where(col.field, '==', userId));
+             const snap = await getDocs(q);
+             await deleteInChunks(snap.docs);
+          }
+
+          // 2. Purge User Sub-collections
+          const subCols = ['transactions', 'notifications', 'task_history', 'activities', 'user_tasks'];
+          for (const sc of subCols) {
+             const scSnap = await getDocs(collection(db, 'users', userId, sc));
+             await deleteInChunks(scSnap.docs);
+          }
+
+          // 3. Purge User Document
+          await deleteDoc(doc(db, 'users', userId));
 
           await setDoc(doc(collection(db, 'system_audit')), {
-              action: 'USER_PERMANENT_DELETION',
-              targetId: user.id,
+              action: 'USER_PERMANENT_DELETION_RECURSIVE',
+              targetId: userId,
               timestamp: serverTimestamp(),
               performedBy: 'ROOT_AUTHORITY',
               metadata: { username: user.username, email: user.email }
           });
 
           toast.dismiss(loadingToast);
-          toast.success('User permanently removed from ecosystem');
+          toast.success('User and all associated data purged');
           setSelectedUser(null);
-      } catch (err) {
+      } catch (err: any) {
+          console.error("[OpsUsers] Deletion Error:", err);
           toast.dismiss(loadingToast);
-          toast.error('Deletion operation failed');
+          toast.error(`Deletion failed: ${err.message}`);
       }
    };
 

@@ -66,10 +66,9 @@ const OpsOverview: React.FC = () => {
       let volume = 0;
       volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
 
-      // Audit: liabilitySnap should not be limited if we want accurate data.
-      // At scale, this should read from a system_metrics aggregation document.
-      // For now, we increase the fetch range for accuracy during launch.
-      const liabilitySnap = await getDocs(query(collection(db, 'users')));
+      // Audit: liabilitySnap implemented with safety limit for dashboard performance.
+      // At scale, this must read from a pre-calculated system_metrics aggregation document.
+      const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
       let totalPts = 0;
       liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
 

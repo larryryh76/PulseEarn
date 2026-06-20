@@ -22,6 +22,7 @@ import {
 import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsValidation: React.FC = () => {
   const [claims, setClaims] = React.useState<any[]>([]);
@@ -78,7 +79,6 @@ const OpsValidation: React.FC = () => {
         }
 
         const taskData = taskSnap.data();
-        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
 
         const result = await PointTransactionEngine.execute({
           userId: claimData.userId,

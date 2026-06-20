@@ -30,6 +30,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
 import { cn } from '../../../utils';
+import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsEconomy: React.FC = () => {
   const [stats, setStats] = React.useState({
@@ -58,7 +60,8 @@ const OpsEconomy: React.FC = () => {
     const fetchStats = async () => {
       try {
         const usersCountSnap = await getCountFromServer(collection(db, 'users'));
-        const usersSnap = await getDocs(query(collection(db, 'users'), limit(500)));
+        // Audit: safety limit implemented to prevent unbounded liability scans.
+        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
         let totalPts = 0;
         let totalXp = 0;
         usersSnap.forEach(doc => {
@@ -97,7 +100,6 @@ const OpsEconomy: React.FC = () => {
     });
 
     const fetchConfig = async () => {
-       const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
        const config = await EconomyConfigEngine.getConfig();
        setEconomyConfig(config);
     };
@@ -111,7 +113,6 @@ const OpsEconomy: React.FC = () => {
   const handleUpdateConfig = async (newConfig: any) => {
      setIsSubmitting(true);
      try {
-        const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
         await EconomyConfigEngine.updateConfig(newConfig);
         setEconomyConfig(newConfig);
         toast.success('Global Economy Configuration Updated');
@@ -128,7 +129,6 @@ const OpsEconomy: React.FC = () => {
 
      setIsSubmitting(true);
      try {
-        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
         const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
 
         const result = await PointTransactionEngine.execute({

@@ -22,6 +22,7 @@ import { cn } from '../../../utils';
 import { formatUSD } from '../../../utils/finance';
 import { WithdrawalRequest } from '../../../types';
 import toast from 'react-hot-toast';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsWithdrawals: React.FC = () => {
   const [requests, setRequests] = React.useState<WithdrawalRequest[]>([]);
@@ -72,7 +73,6 @@ const OpsWithdrawals: React.FC = () => {
       if (status === 'REJECTED') {
          const req = requests.find(r => r.id === id);
          if (req) {
-            const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
             await PointTransactionEngine.execute({
                userId,
                amount: req.amountPoints,

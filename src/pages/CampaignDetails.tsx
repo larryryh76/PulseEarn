@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, TaskClaim, Campaign } from '../types';
@@ -19,12 +19,13 @@ import {
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 import { CampaignEngine } from '../engines/tasks/CampaignEngine';
+import { TaskEngine } from '../engines/tasks/TaskEngine';
 import TaskDetailDrawer from '../components/TaskDetailDrawer';
 
 const CampaignDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [claims, setClaims] = useState<Record<string, TaskClaim>>({});
@@ -93,32 +94,26 @@ const CampaignDetails: React.FC = () => {
 
     setSubmittingTaskId(taskId);
     try {
-      const task = tasks.find(t => t.id === taskId);
-      const claimData = {
-        userId: currentUser!.uid,
-        taskId: taskId,
-        campaignId: campaign?.id,
-        providerId: task?.providerId || 'system',
-        validationState: 'PENDING',
-        completionState: 'IN_PROGRESS',
-        rewardTransactionId: null,
-        xpGranted: task?.xpReward || 0,
-        fraudFlags: [],
-        submittedProof: taskProof,
-        adminFeedback: null,
-        reviewedBy: null,
-        createdAt: serverTimestamp(),
-        resolvedAt: null,
-        metadata: {
-          taskTitle: task?.title,
-          userEmail: currentUser.email,
-          username: userData?.username || 'Anonymous'
-        }
-      };
+      const result = await TaskEngine.attemptTask({
+         userId: currentUser.uid,
+         taskId,
+         proof: taskProof
+      });
 
-      const docRef = await addDoc(collection(db, 'task_claims'), claimData);
-      toast.success('Proof submitted for validation.');
-      setClaims(prev => ({ ...prev, [taskId]: { id: docRef.id, ...claimData } as any }));
+      if (result.success) {
+         toast.success('Sequence Initiated: Under Review', { icon: '⏳' });
+         // Local state will be updated via Firestore listener normally,
+         // but we update here for immediate feedback if listeners are slow
+         setClaims(prev => ({
+            ...prev,
+            [taskId]: {
+               taskId,
+               validationState: 'PENDING'
+            } as any
+         }));
+      } else {
+         toast.error(result.error || 'Execution Failure');
+      }
     } catch (error) {
       console.error('Subtask error:', error);
       toast.error('Failed to submit proof');

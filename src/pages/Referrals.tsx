@@ -172,7 +172,7 @@ const Referrals: React.FC = () => {
                    <div className="space-y-4">
                       <h2 className="text-2xl md:text-3xl font-black tracking-tight italic uppercase">Unlock Your Network</h2>
                       <p className="text-xs text-text-tertiary font-bold uppercase tracking-widest max-w-xs mx-auto">
-                         Complete the authentication roadmap to enable rewards.
+                         Complete at least one task to unlock referral rewards.
                       </p>
                    </div>
 

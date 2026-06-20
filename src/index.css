@@ -92,6 +92,9 @@
   /* SHADOWS & EFFECTS */
   --shadow-premium: var(--shadow-premium);
   --shadow-subtle: var(--shadow-subtle);
+
+  /* BREAKPOINTS */
+  --breakpoint-xs: 475px;
 }
 
 @layer base {

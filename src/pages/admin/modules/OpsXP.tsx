@@ -152,15 +152,13 @@ const OpsXP: React.FC = () => {
 
            // 1.2 Retroactive Referral Check (Issue 5 Synchronization Fix)
            if ((userData.stats?.tasksCompleted || 0) > 0) {
-              const pendingRefQuery = query(
-                 collection(db, 'referrals'),
-                 where('referrerId', '==', userDoc.id),
-                 where('status', '==', 'REGISTERED')
+              // Filter pending referrals from pre-fetched referralRecords Map
+              const pendingRefs = Array.from(referralRecords.values()).filter(
+                 ref => ref.referrerId === userDoc.id && ref.status === 'REGISTERED'
               );
-              const refSnap = await getDocs(pendingRefQuery);
-              if (!refSnap.empty) {
+              if (pendingRefs.length > 0) {
                  await ReferralProtectionEngine.processRetroactiveRewards(userDoc.id);
-                 referralRewards += refSnap.size;
+                 referralRewards += pendingRefs.length;
               }
            }
 

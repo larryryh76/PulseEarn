@@ -527,7 +527,6 @@ export class PointTransactionEngine {
         }
       }
 
-      if (type === 'daily_reward') SystemTaskEngine.processEvent(userId, 'daily_login').catch(() => {});
       if (type === 'referral_bonus') SystemTaskEngine.processEvent(userId, 'referral_completed').catch(() => {});
       if (type === 'prediction_reward') SystemTaskEngine.processEvent(userId, 'prediction_completed').catch(() => {});
 

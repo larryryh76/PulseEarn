@@ -262,6 +262,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
+    // 3. Immediately trigger referral reward check
+    const { ReferralProtectionEngine } = await import('../engines/system/ReferralProtectionEngine');
+    await ReferralProtectionEngine.qualifyReferral(user.uid);
+
     // Award Welcome Bonus
     await PointTransactionEngine.execute({
       userId: user.uid,

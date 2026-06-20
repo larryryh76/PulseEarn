@@ -7,8 +7,7 @@ import {
   doc,
   getDoc,
   updateDoc,
-  serverTimestamp,
-  getCountFromServer
+  serverTimestamp
 } from 'firebase/firestore';
 import { PointTransactionEngine } from '../points/PointTransactionEngine';
 import { NotificationEngine } from './NotificationEngine';
@@ -36,13 +35,8 @@ export class ReferralProtectionEngine {
       if (!userSnap.exists()) return;
       const userData = userSnap.data();
 
-      // 2. Check Participation Requirements (At least 1 task completed)
-      const historyQuery = query(
-        collection(db, 'users', userId, 'task_history'),
-        where('status', '==', 'COMPLETED')
-      );
-      const historySnap = await getCountFromServer(historyQuery);
-      const isQualified = historySnap.data().count > 0;
+      // 2. Referee Check (No longer requires task completion for the referee)
+      const isQualified = true;
 
       if (!isQualified) return;
 
@@ -50,6 +44,18 @@ export class ReferralProtectionEngine {
       for (const refDoc of snap.docs) {
         const refData = refDoc.data();
         const referrerId = refData.referrerId;
+
+        // 3. Check Referrer Eligibility (Must have completed at least 1 task)
+        const referrerRef = doc(db, 'users', referrerId);
+        const referrerSnap = await getDoc(referrerRef);
+        if (!referrerSnap.exists()) continue;
+        const referrerData = referrerSnap.data();
+
+        const isReferrerQualified = (referrerData.stats?.tasksCompleted || 0) > 0;
+        if (!isReferrerQualified) {
+           console.log(`[ReferralProtection] Referrer ${referrerId} is not qualified (0 tasks). Skipping reward.`);
+           continue;
+        }
 
         // 3.5 Sanity Check (Same Device, etc)
         const isSane = await FraudEngine.checkReferralSanity(referrerId, userId);

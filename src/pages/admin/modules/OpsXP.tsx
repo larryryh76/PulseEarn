@@ -206,12 +206,12 @@ const OpsXP: React.FC = () => {
               }
 
               // 2.2 Reconcile Missing Referral Reward
-              // IMPORTANT: Only reward if they have at least 1 completed task
-              const historyQuery = query(collection(db, 'users', refereeId, 'task_history'), where('status', '==', 'COMPLETED'));
-              const historySnap = await getCountFromServer(historyQuery);
-              const tasksCompleted = historySnap.data().count;
+              // IMPORTANT: Only reward if the REFERRER has at least 1 completed task
+              const referrerRefSync = doc(db, 'users', referrerId);
+              const referrerSnapSync = await getDoc(referrerRefSync);
+              const referrerTasksCompleted = referrerSnapSync.exists() ? (referrerSnapSync.data().stats?.tasksCompleted || 0) : 0;
 
-              if (tasksCompleted > 0 && !isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
+              if (referrerTasksCompleted > 0 && !isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
                     amount: formData.referralBonusPoints,

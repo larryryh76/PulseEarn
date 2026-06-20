@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Zap
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import Button from '../components/ui/Button';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReferralRecord } from '../types';
@@ -22,6 +24,7 @@ import toast from 'react-hot-toast';
 
 const Referrals: React.FC = () => {
   const { currentUser, userData } = useAuth();
+  const navigate = useNavigate();
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [rewardAmount, setRewardAmount] = useState(50);
@@ -79,6 +82,8 @@ const Referrals: React.FC = () => {
     toast.success('Referral link copied!');
   };
 
+  const isUnlocked = (userData?.stats?.tasksCompleted || 0) > 0;
+
   const stats = [
     { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
     { label: 'Points Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * rewardAmount).toLocaleString(), icon: Zap, color: 'text-accent' },
@@ -105,57 +110,74 @@ const Referrals: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* LEFT: INVITATION PANEL */}
           <div className="lg:col-span-7 space-y-12">
-             <Card className="p-10 bg-primary/[0.02] border-primary/20 space-y-10 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -translate-y-1/2 translate-x-1/2" />
+             {isUnlocked ? (
+               <Card className="p-10 bg-primary/[0.02] border-primary/20 space-y-10 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -translate-y-1/2 translate-x-1/2" />
 
-                <div className="space-y-6">
-                   <h2 className="text-xl font-bold uppercase tracking-tight flex items-center gap-3">
-                      <Gift className="text-primary" size={24} />
-                      Invite Friends
-                   </h2>
-                   <p className="text-sm text-text-secondary leading-relaxed font-medium">
-                      Share your unique referral code or link. When your friends join and complete tasks, you'll earn points.
-                   </p>
-                </div>
+                  <div className="space-y-6">
+                     <h2 className="text-xl font-bold uppercase tracking-tight flex items-center gap-3">
+                        <Gift className="text-primary" size={24} />
+                        Invite Friends
+                     </h2>
+                     <p className="text-sm text-text-secondary leading-relaxed font-medium">
+                        Share your unique referral code or link. When your friends join, you'll earn points.
+                     </p>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="space-y-3">
-                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Unique Invite Code</p>
-                      <div className="flex gap-2">
-                         <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-mono font-bold text-lg tracking-widest text-text-primary">
-                            {userData?.referralCode || '-------'}
-                         </div>
-                         <button
-                           onClick={copyCode}
-                           className="w-14 h-full bg-surface-bright border border-border-bright rounded-xl flex items-center justify-center text-text-primary hover:bg-surface-accent transition-all"
-                         >
-                            <Copy size={20} />
-                         </button>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Unique Invite Code</p>
+                        <div className="flex gap-2">
+                           <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-mono font-bold text-lg tracking-widest text-text-primary">
+                              {userData?.referralCode || '-------'}
+                           </div>
+                           <button
+                             onClick={copyCode}
+                             className="w-14 h-full bg-surface-bright border border-border-bright rounded-xl flex items-center justify-center text-text-primary hover:bg-surface-accent transition-all"
+                           >
+                              <Copy size={20} />
+                           </button>
+                        </div>
+                     </div>
+                     <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Referral Link</p>
+                        <div className="flex gap-2">
+                           <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-medium text-sm truncate text-text-secondary">
+                              pulseearn.online/signup?ref={userData?.referralCode}
+                           </div>
+                           <button
+                             onClick={copyLink}
+                             className="w-14 h-full bg-primary text-text-primary rounded-xl flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                           >
+                              <Share2 size={20} />
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
+                     <AlertCircle className="text-primary shrink-0 mt-0.5" size={18} />
+                     <p className="text-[11px] text-primary/80 font-semibold leading-relaxed uppercase tracking-wide">
+                        Multi-account creation via referral links is strictly prohibited and results in immediate account suspension.
+                     </p>
+                  </div>
+               </Card>
+             ) : (
+                <Card className="p-12 bg-surface-bright/50 border-dashed border-border flex flex-col items-center text-center gap-8 rounded-[3rem]">
+                   <div className="w-20 h-20 rounded-[2.5rem] bg-warning/10 border border-warning/20 flex items-center justify-center text-warning shadow-2xl">
+                      <Zap size={32} className="fill-warning/20" />
                    </div>
-                   <div className="space-y-3">
-                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Referral Link</p>
-                      <div className="flex gap-2">
-                         <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-medium text-sm truncate text-text-secondary">
-                            pulseearn.online/signup?ref={userData?.referralCode}
-                         </div>
-                         <button
-                           onClick={copyLink}
-                           className="w-14 h-full bg-primary text-text-primary rounded-xl flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-                         >
-                            <Share2 size={20} />
-                         </button>
-                      </div>
+                   <div className="space-y-4 max-w-sm">
+                      <h2 className="text-2xl font-bold tracking-tight italic uppercase">Referral System Locked</h2>
+                      <p className="text-xs text-text-secondary font-medium leading-relaxed uppercase tracking-wide italic">
+                         To protect the ecosystem economy, you must complete at least <span className="text-primary font-bold">1 Task</span> from the Quest Hub before you can invite friends and earn rewards.
+                      </p>
                    </div>
-                </div>
-
-                <div className="p-6 bg-primary/5 border border-primary/10 rounded-2xl flex items-start gap-4">
-                   <AlertCircle className="text-primary shrink-0 mt-0.5" size={18} />
-                   <p className="text-[11px] text-primary/80 font-semibold leading-relaxed uppercase tracking-wide">
-                      Multi-account creation via referral links is strictly prohibited and results in immediate account suspension.
-                   </p>
-                </div>
-             </Card>
+                   <Button onClick={() => navigate('/tasks')} className="px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic shadow-xl">
+                      Unlock Quest Hub
+                   </Button>
+                </Card>
+             )}
 
              <section className="space-y-8">
                 <div className="flex items-center justify-between">

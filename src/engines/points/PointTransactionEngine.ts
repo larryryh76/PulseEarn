@@ -201,55 +201,25 @@ export class PointTransactionEngine {
           engineVersion: '5.0.0-PRO'
         });
 
-        return { success: true, txId: txDoc.id, newLevel: updates.level, oldLevel: userData.level || 1 };
+        return {
+           success: true,
+           txId: txDoc.id,
+           newLevel: updates.level,
+           oldLevel: userData.level || 1,
+           userId,
+           type,
+           amount,
+           source,
+           xpReward,
+           referenceId: request.referenceId,
+           metadata: request.metadata,
+           tasksCompleted: userData.stats?.tasksCompleted || 0
+        };
       }).then(async (res: any) => {
         // Trigger background missions and activity logs after successful transaction
         if (res.success) {
-          // Send Reward Notification
-          if (type === 'task_reward' || amount > 0) {
-            await NotificationEngine.notifyReward(
-              userId,
-              source,
-              amount,
-              xpReward,
-              res.txId
-            );
-          }
-
-          await ActivityEngine.log({
-            userId,
-            type: type === 'task_reward' ? 'task_completed' : 'reward_received',
-            points: amount,
-            description: source,
-            referenceId: request.referenceId,
-            metadata: {
-              taskName: source,
-              xpEarned: xpReward,
-              transactionReference: res.txId,
-              verificationStatus: 'APPROVED',
-              ...(request.metadata || {})
-            }
-          });
-
-          if (type === 'task_reward') {
-             await SystemTaskEngine.processEvent(userId, 'campaign_task_completed');
-
-             // Check for Referral Qualification
-             await ReferralProtectionEngine.qualifyReferral(userId);
-          }
-          if (type === 'daily_reward') await SystemTaskEngine.processEvent(userId, 'daily_login');
-          if (type === 'referral_bonus') await SystemTaskEngine.processEvent(userId, 'referral_completed');
-          if (type === 'prediction_reward') await SystemTaskEngine.processEvent(userId, 'prediction_completed');
-
-          if (res.newLevel && res.newLevel > res.oldLevel) {
-             await ActivityEngine.log({
-               userId,
-               type: 'level_achieved',
-               description: `Reached Level ${res.newLevel}!`,
-               metadata: { level: res.newLevel }
-             });
-             await SystemTaskEngine.processEvent(userId, 'level_up');
-          }
+          // Fire-and-forget side effects (Issue 1 resilient trigger)
+          this.triggerSideEffects(res);
         }
         return res as PointTransactionResult;
       });
@@ -393,7 +363,7 @@ export class PointTransactionEngine {
   /**
    * Atomic Market Prediction Resolution
    */
-  static async resolvePrediction(predictionId: string, currentPrice: number, manualRewardPool?: number): Promise<void> {
+  static async resolvePrediction(predictionId: string, currentPrice: number, _manualRewardPool?: number): Promise<void> {
     const predRef = doc(db, 'user_predictions', predictionId);
 
     try {
@@ -417,8 +387,8 @@ export class PointTransactionEngine {
           ? currentPrice > data.entryPrice
           : currentPrice < data.entryPrice;
 
-        // Use stored rewardAmount (2x model) or fallback to manual pool/config
-        const payout = isWin ? (data.rewardAmount || manualRewardPool || (data.stakeAmount * config.rewards.predictionWinMultiplier)) : 0;
+        // Issue 4 Fix: Standardize on immutable rewardAmount calculated at entry
+        const payout = isWin ? (data.rewardAmount || (data.stakeAmount * config.rewards.predictionWinMultiplier)) : 0;
         const xpReward = isWin ? config.rewards.predictionXP.win : config.rewards.predictionXP.loss;
 
         const claimId = `res_${predictionId}`;
@@ -520,6 +490,58 @@ export class PointTransactionEngine {
     } catch (error: any) {
       console.error(`[MarketResolver] Failed to resolve ${predictionId}:`, error.message);
       throw error;
+    }
+  }
+
+  private static async triggerSideEffects(res: any) {
+    const { userId, type, amount, source, xpReward, txId, referenceId, metadata, newLevel, oldLevel, tasksCompleted } = res;
+
+    try {
+      // 1. Send Reward Notification
+      if (type === 'task_reward' || amount > 0) {
+        NotificationEngine.notifyReward(userId, source, amount, xpReward, txId).catch(() => {});
+      }
+
+      // 2. Log Activity
+      ActivityEngine.log({
+        userId,
+        type: type === 'task_reward' ? 'task_completed' : 'reward_received',
+        points: amount,
+        description: source,
+        referenceId: referenceId,
+        metadata: {
+          taskName: source,
+          xpEarned: xpReward,
+          transactionReference: txId,
+          verificationStatus: 'APPROVED',
+          ...(metadata || {})
+        }
+      }).catch(() => {});
+
+      // 3. System Event Triggers
+      if (type === 'task_reward') {
+        SystemTaskEngine.processEvent(userId, 'campaign_task_completed').catch(() => {});
+        ReferralProtectionEngine.qualifyReferral(userId).catch(() => {});
+        if (tasksCompleted === 0) {
+          ReferralProtectionEngine.processRetroactiveRewards(userId).catch(() => {});
+        }
+      }
+
+      if (type === 'referral_bonus') SystemTaskEngine.processEvent(userId, 'referral_completed').catch(() => {});
+      if (type === 'prediction_reward') SystemTaskEngine.processEvent(userId, 'prediction_completed').catch(() => {});
+
+      // 4. Level Up Logic
+      if (newLevel && newLevel > oldLevel) {
+        ActivityEngine.log({
+          userId,
+          type: 'level_achieved',
+          description: `Reached Level ${newLevel}!`,
+          metadata: { level: newLevel }
+        }).catch(() => {});
+        SystemTaskEngine.processEvent(userId, 'level_up').catch(() => {});
+      }
+    } catch (err) {
+      console.error("[PointEngine] Side-effect failure:", err);
     }
   }
 

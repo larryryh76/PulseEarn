@@ -29,6 +29,7 @@ import {
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import { ReferralProtectionEngine } from '../../../engines/system/ReferralProtectionEngine';
 
 const OpsXP: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
@@ -147,6 +148,18 @@ const OpsXP: React.FC = () => {
               updates.updatedAt = serverTimestamp();
               levelUpdates++;
               hasUpdates = true;
+           }
+
+           // 1.2 Retroactive Referral Check (Issue 5 Synchronization Fix)
+           if ((userData.stats?.tasksCompleted || 0) > 0) {
+              // Filter pending referrals from pre-fetched referralRecords Map
+              const pendingRefs = Array.from(referralRecords.values()).filter(
+                 ref => ref.referrerId === userDoc.id && ref.status === 'REGISTERED'
+              );
+              if (pendingRefs.length > 0) {
+                 await ReferralProtectionEngine.processRetroactiveRewards(userDoc.id);
+                 referralRewards += pendingRefs.length;
+              }
            }
 
            // 1.5 Stats Reconciliation (Referral Count Check)

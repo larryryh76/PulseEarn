@@ -160,6 +160,31 @@ const Wallet: React.FC = () => {
           </div>
         </section>
 
+        {/* Issue 9 Fix: Withdrawal Requirement Discoverability */}
+        {!eligibility.eligible && (
+           <Card className="mb-8 p-6 bg-warning/5 border-warning/20 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center text-warning shrink-0">
+                    <ShieldCheck size={20} />
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-xs font-bold text-text-primary uppercase tracking-tight italic">Withdrawal Roadmap</p>
+                    <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">Complete requirements to unlock settlements</p>
+                 </div>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center">
+                 {eligibility.requirements.map((req, i) => (
+                    <div key={i} className={cn(
+                       "px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all",
+                       req.met ? "bg-success/10 border-success/20 text-success" : "bg-white/5 border-white/10 text-white/20"
+                    )}>
+                       {req.label.split('(')[0]}
+                    </div>
+                 ))}
+              </div>
+           </Card>
+        )}
+
         {/* PRIMARY WALLET CARD */}
         <Card className="mb-8 md:mb-12 p-6 md:p-10 lg:p-12 bg-surface-bright/30 border-border rounded-[2rem] md:rounded-[3rem] relative overflow-hidden">
            <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none hidden sm:block">
@@ -252,6 +277,13 @@ const Wallet: React.FC = () => {
                       <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em] truncate">
                         {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
+                      {/* Mobile-only yield display */}
+                      <div className="xs:hidden mt-1.5 flex items-baseline gap-2">
+                         <span className={cn("text-[10px] font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
+                            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                         </span>
+                         <span className="text-[8px] text-text-tertiary font-bold uppercase tracking-widest">{formatUSD(PTS_TO_USD(tx.amount))}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0">

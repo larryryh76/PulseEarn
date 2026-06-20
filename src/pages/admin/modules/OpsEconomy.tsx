@@ -30,6 +30,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
 import { cn } from '../../../utils';
+import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsEconomy: React.FC = () => {
   const [stats, setStats] = React.useState({
@@ -38,6 +40,7 @@ const OpsEconomy: React.FC = () => {
     totalXp: 0,
     predictionLiability: 0
   });
+  const [isLiabilitySampled, setIsLiabilitySampled] = React.useState(false);
 
   const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
   const [economyConfig, setEconomyConfig] = React.useState<any>(null);
@@ -58,13 +61,17 @@ const OpsEconomy: React.FC = () => {
     const fetchStats = async () => {
       try {
         const usersCountSnap = await getCountFromServer(collection(db, 'users'));
-        const usersSnap = await getDocs(query(collection(db, 'users'), limit(500)));
+        // Audit: safety limit implemented to prevent unbounded liability scans.
+        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
         let totalPts = 0;
         let totalXp = 0;
         usersSnap.forEach(doc => {
           totalPts += (doc.data().points || 0);
           totalXp += (doc.data().xp || 0);
         });
+
+        // Set sampled flag since query is limited
+        setIsLiabilitySampled(true);
 
         const activePredictionsSnap = await getDocs(query(
           collection(db, 'user_predictions'),
@@ -97,7 +104,6 @@ const OpsEconomy: React.FC = () => {
     });
 
     const fetchConfig = async () => {
-       const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
        const config = await EconomyConfigEngine.getConfig();
        setEconomyConfig(config);
     };
@@ -111,7 +117,6 @@ const OpsEconomy: React.FC = () => {
   const handleUpdateConfig = async (newConfig: any) => {
      setIsSubmitting(true);
      try {
-        const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
         await EconomyConfigEngine.updateConfig(newConfig);
         setEconomyConfig(newConfig);
         toast.success('Global Economy Configuration Updated');
@@ -128,7 +133,6 @@ const OpsEconomy: React.FC = () => {
 
      setIsSubmitting(true);
      try {
-        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
         const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
 
         const result = await PointTransactionEngine.execute({
@@ -185,12 +189,12 @@ const OpsEconomy: React.FC = () => {
 
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total Points Supply</p>
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">{isLiabilitySampled ? 'Sampled Points Supply' : 'Total Points Supply'}</p>
              <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
              <div className="flex items-center gap-2 text-primary font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
           </div>
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">USD Liability</p>
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">{isLiabilitySampled ? 'Sampled USD Liability' : 'USD Liability'}</p>
              <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{formatUSD((stats.ecosystemPoints || 0) / 1000)}</p>
              <div className="flex items-center gap-2 text-success font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><DollarSign size={12} /> Payout Exposure</div>
           </div>

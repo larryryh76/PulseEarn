@@ -32,6 +32,7 @@ const OpsOverview: React.FC = () => {
     volume24h: 0,
     totalLiability: 0
   });
+  const [isLiabilitySampled, setIsLiabilitySampled] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
   const [recentLedger, setRecentLedger] = React.useState<any[]>([]);
@@ -66,12 +67,14 @@ const OpsOverview: React.FC = () => {
       let volume = 0;
       volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
 
-      // Audit: liabilitySnap should not be limited if we want accurate data.
-      // At scale, this should read from a system_metrics aggregation document.
-      // For now, we increase the fetch range for accuracy during launch.
-      const liabilitySnap = await getDocs(query(collection(db, 'users')));
+      // Audit: liabilitySnap implemented with safety limit for dashboard performance.
+      // At scale, this must read from a pre-calculated system_metrics aggregation document.
+      const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
       let totalPts = 0;
       liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
+
+      // Check if liability data is sampled (at or near limit)
+      setIsLiabilitySampled(liabilitySnap.docs.length >= 1000);
 
       // Audit: orderBy check for system_claims
       const ledgerSnap = await getDocs(query(
@@ -161,7 +164,7 @@ const OpsOverview: React.FC = () => {
        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
           {metricItem('Total Users', stats.totalUsers, Users, 'text-primary', '/admin/users')}
           {metricItem('24h Points Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
-          {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
+          {metricItem(isLiabilitySampled ? 'Sampled USD Liability' : 'Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
           {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
        </div>
 

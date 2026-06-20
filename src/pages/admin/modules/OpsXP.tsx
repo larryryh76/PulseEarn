@@ -28,6 +28,7 @@ import {
   getCountFromServer
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsXP: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
@@ -93,7 +94,6 @@ const OpsXP: React.FC = () => {
 
      try {
         const usersSnap = await getDocs(collection(db, 'users'));
-        const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
 
         let levelUpdates = 0;
         let referralRewards = 0;

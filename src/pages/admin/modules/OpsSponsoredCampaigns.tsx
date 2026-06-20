@@ -21,7 +21,6 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
   onSnapshot,
   doc,
   updateDoc,
@@ -42,9 +41,16 @@ const OpsSponsoredCampaigns: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'campaigns'), orderBy('createdAt', 'desc'));
+    // Audit: Removed orderBy to prevent "Missing Index" failures.
+    // Sorting is performed client-side for maximum reliability.
+    const q = query(collection(db, 'campaigns'));
     const unsubCamp = onSnapshot(q, (snap) => {
-      setCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign)));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+      setCampaigns(data.sort((a, b) => {
+         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+         return timeB - timeA;
+      }));
       setLoading(false);
     }, (err) => {
       console.error("[OpsSponsoredCampaigns] Sync Failure:", err);

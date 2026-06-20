@@ -34,6 +34,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
 import { calculateLevel } from '../../../utils/progression';
+import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
+import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 
 const OpsUsers: React.FC = () => {
   const [users, setUsers] = React.useState<any[]>([]);
@@ -54,7 +56,6 @@ const OpsUsers: React.FC = () => {
   React.useEffect(() => {
     const fetchConfig = async () => {
        try {
-          const { EconomyConfigEngine } = await import('../../../engines/system/EconomyConfigEngine');
           const config = await EconomyConfigEngine.getConfig();
           if (config.thresholds?.xpPerLevel) {
              setXpPerLevel(config.thresholds.xpPerLevel);
@@ -127,7 +128,6 @@ const OpsUsers: React.FC = () => {
 
       const loadingToast = toast.loading('Synchronizing adjustment...');
       try {
-         const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
          const claimId = `admin_${Date.now()}_${selectedUser.id.slice(0, 8)}`;
 
          const result = await PointTransactionEngine.execute({
@@ -449,7 +449,6 @@ const OpsUsers: React.FC = () => {
                                            if(!window.confirm(`ASSIGN AND REWARD: "${t.title}" to ${selectedUser.username}?`)) return;
                                            setIsAssigning(false);
                                            const load = toast.loading("Executing Force Reward...");
-                                           const { PointTransactionEngine } = await import('../../../engines/points/PointTransactionEngine');
                                            const res = await PointTransactionEngine.execute({
                                               userId: selectedUser.id,
                                               amount: t.rewardAmount,

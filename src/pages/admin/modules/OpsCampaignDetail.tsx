@@ -24,7 +24,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   updateDoc,
   deleteDoc
 } from 'firebase/firestore';
@@ -83,8 +82,13 @@ const OpsCampaignDetail: React.FC = () => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
     });
 
-    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id), orderBy('createdAt', 'desc')), (snap) => {
-       setClaims(snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim)));
+    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id)), (snap) => {
+       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
+       setClaims(data.sort((a, b) => {
+          const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+          const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+          return timeB - timeA;
+       }));
     });
 
     setLoading(false);

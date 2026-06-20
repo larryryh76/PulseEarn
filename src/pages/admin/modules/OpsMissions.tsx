@@ -8,7 +8,6 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-  orderBy,
   onSnapshot,
   doc,
   updateDoc
@@ -26,9 +25,12 @@ const OpsMissions: React.FC = () => {
   const [selectedMission, setSelectedMission] = React.useState<SystemTaskDefinition | null>(null);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'system_task_definitions'), orderBy('priority', 'desc'));
+    // Audit: Removed orderBy to prevent "Missing Index" failures.
+    // Sorting is performed client-side for maximum reliability.
+    const q = query(collection(db, 'system_task_definitions'));
     const unsubscribe = onSnapshot(q, (snap) => {
-      setMissions(snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemTaskDefinition)));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemTaskDefinition));
+      setMissions(data.sort((a, b) => (b.priority || 0) - (a.priority || 0)));
       setLoading(false);
     });
     return unsubscribe;

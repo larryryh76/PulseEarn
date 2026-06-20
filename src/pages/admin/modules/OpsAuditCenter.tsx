@@ -186,25 +186,44 @@ const OpsAuditCenter: React.FC = () => {
         <div className="min-w-0">
           <div className="flex items-center gap-3 mb-1.5 md:mb-2">
             <h3 className="font-bold text-text-primary uppercase tracking-tight text-[11px] md:text-sm truncate">REF: {ref.refereeUsername || 'ANONYMOUS'}</h3>
-            <span className={cn(
-              "text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border",
-              ref.status === 'REWARDED' ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border"
-            )}>
-              {ref.status}
-            </span>
+            <div className="flex items-center gap-2">
+               <span className={cn(
+                 "text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded border",
+                 ref.status === 'REWARDED' ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border"
+               )}>
+                 {ref.status}
+               </span>
+               {ref.status === 'REWARDED' && (
+                 <span className="text-[7px] font-black text-primary uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
+                    IDEMPOTENT_OK
+                 </span>
+               )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase tracking-widest">
             <div className="flex items-center gap-1.5"><Zap size={10} className="text-primary" /> Referrer: {ref.referrerId?.slice(0, 12)}...</div>
             <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-bright" />
-            <div className="flex items-center gap-1.5">Referee UID: {ref.refereeId?.slice(0, 12)}...</div>
+            <div className="flex items-center gap-1.5">Referee: {ref.refereeId?.slice(0, 12)}...</div>
             <div className="hidden sm:block w-1 h-1 rounded-full bg-surface-bright" />
-            <div className="flex items-center gap-1.5">Date: {ref.createdAt?.toDate?.()?.toLocaleDateString()}</div>
+            <div className="flex items-center gap-1.5">Join: {ref.createdAt?.toDate?.()?.toLocaleDateString()}</div>
           </div>
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-[7px] md:text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-0.5 md:mb-1">TX ID</p>
-        <p className="text-[10px] font-mono font-bold text-text-primary">{ref.rewardTransactionId?.slice(0, 8) || 'NONE'}</p>
+      <div className="flex items-center gap-8">
+        <div className="text-right">
+           <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest mb-1">TX Authority</p>
+           <p className="text-[10px] font-mono font-bold text-text-primary">{ref.rewardTransactionId?.slice(0, 12) || 'PENDING_QUAL'}</p>
+        </div>
+        <div className="flex flex-col gap-1 items-end">
+           <div className="flex items-center gap-1.5">
+              <div className={cn("w-1 h-1 rounded-full", ref.rewardTransactionId ? "bg-success shadow-[0_0_5px_rgba(34,197,94,0.5)]" : "bg-white/10")} />
+              <span className="text-[7px] font-bold text-text-tertiary uppercase tracking-widest">Ledger</span>
+           </div>
+           <div className="flex items-center gap-1.5">
+              <div className={cn("w-1 h-1 rounded-full", ref.status === 'REWARDED' ? "bg-success shadow-[0_0_5px_rgba(34,197,94,0.5)]" : "bg-white/10")} />
+              <span className="text-[7px] font-bold text-text-tertiary uppercase tracking-widest">Sync</span>
+           </div>
+        </div>
       </div>
     </div>
   );

@@ -154,11 +154,11 @@ const Dashboard: React.FC = () => {
           </div>
        </div>
        <div className="space-y-3">
-          <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Authority Sync Failed</h2>
+          <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Profile Sync Failed</h2>
           <div className="space-y-1">
-             <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: ENTITY_READ_FAILURE</p>
+             <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: DATA_LOAD_FAILURE</p>
              <p className="text-white/40 text-xs max-w-xs mx-auto font-bold uppercase tracking-widest leading-relaxed px-4">
-                We could not establish an authoritative handshake with your profile node.
+                We could not load your profile data from the system.
              </p>
           </div>
        </div>
@@ -167,13 +167,13 @@ const Dashboard: React.FC = () => {
             onClick={() => window.location.reload()}
             className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic shadow-xl"
           >
-             Re-Initialize Session
+             Retry Connection
           </Button>
           <button
              onClick={() => navigate('/support')}
              className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-primary transition-colors"
           >
-             Report Infrastructure Issue
+             Report System Issue
           </button>
        </div>
     </div>

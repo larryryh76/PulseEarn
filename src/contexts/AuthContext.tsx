@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Simple Multi-Account Scan
-      await FraudEngine.evaluateNodeIntegrity(uid, fingerprint);
+      await FraudEngine.evaluateUserIntegrity(uid, fingerprint);
 
     } catch (err) {
       console.warn("[Auth] Fingerprint recording failed:", err);

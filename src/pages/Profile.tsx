@@ -308,7 +308,7 @@ const Profile: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-12 pt-12 border-t border-border-bright">
                       <div className="space-y-2">
-                        <p className="data-label">Total Referrals</p>
+                        <p className="data-label">Successful Referrals</p>
                           <p className="text-4xl font-bold text-text-primary tracking-tighter">{liveReferralCount ?? userData?.stats?.referralsCount ?? 0}</p>
                       </div>
                       <div className="space-y-2">

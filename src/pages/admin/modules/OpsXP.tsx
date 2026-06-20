@@ -49,11 +49,11 @@ const OpsXP: React.FC = () => {
         if (snap.exists()) {
           const data = snap.data();
           setFormData({
-            xpPerLevel: data.thresholds?.xpPerLevel || 1000,
-            predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
-            minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
-            referralBonusPoints: data.rewards?.referralBonusPoints || 50,
-            referralBonusXP: data.rewards?.referralBonusXP || 50
+            xpPerLevel: data.thresholds?.xpPerLevel ?? 1000,
+            predictionUnlockLevel: data.thresholds?.predictionUnlockLevel ?? 5,
+            minWithdrawalPoints: data.thresholds?.minWithdrawalPoints ?? 10000,
+            referralBonusPoints: data.rewards?.referralBonusPoints ?? 50,
+            referralBonusXP: data.rewards?.referralBonusXP ?? 50
           });
         }
       } catch (err) {
@@ -190,8 +190,9 @@ const OpsXP: React.FC = () => {
               const legacyClaimReferrer = `referral_${referrerId}_${refereeId}`;
 
               // 2.1 Reconcile Missing Referral Document
+              let newRefRef;
               if (!refRecord) {
-                 const newRefRef = doc(collection(db, 'referrals'));
+                 newRefRef = doc(collection(db, 'referrals'));
                  batch.set(newRefRef, {
                     id: newRefRef.id,
                     referrerId,
@@ -226,9 +227,10 @@ const OpsXP: React.FC = () => {
                     if (refRecord) {
                        batch.update(doc(db, 'referrals', refRecord.id), { status: 'REWARDED', updatedAt: serverTimestamp() });
                        batchCount++;
-                    } else {
-                       // If we created it above, it will be updated in the next sync or we could handle it here.
-                       // For simplicity, the next scan will pick it up or the setDoc above already has status: REWARDED if we could determine it.
+                    } else if (newRefRef) {
+                       // Update the newly created referral document to reflect REWARDED status
+                       batch.update(newRefRef, { status: 'REWARDED', updatedAt: serverTimestamp() });
+                       batchCount++;
                     }
                  }
               }

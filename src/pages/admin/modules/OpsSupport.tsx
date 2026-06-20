@@ -164,7 +164,7 @@ const OpsSupport: React.FC = () => {
           <div className="lg:col-span-4 flex flex-col bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl h-[400px] lg:h-full">
              <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
                 <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Queue Hub</h3>
-                <span className="text-[10px] font-mono text-primary font-bold">{filteredTickets.length} NODES</span>
+                <span className="text-[10px] font-mono text-primary font-bold">{filteredTickets.length} TICKETS</span>
              </div>
              <div className="flex-1 overflow-y-auto no-scrollbar">
                 {filteredTickets.map((ticket) => (

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
+import { CampaignEngine } from '../engines/tasks/CampaignEngine';
 import TaskDetailDrawer from '../components/TaskDetailDrawer';
 
 const CampaignDetails: React.FC = () => {
@@ -39,7 +40,6 @@ const CampaignDetails: React.FC = () => {
 
       try {
         // 0. Auto-Join Campaign Participation
-        const { CampaignEngine } = await import('../engines/tasks/CampaignEngine');
         await CampaignEngine.joinCampaign(currentUser.uid, id);
 
         const docRef = doc(db, 'campaigns', id);

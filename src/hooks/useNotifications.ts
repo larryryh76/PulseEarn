@@ -22,9 +22,9 @@ export const useNotifications = () => {
     if (!currentUser) return;
 
     // Audit: Removed orderBy to prevent "Missing Index" failures on sub-collections.
-    // Client-side sorting used for stability.
+    // Client-side sorting used for stability. Increased limit to ensure recent data is caught.
     const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
-    const q = query(notificationsRef, limit(50));
+    const q = query(notificationsRef, limit(100));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const notificationsData = snapshot.docs.map(doc => ({

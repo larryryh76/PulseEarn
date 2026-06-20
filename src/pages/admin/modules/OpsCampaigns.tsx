@@ -106,7 +106,7 @@ const OpsCampaigns: React.FC = () => {
       tasksSnap.docs.forEach(tDoc => batch.delete(tDoc.ref));
       await batch.commit();
       toast.dismiss(loadingToast);
-      toast.success("Campaign and child nodes purged");
+      toast.success("Campaign and child items purged");
     } catch (err) {
       toast.dismiss(loadingToast);
       toast.error("Purge sequence failed");

@@ -29,7 +29,7 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const OpsAuditCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS' | 'NODES' | 'REFERRALS'>('THREATS');
+  const [activeTab, setActiveTab] = React.useState<'THREATS' | 'AUDIT' | 'FLAGS' | 'USERS' | 'REFERRALS'>('THREATS');
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<any[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -252,7 +252,7 @@ const OpsAuditCenter: React.FC = () => {
             { id: 'AUDIT', icon: History, label: 'Log' },
             { id: 'FLAGS', icon: AlertTriangle, label: 'Security Queue' },
             { id: 'REFERRALS', icon: Users, label: 'Referrals' },
-            { id: 'NODES', icon: Fingerprint, label: 'Nodes' }
+            { id: 'USERS', icon: Fingerprint, label: 'Users' }
           ].map((tab) => (
             <button
               key={tab.id}

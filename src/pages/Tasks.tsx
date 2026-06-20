@@ -27,6 +27,7 @@ import { cn } from '../utils';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
+import { TaskEngine } from '../engines/tasks/TaskEngine';
 import TaskDetailDrawer from '../components/TaskDetailDrawer';
 
 const TaskIcon = ({ category, size = 20, className = "" }: { category: string, size?: number, className?: string }) => {
@@ -49,7 +50,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const { tasks, campaigns, systemTasks, subtasks, taskHistory, loading } = useTasks();
+  const { tasks, campaigns, systemTasks, subtasks, taskHistory, unifiedHistory, loading } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'SPONSORED' | 'CHALLENGES'>('ALL');
   const [view, setView] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
@@ -452,41 +453,7 @@ const Tasks: React.FC = () => {
               <>
                  {/* COMPLETED HISTORY */}
                  <div className="grid grid-cols-1 gap-3">
-                   {/*
-                     Audit Note: Hybrid History resolution.
-                     Merges permanent history, reactive claim states, and claimed missions.
-                   */}
-                   {[
-                      ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
-                      ...subtasks.filter(s =>
-                         s.validationState === 'APPROVED' &&
-                         !taskHistory.find(h => h.claimId === s.id) &&
-                         !taskHistory.find(h => h.taskId === s.taskId)
-                      ).map(s => ({
-                         id: s.id,
-                         taskTitle: s.metadata?.taskTitle || 'Task Completed',
-                         rewardAmount: 0, // Legacy claims don't store point amount
-                         xpReward: s.xpGranted || 0,
-                         resolvedAt: s.resolvedAt,
-                         type: 'LEGACY_CLAIM'
-                      })),
-                      ...completedMissions.filter(m =>
-                         !taskHistory.find(h => h.taskId === m.id)
-                      ).map(m => ({
-                         id: m.id,
-                         taskTitle: m.definition?.title,
-                         rewardAmount: m.definition?.rewardPoints,
-                         xpReward: m.definition?.rewardXp,
-                         resolvedAt: m.progress?.claimedAt,
-                         type: 'MISSION'
-                      }))
-                   ]
-                   .sort((a, b) => {
-                      const timeA = a.resolvedAt?.toMillis?.() || 0;
-                      const timeB = b.resolvedAt?.toMillis?.() || 0;
-                      return timeB - timeA;
-                   })
-                   .map((item: any, i) => (
+                   {unifiedHistory.map((item: any, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => setSelectedHistoryItem(item)}
@@ -533,7 +500,6 @@ const Tasks: React.FC = () => {
            onAction={async () => {
               setIsSubmittingTask(true);
               try {
-                const { TaskEngine } = await import('../engines/tasks/TaskEngine');
                 const result = await TaskEngine.attemptTask({
                    userId: currentUser!.uid,
                    taskId: selectedTask!.id,

@@ -235,7 +235,7 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                          <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-8">User Adoption</p>
                          <div className="flex items-baseline gap-2">
                             <p className="text-4xl font-mono font-bold text-text-primary">{campaign.participantsCount?.toLocaleString() || 0}</p>
-                            <span className="text-xs font-black text-indigo-400 uppercase">NODES</span>
+                            <span className="text-xs font-black text-indigo-400 uppercase">USERS</span>
                          </div>
                       </Card>
                    </div>
@@ -284,7 +284,7 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                                            <div className="w-px h-8 bg-border" />
                                            <div className="space-y-1">
                                               <p className="text-sm font-mono font-bold text-primary">+{task.xpReward}</p>
-                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">XP Provision</p>
+                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">XP Reward</p>
                                            </div>
                                         </div>
                                      </td>
@@ -399,7 +399,8 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                          </div>
                          <div className="space-y-2">
                             <p className="text-4xl font-mono font-bold text-text-primary">{stats.roi}%</p>
-                            <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Payload ROI Index</p>
+                            <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Campaign ROI Index</p>
+                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">XP Reward</p>
                          </div>
                          <p className="text-[10px] text-text-tertiary/60 leading-relaxed max-w-[180px] uppercase font-bold tracking-widest">Efficiency ratio based on reward distribution vs task adoption.</p>
                       </Card>

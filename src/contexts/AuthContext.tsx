@@ -31,6 +31,11 @@ import { PointTransactionEngine } from '../engines/points/PointTransactionEngine
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
+import { FraudEngine } from '../engines/system/FraudEngine';
+import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
+import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
+import { NotificationEngine } from '../engines/system/NotificationEngine';
+import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -114,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Simple Multi-Account Scan
-      const { FraudEngine } = await import('../engines/system/FraudEngine');
       await FraudEngine.evaluateNodeIntegrity(uid, fingerprint);
 
     } catch (err) {
@@ -130,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log(`[DailyReward] Checking for ${uid} (Claim: ${claimId})`);
-      const { EconomyConfigEngine } = await import('../engines/system/EconomyConfigEngine');
       const config = await EconomyConfigEngine.getConfig();
 
       const result = await PointTransactionEngine.execute({
@@ -153,7 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log(`[DailyReward] Success! Granting points and triggering events.`);
 
-      const { SystemTaskEngine } = await import('../engines/tasks/SystemTaskEngine');
       await SystemTaskEngine.processEvent(uid, 'daily_login');
 
       toast.success('Daily Reward Claimed!', { icon: '🎁' });
@@ -207,7 +209,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         // 2. Notify Referrer
-        const { NotificationEngine } = await import('../engines/system/NotificationEngine');
         await NotificationEngine.send({
           userId: referredBy,
           title: 'New Referral Link',
@@ -263,7 +264,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 3. Immediately trigger referral reward check
-    const { ReferralProtectionEngine } = await import('../engines/system/ReferralProtectionEngine');
     await ReferralProtectionEngine.qualifyReferral(user.uid);
 
     // Award Welcome Bonus

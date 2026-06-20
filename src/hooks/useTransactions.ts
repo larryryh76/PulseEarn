@@ -22,10 +22,10 @@ export const useTransactions = (limitCount = 30) => {
     }
 
     // Audit: Removed orderBy to prevent "Missing Index" failures on sub-collections.
-    // Client-side sorting used for stability.
+    // Client-side sorting used for stability. Increased fetch size to improve recent-first accuracy.
     const q = query(
       collection(db, 'users', currentUser.uid, 'transactions'),
-      limit(limitCount)
+      limit(Math.max(limitCount, 100))
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

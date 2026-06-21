@@ -131,6 +131,10 @@ const OpsXP: React.FC = () => {
         const allClaimsSnap = await getDocs(collection(db, 'system_claims'));
         const claimIds = new Set(allClaimsSnap.docs.map(d => d.id));
 
+        // Audit: User Indexing to resolve N+1 during referral bounty sync
+        const userMap = new Map<string, any>();
+        usersSnap.docs.forEach(d => userMap.set(d.id, d.data()));
+
         for (let i = 0; i < usersSnap.docs.length; i++) {
            const userDoc = usersSnap.docs[i];
            const userData = userDoc.data();
@@ -220,9 +224,9 @@ const OpsXP: React.FC = () => {
 
               // 2.2 Reconcile Missing Referral Reward
               // IMPORTANT: Only reward if the REFERRER has at least 1 completed task
-              const referrerRefSync = doc(db, 'users', referrerId);
-              const referrerSnapSync = await getDoc(referrerRefSync);
-              const referrerTasksCompleted = referrerSnapSync.exists() ? (referrerSnapSync.data().stats?.tasksCompleted || 0) : 0;
+              // Audit: Resolved N+1 by using pre-fetched userMap
+              const referrerDataSync = userMap.get(referrerId);
+              const referrerTasksCompleted = referrerDataSync?.stats?.tasksCompleted || 0;
 
               if (referrerTasksCompleted > 0 && !isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({

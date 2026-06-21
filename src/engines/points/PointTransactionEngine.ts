@@ -14,7 +14,6 @@ import { EconomyAuthority } from './EconomyAuthority';
 import { EconomyConfigEngine } from '../system/EconomyConfigEngine';
 import { ActivityEngine } from '../system/ActivityEngine';
 import { SystemTaskEngine } from '../tasks/SystemTaskEngine';
-import { NotificationEngine } from '../system/NotificationEngine';
 import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
 
 export interface PointTransactionRequest {
@@ -583,7 +582,7 @@ export class PointTransactionEngine {
   }
 
   private static async triggerSideEffects(res: any) {
-    const { userId, type, amount, source, xpReward, txId, referenceId, metadata, newLevel, oldLevel, tasksCompleted } = res;
+    const { userId, type, newLevel, oldLevel, tasksCompleted } = res;
 
     try {
       // 1. & 2. Notification and Activity now handled transactionally in execute() for atomicity

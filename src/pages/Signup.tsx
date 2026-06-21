@@ -119,7 +119,7 @@ const Signup: React.FC = () => {
                 type="button"
                 onClick={handleGoogleSignup}
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-3 py-4 bg-[#12121A] text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-surface-bright transition-all shadow-xl active:scale-[0.98] disabled:opacity-50"
               >
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
                 Sign up with Google

@@ -8,6 +8,7 @@ import {
   UserCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
+  confirmPasswordReset as firebaseConfirmPasswordReset,
   updateEmail as firebaseUpdateEmail,
   GoogleAuthProvider,
   signInWithPopup
@@ -49,6 +50,7 @@ interface AuthContextType {
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  confirmPasswordReset: (code: string, newPass: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
@@ -130,12 +132,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function sendVerification() {
     if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/verify-email`,
+        handleCodeInApp: true,
+      };
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
     }
   }
 
   async function resetPassword(email: string) {
-    await sendPasswordResetEmail(auth, email);
+    const actionCodeSettings = {
+      url: `${window.location.origin}/login`,
+      handleCodeInApp: true,
+    };
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  }
+
+  async function confirmPasswordReset(code: string, newPass: string) {
+    await firebaseConfirmPasswordReset(auth, code, newPass);
   }
 
   async function updateUserEmail(newEmail: string) {
@@ -254,7 +268,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = userCredential.user;
 
     // Send initial verification
-    await sendEmailVerification(user);
+    const actionCodeSettings = {
+      url: `${window.location.origin}/verify-email`,
+      handleCodeInApp: true,
+    };
+    await sendEmailVerification(user, actionCodeSettings);
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
@@ -295,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (resolvedData.role !== 'admin') {
               UserEngine.recordFingerprint(user.uid);
+              SystemTaskEngine.syncUserMissions(user.uid).catch(() => {});
               if (user.emailVerified) {
                 checkDailyReward(user.uid);
               }
@@ -352,6 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity,
     sendVerification,
     resetPassword,
+    confirmPasswordReset,
     updateUserEmail,
     systemError
   };

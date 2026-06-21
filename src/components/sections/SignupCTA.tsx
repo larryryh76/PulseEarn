@@ -1,10 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, Rocket } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const SignupCTA: React.FC = () => {
-  const navigate = useNavigate();
   return (
     <section className="py-20 md:py-32 relative overflow-hidden bg-background">
       <div className="container mx-auto px-6 relative z-10">
@@ -33,13 +32,13 @@ const SignupCTA: React.FC = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <button
-                onClick={() => navigate('/signup')}
+              <Link
+                to="/signup"
                 className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-3"
               >
                 Create Account
                 <ArrowRight size={18} />
-              </button>
+              </Link>
               <button
                 onClick={() => {
                   document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });

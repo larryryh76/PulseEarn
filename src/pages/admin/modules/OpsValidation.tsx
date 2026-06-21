@@ -15,9 +15,9 @@ import {
   limit,
   onSnapshot,
   doc,
-  getDoc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';

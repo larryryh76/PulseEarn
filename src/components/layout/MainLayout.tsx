@@ -38,7 +38,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            </div>
 
            <div className="flex gap-8 items-center text-text-tertiary opacity-40">
-              <span className="text-[9px] font-mono uppercase tracking-[0.2em]">Platform v2.0.1</span>
            </div>
         </div>
       </footer>

@@ -232,11 +232,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Award Welcome Bonus
     await PointTransactionEngine.execute({
       userId: user.uid,
-      amount: 50,
+      amount: 30,
       type: 'welcome_bonus',
       source: 'Welcome Bonus',
       claimId: `welcome_${user.uid}`,
-      xpReward: 50
+      xpReward: 30
     });
   }
 

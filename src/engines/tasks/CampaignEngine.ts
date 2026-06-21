@@ -37,6 +37,8 @@ export class CampaignEngine {
            await setDoc(campaignRef, {
              participantsCount: increment(1)
            }, { merge: true });
+        } else {
+           console.warn(`[CampaignEngine] Campaign ${campaignId} not found, skipping counter increment.`);
         }
 
         // 3. Log Activity

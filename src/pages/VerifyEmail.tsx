@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +18,26 @@ const VerifyEmail: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const handleAutoVerify = useCallback(async (code: string) => {
+    setIsVerifying(true);
+    try {
+      await applyActionCode(auth, code);
+      toast.success('Email verified automatically!');
+      await auth.currentUser?.reload();
+      if (auth.currentUser) {
+        navigate('/dashboard');
+      } else {
+        toast.success('Please sign in to continue.');
+        navigate('/login');
+      }
+    } catch (error: any) {
+      console.error('Auto-verification failed:', error);
+      toast.error('Invalid or expired verification link.');
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const mode = searchParams.get('mode');
     const oobCode = searchParams.get('oobCode');
@@ -25,22 +45,7 @@ const VerifyEmail: React.FC = () => {
     if (mode === 'verifyEmail' && oobCode) {
       handleAutoVerify(oobCode);
     }
-  }, [searchParams]);
-
-  const handleAutoVerify = async (code: string) => {
-    setIsVerifying(true);
-    try {
-      await applyActionCode(auth, code);
-      toast.success('Email verified automatically!');
-      await auth.currentUser?.reload();
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Auto-verification failed:', error);
-      toast.error('Invalid or expired verification link.');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+  }, [searchParams, handleAutoVerify]);
 
   useEffect(() => {
     let timer: any;

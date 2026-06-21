@@ -16,6 +16,7 @@ import {
 import {
   doc,
   setDoc,
+  getDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -26,7 +27,6 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { runTransaction } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { UserData } from '../types';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
@@ -132,7 +132,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function sendVerification() {
     if (auth.currentUser) {
-      // Priority: Professionalism - Use ActionCodeSettings for clean redirects
       const actionCodeSettings = {
         url: `${window.location.origin}/verify-email`,
         handleCodeInApp: true,
@@ -161,11 +160,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
 
-    // Use transaction for atomic user profile creation to prevent double welcome bonuses
-    await runTransaction(db, async (transaction) => {
-      const userSnap = await transaction.get(userRef);
-      if (userSnap.exists()) return;
+    if (userSnap.exists()) return;
 
     const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
     const role = isAdmin ? 'admin' : 'user';
@@ -238,25 +235,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-      transaction.set(userRef, {
-        ...newUserData,
-        createdAt: serverTimestamp()
-      });
-
-      // 2.5 New Identity Notification (Transactional)
-      const notifRef = doc(collection(db, 'users', user.uid, 'notifications'));
-      transaction.set(notifRef, {
-        title: 'Identity Synchronized',
-        description: 'Your PulseEarn profile has been established. Welcome to the network.',
-        type: 'system',
-        read: false,
-        timestamp: serverTimestamp(),
-        metadata: { engineVersion: '5.0.0-PRO' }
-      });
+    await setDoc(userRef, {
+      ...newUserData,
+      createdAt: serverTimestamp()
     });
 
-    // 3. Immediately trigger referral reward check (Post-transaction)
-    ReferralProtectionEngine.qualifyReferral(user.uid).catch(console.error);
+    // 2.5 New Identity Notification
+    await NotificationEngine.send({
+       userId: user.uid,
+       title: 'Identity Synchronized',
+       description: 'Your PulseEarn profile has been established. Welcome to the network.',
+       type: 'system'
+    });
+
+    // 3. Immediately trigger referral reward check
+    await ReferralProtectionEngine.qualifyReferral(user.uid);
 
     // Priority 3: Autoritative Welcome Bonus
     const config = await EconomyConfigEngine.getConfig();
@@ -275,7 +268,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = userCredential.user;
 
     // Send initial verification
-    // Send initial verification with professional redirect
     const actionCodeSettings = {
       url: `${window.location.origin}/verify-email`,
       handleCodeInApp: true,

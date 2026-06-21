@@ -48,7 +48,6 @@ The **Authoritative Ledger**. Every point mutation must pass through this engine
   3. Validate action against `EconomyAuthority`.
   4. Recalculate `level` based on the exponential x3 curve.
   5. Atomically update User points, XP, and stats.
-  5.5 If `taskClaimId` provided, atomically update `task_claims` status to 'APPROVED'.
   6. Create Transaction record.
   7. Create Task History snapshot (if applicable).
   8. Release lock.
@@ -119,7 +118,5 @@ A high-density operational dashboard for:
 ## 7. Known System Constraints
 - **Price Feed**: Dependent on CoinGecko Free Tier (rate limited).
 - **History Limits**: Client-side sorting on a 50-100 record limit for performance.
-- **Recursive Deletion**: Admin user deletion now purges all linked top-level documents and sub-collections (Ledger, Notifications, Tasks, Activity) in chunked batches of 500.
+- **Recursive Deletion**: Admin user deletion now purges all linked top-level documents and sub-collections (Ledger, Notifications, Tasks, Activity).
 - **Google Auth**: Fully integrated into AuthContext and UI (Login/Signup).
-- **Atomic Task Resolution**: Admin approvals in `OpsValidation` are now processed atomically through the `PointTransactionEngine` to prevent state drift.
-- **Scalable Broadcasts**: `BroadcastEngine` utilizes cursor-based pagination to support an unbounded user base for system-wide notifications.

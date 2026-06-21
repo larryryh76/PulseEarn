@@ -23,6 +23,10 @@ export const mapAuthError = (error: any): string => {
       return 'A network error occurred. Please check your internet connection.';
     case 'auth/internal-error':
       return 'A system error occurred during authentication. Please try again later.';
+    case 'auth/expired-action-code':
+      return 'Your reset link has expired. Please request a new one.';
+    case 'auth/invalid-action-code':
+      return 'The verification code is invalid or has already been used.';
     default:
       return 'An unexpected authentication error occurred. Please try again.';
   }

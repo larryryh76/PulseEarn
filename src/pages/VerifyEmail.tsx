@@ -1,19 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useNavigate, Navigate, Link } from 'react-router-dom';
+import { useNavigate, Navigate, Link, useSearchParams } from 'react-router-dom';
 import { auth } from '../firebase/config';
+import { applyActionCode } from 'firebase/auth';
 
 const VerifyEmail: React.FC = () => {
   const { currentUser, logout, sendVerification } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const handleAutoVerify = useCallback(async (code: string) => {
+    setIsVerifying(true);
+    try {
+      await applyActionCode(auth, code);
+      toast.success('Email verified automatically!');
+      await auth.currentUser?.reload();
+      if (auth.currentUser) {
+        navigate('/dashboard');
+      } else {
+        toast.success('Please sign in to continue.');
+        navigate('/login');
+      }
+    } catch (error: any) {
+      console.error('Auto-verification failed:', error);
+      toast.error('Invalid or expired verification link.');
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    const oobCode = searchParams.get('oobCode');
+
+    if (mode === 'verifyEmail' && oobCode) {
+      handleAutoVerify(oobCode);
+    }
+  }, [searchParams, handleAutoVerify]);
 
   useEffect(() => {
     let timer: any;
@@ -52,11 +84,11 @@ const VerifyEmail: React.FC = () => {
     }
   };
 
-  if (!currentUser) return <Navigate to="/login" replace />;
+  if (!currentUser && !searchParams.get('oobCode')) return <Navigate to="/login" replace />;
 
   // Bypass for admin
-  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-  if (currentUser.emailVerified || isAdmin) {
+  const isAdmin = currentUser?.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  if ((currentUser?.emailVerified || isAdmin) && !searchParams.get('oobCode')) {
     const target = isAdmin ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;
   }
@@ -79,31 +111,46 @@ const VerifyEmail: React.FC = () => {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
 
             <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8 shadow-xl">
-               <Mail className="text-primary animate-bounce" size={40} />
+               {isVerifying ? (
+                 <Loader2 className="text-primary animate-spin" size={40} />
+               ) : (
+                 <Mail className="text-primary animate-bounce" size={40} />
+               )}
             </div>
 
-            <h1 className="text-3xl font-bold mb-4 tracking-tight text-text-primary">Verify Your Email</h1>
+            <h1 className="text-3xl font-bold mb-4 tracking-tight text-text-primary">
+              {isVerifying ? 'Verifying Account...' : 'Verify Your Email'}
+            </h1>
             <p className="text-text-primary/50 text-sm mb-8 leading-relaxed">
-              We've sent a verification link to <span className="text-text-primary font-bold">{currentUser.email}</span>. Please click the link in your email to activate your account.
+              {isVerifying
+                ? 'Please wait while we confirm your email address.'
+                : (currentUser ? (
+                  <>We've sent a verification link to <span className="text-text-primary font-bold">{currentUser.email}</span>. Please click the link in your email to activate your account.</>
+                ) : (
+                  'Please sign in to your account after verification is complete.'
+                ))
+              }
             </p>
 
             <div className="space-y-4">
                <Button
-                onClick={checkStatus}
-                disabled={isChecking}
+                onClick={currentUser ? checkStatus : () => navigate('/login')}
+                disabled={isChecking || isVerifying}
                 className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold"
                >
-                  {isChecking ? <Loader2 className="animate-spin" size={16} /> : 'I have verified my email'}
+                  {isChecking ? <Loader2 className="animate-spin" size={16} /> : (currentUser ? 'I have verified my email' : 'Sign In to Account')}
                </Button>
 
-               <button
-                onClick={handleResend}
-                disabled={isSending || countdown > 0}
-                className="w-full py-4 rounded-xl bg-surface-bright border border-border-bright text-text-secondary hover:text-text-primary hover:bg-surface-accent transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-               >
-                  {isSending ? <RefreshCw className="animate-spin" size={16} /> : null}
-                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Email'}
-               </button>
+               {currentUser && (
+                 <button
+                  onClick={handleResend}
+                  disabled={isSending || countdown > 0}
+                  className="w-full py-4 rounded-xl bg-surface-bright border border-border-bright text-text-secondary hover:text-text-primary hover:bg-surface-accent transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                 >
+                    {isSending ? <RefreshCw className="animate-spin" size={16} /> : null}
+                    {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Email'}
+                 </button>
+               )}
             </div>
 
             <div className="mt-10 pt-8 border-t border-border-bright space-y-6">

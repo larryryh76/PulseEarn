@@ -1,22 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import Button from '../components/ui/Button';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { Mail, Lock, LogIn, AlertCircle, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { mapAuthError } from '../utils/errors';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'forgot'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'forgot' | 'reset'>('login');
+  const [oobCode, setOobCode] = useState<string | null>(null);
 
-  const { login, resetPassword, signInWithGoogle } = useAuth();
+  const { login, resetPassword, signInWithGoogle, confirmPasswordReset } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    const code = searchParams.get('oobCode');
+
+    if (mode === 'resetPassword' && code) {
+      setAuthMode('reset');
+      setOobCode(code);
+    }
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -42,6 +56,28 @@ const Login: React.FC = () => {
         await resetPassword(email);
         toast.success('Password reset link sent to your email.');
         setAuthMode('login');
+      } catch (error: any) {
+        toast.error(mapAuthError(error));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (authMode === 'reset') {
+      if (!newPassword || !confirmPassword) return toast.error('Please fill in all fields.');
+      if (newPassword !== confirmPassword) return toast.error('Passwords do not match.');
+      if (newPassword.length < 6) return toast.error('Password must be at least 6 characters.');
+      if (!oobCode) return toast.error('Invalid reset session.');
+
+      setIsSubmitting(true);
+      try {
+        await confirmPasswordReset(oobCode, newPassword);
+        toast.success('Password has been reset successfully!');
+        setAuthMode('login');
+        setOobCode(null);
+        setNewPassword('');
+        setConfirmPassword('');
       } catch (error: any) {
         toast.error(mapAuthError(error));
       } finally {
@@ -111,7 +147,7 @@ const Login: React.FC = () => {
                       type="button"
                       onClick={handleGoogleSignIn}
                       disabled={isSubmitting}
-                      className="w-full flex items-center justify-center gap-3 py-4 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-3 py-4 bg-[#12121A] text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-surface-bright transition-all shadow-xl active:scale-[0.98] disabled:opacity-50"
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-5 h-5" />
                       Continue with Google
@@ -189,7 +225,7 @@ const Login: React.FC = () => {
                     </Button>
                   </form>
                 </motion.div>
-              ) : (
+              ) : authMode === 'forgot' ? (
                 <motion.div
                   key="forgot-form"
                   initial={{ opacity: 0, x: 20 }}
@@ -224,6 +260,76 @@ const Login: React.FC = () => {
 
                     <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting}>
                       {isSubmitting ? 'Sending Link...' : 'Send Reset Link'}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('login')}
+                      className="w-full text-[10px] font-bold text-text-primary/30 hover:text-text-primary uppercase tracking-widest transition-colors py-2"
+                    >
+                      Back to Sign In
+                    </button>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="reset-form"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                >
+                  <div className="flex flex-col items-center text-center mb-10">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 shadow-xl">
+                        <KeyRound className="text-primary" size={32} />
+                    </div>
+                    <h1 className="text-3xl font-bold mb-2 tracking-tight text-text-primary">New Password</h1>
+                    <p className="text-text-secondary text-sm font-medium">Set a strong password for your account</p>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">New Password</label>
+                      <div className="relative group">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
+                          <Lock size={18} />
+                        </div>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-12 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors"
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">Confirm Password</label>
+                      <div className="relative group">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors">
+                          <Lock size={18} />
+                        </div>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-4 py-4 text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all font-medium"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold mt-2" disabled={isSubmitting}>
+                      {isSubmitting ? 'Updating Password...' : 'Reset Password'}
                     </Button>
 
                     <button

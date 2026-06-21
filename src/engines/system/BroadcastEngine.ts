@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, QuerySnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 export class BroadcastEngine {
@@ -15,7 +15,7 @@ export class BroadcastEngine {
           ? query(collection(db, 'users'), orderBy('__name__'), startAfter(lastDoc), limit(FETCH_LIMIT))
           : query(collection(db, 'users'), orderBy('__name__'), limit(FETCH_LIMIT));
 
-       const snap: any = await getDocs(q);
+       const snap: QuerySnapshot<DocumentData> = await getDocs(q);
        if (snap.empty) {
           hasMore = false;
           break;
@@ -27,7 +27,7 @@ export class BroadcastEngine {
        // Process this chunk in smaller sub-batches to avoid promise overloading
        for (let i = 0; i < users.length; i += PROCESS_BATCH_SIZE) {
         const chunk = users.slice(i, i + PROCESS_BATCH_SIZE);
-       await Promise.all(chunk.map((userDoc: any) =>
+       await Promise.all(chunk.map((userDoc: QueryDocumentSnapshot<DocumentData>) =>
           addDoc(collection(db, 'users', userDoc.id, 'notifications'), {
             title, description, type, read: false, timestamp: serverTimestamp()
           })

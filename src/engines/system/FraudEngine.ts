@@ -18,7 +18,7 @@ export class FraudEngine {
    * Evaluates user risk based on device fingerprint and behavior.
    * Does NOT auto-ban, but flags for admin review.
    */
-  static async evaluateNodeIntegrity(userId: string, fingerprint: string): Promise<void> {
+  static async evaluateUserIntegrity(userId: string, fingerprint: string): Promise<void> {
     try {
       let riskScore = 0;
       const flags: string[] = [];
@@ -57,7 +57,7 @@ export class FraudEngine {
             userId,
             error: `High Risk Detection: ${flags.join(', ')}`,
             severity: 'HIGH',
-            context: 'FraudEngine_FP_Scan',
+            context: 'UserIntegrity_Scan',
             timestamp: serverTimestamp(),
             metadata: { fingerprint, duplicateCount: fpSnap.size }
          });

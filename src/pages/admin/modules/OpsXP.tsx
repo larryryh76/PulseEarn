@@ -420,7 +420,7 @@ const OpsXP: React.FC = () => {
 
           <div className="space-y-8">
              <div className="p-8 rounded-[2rem] bg-surface border border-border shadow-2xl space-y-8">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression Matrix</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression Tiers</h3>
                 <div className="space-y-4">
                    {[1, 2, 3, 4, 5].map((lvl) => (
                       <div key={lvl} className="p-5 rounded-2xl bg-surface-bright/50 border border-border flex items-center justify-between group">

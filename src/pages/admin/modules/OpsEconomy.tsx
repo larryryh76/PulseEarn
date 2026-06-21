@@ -22,8 +22,9 @@ import {
   getDocs,
   getCountFromServer,
   where,
-
-  onSnapshot
+  onSnapshot,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -60,14 +61,25 @@ const OpsEconomy: React.FC = () => {
     const fetchStats = async () => {
       try {
         const usersCountSnap = await getCountFromServer(collection(db, 'users'));
-        // Audit: safety limit implemented to prevent unbounded liability scans.
-        const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
+
+        // Audit: Fixed liability bottleneck. Fetching from authoritative system_config metrics.
+        const configRef = doc(db, 'system_config', 'global_metrics');
+        const configSnap = await getDoc(configRef);
+
         let totalPts = 0;
         let totalXp = 0;
-        usersSnap.forEach(doc => {
-          totalPts += (doc.data().points || 0);
-          totalXp += (doc.data().xp || 0);
-        });
+
+        if (configSnap.exists()) {
+           totalPts = configSnap.data().totalPointsLiability || 0;
+           totalXp = configSnap.data().totalXpDistributed || 0;
+        } else {
+           // Fallback for smaller user bases (< 1000)
+           const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
+           usersSnap.forEach(doc => {
+             totalPts += (doc.data().points || 0);
+             totalXp += (doc.data().xp || 0);
+           });
+        }
 
         const activePredictionsSnap = await getDocs(query(
           collection(db, 'user_predictions'),

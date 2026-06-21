@@ -26,6 +26,7 @@ export interface PointTransactionRequest {
   description?: string;
   xpReward?: number;
   referenceId?: string;
+  taskClaimId?: string; // Optional: Links to a task_claim for atomic resolution
   metadata?: Record<string, any>;
   bypassLock?: boolean;
 }
@@ -40,13 +41,13 @@ export class PointTransactionEngine {
    * Enforces transactional locking, claim idempotency, and centralized reward validation.
    */
   static async execute(request: PointTransactionRequest): Promise<PointTransactionResult> {
-    const { userId, amount, type, source, claimId, xpReward = 0, metadata = {} } = request;
+    const { userId, amount, type, source, claimId, xpReward = 0, taskClaimId, metadata = {} } = request;
     const userRef = doc(db, 'users', userId);
     const claimRef = doc(db, 'system_claims', claimId);
     const transactionsRef = collection(db, 'users', userId, 'transactions');
+    const taskClaimRef = taskClaimId ? doc(db, 'task_claims', taskClaimId) : null;
 
     try {
-      const config = await EconomyConfigEngine.getConfig();
       return await runTransaction(db, async (transaction) => {
         // 1. Acquire State & Validate Idempotency
         const userSnap = await transaction.get(userRef);
@@ -56,8 +57,22 @@ export class PointTransactionEngine {
         const claimSnap = await transaction.get(claimRef);
         if (claimSnap.exists()) throw new Error("REWARD_ALREADY_CLAIMED");
 
+        // 1.1 Atomic Task Claim Verification (Priority 1)
+        if (taskClaimRef) {
+          const tcSnap = await transaction.get(taskClaimRef);
+          if (!tcSnap.exists()) throw new Error("TASK_CLAIM_NOT_FOUND");
+          if (tcSnap.data().validationState !== 'PENDING') throw new Error("TASK_CLAIM_ALREADY_RESOLVED");
+
+          // Perform Claim Status Update inside transaction
+          transaction.update(taskClaimRef, {
+            validationState: 'APPROVED',
+            resolvedAt: serverTimestamp(),
+            reviewedBy: metadata.reviewedBy || 'ADMIN_HUB_ATOMIC'
+          });
+        }
+
         // 1.5 Economy Rule Validation
-        const validation = EconomyAuthority.validateAction(type, request, userData, config);
+        const validation = EconomyAuthority.validateAction(type, request, userData);
         if (!validation.valid) throw new Error(validation.error);
 
         // 2. Transactional Locking (Atomic Mutex)
@@ -108,6 +123,7 @@ export class PointTransactionEngine {
         }
 
         // 6. Progression Calculation (Authoritative Level Derivation)
+        const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
         // Ensure amount is handled correctly for XP (deductions don't usually affect XP unless specified)
@@ -134,6 +150,12 @@ export class PointTransactionEngine {
 
         if (type === 'task_reward') updates['stats.tasksCompleted'] = increment(1);
         if (type === 'referral_bonus') updates['stats.referralsCount'] = increment(1);
+
+        // Priority 2: Atomic Withdrawal Accounting
+        if (type === 'withdrawal_finalized') {
+           const finalAmount = amount !== 0 ? Math.abs(amount) : (metadata.amount || 0);
+           updates.totalWithdrawn = increment(finalAmount);
+        }
 
         if (type === 'daily_reward') {
           const lastReward = userData.lastRewardDate?.toDate();
@@ -170,7 +192,65 @@ export class PointTransactionEngine {
         // 9. Secure Transaction Log
         const txDoc = doc(transactionsRef);
 
-        // 8.7 Task History Snapshot (Permanent Record)
+        // 8.6 Transactional Notification (Priority 1: ALL OR NOTHING)
+        if (type === 'task_reward' || (amount > 0 && type !== 'daily_reward') || type === 'withdrawal_finalized') {
+          const notifRef = doc(collection(db, 'users', userId, 'notifications'));
+
+          let title = 'Reward Received';
+          let description = `You earned ${amount.toLocaleString()} Points from: ${source}`;
+          let notifType = 'reward_claimed';
+
+          if (type === 'task_reward') {
+             title = 'Task Approved';
+          } else if (type === 'withdrawal_finalized') {
+             title = 'Withdrawal Processed';
+             const withdrawalAmount = amount !== 0 ? Math.abs(amount) : (metadata.amount || 0);
+             description = `Your withdrawal of ${withdrawalAmount.toLocaleString()} PTS has been sent to your wallet.`;
+             notifType = 'payout_processed';
+          }
+
+          transaction.set(notifRef, {
+            title,
+            description,
+            type: notifType as any,
+            read: false,
+            timestamp: serverTimestamp(),
+            metadata: {
+              taskName: source,
+              pointsAwarded: amount,
+              xpAwarded: xpReward,
+              transactionReference: txDoc.id,
+              engineVersion: '5.0.0-PRO'
+            }
+          });
+        }
+
+        // 8.7 Transactional Activity (Priority 1: ALL OR NOTHING)
+        const activityRef = doc(collection(db, 'users', userId, 'activities'));
+
+        let actType = 'reward_received';
+        if (type === 'task_reward') actType = 'task_completed';
+        else if (type === 'withdrawal_finalized') actType = 'withdrawal_completed';
+
+        transaction.set(activityRef, {
+          id: activityRef.id,
+          userId,
+          type: actType as any,
+          points: amount,
+          description: source,
+          timestamp: serverTimestamp(),
+          referenceId: request.referenceId || null,
+          metadata: {
+            taskName: source,
+            xpEarned: xpReward,
+            transactionReference: txDoc.id,
+            verificationStatus: 'APPROVED',
+            ...(metadata || {}),
+            engineVersion: '5.0.0-PRO'
+          }
+        });
+
+        // 8.8 Task History Snapshot (Permanent Record)
         if (type === 'task_reward') {
           const historyRef = doc(collection(db, 'users', userId, 'task_history'));
           transaction.set(historyRef, {
@@ -192,6 +272,7 @@ export class PointTransactionEngine {
             metadata: { ...metadata, txId: txDoc.id }
           });
         }
+
         transaction.set(txDoc, {
           id: txDoc.id,
           userId,
@@ -505,26 +586,7 @@ export class PointTransactionEngine {
     const { userId, type, amount, source, xpReward, txId, referenceId, metadata, newLevel, oldLevel, tasksCompleted } = res;
 
     try {
-      // 1. Send Reward Notification
-      if (type === 'task_reward' || amount > 0) {
-        NotificationEngine.notifyReward(userId, source, amount, xpReward, txId).catch(() => {});
-      }
-
-      // 2. Log Activity
-      ActivityEngine.log({
-        userId,
-        type: type === 'task_reward' ? 'task_completed' : 'reward_received',
-        points: amount,
-        description: source,
-        referenceId: referenceId,
-        metadata: {
-          taskName: source,
-          xpEarned: xpReward,
-          transactionReference: txId,
-          verificationStatus: 'APPROVED',
-          ...(metadata || {})
-        }
-      }).catch(() => {});
+      // 1. & 2. Notification and Activity now handled transactionally in execute() for atomicity
 
       // 3. System Event Triggers
       if (type === 'task_reward') {

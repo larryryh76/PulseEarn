@@ -110,7 +110,7 @@ const Navbar: React.FC = () => {
                        Ops
                     </Link>
                   )}
-                  <button onClick={async () => { await logout(); navigate('/'); }} className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest">
+                  <button onClick={() => { logout(); navigate('/'); }} className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest">
                     Sign Out
                   </button>
                 </div>
@@ -207,7 +207,7 @@ const Navbar: React.FC = () => {
                         </Link>
                       )}
                       <button
-                        onClick={async () => { await logout(); navigate('/'); setIsMobileMenuOpen(false); }}
+                        onClick={() => { logout(); navigate('/'); setIsMobileMenuOpen(false); }}
                         className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-danger/60 hover:bg-danger/5"
                       >
                         Sign Out

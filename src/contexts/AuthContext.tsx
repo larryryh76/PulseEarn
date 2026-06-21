@@ -226,17 +226,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
+    // 2.5 New Identity Notification
+    await NotificationEngine.send({
+       userId: user.uid,
+       title: 'Identity Synchronized',
+       description: 'Your PulseEarn profile has been established. Welcome to the network.',
+       type: 'system'
+    });
+
     // 3. Immediately trigger referral reward check
     await ReferralProtectionEngine.qualifyReferral(user.uid);
 
-    // Award Welcome Bonus
+    // Priority 3: Autoritative Welcome Bonus
+    const config = await EconomyConfigEngine.getConfig();
     await PointTransactionEngine.execute({
       userId: user.uid,
-      amount: 30,
+      amount: config.rewards.welcomeBonusPoints || 30,
       type: 'welcome_bonus',
       source: 'Welcome Bonus',
       claimId: `welcome_${user.uid}`,
-      xpReward: 30
+      xpReward: config.rewards.welcomeBonusXP || 50
     });
   }
 
@@ -291,9 +300,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
-             // Auth exists but profile doesn't? Possible sync lag or deletion.
-             console.warn("[AuthContext] Profile document missing.");
-             setSystemError('IDENTITY_NOT_FOUND');
+             // Priority 5: Resilience - Auto-Healing Identity Sync
+             // Auth exists but profile doesn't? Attempt to re-initialize profile to prevent 'IDENTITY_NOT_FOUND' shell.
+             console.warn("[AuthContext] Identity Drift Detected: Attempting Self-Healing...");
+             try {
+                // Re-run initialization using current auth metadata
+                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`);
+                console.log("[AuthContext] Identity Refreshed Successfully.");
+             } catch (healError) {
+                console.error("[AuthContext] Self-Healing Failed:", healError);
+                setSystemError('IDENTITY_NOT_FOUND');
+             }
           }
           setLoading(false);
           setIsRestoring(false);

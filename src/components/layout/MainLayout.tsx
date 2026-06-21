@@ -38,6 +38,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
            </div>
 
            <div className="flex gap-8 items-center text-text-tertiary opacity-40">
+              {/* UI Metadata hidden as per directive */}
            </div>
         </div>
       </footer>

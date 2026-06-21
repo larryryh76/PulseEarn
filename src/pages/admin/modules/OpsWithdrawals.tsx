@@ -64,10 +64,23 @@ const OpsWithdrawals: React.FC = () => {
       };
 
       if (status === 'PAID') {
-         updateData.paidAt = serverTimestamp();
-         await updateDoc(doc(db, 'users', userId), {
-            totalWithdrawn: increment(requests.find(r => r.id === id)?.amountPoints || 0)
+         // Priority 2: Standardized Withdrawal Mutation
+         // Use the PointTransactionEngine for atomic accounting and side effects
+         const req = requests.find(r => r.id === id);
+         if (!req) throw new Error("WITHDRAWAL_REQUEST_NOT_FOUND");
+
+         const res = await PointTransactionEngine.execute({
+            userId,
+            amount: 0, // Points already debited at request time
+            type: 'withdrawal_finalized' as any,
+            source: 'Withdrawal Payout',
+            claimId: `paid_${id}`,
+            metadata: { withdrawalId: id, amount: req.amountPoints },
+            bypassLock: true
          });
+         if (!res.success) throw new Error(res.error);
+
+         updateData.paidAt = serverTimestamp();
       }
 
       if (status === 'REJECTED') {

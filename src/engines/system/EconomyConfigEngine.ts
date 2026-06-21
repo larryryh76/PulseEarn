@@ -11,6 +11,8 @@ export interface EconomyConfig {
   rewards: {
     dailyLoginPoints: number;
     dailyLoginXP: number;
+    welcomeBonusPoints: number;
+    welcomeBonusXP: number;
     referralBonusPoints: number;
     referralBonusXP: number;
     predictionWinMultiplier: number; // e.g. 2.0
@@ -35,6 +37,8 @@ const DEFAULT_CONFIG: EconomyConfig = {
   rewards: {
     dailyLoginPoints: 10,
     dailyLoginXP: 20,
+    welcomeBonusPoints: 30,
+    welcomeBonusXP: 50,
     referralBonusPoints: 50,
     referralBonusXP: 50,
     predictionWinMultiplier: 2.0,

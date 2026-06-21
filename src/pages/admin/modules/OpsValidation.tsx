@@ -16,6 +16,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  getDoc,
   serverTimestamp,
   runTransaction,
   Transaction
@@ -63,38 +64,32 @@ const OpsValidation: React.FC = () => {
       const claimRef = doc(db, 'task_claims', claimId);
 
       if (status === 'APPROVED') {
-        const result = await runTransaction(db, async (transaction: Transaction) => {
-          const claimSnap = await transaction.get(claimRef);
-          if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
+        // Priority 1: Atomic Task Approval Implementation
+        // We now fetch data first, then call the engine which performs the atomic transaction.
+        const claimSnap = await getDoc(claimRef);
+        if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
+        const claimData = claimSnap.data();
 
-          const claimData = claimSnap.data();
-          if (claimData.validationState !== 'PENDING') throw new Error("CLAIM_ALREADY_RESOLVED");
-
-          const taskRef = doc(db, 'tasks', claimData.taskId);
-          const taskSnap = await transaction.get(taskRef);
-          if (!taskSnap.exists()) throw new Error("TASK_NOT_FOUND");
-          const taskData = taskSnap.data();
-
-          // Execute reward via standard engine (internally transaction-safe)
-          // Since PointTransactionEngine.execute uses runTransaction, we cannot nest it.
-          // Instead, we perform the validation check here and prepare the reward.
-          return { claimData, taskData };
-        });
+        const taskRef = doc(db, 'tasks', claimData.taskId);
+        const taskSnap = await getDoc(taskRef);
+        if (!taskSnap.exists()) throw new Error("TASK_NOT_FOUND");
+        const taskData = taskSnap.data();
 
         const rewardResult = await PointTransactionEngine.execute({
-          userId: result.claimData.userId,
-          amount: result.taskData.rewardAmount || 0,
+          userId: claimData.userId,
+          amount: taskData.rewardAmount || 0,
           type: 'task_reward',
-          source: result.taskData.title,
+          source: taskData.title,
           claimId: `val_${claimId}`,
-          xpReward: result.taskData.xpReward || 50,
-          referenceId: result.claimData.taskId,
+          taskClaimId: claimId, // The Engine now handles atomic status update
+          xpReward: taskData.xpReward || 50,
+          referenceId: claimData.taskId,
           metadata: {
-            campaignId: result.taskData.campaignId || null,
-            campaignName: result.taskData.campaignName || 'Community',
-            category: result.taskData.category || 'CUSTOM',
-            verificationType: result.taskData.verificationType || 'manual',
-            completedAt: result.claimData.createdAt
+            campaignId: taskData.campaignId || null,
+            campaignName: taskData.campaignName || 'Community',
+            category: taskData.category || 'CUSTOM',
+            verificationType: taskData.verificationType || 'manual',
+            completedAt: claimData.createdAt
           }
         });
 
@@ -102,13 +97,14 @@ const OpsValidation: React.FC = () => {
           toast.dismiss(loadingToast);
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
+      } else {
+        // For Rejection, we keep it simple but separate
+        await updateDoc(claimRef, {
+          validationState: status,
+          resolvedAt: serverTimestamp(),
+          reviewedBy: 'ADMIN_HUB'
+        });
       }
-
-      await updateDoc(claimRef, {
-        validationState: status,
-        resolvedAt: serverTimestamp(),
-        reviewedBy: 'ADMIN_HUB'
-      });
 
       toast.dismiss(loadingToast);
       toast.success(`Claim ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`);

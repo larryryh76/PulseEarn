@@ -179,6 +179,7 @@ const DocLayout: React.FC<DocLayoutProps> = ({ children, title, lastUpdated }) =
               </p>
            </div>
            <div className="flex gap-8 items-center text-text-tertiary opacity-40">
+              {/* UI Metadata hidden as per directive */}
            </div>
         </div>
       </footer>

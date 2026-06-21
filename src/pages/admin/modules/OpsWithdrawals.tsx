@@ -67,18 +67,19 @@ const OpsWithdrawals: React.FC = () => {
          // Priority 2: Standardized Withdrawal Mutation
          // Use the PointTransactionEngine for atomic accounting and side effects
          const req = requests.find(r => r.id === id);
-         if (req) {
-            const res = await PointTransactionEngine.execute({
-               userId,
-               amount: 0, // Points already debited at request time
-               type: 'withdrawal_finalized' as any,
-               source: 'Withdrawal Payout',
-               claimId: `paid_${id}`,
-               metadata: { withdrawalId: id, amount: req.amountPoints },
-               bypassLock: true
-            });
-            if (!res.success) throw new Error(res.error);
+         if (!req) {
+            throw new Error('Withdrawal request not found in current state');
          }
+         const res = await PointTransactionEngine.execute({
+            userId,
+            amount: 0, // Points already debited at request time
+            type: 'withdrawal_finalized' as any,
+            source: 'Withdrawal Payout',
+            claimId: `paid_${id}`,
+            metadata: { withdrawalId: id, amount: req.amountPoints },
+            bypassLock: true
+         });
+         if (!res.success) throw new Error(res.error);
          updateData.paidAt = serverTimestamp();
       }
 

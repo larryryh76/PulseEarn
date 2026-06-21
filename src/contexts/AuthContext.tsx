@@ -246,11 +246,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       source: 'Welcome Bonus',
       claimId: `welcome_${user.uid}`,
       xpReward: config.rewards.welcomeBonusXP || 50
-      amount: 30,
-      type: 'welcome_bonus',
-      source: 'Welcome Bonus',
-      claimId: `welcome_${user.uid}`,
-      xpReward: 30
     });
   }
 

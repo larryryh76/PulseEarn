@@ -204,7 +204,7 @@ export class PointTransactionEngine {
              title = 'Task Approved';
           } else if (type === 'withdrawal_finalized') {
              title = 'Withdrawal Processed';
-             description = `Your withdrawal of ${Math.abs(amount).toLocaleString()} PTS has been sent to your wallet.`;
+             description = `Your withdrawal of ${Math.abs(metadata.amount).toLocaleString()} PTS has been sent to your wallet.`;
              notifType = 'payout_processed';
           }
 

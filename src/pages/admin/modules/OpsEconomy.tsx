@@ -22,7 +22,8 @@ import {
   getDocs,
   getCountFromServer,
   where,
-
+  doc,
+  getDoc,
   onSnapshot
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';

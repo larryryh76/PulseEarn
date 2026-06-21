@@ -14,7 +14,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';

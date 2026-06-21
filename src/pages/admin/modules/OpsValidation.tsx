@@ -15,8 +15,8 @@ import {
   limit,
   onSnapshot,
   doc,
-  getDoc,
   updateDoc,
+  getDoc,
   serverTimestamp,
   runTransaction,
   Transaction

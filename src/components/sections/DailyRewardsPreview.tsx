@@ -4,15 +4,20 @@ import { Gift, Zap, DollarSign, ChevronRight } from 'lucide-react';
 import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';
 import Card from '../ui/Card';
 import { cn } from '../../utils';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCryptoData } from '../../hooks/useCryptoData';
 
 const DailyRewardsPreview: React.FC = () => {
+  const navigate = useNavigate();
   const { marketData } = useCryptoData();
   const [config, setConfig] = useState<any>(null);
 
   useEffect(() => {
-    EconomyConfigEngine.getConfig().then(setConfig);
+    EconomyConfigEngine.getConfig()
+      .then(setConfig)
+      .catch(err => {
+         console.error("[DailyRewardsPreview] Failed to fetch economy configuration:", err);
+      });
   }, []);
 
   const btc = marketData.find(c => c.id === 'bitcoin');
@@ -84,12 +89,12 @@ const DailyRewardsPreview: React.FC = () => {
                         <span className="font-mono text-text-secondary text-xs font-bold">{reward.amount}</span>
                       </div>
                     </div>
-                    <Link
-                      to="/signup"
+                    <button
+                      onClick={() => navigate('/signup')}
                       className="w-10 h-10 rounded-xl bg-surface-accent border border-border-bright flex items-center justify-center text-text-tertiary group-hover:text-text-primary group-hover:bg-primary group-hover:border-primary transition-all"
                     >
                       <ChevronRight size={18} />
-                    </Link>
+                    </button>
                   </Card>
                 </motion.div>
               ))}

@@ -22,10 +22,11 @@ export const ECONOMY_RULES = {
 };
 
 export class EconomyAuthority {
-  static validateAction(_type: string, data: any, userData: any, config?: any): { valid: boolean; error?: string } {
+  static validateAction(_type: string, data: any, userData: any): { valid: boolean; error?: string } {
     // 1. Transactional Velocity Check
-    const maxSingle = config?.security?.maxSingleReward || ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD;
-    if (data.amount > maxSingle) {
+    // Note: In strict production mode, PointTransactionEngine should pass the config to validateAction
+    // for now we use hardcoded bounds as a safety fallback if config isn't passed.
+    if (data.amount > ECONOMY_RULES.REWARDS.MAX_SINGLE_REWARD) {
       return { valid: false, error: "REWARD_CAP_EXCEEDED" };
     }
 

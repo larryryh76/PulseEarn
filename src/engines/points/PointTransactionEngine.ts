@@ -48,7 +48,6 @@ export class PointTransactionEngine {
     const taskClaimRef = taskClaimId ? doc(db, 'task_claims', taskClaimId) : null;
 
     try {
-      const config = await EconomyConfigEngine.getConfig();
       return await runTransaction(db, async (transaction) => {
         // 1. Acquire State & Validate Idempotency
         const userSnap = await transaction.get(userRef);
@@ -68,12 +67,12 @@ export class PointTransactionEngine {
           transaction.update(taskClaimRef, {
             validationState: 'APPROVED',
             resolvedAt: serverTimestamp(),
-            reviewedBy: 'ADMIN_HUB_ATOMIC'
+            reviewedBy: metadata.reviewedBy || 'ADMIN_HUB_ATOMIC'
           });
         }
 
         // 1.5 Economy Rule Validation
-        const validation = EconomyAuthority.validateAction(type, request, userData, config);
+        const validation = EconomyAuthority.validateAction(type, request, userData);
         if (!validation.valid) throw new Error(validation.error);
 
         // 2. Transactional Locking (Atomic Mutex)
@@ -124,6 +123,7 @@ export class PointTransactionEngine {
         }
 
         // 6. Progression Calculation (Authoritative Level Derivation)
+        const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
         // Ensure amount is handled correctly for XP (deductions don't usually affect XP unless specified)
@@ -204,7 +204,8 @@ export class PointTransactionEngine {
              title = 'Task Approved';
           } else if (type === 'withdrawal_finalized') {
              title = 'Withdrawal Processed';
-             description = `Your withdrawal of ${Math.abs(metadata.amount).toLocaleString()} PTS has been sent to your wallet.`;
+             const withdrawalAmount = amount !== 0 ? Math.abs(amount) : (metadata.amount || 0);
+             description = `Your withdrawal of ${withdrawalAmount.toLocaleString()} PTS has been sent to your wallet.`;
              notifType = 'payout_processed';
           }
 

@@ -22,9 +22,9 @@ import {
   getDocs,
   getCountFromServer,
   where,
+  onSnapshot,
   doc,
-  getDoc,
-  onSnapshot
+  getDoc
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { motion, AnimatePresence } from 'framer-motion';

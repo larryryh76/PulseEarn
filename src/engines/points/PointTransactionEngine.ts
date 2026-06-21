@@ -48,6 +48,7 @@ export class PointTransactionEngine {
     const taskClaimRef = taskClaimId ? doc(db, 'task_claims', taskClaimId) : null;
 
     try {
+      const config = await EconomyConfigEngine.getConfig();
       return await runTransaction(db, async (transaction) => {
         // 1. Acquire State & Validate Idempotency
         const userSnap = await transaction.get(userRef);
@@ -72,7 +73,7 @@ export class PointTransactionEngine {
         }
 
         // 1.5 Economy Rule Validation
-        const validation = EconomyAuthority.validateAction(type, request, userData);
+        const validation = EconomyAuthority.validateAction(type, request, userData, config);
         if (!validation.valid) throw new Error(validation.error);
 
         // 2. Transactional Locking (Atomic Mutex)
@@ -123,7 +124,6 @@ export class PointTransactionEngine {
         }
 
         // 6. Progression Calculation (Authoritative Level Derivation)
-        const config = await EconomyConfigEngine.getConfig();
         const xpPerLevel = config.thresholds?.xpPerLevel || 1000;
 
         // Ensure amount is handled correctly for XP (deductions don't usually affect XP unless specified)

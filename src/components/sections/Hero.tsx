@@ -1,10 +1,9 @@
 import React from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, Zap, TrendingUp, ShieldCheck, Activity, Target } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
-  const navigate = useNavigate();
   const { scrollY } = useScroll();
 
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
@@ -68,13 +67,13 @@ const Hero: React.FC = () => {
             transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-24 relative"
           >
-            <button
-              onClick={() => navigate('/signup')}
+            <Link
+              to="/signup"
               className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl shadow-primary/20 flex items-center justify-center gap-3"
             >
               Get Started
               <ArrowRight size={18} />
-            </button>
+            </Link>
             <button
               onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
               className="px-10 py-5 rounded-xl bg-surface-glass border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-surface-glass-hover active:scale-95 transition-all flex items-center justify-center"

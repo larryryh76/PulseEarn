@@ -15,7 +15,7 @@ export class BroadcastEngine {
           ? query(collection(db, 'users'), orderBy('__name__'), startAfter(lastDoc), limit(FETCH_LIMIT))
           : query(collection(db, 'users'), orderBy('__name__'), limit(FETCH_LIMIT));
 
-       const snap = await getDocs(q);
+       const snap: any = await getDocs(q);
        if (snap.empty) {
           hasMore = false;
           break;
@@ -27,7 +27,7 @@ export class BroadcastEngine {
        // Process this chunk in smaller sub-batches to avoid promise overloading
        for (let i = 0; i < users.length; i += PROCESS_BATCH_SIZE) {
         const chunk = users.slice(i, i + PROCESS_BATCH_SIZE);
-       await Promise.all(chunk.map(userDoc =>
+       await Promise.all(chunk.map((userDoc: any) =>
           addDoc(collection(db, 'users', userDoc.id, 'notifications'), {
             title, description, type, read: false, timestamp: serverTimestamp()
           })

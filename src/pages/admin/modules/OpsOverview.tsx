@@ -66,11 +66,17 @@ const OpsOverview: React.FC = () => {
       let volume = 0;
       volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
 
-      // Audit: liabilitySnap implemented with safety limit for dashboard performance.
-      // At scale, this must read from a pre-calculated system_metrics aggregation document.
-      const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
+      // Audit: Fixed liability bottleneck. Fetching from authoritative system_config metrics.
+      const configRef = doc(db, 'system_config', 'global_metrics');
+      const configSnap = await getDoc(configRef);
       let totalPts = 0;
-      liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
+      if (configSnap.exists()) {
+         totalPts = configSnap.data().totalPointsLiability || 0;
+      } else {
+         // Fallback for smaller user bases (< 1000)
+         const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
+         liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
+      }
 
       // Audit: orderBy check for system_claims
       const ledgerSnap = await getDocs(query(

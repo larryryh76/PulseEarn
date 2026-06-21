@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Gift, Zap, DollarSign, ChevronRight } from 'lucide-react';
+import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';
 import Card from '../ui/Card';
 import { cn } from '../../utils';
 import { useNavigate } from 'react-router-dom';
@@ -9,14 +10,32 @@ import { useCryptoData } from '../../hooks/useCryptoData';
 const DailyRewardsPreview: React.FC = () => {
   const navigate = useNavigate();
   const { marketData } = useCryptoData();
+  const [config, setConfig] = useState<any>(null);
+
+  useEffect(() => {
+    EconomyConfigEngine.getConfig().then(setConfig);
+  }, []);
 
   const btc = marketData.find(c => c.id === 'bitcoin');
   const eth = marketData.find(c => c.id === 'ethereum');
 
+  // Priority 7: Accuracy - Real values from Economy Authority
+  const dailyPts = config?.rewards?.dailyLoginPoints || 10;
+  const dailyUsd = dailyPts / 1000;
+
   const rewards = [
     {
+      title: 'Daily Points',
+      amount: `+${dailyPts} PTS`,
+      type: 'PTS',
+      status: 'Active',
+      icon: Zap,
+      color: 'text-primary',
+      bg: 'bg-primary/10'
+    },
+    {
       title: 'USDT Rewards',
-      amount: '$50.00',
+      amount: `$${dailyUsd.toFixed(2)} USD`,
       type: 'USDT',
       status: 'Live',
       icon: DollarSign,
@@ -25,19 +44,10 @@ const DailyRewardsPreview: React.FC = () => {
     },
     {
       title: 'Bitcoin Bonuses',
-      amount: btc ? `${(50 / btc.current_price).toFixed(6)} BTC` : '--- BTC',
+      amount: btc ? `${(dailyUsd / btc.current_price).toFixed(8)} BTC` : '--- BTC',
       type: 'BTC',
       status: 'Live',
       icon: Zap,
-      color: 'text-primary',
-      bg: 'bg-primary/10'
-    },
-    {
-      title: 'Ethereum reward',
-      amount: eth ? `${(50 / eth.current_price).toFixed(4)} ETH` : '--- ETH',
-      type: 'ETH',
-      status: 'Live',
-      icon: EthIcon,
       color: 'text-primary',
       bg: 'bg-primary/10'
     },

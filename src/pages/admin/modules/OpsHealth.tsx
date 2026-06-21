@@ -275,15 +275,15 @@ const OpsHealth: React.FC = () => {
                   { label: 'Cloud Firestore', status: 'Verified', icon: Database },
                   { label: 'Auth Gateway', status: 'Secure', icon: Lock },
                   { label: 'Point Engine', status: 'Operational', icon: Activity }
-                ].map((node) => (
-                  <div key={node.label} className="flex items-center justify-between group">
+                ].map((service) => (
+                  <div key={service.label} className="flex items-center justify-between group">
                     <div className="flex items-center gap-4">
                       <div className="w-8 h-8 rounded-lg bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
-                        <node.icon size={14} />
+                        <service.icon size={14} />
                       </div>
-                      <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{node.label}</span>
+                      <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">{service.label}</span>
                     </div>
-                    <span className="text-[9px] font-black text-success uppercase tracking-widest italic">{node.status}</span>
+                    <span className="text-[9px] font-black text-success uppercase tracking-widest italic">{service.status}</span>
                   </div>
                 ))}
              </div>

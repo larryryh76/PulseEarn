@@ -55,7 +55,7 @@ const PredictionPreview: React.FC = () => {
 
                   <div className="pt-8">
                  <button
-                  onClick={() => navigate('/predict')}
+                  onClick={() => navigate('/predictions')}
                   className="px-10 py-5 rounded-xl bg-surface-glass border border-border-bright text-text-primary font-bold text-xs uppercase tracking-widest hover:bg-surface-glass-hover active:scale-95 transition-all flex items-center justify-center gap-3"
                  >
                     Start Predicting <TrendingUp size={16} />

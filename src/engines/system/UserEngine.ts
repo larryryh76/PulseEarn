@@ -25,7 +25,7 @@ export class UserEngine {
       });
 
       // Simple Multi-Account Scan
-      await FraudEngine.evaluateNodeIntegrity(uid, fingerprint);
+      await FraudEngine.evaluateUserIntegrity(uid, fingerprint);
 
     } catch (err) {
       console.warn("[UserEngine] Fingerprint recording failed:", err);

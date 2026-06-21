@@ -83,6 +83,8 @@ const Referrals: React.FC = () => {
     toast.success('Referral link copied!');
   };
 
+  const referralUrl = `${window.location.origin.replace(/^https?:\/\//, '')}/signup?ref=${userData?.referralCode || '-------'}`;
+
   const isUnlocked = (userData?.stats?.tasksCompleted || 0) > 0;
 
   const stats = [
@@ -144,7 +146,7 @@ const Referrals: React.FC = () => {
                         <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest ml-1">Referral Link</p>
                         <div className="flex gap-2">
                            <div className="flex-1 bg-background border border-border-bright rounded-xl px-5 py-4 font-medium text-sm truncate text-text-secondary">
-                              pulseearn.online/signup?ref={userData?.referralCode}
+                              {referralUrl}
                            </div>
                            <button
                              onClick={copyLink}

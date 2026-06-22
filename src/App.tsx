@@ -161,7 +161,7 @@ function App() {
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* PERSISTENT APP ARCHITECTURE */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

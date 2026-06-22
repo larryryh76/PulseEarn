@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, Query, QuerySnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, QuerySnapshot } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 export class BroadcastEngine {

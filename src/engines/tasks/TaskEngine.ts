@@ -58,7 +58,7 @@ export class TaskEngine {
           campaignId: task.campaignId,
           providerId: task.providerId,
           validationState: task.verificationType === 'automated' ? 'APPROVED' : 'PENDING',
-          completionState: 'COMPLETED',
+          completionState: task.verificationType === 'automated' ? 'COMPLETED' : 'IN_PROGRESS',
           rewardTransactionId: null,
           xpGranted: task.xpReward,
           fraudFlags: [],

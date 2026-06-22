@@ -14,6 +14,7 @@ import { EconomyAuthority } from './EconomyAuthority';
 import { EconomyConfigEngine } from '../system/EconomyConfigEngine';
 import { ActivityEngine } from '../system/ActivityEngine';
 import { SystemTaskEngine } from '../tasks/SystemTaskEngine';
+import { NotificationEngine } from '../system/NotificationEngine';
 import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
 
 export interface PointTransactionRequest {
@@ -322,23 +323,6 @@ export class PointTransactionEngine {
     }
   }
 
-  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
-    try {
-      await setDoc(doc(collection(db, 'system_anomalies')), {
-        userId,
-        claimId,
-        error,
-        requestType: request.type || request.code || 'UNKNOWN',
-        timestamp: serverTimestamp(),
-        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
-        context: 'SYSTEM_VALIDATION_FAILURE',
-        metadata: { ...request, engineVersion: '5.0.0-PRO' }
-      });
-    } catch (_e) {
-      // Background logging failsafe
-    }
-  }
-
   /**
    * Atomic Market Prediction Entry
    */
@@ -599,7 +583,7 @@ export class PointTransactionEngine {
   }
 
   private static async triggerSideEffects(res: any) {
-    const { userId, type, newLevel, oldLevel, tasksCompleted } = res;
+    const { userId, type, amount, source, xpReward, txId, referenceId, metadata, newLevel, oldLevel, tasksCompleted } = res;
 
     try {
       // 1. & 2. Notification and Activity now handled transactionally in execute() for atomicity
@@ -631,4 +615,20 @@ export class PointTransactionEngine {
     }
   }
 
+  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
+    try {
+      await setDoc(doc(collection(db, 'system_anomalies')), {
+        userId,
+        claimId,
+        error,
+        requestType: request.type || request.code || 'UNKNOWN',
+        timestamp: serverTimestamp(),
+        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
+        context: 'SYSTEM_VALIDATION_FAILURE',
+        metadata: { ...request, engineVersion: '5.0.0-PRO' }
+      });
+    } catch (e) {
+      // Background logging failsafe
+    }
+  }
 }

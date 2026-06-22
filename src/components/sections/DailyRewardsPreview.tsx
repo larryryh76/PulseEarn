@@ -21,6 +21,7 @@ const DailyRewardsPreview: React.FC = () => {
   }, []);
 
   const btc = marketData.find(c => c.id === 'bitcoin');
+  const eth = marketData.find(c => c.id === 'ethereum');
 
   // Priority 7: Accuracy - Real values from Economy Authority
   const dailyPts = config?.rewards?.dailyLoginPoints || 10;
@@ -143,5 +144,13 @@ const DailyRewardsPreview: React.FC = () => {
     </section>
   );
 };
+
+const EthIcon = ({ size, className }: { size?: number, className?: string }) => (
+  <svg width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 2L4.5 12L12 22L19.5 12L12 2Z" />
+    <path d="M12 2V22" />
+    <path d="M4.5 12L19.5 12" />
+  </svg>
+);
 
 export default DailyRewardsPreview;

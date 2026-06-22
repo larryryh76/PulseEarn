@@ -8,13 +8,14 @@ import {
   UserCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
-  confirmPasswordReset as firebaseConfirmPasswordReset,
   updateEmail as firebaseUpdateEmail,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
 import {
   doc,
+  setDoc,
+  getDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -22,8 +23,7 @@ import {
   addDoc,
   query,
   where,
-  getDocs,
-  runTransaction
+  getDocs
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
+import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 import { UserEngine } from '../engines/system/UserEngine';
 
@@ -41,14 +42,13 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (_email: string, _password: string, _username: string, _referralCode?: string) => Promise<void>;
-  login: (_email: string, _password: string) => Promise<UserCredential>;
-  signInWithGoogle: (_referralCode?: string) => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserCredential>;
+  signInWithGoogle: (referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
-  logActivity: (_type: string, _points: number, _description: string) => Promise<void>;
+  logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  confirmPasswordReset: (code: string, newPass: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
@@ -130,24 +130,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function sendVerification() {
     if (auth.currentUser) {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/verify-email`,
-        handleCodeInApp: true,
-      };
-      await sendEmailVerification(auth.currentUser, actionCodeSettings);
+      await sendEmailVerification(auth.currentUser);
     }
   }
 
   async function resetPassword(email: string) {
-    const actionCodeSettings = {
-      url: `${window.location.origin}/login`,
-      handleCodeInApp: true,
-    };
-    await sendPasswordResetEmail(auth, email, actionCodeSettings);
-  }
-
-  async function confirmPasswordReset(code: string, newPass: string) {
-    await firebaseConfirmPasswordReset(auth, code, newPass);
+    await sendPasswordResetEmail(auth, email);
   }
 
   async function updateUserEmail(newEmail: string) {
@@ -158,126 +146,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
 
-    try {
-      let referredBy: string | null = null;
-      if (referralCodeInput) {
-        const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          referredBy = querySnapshot.docs[0].id;
-        }
-      }
+    if (userSnap.exists()) return;
 
-      await runTransaction(db, async (transaction) => {
-        const userSnap = await transaction.get(userRef);
-        if (userSnap.exists()) return;
+    const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+    const role = isAdmin ? 'admin' : 'user';
 
-        const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-        const role = isAdmin ? 'admin' : 'user';
+    let referredBy = null;
+    if (referralCodeInput) {
+      const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const referrerDoc = querySnapshot.docs[0];
+        referredBy = referrerDoc.id;
 
-        if (referredBy) {
-            const referrerRef = doc(db, 'users', referredBy);
-            const referrerSnap = await transaction.get(referrerRef);
-
-            // Verification: Referrer must still exist for the transaction to be valid
-            if (!referrerSnap.exists()) {
-               referredBy = null;
-            } else {
-               // 1. Log to Referrals Collection
-            const referralRef = doc(collection(db, 'referrals'));
-            transaction.set(referralRef, {
-              referrerId: referredBy,
-              refereeId: user.uid,
-              refereeUsername: username,
-              status: 'REGISTERED',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-
-            // 2. Notify Referrer (Post-transaction or via transaction if possible)
-            // Note: transaction.set for notifications is better for atomicity
-            const notifRef = doc(collection(db, 'users', referredBy, 'notifications'));
-            transaction.set(notifRef, {
-              title: 'New Referral Link',
-              description: `${username} joined using your code.`,
-              type: 'referral_joined',
-              read: false,
-              timestamp: serverTimestamp()
-            });
-          }
-        }
-
-        const referralCode = generateReferralCode(user.uid);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const newUserData: any = {
-          uid: user.uid,
-          email: user.email,
-          username,
-          points: 0,
-          referralCode,
-          referredBy,
-          streak: 1,
-          totalEarnedToday: 0,
-          xp: 0,
-          level: 1,
-          lastRewardDate: Timestamp.fromDate(today),
-          role: role as 'admin' | 'user',
-          isBanned: false,
-          isFlagged: false,
-          onboardingCompleted: false,
-          avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
-          stats: {
-            tasksCompleted: 0,
-            referralsCount: 0,
-            predictionsCount: 0,
-            totalEarnings: 0,
-            weeklyEarnings: 0
-          },
-          preferences: {
-            notifications: true,
-            rewardAlerts: true,
-            marketing: false,
-            soundEnabled: true,
-            vibrationEnabled: true,
-            privacyMode: false,
-            preferredCategories: ['Daily', 'Social']
-          },
-          createdAt: serverTimestamp()
-        };
-
-        transaction.set(userRef, newUserData);
-
-        // 2.5 New Identity Notification
-        const selfNotifRef = doc(collection(db, 'users', user.uid, 'notifications'));
-        transaction.set(selfNotifRef, {
-           title: 'Identity Synchronized',
-           description: 'Your PulseEarn profile has been established. Welcome to the network.',
-           type: 'system',
-           read: false,
-           timestamp: serverTimestamp()
+        // 1. Log to Referrals Collection
+        await setDoc(doc(collection(db, 'referrals')), {
+          referrerId: referredBy,
+          refereeId: user.uid,
+          refereeUsername: username,
+          status: 'REGISTERED',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
-      });
 
-      // Post-transaction triggers
-      await ReferralProtectionEngine.qualifyReferral(user.uid).catch(console.error);
-
-      const config = await EconomyConfigEngine.getConfig();
-      await PointTransactionEngine.execute({
-        userId: user.uid,
-        amount: config.rewards.welcomeBonusPoints || 30,
-        type: 'welcome_bonus',
-        source: 'Welcome Bonus',
-        claimId: `welcome_${user.uid}`,
-        xpReward: config.rewards.welcomeBonusXP || 50
-      }).catch(console.error);
-
-    } catch (err) {
-      console.error("[AuthContext] Fatal Profile Initialization Failure:", err);
-      throw err;
+        // 2. Notify Referrer
+        await NotificationEngine.send({
+          userId: referredBy,
+          title: 'New Referral Link',
+          description: `${username} joined using your code.`,
+          type: 'referral_joined'
+        });
+      }
     }
+
+    const referralCode = generateReferralCode(user.uid);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const newUserData: UserData = {
+      uid: user.uid,
+      email: user.email,
+      username,
+      points: 0,
+      referralCode,
+      referredBy,
+      streak: 1,
+      totalEarnedToday: 0,
+      xp: 0,
+      level: 1,
+      lastRewardDate: Timestamp.fromDate(today),
+      createdAt: Timestamp.now(),
+      role: role as 'admin' | 'user',
+      isBanned: false,
+      isFlagged: false,
+      onboardingCompleted: false,
+      avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.uid}`,
+      stats: {
+        tasksCompleted: 0,
+        referralsCount: 0,
+        predictionsCount: 0,
+        totalEarnings: 0,
+        weeklyEarnings: 0
+      },
+      preferences: {
+        notifications: true,
+        rewardAlerts: true,
+        marketing: false,
+        soundEnabled: true,
+        vibrationEnabled: true,
+        privacyMode: false,
+        preferredCategories: ['Daily', 'Social']
+      }
+    };
+
+    await setDoc(userRef, {
+      ...newUserData,
+      createdAt: serverTimestamp()
+    });
+
+    // 2.5 New Identity Notification
+    await NotificationEngine.send({
+       userId: user.uid,
+       title: 'Identity Synchronized',
+       description: 'Your PulseEarn profile has been established. Welcome to the network.',
+       type: 'system'
+    });
+
+    // 3. Immediately trigger referral reward check
+    await ReferralProtectionEngine.qualifyReferral(user.uid);
+
+    // Priority 3: Autoritative Welcome Bonus
+    const config = await EconomyConfigEngine.getConfig();
+    await PointTransactionEngine.execute({
+      userId: user.uid,
+      amount: config.rewards.welcomeBonusPoints || 30,
+      type: 'welcome_bonus',
+      source: 'Welcome Bonus',
+      claimId: `welcome_${user.uid}`,
+      xpReward: config.rewards.welcomeBonusXP || 50
+    });
   }
 
   async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
@@ -285,11 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = userCredential.user;
 
     // Send initial verification
-    const actionCodeSettings = {
-      url: `${window.location.origin}/verify-email`,
-      handleCodeInApp: true,
-    };
-    await sendEmailVerification(user, actionCodeSettings);
+    await sendEmailVerification(user);
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
@@ -330,7 +295,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (resolvedData.role !== 'admin') {
               UserEngine.recordFingerprint(user.uid);
-              SystemTaskEngine.syncUserMissions(user.uid).catch(() => {});
               if (user.emailVerified) {
                 checkDailyReward(user.uid);
               }
@@ -388,7 +352,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity,
     sendVerification,
     resetPassword,
-    confirmPasswordReset,
     updateUserEmail,
     systemError
   };

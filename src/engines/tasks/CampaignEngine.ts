@@ -32,14 +32,9 @@ export class CampaignEngine {
 
         // 2. Increment global participant count
         const campaignRef = doc(db, 'campaigns', campaignId);
-        const campSnap = await getDoc(campaignRef);
-        if (campSnap.exists()) {
-           await setDoc(campaignRef, {
-             participantsCount: increment(1)
-           }, { merge: true });
-        } else {
-           console.warn(`[CampaignEngine] Campaign ${campaignId} not found, skipping counter increment.`);
-        }
+        await setDoc(campaignRef, {
+          participantsCount: increment(1)
+        }, { merge: true });
 
         // 3. Log Activity
         const campaignSnap = await getDoc(campaignRef);

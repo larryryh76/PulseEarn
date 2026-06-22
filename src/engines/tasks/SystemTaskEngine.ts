@@ -105,30 +105,6 @@ export class SystemTaskEngine {
   }
 
   /**
-   * Reconciles all active missions based on current user stats.
-   * This is a "State-Based" fallback to catch any events missed by the live listeners.
-   */
-  static async syncUserMissions(userId: string): Promise<void> {
-    try {
-      const definitionsRef = collection(db, 'system_task_definitions');
-      const q = query(definitionsRef, where('active', '==', true));
-      const definitionsSnap = await getDocs(q);
-
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) return;
-      const userData = userSnap.data() as UserData;
-
-      for (const defDoc of definitionsSnap.docs) {
-        const def = { id: defDoc.id, ...defDoc.data() } as SystemTaskDefinition;
-        await this.evaluateMission(userId, userData, def);
-      }
-    } catch (err) {
-      console.error(`[SystemTaskEngine] Progress sync failed for ${userId}:`, err);
-    }
-  }
-
-  /**
    * Manual claim of rewards for a completed system task.
    */
   static async claimReward(userId: string, systemTaskId: string): Promise<{ success: boolean; error?: string }> {

@@ -17,7 +17,9 @@ import {
   doc,
   updateDoc,
   getDoc,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction,
+  Transaction
 } from 'firebase/firestore';
 import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';

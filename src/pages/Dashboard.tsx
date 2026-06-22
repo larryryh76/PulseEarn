@@ -125,6 +125,8 @@ const Dashboard: React.FC = () => {
     return rail.sort((a, b) => b.priority - a.priority);
   }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
 
+  const { systemError } = useAuth();
+
   if (loading) return (
     <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
       <div className="flex items-center gap-4">
@@ -140,8 +142,6 @@ const Dashboard: React.FC = () => {
       </div>
     </div>
   );
-
-  const { systemError } = useAuth();
 
   if (systemError) return null; // MaintenanceOverlay handled in AuthContext
 

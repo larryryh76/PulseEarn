@@ -40,14 +40,14 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string) => Promise<void>;
+  signup: (_email: string, _password: string, _username: string, _referralCode?: string) => Promise<void>;
+  login: (_email: string, _password: string) => Promise<UserCredential>;
+  signInWithGoogle: (_referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
-  logActivity: (type: string, points: number, description: string) => Promise<void>;
+  logActivity: (_type: string, _points: number, _description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateUserEmail: (newEmail: string) => Promise<void>;
+  resetPassword: (_email: string) => Promise<void>;
+  updateUserEmail: (_newEmail: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 export interface CryptoMarketData {
@@ -43,6 +43,12 @@ export const useCryptoData = () => {
   const [loading, setLoading] = useState(cache.market.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'coingecko' | 'cryptocompare'>('coingecko');
+  const lastAttemptRef = useRef(0);
+  const errorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+     errorRef.current = error;
+  }, [error]);
 
   const fetchFromCryptoCompare = async () => {
     const symbols = Object.values(SYMBOL_MAP).join(',');
@@ -71,6 +77,13 @@ export const useCryptoData = () => {
   };
 
   const fetchMarketData = async () => {
+    const now = Date.now();
+    // Debounce retry attempts: track last attempt time, not cache freshness
+    if (errorRef.current && (now - lastAttemptRef.current < 15000)) {
+       return;
+    }
+    lastAttemptRef.current = now;
+
     try {
       setLoading(true);
       const ids = Object.keys(SYMBOL_MAP).join(',');

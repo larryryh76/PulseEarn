@@ -322,6 +322,23 @@ export class PointTransactionEngine {
     }
   }
 
+  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
+    try {
+      await setDoc(doc(collection(db, 'system_anomalies')), {
+        userId,
+        claimId,
+        error,
+        requestType: request.type || request.code || 'UNKNOWN',
+        timestamp: serverTimestamp(),
+        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
+        context: 'SYSTEM_VALIDATION_FAILURE',
+        metadata: { ...request, engineVersion: '5.0.0-PRO' }
+      });
+    } catch (_e) {
+      // Background logging failsafe
+    }
+  }
+
   /**
    * Atomic Market Prediction Entry
    */
@@ -614,20 +631,4 @@ export class PointTransactionEngine {
     }
   }
 
-  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
-    try {
-      await setDoc(doc(collection(db, 'system_anomalies')), {
-        userId,
-        claimId,
-        error,
-        requestType: request.type || request.code || 'UNKNOWN',
-        timestamp: serverTimestamp(),
-        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
-        context: 'SYSTEM_VALIDATION_FAILURE',
-        metadata: { ...request, engineVersion: '5.0.0-PRO' }
-      });
-    } catch (e) {
-      // Background logging failsafe
-    }
-  }
 }

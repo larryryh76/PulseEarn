@@ -11,7 +11,7 @@ export class BroadcastEngine {
     let hasMore = true;
 
     while (hasMore) {
-       const q = lastDoc
+       const q: Query<DocumentData> = lastDoc
           ? query(collection(db, 'users'), orderBy('__name__'), startAfter(lastDoc), limit(FETCH_LIMIT))
           : query(collection(db, 'users'), orderBy('__name__'), limit(FETCH_LIMIT));
 

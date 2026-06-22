@@ -50,9 +50,16 @@ import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
+import { seedTasks } from './firebase/seed'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
+
+  React.useEffect(() => {
+    if (userData?.role === 'admin' || currentUser?.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL) {
+       seedTasks();
+    }
+  }, [userData, currentUser]);
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">

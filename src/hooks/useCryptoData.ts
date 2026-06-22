@@ -71,6 +71,11 @@ export const useCryptoData = () => {
   };
 
   const fetchMarketData = async () => {
+    // Basic debounce/circuit breaker to prevent rapid re-fetches during errors
+    if (cache.timestamp > 0 && Date.now() - cache.timestamp < 15000 && error) {
+       return;
+    }
+
     try {
       setLoading(true);
       const ids = Object.keys(SYMBOL_MAP).join(',');

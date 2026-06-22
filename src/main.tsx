@@ -5,7 +5,6 @@ import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { TaskProvider } from './contexts/TaskContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { seedTasks } from './firebase/seed'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
 // Global Handler for Chunk Load Errors (Deployment Refresh)
@@ -23,8 +22,8 @@ console.log(`PULSE_EARN_BOOT: Environment: ${import.meta.env.MODE}`);
 console.log(`PULSE_EARN_BOOT: Admin Link: ${import.meta.env.VITE_ADMIN_EMAIL ? 'CONFIGURED' : 'NOT_SET'}`);
 console.log("-----------------------------------------");
 
-// Seed initial tasks if collection is empty
-seedTasks();
+// Seed initial tasks is now restricted to admin logic in App.tsx
+// to prevent 403 noise for standard users.
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

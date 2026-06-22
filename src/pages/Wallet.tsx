@@ -264,8 +264,8 @@ const Wallet: React.FC = () => {
           <div className="space-y-3">
             {transactions.length > 0 ? (
               transactions.map((tx) => (
-                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="flex items-center justify-between p-4 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden">
-                  <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden gap-4">
+                  <div className="flex items-center gap-4 sm:gap-6 min-w-0">
                     <div className={cn(
                       "w-10 h-10 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center transition-all shrink-0",
                       tx.amount > 0 ? "bg-success/5 text-success border-success/10" : "bg-surface-bright text-text-primary border-border group-hover:border-primary/30"
@@ -277,29 +277,35 @@ const Wallet: React.FC = () => {
                       <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em] truncate">
                         {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
-                      {/* Mobile-only yield display */}
-                      <div className="xs:hidden mt-1.5 flex items-baseline gap-2">
-                         <span className={cn("text-[10px] font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
-                            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
-                         </span>
-                         <span className="text-[8px] text-text-tertiary font-bold uppercase tracking-widest">{formatUSD(PTS_TO_USD(tx.amount))}</span>
-                      </div>
+                      <p className="text-[7px] text-text-tertiary/40 font-mono mt-1 uppercase truncate max-w-[120px] sm:hidden">REF: {tx.id.slice(-8)}</p>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0">
-                    <div className="hidden xs:block">
-                      <p className={cn(
-                        "text-xs sm:text-sm font-bold font-mono tracking-tight",
-                        tx.amount > 0 ? "text-success" : "text-text-primary"
-                      )}>
-                        {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()}
-                      </p>
-                      <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-widest">
-                        {formatUSD(PTS_TO_USD(tx.amount))}
-                      </p>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8 border-t border-border/5 sm:border-0 pt-4 sm:pt-0">
+                    {/* Mobile-only display elements moved into this flex container */}
+                    <div className="sm:hidden">
+                       <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-1">Status</p>
+                       <div className="flex items-center gap-1.5">
+                          <div className="w-1 h-1 rounded-full bg-success" />
+                          <span className="text-[9px] font-black text-text-primary uppercase tracking-widest italic">Confirmed</span>
+                       </div>
                     </div>
-                    <div className="w-8 h-8 rounded-lg bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
-                       <ChevronRight size={14} />
+
+                    <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0 ml-auto sm:ml-0">
+                      <div className="hidden xs:block">
+                        <p className={cn(
+                          "text-xs sm:text-sm font-bold font-mono tracking-tight",
+                          tx.amount > 0 ? "text-success" : "text-text-primary"
+                        )}>
+                          {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0)?.toLocaleString()}
+                        </p>
+                        <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-widest">
+                          {formatUSD(PTS_TO_USD(tx.amount))}
+                        </p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
+                         <ChevronRight size={14} />
+                      </div>
                     </div>
                   </div>
                 </div>

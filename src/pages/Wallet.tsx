@@ -56,7 +56,11 @@ const Wallet: React.FC = () => {
       case 'prediction_reward': return 'Prediction Reward';
       case 'prediction_entry': return 'Prediction Stake';
       case 'withdrawal_debit': return 'Withdrawal';
+      case 'withdrawal_finalized': return 'Payout Processed';
       case 'admin_adjustment': return 'Admin Adjustment';
+      case 'welcome_bonus': return 'Welcome Bonus';
+      case 'penalty': return 'System Penalty';
+      case 'referral_reversal': return 'Referral Reversal';
       default: return 'Transaction';
     }
   };
@@ -264,7 +268,7 @@ const Wallet: React.FC = () => {
           <div className="space-y-3">
             {transactions.length > 0 ? (
               transactions.map((tx) => (
-                <div key={tx.id} onClick={() => setSelectedTx(tx)} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden gap-4">
+                <button key={tx.id} onClick={() => setSelectedTx(tx)} className="w-full text-left flex flex-col sm:flex-row sm:items-center justify-between p-5 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden gap-4">
                   <div className="flex items-center gap-4 sm:gap-6 min-w-0">
                     <div className={cn(
                       "w-10 h-10 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center transition-all shrink-0",
@@ -286,8 +290,11 @@ const Wallet: React.FC = () => {
                     <div className="sm:hidden">
                        <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest mb-1">Status</p>
                        <div className="flex items-center gap-1.5">
-                          <div className="w-1 h-1 rounded-full bg-success" />
-                          <span className="text-[9px] font-black text-text-primary uppercase tracking-widest italic">Confirmed</span>
+                          <div className={cn("w-1 h-1 rounded-full",
+                             tx.status === 'COMPLETED' ? "bg-success" :
+                             tx.status === 'PENDING' ? "bg-warning" : "bg-danger"
+                          )} />
+                          <span className="text-[9px] font-black text-text-primary uppercase tracking-widest italic">{tx.status || 'COMPLETED'}</span>
                        </div>
                     </div>
 
@@ -308,7 +315,7 @@ const Wallet: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             ) : (
               <div className="py-24 text-center border border-dashed border-border rounded-[2.5rem] bg-surface/20">

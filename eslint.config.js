@@ -16,7 +16,7 @@ export default defineConfig([
     },
     rules: {
       ...js.configs.recommended.rules,
-      ...tseslint.configs.recommended[0].rules,
+      ...tseslint.configs.recommended.reduce((acc, config) => ({ ...acc, ...config.rules }), {}),
       ...reactHooks.configs.recommended.rules,
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [

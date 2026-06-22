@@ -413,7 +413,9 @@ const Dashboard: React.FC = () => {
                       </div>
                       <div className="text-right">
                          <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">System Status</p>
-                         <p className="text-xl font-bold text-success tracking-tighter italic uppercase">Operational</p>
+                         <p className={cn("text-xl font-bold tracking-tighter italic uppercase", systemError ? "text-danger" : "text-success")}>
+                            {systemError ? 'Service Halted' : 'Operational'}
+                         </p>
                       </div>
                    </div>
                    <div className="space-y-4">
@@ -421,10 +423,16 @@ const Dashboard: React.FC = () => {
                       <div className="flex flex-col gap-2">
                          <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
                             <span>Identity Sync</span>
-                            <span className="text-success">Verified</span>
+                            <span className={userData ? "text-success" : "text-warning animate-pulse"}>
+                               {userData ? 'Verified' : 'Handshake...'}
+                            </span>
                          </div>
                          <div className="h-1 w-full bg-surface-bright rounded-full overflow-hidden">
-                            <div className="h-full bg-success w-full" />
+                            <motion.div
+                               initial={{ width: 0 }}
+                               animate={{ width: userData ? '100%' : '30%' }}
+                               className={cn("h-full", userData ? "bg-success" : "bg-warning")}
+                            />
                          </div>
                       </div>
                       <p className="text-[10px] text-text-tertiary leading-relaxed">Authoritative handshake established with PulseEarn mainnet node.</p>

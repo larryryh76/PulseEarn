@@ -146,6 +146,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userRef = doc(db, 'users', user.uid);
 
     try {
+      let referredBy: string | null = null;
+      if (referralCodeInput) {
+        const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          referredBy = querySnapshot.docs[0].id;
+        }
+      }
+
       await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (userSnap.exists()) return;
@@ -153,15 +162,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
         const role = isAdmin ? 'admin' : 'user';
 
-        let referredBy = null;
-        if (referralCodeInput) {
-          const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            const referrerDoc = querySnapshot.docs[0];
-            referredBy = referrerDoc.id;
+        if (referredBy) {
+            const referrerRef = doc(db, 'users', referredBy);
+            const referrerSnap = await transaction.get(referrerRef);
 
-            // 1. Log to Referrals Collection
+            // Verification: Referrer must still exist for the transaction to be valid
+            if (!referrerSnap.exists()) {
+               referredBy = null;
+            } else {
+               // 1. Log to Referrals Collection
             const referralRef = doc(collection(db, 'referrals'));
             transaction.set(referralRef, {
               referrerId: referredBy,

@@ -334,7 +334,7 @@ export class PointTransactionEngine {
         context: 'SYSTEM_VALIDATION_FAILURE',
         metadata: { ...request, engineVersion: '5.0.0-PRO' }
       });
-    } catch (e) {
+    } catch (_e) {
       // Background logging failsafe
     }
   }

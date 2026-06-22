@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         setIsRestoring(false);
       }
-    }, 12000); // 12 seconds
+    }, 30000); // 30 seconds
     return () => clearTimeout(timer);
   }, [loading, systemError]);
 
@@ -182,8 +182,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const referralCode = generateReferralCode(user.uid);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
 
     const newUserData: UserData = {
       uid: user.uid,
@@ -192,11 +193,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       points: 0,
       referralCode,
       referredBy,
-      streak: 1,
+      streak: 0,
       totalEarnedToday: 0,
       xp: 0,
       level: 1,
-      lastRewardDate: Timestamp.fromDate(today),
+      lastRewardDate: Timestamp.fromDate(yesterday),
       createdAt: Timestamp.now(),
       role: role as 'admin' | 'user',
       isBanned: false,

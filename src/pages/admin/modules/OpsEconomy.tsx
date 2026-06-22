@@ -70,7 +70,7 @@ const OpsEconomy: React.FC = () => {
         let totalXp = 0;
 
         if (configSnap.exists()) {
-           totalPts = configSnap.data().totalPointsLiability || 0;
+           totalPts = configSnap.data().totalPTSLiability || 0;
            totalXp = configSnap.data().totalXpDistributed || 0;
         } else {
            // Fallback for smaller user bases (< 1000)
@@ -197,9 +197,9 @@ const OpsEconomy: React.FC = () => {
 
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total Points Supply</p>
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">Total PTS Supply</p>
              <p className="text-2xl md:text-3xl font-mono font-bold text-text-primary mb-1 md:mb-2 truncate">{(stats.ecosystemPoints || 0)?.toLocaleString()}</p>
-             <div className="flex items-center gap-2 text-primary font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> Points Supply</div>
+             <div className="flex items-center gap-2 text-primary font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em]"><Zap size={12} /> PTS Supply</div>
           </div>
           <div className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-3 md:mb-4">USD Liability</p>
@@ -255,11 +255,11 @@ const OpsEconomy: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                    {[
-                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 10} PTS` },
-                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPoints || 50} PTS` },
+                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPTS || 10} PTS` },
+                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPTS || 50} PTS` },
                      { label: 'Win Multiplier', value: `${economyConfig?.rewards?.predictionWinMultiplier?.toFixed(1) || '2.0'}X` },
                      { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },
-                     { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPoints || 10000).toLocaleString()} PTS` },
+                     { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPTS || 10000).toLocaleString()} PTS` },
                      { label: 'Daily Point Cap', value: `${(economyConfig?.security?.dailyRewardCap || 5000).toLocaleString()} PTS` },
                    ].map((item) => (
                      <div key={item.label} className="flex items-center justify-between p-5 rounded-2xl bg-surface-bright/50 border border-border group hover:border-primary/20 transition-all">
@@ -307,7 +307,7 @@ const OpsEconomy: React.FC = () => {
                          <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login PTS</label>
-                               <input type="number" value={economyConfig.rewards.dailyLoginPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <input type="number" value={economyConfig.rewards.dailyLoginPTS} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login XP</label>
@@ -315,7 +315,7 @@ const OpsEconomy: React.FC = () => {
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral PTS</label>
-                               <input type="number" value={economyConfig.rewards.referralBonusPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <input type="number" value={economyConfig.rewards.referralBonusPTS} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Win Multiplier</label>
@@ -333,7 +333,7 @@ const OpsEconomy: React.FC = () => {
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Withdrawal PTS</label>
-                               <input type="number" value={economyConfig.thresholds.minWithdrawalPoints} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, minWithdrawalPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <input type="number" value={economyConfig.thresholds.minWithdrawalPTS} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, minWithdrawalPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                          </div>
                       </section>
@@ -416,7 +416,7 @@ const OpsEconomy: React.FC = () => {
                               onChange={e => setAdjustForm(prev => ({ ...prev, isXp: e.target.value === 'XP' }))}
                               className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-black uppercase tracking-widest appearance-none"
                             >
-                               <option value="POINTS" className="bg-surface">Pulse Points</option>
+                               <option value="POINTS" className="bg-surface">Pulse PTS</option>
                                <option value="XP" className="bg-surface">System XP</option>
                             </select>
                          </div>

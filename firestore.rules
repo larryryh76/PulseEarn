@@ -73,12 +73,14 @@ service cloud.firestore {
     match /campaigns/{campaignId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
+      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']);
       allow write: if isAdmin();
     }
 
     match /tasks/{taskId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
+      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount', 'totalDistributed', 'totalClaims']);
       allow write: if isAdmin();
     }
 

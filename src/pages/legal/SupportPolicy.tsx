@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const SupportPolicy: React.FC = () => {
   return (
-    <DocLayout title="Support Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Support Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Support Availability</h2>
         <p>

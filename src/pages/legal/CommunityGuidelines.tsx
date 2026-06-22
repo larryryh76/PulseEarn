@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const CommunityGuidelines: React.FC = () => {
   return (
-    <DocLayout title="Community Guidelines" lastUpdated="June 20, 2026">
+    <DocLayout title="Community Guidelines" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Be Respectful</h2>
         <p>

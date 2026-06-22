@@ -29,7 +29,7 @@ const STEPS: Step[] = [
   },
   {
     title: "How Rewards Work",
-    description: "Points (PTS) are your currency. 1,000 PTS = $1. XP builds your reputation and unlocks higher tier campaigns.",
+    description: "PTS (PTS) are your currency. 1,000 PTS = $1. XP builds your reputation and unlocks higher tier campaigns.",
     icon: Zap,
     color: "text-accent"
   },

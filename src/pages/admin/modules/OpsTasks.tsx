@@ -159,7 +159,7 @@ const OpsTasks: React.FC = () => {
                             <div className="flex items-center gap-5">
                                <div>
                                   <p className="text-xs md:text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
-                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">Points</p>
+                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">PTS</p>
                                </div>
                                <div className="w-px h-6 bg-surface-bright" />
                                <div>

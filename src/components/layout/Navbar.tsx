@@ -63,7 +63,7 @@ const Navbar: React.FC = () => {
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden lg:flex items-center gap-10">
             {currentUser ? (
               <>
                 <div className="flex items-center gap-6">
@@ -132,7 +132,7 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Actions */}
-          <div className="flex md:hidden items-center gap-4 z-50">
+          <div className="flex lg:hidden items-center gap-4 z-50">
             <button
                onClick={toggleTheme}
                className="p-2 text-text-secondary hover:text-text-primary transition-all bg-surface-glass rounded-lg border border-border"
@@ -167,7 +167,7 @@ const Navbar: React.FC = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="fixed inset-0 bg-background z-40 pt-24 px-6 md:hidden"
+              className="fixed inset-0 bg-background z-40 pt-24 px-6 lg:hidden"
             >
               <div className="flex flex-col gap-8">
                 {currentUser ? (

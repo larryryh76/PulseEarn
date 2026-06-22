@@ -203,7 +203,7 @@ const OpsCampaignDetail: React.FC = () => {
                             <Zap size={20} className="text-warning" />
                          </div>
                          <p className="text-3xl font-mono font-bold text-text-primary">{campaign.remainingPool?.toLocaleString() || 0}</p>
-                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Remaining Points</p>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Remaining PTS</p>
                       </Card>
                    </div>
 
@@ -271,7 +271,7 @@ const OpsCampaignDetail: React.FC = () => {
                                   <div className="flex items-center gap-3">
                                      <div>
                                         <p className="text-xs font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
-                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">Points</p>
+                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">PTS</p>
                                      </div>
                                      <div className="w-px h-4 bg-border" />
                                      <div>

@@ -57,7 +57,7 @@ const Hero: React.FC = () => {
               transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="text-text-secondary text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-medium px-4"
             >
-              Discover a transparent reward ecosystem. Earn points through verified community activities and market-based forecasting campaigns.
+              Discover a transparent reward ecosystem. Earn PTS through verified community activities and market-based forecasting campaigns.
             </motion.p>
           </motion.div>
 

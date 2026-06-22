@@ -265,20 +265,20 @@ const Wallet: React.FC = () => {
             {transactions.length > 0 ? (
               transactions.map((tx) => (
                 <div key={tx.id} onClick={() => setSelectedTx(tx)} className="flex items-center justify-between p-4 sm:p-6 bg-surface border border-border rounded-2xl sm:rounded-[1.5rem] hover:bg-surface-bright transition-all group cursor-pointer overflow-hidden">
-                  <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                  <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
                     <div className={cn(
                       "w-10 h-10 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center transition-all shrink-0",
                       tx.amount > 0 ? "bg-success/5 text-success border-success/10" : "bg-surface-bright text-text-primary border-border group-hover:border-primary/30"
                     )}>
                       {tx.amount > 0 ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm font-bold text-text-primary group-hover:text-primary transition-colors truncate">{mapTransactionType(tx.type)}</p>
                       <p className="text-[8px] sm:text-[10px] text-text-tertiary font-bold uppercase mt-1 tracking-[0.1em] truncate">
                         {(tx.timestamp?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || "N/A")}
                       </p>
                       {/* Mobile-only yield display */}
-                      <div className="xs:hidden mt-1.5 flex items-baseline gap-2">
+                      <div className="sm:hidden mt-1.5 flex items-baseline gap-2">
                          <span className={cn("text-[10px] font-mono font-bold", tx.amount > 0 ? "text-success" : "text-white")}>
                             {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
                          </span>
@@ -286,8 +286,8 @@ const Wallet: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0">
-                    <div className="hidden xs:block">
+                  <div className="text-right flex items-center gap-3 sm:gap-6 shrink-0 ml-auto">
+                    <div className="hidden sm:block">
                       <p className={cn(
                         "text-xs sm:text-sm font-bold font-mono tracking-tight",
                         tx.amount > 0 ? "text-success" : "text-text-primary"

@@ -71,7 +71,7 @@ const OpsOverview: React.FC = () => {
       const configSnap = await getDoc(configRef);
       let totalPts = 0;
       if (configSnap.exists()) {
-         totalPts = configSnap.data().totalPointsLiability || 0;
+         totalPts = configSnap.data().totalPTSLiability || 0;
       } else {
          // Fallback for smaller user bases (< 1000)
          const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
@@ -165,7 +165,7 @@ const OpsOverview: React.FC = () => {
 
        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
           {metricItem('Total Users', stats.totalUsers, Users, 'text-primary', '/admin/users')}
-          {metricItem('24h Points Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
+          {metricItem('24h PTS Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
           {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
           {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
        </div>

@@ -3,22 +3,22 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const RewardPolicy: React.FC = () => {
   return (
-    <DocLayout title="Reward Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Reward Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Overview</h2>
         <p>
-          PulseEarn utilizes a dual-currency system (Points and XP) to reward user engagement. This policy outlines how rewards are earned, calculated, and distributed within our ecosystem.
+          PulseEarn utilizes a dual-currency system (PTS and XP) to reward user engagement. This policy outlines how rewards are earned, calculated, and distributed within our ecosystem.
         </p>
       </section>
 
       <section>
-        <h2>2. Points (PTS)</h2>
+        <h2>2. PTS (PTS)</h2>
         <p>
-          Points are our primary reward currency. They represent measurable value and are convertible to real-world rewards.
+          PTS are our primary reward currency. They represent measurable value and are convertible to real-world rewards.
         </p>
         <ul>
-          <li><strong>Standard Conversion:</strong> 1,000 Points = $1.00 USD.</li>
-          <li><strong>Minimum Withdrawal:</strong> 10,000 Points ($10.00 USD).</li>
+          <li><strong>Standard Conversion:</strong> 1,000 PTS = $1.00 USD.</li>
+          <li><strong>Minimum Withdrawal:</strong> 10,000 PTS ($10.00 USD).</li>
           <li><strong>Maximum Withdrawal:</strong> Limits may apply based on user level and account verification status.</li>
         </ul>
       </section>
@@ -26,7 +26,7 @@ const RewardPolicy: React.FC = () => {
       <section>
         <h2>3. XP & Leveling</h2>
         <p>
-          Experience Points (XP) represent your platform reputation and seniority. XP cannot be converted to cash but unlocks premium features and higher reward multipliers.
+          Experience PTS (XP) represent your platform reputation and seniority. XP cannot be converted to cash but unlocks premium features and higher reward multipliers.
         </p>
         <ul>
           <li><strong>Progression:</strong> Leveling follows an exponential x3 curve (e.g., Level 2 at 1,000 XP, Level 3 at 3,000 XP).</li>

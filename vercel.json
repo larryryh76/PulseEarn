@@ -21,6 +21,12 @@
       "headers": [
         { "key": "Content-Type", "value": "text/plain" }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+      ]
     }
   ]
 }

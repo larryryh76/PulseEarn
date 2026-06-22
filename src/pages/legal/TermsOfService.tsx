@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const TermsOfService: React.FC = () => {
   return (
-    <DocLayout title="Terms of Service" lastUpdated="June 20, 2026">
+    <DocLayout title="Terms of Service" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Agreement to Terms</h2>
         <p>
@@ -21,12 +21,12 @@ const TermsOfService: React.FC = () => {
       <section>
         <h2>3. Reward Program Rules</h2>
         <p>
-          The Platform provides rewards (Points/XP) for completing specific tasks, campaigns, and referrals.
+          The Platform provides rewards (PTS/XP) for completing specific tasks, campaigns, and referrals.
         </p>
         <ul>
           <li><strong>Good Faith Participation:</strong> You must complete tasks honestly and according to the provided instructions.</li>
           <li><strong>Verification:</strong> All task completions are subject to verification. We reserve the right to deny rewards for incomplete, inaccurate, or fraudulent submissions.</li>
-          <li><strong>Conversion:</strong> Points are convertible to rewards at the current rate specified in our Reward Policy (standard: 1,000 PTS = $1).</li>
+          <li><strong>Conversion:</strong> PTS are convertible to rewards at the current rate specified in our Reward Policy (standard: 1,000 PTS = $1).</li>
           <li><strong>Expiration:</strong> Inactive accounts (no login for 90 days) may have their point balances expired.</li>
         </ul>
       </section>

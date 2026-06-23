@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const CookiePolicy: React.FC = () => {
   return (
-    <DocLayout title="Cookie Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Cookie Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. What are Cookies?</h2>
         <p>

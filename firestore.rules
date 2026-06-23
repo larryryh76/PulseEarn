@@ -25,8 +25,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && request.auth != null && request.query.limit <= 1);
       allow list: if isAdmin();
       allow create: if isOwner(userId);
-      allow update: if isAdmin() || (isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isRoot', 'points', 'xp', 'level', 'status', 'isBanned', 'isFlagged', 'totalWithdrawn', 'streak', 'totalEarnedToday']));
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
 
       // Sub-collections
@@ -64,8 +63,8 @@ service cloud.firestore {
 
     // 3. System Claims (Idempotency)
     match /system_claims/{claimId} {
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
       allow list: if isAdmin();
       allow update, delete: if isAdmin();
     }
@@ -74,24 +73,21 @@ service cloud.firestore {
     match /campaigns/{campaignId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
+      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']);
       allow write: if isAdmin();
-      // Allow users to update global counters atomically during automated task completion
-      allow update: if isAuthenticated() &&
-        request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['completionCount', 'totalDistributed', 'totalClaims']);
     }
 
     match /tasks/{taskId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
+      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount', 'totalDistributed', 'totalClaims']);
       allow write: if isAdmin();
     }
 
     match /task_claims/{claimId} {
-      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid &&
-        request.resource.data.validationState == 'PENDING' &&
-        request.resource.data.completionState == 'COMPLETED';
+      allow read: if isAuthenticated();
+      allow list: if isAdmin();
+      allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
 
@@ -104,17 +100,14 @@ service cloud.firestore {
     match /user_system_tasks/{id} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'systemTaskId', 'progress', 'target', 'category']));
-      allow delete: if isAdmin();
+      allow write: if isAuthenticated();
     }
 
     // 5. User Predictions
     match /user_predictions/{predictionId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -123,8 +116,8 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
       allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
-      allow update: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid));
       allow delete: if isAdmin();
     }
 
@@ -145,7 +138,8 @@ service cloud.firestore {
     // 8. Withdrawals
     match /withdrawals/{withdrawalId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'PENDING';
+      allow list: if isAdmin();
+      allow create: if isAuthenticated();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -165,7 +159,7 @@ service cloud.firestore {
 
     match /system_security/{id} {
       allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow write: if isAuthenticated();
     }
 
     match /system_uploads/{id} {

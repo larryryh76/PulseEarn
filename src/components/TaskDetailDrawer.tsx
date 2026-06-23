@@ -73,7 +73,7 @@ const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
               {/* REWARD SECTION (TOP HIERARCHY) */}
               <section className="grid grid-cols-2 gap-3">
                  <div className="p-4 rounded-2xl bg-surface-bright border border-border shadow-inner group">
-                    <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-2 opacity-50 group-hover:opacity-100 transition-opacity">Reward Points</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-2 opacity-50 group-hover:opacity-100 transition-opacity">Reward PTS</p>
                     <div className="flex items-baseline gap-1.5">
                        <span className="text-2xl font-mono font-bold text-success tabular-nums">{task.rewardAmount.toLocaleString()}</span>
                        <span className="text-[9px] font-black text-text-tertiary uppercase">PTS</span>

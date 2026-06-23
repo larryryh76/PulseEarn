@@ -125,8 +125,6 @@ const Dashboard: React.FC = () => {
     return rail.sort((a, b) => b.priority - a.priority);
   }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
 
-  const { systemError } = useAuth();
-
   if (loading) return (
     <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
       <div className="flex items-center gap-4">
@@ -142,6 +140,8 @@ const Dashboard: React.FC = () => {
       </div>
     </div>
   );
+
+  const { systemError } = useAuth();
 
   if (systemError) return null; // MaintenanceOverlay handled in AuthContext
 
@@ -409,33 +409,16 @@ const Dashboard: React.FC = () => {
                 <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-6 md:space-y-8 group hover:border-primary/20 transition-all">
                    <div className="flex justify-between items-start">
                       <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
-                         <CheckCircle2 size={20} />
+                         <TrendingUp size={20} />
                       </div>
                       <div className="text-right">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">System Status</p>
-                         <p className={cn("text-xl font-bold tracking-tighter italic uppercase", systemError ? "text-danger" : "text-success")}>
-                            {systemError ? 'Service Halted' : 'Operational'}
-                         </p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Global Rank</p>
+                         <p className="text-xl font-bold text-text-primary tracking-tighter italic">TOP 1%</p>
                       </div>
                    </div>
                    <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Network Authority</h4>
-                      <div className="flex flex-col gap-2">
-                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
-                            <span>Identity Sync</span>
-                            <span className={userData ? "text-success" : "text-warning animate-pulse"}>
-                               {userData ? 'Verified' : 'Handshake...'}
-                            </span>
-                         </div>
-                         <div className="h-1 w-full bg-surface-bright rounded-full overflow-hidden">
-                            <motion.div
-                               initial={{ width: 0 }}
-                               animate={{ width: userData ? '100%' : '30%' }}
-                               className={cn("h-full", userData ? "bg-success" : "bg-warning")}
-                            />
-                         </div>
-                      </div>
-                      <p className="text-[10px] text-text-tertiary leading-relaxed">Authoritative handshake established with PulseEarn mainnet node.</p>
+                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Earning Stats</h4>
+                      <p className="text-xs text-text-tertiary leading-relaxed">Your participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep active to maximize rewards.</p>
                    </div>
                 </div>
 
@@ -457,16 +440,16 @@ const Dashboard: React.FC = () => {
             </section>
           </div>
 
-          {/* ACTIVITY FEED (Live Feed) */}
+          {/* ACTIVITY FEED */}
           <div className="space-y-16">
             {activities.length > 0 && (
               <section className="space-y-8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                    <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Live Feed</h2>
+                    <ActivityIcon size={18} className="text-primary" />
+                    <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
                   </div>
-                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Audit Ledger</Link>
+                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">See All</Link>
                 </div>
 
                 <div className="space-y-2">

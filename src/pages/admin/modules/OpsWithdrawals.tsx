@@ -70,7 +70,7 @@ const OpsWithdrawals: React.FC = () => {
 
          const res = await PointTransactionEngine.execute({
             userId,
-            amount: 0, // Points already debited at request time
+            amount: 0, // PTS already debited at request time
             type: 'withdrawal_finalized' as any,
             source: 'Withdrawal Payout',
             claimId: `paid_${id}`,
@@ -91,7 +91,7 @@ const OpsWithdrawals: React.FC = () => {
                type: 'admin_adjustment',
                source: 'Withdrawal Rejected',
                claimId: `rev_${id}`,
-               description: `Points reversal for rejected withdrawal #${id.slice(0,8)}`,
+               description: `PTS reversal for rejected withdrawal #${id.slice(0,8)}`,
                bypassLock: true
             });
          }

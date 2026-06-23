@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const WithdrawalPolicy: React.FC = () => {
   return (
-    <DocLayout title="Withdrawal Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Withdrawal Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Withdrawal Eligibility</h2>
         <p>
@@ -11,7 +11,7 @@ const WithdrawalPolicy: React.FC = () => {
         </p>
         <ul>
           <li><strong>Verified Email:</strong> Your registered email address must be verified.</li>
-          <li><strong>Minimum Balance:</strong> You must have a minimum balance of 10,000 Points ($10.00 USD).</li>
+          <li><strong>Minimum Balance:</strong> You must have a minimum balance of 10,000 PTS ($10.00 USD).</li>
           <li><strong>Good Standing:</strong> Your account must not be flagged for fraudulent activity or pending investigation.</li>
         </ul>
       </section>
@@ -22,7 +22,7 @@ const WithdrawalPolicy: React.FC = () => {
           Withdrawals are calculated based on the following standard conversion rate:
         </p>
         <ul>
-          <li><strong>1,000 Points = $1.00 USD</strong></li>
+          <li><strong>1,000 PTS = $1.00 USD</strong></li>
           <li>PulseEarn does not currently charge withdrawal fees, but external payment processors or network fees (for crypto) may be deducted from the final amount.</li>
         </ul>
       </section>
@@ -45,7 +45,7 @@ const WithdrawalPolicy: React.FC = () => {
           A withdrawal request may be rejected if:
         </p>
         <ul>
-          <li>Points were earned through fraudulent activity (e.g., botting, multi-accounting).</li>
+          <li>PTS were earned through fraudulent activity (e.g., botting, multi-accounting).</li>
           <li>Task evidence is found to be fake or reused.</li>
           <li>Referral bonuses were generated through self-referral.</li>
         </ul>

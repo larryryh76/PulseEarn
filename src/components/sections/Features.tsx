@@ -31,8 +31,8 @@ const Features: React.FC = () => {
       color: 'text-primary',
     },
     {
-      title: 'Earn Points',
-      description: 'Earn points for every task you complete and prediction you make.',
+      title: 'Earn PTS',
+      description: 'Earn PTS for every task you complete and prediction you make.',
       icon: CreditCard,
       color: 'text-primary',
     },

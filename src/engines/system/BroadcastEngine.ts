@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, QuerySnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, Query } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 export class BroadcastEngine {
@@ -15,7 +15,7 @@ export class BroadcastEngine {
           ? query(collection(db, 'users'), orderBy('__name__'), startAfter(lastDoc), limit(FETCH_LIMIT))
           : query(collection(db, 'users'), orderBy('__name__'), limit(FETCH_LIMIT));
 
-       const snap: QuerySnapshot<DocumentData> = await getDocs(q);
+       const snap = await getDocs(q);
        if (snap.empty) {
           hasMore = false;
           break;

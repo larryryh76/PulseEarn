@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const FraudPolicy: React.FC = () => {
   return (
-    <DocLayout title="Fraud & Integrity Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Fraud & Integrity Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Commitment to Integrity</h2>
         <p>

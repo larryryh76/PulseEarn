@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const PrivacyPolicy: React.FC = () => {
   return (
-    <DocLayout title="Privacy Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Privacy Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Introduction</h2>
         <p>
@@ -31,7 +31,7 @@ const PrivacyPolicy: React.FC = () => {
         </p>
         <ul>
           <li>To provide, operate, and maintain our platform.</li>
-          <li>To verify task completions and distribute rewards (Points/XP).</li>
+          <li>To verify task completions and distribute rewards (PTS/XP).</li>
           <li>To prevent fraud, multiple account creation, and system abuse.</li>
           <li>To communicate with you regarding account updates, security alerts, and support inquiries.</li>
           <li>To analyze platform performance and improve user experience.</li>

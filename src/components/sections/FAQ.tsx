@@ -11,7 +11,7 @@ const FAQ: React.FC = () => {
     },
     {
       question: "How are rewards paid out?",
-      answer: "Points you earn can be redeemed for various rewards, including popular cryptocurrencies like USDT, Bitcoin, and Ethereum, once you reach the minimum balance."
+      answer: "PTS you earn can be redeemed for various rewards, including popular cryptocurrencies like USDT, Bitcoin, and Ethereum, once you reach the minimum balance."
     },
     {
       question: "What is the minimum for withdrawal?",

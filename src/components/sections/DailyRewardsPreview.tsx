@@ -23,12 +23,12 @@ const DailyRewardsPreview: React.FC = () => {
   const btc = marketData.find(c => c.id === 'bitcoin');
 
   // Priority 7: Accuracy - Real values from Economy Authority
-  const dailyPts = config?.rewards?.dailyLoginPoints || 10;
+  const dailyPts = config?.rewards?.dailyLoginPTS || 10;
   const dailyUsd = dailyPts / 1000;
 
   const rewards = [
     {
-      title: 'Daily Points',
+      title: 'Daily PTS',
       amount: `+${dailyPts} PTS`,
       type: 'PTS',
       status: 'Active',
@@ -143,5 +143,6 @@ const DailyRewardsPreview: React.FC = () => {
     </section>
   );
 };
+
 
 export default DailyRewardsPreview;

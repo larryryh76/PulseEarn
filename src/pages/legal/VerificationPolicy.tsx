@@ -3,7 +3,7 @@ import DocLayout from '../../components/layout/DocLayout';
 
 const VerificationPolicy: React.FC = () => {
   return (
-    <DocLayout title="Verification Policy" lastUpdated="June 20, 2026">
+    <DocLayout title="Verification Policy" lastUpdated="June 22, 2026">
       <section>
         <h2>1. Purpose of Verification</h2>
         <p>

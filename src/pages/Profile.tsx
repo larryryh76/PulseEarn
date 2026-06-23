@@ -103,7 +103,7 @@ const Profile: React.FC = () => {
   };
 
   const xpStats = getXpProgress(userData?.xp || 0);
-  const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A");
+  const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
   if (txLoading && !userData) return (
     <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">
@@ -251,7 +251,7 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="ledger-row border-0">
                          <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Last Secure Login</span>
-                         <span className="data-mono">{(userData?.security?.lastLogin?.toDate?.()?.toLocaleDateString() || "N/A")}</span>
+                         <span className="data-mono">{(userData?.security?.lastLogin?.toDate?.()?.toLocaleDateString() || "N/A") || 'N/A'}</span>
                       </div>
                     </Card>
                   </section>

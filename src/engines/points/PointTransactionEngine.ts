@@ -31,8 +31,8 @@ export interface PointTransactionRequest {
 }
 
 export type PointTransactionResult =
-  | { success: true; txId: string; predictionId?: string; newLevel?: number }
-  | { success: false; error: string };
+  | { success: true; txId: string; predictionId?: string; newLevel?: number; error?: never }
+  | { success: false; error: string; txId?: never; predictionId?: never; newLevel?: never };
 
 export class PointTransactionEngine {
   /**
@@ -135,12 +135,16 @@ export class PointTransactionEngine {
         const newLevel = calculateLevel(newXp, xpPerLevel);
 
         // 7. Atomic Write
+        const now = new Date();
+        const lastAction = userData.lastActionTimestamp?.toDate();
+        const isNewDay = !lastAction || now.toISOString().split('T')[0] !== lastAction.toISOString().split('T')[0];
+
         const updates: any = {
           points: increment(amount),
           xp: newXp,
           level: newLevel,
           'stats.totalEarnings': increment(amount > 0 ? amount : 0),
-          totalEarnedToday: amount > 0 ? increment(amount) : (userData.totalEarnedToday || 0),
+          totalEarnedToday: isNewDay ? (amount > 0 ? amount : 0) : increment(amount > 0 ? amount : 0),
           lastActionTimestamp: serverTimestamp(),
           execution_lock: false, // Release Lock
           execution_lock_at: null,
@@ -319,23 +323,6 @@ export class PointTransactionEngine {
       await this.logValidationFailure(userId, claimId, error.message, { ...request, severity, code: error.code });
 
       return { success: false, error: error.message };
-    }
-  }
-
-  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
-    try {
-      await setDoc(doc(collection(db, 'system_anomalies')), {
-        userId,
-        claimId,
-        error,
-        requestType: request.type || request.code || 'UNKNOWN',
-        timestamp: serverTimestamp(),
-        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
-        context: 'SYSTEM_VALIDATION_FAILURE',
-        metadata: { ...request, engineVersion: '5.0.0-PRO' }
-      });
-    } catch (_e) {
-      // Background logging failsafe
     }
   }
 
@@ -631,4 +618,20 @@ export class PointTransactionEngine {
     }
   }
 
+  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
+    try {
+      await setDoc(doc(collection(db, 'system_anomalies')), {
+        userId,
+        claimId,
+        error,
+        requestType: request.type || request.code || 'UNKNOWN',
+        timestamp: serverTimestamp(),
+        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
+        context: 'SYSTEM_VALIDATION_FAILURE',
+        metadata: { ...request, engineVersion: '5.0.0-PRO' }
+      });
+    } catch (e) {
+      // Background logging failsafe
+    }
+  }
 }

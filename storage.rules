@@ -29,7 +29,10 @@ service firebase.storage {
         firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
         isAdmin()
       );
-      allow write: if isAuthenticated(); // Controlled by SupportEngine logic and short-lived tokens
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
+        isAdmin()
+      );
     }
 
     // Task submission proof

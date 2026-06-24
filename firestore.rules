@@ -25,12 +25,19 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin() || (isAuthenticated() && request.auth != null && request.query.limit <= 1);
       allow list: if isAdmin();
 
-      // CRITICAL: Prevent initial account escalation
+      // CRITICAL: Prevent initial account escalation with explicit allowlist
       allow create: if isOwner(userId) &&
                       request.resource.data.role == 'user' &&
                       request.resource.data.points == 0 &&
                       request.resource.data.xp == 0 &&
-                      request.resource.data.isBanned == false;
+                      request.resource.data.isBanned == false &&
+                      !request.resource.data.keys().hasAny(['isRoot', 'isAdmin']) &&
+                      request.resource.data.keys().hasOnly([
+                        'uid', 'email', 'username', 'role', 'points', 'xp', 'level',
+                        'isBanned', 'createdAt', 'lastLoginAt', 'avatarUrl', 'bio',
+                        'preferences', 'fingerprint', 'stats', 'streak', 'onboardingCompleted',
+                        'totalEarnedToday', 'lastActionTimestamp', 'lastRewardDate', 'totalWithdrawn', 'avatar'
+                      ]);
 
       // CRITICAL: Field-restricted updates (Phase A)
       allow update: if isAdmin() || (
@@ -120,7 +127,7 @@ service cloud.firestore {
 
     match /user_system_tasks/{id} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      allow list: if isAdmin();
       allow write: if isOwner(get(/databases/$(database)/documents/user_system_tasks/$(id)).data.userId) ||
                       (resource == null && request.resource.data.userId == request.auth.uid) ||
                       isAdmin();
@@ -129,8 +136,8 @@ service cloud.firestore {
     // 5. User Predictions
     match /user_predictions/{predictionId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+      allow create: if isAdmin();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -138,7 +145,7 @@ service cloud.firestore {
     // 6. Referrals
     match /referrals/{referralId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
-      allow list: if isAdmin() || (isAuthenticated() && (request.query.filters.referrerId == request.auth.uid || request.query.filters.refereeId == request.auth.uid));
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
       allow update: if isAdmin() || (
         isAuthenticated() &&
@@ -151,7 +158,7 @@ service cloud.firestore {
     // 7. Support Tickets
     match /support_tickets/{ticketId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow list: if isAuthenticated() && (request.query.filters.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin() || (
         isAuthenticated() &&
@@ -170,9 +177,12 @@ service cloud.firestore {
     match /withdrawals/{withdrawalId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin();
+      // Only allow client to create withdrawal requests with PENDING status
+      // Server must validate and debit points before processing
       allow create: if isAuthenticated() &&
                       request.resource.data.userId == request.auth.uid &&
                       request.resource.data.status == 'PENDING' &&
+                      request.resource.data.amount > 0 &&
                       request.resource.data.keys().hasOnly(['userId', 'amount', 'method', 'address', 'status', 'createdAt', 'metadata']);
       allow update: if isAdmin();
       allow delete: if isAdmin();

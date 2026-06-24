@@ -9,7 +9,7 @@ import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { auth } from '../firebase/config';
 
 const VerifyEmail: React.FC = () => {
-  const { currentUser, logout, sendVerification, userData } = useAuth();
+  const { currentUser, logout, sendVerification } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -55,6 +55,7 @@ const VerifyEmail: React.FC = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   // Bypass for admin
+  const { userData } = useAuth();
   const isAdmin = userData?.role === 'admin';
   if (currentUser.emailVerified || isAdmin) {
     const target = isAdmin ? '/admin' : '/dashboard';

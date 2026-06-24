@@ -11,7 +11,6 @@ import {
   Check,
   HelpCircle,
   Smartphone,
-  ChevronRight,
   Zap,
   Calendar,
   ShieldCheck,
@@ -395,15 +394,10 @@ const Profile: React.FC = () => {
                     <div className="w-1 h-5 bg-primary rounded-full" />
                     <h2 className="text-lg font-bold tracking-tight">Security & Privacy</h2>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button className="flex items-center justify-between p-6 bg-surface border border-border rounded-2xl hover:border-primary/30 transition-all text-left">
-                       <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Rotate Credentials</span>
-                       <ChevronRight size={14} className="text-text-tertiary" />
-                    </button>
-                    <button className="flex items-center justify-between p-6 bg-surface border border-border rounded-2xl hover:border-primary/30 transition-all text-left">
-                       <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Session Manager</span>
-                       <ChevronRight size={14} className="text-text-tertiary" />
-                    </button>
+                  <div className="p-12 text-center border border-dashed border-border rounded-[2rem] bg-surface-bright/30">
+                     <ShieldCheck size={40} className="mx-auto text-text-tertiary/20 mb-4" />
+                     <p className="text-[10px] font-black uppercase text-text-tertiary tracking-[0.2em]">Privacy protections are active</p>
+                     <p className="text-[9px] text-text-tertiary/50 mt-1 uppercase font-bold tracking-widest">Advanced security controls are managed by the identity provider</p>
                   </div>
                 </section>
               </motion.div>

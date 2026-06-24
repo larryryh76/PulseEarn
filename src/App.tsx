@@ -65,6 +65,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isAdmin = userData?.role === 'admin';
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }

@@ -13,6 +13,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  setDoc,
   serverTimestamp,
   limit
 } from 'firebase/firestore';
@@ -98,6 +99,38 @@ const OpsWithdrawals: React.FC = () => {
       }
 
       await updateDoc(doc(db, 'withdrawals', id), updateData);
+
+      // Fix #16: Send notifications on withdrawal status changes
+      const notifRef = doc(collection(db, 'users', userId, 'notifications'));
+      if (status === 'APPROVED') {
+        await setDoc(notifRef, {
+          type: 'withdrawal_approved',
+          title: 'Withdrawal Approved',
+          description: `Your withdrawal request #${id.slice(0,8)} has been approved and is being processed.`,
+          withdrawalId: id,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+      } else if (status === 'PAID') {
+        await setDoc(notifRef, {
+          type: 'withdrawal_paid',
+          title: 'Withdrawal Paid',
+          description: `Your withdrawal request #${id.slice(0,8)} has been finalized and sent.`,
+          withdrawalId: id,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+      } else if (status === 'REJECTED') {
+        await setDoc(notifRef, {
+          type: 'withdrawal_rejected',
+          title: 'Withdrawal Rejected',
+          description: `Your withdrawal request #${id.slice(0,8)} was rejected. Points have been returned to your balance.`,
+          withdrawalId: id,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+      }
+
       toast.dismiss(loadingToast);
       toast.success(`Withdrawal ${status.toLowerCase()}`);
     } catch (err) {

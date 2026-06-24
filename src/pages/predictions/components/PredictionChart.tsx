@@ -45,25 +45,50 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
     });
 
     const fetchData = async () => {
+      // Fix #7: Implement fallback for chart data
+      const SYMBOL_MAP: Record<string, string> = {
+        'bitcoin': 'BTC', 'ethereum': 'ETH', 'solana': 'SOL', 'binancecoin': 'BNB', 'ripple': 'XRP',
+        'cardano': 'ADA', 'dogecoin': 'DOGE', 'the-open-network': 'TON', 'avalanche-2': 'AVAX', 'chainlink': 'LINK',
+        'sui': 'SUI', 'tron': 'TRX', 'shiba-inu': 'SHIB', 'pepe': 'PEPE', 'litecoin': 'LTC',
+        'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
+      };
+
       try {
         if (isMounted) setLoading(true);
-        // Fetch 24h data from CoinGecko
-        const res = await axios.get(`https://api.coingecko.com/api/v3/coins/${assetId}/market_chart`, {
-           params: { vs_currency: 'usd', days: '1' }
-        });
+        let chartData = [];
 
-        const prices = res.data.prices; // [timestamp, price]
-        const chartData = prices.map((p: any) => ({
-           time: Math.floor(p[0] / 1000) as any,
-           value: p[1]
-        }));
+        try {
+          // Primary: CoinGecko
+          const res = await axios.get(`https://api.coingecko.com/api/v3/coins/${assetId}/market_chart`, {
+             params: { vs_currency: 'usd', days: '1' }
+          });
+          chartData = res.data.prices.map((p: any) => ({
+             time: Math.floor(p[0] / 1000) as any,
+             value: p[1]
+          }));
+        } catch (cgError) {
+          console.warn('CoinGecko chart failed, falling back to CryptoCompare...', cgError);
+          // Fallback: CryptoCompare
+          const sym = SYMBOL_MAP[assetId];
+          if (sym) {
+            const res = await axios.get(`https://min-api.cryptocompare.com/data/v2/histohour`, {
+              params: { fsym: sym, tsym: 'USD', limit: 24 }
+            });
+            chartData = res.data.Data.Data.map((p: any) => ({
+              time: p.time as any,
+              value: p.close
+            }));
+          } else {
+            throw new Error('No symbol mapping found for fallback');
+          }
+        }
 
-        if (isMounted) {
+        if (isMounted && chartData.length > 0) {
            series.setData(chartData);
            chart.timeScale().fitContent();
         }
       } catch (err) {
-        console.error('Chart Data Error:', err);
+        console.error('All chart data sources failed:', err);
         // Generate simulated data on network failure
         const data = [];
         let time = Math.floor(Date.now() / 1000) - (100 * 60);

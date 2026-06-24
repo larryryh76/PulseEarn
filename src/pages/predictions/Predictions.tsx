@@ -136,7 +136,9 @@ const Predictions: React.FC = () => {
          symbol: activeMarket.symbol,
          direction: prediction,
          entryPrice: coinData?.current_price || activeMarket.price || 0,
-         claimId: predId
+         claimId: predId,
+         // Fix #6: Compute and pass rewardAmount at submission time to prevent drift
+         rewardAmount: stake * (economyConfig?.rewards?.predictionWinMultiplier || 2.0)
       });
 
       if (!result.success) throw new Error(result.error);

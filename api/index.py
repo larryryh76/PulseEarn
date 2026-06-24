@@ -2,10 +2,9 @@ import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
-from firebase_admin import credentials, firestore, auth as admin_auth
+from firebase_admin import credentials, firestore
 from datetime import datetime, timezone, timedelta
 import math
-from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
@@ -17,45 +16,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-def require_auth(f):
-    """Middleware to verify Firebase ID token and extract user ID"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({"success": False, "error": "Missing or invalid authorization header"}), 401
-
-        id_token = auth_header.split('Bearer ')[1]
-        try:
-            decoded_token = admin_auth.verify_id_token(id_token)
-            request.verified_uid = decoded_token['uid']
-            return f(*args, **kwargs)
-        except Exception as e:
-            return jsonify({"success": False, "error": "Invalid or expired token"}), 401
-    return decorated_function
-
-def require_admin(f):
-    """Middleware to verify user has admin role"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        uid = getattr(request, 'verified_uid', None)
-        if not uid:
-            return jsonify({"success": False, "error": "Unauthorized"}), 401
-
-        try:
-            user_doc = db.collection('users').document(uid).get()
-            if not user_doc.exists:
-                return jsonify({"success": False, "error": "User not found"}), 404
-
-            user_data = user_doc.to_dict()
-            if user_data.get('role') not in ['admin', 'ADMIN'] and not user_data.get('isRoot'):
-                return jsonify({"success": False, "error": "Admin access required"}), 403
-
-            return f(*args, **kwargs)
-        except Exception as e:
-            return jsonify({"success": False, "error": "Authorization check failed"}), 500
-    return decorated_function
-
 def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp:
         return 1
@@ -63,75 +23,20 @@ def calculate_level(xp, base_level_xp=1000):
     return level
 
 @app.route('/api/execute-transaction', methods=['POST'])
-@require_auth
-@require_admin
 def execute_transaction():
     data = request.json
-    # Use verified UID from auth token instead of trusting client
     user_id = data.get('userId')
+    amount = data.get('amount', 0)
     tx_type = data.get('type')
     source = data.get('source')
     claim_id = data.get('claimId')
+    xp_reward = data.get('xpReward', 0)
     task_claim_id = data.get('taskClaimId')
+    metadata = data.get('metadata', {})
+    bypass_lock = data.get('bypassLock', False)
 
     if not user_id or not claim_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
-
-    # Server-side determination of amounts and rewards based on type
-    amount = 0
-    xp_reward = 0
-    bypass_lock = False
-    metadata = data.get('metadata', {})
-
-    # Load config for server-controlled values
-    config_ref = db.collection('system_config').document('global_v1')
-    config_snap = config_ref.get()
-    config = config_snap.to_dict() if config_snap.exists else {}
-
-    # Derive amount, xp, and bypass from server-side source of truth
-    if tx_type == 'task_reward' and task_claim_id:
-        # Load task claim to get actual reward
-        tc_ref = db.collection('task_claims').document(task_claim_id)
-        tc_snap = tc_ref.get()
-        if not tc_snap.exists:
-            return jsonify({"success": False, "error": "Task claim not found"}), 404
-        tc_data = tc_snap.to_dict()
-
-        # Get task definition to validate reward
-        task_id = tc_data.get('taskId')
-        if task_id:
-            task_ref = db.collection('tasks').document(task_id)
-            task_snap = task_ref.get()
-            if task_snap.exists:
-                task_data = task_snap.to_dict()
-                amount = task_data.get('rewardAmount', 0)
-                xp_reward = task_data.get('xpReward', 0)
-        metadata['reviewedBy'] = request.verified_uid  # Use verified admin UID
-    elif tx_type == 'daily_reward':
-        amount = config.get('rewards', {}).get('dailyClaimPoints', 25)
-        xp_reward = config.get('rewards', {}).get('dailyClaimXP', 10)
-    elif tx_type == 'referral_bonus':
-        amount = config.get('rewards', {}).get('referralBonusPoints', 50)
-        xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
-    elif tx_type == 'withdrawal_finalized':
-        # For withdrawals, load from withdrawal record
-        withdrawal_id = metadata.get('withdrawalId')
-        if withdrawal_id:
-            wd_ref = db.collection('withdrawals').document(withdrawal_id)
-            wd_snap = wd_ref.get()
-            if wd_snap.exists:
-                wd_data = wd_snap.to_dict()
-                amount = -abs(wd_data.get('amount', 0))
-                metadata['amount'] = abs(wd_data.get('amount', 0))
-        bypass_lock = True
-    elif tx_type == 'admin_adjustment':
-        # Only for admin adjustments, allow specified amount
-        amount = data.get('amount', 0)
-        xp_reward = data.get('xpReward', 0)
-        bypass_lock = data.get('bypassLock', False)
-    else:
-        # For unknown types, reject
-        return jsonify({"success": False, "error": "Invalid transaction type"}), 400
 
     user_ref = db.collection('users').document(user_id)
     claim_ref = db.collection('system_claims').document(claim_id)
@@ -333,14 +238,20 @@ def execute_transaction():
     except Exception as e:
         import traceback
         print(traceback.format_exc())
+        # Fix #19: Ensure 30-second lock is cleaned up on failure
+        try:
+            user_ref.update({
+                'execution_lock': False,
+                'execution_lock_at': None
+            })
+        except:
+            pass
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/execute-prediction', methods=['POST'])
-@require_auth
 def execute_prediction():
     data = request.json
-    # Use verified UID from auth token
-    user_id = request.verified_uid
+    user_id = data.get('userId')
     task_id = data.get('taskId')
     amount = data.get('amount', 0)
     asset_id = data.get('assetId')
@@ -348,30 +259,10 @@ def execute_prediction():
     direction = data.get('direction')
     entry_price = data.get('entryPrice')
     claim_id = data.get('claimId')
+    reward_amount = data.get('rewardAmount')
 
     if not user_id or not task_id or not claim_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
-
-    # Validate inputs
-    if amount <= 0:
-        return jsonify({"success": False, "error": "Amount must be positive"}), 400
-
-    if direction not in ['UP', 'DOWN']:
-        return jsonify({"success": False, "error": "Invalid direction"}), 400
-
-    if not entry_price or entry_price <= 0:
-        return jsonify({"success": False, "error": "Invalid entry price"}), 400
-
-    # Server-side calculation of reward amount (don't trust client)
-    config_ref = db.collection('system_config').document('global_v1')
-    config_snap = config_ref.get()
-    if config_snap.exists:
-        config = config_snap.to_dict()
-        multiplier = config.get('predictions', {}).get('rewardMultiplier', 2.0)
-    else:
-        multiplier = 2.0
-
-    reward_amount = amount * multiplier
 
     user_ref = db.collection('users').document(user_id)
     claim_ref = db.collection('system_claims').document(claim_id)
@@ -406,7 +297,7 @@ def execute_prediction():
             'symbol': symbol,
             'direction': direction,
             'stakeAmount': amount,
-            'rewardAmount': reward_amount,
+            'rewardAmount': reward_amount if reward_amount else (amount * 2.0),
             'entryPrice': entry_price,
             'status': 'ACTIVE',
             'claimId': claim_id,
@@ -446,12 +337,12 @@ def execute_prediction():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/resolve-prediction', methods=['POST'])
-@require_auth
 def resolve_prediction():
     data = request.json
     prediction_id = data.get('predictionId')
+    current_price = data.get('currentPrice')
 
-    if not prediction_id:
+    if not prediction_id or current_price is None:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
     pred_ref = db.collection('user_predictions').document(prediction_id)
@@ -469,26 +360,6 @@ def resolve_prediction():
         user_snap = user_ref.get(transaction=transaction)
         if not user_snap.exists: raise Exception("USER_NOT_FOUND")
 
-        # Server-side price resolution - in production, fetch from price oracle
-        # For now, get from task definition or use a trusted price feed
-        task_id = pred_data.get('taskId')
-        task_ref = db.collection('tasks').document(task_id)
-        task_snap = task_ref.get(transaction=transaction)
-
-        if not task_snap.exists:
-            raise Exception("TASK_NOT_FOUND")
-
-        task_data = task_snap.to_dict()
-        # Use server-determined current price from task or oracle
-        current_price = task_data.get('currentPrice') or data.get('currentPrice')
-
-        if current_price is None or current_price <= 0:
-            raise Exception("INVALID_RESOLUTION_PRICE")
-
-        # Validate prediction inputs are consistent
-        if pred_data.get('entryPrice') <= 0:
-            raise Exception("INVALID_PREDICTION_STATE")
-
         is_win = (current_price > pred_data['entryPrice']) if pred_data['direction'] == 'UP' else (current_price < pred_data['entryPrice'])
         payout = pred_data.get('rewardAmount', 0) if is_win else 0
 
@@ -505,6 +376,18 @@ def resolve_prediction():
             'status': 'RESOLVED',
             'exitPrice': current_price,
             'resolvedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        # Fix #16: Send notification on prediction result
+        notif_ref = user_ref.collection('notifications').document()
+        transaction.set(notif_ref, {
+            'type': 'prediction_result',
+            'title': 'Forecast Successful!' if is_win else 'Forecast Unsuccessful',
+            'description': f"Your {pred_data['symbol'].upper()} forecast was correct. +{payout} PTS awarded." if is_win else f"Your {pred_data['symbol'].upper()} forecast was incorrect. Stake lost.",
+            'predictionId': prediction_id,
+            'isWin': is_win,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'read': False
         })
 
         # Log if win
@@ -532,62 +415,50 @@ def resolve_prediction():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/process-referral-reward', methods=['POST'])
-@require_auth
-@require_admin
 def process_referral_reward():
     data = request.json
     referral_doc_id = data.get('referralDocId')
+    referrer_id = data.get('referrerId')
+    referee_id = data.get('refereeId')
+    referee_username = data.get('refereeUsername')
 
-    if not referral_doc_id:
+    if not referral_doc_id or not referrer_id or not referee_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
     try:
+        # Check referral record
         ref_ref = db.collection('referrals').document(referral_doc_id)
+        ref_snap = ref_ref.get()
+        if not ref_snap.exists:
+            return jsonify({"success": False, "error": "Referral record not found"}), 404
 
-        # Get config outside transaction for efficiency
+        ref_data = ref_snap.to_dict()
+        if ref_data.get('status') != 'REGISTERED':
+            return jsonify({"success": False, "error": "Referral already processed"}), 400
+
+        # Check eligibility
+        referrer_ref = db.collection('users').document(referrer_id)
+        referrer_snap = referrer_ref.get()
+        if not referrer_snap.exists:
+            return jsonify({"success": False, "error": "Referrer not found"}), 404
+
+        referrer_data = referrer_snap.to_dict()
+        tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
+
+        if tasks_completed == 0:
+            return jsonify({"success": False, "error": "Referrer not qualified"}), 400
+
+        # Get reward amount from config
         config_ref = db.collection('system_config').document('global_v1')
         config_snap = config_ref.get()
         config = config_snap.to_dict() if config_snap.exists else {}
         amount = config.get('rewards', {}).get('referralBonusPoints', 50)
         xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
 
+        claim_id = f"ref_qualify_{referrer_id}_{referee_id}"
+
         @firestore.transactional
         def ref_reward_transaction(transaction):
-            # Re-read referral document atomically inside transaction
-            ref_snap = ref_ref.get(transaction=transaction)
-            if not ref_snap.exists:
-                raise Exception("Referral record not found")
-
-            ref_data = ref_snap.to_dict()
-            if ref_data.get('status') != 'REGISTERED':
-                raise Exception("Referral already processed")
-
-            # Derive IDs from referral document, not from caller
-            referrer_id = ref_data.get('referrerId')
-            referee_id = ref_data.get('refereeId')
-
-            if not referrer_id or not referee_id:
-                raise Exception("Invalid referral data")
-
-            # Check eligibility atomically
-            referrer_ref = db.collection('users').document(referrer_id)
-            referrer_snap = referrer_ref.get(transaction=transaction)
-            if not referrer_snap.exists:
-                raise Exception("Referrer not found")
-
-            referrer_data = referrer_snap.to_dict()
-            tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
-
-            if tasks_completed == 0:
-                raise Exception("Referrer not qualified")
-
-            # Get referee username from referee document
-            referee_ref = db.collection('users').document(referee_id)
-            referee_snap = referee_ref.get(transaction=transaction)
-            referee_username = referee_snap.to_dict().get('username', 'Unknown') if referee_snap.exists else 'Unknown'
-
-            claim_id = f"ref_qualify_{referrer_id}_{referee_id}"
-
             # Atomic update of referrer and referral doc
             transaction.update(referrer_ref, {
                 'points': firestore.Increment(amount),

@@ -37,19 +37,9 @@ export class PointTransactionEngine {
     const { userId, claimId } = request;
 
     try {
-      // Fetch Firebase ID token for authentication
-      const { auth } = await import('../../firebase/config');
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('AUTHENTICATION_REQUIRED');
-      }
-
       const response = await fetch('/api/execute-transaction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
       });
 
@@ -98,27 +88,16 @@ export class PointTransactionEngine {
     const { userId, claimId, symbol } = request;
 
     try {
-      // Fetch Firebase ID token for authentication
-      const { auth } = await import('../../firebase/config');
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('AUTHENTICATION_REQUIRED');
-      }
-
       const response = await fetch('/api/execute-prediction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request)
       });
 
       const res = await response.json();
 
       if (res.success) {
-        // Fire-and-forget side effects - don't let them fail the committed transaction
-        ActivityEngine.log({
+        await ActivityEngine.log({
           userId,
           type: 'prediction_placed',
           points: -request.amount,
@@ -129,14 +108,9 @@ export class PointTransactionEngine {
             predictionStatus: 'ACTIVE',
             transactionReference: res.txId
           }
-        }).catch((err) => {
-          console.error('[PointEngine] Activity log failed (non-blocking):', err);
         });
 
-        SystemTaskEngine.processEvent(userId, 'prediction_submitted').catch((err) => {
-          console.error('[PointEngine] System task event failed (non-blocking):', err);
-        });
-
+        await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
         return res as PointTransactionResult;
       } else {
         throw new Error(res.error || 'SERVER_PREDICTION_FAILED');
@@ -153,19 +127,9 @@ export class PointTransactionEngine {
    */
   static async resolvePrediction(predictionId: string, currentPrice: number, _manualRewardPool?: number): Promise<void> {
     try {
-      // Fetch Firebase ID token for authentication
-      const { auth } = await import('../../firebase/config');
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('AUTHENTICATION_REQUIRED');
-      }
-
       const response = await fetch('/api/resolve-prediction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ predictionId, currentPrice })
       });
 

@@ -158,7 +158,7 @@ const Dashboard: React.FC = () => {
           <div className="space-y-1">
              <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: ENTITY_READ_FAILURE</p>
              <p className="text-white/40 text-xs max-w-xs mx-auto font-bold uppercase tracking-widest leading-relaxed px-4">
-                We could not establish an authoritative handshake with your profile node.
+                We could not establish an authoritative syncing with your profile node.
              </p>
           </div>
        </div>

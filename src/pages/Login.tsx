@@ -57,14 +57,8 @@ const Login: React.FC = () => {
     try {
       setIsSubmitting(true);
       await login(email, password);
-
-      // Determine destination based on role or admin email
-      const isAdminEmail = email.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-      if (isAdminEmail) {
-         navigate('/admin');
-      } else {
-         navigate('/dashboard');
-      }
+      // Post-login destination is handled by AuthContext and App route guards
+      navigate('/dashboard');
     } catch (error: any) {
       console.error("[Login] Auth Error:", error.code, error.message);
       toast.error(mapAuthError(error));

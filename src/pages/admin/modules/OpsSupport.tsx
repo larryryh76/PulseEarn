@@ -56,10 +56,7 @@ const OpsSupport: React.FC = () => {
 
   React.useEffect(() => {
     if (!selectedTicket) return;
-    const q = query(
-      collection(db, 'support_messages'),
-      where('ticketId', '==', selectedTicket.id)
-    );
+    const q = collection(db, 'support_tickets', selectedTicket.id, 'support_messages');
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => doc.data() as SupportMessage);

@@ -62,9 +62,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdminRole = userData?.role === 'admin';
-  const isAdmin = isAdminEmail || isAdminRole;
+  const isAdmin = userData?.role === 'admin';
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
@@ -85,10 +83,9 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdminRole = userData?.role === 'admin';
+  const isAdmin = userData?.role === 'admin';
 
-  if (!isAdminEmail && !isAdminRole) {
+  if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -99,8 +96,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-    if (userData?.role === 'admin' || isAdminEmail) return <Navigate to="/admin" replace />;
+    if (userData?.role === 'admin') return <Navigate to="/admin" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;

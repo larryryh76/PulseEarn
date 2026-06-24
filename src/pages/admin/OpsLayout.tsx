@@ -74,9 +74,8 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   }, [pathname]);
 
   const isAdmin = React.useMemo(() => {
-    if (!currentUser) return false;
-    return currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
-  }, [currentUser, userData]);
+    return userData?.role === 'admin';
+  }, [userData]);
 
   if (loading || !isInitialized) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">

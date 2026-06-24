@@ -1,0 +1,56 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile images
+    match /users/{userId}/avatars/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Support ticket attachments
+    match /support_tickets/{ticketId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow write: if isAuthenticated(); // Controlled by SupportEngine logic and short-lived tokens
+    }
+
+    // Task submission proof
+    match /task_claims/{claimId}/{allPaths=**} {
+      allow read: if isAdmin() || (
+        isAuthenticated() &&
+        firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid
+      );
+      allow write: if isAuthenticated();
+    }
+
+    // Campaign assets (Admins only)
+    match /campaigns/{campaignId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // System uploads
+    match /system/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

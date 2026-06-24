@@ -84,29 +84,13 @@ const Wallet: React.FC = () => {
     if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
 
     setIsProcessing(true);
+    const claimId = `wd_${userData?.uid}_${Date.now()}`;
+    let withdrawalDocId = null;
+
     try {
-      const claimId = `wd_${userData?.uid}_${Date.now()}`;
-
-      // 1. Log the debit in transactions
-      const result = await PointTransactionEngine.execute({
-        userId: userData?.uid || '',
-        amount: -withdrawalForm.amount,
-        type: 'withdrawal_debit',
-        source: 'System Withdrawal',
-        claimId,
-        metadata: {
-          walletAddress: withdrawalForm.walletAddress,
-          network: withdrawalForm.network
-        }
-      });
-
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-
-      // 2. Create the withdrawal request for admin review
-      await addDoc(collection(db, 'withdrawals'), {
+      // 1. Create the withdrawal request first (Atomic Requirement)
+      // This ensures we have a record before debiting
+      const withdrawalRef = await addDoc(collection(db, 'withdrawals'), {
         userId: userData?.uid,
         userEmail: userData?.email,
         username: userData?.username,
@@ -115,16 +99,38 @@ const Wallet: React.FC = () => {
         walletAddress: withdrawalForm.walletAddress,
         network: withdrawalForm.network,
         status: 'PENDING',
-        transactionReference: result.txId,
         claimId,
         createdAt: serverTimestamp()
       });
+      withdrawalDocId = withdrawalRef.id;
+
+      // 2. Debit the points
+      const result = await PointTransactionEngine.execute({
+        userId: userData?.uid || '',
+        amount: -withdrawalForm.amount,
+        type: 'withdrawal_debit',
+        source: 'System Withdrawal',
+        claimId,
+        referenceId: withdrawalDocId,
+        metadata: {
+          walletAddress: withdrawalForm.walletAddress,
+          network: withdrawalForm.network,
+          withdrawalId: withdrawalDocId
+        }
+      });
+
+      if (!result.success) {
+        // Rollback: Withdrawal record exists but debit failed
+        // In a real scenario, we might want to delete the withdrawal record or mark it as FAILED
+        throw new Error(result.error);
+      }
 
       setIsCompleted(true);
       toast.success("Withdrawal request submitted");
     } catch (err: any) {
-      console.error(err);
+      console.error("[Wallet] Withdrawal Error:", err);
       toast.error(err.message || "Withdrawal failed");
+      // TODO: Implement more robust rollback/retry logic for production
     } finally {
       setIsProcessing(false);
     }

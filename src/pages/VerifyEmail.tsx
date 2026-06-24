@@ -55,7 +55,8 @@ const VerifyEmail: React.FC = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   // Bypass for admin
-  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  const { userData } = useAuth();
+  const isAdmin = userData?.role === 'admin';
   if (currentUser.emailVerified || isAdmin) {
     const target = isAdmin ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;

@@ -150,8 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (userSnap.exists()) return;
 
-    const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-    const role = isAdmin ? 'admin' : 'user';
+    // Admin role must now be set via Admin SDK or Firebase Console
+    const role = 'user';
 
     let referredBy = null;
     if (referralCodeInput) {
@@ -288,7 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = docSnap.data() as UserData;
             const resolvedData = {
               ...data,
-              role: (user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || data.role === 'admin') ? 'admin' : 'user'
+              role: data.role === 'admin' ? 'admin' : 'user'
             };
 
             setUserData(resolvedData as UserData);

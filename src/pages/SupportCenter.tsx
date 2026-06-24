@@ -76,16 +76,17 @@ const SupportCenter: React.FC = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Subscription for Thread Messages
+  // Subscription for Thread Messages - Nested Path (Satisfies Rules)
   useEffect(() => {
     if (!selectedTicket) return;
-    const q = query(
-      collection(db, 'support_messages'),
-      where('ticketId', '==', selectedTicket.id)
-    );
+    const q = collection(db, 'support_tickets', selectedTicket.id, 'support_messages');
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => doc.data() as SupportMessage));
+      setMessages(snapshot.docs.map(doc => doc.data() as SupportMessage).sort((a, b) => {
+         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
+         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
+         return timeA - timeB;
+      }));
     });
 
     return () => unsubscribe();

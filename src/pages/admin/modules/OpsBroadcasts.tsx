@@ -15,10 +15,28 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../../../firebase/config';
+import { Bell as BellIcon, Clock } from 'lucide-react';
 
 const OpsBroadcasts: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [history, setHistory] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const q = query(
+      collection(db, 'broadcasts'),
+      orderBy('timestamp', 'desc'),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setHistory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return unsubscribe;
+  }, []);
   const [formData, setFormData] = React.useState({
     title: '',
     description: '',
@@ -92,13 +110,45 @@ const OpsBroadcasts: React.FC = () => {
              <span className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest">Global Broadcast Sync Active</span>
           </div>
 
-          <div className="py-40 text-center bg-surface border border-dashed border-border-bright rounded-[3rem] shadow-inner opacity-40 group hover:opacity-100 transition-opacity">
-             <div className="w-20 h-20 rounded-full border border-dashed border-border-bright mx-auto flex items-center justify-center mb-6 group-hover:border-primary/20 transition-all">
-                <Bell size={40} className="text-text-primary/5 group-hover:text-primary/20 transition-all duration-700" />
-             </div>
-             <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary mb-2">No active broadcasts</h3>
-             <p className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest">All communication channels currently silent</p>
-          </div>
+          {history.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {history.map((item) => (
+                <div key={item.id} className="p-6 rounded-2xl bg-surface border border-border flex items-center justify-between group hover:border-border-bright transition-all">
+                  <div className="flex items-center gap-6">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center border",
+                      item.type === 'alert' ? "bg-danger/10 border-danger/20 text-danger" :
+                      item.type === 'reward' ? "bg-warning/10 border-warning/20 text-warning" : "bg-primary/10 border-primary/20 text-primary"
+                    )}>
+                      <BellIcon size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-text-primary uppercase italic tracking-tight">{item.title}</h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">{item.type}</span>
+                        <div className="w-1 h-1 rounded-full bg-surface-accent" />
+                        <div className="flex items-center gap-1.5 text-[9px] font-mono text-text-tertiary/50">
+                          <Clock size={10} />
+                          {item.timestamp?.toDate?.().toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="max-w-md hidden md:block">
+                    <p className="text-[10px] text-text-tertiary truncate italic">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-40 text-center bg-surface border border-dashed border-border-bright rounded-[3rem] shadow-inner opacity-40 group hover:opacity-100 transition-opacity">
+               <div className="w-20 h-20 rounded-full border border-dashed border-border-bright mx-auto flex items-center justify-center mb-6 group-hover:border-primary/20 transition-all">
+                  <Bell size={40} className="text-text-primary/5 group-hover:text-primary/20 transition-all duration-700" />
+               </div>
+               <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary mb-2">No active broadcasts</h3>
+               <p className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest">All communication channels currently silent</p>
+            </div>
+          )}
        </div>
 
        <AnimatePresence>

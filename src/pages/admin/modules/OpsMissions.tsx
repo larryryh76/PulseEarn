@@ -37,12 +37,15 @@ const OpsMissions: React.FC = () => {
   }, []);
 
   const handleToggleStatus = async (mission: SystemTaskDefinition) => {
+     const loadingToast = toast.loading('Adjusting mission status...');
      try {
         await updateDoc(doc(db, 'system_task_definitions', mission.id), {
            active: !mission.active
         });
+        toast.dismiss(loadingToast);
         toast.success(`Mission  ${!mission.active ? 'Activated' : 'Suspended'}`);
      } catch (err) {
+        toast.dismiss(loadingToast);
         toast.error("Instruction Adjustment Failure");
      }
   };

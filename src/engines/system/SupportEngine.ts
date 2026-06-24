@@ -45,8 +45,8 @@ export class SupportEngine {
       const batch = writeBatch(db);
       batch.set(ticketRef, newTicket);
 
-      // Create initial message
-      const messageRef = doc(collection(db, 'support_messages'));
+      // Create initial message - Nested Path (Satisfies Rules)
+      const messageRef = doc(collection(db, 'support_tickets', ticketId, 'support_messages'));
       const initialMessage: SupportMessage = {
         id: messageRef.id,
         ticketId: ticketId,
@@ -107,7 +107,7 @@ export class SupportEngine {
     attachments?: { url: string; name: string; type: string; size: number }[];
   }): Promise<{ success: boolean; error?: string }> {
     try {
-      const messageRef = doc(collection(db, 'support_messages'));
+      const messageRef = doc(collection(db, 'support_tickets', params.ticketId, 'support_messages'));
       const newMessage: SupportMessage = {
         id: messageRef.id,
         ticketId: params.ticketId,

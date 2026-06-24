@@ -49,13 +49,16 @@ const OpsCampaignDetail: React.FC = () => {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
   const handleToggleTaskStatus = async (task: Task) => {
+    const loadingToast = toast.loading('Updating task status...');
     try {
       await updateDoc(doc(db, 'tasks', task.id), {
         active: !task.active,
         status: !task.active ? 'ACTIVE' : 'INACTIVE'
       });
+      toast.dismiss(loadingToast);
       toast.success(`Task ${!task.active ? 'Activated' : 'Paused'}`);
     } catch (err) {
+      toast.dismiss(loadingToast);
       toast.error("Failed to update task status");
     }
   };

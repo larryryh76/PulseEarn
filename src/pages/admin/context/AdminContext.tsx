@@ -52,7 +52,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       // 2. Role Verification
-      if (userData?.role !== 'admin' && currentUser.email?.toLowerCase() !== import.meta.env.VITE_ADMIN_EMAIL) {
+      if (userData?.role !== 'admin') {
         logger.log('WARN', 'AUTH', 'Unauthorized access attempt', { uid: currentUser.uid, email: currentUser.email });
         setIsInitialized(false);
         return;

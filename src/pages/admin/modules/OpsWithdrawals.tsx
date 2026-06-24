@@ -13,6 +13,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  getDoc,
   setDoc,
   serverTimestamp,
   limit
@@ -57,6 +58,21 @@ const OpsWithdrawals: React.FC = () => {
   const handleAction = async (id: string, status: WithdrawalRequest['status'], userId: string) => {
     const loadingToast = toast.loading('Updating withdrawal status...');
     try {
+      const req = requests.find(r => r.id === id);
+      if (!req) throw new Error("WITHDRAWAL_REQUEST_NOT_FOUND");
+
+      // Fix #5: Verify debit exists before allowing approval/payment
+      if (status === 'APPROVED' || status === 'PAID') {
+         const claimId = (req as any).claimId;
+         if (!claimId) throw new Error("DEBIT_VERIFICATION_FAILED: No claim ID associated with request.");
+
+         const claimRef = doc(db, 'system_claims', claimId);
+         const claimSnap = await getDoc(claimRef);
+         if (!claimSnap.exists()) {
+            throw new Error("DEBIT_VERIFICATION_FAILED: No matching system claim found.");
+         }
+      }
+
       const updateData: any = {
         status,
         processedAt: serverTimestamp(),
@@ -66,9 +82,6 @@ const OpsWithdrawals: React.FC = () => {
       if (status === 'PAID') {
          // Priority 2: Standardized Withdrawal Mutation
          // Use the PointTransactionEngine for atomic accounting and side effects
-         const req = requests.find(r => r.id === id);
-         if (!req) throw new Error("WITHDRAWAL_REQUEST_NOT_FOUND");
-
          const res = await PointTransactionEngine.execute({
             userId,
             amount: 0, // PTS already debited at request time

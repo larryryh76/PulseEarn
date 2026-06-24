@@ -200,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastRewardDate: Timestamp.fromDate(yesterday),
       createdAt: Timestamp.now(),
       role: role as 'admin' | 'user',
+      status: 'active',
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,

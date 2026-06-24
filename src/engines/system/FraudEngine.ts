@@ -1,4 +1,4 @@
-import { db } from '../../firebase/config';
+import { db, auth } from '../../firebase/config';
 import {
   doc,
   updateDoc,
@@ -14,9 +14,13 @@ export class FraudEngine {
    */
   static async evaluateUserIntegrity(userId: string, fingerprint: string): Promise<void> {
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/evaluate-user-integrity', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ userId, fingerprint })
       });
 

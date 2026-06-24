@@ -1,8 +1,10 @@
 import os
+import requests
+from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 from datetime import datetime, timezone, timedelta
 import math
 
@@ -22,10 +24,50 @@ def calculate_level(xp, base_level_xp=1000):
     level = math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
     return level
 
+def verify_token(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        id_token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                id_token = auth_header.split(' ')[1]
+
+        if not id_token:
+            return jsonify({"success": False, "error": "Missing authorization token"}), 401
+
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            request.user = decoded_token
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 401
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def is_admin(uid):
+    user_doc = db.collection('users').document(uid).get()
+    if user_doc.exists:
+        data = user_doc.to_dict()
+        return data.get('role') == 'admin'
+    return False
+
 @app.route('/api/execute-transaction', methods=['POST'])
+@verify_token
 def execute_transaction():
     data = request.json
     user_id = data.get('userId')
+
+    # Auth logic: uid must match userId, OR caller must be admin
+    caller_uid = request.user['uid']
+    if caller_uid != user_id and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    # Additional check for admin-only transaction types
+    admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
+    if data.get('type') in admin_only_types and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Restricted transaction type"}), 403
+
     amount = data.get('amount', 0)
     tx_type = data.get('type')
     source = data.get('source')
@@ -249,9 +291,15 @@ def execute_transaction():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/execute-prediction', methods=['POST'])
+@verify_token
 def execute_prediction():
     data = request.json
     user_id = data.get('userId')
+
+    caller_uid = request.user['uid']
+    if caller_uid != user_id and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     task_id = data.get('taskId')
     amount = data.get('amount', 0)
     asset_id = data.get('assetId')
@@ -259,7 +307,6 @@ def execute_prediction():
     direction = data.get('direction')
     entry_price = data.get('entryPrice')
     claim_id = data.get('claimId')
-    reward_amount = data.get('rewardAmount')
 
     if not user_id or not task_id or not claim_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
@@ -276,6 +323,17 @@ def execute_prediction():
 
         if user_data.get('points', 0) < amount:
             raise Exception("INSUFFICIENT_FUNDS")
+
+        # Fix #2: Sane min/max on prediction amount
+        if amount < 10 or amount > 10000:
+            raise Exception("INVALID_STAKE_AMOUNT")
+
+        # Fix #2: Fetch config server-side for reward multiplier
+        config_ref = db.collection('system_config').document('global_v1')
+        config_snap = config_ref.get(transaction=transaction)
+        config = config_snap.to_dict() if config_snap.exists else {}
+        multiplier = config.get('rewards', {}).get('predictionWinMultiplier', 2.0)
+        calculated_reward = amount * multiplier
 
         claim_snap = claim_ref.get(transaction=transaction)
         if claim_snap.exists: raise Exception("REWARD_ALREADY_CLAIMED")
@@ -297,7 +355,7 @@ def execute_prediction():
             'symbol': symbol,
             'direction': direction,
             'stakeAmount': amount,
-            'rewardAmount': reward_amount if reward_amount else (amount * 2.0),
+            'rewardAmount': calculated_reward,
             'entryPrice': entry_price,
             'status': 'ACTIVE',
             'claimId': claim_id,
@@ -336,16 +394,60 @@ def execute_prediction():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+def fetch_market_price(asset_id):
+    # Fix #3: Reusable price fetch with fallback
+    SYMBOL_MAP = {
+        'bitcoin': 'BTC', 'ethereum': 'ETH', 'solana': 'SOL', 'binancecoin': 'BNB', 'ripple': 'XRP',
+        'cardano': 'ADA', 'dogecoin': 'DOGE', 'the-open-network': 'TON', 'avalanche-2': 'AVAX', 'chainlink': 'LINK',
+        'sui': 'SUI', 'tron': 'TRX', 'shiba-inu': 'SHIB', 'pepe': 'PEPE', 'litecoin': 'LTC',
+        'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
+    }
+
+    try:
+        # Primary: CoinGecko
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        res = requests.get(url, params={'ids': asset_id, 'vs_currencies': 'usd'}, timeout=10)
+        price = res.json().get(asset_id, {}).get('usd')
+        if price is not None: return price
+    except:
+        pass
+
+    try:
+        # Fallback: CryptoCompare
+        sym = SYMBOL_MAP.get(asset_id)
+        if sym:
+            url = "https://min-api.cryptocompare.com/data/price"
+            res = requests.get(url, params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
+            return res.json().get('USD')
+    except:
+        pass
+
+    return None
+
 @app.route('/api/resolve-prediction', methods=['POST'])
+@verify_token
 def resolve_prediction():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
     data = request.json
     prediction_id = data.get('predictionId')
-    current_price = data.get('currentPrice')
 
-    if not prediction_id or current_price is None:
+    if not prediction_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
     pred_ref = db.collection('user_predictions').document(prediction_id)
+    pred_snap = pred_ref.get()
+    if not pred_snap.exists:
+        return jsonify({"success": False, "error": "Prediction not found"}), 404
+
+    asset_id = pred_snap.to_dict().get('assetId')
+    current_price = fetch_market_price(asset_id)
+
+    if current_price is None:
+        return jsonify({"success": False, "error": "Could not retrieve market price"}), 503
+
 
     @firestore.transactional
     def resolve_transaction(transaction):
@@ -415,11 +517,18 @@ def resolve_prediction():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/process-referral-reward', methods=['POST'])
+@verify_token
 def process_referral_reward():
     data = request.json
     referral_doc_id = data.get('referralDocId')
     referrer_id = data.get('referrerId')
     referee_id = data.get('refereeId')
+
+    caller_uid = request.user['uid']
+    # The referee usually triggers this, or an admin
+    if caller_uid != referee_id and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     referee_username = data.get('refereeUsername')
 
     if not referral_doc_id or not referrer_id or not referee_id:
@@ -495,9 +604,15 @@ def process_referral_reward():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/evaluate-user-integrity', methods=['POST'])
+@verify_token
 def evaluate_user_integrity():
     data = request.json
     user_id = data.get('userId')
+
+    caller_uid = request.user['uid']
+    if caller_uid != user_id and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
     fingerprint = data.get('fingerprint')
 
     if not user_id or not fingerprint:

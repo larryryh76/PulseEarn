@@ -238,6 +238,14 @@ def execute_transaction():
     except Exception as e:
         import traceback
         print(traceback.format_exc())
+        # Fix #19: Ensure 30-second lock is cleaned up on failure
+        try:
+            user_ref.update({
+                'execution_lock': False,
+                'execution_lock_at': None
+            })
+        except:
+            pass
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/execute-prediction', methods=['POST'])
@@ -368,6 +376,18 @@ def resolve_prediction():
             'status': 'RESOLVED',
             'exitPrice': current_price,
             'resolvedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        # Fix #16: Send notification on prediction result
+        notif_ref = user_ref.collection('notifications').document()
+        transaction.set(notif_ref, {
+            'type': 'prediction_result',
+            'title': 'Forecast Successful!' if is_win else 'Forecast Unsuccessful',
+            'description': f"Your {pred_data['symbol'].upper()} forecast was correct. +{payout} PTS awarded." if is_win else f"Your {pred_data['symbol'].upper()} forecast was incorrect. Stake lost.",
+            'predictionId': prediction_id,
+            'isWin': is_win,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'read': False
         })
 
         # Log if win

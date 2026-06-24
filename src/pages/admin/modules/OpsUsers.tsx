@@ -67,7 +67,8 @@ const OpsUsers: React.FC = () => {
     };
     fetchConfig();
 
-    const q = query(collection(db, 'users'), limit(100));
+    // Fix #12: Filter out archived users from the main list
+    const q = query(collection(db, 'users'), where('status', '!=', 'archived'), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -99,8 +100,40 @@ const OpsUsers: React.FC = () => {
     fetchUserHistory();
   }, [selectedUser]);
 
+   const handleArchiveUser = async (user: any) => {
+      // Fix #12: Implement soft delete (archiving)
+      if (!window.confirm(`AUTHORIZED ACTION: Archive user "${user.username}"? Their data will be hidden but preserved.`)) return;
+      const loadingToast = toast.loading('Archiving user profile...');
+      try {
+          await updateDoc(doc(db, 'users', user.id), {
+              status: 'archived',
+              archivedAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+          });
+
+          await setDoc(doc(collection(db, 'system_audit')), {
+              action: 'USER_ARCHIVED_SOFT_DELETE',
+              targetId: user.id,
+              timestamp: serverTimestamp(),
+              performedBy: 'OPS_AUTHORITY',
+              metadata: { username: user.username }
+          });
+
+          toast.dismiss(loadingToast);
+          toast.success('User archived and removed from active directory');
+          setSelectedUser(null);
+      } catch (err: any) {
+          console.error("[OpsUsers] Archive Error:", err);
+          toast.dismiss(loadingToast);
+          toast.error(`Archive failed: ${err.message}`);
+      }
+   };
+
    const handleDeleteUser = async (user: any) => {
-      if (!window.confirm(`CRITICAL ACTION: Permanently DELETE user "${user.username}" and all associated data? This cannot be undone.`)) return;
+      // Fix #12: Hard delete requires double confirmation and is only for archived or critical cases
+      if (!window.confirm(`CRITICAL ACTION: Deep purge user "${user.username}"? This permanently deletes ALL ledger and activity data.`)) return;
+      if (!window.confirm(`FINAL WARNING: This action is irreversible. Proceed with permanent deletion?`)) return;
+
       const loadingToast = toast.loading('Executing deep recursive deletion...');
       try {
           const userId = user.id;
@@ -446,6 +479,13 @@ const OpsUsers: React.FC = () => {
                                Terminate Access
                             </button>
                          )}
+                         <button
+                           onClick={() => handleArchiveUser(selectedUser)}
+                           className="p-2.5 rounded-xl bg-warning/10 text-warning border border-warning/20 hover:bg-warning/20 transition-all shadow-xl"
+                           title="Archive User"
+                         >
+                            <Ban size={18} />
+                         </button>
                          <button
                            onClick={() => handleDeleteUser(selectedUser)}
                            className="p-2.5 rounded-xl bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 transition-all shadow-xl"

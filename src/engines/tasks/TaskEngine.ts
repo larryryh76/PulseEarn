@@ -85,7 +85,8 @@ export class TaskEngine {
            transaction.update(taskRef, {
               completionCount: increment(1),
               totalDistributed: increment(task.rewardAmount),
-              totalClaims: increment(1)
+              totalClaims: increment(1),
+              updatedAt: serverTimestamp() // Fix #17: Ensure rate limiting works
            });
         }
 

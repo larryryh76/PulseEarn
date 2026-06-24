@@ -1,16 +1,11 @@
 import { db } from '../../firebase/config';
 import {
   doc,
-  increment,
   collection,
   serverTimestamp,
-  runTransaction,
-  setDoc,
-  getDoc
+  setDoc
 } from 'firebase/firestore';
 import { Transaction } from '../../types';
-import { calculateLevel } from '../../utils/progression';
-import { EconomyConfigEngine } from '../system/EconomyConfigEngine';
 import { ActivityEngine } from '../system/ActivityEngine';
 import { SystemTaskEngine } from '../tasks/SystemTaskEngine';
 import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';

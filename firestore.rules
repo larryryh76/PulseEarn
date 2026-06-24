@@ -94,14 +94,22 @@ service cloud.firestore {
     match /campaigns/{campaignId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
-      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']);
+      // Fix #17: Protect campaign counters with rate limiting
+      allow update: if (isAdmin()) ||
+                      (isAuthenticated() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']) &&
+                       request.time > resource.data.updatedAt + duration.value(5, 's'));
       allow write: if isAdmin();
     }
 
     match /tasks/{taskId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated();
-      allow update: if isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount', 'totalDistributed', 'totalClaims']);
+      // Fix #17: Protect task counters with rate limiting
+      allow update: if (isAdmin()) ||
+                      (isAuthenticated() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount', 'totalDistributed', 'totalClaims']) &&
+                       request.time > resource.data.updatedAt + duration.value(5, 's'));
       allow write: if isAdmin();
     }
 
@@ -170,10 +178,12 @@ service cloud.firestore {
     match /withdrawals/{withdrawalId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin();
+      // Fix #14: Enforce withdrawal gates (account age and level)
       allow create: if isAuthenticated() &&
                       request.resource.data.userId == request.auth.uid &&
                       request.resource.data.status == 'PENDING' &&
-                      request.resource.data.keys().hasOnly(['userId', 'amount', 'method', 'address', 'status', 'createdAt', 'metadata']);
+                      request.resource.data.keys().hasOnly(['userId', 'amount', 'method', 'address', 'status', 'createdAt', 'metadata', 'amountPoints', 'amountUSD', 'userEmail', 'username', 'claimId']) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= 2;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

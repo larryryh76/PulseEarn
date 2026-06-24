@@ -15,8 +15,9 @@ import {
   limit,
   onSnapshot,
   doc,
-  updateDoc,
+  writeBatch,
   getDoc,
+  setDoc,
   serverTimestamp
 } from 'firebase/firestore';
 import { SubtaskStatus } from '../../../types';
@@ -61,6 +62,12 @@ const OpsValidation: React.FC = () => {
     try {
       const claimRef = doc(db, 'task_claims', claimId);
 
+      // Fix #5: Added reason prompting for rejection
+      let rejectionReason = '';
+      if (status === 'REJECTED') {
+        rejectionReason = window.prompt('Please enter a rejection reason:') || 'Submission did not meet requirements';
+      }
+
       if (status === 'APPROVED') {
         // Priority 1: Atomic Task Approval Implementation
         // We now fetch data first, then call the engine which performs the atomic transaction.
@@ -91,17 +98,61 @@ const OpsValidation: React.FC = () => {
           }
         });
 
+        // Fix #16: Send notification on task approval
+        if (rewardResult.success) {
+          const notifRef = doc(collection(db, 'users', claimData.userId, 'notifications'));
+          await setDoc(notifRef, {
+            type: 'task_approved',
+            title: 'Task Approved!',
+            description: `Your submission for "${taskData.title}" was approved. +${taskData.rewardAmount} PTS awarded.`,
+            taskId: claimData.taskId,
+            taskTitle: taskData.title,
+            timestamp: serverTimestamp(),
+            read: false
+          });
+        }
+
         if (!rewardResult.success) {
           toast.dismiss(loadingToast);
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
       } else {
-        // For Rejection, we keep it simple but separate
-        await updateDoc(claimRef, {
+        // Fix #4 & #5: Handle rejection with status reset and notification
+        const claimSnap = await getDoc(claimRef);
+        const claimData = claimSnap.data();
+        if (!claimData) throw new Error("CLAIM_DATA_NOT_FOUND");
+
+        const batch = writeBatch(db);
+
+        // 1. Update claim state
+        batch.update(claimRef, {
           validationState: status,
           resolvedAt: serverTimestamp(),
-          reviewedBy: 'ADMIN_HUB'
+          reviewedBy: 'ADMIN_HUB',
+          rejectionReason // Fix #5: Store reason
         });
+
+        // 2. Fix #4: Reset user task status to 'available'
+        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
+        batch.update(userTaskRef, {
+          status: 'available',
+          updatedAt: serverTimestamp()
+        });
+
+        // 3. Fix #5: Send notification
+        const notifRef = doc(collection(db, 'users', claimData.userId, 'notifications'));
+        batch.set(notifRef, {
+          type: 'task_rejected',
+          title: 'Task Submission Rejected',
+          description: `Your submission for "${claimData.metadata?.taskTitle || 'Task'}" was rejected. Reason: ${rejectionReason}`,
+          taskId: claimData.taskId,
+          taskTitle: claimData.metadata?.taskTitle || 'Unknown Task',
+          reason: rejectionReason,
+          timestamp: serverTimestamp(),
+          read: false
+        });
+
+        await batch.commit();
       }
 
       toast.dismiss(loadingToast);

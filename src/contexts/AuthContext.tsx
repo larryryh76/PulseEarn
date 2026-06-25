@@ -289,7 +289,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = docSnap.data() as UserData;
             const resolvedData = {
               ...data,
-              role: data.role === 'admin' ? 'admin' : 'user'
+              role: data.role === 'admin' ? 'admin' : 'user',
+              status: data.status || 'active'
             };
 
             setUserData(resolvedData as UserData);

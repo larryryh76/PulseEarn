@@ -242,20 +242,29 @@ def execute_transaction():
         })
 
         # Notification
-        if tx_type == 'task_reward' or (amount > 0 and tx_type != 'daily_reward') or tx_type == 'withdrawal_finalized':
+        # Fix: Removed auto-notification for withdrawal_finalized and manual task_reward
+        # as these are now handled by dedicated caller-side logic in the frontend/audit flows.
+        should_notify = False
+        if tx_type == 'daily_reward':
+             # Server remains owner of daily reward notification
+             should_notify = True
+             title = 'Daily Reward Claimed'
+             description = f"You earned {amount} Points for your daily check-in."
+             notif_category = 'reward_claimed'
+        elif tx_type == 'task_reward' and metadata.get('verificationType') == 'automated':
+             # Server notifies for AUTOMATED tasks only; manual tasks are notified by OpsValidation
+             should_notify = True
+             title = 'Task Approved'
+             description = f"You earned {amount:,} Points from: {source}"
+             notif_category = 'reward_claimed'
+        elif tx_type == 'referral_bonus':
+             should_notify = True
+             title = 'Referral Bonus Received'
+             description = f"You earned {amount} Points from a qualified referral."
+             notif_category = 'referral_joined'
+
+        if should_notify:
             notif_ref = user_ref.collection('notifications').document()
-            title = 'Reward Received'
-            description = f"You earned {amount:,} Points from: {source}"
-            notif_category = 'reward_claimed'
-
-            if tx_type == 'task_reward':
-                title = 'Task Approved'
-            elif tx_type == 'withdrawal_finalized':
-                title = 'Withdrawal Processed'
-                withdrawal_amount = abs(amount) if amount != 0 else metadata.get('amount', 0)
-                description = f"Your withdrawal of {withdrawal_amount:,} PTS has been sent to your wallet."
-                notif_category = 'payout_processed'
-
             transaction.set(notif_ref, {
                 'title': title,
                 'description': description,
@@ -592,6 +601,17 @@ def process_referral_reward():
                 'claimId': claim_id,
                 'status': 'COMPLETED',
                 'timestamp': firestore.SERVER_TIMESTAMP
+            })
+
+            # Fix: Notify referrer of reward
+            notif_ref = referrer_ref.collection('notifications').document()
+            transaction.set(notif_ref, {
+                'type': 'referral_joined',
+                'title': 'Referral Bonus Received!',
+                'description': f"Your referral {referee_username} is now verified. +{amount} PTS awarded.",
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'read': False,
+                'metadata': {'txId': tx_ref.id}
             })
 
             return {"success": True}

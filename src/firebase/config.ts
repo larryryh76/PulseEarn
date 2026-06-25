@@ -5,8 +5,8 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "MISSING",
-  // Fix #1: Reverted to default firebaseapp domain to ensure stability while custom domain SSL is pending
-  authDomain: "pulseearn-a4b16.firebaseapp.com",
+  // Fixed Custom Domain for Auth (SSL and DNS confirmed on Console side)
+  authDomain: "pulseearn.online",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,

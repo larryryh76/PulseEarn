@@ -1,4 +1,4 @@
-import { db } from '../../firebase/config';
+import { db, auth } from '../../firebase/config';
 import {
   doc,
   collection,
@@ -37,9 +37,13 @@ export class PointTransactionEngine {
     const { userId, claimId } = request;
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/execute-transaction', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(request)
       });
 
@@ -88,9 +92,13 @@ export class PointTransactionEngine {
     const { userId, claimId, symbol } = request;
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/execute-prediction', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(request)
       });
 
@@ -127,9 +135,13 @@ export class PointTransactionEngine {
    */
   static async resolvePrediction(predictionId: string, currentPrice: number, _manualRewardPool?: number): Promise<void> {
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/resolve-prediction', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ predictionId, currentPrice })
       });
 

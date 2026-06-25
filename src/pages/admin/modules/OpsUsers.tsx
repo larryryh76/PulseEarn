@@ -68,9 +68,11 @@ const OpsUsers: React.FC = () => {
     fetchConfig();
 
     // Fix #12: Filter out archived users from the main list
-    const q = query(collection(db, 'users'), where('status', '!=', 'archived'), limit(100));
+    // Fix #4: Use client-side filtering to handle existing users without 'status' field
+    const q = query(collection(db, 'users'), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUsers(allUsers.filter((u: any) => u.status !== 'archived'));
       setLoading(false);
     });
     return unsubscribe;

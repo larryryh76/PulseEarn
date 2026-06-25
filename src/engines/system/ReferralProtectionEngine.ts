@@ -1,4 +1,4 @@
-import { db } from '../../firebase/config';
+import { db, auth } from '../../firebase/config';
 import {
   collection,
   query,
@@ -75,9 +75,13 @@ export class ReferralProtectionEngine {
     const { referrerId, refereeId } = refData;
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/process-referral-reward', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           referralDocId,
           referrerId,

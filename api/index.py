@@ -61,7 +61,7 @@ def execute_transaction():
     # Auth logic: uid must match userId, OR caller must be admin
     caller_uid = request.user['uid']
     if caller_uid != user_id and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+        return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
@@ -307,7 +307,7 @@ def execute_prediction():
 
     caller_uid = request.user['uid']
     if caller_uid != user_id and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+        return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
     task_id = data.get('taskId')
     amount = data.get('amount', 0)
@@ -369,7 +369,8 @@ def execute_prediction():
             'status': 'ACTIVE',
             'claimId': claim_id,
             'createdAt': firestore.SERVER_TIMESTAMP,
-            'engineVersion': '5.0.0-SERVER'
+        'engineVersion': '5.0.0-SERVER',
+        'auditTrail': [f"Forecast initiated: {direction} at {entry_price}. Reward calculated server-side: {calculated_reward}"]
         })
 
         transaction.set(claim_ref, {
@@ -482,11 +483,13 @@ def resolve_prediction():
             'stats.predictionRewards': firestore.Increment(payout)
         })
 
-        # Update prediction
+        # Update prediction with audit trail
+        audit_entry = f"Settled at {current_price} server-side. Result: {'WIN' if is_win else 'LOSS'}"
         transaction.update(pred_ref, {
             'status': 'RESOLVED',
             'exitPrice': current_price,
-            'resolvedAt': firestore.SERVER_TIMESTAMP
+            'resolvedAt': firestore.SERVER_TIMESTAMP,
+            'auditTrail': firestore.ArrayUnion([audit_entry])
         })
 
         # Fix #16: Send notification on prediction result
@@ -535,8 +538,9 @@ def process_referral_reward():
 
     caller_uid = request.user['uid']
     # The referee usually triggers this, or an admin
+    # Verification: token UID must match refereeId in payload
     if caller_uid != referee_id and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+        return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match referee {referee_id}"}), 403
 
     referee_username = data.get('refereeUsername')
 
@@ -631,7 +635,7 @@ def evaluate_user_integrity():
 
     caller_uid = request.user['uid']
     if caller_uid != user_id and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+        return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
     fingerprint = data.get('fingerprint')
 

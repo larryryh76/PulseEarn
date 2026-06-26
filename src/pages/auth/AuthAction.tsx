@@ -10,7 +10,7 @@ import {
 import MainLayout from '../../components/layout/MainLayout';
 import Button from '../../components/ui/Button';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Key, Mail, RotateCcw } from 'lucide-react';
+import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const AuthAction: React.FC = () => {
@@ -36,22 +36,34 @@ const AuthAction: React.FC = () => {
     const handleAction = async () => {
       try {
         switch (mode) {
-          case 'verifyEmail':
+          case 'verifyEmail': {
             await applyActionCode(auth, oobCode);
+            await auth.currentUser?.reload();
             setSuccess('Email verified successfully!');
             setTimeout(() => navigate('/dashboard'), 3000);
             break;
+          }
 
-          case 'resetPassword':
+          case 'resetPassword': {
             const resetEmail = await verifyPasswordResetCode(auth, oobCode);
             setEmail(resetEmail);
             break;
+          }
 
-          case 'recoverEmail':
-            const info = await checkActionCode(auth, oobCode);
+          case 'recoverEmail': {
+            await checkActionCode(auth, oobCode);
             await applyActionCode(auth, oobCode);
             setSuccess('Email recovery successful. Your email has been restored.');
             break;
+          }
+
+          case 'verifyAndChangeEmail': {
+            await applyActionCode(auth, oobCode);
+            await auth.currentUser?.reload();
+            setSuccess('Email change verified successfully!');
+            setTimeout(() => navigate('/dashboard'), 3000);
+            break;
+          }
 
           default:
             setError('Unsupported authentication mode.');
@@ -171,7 +183,7 @@ const AuthAction: React.FC = () => {
                   </div>
                 </div>
 
-                <Button type="submit" loading={loading} className="w-full py-4 uppercase tracking-widest text-[11px] font-black mt-4">
+                <Button type="submit" isLoading={loading} className="w-full py-4 uppercase tracking-widest text-[11px] font-black mt-4">
                    Update Password
                 </Button>
               </form>

@@ -6,15 +6,26 @@ import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCirc
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { auth, db } from '../firebase/config';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../firebase/config';
 
 const VerifyEmail: React.FC = () => {
-  const { currentUser, logout, sendVerification } = useAuth();
+  const { currentUser, logout, sendVerification, userData } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const navigate = useNavigate();
+
+  const [isQABypass, setIsQABypass] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      currentUser.getIdTokenResult(true).then((idTokenResult) => {
+        const hasQABypass = !!idTokenResult.claims.qa_bypass;
+        const isDev = import.meta.env.DEV;
+        setIsQABypass(hasQABypass && isDev);
+      });
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     let timer: any;
@@ -28,30 +39,26 @@ const VerifyEmail: React.FC = () => {
     if (countdown > 0 || !currentUser) return;
     setIsSending(true);
     try {
-      // Check backend cooldown in Firestore
-      const cooldownRef = doc(db, 'email_cooldowns', currentUser.uid);
-      const cooldownSnap = await getDoc(cooldownRef);
-
-      if (cooldownSnap.exists()) {
-        const lastSentAt = cooldownSnap.data().updatedAt?.toDate();
-        if (lastSentAt) {
-          const diff = (Date.now() - lastSentAt.getTime()) / 1000;
-          if (diff < 60) {
-            toast.error(`Please wait ${Math.ceil(60 - diff)}s before resending.`);
-            setCountdown(Math.ceil(60 - diff));
-            return;
+      // ATOMIC BACKEND COOLDOWN CHECK
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/authorize-resend', {
+          method: 'POST',
+          headers: {
+              'Authorization': `Bearer ${token}`
           }
-        }
+      });
+      const res = await response.json();
+
+      if (!res.success) {
+          if (res.error === 'COOLDOWN_ACTIVE') {
+              const retry = parseInt(res.retryAfter);
+              setCountdown(retry);
+              throw new Error(`Please wait ${retry}s before resending.`);
+          }
+          throw new Error(res.error || 'Authorization failed');
       }
 
       await sendVerification();
-
-      // Update cooldown in Firestore
-      await setDoc(cooldownRef, {
-        userId: currentUser.uid,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
       toast.success('Verification email sent!');
       setCountdown(60);
     } catch (error: any) {
@@ -60,18 +67,6 @@ const VerifyEmail: React.FC = () => {
       setIsSending(false);
     }
   };
-
-  const [isQABypass, setIsQABypass] = useState(false);
-
-  useEffect(() => {
-    if (currentUser) {
-      currentUser.getIdTokenResult(true).then((idTokenResult) => {
-        const hasQABypass = !!idTokenResult.claims.qa_bypass;
-        const isDev = import.meta.env.DEV;
-        setIsQABypass(hasQABypass && isDev);
-      });
-    }
-  }, [currentUser]);
 
   const checkStatus = async () => {
     setIsChecking(true);
@@ -91,7 +86,6 @@ const VerifyEmail: React.FC = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   // Bypass for admin or QA
-  const { userData } = useAuth();
   const isAdmin = userData?.role === 'admin';
   if (currentUser.emailVerified || isAdmin || isQABypass) {
     const target = isAdmin ? '/admin' : '/dashboard';

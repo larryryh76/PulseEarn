@@ -127,7 +127,7 @@ export class SystemTaskEngine {
       const result = await PointTransactionEngine.execute({
         userId,
         amount: def.rewardPoints,
-        type: 'task_reward',
+        type: 'mission_reward' as any,
         source: def.title,
         claimId,
         xpReward: def.rewardXp,

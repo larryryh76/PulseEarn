@@ -101,6 +101,7 @@ export class TaskEngine {
                  type: 'task_reward',
                  source: res.task.title,
                  claimId: res.claimId,
+                 taskClaimId: res.claimId,
                  xpReward: res.task.xpReward,
                  referenceId: taskId,
                  metadata: {

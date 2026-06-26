@@ -65,10 +65,16 @@ def execute_transaction():
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
-    if data.get('type') in admin_only_types and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Restricted transaction type"}), 403
+    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'referral_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
 
     tx_type = data.get('type')
+
+    if tx_type in admin_only_types and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Restricted transaction type"}), 403
+
+    if tx_type not in admin_only_types and tx_type not in allowed_user_types:
+        return jsonify({"success": False, "error": f"Invalid transaction type: {tx_type}"}), 400
+
     source = data.get('source')
     claim_id = data.get('claimId')
     task_claim_id = data.get('taskClaimId')
@@ -104,9 +110,29 @@ def execute_transaction():
         if tx_type not in admin_only_types:
             if tx_type == 'task_reward':
                 # Fetch from tasks/{id}
-                task_id = data.get('referenceId') # Front-end should pass this
+                task_id = data.get('referenceId')
                 if not task_id:
                     raise Exception("MISSING_TASK_ID")
+
+                # REQUIRE AND VALIDATE TASK CLAIM
+                if not task_claim_id:
+                    raise Exception("MISSING_TASK_CLAIM_ID")
+
+                tc_ref = db.collection('task_claims').document(task_claim_id)
+                tc_snap = tc_ref.get(transaction=transaction)
+                if not tc_snap.exists:
+                    raise Exception("TASK_CLAIM_NOT_FOUND")
+
+                tc_data = tc_snap.to_dict()
+                if tc_data.get('userId') != user_id:
+                    raise Exception("CLAIM_OWNERSHIP_MISMATCH")
+                if tc_data.get('taskId') != task_id:
+                    raise Exception("CLAIM_TASK_MISMATCH")
+                if tc_data.get('validationState') != 'APPROVED':
+                    raise Exception(f"CLAIM_NOT_APPROVED: {tc_data.get('validationState')}")
+                if tc_data.get('completionState') == 'COMPLETED' and tc_data.get('rewardTransactionId'):
+                    raise Exception("CLAIM_ALREADY_REWARDED")
+
                 task_ref = db.collection('tasks').document(task_id)
                 task_snap = task_ref.get(transaction=transaction)
                 if not task_snap.exists:
@@ -114,6 +140,40 @@ def execute_transaction():
                 task_data = task_snap.to_dict()
                 derived_amount = task_data.get('rewardAmount', 0)
                 derived_xp = task_data.get('xpReward', 0)
+
+                # Mark claim as COMPLETED
+                transaction.update(tc_ref, {
+                    'completionState': 'COMPLETED',
+                    'resolvedAt': firestore.SERVER_TIMESTAMP,
+                    'rewardTransactionId': 'PENDING_SERVER' # Will be updated after txId generated? Actually generated in then() usually, but here we are in transaction.
+                })
+
+            elif tx_type == 'mission_reward':
+                # Fetch from system_task_definitions/{id}
+                task_id = data.get('referenceId')
+                if not task_id:
+                    raise Exception("MISSING_MISSION_ID")
+
+                # Missions use state-based sync, so we check user_system_tasks doc
+                ust_id = f"{user_id}_{task_id}"
+                ust_ref = db.collection('user_system_tasks').document(ust_id)
+                ust_snap = ust_ref.get(transaction=transaction)
+                if not ust_snap.exists:
+                    raise Exception("MISSION_RECORD_NOT_FOUND")
+
+                ust_data = ust_snap.to_dict()
+                if ust_data.get('status') != 'COMPLETED':
+                    raise Exception(f"MISSION_NOT_COMPLETED: {ust_data.get('status')}")
+
+                def_ref = db.collection('system_task_definitions').document(task_id)
+                def_snap = def_ref.get(transaction=transaction)
+                if not def_snap.exists:
+                    raise Exception("MISSION_DEFINITION_NOT_FOUND")
+
+                def_data = def_snap.to_dict()
+                derived_amount = def_data.get('rewardPoints', 0)
+                derived_xp = def_data.get('rewardXp', 0)
+
             elif tx_type == 'daily_reward':
                 derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
                 derived_xp = config.get('rewards', {}).get('dailyLoginXP', 50)
@@ -124,7 +184,8 @@ def execute_transaction():
                 derived_amount = config.get('rewards', {}).get('referralBonusPoints', 50)
                 derived_xp = config.get('rewards', {}).get('referralBonusXP', 50)
 
-        if task_claim_id:
+        # Admin-only manual claim resolution block
+        if tx_type in admin_only_types and task_claim_id:
             tc_ref = db.collection('task_claims').document(task_claim_id)
             tc_snap = tc_ref.get(transaction=transaction)
             if not tc_snap.exists:
@@ -190,8 +251,8 @@ def execute_transaction():
             'points': firestore.Increment(derived_amount),
             'xp': new_xp,
             'level': new_level,
-            'stats.totalEarnings': firestore.Increment(derived_amount if derived_amount > 0 else 0),
-            'totalEarnedToday': derived_amount if is_new_day else firestore.Increment(derived_amount if derived_amount > 0 else 0),
+            'stats.totalEarnings': firestore.Increment(max(derived_amount, 0)),
+            'totalEarnedToday': max(derived_amount, 0) if is_new_day else firestore.Increment(max(derived_amount, 0)),
             'lastActionTimestamp': firestore.SERVER_TIMESTAMP,
             'execution_lock': False,
             'execution_lock_at': None
@@ -339,8 +400,14 @@ def execute_prediction():
     direction = data.get('direction')
     claim_id = data.get('claimId')
 
-    if not user_id or not task_id or not claim_id or not asset_id:
+    if not all([user_id, task_id, claim_id, asset_id, symbol, direction]):
         return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return jsonify({"success": False, "error": "Invalid amount"}), 400
+
+    if direction not in ['UP', 'DOWN']:
+        return jsonify({"success": False, "error": "Invalid direction"}), 400
 
     # Fetch entry price server-side
     entry_price = fetch_market_price(asset_id)
@@ -365,8 +432,14 @@ def execute_prediction():
         config_snap = config_ref.get(transaction=transaction)
         config = config_snap.to_dict() if config_snap.exists else {}
 
-        min_stake = config.get('rewards', {}).get('minPredictionStake', 10)
-        max_stake = config.get('rewards', {}).get('maxPredictionStake', 10000)
+        try:
+            min_stake = float(config.get('rewards', {}).get('minPredictionStake', 10))
+            max_stake = float(config.get('rewards', {}).get('maxPredictionStake', 10000))
+            if min_stake > max_stake:
+                raise ValueError("min > max")
+        except (ValueError, TypeError):
+            min_stake = 10
+            max_stake = 10000
 
         if amount < min_stake or amount > max_stake:
             raise Exception(f"Stake must be between {min_stake} and {max_stake}")
@@ -714,6 +787,43 @@ def evaluate_user_integrity():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/authorize-resend', methods=['POST'])
+@verify_token
+def authorize_resend():
+    caller_uid = request.user['uid']
+    cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
+
+    @firestore.transactional
+    def check_cooldown(transaction):
+        snap = cooldown_ref.get(transaction=transaction)
+        now = datetime.now(timezone.utc)
+
+        if snap.exists:
+            data = snap.to_dict()
+            last_sent = data.get('updatedAt')
+            if last_sent:
+                if last_sent.tzinfo is None:
+                    last_sent = last_sent.replace(tzinfo=timezone.utc)
+                diff = (now - last_sent).total_seconds()
+                if diff < 60:
+                    raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
+
+        transaction.set(cooldown_ref, {
+            'userId': caller_uid,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+        return True
+
+    try:
+        transaction = db.transaction()
+        check_cooldown(transaction)
+        return jsonify({"success": True})
+    except Exception as e:
+        error_msg = str(e)
+        if "COOLDOWN_ACTIVE" in error_msg:
+            return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": error_msg.split(':')[1]}), 429
+        return jsonify({"success": False, "error": error_msg}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

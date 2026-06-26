@@ -8,7 +8,7 @@ import {
   UserCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
-  updateEmail as firebaseUpdateEmail,
+  verifyBeforeUpdateEmail,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
@@ -128,19 +128,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  const actionCodeSettings = {
+    url: import.meta.env.PROD
+      ? "https://pulseearn.online/auth/action"
+      : `${window.location.origin}/auth/action`,
+    handleCodeInApp: true
+  };
+
   async function sendVerification() {
     if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser);
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
     }
   }
 
   async function resetPassword(email: string) {
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
   }
 
   async function updateUserEmail(newEmail: string) {
     if (auth.currentUser) {
-      await firebaseUpdateEmail(auth.currentUser, newEmail);
+      await verifyBeforeUpdateEmail(auth.currentUser, newEmail, actionCodeSettings);
     }
   }
 

@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 import math
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
 
 # Initialize Firebase Admin
 if not firebase_admin._apps:
@@ -68,11 +68,9 @@ def execute_transaction():
     if data.get('type') in admin_only_types and not is_admin(caller_uid):
         return jsonify({"success": False, "error": "Restricted transaction type"}), 403
 
-    amount = data.get('amount', 0)
     tx_type = data.get('type')
     source = data.get('source')
     claim_id = data.get('claimId')
-    xp_reward = data.get('xpReward', 0)
     task_claim_id = data.get('taskClaimId')
     metadata = data.get('metadata', {})
     bypass_lock = data.get('bypassLock', False)
@@ -94,6 +92,37 @@ def execute_transaction():
         claim_snap = claim_ref.get(transaction=transaction)
         if claim_snap.exists:
             raise Exception("REWARD_ALREADY_CLAIMED")
+
+        # DERIVE AMOUNT/XP SERVER-SIDE FOR NON-ADMIN TYPES
+        derived_amount = data.get('amount', 0)
+        derived_xp = data.get('xpReward', 0)
+
+        config_ref = db.collection('system_config').document('global_v1')
+        config_snap = config_ref.get(transaction=transaction)
+        config = config_snap.to_dict() if config_snap.exists else {}
+
+        if tx_type not in admin_only_types:
+            if tx_type == 'task_reward':
+                # Fetch from tasks/{id}
+                task_id = data.get('referenceId') # Front-end should pass this
+                if not task_id:
+                    raise Exception("MISSING_TASK_ID")
+                task_ref = db.collection('tasks').document(task_id)
+                task_snap = task_ref.get(transaction=transaction)
+                if not task_snap.exists:
+                    raise Exception("TASK_NOT_FOUND")
+                task_data = task_snap.to_dict()
+                derived_amount = task_data.get('rewardAmount', 0)
+                derived_xp = task_data.get('xpReward', 0)
+            elif tx_type == 'daily_reward':
+                derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
+                derived_xp = config.get('rewards', {}).get('dailyLoginXP', 50)
+            elif tx_type == 'welcome_bonus':
+                derived_amount = config.get('rewards', {}).get('welcomeBonusPoints', 30)
+                derived_xp = config.get('rewards', {}).get('welcomeBonusXP', 50)
+            elif tx_type == 'referral_bonus':
+                derived_amount = config.get('rewards', {}).get('referralBonusPoints', 50)
+                derived_xp = config.get('rewards', {}).get('referralBonusXP', 50)
 
         if task_claim_id:
             tc_ref = db.collection('task_claims').document(task_claim_id)
@@ -138,20 +167,14 @@ def execute_transaction():
 
         # Solvency
         current_points = user_data.get('points', 0)
-        if amount < 0 and current_points + amount < 0:
+        if derived_amount < 0 and current_points + derived_amount < 0:
             raise Exception("INSUFFICIENT_FUNDS")
 
         # Config
-        config_ref = db.collection('system_config').document('global_v1')
-        config_snap = config_ref.get(transaction=transaction)
-        if config_snap.exists:
-            config = config_snap.to_dict()
-            xp_per_level = config.get('thresholds', {}).get('xpPerLevel', 1000)
-        else:
-            xp_per_level = 1000
+        xp_per_level = config.get('thresholds', {}).get('xpPerLevel', 1000)
 
         current_xp = user_data.get('xp', 0)
-        xp_delta = xp_reward if (tx_type == 'admin_adjustment' or amount >= 0 or xp_reward > 0) else 0
+        xp_delta = derived_xp if (tx_type == 'admin_adjustment' or derived_amount >= 0 or derived_xp > 0) else 0
         new_xp = max(0, current_xp + xp_delta)
         new_level = calculate_level(new_xp, xp_per_level)
 
@@ -164,11 +187,11 @@ def execute_transaction():
             is_new_day = now.strftime('%Y-%m-%d') != last_action.strftime('%Y-%m-%d')
 
         updates = {
-            'points': firestore.Increment(amount),
+            'points': firestore.Increment(derived_amount),
             'xp': new_xp,
             'level': new_level,
-            'stats.totalEarnings': firestore.Increment(amount if amount > 0 else 0),
-            'totalEarnedToday': amount if is_new_day else firestore.Increment(amount if amount > 0 else 0),
+            'stats.totalEarnings': firestore.Increment(derived_amount if derived_amount > 0 else 0),
+            'totalEarnedToday': derived_amount if is_new_day else firestore.Increment(derived_amount if derived_amount > 0 else 0),
             'lastActionTimestamp': firestore.SERVER_TIMESTAMP,
             'execution_lock': False,
             'execution_lock_at': None
@@ -196,7 +219,7 @@ def execute_transaction():
         if tx_type == 'referral_bonus':
             updates['stats.referralsCount'] = firestore.Increment(1)
         if tx_type == 'withdrawal_finalized':
-            final_amount = abs(amount) if amount != 0 else metadata.get('amount', 0)
+            final_amount = abs(derived_amount) if derived_amount != 0 else metadata.get('amount', 0)
             updates['totalWithdrawn'] = firestore.Increment(final_amount)
 
         transaction.update(user_ref, updates)
@@ -205,7 +228,7 @@ def execute_transaction():
             'userId': user_id,
             'type': tx_type,
             'source': source,
-            'amount': amount,
+            'amount': derived_amount,
             'executedAt': firestore.SERVER_TIMESTAMP,
             'metadata': {**metadata, 'engineVersion': '5.0.0-SERVER'}
         })
@@ -217,7 +240,7 @@ def execute_transaction():
             'id': tx_ref.id,
             'userId': user_id,
             'type': tx_type,
-            'amount': amount,
+            'amount': derived_amount,
             'source': source,
             'claimId': claim_id,
             'status': 'COMPLETED',
@@ -235,7 +258,7 @@ def execute_transaction():
             'id': act_ref.id,
             'userId': user_id,
             'type': act_type,
-            'points': amount,
+            'points': derived_amount,
             'description': source,
             'timestamp': firestore.SERVER_TIMESTAMP,
             'metadata': {**metadata, 'txId': tx_ref.id}
@@ -249,18 +272,18 @@ def execute_transaction():
              # Server remains owner of daily reward notification
              should_notify = True
              title = 'Daily Reward Claimed'
-             description = f"You earned {amount} Points for your daily check-in."
+             description = f"You earned {derived_amount} Points for your daily check-in."
              notif_category = 'reward_claimed'
         elif tx_type == 'task_reward' and metadata.get('verificationType') == 'automated':
              # Server notifies for AUTOMATED tasks only; manual tasks are notified by OpsValidation
              should_notify = True
              title = 'Task Approved'
-             description = f"You earned {amount:,} Points from: {source}"
+             description = f"You earned {derived_amount:,} Points from: {source}"
              notif_category = 'reward_claimed'
         elif tx_type == 'referral_bonus':
              should_notify = True
              title = 'Referral Bonus Received'
-             description = f"You earned {amount} Points from a qualified referral."
+             description = f"You earned {derived_amount} Points from a qualified referral."
              notif_category = 'referral_joined'
 
         if should_notify:
@@ -314,11 +337,15 @@ def execute_prediction():
     asset_id = data.get('assetId')
     symbol = data.get('symbol')
     direction = data.get('direction')
-    entry_price = data.get('entryPrice')
     claim_id = data.get('claimId')
 
-    if not user_id or not task_id or not claim_id:
+    if not user_id or not task_id or not claim_id or not asset_id:
         return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+    # Fetch entry price server-side
+    entry_price = fetch_market_price(asset_id)
+    if entry_price is None:
+        return jsonify({"success": False, "error": "Could not retrieve current market price"}), 503
 
     user_ref = db.collection('users').document(user_id)
     claim_ref = db.collection('system_claims').document(claim_id)
@@ -333,14 +360,17 @@ def execute_prediction():
         if user_data.get('points', 0) < amount:
             raise Exception("INSUFFICIENT_FUNDS")
 
-        # Fix #2: Sane min/max on prediction amount
-        if amount < 10 or amount > 10000:
-            raise Exception("INVALID_STAKE_AMOUNT")
-
-        # Fix #2: Fetch config server-side for reward multiplier
+        # Fetch config server-side for reward multiplier and stake limits
         config_ref = db.collection('system_config').document('global_v1')
         config_snap = config_ref.get(transaction=transaction)
         config = config_snap.to_dict() if config_snap.exists else {}
+
+        min_stake = config.get('rewards', {}).get('minPredictionStake', 10)
+        max_stake = config.get('rewards', {}).get('maxPredictionStake', 10000)
+
+        if amount < min_stake or amount > max_stake:
+            raise Exception(f"Stake must be between {min_stake} and {max_stake}")
+
         multiplier = config.get('rewards', {}).get('predictionWinMultiplier', 2.0)
         calculated_reward = amount * multiplier
 

@@ -16,6 +16,8 @@ export interface EconomyConfig {
     referralBonusPoints: number;
     referralBonusXP: number;
     predictionWinMultiplier: number; // e.g. 2.0
+    minPredictionStake: number;
+    maxPredictionStake: number;
     predictionXP: {
       win: number;
       loss: number;
@@ -42,6 +44,8 @@ const DEFAULT_CONFIG: EconomyConfig = {
     referralBonusPoints: 50,
     referralBonusXP: 50,
     predictionWinMultiplier: 2.0,
+    minPredictionStake: 10,
+    maxPredictionStake: 10000,
     predictionXP: {
       win: 250,
       loss: 50

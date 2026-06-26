@@ -6,7 +6,8 @@ import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCirc
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { auth } from '../firebase/config';
+import { auth, db } from '../firebase/config';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const VerifyEmail: React.FC = () => {
   const { currentUser, logout, sendVerification } = useAuth();
@@ -24,18 +25,53 @@ const VerifyEmail: React.FC = () => {
   }, [countdown]);
 
   const handleResend = async () => {
-    if (countdown > 0) return;
+    if (countdown > 0 || !currentUser) return;
     setIsSending(true);
     try {
+      // Check backend cooldown in Firestore
+      const cooldownRef = doc(db, 'email_cooldowns', currentUser.uid);
+      const cooldownSnap = await getDoc(cooldownRef);
+
+      if (cooldownSnap.exists()) {
+        const lastSentAt = cooldownSnap.data().updatedAt?.toDate();
+        if (lastSentAt) {
+          const diff = (Date.now() - lastSentAt.getTime()) / 1000;
+          if (diff < 60) {
+            toast.error(`Please wait ${Math.ceil(60 - diff)}s before resending.`);
+            setCountdown(Math.ceil(60 - diff));
+            return;
+          }
+        }
+      }
+
       await sendVerification();
+
+      // Update cooldown in Firestore
+      await setDoc(cooldownRef, {
+        userId: currentUser.uid,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
       toast.success('Verification email sent!');
       setCountdown(60);
-    } catch (error) {
-      toast.error('Too many requests. Please wait.');
+    } catch (error: any) {
+      toast.error(error.message || 'Too many requests. Please wait.');
     } finally {
       setIsSending(false);
     }
   };
+
+  const [isQABypass, setIsQABypass] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      currentUser.getIdTokenResult(true).then((idTokenResult) => {
+        const hasQABypass = !!idTokenResult.claims.qa_bypass;
+        const isDev = import.meta.env.DEV;
+        setIsQABypass(hasQABypass && isDev);
+      });
+    }
+  }, [currentUser]);
 
   const checkStatus = async () => {
     setIsChecking(true);
@@ -54,10 +90,10 @@ const VerifyEmail: React.FC = () => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Bypass for admin
+  // Bypass for admin or QA
   const { userData } = useAuth();
   const isAdmin = userData?.role === 'admin';
-  if (currentUser.emailVerified || isAdmin) {
+  if (currentUser.emailVerified || isAdmin || isQABypass) {
     const target = isAdmin ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;
   }
@@ -90,20 +126,21 @@ const VerifyEmail: React.FC = () => {
 
             <div className="space-y-4">
                <Button
-                onClick={checkStatus}
-                disabled={isChecking}
-                className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold"
+                onClick={handleResend}
+                disabled={isSending || countdown > 0}
+                className="w-full py-4 rounded-xl shadow-lg text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2"
                >
-                  {isChecking ? <Loader2 className="animate-spin" size={16} /> : 'I have verified my email'}
+                  {isSending ? <RefreshCw className="animate-spin" size={16} /> : null}
+                  {countdown > 0 ? `Resend Available in ${countdown}s` : 'Resend Verification Email'}
                </Button>
 
                <button
-                onClick={handleResend}
-                disabled={isSending || countdown > 0}
-                className="w-full py-4 rounded-xl bg-surface-bright border border-border-bright text-text-secondary hover:text-text-primary hover:bg-surface-accent transition-all text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                onClick={checkStatus}
+                disabled={isChecking}
+                className="w-full py-4 rounded-xl bg-surface-bright border border-border-bright text-text-secondary hover:text-text-primary hover:bg-surface-accent transition-all text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 opacity-50 hover:opacity-100"
                >
-                  {isSending ? <RefreshCw className="animate-spin" size={16} /> : null}
-                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Email'}
+                  {isChecking ? <Loader2 className="animate-spin" size={14} /> : null}
+                  Check Verification Status
                </button>
             </div>
 

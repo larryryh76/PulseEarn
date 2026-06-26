@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
+import AuthAction from './pages/auth/AuthAction'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Predictions from './pages/predictions/Predictions'
@@ -64,9 +65,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const isAdmin = userData?.role === 'admin';
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  // Secure QA Bypass: require claim AND dev mode
+  const [isQABypass, setIsQABypass] = React.useState(false);
+
+  React.useEffect(() => {
+    if (currentUser) {
+      currentUser.getIdTokenResult(true).then((idTokenResult) => {
+        const hasQABypass = !!idTokenResult.claims.qa_bypass;
+        const isDev = import.meta.env.DEV;
+        setIsQABypass(hasQABypass && isDev);
+      });
+    }
+  }, [currentUser]);
+
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
-  if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
+  if (!currentUser.emailVerified && !isAdmin && !isQABypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 
@@ -152,6 +165,7 @@ function App() {
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
+        <Route path="/auth/action" element={<AuthAction />} />
 
         {/* PERSISTENT APP ARCHITECTURE */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

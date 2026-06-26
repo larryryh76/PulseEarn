@@ -18,6 +18,10 @@ service cloud.firestore {
       );
     }
 
+    function isVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
     // 1. Users Collection
     match /users/{userId} {
       // Allow searching for referral codes during signup (limit 1)
@@ -116,7 +120,7 @@ service cloud.firestore {
     match /task_claims/{claimId} {
       allow read: if isAuthenticated();
       allow list: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isVerified();
       allow update, delete: if isAdmin();
     }
 
@@ -138,7 +142,7 @@ service cloud.firestore {
     match /user_predictions/{predictionId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isVerified() && request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -179,12 +183,20 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin();
       // Fix #14: Enforce withdrawal gates (account age and level)
-      allow create: if isAuthenticated() &&
+      allow create: if isVerified() &&
                       request.resource.data.userId == request.auth.uid &&
                       request.resource.data.status == 'PENDING' &&
                       request.resource.data.keys().hasOnly(['userId', 'amount', 'method', 'address', 'status', 'createdAt', 'metadata', 'amountPoints', 'amountUSD', 'userEmail', 'username', 'claimId']) &&
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= 2;
       allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 8b. Email Cooldowns
+    match /email_cooldowns/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && request.time > resource.data.updatedAt + duration.value(60, 's');
       allow delete: if isAdmin();
     }
 

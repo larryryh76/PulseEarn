@@ -321,6 +321,14 @@ const OpsEconomy: React.FC = () => {
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Win Multiplier</label>
                                <input type="number" step="0.1" value={economyConfig.rewards.predictionWinMultiplier} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, predictionWinMultiplier: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Prediction Stake</label>
+                               <input type="number" value={economyConfig.rewards.minPredictionStake} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, minPredictionStake: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Max Prediction Stake</label>
+                               <input type="number" value={economyConfig.rewards.maxPredictionStake} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, maxPredictionStake: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
                          </div>
                       </section>
 

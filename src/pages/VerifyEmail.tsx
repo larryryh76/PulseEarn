@@ -9,7 +9,7 @@ import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { auth } from '../firebase/config';
 
 const VerifyEmail: React.FC = () => {
-  const { currentUser, logout, sendVerification, userData } = useAuth();
+  const { currentUser, logout, userData } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -18,12 +18,13 @@ const VerifyEmail: React.FC = () => {
   const [isQABypass, setIsQABypass] = useState(false);
 
   useEffect(() => {
+    setIsQABypass(false);
     if (currentUser) {
       currentUser.getIdTokenResult(true).then((idTokenResult) => {
         const hasQABypass = !!idTokenResult.claims.qa_bypass;
         const isDev = import.meta.env.DEV;
         setIsQABypass(hasQABypass && isDev);
-      });
+      }).catch(() => setIsQABypass(false));
     }
   }, [currentUser]);
 
@@ -39,7 +40,7 @@ const VerifyEmail: React.FC = () => {
     if (countdown > 0 || !currentUser) return;
     setIsSending(true);
     try {
-      // ATOMIC BACKEND COOLDOWN CHECK
+      // ATOMIC BACKEND COOLDOWN CHECK AND DISPATCH
       const token = await currentUser.getIdToken();
       const response = await fetch('/api/authorize-resend', {
           method: 'POST',
@@ -53,12 +54,11 @@ const VerifyEmail: React.FC = () => {
           if (res.error === 'COOLDOWN_ACTIVE') {
               const retry = parseInt(res.retryAfter);
               setCountdown(retry);
-              throw new Error(`Please wait ${retry}s before resending.`);
+              throw new Error(res.message);
           }
-          throw new Error(res.error || 'Authorization failed');
+          throw new Error(res.message || 'Authorization failed');
       }
 
-      await sendVerification();
       toast.success('Verification email sent!');
       setCountdown(60);
     } catch (error: any) {

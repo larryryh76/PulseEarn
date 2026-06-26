@@ -12,6 +12,7 @@ import Button from '../../components/ui/Button';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { mapAuthError } from '../../utils/errors';
 
 const AuthAction: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -70,7 +71,7 @@ const AuthAction: React.FC = () => {
         }
       } catch (err: any) {
         console.error('Auth Action Error:', err);
-        setError(err.message || 'An error occurred during the authentication process.');
+        setError(mapAuthError(err.code || err.message) || 'An error occurred during the authentication process.');
       } finally {
         setLoading(false);
       }
@@ -144,7 +145,7 @@ const AuthAction: React.FC = () => {
                 <h1 className="text-2xl font-bold uppercase italic tracking-tighter">Success</h1>
                 <p className="text-text-tertiary text-sm leading-relaxed">{success}</p>
                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest animate-pulse">Redirecting in 3 seconds...</p>
-                <Link to="/login" className="block">
+                <Link to={(mode === 'verifyEmail' || mode === 'verifyAndChangeEmail' || mode === 'recoverEmail') ? "/dashboard" : "/login"} className="block">
                   <Button className="w-full">Continue to PulseEarn</Button>
                 </Link>
               </div>

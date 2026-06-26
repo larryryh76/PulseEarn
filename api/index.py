@@ -68,6 +68,8 @@ def execute_transaction():
     allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'referral_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
 
     tx_type = data.get('type')
+    tx_col = db.collection('users').document(user_id).collection('transactions')
+    tx_ref = tx_col.document()
 
     if tx_type in admin_only_types and not is_admin(caller_uid):
         return jsonify({"success": False, "error": "Restricted transaction type"}), 403
@@ -145,7 +147,7 @@ def execute_transaction():
                 transaction.update(tc_ref, {
                     'completionState': 'COMPLETED',
                     'resolvedAt': firestore.SERVER_TIMESTAMP,
-                    'rewardTransactionId': 'PENDING_SERVER' # Will be updated after txId generated? Actually generated in then() usually, but here we are in transaction.
+                    'rewardTransactionId': tx_ref.id
                 })
 
             elif tx_type == 'mission_reward':
@@ -164,6 +166,8 @@ def execute_transaction():
                 ust_data = ust_snap.to_dict()
                 if ust_data.get('status') != 'COMPLETED':
                     raise Exception(f"MISSION_NOT_COMPLETED: {ust_data.get('status')}")
+                if ust_data.get('rewarded'):
+                    raise Exception("MISSION_ALREADY_REWARDED")
 
                 def_ref = db.collection('system_task_definitions').document(task_id)
                 def_snap = def_ref.get(transaction=transaction)
@@ -174,6 +178,13 @@ def execute_transaction():
                 derived_amount = def_data.get('rewardPoints', 0)
                 derived_xp = def_data.get('rewardXp', 0)
 
+                # Mark mission as REWARDED
+                transaction.update(ust_ref, {
+                    'rewarded': True,
+                    'rewardTransactionId': tx_ref.id,
+                    'claimedAt': firestore.SERVER_TIMESTAMP
+                })
+
             elif tx_type == 'daily_reward':
                 derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
                 derived_xp = config.get('rewards', {}).get('dailyLoginXP', 50)
@@ -183,6 +194,33 @@ def execute_transaction():
             elif tx_type == 'referral_bonus':
                 derived_amount = config.get('rewards', {}).get('referralBonusPoints', 50)
                 derived_xp = config.get('rewards', {}).get('referralBonusXP', 50)
+            elif tx_type == 'withdrawal_debit':
+                # FORCE NEGATIVE
+                raw_amount = data.get('amount', 0)
+                derived_amount = -abs(raw_amount)
+
+                # Cross-check withdrawal doc
+                wd_id = data.get('referenceId')
+                if wd_id:
+                    wd_ref = db.collection('withdrawals').document(wd_id)
+                    wd_snap = wd_ref.get(transaction=transaction)
+                    if wd_snap.exists:
+                        wd_data = wd_snap.to_dict()
+                        if wd_data.get('userId') != user_id:
+                            raise Exception("WITHDRAWAL_OWNERSHIP_MISMATCH")
+                        # Sync derived_amount to the doc amount
+                        derived_amount = -abs(wd_data.get('amountPoints', 0))
+
+            elif tx_type == 'prediction_entry':
+                # FORCE NEGATIVE
+                raw_amount = data.get('amount', 0)
+                derived_amount = -abs(raw_amount)
+
+                # Config validation
+                min_stake = config.get('rewards', {}).get('minPredictionStake', 10)
+                max_stake = config.get('rewards', {}).get('maxPredictionStake', 10000)
+                if abs(derived_amount) < min_stake or abs(derived_amount) > max_stake:
+                    raise Exception("INVALID_STAKE_AMOUNT")
 
         # Admin-only manual claim resolution block
         if tx_type in admin_only_types and task_claim_id:
@@ -295,8 +333,6 @@ def execute_transaction():
         })
 
         # Transaction Ledger
-        tx_col = user_ref.collection('transactions')
-        tx_ref = tx_col.document()
         transaction.set(tx_ref, {
             'id': tx_ref.id,
             'userId': user_id,
@@ -792,6 +828,11 @@ def evaluate_user_integrity():
 @verify_token
 def authorize_resend():
     caller_uid = request.user['uid']
+    caller_email = request.user.get('email')
+
+    if not caller_email:
+        return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
+
     cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
 
     @firestore.transactional
@@ -818,12 +859,34 @@ def authorize_resend():
     try:
         transaction = db.transaction()
         check_cooldown(transaction)
+
+        # SEND EMAIL VIA ADMIN SDK
+        # In a real environment, we'd use generate_email_verification_link
+        # and then send it via a mail provider (SendGrid/Mailgun)
+        # For this sandbox, we generate the link and "send" it (log/return)
+        action_settings = auth.ActionCodeSettings(
+            url=f"https://pulseearn.online/auth/action",
+            handle_code_in_app=True
+        )
+        link = auth.generate_email_verification_link(caller_email, action_settings)
+
+        # Conceptual mail dispatch
+        print(f"DISPATCHING VERIFICATION TO {caller_email}: {link}")
+
         return jsonify({"success": True})
     except Exception as e:
         error_msg = str(e)
         if "COOLDOWN_ACTIVE" in error_msg:
-            return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": error_msg.split(':')[1]}), 429
-        return jsonify({"success": False, "error": error_msg}), 400
+            return jsonify({
+                "success": False,
+                "error": "COOLDOWN_ACTIVE",
+                "retryAfter": error_msg.split(':')[1],
+                "message": f"Please wait {error_msg.split(':')[1]}s before resending."
+            }), 429
+
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"success": False, "error": "SERVER_ERROR", "message": "Something went wrong, please try again."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -212,17 +212,6 @@ def execute_transaction():
                         # Sync derived_amount to the doc amount
                         derived_amount = -abs(wd_data.get('amountPoints', 0))
 
-            elif tx_type == 'prediction_entry':
-                # FORCE NEGATIVE
-                raw_amount = data.get('amount', 0)
-                derived_amount = -abs(raw_amount)
-
-                # Config validation
-                min_stake = config.get('rewards', {}).get('minPredictionStake', 10)
-                max_stake = config.get('rewards', {}).get('maxPredictionStake', 10000)
-                if abs(derived_amount) < min_stake or abs(derived_amount) > max_stake:
-                    raise Exception("INVALID_STAKE_AMOUNT")
-
         # Admin-only manual claim resolution block
         if tx_type in admin_only_types and task_claim_id:
             tc_ref = db.collection('task_claims').document(task_claim_id)
@@ -440,7 +429,7 @@ def execute_prediction():
     if not all([user_id, task_id, claim_id, asset_id, symbol, direction]):
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
-    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount <= 0 or not math.isfinite(amount):
+    if not isinstance(amount, (int, float)) or amount <= 0:
         return jsonify({"success": False, "error": "Invalid amount"}), 400
 
     if direction not in ['UP', 'DOWN']:
@@ -698,7 +687,8 @@ def process_referral_reward():
         def ref_reward_transaction(transaction):
             # 1. Read everything inside transaction
             ref_snap = ref_ref.get(transaction=transaction)
-            if not ref_snap.exists: raise Exception("REFERRAL_NOT_FOUND")
+            if not ref_snap.exists:
+                raise Exception("REFERRAL_NOT_FOUND")
             ref_data = ref_snap.to_dict()
 
             # Validate referral document ownership and binding
@@ -709,16 +699,19 @@ def process_referral_reward():
             if ref_referrer == ref_referee:
                 raise Exception("SELF_REFERRAL_NOT_ALLOWED")
 
-            if ref_data.get('status') != 'REGISTERED': raise Exception("REFERRAL_ALREADY_PROCESSED")
+            if ref_data.get('status') != 'REGISTERED':
+                raise Exception("REFERRAL_ALREADY_PROCESSED")
 
             referrer_snap = referrer_ref.get(transaction=transaction)
-            if not referrer_snap.exists: raise Exception("REFERRER_NOT_FOUND")
+            if not referrer_snap.exists:
+                raise Exception("REFERRER_NOT_FOUND")
             referrer_data = referrer_snap.to_dict()
             if referrer_data.get('stats', {}).get('tasksCompleted', 0) == 0:
                 raise Exception("REFERRER_NOT_QUALIFIED")
 
             claim_snap = claim_ref.get(transaction=transaction)
-            if claim_snap.exists: raise Exception("REWARD_ALREADY_CLAIMED")
+            if claim_snap.exists:
+                raise Exception("REWARD_ALREADY_CLAIMED")
 
             config_snap = config_ref.get(transaction=transaction)
             config = config_snap.to_dict() if config_snap.exists else {}
@@ -881,14 +874,9 @@ def authorize_resend():
             )
             link = auth.generate_email_verification_link(caller_email, action_settings)
         except Exception as link_error:
-            # Safely extract error details before rollback
-            print(f"LINK_GENERATION_ERROR: {str(link_error)}")
             # Roll back the cooldown reservation on link generation failure
-            # Only clear if it still matches the current caller
             try:
-                snap = cooldown_ref.get()
-                if snap.exists and snap.to_dict().get('userId') == caller_uid:
-                    cooldown_ref.delete()
+                cooldown_ref.delete()
             except:
                 pass
             raise link_error
@@ -899,11 +887,8 @@ def authorize_resend():
         if not resend_key:
             print("WARN: RESEND_API_KEY not set. Falling back to client-side dispatch.")
             # Roll back the cooldown reservation on missing API key
-            # Only clear if it still matches the current caller
             try:
-                snap = cooldown_ref.get()
-                if snap.exists and snap.to_dict().get('userId') == caller_uid:
-                    cooldown_ref.delete()
+                cooldown_ref.delete()
             except:
                 pass
             return jsonify({"success": True, "dispatchMethod": "client_fallback"})
@@ -938,14 +923,9 @@ def authorize_resend():
                 timeout=15
             )
         except Exception as req_error:
-            # Safely extract error details before rollback
-            print(f"RESEND_REQUEST_ERROR: {str(req_error)}")
             # Roll back the cooldown reservation on request failure
-            # Only clear if it still matches the current caller
             try:
-                snap = cooldown_ref.get()
-                if snap.exists and snap.to_dict().get('userId') == caller_uid:
-                    cooldown_ref.delete()
+                cooldown_ref.delete()
             except:
                 pass
             raise req_error
@@ -958,11 +938,8 @@ def authorize_resend():
                 error_data = {"message": "Non-JSON error response"}
             print(f"RESEND_ERROR: {res.status_code} - {error_data}")
             # Roll back the cooldown reservation on failure
-            # Only clear if it still matches the current caller
             try:
-                snap = cooldown_ref.get()
-                if snap.exists and snap.to_dict().get('userId') == caller_uid:
-                    cooldown_ref.delete()
+                cooldown_ref.delete()
             except:
                 pass
             return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502

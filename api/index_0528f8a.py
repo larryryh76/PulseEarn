@@ -64,8 +64,8 @@ def execute_transaction():
         return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
     # Additional check for admin-only transaction types
-    admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
-    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'referral_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
+    admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized', 'referral_bonus']
+    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
 
     tx_type = data.get('type')
     tx_col = db.collection('users').document(user_id).collection('transactions')
@@ -687,40 +687,54 @@ def process_referral_reward():
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
     try:
-        # Check referral record
-        ref_ref = db.collection('referrals').document(referral_doc_id)
-        ref_snap = ref_ref.get()
-        if not ref_snap.exists:
-            return jsonify({"success": False, "error": "Referral record not found"}), 404
-
-        ref_data = ref_snap.to_dict()
-        if ref_data.get('status') != 'REGISTERED':
-            return jsonify({"success": False, "error": "Referral already processed"}), 400
-
-        # Check eligibility
-        referrer_ref = db.collection('users').document(referrer_id)
-        referrer_snap = referrer_ref.get()
-        if not referrer_snap.exists:
-            return jsonify({"success": False, "error": "Referrer not found"}), 404
-
-        referrer_data = referrer_snap.to_dict()
-        tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
-
-        if tasks_completed == 0:
-            return jsonify({"success": False, "error": "Referrer not qualified"}), 400
-
-        # Get reward amount from config
-        config_ref = db.collection('system_config').document('global_v1')
-        config_snap = config_ref.get()
-        config = config_snap.to_dict() if config_snap.exists else {}
-        amount = config.get('rewards', {}).get('referralBonusPoints', 50)
-        xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
-
         claim_id = f"ref_qualify_{referrer_id}_{referee_id}"
+        ref_ref = db.collection('referrals').document(referral_doc_id)
+        referrer_ref = db.collection('users').document(referrer_id)
+        config_ref = db.collection('system_config').document('global_v1')
+        claim_ref = db.collection('system_claims').document(claim_id)
 
         @firestore.transactional
         def ref_reward_transaction(transaction):
-            # Atomic update of referrer and referral doc
+            # Re-read and validate referral document inside transaction
+            ref_snap = ref_ref.get(transaction=transaction)
+            if not ref_snap.exists:
+                raise Exception("REFERRAL_NOT_FOUND")
+
+            ref_data = ref_snap.to_dict()
+
+            # Validate status
+            if ref_data.get('status') != 'REGISTERED':
+                raise Exception("REFERRAL_ALREADY_PROCESSED")
+
+            # Validate that referral document matches request payload
+            if ref_data.get('referrerId') != referrer_id:
+                raise Exception("REFERRER_ID_MISMATCH")
+            if ref_data.get('refereeId') != referee_id:
+                raise Exception("REFEREE_ID_MISMATCH")
+
+            # Check referrer eligibility inside transaction
+            referrer_snap = referrer_ref.get(transaction=transaction)
+            if not referrer_snap.exists:
+                raise Exception("REFERRER_NOT_FOUND")
+
+            referrer_data = referrer_snap.to_dict()
+            tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
+
+            if tasks_completed == 0:
+                raise Exception("REFERRER_NOT_QUALIFIED")
+
+            # Check for duplicate claim inside transaction
+            claim_snap = claim_ref.get(transaction=transaction)
+            if claim_snap.exists:
+                raise Exception("REWARD_ALREADY_CLAIMED")
+
+            # Get reward amount from config inside transaction
+            config_snap = config_ref.get(transaction=transaction)
+            config = config_snap.to_dict() if config_snap.exists else {}
+            amount = config.get('rewards', {}).get('referralBonusPoints', 50)
+            xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
+
+            # Atomic update of referrer
             transaction.update(referrer_ref, {
                 'points': firestore.Increment(amount),
                 'xp': firestore.Increment(xp_reward),
@@ -728,9 +742,19 @@ def process_referral_reward():
                 'lastActionTimestamp': firestore.SERVER_TIMESTAMP
             })
 
+            # Update referral status
             transaction.update(ref_ref, {
                 'status': 'REWARDED',
                 'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+
+            # Create claim record to prevent duplicates
+            transaction.set(claim_ref, {
+                'userId': referrer_id,
+                'type': 'referral_bonus',
+                'claimId': claim_id,
+                'amount': amount,
+                'executedAt': firestore.SERVER_TIMESTAMP
             })
 
             # Log transaction
@@ -746,7 +770,7 @@ def process_referral_reward():
                 'timestamp': firestore.SERVER_TIMESTAMP
             })
 
-            # Fix: Notify referrer of reward
+            # Notify referrer of reward
             notif_ref = referrer_ref.collection('notifications').document()
             transaction.set(notif_ref, {
                 'type': 'referral_joined',

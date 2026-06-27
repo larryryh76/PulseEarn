@@ -1,3 +1,6 @@
+# This module defines the authorize_resend endpoint
+# Dependencies are injected from the main app module
+
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token
 def authorize_resend():
@@ -23,11 +26,6 @@ def authorize_resend():
                 diff = (now - last_sent).total_seconds()
                 if diff < 60:
                     raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
-
-        transaction.set(cooldown_ref, {
-            'userId': caller_uid,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }, merge=True)
         return True
 
     try:
@@ -44,10 +42,17 @@ def authorize_resend():
         )
         link = auth.generate_email_verification_link(caller_email, action_settings)
 
-        # Conceptual mail dispatch
-        print(f"DISPATCHING VERIFICATION TO {caller_email}: {link}")
+        # TODO: Integrate with actual email service (Resend/SendGrid)
+        # For now, verification link should be sent via client-side fallback
+        print("Verification email dispatch requested")
 
-        return jsonify({"success": True})
+        # Update cooldown only after successful dispatch
+        cooldown_ref.set({
+            'userId': caller_uid,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
+        return jsonify({"success": True, "dispatchMethod": "client_fallback"})
     except Exception as e:
         error_msg = str(e)
         if "COOLDOWN_ACTIVE" in error_msg:

@@ -65,7 +65,7 @@ def execute_transaction():
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
-    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'referral_bonus', 'withdrawal_debit', 'mission_reward']
+    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward']
 
     tx_type = data.get('type')
     tx_col = db.collection('users').document(user_id).collection('transactions')
@@ -189,11 +189,12 @@ def execute_transaction():
                 derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
                 derived_xp = config.get('rewards', {}).get('dailyLoginXP', 50)
             elif tx_type == 'welcome_bonus':
+                # Server-derived welcome bonus with server-controlled claim ID
+                derived_claim_id = f"welcome_{user_id}"
+                if claim_id != derived_claim_id:
+                    raise Exception("INVALID_WELCOME_CLAIM_ID")
                 derived_amount = config.get('rewards', {}).get('welcomeBonusPoints', 30)
                 derived_xp = config.get('rewards', {}).get('welcomeBonusXP', 50)
-            elif tx_type == 'referral_bonus':
-                derived_amount = config.get('rewards', {}).get('referralBonusPoints', 50)
-                derived_xp = config.get('rewards', {}).get('referralBonusXP', 50)
             elif tx_type == 'withdrawal_debit':
                 # FORCE NEGATIVE
                 raw_amount = data.get('amount', 0)
@@ -439,7 +440,7 @@ def execute_prediction():
     if not all([user_id, task_id, claim_id, asset_id, symbol, direction]):
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
-    if not isinstance(amount, (int, float)) or amount <= 0:
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount <= 0 or not math.isfinite(amount):
         return jsonify({"success": False, "error": "Invalid amount"}), 400
 
     if direction not in ['UP', 'DOWN']:
@@ -699,6 +700,15 @@ def process_referral_reward():
             ref_snap = ref_ref.get(transaction=transaction)
             if not ref_snap.exists: raise Exception("REFERRAL_NOT_FOUND")
             ref_data = ref_snap.to_dict()
+
+            # Validate referral document ownership and binding
+            ref_referrer = ref_data.get('referrerId')
+            ref_referee = ref_data.get('refereeId')
+            if ref_referrer != referrer_id or ref_referee != referee_id:
+                raise Exception("REFERRAL_BINDING_MISMATCH")
+            if ref_referrer == ref_referee:
+                raise Exception("SELF_REFERRAL_NOT_ALLOWED")
+
             if ref_data.get('status') != 'REGISTERED': raise Exception("REFERRAL_ALREADY_PROCESSED")
 
             referrer_snap = referrer_ref.get(transaction=transaction)
@@ -839,7 +849,7 @@ def authorize_resend():
     cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
 
     @firestore.transactional
-    def check_cooldown(transaction):
+    def check_and_reserve_cooldown(transaction):
         snap = cooldown_ref.get(transaction=transaction)
         now = datetime.now(timezone.utc)
 
@@ -852,11 +862,17 @@ def authorize_resend():
                 diff = (now - last_sent).total_seconds()
                 if diff < 60:
                     raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
+
+        # Reserve the slot atomically before sending
+        transaction.set(cooldown_ref, {
+            'userId': caller_uid,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
         return True
 
     try:
         transaction = db.transaction()
-        check_cooldown(transaction)
+        check_and_reserve_cooldown(transaction)
 
         action_settings = auth.ActionCodeSettings(
             url=f"https://pulseearn.online/auth/action",
@@ -903,13 +919,12 @@ def authorize_resend():
         if res.status_code not in [200, 201]:
             error_data = res.json() if res.content else {"message": "Unknown error"}
             print(f"RESEND_ERROR: {res.status_code} - {error_data}")
+            # Roll back the cooldown reservation on failure
+            try:
+                cooldown_ref.delete()
+            except:
+                pass
             return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502
-
-        # Only update cooldown if dispatch succeeded
-        cooldown_ref.set({
-            'userId': caller_uid,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }, merge=True)
 
         return jsonify({"success": True, "dispatchMethod": "branded_resend"})
     except Exception as e:
@@ -927,4 +942,4 @@ def authorize_resend():
         return jsonify({"success": False, "error": "SERVER_ERROR", "message": "Something went wrong, please try again."}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)

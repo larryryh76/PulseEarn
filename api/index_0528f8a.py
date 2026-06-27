@@ -65,7 +65,7 @@ def execute_transaction():
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized', 'referral_bonus']
-    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
+    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward']
 
     tx_type = data.get('type')
     tx_col = db.collection('users').document(user_id).collection('transactions')
@@ -712,16 +712,17 @@ def process_referral_reward():
             if ref_data.get('refereeId') != referee_id:
                 raise Exception("REFEREE_ID_MISMATCH")
 
-            # Check referrer eligibility inside transaction
-            referrer_snap = referrer_ref.get(transaction=transaction)
-            if not referrer_snap.exists:
-                raise Exception("REFERRER_NOT_FOUND")
+            # Check referee eligibility inside transaction
+            referee_ref = db.collection('users').document(referee_id)
+            referee_snap = referee_ref.get(transaction=transaction)
+            if not referee_snap.exists:
+                raise Exception("REFEREE_NOT_FOUND")
 
-            referrer_data = referrer_snap.to_dict()
-            tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
+            referee_data = referee_snap.to_dict()
+            tasks_completed = referee_data.get('stats', {}).get('tasksCompleted', 0)
 
             if tasks_completed == 0:
-                raise Exception("REFERRER_NOT_QUALIFIED")
+                raise Exception("REFEREE_NOT_QUALIFIED")
 
             # Check for duplicate claim inside transaction
             claim_snap = claim_ref.get(transaction=transaction)
@@ -741,6 +742,12 @@ def process_referral_reward():
                 'stats.referralsCount': firestore.Increment(1),
                 'lastActionTimestamp': firestore.SERVER_TIMESTAMP
             })
+
+            # Update global liability metric
+            metrics_ref = db.collection('system_config').document('global_metrics')
+            transaction.update(metrics_ref, {
+                'totalPTSLiability': firestore.Increment(amount)
+            }, merge=True)
 
             # Update referral status
             transaction.update(ref_ref, {

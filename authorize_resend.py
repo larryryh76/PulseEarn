@@ -29,6 +29,11 @@ def authorize_resend():
                 diff = (now - last_sent).total_seconds()
                 if diff < 60:
                     raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
+
+        transaction.set(cooldown_ref, {
+            'userId': caller_uid,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
         return True
 
     try:
@@ -78,15 +83,13 @@ def authorize_resend():
         )
 
         if res.status_code not in [200, 201]:
-            error_data = res.json() if res.content else {"message": "Unknown error"}
-            print(f"RESEND_ERROR: {res.status_code} - {error_data}")
+            try:
+                error_data = res.json() if res.content else {}
+                error_msg = error_data.get('message', 'Unknown error')
+            except:
+                error_msg = 'Unknown error'
+            print(f"RESEND_ERROR: status={res.status_code}, message={error_msg}")
             return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502
-
-        # Only update cooldown if dispatch succeeded
-        cooldown_ref.set({
-            'userId': caller_uid,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }, merge=True)
 
         return jsonify({"success": True, "dispatchMethod": "branded_resend"})
     except Exception as e:

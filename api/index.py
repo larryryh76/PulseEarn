@@ -874,17 +874,38 @@ def authorize_resend():
         transaction = db.transaction()
         check_and_reserve_cooldown(transaction)
 
-        action_settings = auth.ActionCodeSettings(
-            url=f"https://pulseearn.online/auth/action",
-            handle_code_in_app=True
-        )
-        link = auth.generate_email_verification_link(caller_email, action_settings)
+        try:
+            action_settings = auth.ActionCodeSettings(
+                url=f"https://pulseearn.online/auth/action",
+                handle_code_in_app=True
+            )
+            link = auth.generate_email_verification_link(caller_email, action_settings)
+        except Exception as link_error:
+            # Safely extract error details before rollback
+            print(f"LINK_GENERATION_ERROR: {str(link_error)}")
+            # Roll back the cooldown reservation on link generation failure
+            # Only clear if it still matches the current caller
+            try:
+                snap = cooldown_ref.get()
+                if snap.exists and snap.to_dict().get('userId') == caller_uid:
+                    cooldown_ref.delete()
+            except:
+                pass
+            raise link_error
 
         resend_key = os.environ.get('RESEND_API_KEY')
         resend_from = os.environ.get('RESEND_FROM_EMAIL', 'support@pulseearn.online')
 
         if not resend_key:
             print("WARN: RESEND_API_KEY not set. Falling back to client-side dispatch.")
+            # Roll back the cooldown reservation on missing API key
+            # Only clear if it still matches the current caller
+            try:
+                snap = cooldown_ref.get()
+                if snap.exists and snap.to_dict().get('userId') == caller_uid:
+                    cooldown_ref.delete()
+            except:
+                pass
             return jsonify({"success": True, "dispatchMethod": "client_fallback"})
 
         # Real dispatch to Resend
@@ -906,22 +927,42 @@ def authorize_resend():
             """
         }
 
-        res = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {resend_key}",
-                "Content-Type": "application/json"
-            },
-            json=payload,
-            timeout=15
-        )
+        try:
+            res = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type": "application/json"
+                },
+                json=payload,
+                timeout=15
+            )
+        except Exception as req_error:
+            # Safely extract error details before rollback
+            print(f"RESEND_REQUEST_ERROR: {str(req_error)}")
+            # Roll back the cooldown reservation on request failure
+            # Only clear if it still matches the current caller
+            try:
+                snap = cooldown_ref.get()
+                if snap.exists and snap.to_dict().get('userId') == caller_uid:
+                    cooldown_ref.delete()
+            except:
+                pass
+            raise req_error
 
         if res.status_code not in [200, 201]:
-            error_data = res.json() if res.content else {"message": "Unknown error"}
+            # Safely extract error details before rollback
+            try:
+                error_data = res.json() if res.content else {"message": "Unknown error"}
+            except:
+                error_data = {"message": "Non-JSON error response"}
             print(f"RESEND_ERROR: {res.status_code} - {error_data}")
             # Roll back the cooldown reservation on failure
+            # Only clear if it still matches the current caller
             try:
-                cooldown_ref.delete()
+                snap = cooldown_ref.get()
+                if snap.exists and snap.to_dict().get('userId') == caller_uid:
+                    cooldown_ref.delete()
             except:
                 pass
             return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502

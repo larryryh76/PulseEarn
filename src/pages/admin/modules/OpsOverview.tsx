@@ -14,9 +14,8 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, onSnapshot } from 'firebase/firestore';
 import { cn } from '../../../utils';
-import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
 
 const OpsOverview: React.FC = () => {
@@ -36,84 +35,87 @@ const OpsOverview: React.FC = () => {
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
   const [recentLedger, setRecentLedger] = React.useState<any[]>([]);
 
-  const fetchOperationalData = async () => {
+  const fetchCountsRef = React.useRef<() => Promise<void>>(async () => {});
+
+  React.useEffect(() => {
     setLoading(true);
-    try {
-      const [
-        usersCount,
-        campaignsCount,
-        tasksCount,
-        withdrawalsCount,
-        supportCount,
-        verificationsCount,
-        anomaliesCount
-      ] = await Promise.all([
-        getCountFromServer(collection(db, 'users')),
-        getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true))),
-        getCountFromServer(query(collection(db, 'tasks'), where('active', '==', true))),
-        getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'PENDING'))),
-        getCountFromServer(query(collection(db, 'support_tickets'), where('status', '==', 'OPEN'))),
-        getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING'))),
-        getCountFromServer(collection(db, 'system_anomalies'))
-      ]);
 
-      const dayAgo = new Date();
-      dayAgo.setHours(dayAgo.getHours() - 24);
-      const volSnap = await getDocs(query(
-        collection(db, 'system_claims'),
-        where('executedAt', '>=', Timestamp.fromDate(dayAgo))
-      ));
-      let volume = 0;
-      volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
-
-      // Audit: Fixed liability bottleneck. Fetching from authoritative system_config metrics.
-      const configRef = doc(db, 'system_config', 'global_metrics');
-      const configSnap = await getDoc(configRef);
-      let totalPts = 0;
-      if (configSnap.exists()) {
-         totalPts = configSnap.data().totalPTSLiability || 0;
-      } else {
-         // Fallback for smaller user bases (< 1000)
-         const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
-         liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
+    // Live metrics from system_config
+    const metricsUnsub = onSnapshot(doc(db, 'system_config', 'global_metrics'), (snap) => {
+      if (snap.exists()) {
+        setStats(prev => ({ ...prev, totalLiability: snap.data().totalPTSLiability || 0 }));
       }
+      setLastSync(new Date());
+    });
 
-      // Audit: orderBy check for system_claims
-      const ledgerSnap = await getDocs(query(
-        collection(db, 'system_claims'),
-        limit(5)
-      ));
-
-      const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    // Recent ledger listener
+    const ledgerUnsub = onSnapshot(query(collection(db, 'system_claims'), limit(5)), (snap) => {
+      const ledgerData = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       ledgerData.sort((a, b) => {
          const timeA = a.executedAt?.toMillis?.() || 0;
          const timeB = b.executedAt?.toMillis?.() || 0;
          return timeB - timeA;
       });
       setRecentLedger(ledgerData);
+    });
 
-      setStats({
-        totalUsers: usersCount.data().count,
-        activeCampaigns: campaignsCount.data().count,
-        activeTasks: tasksCount.data().count,
-        pendingWithdrawals: withdrawalsCount.data().count,
-        pendingSupport: supportCount.data().count,
-        pendingVerifications: verificationsCount.data().count,
-        fraudAnomalies: anomaliesCount.data().count,
-        volume24h: volume,
-        totalLiability: totalPts
-      });
-      setLastSync(new Date());
-    } catch (error: any) {
-      console.error("[OpsOverview] Authority Sync Failure:", error);
-      toast.error(`Sync Failure: ${error.message}`, { id: 'sync-error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Counts - aggregate listener (simulated by frequent polling or direct onSnapshot if supported by collection)
+    // Firestore doesn't support live getCountFromServer, so we use a 30s interval for counts
+    const fetchCounts = async () => {
+      try {
+        const [
+          usersCount,
+          campaignsCount,
+          tasksCount,
+          withdrawalsCount,
+          supportCount,
+          verificationsCount,
+          anomaliesCount
+        ] = await Promise.all([
+          getCountFromServer(collection(db, 'users')),
+          getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true))),
+          getCountFromServer(query(collection(db, 'tasks'), where('active', '==', true))),
+          getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'PENDING'))),
+          getCountFromServer(query(collection(db, 'support_tickets'), where('status', '==', 'OPEN'))),
+          getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING'))),
+          getCountFromServer(collection(db, 'system_anomalies'))
+        ]);
 
-  React.useEffect(() => {
-    fetchOperationalData();
+        const dayAgo = new Date();
+        dayAgo.setHours(dayAgo.getHours() - 24);
+        const volSnap = await getDocs(query(
+          collection(db, 'system_claims'),
+          where('executedAt', '>=', Timestamp.fromDate(dayAgo))
+        ));
+        let volume = 0;
+        volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
+
+        setStats(prev => ({
+          ...prev,
+          totalUsers: usersCount.data().count,
+          activeCampaigns: campaignsCount.data().count,
+          activeTasks: tasksCount.data().count,
+          pendingWithdrawals: withdrawalsCount.data().count,
+          pendingSupport: supportCount.data().count,
+          pendingVerifications: verificationsCount.data().count,
+          fraudAnomalies: anomaliesCount.data().count,
+          volume24h: volume
+        }));
+        setLoading(false);
+      } catch (err) {
+        console.error("OpsOverview Polling Error:", err);
+      }
+    };
+
+    fetchCounts();
+    fetchCountsRef.current = fetchCounts;
+    const interval = setInterval(fetchCounts, 30000);
+
+    return () => {
+      metricsUnsub();
+      ledgerUnsub();
+      clearInterval(interval);
+    };
   }, []);
 
   const metricItem = (label: string, value: string | number, icon: any, color: string, path?: string) => (
@@ -152,10 +154,16 @@ const OpsOverview: React.FC = () => {
                 </span>
                 <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
                 <span>Sync: {lastSync.toLocaleTimeString()}</span>
+                {stats.totalLiability === 0 && !loading && (
+                   <span className="text-danger flex items-center gap-1.5 animate-bounce ml-4">
+                      <ShieldAlert size={12} />
+                      CRITICAL: Liability Reporting Offline
+                   </span>
+                )}
              </div>
           </div>
           <button
-            onClick={fetchOperationalData}
+            onClick={() => fetchCountsRef.current?.()}
             className="w-full md:w-auto px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />

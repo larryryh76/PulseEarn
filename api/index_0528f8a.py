@@ -65,7 +65,7 @@ def execute_transaction():
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized']
-    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward']
+    allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'referral_bonus', 'withdrawal_debit', 'prediction_entry', 'mission_reward']
 
     tx_type = data.get('type')
     tx_col = db.collection('users').document(user_id).collection('transactions')
@@ -189,12 +189,11 @@ def execute_transaction():
                 derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
                 derived_xp = config.get('rewards', {}).get('dailyLoginXP', 50)
             elif tx_type == 'welcome_bonus':
-                # Server-derived welcome bonus with server-controlled claim ID
-                derived_claim_id = f"welcome_{user_id}"
-                if claim_id != derived_claim_id:
-                    raise Exception("INVALID_WELCOME_CLAIM_ID")
                 derived_amount = config.get('rewards', {}).get('welcomeBonusPoints', 30)
                 derived_xp = config.get('rewards', {}).get('welcomeBonusXP', 50)
+            elif tx_type == 'referral_bonus':
+                derived_amount = config.get('rewards', {}).get('referralBonusPoints', 50)
+                derived_xp = config.get('rewards', {}).get('referralBonusXP', 50)
             elif tx_type == 'withdrawal_debit':
                 # FORCE NEGATIVE
                 raw_amount = data.get('amount', 0)
@@ -211,6 +210,17 @@ def execute_transaction():
                             raise Exception("WITHDRAWAL_OWNERSHIP_MISMATCH")
                         # Sync derived_amount to the doc amount
                         derived_amount = -abs(wd_data.get('amountPoints', 0))
+
+            elif tx_type == 'prediction_entry':
+                # FORCE NEGATIVE
+                raw_amount = data.get('amount', 0)
+                derived_amount = -abs(raw_amount)
+
+                # Config validation
+                min_stake = config.get('rewards', {}).get('minPredictionStake', 10)
+                max_stake = config.get('rewards', {}).get('maxPredictionStake', 10000)
+                if abs(derived_amount) < min_stake or abs(derived_amount) > max_stake:
+                    raise Exception("INVALID_STAKE_AMOUNT")
 
         # Admin-only manual claim resolution block
         if tx_type in admin_only_types and task_claim_id:
@@ -677,48 +687,40 @@ def process_referral_reward():
         return jsonify({"success": False, "error": "Missing parameters"}), 400
 
     try:
-        claim_id = f"ref_qualify_{referrer_id}_{referee_id}"
+        # Check referral record
         ref_ref = db.collection('referrals').document(referral_doc_id)
+        ref_snap = ref_ref.get()
+        if not ref_snap.exists:
+            return jsonify({"success": False, "error": "Referral record not found"}), 404
+
+        ref_data = ref_snap.to_dict()
+        if ref_data.get('status') != 'REGISTERED':
+            return jsonify({"success": False, "error": "Referral already processed"}), 400
+
+        # Check eligibility
         referrer_ref = db.collection('users').document(referrer_id)
+        referrer_snap = referrer_ref.get()
+        if not referrer_snap.exists:
+            return jsonify({"success": False, "error": "Referrer not found"}), 404
+
+        referrer_data = referrer_snap.to_dict()
+        tasks_completed = referrer_data.get('stats', {}).get('tasksCompleted', 0)
+
+        if tasks_completed == 0:
+            return jsonify({"success": False, "error": "Referrer not qualified"}), 400
+
+        # Get reward amount from config
         config_ref = db.collection('system_config').document('global_v1')
-        claim_ref = db.collection('system_claims').document(claim_id)
+        config_snap = config_ref.get()
+        config = config_snap.to_dict() if config_snap.exists else {}
+        amount = config.get('rewards', {}).get('referralBonusPoints', 50)
+        xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
+
+        claim_id = f"ref_qualify_{referrer_id}_{referee_id}"
 
         @firestore.transactional
         def ref_reward_transaction(transaction):
-            # 1. Read everything inside transaction
-            ref_snap = ref_ref.get(transaction=transaction)
-            if not ref_snap.exists:
-                raise Exception("REFERRAL_NOT_FOUND")
-            ref_data = ref_snap.to_dict()
-
-            # Validate referral document ownership and binding
-            ref_referrer = ref_data.get('referrerId')
-            ref_referee = ref_data.get('refereeId')
-            if ref_referrer != referrer_id or ref_referee != referee_id:
-                raise Exception("REFERRAL_BINDING_MISMATCH")
-            if ref_referrer == ref_referee:
-                raise Exception("SELF_REFERRAL_NOT_ALLOWED")
-
-            if ref_data.get('status') != 'REGISTERED':
-                raise Exception("REFERRAL_ALREADY_PROCESSED")
-
-            referrer_snap = referrer_ref.get(transaction=transaction)
-            if not referrer_snap.exists:
-                raise Exception("REFERRER_NOT_FOUND")
-            referrer_data = referrer_snap.to_dict()
-            if referrer_data.get('stats', {}).get('tasksCompleted', 0) == 0:
-                raise Exception("REFERRER_NOT_QUALIFIED")
-
-            claim_snap = claim_ref.get(transaction=transaction)
-            if claim_snap.exists:
-                raise Exception("REWARD_ALREADY_CLAIMED")
-
-            config_snap = config_ref.get(transaction=transaction)
-            config = config_snap.to_dict() if config_snap.exists else {}
-            amount = config.get('rewards', {}).get('referralBonusPoints', 50)
-            xp_reward = config.get('rewards', {}).get('referralBonusXP', 50)
-
-            # 2. Writes
+            # Atomic update of referrer and referral doc
             transaction.update(referrer_ref, {
                 'points': firestore.Increment(amount),
                 'xp': firestore.Increment(xp_reward),
@@ -729,14 +731,6 @@ def process_referral_reward():
             transaction.update(ref_ref, {
                 'status': 'REWARDED',
                 'updatedAt': firestore.SERVER_TIMESTAMP
-            })
-
-            transaction.set(claim_ref, {
-                'userId': referrer_id,
-                'type': 'referral_bonus',
-                'claimId': claim_id,
-                'amount': amount,
-                'executedAt': firestore.SERVER_TIMESTAMP
             })
 
             # Log transaction
@@ -842,7 +836,7 @@ def authorize_resend():
     cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
 
     @firestore.transactional
-    def check_and_reserve_cooldown(transaction):
+    def check_cooldown(transaction):
         snap = cooldown_ref.get(transaction=transaction)
         now = datetime.now(timezone.utc)
 
@@ -856,7 +850,6 @@ def authorize_resend():
                 if diff < 60:
                     raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
 
-        # Reserve the slot atomically before sending
         transaction.set(cooldown_ref, {
             'userId': caller_uid,
             'updatedAt': firestore.SERVER_TIMESTAMP
@@ -865,86 +858,22 @@ def authorize_resend():
 
     try:
         transaction = db.transaction()
-        check_and_reserve_cooldown(transaction)
+        check_cooldown(transaction)
 
-        try:
-            action_settings = auth.ActionCodeSettings(
-                url=f"https://pulseearn.online/auth/action",
-                handle_code_in_app=True
-            )
-            link = auth.generate_email_verification_link(caller_email, action_settings)
-        except Exception as link_error:
-            # Roll back the cooldown reservation on link generation failure
-            try:
-                cooldown_ref.delete()
-            except:
-                pass
-            raise link_error
+        # SEND EMAIL VIA ADMIN SDK
+        # In a real environment, we'd use generate_email_verification_link
+        # and then send it via a mail provider (SendGrid/Mailgun)
+        # For this sandbox, we generate the link and "send" it (log/return)
+        action_settings = auth.ActionCodeSettings(
+            url=f"https://pulseearn.online/auth/action",
+            handle_code_in_app=True
+        )
+        link = auth.generate_email_verification_link(caller_email, action_settings)
 
-        resend_key = os.environ.get('RESEND_API_KEY')
-        resend_from = os.environ.get('RESEND_FROM_EMAIL', 'support@pulseearn.online')
+        # Conceptual mail dispatch
+        print(f"DISPATCHING VERIFICATION TO {caller_email}: {link}")
 
-        if not resend_key:
-            print("WARN: RESEND_API_KEY not set. Falling back to client-side dispatch.")
-            # Roll back the cooldown reservation on missing API key
-            try:
-                cooldown_ref.delete()
-            except:
-                pass
-            return jsonify({"success": True, "dispatchMethod": "client_fallback"})
-
-        # Real dispatch to Resend
-        payload = {
-            "from": f"PulseEarn <{resend_from}>",
-            "to": [caller_email],
-            "subject": "Verify your PulseEarn account",
-            "html": f"""
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-                    <h1 style="color: #0070FF;">PulseEarn</h1>
-                    <p>Welcome to the network! Please verify your email address to unlock full access to the platform.</p>
-                    <div style="margin: 30px 0;">
-                        <a href="{link}" style="background-color: #0070FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Verify Email Address</a>
-                    </div>
-                    <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link: <br> {link}</p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-                    <p style="font-size: 11px; color: #999;">If you didn't create an account, you can safely ignore this email.</p>
-                </div>
-            """
-        }
-
-        try:
-            res = requests.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {resend_key}",
-                    "Content-Type": "application/json"
-                },
-                json=payload,
-                timeout=15
-            )
-        except Exception as req_error:
-            # Roll back the cooldown reservation on request failure
-            try:
-                cooldown_ref.delete()
-            except:
-                pass
-            raise req_error
-
-        if res.status_code not in [200, 201]:
-            # Safely extract error details before rollback
-            try:
-                error_data = res.json() if res.content else {"message": "Unknown error"}
-            except:
-                error_data = {"message": "Non-JSON error response"}
-            print(f"RESEND_ERROR: {res.status_code} - {error_data}")
-            # Roll back the cooldown reservation on failure
-            try:
-                cooldown_ref.delete()
-            except:
-                pass
-            return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502
-
-        return jsonify({"success": True, "dispatchMethod": "branded_resend"})
+        return jsonify({"success": True})
     except Exception as e:
         error_msg = str(e)
         if "COOLDOWN_ACTIVE" in error_msg:
@@ -960,4 +889,4 @@ def authorize_resend():
         return jsonify({"success": False, "error": "SERVER_ERROR", "message": "Something went wrong, please try again."}), 500
 
 if __name__ == '__main__':
-    app.run(debug=False, port=5000)
+    app.run(debug=True, port=5000)

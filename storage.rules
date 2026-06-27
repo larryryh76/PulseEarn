@@ -20,8 +20,7 @@ service firebase.storage {
     // User profile images
     match /users/{userId}/avatars/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow create, update: if (isOwner(userId) || isAdmin()) && request.resource.size < 2 * 1024 * 1024;
-      allow delete: if isOwner(userId) || isAdmin();
+      allow write: if (isOwner(userId) || isAdmin()) && request.resource.size < 2 * 1024 * 1024;
     }
 
     // Support ticket attachments
@@ -48,13 +47,10 @@ service firebase.storage {
       ) && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // Campaign assets (Admins and campaign owners)
+    // Campaign assets (Admins only)
     match /campaigns/{campaignId}/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if (
-        isAdmin() ||
-        (isAuthenticated() && firestore.get(/databases/(default)/documents/campaigns/$(campaignId)).data.owner == request.auth.uid)
-      ) && request.resource.size < 10 * 1024 * 1024;
+      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024;
     }
 
     // System uploads

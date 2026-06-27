@@ -80,6 +80,7 @@ export const seedTasks = async () => {
           rewardPoints: 50,
           rewardXp: 100,
           active: true,
+          period: 'ONCE',
           repeatable: false,
           priority: 100
         },
@@ -94,6 +95,7 @@ export const seedTasks = async () => {
           rewardPoints: 100,
           rewardXp: 250,
           active: true,
+          period: 'ONCE',
           repeatable: false,
           priority: 90
         },
@@ -108,6 +110,7 @@ export const seedTasks = async () => {
           rewardPoints: 500,
           rewardXp: 1000,
           active: true,
+          period: 'ONCE',
           repeatable: false,
           priority: 80
         },
@@ -122,6 +125,7 @@ export const seedTasks = async () => {
           rewardPoints: 200,
           rewardXp: 500,
           active: true,
+          period: 'ONCE',
           repeatable: false,
           priority: 70
         },
@@ -136,6 +140,7 @@ export const seedTasks = async () => {
           rewardPoints: 1000,
           rewardXp: 2500,
           active: true,
+          period: 'ONCE',
           repeatable: false,
           priority: 60
         }

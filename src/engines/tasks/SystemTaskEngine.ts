@@ -40,7 +40,11 @@ export class SystemTaskEngine {
       const userData = userSnap.data() as UserData;
 
       for (const defDoc of definitionsSnap.docs) {
-        const def = { id: defDoc.id, ...defDoc.data() } as SystemTaskDefinition;
+        const def = {
+          id: defDoc.id,
+          period: 'ONCE', // Default fallback for legacy docs
+          ...defDoc.data()
+        } as SystemTaskDefinition;
         await this.evaluateMission(userId, userData, def);
       }
     } catch (err) {
@@ -62,7 +66,40 @@ export class SystemTaskEngine {
     try {
       await runTransaction(db, async (transaction) => {
         const utSnap = await transaction.get(userTaskRef);
-        const utData = utSnap.exists() ? utSnap.data() as UserSystemTask : null;
+        let utData = utSnap.exists() ? utSnap.data() as UserSystemTask : null;
+
+        // Periodic reset logic
+        if (utData && def.period !== 'ONCE') {
+          const lastEventAt = utData.claimedAt || utData.completedAt;
+          if (lastEventAt) {
+            const lastDate = lastEventAt.toDate();
+            const now = new Date();
+            let shouldReset = false;
+
+            if (def.period === 'DAILY') {
+              // Reset if last claim was before today (UTC)
+              const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+              if (lastDate < today) shouldReset = true;
+            } else if (def.period === 'WEEKLY') {
+              // Reset if last claim was before the start of this week (UTC Monday)
+              const day = now.getUTCDay();
+              const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1);
+              const startOfWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), diff));
+              if (lastDate < startOfWeek) shouldReset = true;
+            }
+
+            if (shouldReset) {
+              utData = {
+                ...utData,
+                status: 'IN_PROGRESS',
+                progress: 0,
+                completedAt: null,
+                claimedAt: null
+              };
+              transaction.set(userTaskRef, utData, { merge: true });
+            }
+          }
+        }
 
         // Skip if already claimed
         if (utData?.status === 'CLAIMED') return;

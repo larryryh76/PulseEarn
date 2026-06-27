@@ -708,10 +708,9 @@ def process_referral_reward():
     referee_id = data.get('refereeId')
 
     caller_uid = request.user['uid']
-    # The referee usually triggers this, or an admin
-    # Verification: token UID must match refereeId in payload
-    if caller_uid != referee_id and not is_admin(caller_uid):
-        return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match referee {referee_id}"}), 403
+    # The referee or the referrer can trigger this, or an admin
+    if caller_uid not in (referee_id, referrer_id) and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     referee_username = data.get('refereeUsername')
 

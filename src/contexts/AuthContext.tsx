@@ -9,6 +9,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   updateEmail as firebaseUpdateEmail,
+  updatePassword as firebaseUpdatePassword,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
@@ -50,6 +51,7 @@ interface AuthContextType {
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
 
@@ -144,6 +146,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function updateUserPassword(newPassword: string) {
+    if (auth.currentUser) {
+      await firebaseUpdatePassword(auth.currentUser, newPassword);
+    }
+  }
+
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -229,34 +237,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 2.5 New Identity Notification
-    await NotificationEngine.send({
-       userId: user.uid,
-       title: 'Identity Synchronized',
-       description: 'Your PulseEarn profile has been established. Welcome to the network.',
-       type: 'system'
-    });
+    try {
+      await NotificationEngine.send({
+         userId: user.uid,
+         title: 'Identity Synchronized',
+         description: 'Your PulseEarn profile has been established. Welcome to the network.',
+         type: 'system'
+      });
+    } catch (err) {
+      console.error("[AuthContext] Profile Notification Failed:", err);
+    }
 
     // 3. Immediately trigger referral reward check
-    await ReferralProtectionEngine.qualifyReferral(user.uid);
+    try {
+      await ReferralProtectionEngine.qualifyReferral(user.uid);
+    } catch (err) {
+      console.error("[AuthContext] Referral Qualification Trigger Failed:", err);
+    }
 
     // Priority 3: Autoritative Welcome Bonus
-    const config = await EconomyConfigEngine.getConfig();
-    await PointTransactionEngine.execute({
-      userId: user.uid,
-      amount: config.rewards.welcomeBonusPoints || 30,
-      type: 'welcome_bonus',
-      source: 'Welcome Bonus',
-      claimId: `welcome_${user.uid}`,
-      xpReward: config.rewards.welcomeBonusXP || 50
-    });
+    try {
+      const config = await EconomyConfigEngine.getConfig();
+      await PointTransactionEngine.execute({
+        userId: user.uid,
+        amount: config.rewards.welcomeBonusPoints || 30,
+        type: 'welcome_bonus',
+        source: 'Welcome Bonus',
+        claimId: `welcome_${user.uid}`,
+        xpReward: config.rewards.welcomeBonusXP || 50
+      });
+    } catch (err) {
+      console.error("[AuthContext] Welcome Bonus Dispatch Failed:", err);
+    }
   }
 
   async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Send initial verification
-    await sendEmailVerification(user);
+    // Send initial verification with branded redirect
+    try {
+      await sendEmailVerification(user, {
+        url: 'https://pulseearn.online/auth/action',
+        handleCodeInApp: true
+      });
+    } catch (err) {
+      console.error("[AuthContext] Initial Verification Dispatch Failed:", err);
+    }
+
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
@@ -356,6 +384,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sendVerification,
     resetPassword,
     updateUserEmail,
+    updateUserPassword,
     systemError
   };
 

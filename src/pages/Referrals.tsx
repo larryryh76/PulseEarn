@@ -306,15 +306,16 @@ const Referrals: React.FC = () => {
                          <span className="text-text-primary">{referrals.length} / 10</span>
                       </div>
                       <div className="w-full h-1.5 bg-surface-bright rounded-full overflow-hidden">
-                         <div className="h-full bg-accent w-[30%] shadow-[0_0_10px_rgba(0,210,255,0.3)]" />
+                         <div
+                           className="h-full bg-accent shadow-[0_0_10px_rgba(0,210,255,0.3)] transition-all duration-1000"
+                           style={{ width: `${Math.min((referrals.length / 10) * 100, 100)}%` }}
+                         />
                       </div>
                    </div>
 
                    <div className="pt-6 border-t border-border space-y-4">
                       {[
                         { label: 'Referral Bonus', value: `${rewardAmount} PTS` },
-                        { label: 'Task Share', value: '5%' },
-                        { label: 'Multiplier', value: '1.0x' },
                       ].map((rule, i) => (
                         <div key={i} className="flex justify-between items-center">
                            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">{rule.label}</span>
@@ -334,8 +335,7 @@ const Referrals: React.FC = () => {
                    {[
                      'Invitee must verify their email address.',
                      'Invitee must complete at least 1 campaign.',
-                     'Rewards are distributed within 24 hours.',
-                     'Inactive accounts (30d) do not generate rewards.'
+                     'Rewards are distributed instantly upon qualification.'
                    ].map((rule, i) => (
                      <li key={i} className="flex items-start gap-3">
                         <div className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />

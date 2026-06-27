@@ -25,7 +25,7 @@ import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
@@ -76,10 +76,36 @@ const Wallet: React.FC = () => {
     </>
   );
 
+  const validateAddress = (address: string, network: string) => {
+    if (!address) return false;
+
+    switch (network) {
+      case 'ERC20':
+      case 'BEP20':
+      case 'POLYGON':
+        // EVM: 0x followed by 40 hex chars [0-9a-fA-F]
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+      case 'TRC20':
+        // Tron: Starts with T, 34 chars (Base58: [1-9A-HJ-NP-Za-km-z])
+        return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
+      case 'SOLANA':
+        // Solana: Base58, 32-44 chars
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+      default:
+        return address.length > 20;
+    }
+  };
+
   const handleWithdraw = async () => {
     if (!eligibility.eligible) return toast.error(`Ineligible: ${eligibility.reason}`);
     if (isProcessing || isCompleted) return;
-    if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
+
+    const normalizedAddress = withdrawalForm.walletAddress.trim();
+    if (!normalizedAddress) return toast.error("Wallet address required");
+    if (!validateAddress(normalizedAddress, withdrawalForm.network)) {
+      return toast.error(`Invalid ${withdrawalForm.network} address format`);
+    }
+
     if (withdrawalForm.amount < WITHDRAWAL_MIN_PTS) return toast.error(`Minimum withdrawal is ${WITHDRAWAL_MIN_PTS} PTS`);
     if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
 
@@ -96,7 +122,7 @@ const Wallet: React.FC = () => {
         username: userData?.username,
         amountPoints: withdrawalForm.amount,
         amountUSD: PTS_TO_USD(withdrawalForm.amount),
-        walletAddress: withdrawalForm.walletAddress,
+        walletAddress: normalizedAddress,
         network: withdrawalForm.network,
         status: 'PENDING',
         claimId,
@@ -113,15 +139,23 @@ const Wallet: React.FC = () => {
         claimId,
         referenceId: withdrawalDocId,
         metadata: {
-          walletAddress: withdrawalForm.walletAddress,
+          walletAddress: normalizedAddress,
           network: withdrawalForm.network,
           withdrawalId: withdrawalDocId
         }
       });
 
       if (!result.success) {
-        // Rollback: Withdrawal record exists but debit failed
-        // In a real scenario, we might want to delete the withdrawal record or mark it as FAILED
+        // Rollback attempt: Mark withdrawal as FAILED since debit didn't process
+        try {
+          await updateDoc(doc(db, 'withdrawals', withdrawalDocId), {
+            status: 'FAILED',
+            error: result.error,
+            updatedAt: serverTimestamp()
+          });
+        } catch (rollbackErr) {
+          console.error("[Wallet] Critical Rollback Failure:", rollbackErr);
+        }
         throw new Error(result.error);
       }
 

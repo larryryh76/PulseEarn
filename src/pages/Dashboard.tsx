@@ -328,7 +328,10 @@ const Dashboard: React.FC = () => {
                               item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
                            )}
                            onClick={() => {
-                              if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
+                              if (item.type === 'CAMPAIGN') {
+                                 if (item.originalId) navigate(`/campaigns/${item.originalId}`);
+                                 else navigate('/tasks');
+                              }
                               else if (item.category === 'PREDICTION') navigate('/predictions');
                               else if (item.category === 'REFERRAL') navigate('/referrals');
                               else if (item.type === 'MISSION') navigate('/tasks', { state: { highlightId: item.originalId } });
@@ -792,7 +795,8 @@ const Dashboard: React.FC = () => {
                               else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
                               else navigate('/tasks');
                            } else {
-                              navigate(`/campaigns/${selectedTask.campaignId}`);
+                              if (selectedTask.campaignId) navigate(`/campaigns/${selectedTask.campaignId}`);
+                              else navigate('/tasks');
                            }
                            setSelectedTask(null);
                         }}

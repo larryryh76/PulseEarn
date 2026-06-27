@@ -5,9 +5,8 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "MISSING",
-  // Derive authDomain from project ID to prevent environment mismatch
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
-    (import.meta.env.VITE_FIREBASE_PROJECT_ID ? `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com` : undefined),
+  // Use default Firebase Auth domain to ensure stable OAuth popups
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "pulseearn-a4b16.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,

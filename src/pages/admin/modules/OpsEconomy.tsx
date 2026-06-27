@@ -19,12 +19,10 @@ import {
   collection,
   query,
   limit,
-  getDocs,
   getCountFromServer,
   where,
   onSnapshot,
-  doc,
-  getDoc
+  doc
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,48 +56,29 @@ const OpsEconomy: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const usersCountSnap = await getCountFromServer(collection(db, 'users'));
-
-        // Audit: Fixed liability bottleneck. Fetching from authoritative system_config metrics.
-        const configRef = doc(db, 'system_config', 'global_metrics');
-        const configSnap = await getDoc(configRef);
-
-        let totalPts = 0;
-        let totalXp = 0;
-
-        if (configSnap.exists()) {
-           totalPts = configSnap.data().totalPTSLiability || 0;
-           totalXp = configSnap.data().totalXpDistributed || 0;
-        } else {
-           // Fallback for smaller user bases (< 1000)
-           const usersSnap = await getDocs(query(collection(db, 'users'), limit(1000)));
-           usersSnap.forEach(doc => {
-             totalPts += (doc.data().points || 0);
-             totalXp += (doc.data().xp || 0);
-           });
-        }
-
-        const activePredictionsSnap = await getDocs(query(
-          collection(db, 'user_predictions'),
-          where('status', '==', 'ACTIVE')
-        ));
-        let predLiability = 0;
-        activePredictionsSnap.forEach(doc => predLiability += (doc.data().rewardAmount || 0));
-
-        setStats({
-          ecosystemPoints: totalPts,
-          totalUsers: usersCountSnap.data().count,
-          totalXp,
-          predictionLiability: predLiability
-        });
-      } catch (err) {
-        console.error("[OpsEconomy] Stats fetch failed:", err);
+    const metricsUnsub = onSnapshot(doc(db, 'system_config', 'global_metrics'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setStats(prev => ({
+          ...prev,
+          ecosystemPoints: data.totalPTSLiability || 0,
+          totalXp: data.totalXpDistributed || 0
+        }));
       }
-    };
+    });
 
-    fetchStats();
+    (async () => {
+      try {
+        const snap = await getCountFromServer(collection(db, 'users'));
+        setStats(prev => ({ ...prev, totalUsers: snap.data().count }));
+      } catch (err) {}
+    })();
+
+    const activePredUnsub = onSnapshot(query(collection(db, 'user_predictions'), where('status', '==', 'ACTIVE')), (snap) => {
+      let predLiability = 0;
+      snap.forEach(doc => predLiability += (doc.data().rewardAmount || 0));
+      setStats(prev => ({ ...prev, predictionLiability: predLiability }));
+    });
 
     const txQuery = query(collection(db, 'system_claims'), limit(10));
     const unsubscribeTx = onSnapshot(txQuery, (snap) => {
@@ -119,6 +98,8 @@ const OpsEconomy: React.FC = () => {
 
     return () => {
       unsubscribeTx();
+      metricsUnsub();
+      activePredUnsub();
     };
   }, []);
 

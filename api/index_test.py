@@ -12,7 +12,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
 
 # Initialize Firebase Admin
-if not firebase_admin._apps:
+if True:
     # In Vercel, it uses the default credentials if available
     firebase_admin.initialize_app()
 
@@ -732,6 +732,12 @@ def process_referral_reward():
             if not ref_snap.exists: raise Exception("REFERRAL_NOT_FOUND")
             ref_data = ref_snap.to_dict()
             if ref_data.get('status') != 'REGISTERED': raise Exception("REFERRAL_ALREADY_PROCESSED")
+
+            # Validate that referral document matches request payload
+            if ref_data.get('referrerId') != referrer_id:
+                raise Exception("REFERRER_ID_MISMATCH")
+            if ref_data.get('refereeId') != referee_id:
+                raise Exception("REFEREE_ID_MISMATCH")
 
             referrer_snap = referrer_ref.get(transaction=transaction)
             if not referrer_snap.exists: raise Exception("REFERRER_NOT_FOUND")

@@ -11,7 +11,6 @@ import {
   Search,
   Send,
   Paperclip,
-  Clock,
   CheckCircle2,
   ChevronRight,
   User,
@@ -268,26 +267,6 @@ const SupportCenter: React.FC = () => {
                           </Button>
                        </div>
 
-                       <div className="p-8 rounded-[2rem] bg-surface-bright/50 border border-border space-y-6">
-                          <div className="flex items-center gap-3">
-                             <Clock size={16} className="text-text-tertiary" />
-                             <h4 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">System Status</h4>
-                          </div>
-                          <div className="space-y-4">
-                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-text-primary uppercase">System Channels</span>
-                                <span className="text-[9px] font-black text-success uppercase tracking-widest">Operational</span>
-                             </div>
-                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-text-primary uppercase">Reward System</span>
-                                <span className="text-[9px] font-black text-success uppercase tracking-widest">Synchronized</span>
-                             </div>
-                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-text-primary uppercase">Support Load</span>
-                                <span className="text-[9px] font-black text-warning uppercase tracking-widest">Moderate</span>
-                             </div>
-                          </div>
-                       </div>
                     </div>
                  </div>
               </motion.div>
@@ -342,15 +321,6 @@ const SupportCenter: React.FC = () => {
                           />
                        </div>
 
-                       <div className="p-6 rounded-2xl bg-surface-bright/50 border border-dashed border-border flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-surface-bright flex items-center justify-center text-text-tertiary/30">
-                             <Paperclip size={20} />
-                          </div>
-                          <div>
-                             <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Attachments Disabled</p>
-                             <p className="text-[9px] text-text-tertiary/50 uppercase font-bold mt-1">Image uploads are temporarily unavailable</p>
-                          </div>
-                       </div>
 
                        <div className="pt-4 flex gap-4">
                           <Button

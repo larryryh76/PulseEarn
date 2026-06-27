@@ -24,6 +24,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
     rewardPoints: 0,
     rewardXp: 0,
     active: true,
+    period: 'ONCE',
     repeatable: false,
     priority: 0
   });
@@ -43,6 +44,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
         rewardPoints: 0,
         rewardXp: 0,
         active: true,
+        period: 'ONCE',
         repeatable: false,
         priority: 0
       });
@@ -149,6 +151,18 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                       <option value="referral_completed">Referral Success</option>
                       <option value="campaign_task_completed">Campaign Task</option>
                       <option value="level_up">Level Milestone</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Periodicity</label>
+                    <select
+                      value={formData.period}
+                      onChange={e => setFormData({...formData, period: e.target.value as any})}
+                      className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest appearance-none"
+                    >
+                      <option value="ONCE">Once</option>
+                      <option value="DAILY">Daily</option>
+                      <option value="WEEKLY">Weekly</option>
                     </select>
                   </div>
                   <div className="space-y-2">

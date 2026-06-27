@@ -20,7 +20,9 @@ service firebase.storage {
     // User profile images
     match /users/{userId}/avatars/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if (isOwner(userId) || isAdmin()) && request.resource.size < 2 * 1024 * 1024;
+      allow write: if (isOwner(userId) || isAdmin())
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
 
     // Support ticket attachments
@@ -32,7 +34,8 @@ service firebase.storage {
       allow write: if isAuthenticated() && (
         firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
         isAdmin()
-      ) && request.resource.size < 5 * 1024 * 1024;
+      ) && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
     }
 
     // Task submission proof
@@ -44,13 +47,15 @@ service firebase.storage {
       allow write: if isAuthenticated() && (
         firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid ||
         isAdmin()
-      ) && request.resource.size < 5 * 1024 * 1024;
+      ) && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
 
     // Campaign assets (Admins only)
     match /campaigns/{campaignId}/{allPaths=**} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024;
+      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
 
     // System uploads

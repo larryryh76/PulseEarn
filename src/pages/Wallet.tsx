@@ -25,7 +25,7 @@ import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
@@ -76,10 +76,36 @@ const Wallet: React.FC = () => {
     </>
   );
 
+  const validateAddress = (address: string, network: string) => {
+    const addr = address.trim();
+    if (!addr) return false;
+
+    switch (network) {
+      case 'ERC20':
+      case 'BEP20':
+      case 'POLYGON':
+        // EVM: 0x followed by 40 hex chars
+        return /^0x[a-fA-F0-0]{40}$/.test(addr);
+      case 'TRC20':
+        // Tron: Starts with T, 34 chars
+        return /^T[a-zA-Z0-0]{33}$/.test(addr);
+      case 'SOLANA':
+        // Solana: Base58, 32-44 chars
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
+      default:
+        return addr.length > 20;
+    }
+  };
+
   const handleWithdraw = async () => {
     if (!eligibility.eligible) return toast.error(`Ineligible: ${eligibility.reason}`);
     if (isProcessing || isCompleted) return;
+
     if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
+    if (!validateAddress(withdrawalForm.walletAddress, withdrawalForm.network)) {
+      return toast.error(`Invalid ${withdrawalForm.network} address format`);
+    }
+
     if (withdrawalForm.amount < WITHDRAWAL_MIN_PTS) return toast.error(`Minimum withdrawal is ${WITHDRAWAL_MIN_PTS} PTS`);
     if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
 
@@ -120,8 +146,16 @@ const Wallet: React.FC = () => {
       });
 
       if (!result.success) {
-        // Rollback: Withdrawal record exists but debit failed
-        // In a real scenario, we might want to delete the withdrawal record or mark it as FAILED
+        // Rollback attempt: Mark withdrawal as FAILED since debit didn't process
+        try {
+          await updateDoc(doc(db, 'withdrawals', withdrawalDocId), {
+            status: 'FAILED',
+            error: result.error,
+            updatedAt: serverTimestamp()
+          });
+        } catch (rollbackErr) {
+          console.error("[Wallet] Critical Rollback Failure:", rollbackErr);
+        }
         throw new Error(result.error);
       }
 

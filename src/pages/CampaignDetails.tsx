@@ -56,20 +56,25 @@ const CampaignDetails: React.FC = () => {
           const tasksData = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
           setTasks(tasksData);
 
-          // Fetch Claims for these tasks
+          // Fetch Claims for these tasks (Chunked for 'in' query limit of 30)
           if (tasksData.length > 0) {
             const taskIds = tasksData.map(t => t.id);
-            const claimsQ = query(
-              collection(db, 'task_claims'),
-              where('userId', '==', currentUser.uid),
-              where('taskId', 'in', taskIds)
-            );
-            const claimsSnap = await getDocs(claimsQ);
             const claimsMap: Record<string, TaskClaim> = {};
-            claimsSnap.docs.forEach(d => {
-              const claim = { id: d.id, ...d.data() } as TaskClaim;
-              claimsMap[claim.taskId] = claim;
-            });
+
+            // Process in chunks of 30
+            for (let i = 0; i < taskIds.length; i += 30) {
+              const chunk = taskIds.slice(i, i + 30);
+              const claimsQ = query(
+                collection(db, 'task_claims'),
+                where('userId', '==', currentUser.uid),
+                where('taskId', 'in', chunk)
+              );
+              const claimsSnap = await getDocs(claimsQ);
+              claimsSnap.docs.forEach(d => {
+                const claim = { id: d.id, ...d.data() } as TaskClaim;
+                claimsMap[claim.taskId] = claim;
+              });
+            }
             setClaims(claimsMap);
           }
         } else {

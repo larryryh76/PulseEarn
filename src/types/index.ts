@@ -438,6 +438,7 @@ export interface SystemTaskDefinition {
   rewardXp: number;
   active: boolean;
   repeatable: boolean;
+  period: 'ONCE' | 'DAILY' | 'WEEKLY';
   priority: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;

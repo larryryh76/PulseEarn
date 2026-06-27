@@ -30,11 +30,46 @@ import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Profile: React.FC = () => {
-  const { userData, logout, currentUser } = useAuth();
+  const { userData, logout, currentUser, updateUserEmail, updateUserPassword } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
   const [hasCopied, setHasCopied] = useState(false);
   const [liveReferralCount, setLiveReferralCount] = useState<number | null>(null);
   const [rewardAmount, setRewardAmount] = useState(50);
+
+  const [emailForm, setEmailForm] = useState(currentUser?.email || '');
+  const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isUpdatingPass, setIsUpdatingPass] = useState(false);
+
+  const handleEmailUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailForm || emailForm === currentUser?.email) return;
+    setIsUpdatingEmail(true);
+    try {
+      await updateUserEmail(emailForm);
+      toast.success('Email update initiated. Please check your inbox.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update email');
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  const handlePassUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passForm.new !== passForm.confirm) return toast.error('Passwords do not match');
+    if (passForm.new.length < 6) return toast.error('Password must be at least 6 characters');
+    setIsUpdatingPass(true);
+    try {
+      await updateUserPassword(passForm.new);
+      toast.success('Password updated successfully');
+      setPassForm({ current: '', new: '', confirm: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      setIsUpdatingPass(false);
+    }
+  };
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -146,7 +181,7 @@ const Profile: React.FC = () => {
                <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
                  <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border group/avatar relative">
                    <img
-                     src={`https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
+                     src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
                      alt=""
                      className="w-full h-full object-cover grayscale-[0.2] group-hover/avatar:grayscale-0 transition-all duration-700"
                    />
@@ -394,6 +429,53 @@ const Profile: React.FC = () => {
                     <div className="w-1 h-5 bg-primary rounded-full" />
                     <h2 className="text-lg font-bold tracking-tight">Security & Privacy</h2>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <Card variant="compact" className="space-y-6">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-text-primary">Update Email</p>
+                        <p className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Change your primary login email</p>
+                      </div>
+                      <form onSubmit={handleEmailUpdate} className="space-y-4">
+                        <input
+                          type="email"
+                          value={emailForm}
+                          onChange={e => setEmailForm(e.target.value)}
+                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                        />
+                        <Button isLoading={isUpdatingEmail} className="w-full py-3 text-[10px] uppercase tracking-widest font-black italic">
+                          Update Email Address
+                        </Button>
+                      </form>
+                    </Card>
+
+                    <Card variant="compact" className="space-y-6">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-text-primary">Change Password</p>
+                        <p className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Secure your account access</p>
+                      </div>
+                      <form onSubmit={handlePassUpdate} className="space-y-4">
+                        <input
+                          type="password"
+                          placeholder="New Password"
+                          value={passForm.new}
+                          onChange={e => setPassForm({ ...passForm, new: e.target.value })}
+                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Confirm New Password"
+                          value={passForm.confirm}
+                          onChange={e => setPassForm({ ...passForm, confirm: e.target.value })}
+                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                        />
+                        <Button isLoading={isUpdatingPass} className="w-full py-3 text-[10px] uppercase tracking-widest font-black italic">
+                          Change Password
+                        </Button>
+                      </form>
+                    </Card>
+                  </div>
+
                   <div className="p-12 text-center border border-dashed border-border rounded-[2rem] bg-surface-bright/30">
                      <ShieldCheck size={40} className="mx-auto text-text-tertiary/20 mb-4" />
                      <p className="text-[10px] font-black uppercase text-text-tertiary tracking-[0.2em]">Privacy protections are active</p>

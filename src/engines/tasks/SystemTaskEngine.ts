@@ -40,7 +40,11 @@ export class SystemTaskEngine {
       const userData = userSnap.data() as UserData;
 
       for (const defDoc of definitionsSnap.docs) {
-        const def = { id: defDoc.id, ...defDoc.data() } as SystemTaskDefinition;
+        const def = {
+          id: defDoc.id,
+          period: 'ONCE', // Default fallback for legacy docs
+          ...defDoc.data()
+        } as SystemTaskDefinition;
         await this.evaluateMission(userId, userData, def);
       }
     } catch (err) {

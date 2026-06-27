@@ -77,23 +77,22 @@ const Wallet: React.FC = () => {
   );
 
   const validateAddress = (address: string, network: string) => {
-    const addr = address.trim();
-    if (!addr) return false;
+    if (!address) return false;
 
     switch (network) {
       case 'ERC20':
       case 'BEP20':
       case 'POLYGON':
-        // EVM: 0x followed by 40 hex chars
-        return /^0x[a-fA-F0-0]{40}$/.test(addr);
+        // EVM: 0x followed by 40 hex chars [0-9a-fA-F]
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
       case 'TRC20':
-        // Tron: Starts with T, 34 chars
-        return /^T[a-zA-Z0-0]{33}$/.test(addr);
+        // Tron: Starts with T, 34 chars (Base58: [1-9A-HJ-NP-Za-km-z])
+        return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
       case 'SOLANA':
         // Solana: Base58, 32-44 chars
-        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
       default:
-        return addr.length > 20;
+        return address.length > 20;
     }
   };
 
@@ -101,8 +100,9 @@ const Wallet: React.FC = () => {
     if (!eligibility.eligible) return toast.error(`Ineligible: ${eligibility.reason}`);
     if (isProcessing || isCompleted) return;
 
-    if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
-    if (!validateAddress(withdrawalForm.walletAddress, withdrawalForm.network)) {
+    const normalizedAddress = withdrawalForm.walletAddress.trim();
+    if (!normalizedAddress) return toast.error("Wallet address required");
+    if (!validateAddress(normalizedAddress, withdrawalForm.network)) {
       return toast.error(`Invalid ${withdrawalForm.network} address format`);
     }
 
@@ -122,7 +122,7 @@ const Wallet: React.FC = () => {
         username: userData?.username,
         amountPoints: withdrawalForm.amount,
         amountUSD: PTS_TO_USD(withdrawalForm.amount),
-        walletAddress: withdrawalForm.walletAddress,
+        walletAddress: normalizedAddress,
         network: withdrawalForm.network,
         status: 'PENDING',
         claimId,
@@ -139,7 +139,7 @@ const Wallet: React.FC = () => {
         claimId,
         referenceId: withdrawalDocId,
         metadata: {
-          walletAddress: withdrawalForm.walletAddress,
+          walletAddress: normalizedAddress,
           network: withdrawalForm.network,
           withdrawalId: withdrawalDocId
         }

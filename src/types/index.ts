@@ -272,7 +272,7 @@ export interface UserData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus' | 'withdrawal_finalized';
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus' | 'withdrawal_finalized' | 'mission_reward';
   amount: number;
   source: string; // source system name
   timestamp: Timestamp;
@@ -407,7 +407,7 @@ export interface WithdrawalRequest {
   amountUSD: number;
   walletAddress: string;
   network: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID' | 'FAILED';
   adminNotes?: string;
   createdAt: Timestamp;
   processedAt?: Timestamp | null;

@@ -65,9 +65,7 @@ export const seedTasks = async () => {
     }
 
     // Seed System Task Definitions
-    const sysTasksCol = collection(db, 'system_task_definitions');
-    const sysSnap = await getDocs(query(sysTasksCol, limit(1)));
-    if (sysSnap.empty) {
+    {
       const definitions: Partial<SystemTaskDefinition>[] = [
         {
           id: 'daily_checkin',
@@ -194,11 +192,10 @@ export const seedTasks = async () => {
       for (const def of definitions) {
         await setDoc(doc(db, 'system_task_definitions', def.id!), {
           ...def,
-          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
-        });
+        }, { merge: true });
       }
-      console.log(`Seeded ${definitions.length} system task definitions.`);
+      console.log(`Synchronized ${definitions.length} system task definitions.`);
     }
   } catch (error) {
     console.error('Error seeding tasks:', error);

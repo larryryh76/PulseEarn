@@ -2,6 +2,7 @@ import os
 import requests
 import hashlib
 import hmac
+from webhook_helper import verify_provider_signature
 from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -870,8 +871,8 @@ def evaluate_user_integrity():
 @app.route('/api/webhooks/<provider>', methods=['POST'])
 def handle_provider_webhook(provider):
     # Public endpoint, uses provider-specific signature verification
+    raw_payload = request.get_data()
     data = request.json
-    payload = request.get_data(as_text=True)
     signature = request.headers.get('X-Provider-Signature')
 
     if not signature:
@@ -884,34 +885,37 @@ def handle_provider_webhook(provider):
         return jsonify({"success": False, "error": "UNKNOWN_PROVIDER"}), 404
 
     provider_config = provider_snap.to_dict()
-    secret = provider_config.get('postbackSecret')
+    if not provider_config.get('active'):
+        return jsonify({"success": False, "error": "PROVIDER_INACTIVE"}), 403
 
-    # Verify signature
-    expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, signature):
+    secret = provider_config.get('postbackSecret')
+    if not secret:
+        return jsonify({"success": False, "error": "PROVIDER_CONFIG_INCOMPLETE"}), 500
+
+    # Verify signature using raw bytes
+    if not verify_provider_signature(raw_payload, signature, secret):
         return jsonify({"success": False, "error": "INVALID_SIGNATURE"}), 403
 
     # Extract user and reward data
     user_id = data.get('userId')
     offer_id = data.get('offerId')
-    raw_amount = data.get('amount') # The amount the provider claims to pay
 
-    if not all([user_id, offer_id, raw_amount]):
+    if not all([user_id, offer_id]):
         return jsonify({"success": False, "error": "INVALID_PAYLOAD"}), 400
 
-    # Validate against internal offer mapping to prevent "amount injection"
-    offer_ref = db.collection('tasks').where('providerId', '==', offer_id).limit(1).get()
-    if not offer_ref:
-        return jsonify({"success": False, "error": "OFFER_NOT_MAPPED"}), 404
+    # Validate against internal offer mapping, scoped by provider
+    # Reject SYSTEM/internal tasks
+    offer_query = db.collection('tasks').where('providerId', '==', offer_id).where('provider', '==', provider).where('active', '==', True).limit(1).get()
 
-    offer_data = offer_ref[0].to_dict()
+    if not offer_query:
+        return jsonify({"success": False, "error": "OFFER_NOT_MAPPED_OR_INACTIVE"}), 404
+
+    offer_data = offer_query[0].to_dict()
+    if offer_data.get('provider') == 'internal':
+        return jsonify({"success": False, "error": "RESTRICTED_OFFER_TYPE"}), 403
+
     internal_reward = offer_data.get('rewardAmount', 0)
     internal_xp = offer_data.get('xpReward', 0)
-
-    # Execute the transaction using the hardened internal path logic
-    # We call execute_transaction logic or similar internally
-    # For now, we'll implement a simplified version of the logic
-    # because we are on the server and trusted.
 
     claim_id = f"webhook_{provider}_{offer_id}_{user_id}_{data.get('transactionId', 'unique')}"
 
@@ -922,10 +926,12 @@ def handle_provider_webhook(provider):
     @firestore.transactional
     def webhook_transaction(transaction):
         user_snap = user_ref.get(transaction=transaction)
-        if not user_snap.exists: raise Exception("USER_NOT_FOUND")
+        if not user_snap.exists:
+            raise Exception("USER_NOT_FOUND")
 
         claim_snap = claim_ref.get(transaction=transaction)
-        if claim_snap.exists: raise Exception("ALREADY_PROCESSED")
+        if claim_snap.exists:
+            raise Exception("ALREADY_PROCESSED")
 
         # Update user
         transaction.update(user_ref, {
@@ -958,7 +964,15 @@ def handle_provider_webhook(provider):
         webhook_transaction(transaction)
         return jsonify({"success": True, "message": "REWARD_PROCESSED"})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        error_str = str(e)
+        # Map known exceptions to clean responses
+        if "USER_NOT_FOUND" in error_str:
+            return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+        if "ALREADY_PROCESSED" in error_str:
+            return jsonify({"success": False, "error": "ALREADY_PROCESSED"}), 409
+
+        print(f"WEBHOOK_CRITICAL_ERROR: {error_str}")
+        return jsonify({"success": False, "error": "INTERNAL_TRANSACTION_ERROR"}), 500
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token

@@ -156,10 +156,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function reauthenticate(password: string) {
-    if (auth.currentUser && auth.currentUser.email) {
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
-      await reauthenticateWithCredential(auth.currentUser, credential);
+    if (!auth.currentUser || !auth.currentUser.email) {
+      throw new Error("No active session found for re-authentication.");
     }
+
+    // Ensure the account is a password provider
+    const providers = auth.currentUser.providerData.map(p => p.providerId);
+    if (!providers.includes('password')) {
+      throw new Error("Direct password updates are only available for email/password accounts.");
+    }
+
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+    await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
@@ -272,17 +280,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Priority 3: Autoritative Welcome Bonus
     try {
       const config = await EconomyConfigEngine.getConfig();
-      const amount = config.rewards.welcomeBonusPoints || 30;
+      const amount = config.rewards.welcomeBonusPoints ?? 30;
+      const xpReward = config.rewards.welcomeBonusXP ?? 50;
+
       const result = await PointTransactionEngine.execute({
         userId: user.uid,
         amount,
         type: 'welcome_bonus',
         source: 'Welcome Bonus',
         claimId: `welcome_${user.uid}`,
-        xpReward: config.rewards.welcomeBonusXP || 50
+        xpReward
       });
 
-      if (result.success) {
+      if (result.success && amount > 0) {
         toast.success(`Welcome Bonus Credited: +${amount} PTS`, {
           icon: '🎁',
           duration: 6000,

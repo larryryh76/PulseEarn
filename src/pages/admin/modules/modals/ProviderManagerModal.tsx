@@ -5,6 +5,7 @@ import { db } from '../../../../firebase/config';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Button from '../../../../components/ui/Button';
 import toast from 'react-hot-toast';
+import { cn } from '../../../../utils';
 
 interface Props {
   isOpen: boolean;
@@ -121,6 +122,26 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
                        placeholder="Provider API key (optional)..."
                        className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-4 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
                      />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-surface-bright border border-border rounded-xl">
+                     <div className="space-y-0.5">
+                        <p className="text-xs font-bold text-text-primary uppercase tracking-tight">Active Status</p>
+                        <p className="text-[9px] text-text-tertiary font-bold uppercase tracking-widest">Enable or disable this provider integration</p>
+                     </div>
+                     <button
+                        type="button"
+                        onClick={() => setConfig({ ...config, active: !config.active })}
+                        className={cn(
+                           "w-11 h-6 rounded-full relative transition-all duration-300",
+                           config.active ? "bg-primary" : "bg-white/5"
+                        )}
+                     >
+                        <div className={cn(
+                           "absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all duration-300",
+                           config.active ? "translate-x-5" : "translate-x-0"
+                        )} />
+                     </button>
                   </div>
                </div>
 

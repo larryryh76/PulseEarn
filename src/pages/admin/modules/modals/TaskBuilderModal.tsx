@@ -74,6 +74,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
       const taskRef = doc(db, 'tasks', id);
 
       // Clean payload: ensure undefined fields don't break Firestore
+      const normalizedProvider = formData.provider || 'internal';
       const payload: any = {
         ...formData,
         id,
@@ -81,9 +82,9 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
         actionUrl: formData.actionUrl || '',
         updatedAt: serverTimestamp(),
         createdAt: (initialTask && (initialTask as any).createdAt) ? (initialTask as any).createdAt : serverTimestamp(),
-        providerId: formData.providerId || 'SYSTEM',
-        provider: formData.provider || 'internal',
-        providerName: formData.provider === 'internal' ? 'PulseEarn System' : "External: " + formData.provider
+        provider: normalizedProvider,
+        providerId: normalizedProvider === 'internal' ? 'SYSTEM' : (formData.providerId || ''),
+        providerName: normalizedProvider === 'internal' ? 'PulseEarn System' : "External: " + normalizedProvider
       };
 
       await setDoc(taskRef, payload, { merge: true });
@@ -260,6 +261,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                             <option value="internal" className="bg-surface">Internal (Native)</option>
                             <option value="offerwall_x" className="bg-surface">Offerwall X</option>
                             <option value="survey_y" className="bg-surface">Survey Y</option>
+                            <option value="ad_network_z" className="bg-surface">Ad Network Z</option>
                          </select>
                       </div>
                       <div className="space-y-2">

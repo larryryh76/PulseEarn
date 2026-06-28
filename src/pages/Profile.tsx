@@ -30,24 +30,28 @@ import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Profile: React.FC = () => {
-  const { userData, logout, currentUser, updateUserEmail, updateUserPassword } = useAuth();
+  const { userData, logout, currentUser, updateUserEmail, updateUserPassword, reauthenticate } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
   const [hasCopied, setHasCopied] = useState(false);
   const [liveReferralCount, setLiveReferralCount] = useState<number | null>(null);
   const [rewardAmount, setRewardAmount] = useState(50);
 
-  const [emailForm, setEmailForm] = useState(currentUser?.email || '');
-  const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });
+  const [emailForm, setEmailForm] = useState({ email: currentUser?.email || '', currentPassword: '' });
+  const [passForm, setPassForm] = useState({ currentPassword: '', new: '', confirm: '' });
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isUpdatingPass, setIsUpdatingPass] = useState(false);
 
   const handleEmailUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailForm || emailForm === currentUser?.email) return;
+    if (!emailForm.email || emailForm.email === currentUser?.email) return;
+    if (!emailForm.currentPassword) return toast.error('Current password required');
+
     setIsUpdatingEmail(true);
     try {
-      await updateUserEmail(emailForm);
-      toast.success('Email update initiated. Please check your inbox.');
+      await reauthenticate(emailForm.currentPassword);
+      await updateUserEmail(emailForm.email);
+      toast.success('Email address updated successfully');
+      setEmailForm(prev => ({ ...prev, currentPassword: '' }));
     } catch (err: any) {
       toast.error(err.message || 'Failed to update email');
     } finally {
@@ -57,13 +61,16 @@ const Profile: React.FC = () => {
 
   const handlePassUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!passForm.currentPassword) return toast.error('Current password required');
     if (passForm.new !== passForm.confirm) return toast.error('Passwords do not match');
     if (passForm.new.length < 6) return toast.error('Password must be at least 6 characters');
+
     setIsUpdatingPass(true);
     try {
+      await reauthenticate(passForm.currentPassword);
       await updateUserPassword(passForm.new);
       toast.success('Password updated successfully');
-      setPassForm({ current: '', new: '', confirm: '' });
+      setPassForm({ currentPassword: '', new: '', confirm: '' });
     } catch (err: any) {
       toast.error(err.message || 'Failed to update password');
     } finally {
@@ -437,12 +444,25 @@ const Profile: React.FC = () => {
                         <p className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Change your primary login email</p>
                       </div>
                       <form onSubmit={handleEmailUpdate} className="space-y-4">
-                        <input
-                          type="email"
-                          value={emailForm}
-                          onChange={e => setEmailForm(e.target.value)}
-                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
-                        />
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">New Email</label>
+                          <input
+                            type="email"
+                            value={emailForm.email}
+                            onChange={e => setEmailForm({ ...emailForm, email: e.target.value })}
+                            className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Current Password</label>
+                          <input
+                            type="password"
+                            placeholder="Confirm to verify identity"
+                            value={emailForm.currentPassword}
+                            onChange={e => setEmailForm({ ...emailForm, currentPassword: e.target.value })}
+                            className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                          />
+                        </div>
                         <Button isLoading={isUpdatingEmail} className="w-full py-3 text-[10px] uppercase tracking-widest font-black italic">
                           Update Email Address
                         </Button>
@@ -455,20 +475,36 @@ const Profile: React.FC = () => {
                         <p className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Secure your account access</p>
                       </div>
                       <form onSubmit={handlePassUpdate} className="space-y-4">
-                        <input
-                          type="password"
-                          placeholder="New Password"
-                          value={passForm.new}
-                          onChange={e => setPassForm({ ...passForm, new: e.target.value })}
-                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Confirm New Password"
-                          value={passForm.confirm}
-                          onChange={e => setPassForm({ ...passForm, confirm: e.target.value })}
-                          className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
-                        />
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Current Password</label>
+                          <input
+                            type="password"
+                            placeholder="Current Password"
+                            value={passForm.currentPassword}
+                            onChange={e => setPassForm({ ...passForm, currentPassword: e.target.value })}
+                            className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">New Password</label>
+                          <input
+                            type="password"
+                            placeholder="New Password"
+                            value={passForm.new}
+                            onChange={e => setPassForm({ ...passForm, new: e.target.value })}
+                            className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Confirm New Password</label>
+                          <input
+                            type="password"
+                            placeholder="Confirm New Password"
+                            value={passForm.confirm}
+                            onChange={e => setPassForm({ ...passForm, confirm: e.target.value })}
+                            className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                          />
+                        </div>
                         <Button isLoading={isUpdatingPass} className="w-full py-3 text-[10px] uppercase tracking-widest font-black italic">
                           Change Password
                         </Button>

@@ -49,6 +49,7 @@ export interface Task {
   maxClaims: number | null; // null for unlimited
   dailyLimit?: number;
   perUserLimit?: number;
+  provider: 'internal' | 'offerwall_x' | 'survey_y' | string;
   totalClaims: number;
   totalDistributed?: number;
   completionCount?: number;
@@ -132,6 +133,7 @@ export interface Campaign {
   budget?: number;
   totalPrizePool: number;
   remainingPool: number;
+  provider: 'internal' | 'offerwall_x' | 'survey_y' | string;
   pointsReward?: number;
   xpReward: number;
   active: boolean;
@@ -424,7 +426,7 @@ export type SystemTaskTrigger =
   | 'level_up'
   | 'profile_updated';
 
-export type SystemTaskCategory = 'WELCOME' | 'REFERRAL' | 'PREDICTION' | 'CAMPAIGN' | 'STREAK' | 'LEVEL';
+export type SystemTaskCategory = 'WELCOME' | 'REFERRAL' | 'PREDICTION' | 'CAMPAIGN' | 'STREAK' | 'LEVEL' | 'DAILY';
 
 export interface SystemTaskDefinition {
   id: string;

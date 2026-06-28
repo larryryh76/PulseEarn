@@ -373,6 +373,14 @@ const Tasks: React.FC = () => {
                                             </div>
                                             <div className="w-1 h-1 rounded-full bg-border" />
                                             <span className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{task.verificationType}</span>
+                                            {task.provider && task.provider !== 'internal' && (
+                                               <>
+                                                  <div className="w-1 h-1 rounded-full bg-border" />
+                                                  <span className="text-[7px] font-black text-primary uppercase tracking-widest px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+                                                     {task.provider.replace('offerwall_', '').replace('survey_', '').toUpperCase()}
+                                                  </span>
+                                               </>
+                                            )}
                                          </div>
                                       </div>
                                    </div>

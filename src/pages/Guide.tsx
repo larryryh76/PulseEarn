@@ -110,9 +110,9 @@ const Guide: React.FC = () => {
                    <h2 className="text-[11px] font-black uppercase tracking-[0.4em]">Integrity Enforced</h2>
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold text-text-primary uppercase tracking-tighter italic">Secure Participation</h2>
-                <p className="text-sm text-text-tertiary max-w-xl mx-auto leading-relaxed">
-                   All rewards are verified on-chain and through administrative review.
-                   PulseEarn operates on a 1,000 PTS = $1 conversion standard with automated withdrawal processing.
+                <p className="text-sm text-text-tertiary max-w-xl mx-auto leading-relaxed font-medium">
+                   Every reward issuance is subject to internal auditing to ensure platform solvency and integrity.
+                   PulseEarn operates on a 1,000 PTS = $1 conversion standard. Payouts are manually reviewed and processed by our compliance team.
                 </p>
              </div>
 

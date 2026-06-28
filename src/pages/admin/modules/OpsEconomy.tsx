@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  Shield,
   BarChart3,
   RefreshCw,
   Zap,
@@ -31,6 +32,7 @@ import toast from "react-hot-toast";
 import { cn } from '../../../utils';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import ProviderManagerModal from './modals/ProviderManagerModal';
 
 const OpsEconomy: React.FC = () => {
   const [stats, setStats] = React.useState({
@@ -45,6 +47,7 @@ const OpsEconomy: React.FC = () => {
   const [isConfiguring, setIsConfiguring] = React.useState(false);
 
   const [isAdjusting, setIsAdjusting] = React.useState(false);
+  const [isManagingProviders, setIsManagingProviders] = React.useState(false);
   const [adjustForm, setAdjustForm] = React.useState({
      userId: '',
      amount: 0,
@@ -166,6 +169,12 @@ const OpsEconomy: React.FC = () => {
                className="w-full sm:w-auto px-6 md:px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
              >
                 <Settings size={14} /> Update Config
+             </button>
+             <button
+               onClick={() => setIsManagingProviders(true)}
+               className="w-full sm:w-auto px-6 md:px-8 py-3 bg-surface-bright border border-border-bright text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
+             >
+                <Shield size={14} /> Offerwalls
              </button>
              <button
                onClick={() => setIsAdjusting(true)}
@@ -434,6 +443,7 @@ const OpsEconomy: React.FC = () => {
                 </motion.div>
              </div>
           )}
+          <ProviderManagerModal isOpen={isManagingProviders} onClose={() => setIsManagingProviders(false)} />
        </AnimatePresence>
     </div>
   );

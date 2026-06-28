@@ -25,6 +25,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
     rewardAmount: 100,
     xpReward: 50,
     platform: 'NONE' as SocialPlatform,
+    provider: 'internal',
     active: true,
     status: 'ACTIVE',
     minLevel: 1,
@@ -47,8 +48,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
           description: '',
           instructions: '',
           campaignId: '',
-          category: 'ENGAGEMENT' as TaskCategory,
-          verificationType: 'manual' as VerificationType,
+          provider: 'internal',
           rewardAmount: 100,
           xpReward: 50,
           platform: 'NONE' as SocialPlatform,
@@ -81,8 +81,9 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
         actionUrl: formData.actionUrl || '',
         updatedAt: serverTimestamp(),
         createdAt: (initialTask && (initialTask as any).createdAt) ? (initialTask as any).createdAt : serverTimestamp(),
-        providerId: 'SYSTEM',
-        providerName: 'PulseEarn System'
+        providerId: formData.providerId || 'SYSTEM',
+        provider: formData.provider || 'internal',
+        providerName: formData.provider === 'internal' ? 'PulseEarn System' : "External: " + formData.provider
       };
 
       await setDoc(taskRef, payload, { merge: true });
@@ -245,6 +246,30 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          >
                             {['TELEGRAM', 'TWITTER', 'TIKTOK', 'YOUTUBE', 'DISCORD', 'WEBSITE', 'NONE'].map(p => <option key={p} value={p} className="bg-surface">{p}</option>)}
                          </select>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pt-4 border-t border-white/5">
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Offer Provider</label>
+                         <select
+                           value={formData.provider || 'internal'}
+                           onChange={e => setFormData({...formData, provider: e.target.value})}
+                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest appearance-none"
+                         >
+                            <option value="internal" className="bg-surface">Internal (Native)</option>
+                            <option value="offerwall_x" className="bg-surface">Offerwall X</option>
+                            <option value="survey_y" className="bg-surface">Survey Y</option>
+                         </select>
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Provider Offer ID</label>
+                         <input
+                           value={formData.providerId || ''}
+                           onChange={e => setFormData({...formData, providerId: e.target.value})}
+                           placeholder="External ID for mapping"
+                           className="w-full bg-surface-bright border border-border-bright rounded-2xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none transition-all font-mono"
+                         />
                       </div>
                    </div>
                 </div>

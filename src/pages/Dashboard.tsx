@@ -32,6 +32,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 import OnboardingOverlay from '../components/OnboardingOverlay';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import DailyRewardCard from '../components/Dashboard/DailyRewardCard';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -227,14 +229,21 @@ const Dashboard: React.FC = () => {
 
         {/* METRICS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group">
+           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group shadow-2xl transition-all hover:border-primary/40">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] -mr-16 -mt-16 group-hover:bg-primary/20 transition-all duration-700" />
-              <div className="flex justify-between items-start">
-                 <p className="data-label text-primary">Balance</p>
-                 <WalletIcon size={18} className="text-primary" />
+              <div className="flex justify-between items-start relative z-10">
+                 <p className="data-label text-primary">Pulse Balance</p>
+                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/20 text-primary">
+                    <WalletIcon size={16} />
+                 </div>
               </div>
-              <div className="space-y-1">
-                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{(userData?.points || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
+              <div className="space-y-1 relative z-10">
+                 <div className="flex items-baseline gap-2">
+                    <h2 className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">
+                       <AnimatedNumber value={userData?.points || 0} />
+                    </h2>
+                    <span className="text-[10px] font-mono text-primary uppercase font-black">PTS</span>
+                 </div>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
               </div>
            </Card>
@@ -274,18 +283,7 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
-              <div className="flex justify-between items-start">
-                 <p className="data-label">Streak</p>
-                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-surface-bright border border-border", userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")}>
-                    <Flame size={16} />
-                 </div>
-              </div>
-              <div className="space-y-1">
-                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Streak</p>
-              </div>
-           </Card>
+           <DailyRewardCard />
 
            <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
               <div className="flex justify-between items-start">

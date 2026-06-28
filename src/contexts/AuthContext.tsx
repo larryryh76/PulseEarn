@@ -10,6 +10,8 @@ import {
   sendPasswordResetEmail,
   updateEmail as firebaseUpdateEmail,
   updatePassword as firebaseUpdatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
@@ -52,6 +54,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
   updateUserPassword: (newPassword: string) => Promise<void>;
+  reauthenticate: (password: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
 
@@ -152,6 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function reauthenticate(password: string) {
+    if (auth.currentUser && auth.currentUser.email) {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+    }
+  }
+
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -170,22 +180,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         referredBy = referrerDoc.id;
 
         // 1. Log to Referrals Collection
-        await setDoc(doc(collection(db, 'referrals')), {
-          referrerId: referredBy,
-          refereeId: user.uid,
-          refereeUsername: username,
-          status: 'REGISTERED',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+        try {
+          await setDoc(doc(collection(db, 'referrals')), {
+            referrerId: referredBy,
+            refereeId: user.uid,
+            refereeUsername: username,
+            status: 'REGISTERED',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
 
-        // 2. Notify Referrer
-        await NotificationEngine.send({
-          userId: referredBy,
-          title: 'New Referral Link',
-          description: `${username} joined using your code.`,
-          type: 'referral_joined'
-        });
+          // 2. Notify Referrer
+          await NotificationEngine.send({
+            userId: referredBy,
+            title: 'New Referral Link',
+            description: `${username} joined using your code.`,
+            type: 'referral_joined'
+          });
+        } catch (err) {
+          console.error("[AuthContext] Referral Logging Failed:", err);
+        }
       }
     }
 
@@ -258,14 +272,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Priority 3: Autoritative Welcome Bonus
     try {
       const config = await EconomyConfigEngine.getConfig();
-      await PointTransactionEngine.execute({
+      const amount = config.rewards.welcomeBonusPoints || 30;
+      const result = await PointTransactionEngine.execute({
         userId: user.uid,
-        amount: config.rewards.welcomeBonusPoints || 30,
+        amount,
         type: 'welcome_bonus',
         source: 'Welcome Bonus',
         claimId: `welcome_${user.uid}`,
         xpReward: config.rewards.welcomeBonusXP || 50
       });
+
+      if (result.success) {
+        toast.success(`Welcome Bonus Credited: +${amount} PTS`, {
+          icon: '🎁',
+          duration: 6000,
+          position: 'top-center'
+        });
+      }
     } catch (err) {
       console.error("[AuthContext] Welcome Bonus Dispatch Failed:", err);
     }
@@ -385,6 +408,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     updateUserEmail,
     updateUserPassword,
+    reauthenticate,
     systemError
   };
 

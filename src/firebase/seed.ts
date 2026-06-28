@@ -205,6 +205,21 @@ export const seedTasks = async () => {
 
         await setDoc(missionRef, payload, { merge: true });
       }
+
+      // Cleanup pass: deactivate stale system task definitions not in current seed
+      const currentIds = new Set(definitions.map(d => d.id));
+      const systemTaskDefsCol = collection(db, 'system_task_definitions');
+      const existingDocs = await getDocs(systemTaskDefsCol);
+
+      for (const docSnap of existingDocs.docs) {
+        if (!currentIds.has(docSnap.id)) {
+          await setDoc(doc(db, 'system_task_definitions', docSnap.id), {
+            active: false,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+      }
+
       console.log(`Synchronized ${definitions.length} system task definitions.`);
     }
   } catch (error) {

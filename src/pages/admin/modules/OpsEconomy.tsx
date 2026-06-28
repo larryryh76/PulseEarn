@@ -10,10 +10,10 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Settings,
-  Plus,
-  Minus,
   X,
-  User
+  User,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -23,7 +23,10 @@ import {
   getCountFromServer,
   where,
   onSnapshot,
-  doc
+  doc,
+  orderBy,
+  getDocs,
+  startAfter
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +36,7 @@ import { cn } from '../../../utils';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 import ProviderManagerModal from './modals/ProviderManagerModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsEconomy: React.FC = () => {
   const [stats, setStats] = React.useState({
@@ -43,6 +47,7 @@ const OpsEconomy: React.FC = () => {
   });
 
   const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [economyConfig, setEconomyConfig] = React.useState<any>(null);
   const [isConfiguring, setIsConfiguring] = React.useState(false);
 
@@ -57,6 +62,45 @@ const OpsEconomy: React.FC = () => {
      isXp: false
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
+
+  const fetchHistory = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'system_claims'),
+        orderBy('executedAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'system_claims'),
+          orderBy('executedAt', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isNext) {
+        setRecentTransactions(prev => [...prev, ...data]);
+      } else {
+        setRecentTransactions(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsEconomy] Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
     const metricsUnsub = onSnapshot(doc(db, 'system_config', 'global_metrics'), (snap) => {
@@ -83,15 +127,7 @@ const OpsEconomy: React.FC = () => {
       setStats(prev => ({ ...prev, predictionLiability: predLiability }));
     });
 
-    const txQuery = query(collection(db, 'system_claims'), limit(10));
-    const unsubscribeTx = onSnapshot(txQuery, (snap) => {
-      const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRecentTransactions(docs.sort((a: any, b: any) => {
-        const timeA = a.executedAt?.toMillis?.() || 0;
-        const timeB = b.executedAt?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
-    });
+    fetchHistory();
 
     const fetchConfig = async () => {
        const config = await EconomyConfigEngine.getConfig();
@@ -100,7 +136,6 @@ const OpsEconomy: React.FC = () => {
     fetchConfig();
 
     return () => {
-      unsubscribeTx();
       metricsUnsub();
       activePredUnsub();
     };
@@ -142,6 +177,7 @@ const OpsEconomy: React.FC = () => {
            toast.success('Economy Adjustment Synchronized');
            setIsAdjusting(false);
            setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
+           fetchHistory();
         } else {
            toast.error(result.error);
         }
@@ -210,32 +246,44 @@ const OpsEconomy: React.FC = () => {
 
        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <div className="xl:col-span-2 space-y-8">
-             <section className="bg-surface border border-border rounded-[2.5rem] p-10 shadow-2xl">
-                <h2 className="text-sm font-black uppercase tracking-[0.3em] text-text-tertiary flex items-center gap-3 mb-10">
-                   <Activity size={18} className="text-primary" /> Real-time Feed
-                </h2>
-                <div className="space-y-1">
-                   {recentTransactions.map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between p-5 rounded-2xl bg-surface-bright/50 border-b border-border last:border-0 hover:bg-surface-accent transition-all">
-                         <div className="flex items-center gap-5">
-                            <div className={tx.amount > 0 ? "text-success bg-success/5 p-3 rounded-xl" : "text-text-primary bg-surface-bright p-3 rounded-xl"}>
-                               {tx.amount > 0 ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
-                            </div>
-                            <div>
-                               <p className="text-xs font-bold text-text-primary uppercase italic">{tx.source}</p>
-                               <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1.5">{tx.type.replace(/_/g, ' ')}</p>
-                            </div>
-                         </div>
-                         <div className="text-right">
-                            <p className={cn("text-sm font-mono font-bold", tx.amount > 0 ? "text-success" : "text-text-primary")}>
-                               {tx.amount > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
-                            </p>
-                            <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">{(tx.executedAt?.toDate?.() || new Date()).toLocaleTimeString()}</p>
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </section>
+             <DataTable
+                columns={[
+                  {
+                    header: 'Transaction Details',
+                    accessor: (tx: any) => (
+                       <div className="flex items-center gap-5">
+                          <div className={tx.amount > 0 ? "text-success bg-success/5 p-3 rounded-xl border border-success/10" : "text-text-primary bg-surface-bright p-3 rounded-xl border border-border"}>
+                             {tx.amount > 0 ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
+                          </div>
+                          <div>
+                             <p className="text-xs font-bold text-text-primary uppercase italic">{tx.source}</p>
+                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1.5">{tx.type.replace(/_/g, ' ')}</p>
+                          </div>
+                       </div>
+                    )
+                  },
+                  {
+                    header: 'Delta',
+                    className: 'text-right',
+                    accessor: (tx: any) => (
+                       <p className={cn("text-sm font-mono font-bold", tx.amount > 0 ? "text-success" : "text-text-primary")}>
+                          {tx.amount > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
+                       </p>
+                    )
+                  },
+                  {
+                    header: 'Execution Time',
+                    className: 'text-right',
+                    accessor: (tx: any) => (
+                       <p className="text-[9px] font-mono text-text-tertiary uppercase">{(tx.executedAt?.toDate?.() || new Date()).toLocaleTimeString()}</p>
+                    )
+                  }
+                ]}
+                data={recentTransactions}
+                isLoading={loading}
+                onLoadMore={() => fetchHistory(true)}
+                hasMore={hasMore}
+             />
           </div>
 
           <div className="space-y-8">
@@ -245,11 +293,11 @@ const OpsEconomy: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                    {[
-                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPTS || 10} PTS` },
-                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPTS || 50} PTS` },
+                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 10} PTS` },
+                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPoints || 50} PTS` },
                      { label: 'Win Multiplier', value: `${economyConfig?.rewards?.predictionWinMultiplier?.toFixed(1) || '2.0'}X` },
                      { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },
-                     { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPTS || 10000).toLocaleString()} PTS` },
+                     { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPoints || 10000).toLocaleString()} PTS` },
                      { label: 'Daily Point Cap', value: `${(economyConfig?.security?.dailyRewardCap || 5000).toLocaleString()} PTS` },
                    ].map((item) => (
                      <div key={item.label} className="flex items-center justify-between p-5 rounded-2xl bg-surface-bright/50 border border-border group hover:border-primary/20 transition-all">
@@ -296,16 +344,28 @@ const OpsEconomy: React.FC = () => {
                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Reward Coefficients</h4>
                          <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
-                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login PTS</label>
-                               <input type="number" value={economyConfig.rewards.dailyLoginPTS} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login Points</label>
+                               <input type="number" value={economyConfig.rewards.dailyLoginPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Login XP</label>
                                <input type="number" value={economyConfig.rewards.dailyLoginXP} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginXP: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
-                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral PTS</label>
-                               <input type="number" value={economyConfig.rewards.referralBonusPTS} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral Points</label>
+                               <input type="number" value={economyConfig.rewards.referralBonusPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral XP</label>
+                               <input type="number" value={economyConfig.rewards.referralBonusXP} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusXP: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Welcome Bonus Points</label>
+                               <input type="number" value={economyConfig.rewards.welcomeBonusPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, welcomeBonusPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Welcome Bonus XP</label>
+                               <input type="number" value={economyConfig.rewards.welcomeBonusXP} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, welcomeBonusXP: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Win Multiplier</label>
@@ -322,8 +382,34 @@ const OpsEconomy: React.FC = () => {
                                <input type="number" value={economyConfig.thresholds.predictionUnlockLevel} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, predictionUnlockLevel: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
-                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Withdrawal PTS</label>
-                               <input type="number" value={economyConfig.thresholds.minWithdrawalPTS} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, minWithdrawalPTS: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Withdrawal Points</label>
+                               <input type="number" value={economyConfig.thresholds.minWithdrawalPoints} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, minWithdrawalPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Min Prediction Stake</label>
+                               <input type="number" value={economyConfig.rewards.minPredictionStake} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, minPredictionStake: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Max Prediction Stake</label>
+                               <input type="number" value={economyConfig.rewards.maxPredictionStake} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, maxPredictionStake: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">XP Per Level</label>
+                               <input type="number" value={economyConfig.thresholds.xpPerLevel} onChange={e => setEconomyConfig({...economyConfig, thresholds: {...economyConfig.thresholds, xpPerLevel: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                         </div>
+                      </section>
+
+                      <section className="space-y-6">
+                         <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Security & Protection</h4>
+                         <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Max Single Reward</label>
+                               <input type="number" value={economyConfig.security.maxSingleReward} onChange={e => setEconomyConfig({...economyConfig, security: {...economyConfig.security, maxSingleReward: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Daily Reward Cap</label>
+                               <input type="number" value={economyConfig.security.dailyRewardCap} onChange={e => setEconomyConfig({...economyConfig, security: {...economyConfig.security, dailyRewardCap: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                          </div>
                       </section>

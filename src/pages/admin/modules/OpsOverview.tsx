@@ -14,9 +14,10 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, onSnapshot, orderBy, startAfter } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import { formatUSD } from '../../../utils/finance';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -34,8 +35,43 @@ const OpsOverview: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
   const [recentLedger, setRecentLedger] = React.useState<any[]>([]);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
 
   const fetchCountsRef = React.useRef<() => Promise<void>>(async () => {});
+
+  const fetchLedger = async (isNext = false) => {
+    try {
+      let q = query(
+        collection(db, 'system_claims'),
+        orderBy('executedAt', 'desc'),
+        limit(10)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'system_claims'),
+          orderBy('executedAt', 'desc'),
+          startAfter(lastDoc),
+          limit(10)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isNext) {
+        setRecentLedger(prev => [...prev, ...data]);
+      } else {
+        setRecentLedger(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 10);
+    } catch (err) {
+      console.error("[OpsOverview] Ledger Fetch Error:", err);
+    }
+  };
 
   React.useEffect(() => {
     setLoading(true);
@@ -48,19 +84,7 @@ const OpsOverview: React.FC = () => {
       setLastSync(new Date());
     });
 
-    // Recent ledger listener
-    const ledgerUnsub = onSnapshot(query(collection(db, 'system_claims'), limit(5)), (snap) => {
-      const ledgerData = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      ledgerData.sort((a, b) => {
-         const timeA = a.executedAt?.toMillis?.() || 0;
-         const timeB = b.executedAt?.toMillis?.() || 0;
-         return timeB - timeA;
-      });
-      setRecentLedger(ledgerData);
-    });
-
     // Counts - aggregate listener (simulated by frequent polling or direct onSnapshot if supported by collection)
-    // Firestore doesn't support live getCountFromServer, so we use a 30s interval for counts
     const fetchCounts = async () => {
       try {
         const [
@@ -108,12 +132,12 @@ const OpsOverview: React.FC = () => {
     };
 
     fetchCounts();
+    fetchLedger();
     fetchCountsRef.current = fetchCounts;
     const interval = setInterval(fetchCounts, 30000);
 
     return () => {
       metricsUnsub();
-      ledgerUnsub();
       clearInterval(interval);
     };
   }, []);
@@ -154,6 +178,8 @@ const OpsOverview: React.FC = () => {
                 </span>
                 <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
                 <span>Sync: {lastSync.toLocaleTimeString()}</span>
+                <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
+                <span className="text-primary italic">Engine: 5.0.0-PRO</span>
                 {stats.totalLiability === 0 && !loading && (
                    <span className="text-danger flex items-center gap-1.5 animate-bounce ml-4">
                       <ShieldAlert size={12} />
@@ -163,7 +189,7 @@ const OpsOverview: React.FC = () => {
              </div>
           </div>
           <button
-            onClick={() => fetchCountsRef.current?.()}
+            onClick={() => { fetchCountsRef.current?.(); fetchLedger(); }}
             className="w-full md:w-auto px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
@@ -232,42 +258,53 @@ const OpsOverview: React.FC = () => {
        </div>
 
        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-6 md:p-10 space-y-8 md:space-y-10 shadow-2xl">
+          <div className="lg:col-span-2 space-y-6">
              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
+                <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary px-1">
                    <Activity size={16} className="text-primary" />
                    Recent Transactions
                 </h3>
              </div>
-             <div className="space-y-1">
-                {recentLedger.length > 0 ? recentLedger.map((tx) => (
-                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-4 md:p-5 border-b border-border last:border-0 hover:bg-surface-bright/50 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4 md:gap-5">
-                         <div className={cn(
-                           "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
-                           tx.amount >= 0 ? "bg-success" : "bg-danger"
-                         )} />
-                         <div>
-                            <p className="text-[11px] md:text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                            <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 10).toUpperCase()}</p>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className={cn("text-[11px] md:text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
-                           {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
-                         </p>
-                         <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
-                      </div>
-                   </div>
-                )) : (
-                  <div className="py-20 text-center opacity-20 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
-                    No recent transactions
-                  </div>
-                )}
-             </div>
+
+             <DataTable
+                columns={[
+                  {
+                    header: 'Transaction',
+                    accessor: (tx: any) => (
+                       <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
+                            tx.amount >= 0 ? "bg-success" : "bg-danger"
+                          )} />
+                          <div>
+                             <p className="text-[11px] md:text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                             <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 10).toUpperCase()}</p>
+                          </div>
+                       </div>
+                    )
+                  },
+                  {
+                    header: 'Amount',
+                    className: 'text-right',
+                    accessor: (tx: any) => (
+                       <div>
+                          <p className={cn("text-[11px] md:text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                            {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
+                          </p>
+                          <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                       </div>
+                    )
+                  }
+                ]}
+                data={recentLedger}
+                isLoading={loading}
+                onRowClick={() => navigate('/admin/ledger')}
+                onLoadMore={() => fetchLedger(true)}
+                hasMore={hasMore}
+             />
           </div>
 
-          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-6 md:p-10 flex flex-col justify-between group shadow-2xl">
+          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-6 md:p-10 flex flex-col justify-between group shadow-2xl h-fit">
              <div className="space-y-6 md:space-y-8">
                 <div className="flex items-center justify-between">
                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 group-hover:scale-110 transition-transform shadow-2xl shadow-danger/5">

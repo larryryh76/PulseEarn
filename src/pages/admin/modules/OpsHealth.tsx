@@ -11,9 +11,10 @@ import {
   Lock
 } from 'lucide-react';
 import { db, auth } from '../../../firebase/config';
-import { collection, query, where, getDocs, limit,  Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit,  Timestamp, orderBy, startAfter } from 'firebase/firestore';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
+import DataTable from '../../../components/admin/common/DataTable';
 
 interface HealthMetric {
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
@@ -41,6 +42,52 @@ const OpsHealth: React.FC = () => {
     failedRequests24h: 0,
     totalAnomalies: 0
   });
+
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+
+  const fetchAnomalies = async (isNext = false) => {
+    try {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      let q = query(
+        collection(db, 'system_anomalies'),
+        where('timestamp', '>=', Timestamp.fromDate(oneDayAgo)),
+        orderBy('timestamp', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'system_anomalies'),
+          where('timestamp', '>=', Timestamp.fromDate(oneDayAgo)),
+          orderBy('timestamp', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemAnomaly));
+
+      if (isNext) {
+        setRecentFailures(prev => [...prev, ...data]);
+      } else {
+        setRecentFailures(data);
+        const permErrors = data.filter(d => d.error?.toLowerCase().includes('permission') || d.severity === 'HIGH').length;
+        setStats(prev => ({
+          ...prev,
+          permissionErrors24h: permErrors,
+          failedRequests24h: data.length,
+          totalAnomalies: data.length
+        }));
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("Failed to fetch anomalies:", err);
+    }
+  };
 
   const checkHealth = async () => {
     setIsRefreshing(true);
@@ -72,32 +119,7 @@ const OpsHealth: React.FC = () => {
       setAuthHealth({ status: 'OFFLINE', lastChecked: new Date(), error: err.message });
     }
 
-    try {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const anomalyQuery = query(
-        collection(db, 'system_anomalies'),
-        where('timestamp', '>=', Timestamp.fromDate(oneDayAgo)),
-        limit(20)
-      );
-      const snap = await getDocs(anomalyQuery);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemAnomaly));
-      setRecentFailures(docs.sort((a, b) => {
-        const timeA = a.timestamp?.toMillis?.() || 0;
-        const timeB = b.timestamp?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
-
-      const permErrors = docs.filter(d => d.error?.toLowerCase().includes('permission') || d.severity === 'HIGH').length;
-
-      setStats({
-        permissionErrors24h: permErrors,
-        failedRequests24h: docs.length,
-        totalAnomalies: docs.length
-      });
-    } catch (err) {
-      console.error("Failed to fetch health stats:", err);
-    }
-
+    await fetchAnomalies();
     setIsRefreshing(false);
   };
 
@@ -207,60 +229,49 @@ const OpsHealth: React.FC = () => {
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Recent System Anomalies</h2>
           </div>
 
-          <div className="bg-surface border border-border rounded-[2.5rem] overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-surface-bright/50">
-                    <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Timestamp</th>
-                    <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Error Signature</th>
-                    <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Severity</th>
-                    <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Context</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {recentFailures.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center">
-                        <div className="flex flex-col items-center gap-4 opacity-20">
-                          <CheckCircle2 size={40} />
-                          <p className="text-[10px] font-black uppercase tracking-[0.4em]">Zero Faults Detected in 24h Window</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    recentFailures.map((failure) => (
-                      <tr key={failure.id} className="hover:bg-white/[0.02] transition-colors group">
-                        <td className="px-8 py-5 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <Clock size={12} className="text-text-tertiary" />
-                            <span className="text-[10px] font-mono text-text-secondary uppercase">
-                              {failure.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5">
-                          <p className="text-[10px] font-bold text-text-primary uppercase tracking-tight line-clamp-1 group-hover:text-primary transition-colors italic">
-                            {failure.error}
-                          </p>
-                        </td>
-                        <td className="px-8 py-5">
-                          <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ${
-                            failure.severity === 'HIGH' ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-warning/10 text-warning border border-warning/20'
-                          }`}>
-                            {failure.severity || 'MEDIUM'}
-                          </span>
-                        </td>
-                        <td className="px-8 py-5">
-                           <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest opacity-50">{failure.context || 'SYSTEM'}</span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable
+            columns={[
+              {
+                header: 'Timestamp',
+                accessor: (failure: SystemAnomaly) => (
+                  <div className="flex items-center gap-2">
+                    <Clock size={12} className="text-text-tertiary" />
+                    <span className="text-[10px] font-mono text-text-secondary uppercase">
+                      {failure.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  </div>
+                )
+              },
+              {
+                header: 'Error Signature',
+                accessor: (failure: SystemAnomaly) => (
+                  <p className="text-[10px] font-bold text-text-primary uppercase tracking-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                    {failure.error}
+                  </p>
+                )
+              },
+              {
+                header: 'Severity',
+                accessor: (failure: SystemAnomaly) => (
+                  <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ${
+                    failure.severity === 'HIGH' ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-warning/10 text-warning border border-warning/20'
+                  }`}>
+                    {failure.severity || 'MEDIUM'}
+                  </span>
+                )
+              },
+              {
+                header: 'Context',
+                accessor: (failure: SystemAnomaly) => (
+                  <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest opacity-50">{failure.context || 'SYSTEM'}</span>
+                )
+              }
+            ]}
+            data={recentFailures}
+            isLoading={isRefreshing}
+            onLoadMore={() => fetchAnomalies(true)}
+            hasMore={hasMore}
+          />
         </div>
 
         <div className="space-y-6">

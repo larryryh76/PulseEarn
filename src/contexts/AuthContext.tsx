@@ -111,9 +111,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function checkDailyReward(uid: string) {
     try {
       const config = await EconomyConfigEngine.getConfig();
+
+      // Calculate local date string for the claim ID
+      const utcOffset = -new Date().getTimezoneOffset();
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const claimId = `daily_${todayStr}_${uid}`;
+      const localDate = new Date(now.getTime() + utcOffset * 60000);
+      const localDayStr = localDate.toISOString().split('T')[0];
+
+      const claimId = `daily_${localDayStr}_${uid}`;
 
       const result = await PointTransactionEngine.execute({
         userId: uid,
@@ -121,15 +126,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: 'daily_reward',
         source: 'Daily Login Bonus',
         claimId,
-        xpReward: config.rewards.dailyLoginXP
+        xpReward: config.rewards.dailyLoginXP,
+        utcOffset // Send offset to backend for validation
       });
 
       if (result.success) {
         await SystemTaskEngine.processEvent(uid, 'daily_login');
-        toast.success('Daily Reward Claimed!', { icon: '🎁' });
+        toast.success('Daily Reward Claimed!', {
+           icon: '🎁',
+           duration: 5000,
+           position: 'top-center'
+        });
+      } else if (result.error !== 'DAILY_REWARD_COOLDOWN' && result.error !== 'REWARD_ALREADY_CLAIMED') {
+         // Show visible error toast for legitimate failures
+         toast.error(`Daily Reward Error: ${result.error}`, { position: 'top-center' });
       }
     } catch (error: any) {
       console.error("[AuthContext] Daily Reward Sync Failed:", error.message);
+      toast.error(`System Error: Daily reward check failed`, { position: 'top-center' });
     }
   }
 
@@ -174,43 +188,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
-    if (userSnap.exists()) return;
-
-    // Admin role must now be set via Admin SDK or Firebase Console
-    const role = 'user';
-
-    let referredBy = null;
-    if (referralCodeInput) {
-      const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const referrerDoc = querySnapshot.docs[0];
-        referredBy = referrerDoc.id;
-
-        // 1. Log to Referrals Collection
-        try {
-          await setDoc(doc(collection(db, 'referrals')), {
-            referrerId: referredBy,
-            refereeId: user.uid,
-            refereeUsername: username,
-            status: 'REGISTERED',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-
-          // 2. Notify Referrer
-          await NotificationEngine.send({
-            userId: referredBy,
-            title: 'New Referral Link',
-            description: `${username} joined using your code.`,
-            type: 'referral_joined'
-          });
-        } catch (err) {
-          console.error("[AuthContext] Referral Logging Failed:", err);
-        }
-      }
+    if (userSnap.exists()) {
+       // Repair path for welcome bonus
+       try {
+          const claimRef = doc(db, 'system_claims', `welcome_${user.uid}`);
+          const claimSnap = await getDoc(claimRef);
+          if (!claimSnap.exists()) {
+             console.log("[AuthContext] Repairing Welcome Bonus...");
+             const config = await EconomyConfigEngine.getConfig();
+             await PointTransactionEngine.execute({
+               userId: user.uid,
+               amount: config.rewards.welcomeBonusPoints ?? 30,
+               type: 'welcome_bonus',
+               source: 'Welcome Bonus (Repair)',
+               claimId: `welcome_${user.uid}`,
+               xpReward: config.rewards.welcomeBonusXP ?? 50
+             });
+          }
+       } catch (err) {
+          console.error("[AuthContext] Welcome Bonus Repair Failed:", err);
+       }
+       return;
     }
 
+    // PHASE 4: Create document FIRST
     const referralCode = generateReferralCode(user.uid);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -222,14 +223,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username,
       points: 0,
       referralCode,
-      referredBy,
+      referredBy: null, // Initially null
       streak: 0,
       totalEarnedToday: 0,
       xp: 0,
       level: 1,
       lastRewardDate: Timestamp.fromDate(yesterday),
       createdAt: Timestamp.now(),
-      role: role as 'admin' | 'user',
+      role: 'user',
       status: 'active',
       isBanned: false,
       isFlagged: false,
@@ -258,26 +259,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    // 2.5 New Identity Notification
-    try {
-      await NotificationEngine.send({
-         userId: user.uid,
-         title: 'Identity Synchronized',
-         description: 'Your PulseEarn profile has been established. Welcome to the network.',
-         type: 'system'
-      });
-    } catch (err) {
-      console.error("[AuthContext] Profile Notification Failed:", err);
+    // Everything after this is wrapped in its own try/catch to isolate failures
+
+    // 1. Referral Linkage
+    if (referralCodeInput) {
+       try {
+          const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const referrerDoc = querySnapshot.docs[0];
+            const referredBy = referrerDoc.id;
+
+            await updateDoc(userRef, { referredBy });
+
+            await setDoc(doc(collection(db, 'referrals')), {
+              referrerId: referredBy,
+              refereeId: user.uid,
+              refereeUsername: username,
+              status: 'REGISTERED',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+
+            await NotificationEngine.send({
+              userId: referredBy,
+              title: 'New Referral Link',
+              description: `${username} joined using your code.`,
+              type: 'referral_joined'
+            });
+
+            await ReferralProtectionEngine.qualifyReferral(user.uid);
+          }
+       } catch (err) {
+          console.error("[AuthContext] Referral Linkage Failure (Isolated):", err);
+       }
     }
 
-    // 3. Immediately trigger referral reward check
-    try {
-      await ReferralProtectionEngine.qualifyReferral(user.uid);
-    } catch (err) {
-      console.error("[AuthContext] Referral Qualification Trigger Failed:", err);
-    }
-
-    // Priority 3: Autoritative Welcome Bonus
+    // 2. Welcome Bonus
     try {
       const config = await EconomyConfigEngine.getConfig();
       const amount = config.rewards.welcomeBonusPoints ?? 30;
@@ -300,7 +318,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (err) {
-      console.error("[AuthContext] Welcome Bonus Dispatch Failed:", err);
+      console.error("[AuthContext] Welcome Bonus Dispatch Failed (Isolated):", err);
+    }
+
+    // 3. New Identity Notification
+    try {
+      await NotificationEngine.send({
+         userId: user.uid,
+         title: 'Identity Synchronized',
+         description: 'Your PulseEarn profile has been established. Welcome to the network.',
+         type: 'system'
+      });
+    } catch (err) {
+      console.error("[AuthContext] Profile Notification Failed (Isolated):", err);
     }
   }
 

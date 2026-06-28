@@ -1,21 +1,18 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus,
-  Search,
-  Target,
-  Zap,
   Briefcase,
-  Users,
-  TrendingUp,
-  ChevronRight,
+  Plus,
+  Zap,
   MoreVertical,
+  ChevronRight,
+  TrendingUp,
   BarChart3,
-  Globe,
-  ArrowUpRight,
+  Users,
   DollarSign,
   ShieldCheck,
-  LayoutGrid
+  LayoutGrid,
+  ArrowUpRight
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -24,228 +21,206 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs
 } from 'firebase/firestore';
-import { Campaign, Task } from '../../../types';
+import { Campaign } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import CampaignBuilderModal from './modals/CampaignBuilderModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsSponsoredCampaigns: React.FC = () => {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
-  const [tasks, setTasks] = React.useState<Task[]>([]);
+  const [tasks, setTasks] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
 
-  React.useEffect(() => {
-    // Audit: Removed orderBy to prevent "Missing Index" failures.
-    // Sorting is performed client-side for maximum reliability.
-    const q = query(collection(db, 'campaigns'));
-    const unsubCamp = onSnapshot(q, (snap) => {
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
+
+  const fetchCampaigns = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'campaigns'),
+        where('category', '==', 'SPONSORED'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'campaigns'),
+          where('category', '==', 'SPONSORED'),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-      setCampaigns(data.sort((a, b) => {
-         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-         return timeB - timeA;
-      }));
-      setLoading(false);
-    }, (err) => {
-      console.error("[OpsSponsoredCampaigns] Sync Failure:", err);
-      setLoading(false);
-    });
 
+      if (isNext) {
+        setCampaigns(prev => [...prev, ...data]);
+      } else {
+        setCampaigns(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsSponsoredCampaigns] Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCampaigns();
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
-      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    return () => { unsubCamp(); unsubTasks(); };
+    return () => { unsubTasks(); };
   }, []);
 
-  const handleToggleStatus = async (camp: Campaign) => {
+  const handleToggleStatus = async (campaign: Campaign) => {
     try {
-      const nextActive = !camp.active;
-      await updateDoc(doc(db, 'campaigns', camp.id), {
-        active: nextActive,
-        status: nextActive ? 'ACTIVE' : 'PAUSED',
+      await updateDoc(doc(db, 'campaigns', campaign.id), {
+        active: !campaign.active,
+        status: !campaign.active ? 'ACTIVE' : 'PAUSED',
         updatedAt: serverTimestamp()
       });
-      toast.success(`Campaign ${nextActive ? 'Activated' : 'Paused'}`);
+      toast.success(`Campaign ${!campaign.active ? 'Activated' : 'Paused'}`);
+      fetchCampaigns();
     } catch (err) {
-      toast.error("State transition failure");
+      toast.error("State transition failed");
     }
   };
 
   const filtered = campaigns.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.sponsorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-12">
-       {/* HIGH-DENSITY BUSINESS HEADER */}
-       <header className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 bg-surface border border-border p-8 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
-             <Briefcase size={320} />
-          </div>
-
-          <div className="space-y-4 relative z-10">
+       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+          <div className="space-y-2">
              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xl">
-                   <Briefcase size={20} />
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tighter uppercase italic text-text-primary leading-none">Sponsored Hub</h1>
+                <Briefcase size={20} className="text-primary" />
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic">Sponsored Intel</h1>
              </div>
-             <p className="text-[11px] md:text-xs font-medium text-text-tertiary max-w-lg leading-relaxed">
-                Centralized operational command for commercial partner initiatives, reward distribution protocols, and B2B campaign lifecycle management.
-             </p>
+             <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Manage high-yield commercial campaigns and partner initiatives.</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto relative z-10">
-             <div className="relative w-full sm:w-80">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-                <input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan Sponsor Directory..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-2xl py-4 pl-14 pr-6 text-xs focus:border-primary/50 outline-none transition-all font-bold placeholder:text-text-tertiary/30 shadow-inner"
-                />
-             </div>
-             <button
-               onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
-               className="w-full sm:w-auto px-10 h-14 bg-primary text-text-primary rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-4 hover:bg-primary/90 active:scale-95 transition-all shadow-xl shadow-primary/20 shrink-0 italic"
-             >
-                <Plus size={20} />
-                Onboard Initiative
-             </button>
-          </div>
+          <button
+            onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
+            className="w-full md:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+          >
+             <Plus size={18} /> New Sponsored Campaign
+          </button>
        </header>
 
-       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* MAIN OPERATIONAL TABLE */}
+       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="lg:col-span-8 space-y-8">
-             <div className="bg-surface border border-border rounded-[2.5rem] overflow-hidden shadow-2xl">
-                <div className="p-8 border-b border-border bg-surface-bright/50 flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                      <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Active Registry</h3>
-                   </div>
-                   <span className="text-[10px] font-mono font-bold text-primary">{filtered.length} CAMPAIGNS</span>
-                </div>
-
-                <div className="overflow-x-auto no-scrollbar">
-                   <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-0">
-                      <thead>
-                         <tr className="border-b border-border bg-surface-bright/30 whitespace-nowrap">
-                            <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Campaign & Partner</th>
-                            <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
-                            <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Work Units</th>
-                            <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Budget</th>
-                            <th className="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-text-tertiary text-right">Actions</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                         {loading ? (
-                            [1,2,3,4,5].map(i => (
-                               <tr key={i} className="animate-pulse">
-                                  <td colSpan={5} className="px-8 py-10"><div className="h-4 bg-surface-bright rounded w-full" /></td>
-                               </tr>
-                            ))
-                         ) : filtered.length > 0 ? (
-                            filtered.map((camp) => {
-                               const campTasks = tasks.filter(t => t.campaignId === camp.id);
-                               return (
-                               <tr
-                                 key={camp.id}
-                                 onClick={() => navigate(`/admin/sponsored/${camp.id}`)}
-                                 className="hover:bg-surface-bright/50 transition-colors cursor-pointer group"
-                               >
-                                  <td className="px-8 py-8">
-                                     <div className="flex items-center gap-5">
-                                        <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-inner group-hover:border-primary/40 transition-colors">
-                                           {camp.bannerUrl ? (
-                                              <img src={camp.bannerUrl} className="w-full h-full object-cover" />
-                                           ) : <Target size={24} className="text-text-tertiary/20" />}
-                                        </div>
-                                        <div className="min-w-0">
-                                           <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors truncate uppercase tracking-tight italic">{camp.name}</p>
-                                           <div className="flex items-center gap-2 mt-1.5">
-                                              <Globe size={12} className="text-primary" />
-                                              <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest truncate">{camp.sponsorName || 'INTERNAL'}</p>
-                                           </div>
-                                        </div>
-                                     </div>
-                                  </td>
-                                  <td className="px-8 py-8">
-                                     <div className={cn(
-                                       "inline-flex px-3 py-1 rounded-lg font-black uppercase tracking-[0.1em] text-[8px] border whitespace-nowrap italic",
-                                       camp.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
-                                     )}>
-                                        {camp.status}
-                                     </div>
-                                  </td>
-                                  <td className="px-8 py-8">
-                                     <div className="flex items-center gap-4">
-                                        <div>
-                                           <p className="text-xs font-bold text-text-primary">{campTasks.length}</p>
-                                           <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Tasks</p>
-                                        </div>
-                                        <div className="w-px h-6 bg-border" />
-                                        <div className="flex items-center gap-2">
-                                           <Users size={14} className="text-primary" />
-                                           <p className="text-xs font-bold text-text-primary">{camp.participantsCount || 0}</p>
-                                        </div>
-                                     </div>
-                                  </td>
-                                  <td className="px-8 py-8">
-                                     <div className="space-y-1.5">
-                                        <div className="flex items-center gap-2">
-                                           <Zap size={10} className="text-primary" />
-                                           <span className="text-xs font-mono font-bold text-text-primary">{(camp.totalPrizePool || 0).toLocaleString()}</span>
-                                        </div>
-                                        <div className="w-24 h-1 bg-surface-bright rounded-full overflow-hidden border border-border">
-                                           <div
-                                             className="h-full bg-primary"
-                                             style={{ width: `${Math.max(5, ((camp.remainingPool || 0) / (camp.totalPrizePool || 1)) * 100)}%` }}
-                                           />
-                                        </div>
-                                     </div>
-                                  </td>
-                                  <td className="px-8 py-8 text-right" onClick={e => e.stopPropagation()}>
-                                     <div className="flex items-center justify-end gap-2">
-                                        <button onClick={() => handleToggleStatus(camp)} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-primary transition-all border border-transparent hover:border-border">
-                                           {camp.active ? <BarChart3 size={16} /> : <TrendingUp size={16} />}
-                                        </button>
-                                        <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-text-primary transition-all border border-transparent hover:border-border">
-                                           <MoreVertical size={16} />
-                                        </button>
-                                        <button onClick={() => navigate(`/admin/sponsored/${camp.id}`)} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-primary transition-all border border-transparent hover:border-border shadow-inner">
-                                           <ChevronRight size={16} />
-                                        </button>
-                                     </div>
-                                  </td>
-                               </tr>
-                            )})
-                         ) : (
-                            <tr>
-                               <td colSpan={5} className="px-8 py-40 text-center">
-                                  <div className="max-w-xs mx-auto space-y-6 opacity-20">
-                                     <Briefcase size={48} className="mx-auto" />
-                                     <p className="text-[10px] font-black uppercase tracking-[0.5em]">No commercial initiatives</p>
-                                  </div>
-                               </td>
-                            </tr>
-                         )}
-                      </tbody>
-                   </table>
-                </div>
-             </div>
+             <DataTable
+                columns={[
+                  {
+                    header: 'Initiative',
+                    accessor: (camp: Campaign) => (
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                            {camp.bannerUrl ? (
+                               <img src={camp.bannerUrl} className="w-full h-full object-cover" />
+                            ) : <Briefcase size={20} className="text-text-tertiary" />}
+                         </div>
+                         <div>
+                            <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{camp.name}</p>
+                            <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-0.5">{camp.sponsorName || 'Direct'}</p>
+                         </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Status',
+                    accessor: (camp: Campaign) => (
+                      <div className={cn(
+                        "inline-flex px-2 py-0.5 rounded-md font-black uppercase tracking-[0.1em] text-[8px] border",
+                        camp.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
+                      )}>
+                        {camp.status}
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Inventory',
+                    accessor: (camp: Campaign) => (
+                      <div className="flex items-center gap-4">
+                         <div>
+                            <p className="text-xs font-bold text-text-primary">{tasks.filter(t => t.campaignId === camp.id).length}</p>
+                            <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Tasks</p>
+                         </div>
+                         <div className="w-px h-6 bg-border" />
+                         <div className="flex items-center gap-2">
+                            <Users size={14} className="text-primary" />
+                            <p className="text-xs font-bold text-text-primary">{camp.participantsCount || 0}</p>
+                         </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Budget',
+                    accessor: (camp: Campaign) => (
+                      <div className="space-y-1.5">
+                         <div className="flex items-center gap-2">
+                            <Zap size={10} className="text-primary" />
+                            <span className="text-xs font-mono font-bold text-text-primary">{(camp.totalPrizePool || 0).toLocaleString()}</span>
+                         </div>
+                         <div className="w-24 h-1 bg-surface-bright rounded-full overflow-hidden border border-border">
+                            <div
+                              className="h-full bg-primary"
+                              style={{ width: `${Math.max(5, ((camp.remainingPool || 0) / (camp.totalPrizePool || 1)) * 100)}%` }}
+                            />
+                         </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Actions',
+                    className: 'text-right',
+                    accessor: (camp: Campaign) => (
+                      <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                         <button onClick={() => handleToggleStatus(camp)} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-primary transition-all border border-transparent hover:border-border">
+                            {camp.active ? <BarChart3 size={16} /> : <TrendingUp size={16} />}
+                         </button>
+                         <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-text-primary transition-all border border-transparent hover:border-border">
+                            <MoreVertical size={16} />
+                         </button>
+                         <button onClick={() => navigate(`/admin/sponsored/${camp.id}`)} className="p-2.5 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-primary transition-all border border-transparent hover:border-border shadow-inner">
+                            <ChevronRight size={16} />
+                         </button>
+                      </div>
+                    )
+                  }
+                ]}
+                data={filtered}
+                isLoading={loading}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onLoadMore={() => fetchCampaigns(true)}
+                hasMore={hasMore}
+             />
           </div>
 
-          {/* SIDE PANEL PERFORMANCE & LOGS */}
           <div className="lg:col-span-4 space-y-8">
              <section className="bg-surface border border-border p-10 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl space-y-10 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:scale-110 transition-transform duration-1000">
@@ -271,15 +246,6 @@ const OpsSponsoredCampaigns: React.FC = () => {
                       </div>
                    </div>
                 </div>
-                <div className="p-6 rounded-2xl bg-surface-bright border border-border space-y-4 relative z-10 shadow-inner">
-                   <div className="flex justify-between items-center text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
-                      <span>Network Reach</span>
-                      <span className="text-primary">{campaigns.reduce((acc, c) => acc + (c.participantsCount || 0), 0).toLocaleString()} Users</span>
-                   </div>
-                   <div className="h-1.5 w-full bg-background rounded-full overflow-hidden border border-border">
-                      <div className="h-full bg-primary rounded-full shadow-[0_0_10px_rgba(0,112,255,0.4)]" style={{ width: '65%' }} />
-                   </div>
-                </div>
              </section>
 
              <section className="bg-surface border border-border p-10 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl space-y-8">
@@ -299,17 +265,6 @@ const OpsSponsoredCampaigns: React.FC = () => {
                          <span className={cn("text-[8px] font-black uppercase tracking-widest", item.color)}>{item.status}</span>
                       </div>
                    ))}
-                </div>
-             </section>
-
-             <section className="p-8 bg-primary/10 border border-primary/20 rounded-[2.5rem] shadow-xl space-y-6 group cursor-pointer hover:bg-primary/[0.15] transition-all">
-                <div className="flex justify-between items-start">
-                   <LayoutGrid size={24} className="text-primary group-hover:scale-110 transition-transform" />
-                   <ArrowUpRight size={18} className="text-primary/40 group-hover:text-primary transition-colors" />
-                </div>
-                <div>
-                   <h4 className="text-sm font-black text-text-primary uppercase tracking-[0.2em] italic">Partner API</h4>
-                   <p className="text-[10px] font-medium text-text-tertiary leading-relaxed mt-2 uppercase tracking-widest opacity-60">Generate secure integration keys for external task validation and reward syncing.</p>
                 </div>
              </section>
           </div>

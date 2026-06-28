@@ -5,7 +5,8 @@ import {
   doc,
   serverTimestamp,
   query,
-  limit
+  limit,
+  getDoc
 } from 'firebase/firestore';
 import { db } from './config';
 import { Task, SystemTaskDefinition } from '../types';
@@ -190,10 +191,19 @@ export const seedTasks = async () => {
       ];
 
       for (const def of definitions) {
-        await setDoc(doc(db, 'system_task_definitions', def.id!), {
+        const missionRef = doc(db, 'system_task_definitions', def.id!);
+        const missionSnap = await getDoc(missionRef);
+
+        const payload: any = {
           ...def,
           updatedAt: serverTimestamp()
-        }, { merge: true });
+        };
+
+        if (!missionSnap.exists()) {
+          payload.createdAt = serverTimestamp();
+        }
+
+        await setDoc(missionRef, payload, { merge: true });
       }
       console.log(`Synchronized ${definitions.length} system task definitions.`);
     }

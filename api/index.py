@@ -899,8 +899,9 @@ def handle_provider_webhook(provider):
     # Extract user and reward data
     user_id = data.get('userId')
     offer_id = data.get('offerId')
+    tx_id = data.get('transactionId')
 
-    if not all([user_id, offer_id]):
+    if not all([user_id, offer_id, tx_id]):
         return jsonify({"success": False, "error": "INVALID_PAYLOAD"}), 400
 
     # Validate against internal offer mapping, scoped by provider
@@ -917,7 +918,7 @@ def handle_provider_webhook(provider):
     internal_reward = offer_data.get('rewardAmount', 0)
     internal_xp = offer_data.get('xpReward', 0)
 
-    claim_id = f"webhook_{provider}_{offer_id}_{user_id}_{data.get('transactionId', 'unique')}"
+    claim_id = f"webhook_{provider}_{offer_id}_{user_id}_{tx_id}"
 
     user_ref = db.collection('users').document(user_id)
     claim_ref = db.collection('system_claims').document(claim_id)

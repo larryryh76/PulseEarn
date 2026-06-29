@@ -223,12 +223,12 @@ const OpsOverview: React.FC = () => {
              <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl divide-y divide-white/5">
                 <AnimatePresence mode="popLayout">
                    {recentLedger.slice(0, 5).map((tx, idx) => (
-                      <motion.div
+                      <motion.button
                          key={tx.id}
                          initial={{ opacity: 0, x: -20 }}
                          animate={{ opacity: 1, x: 0 }}
                          transition={{ delay: idx * 0.1 }}
-                         className="p-6 flex items-center justify-between hover:bg-surface-bright transition-colors group cursor-pointer"
+                         className="w-full p-6 flex items-center justify-between hover:bg-surface-bright transition-colors group cursor-pointer text-left appearance-none outline-none"
                          onClick={() => navigate('/admin/ledger')}
                       >
                          <div className="flex items-center gap-4">
@@ -249,7 +249,7 @@ const OpsOverview: React.FC = () => {
                             </p>
                             <p className="text-[8px] font-black text-text-tertiary/30 uppercase mt-1 tracking-widest">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
                          </div>
-                      </motion.div>
+                      </motion.button>
                    ))}
                 </AnimatePresence>
              </div>
@@ -266,10 +266,10 @@ const OpsOverview: React.FC = () => {
                    { label: 'Open Inquiries', count: stats.pendingSupport, path: '/admin/support', icon: MessageSquare, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
                    { label: 'Unresolved Threats', count: stats.fraudAnomalies, path: '/admin/security', icon: AlertTriangle, color: 'text-danger', bg: 'bg-danger/10' }
                 ].map(item => (
-                   <div
+                   <button
                       key={item.label}
                       onClick={() => navigate(item.path)}
-                      className="p-6 bg-surface border border-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-border-bright transition-all shadow-xl"
+                      className="w-full p-6 bg-surface border border-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-border-bright transition-all shadow-xl text-left appearance-none outline-none"
                    >
                       <div className="flex items-center gap-4">
                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border border-transparent shadow-inner transition-transform group-hover:scale-110", item.bg, item.color)}>
@@ -283,7 +283,7 @@ const OpsOverview: React.FC = () => {
                          </span>
                          <ArrowRight size={14} className="text-text-tertiary/20 group-hover:text-primary transition-all group-hover:translate-x-1" />
                       </div>
-                   </div>
+                   </button>
                 ))}
              </div>
           </div>

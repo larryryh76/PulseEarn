@@ -415,6 +415,9 @@ const OpsUsers: React.FC = () => {
        } finally {
           setLoading(false);
        }
+    } else if (term.length > 0) {
+       // Reset to paginated list for short terms to avoid stale search results
+       fetchUsers();
     }
   };
 

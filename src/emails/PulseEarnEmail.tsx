@@ -11,6 +11,12 @@ import {
   Text,
   Tailwind,
 } from "@react-email/components";
+import * as React from "react";
+
+// Satisfy tsc unused variable check while keeping it for build script
+if (false as boolean) {
+  console.log(React.version);
+}
 
 interface PulseEarnEmailProps {
   userFirstname?: string;
@@ -66,6 +72,14 @@ export const PulseEarnEmail = ({
           <Section style={footerSection}>
             <Text style={footer}>
               PulseEarn Authority • Global Rewards Network
+            </Text>
+            <Text style={footer}>
+              123 Blockchain Way, Digital City, WEB3 001
+            </Text>
+            <Text style={footer}>
+              You are receiving this because you are a registered member of PulseEarn.
+              <br />
+              <a href="https://pulseearn.online/me/preferences" style={link}>Unsubscribe</a> • <a href="https://pulseearn.online/privacy" style={link}>Privacy Policy</a>
             </Text>
             <Text style={footer}>
               If you didn't request this email, you can safely ignore it.
@@ -152,4 +166,9 @@ const footer = {
   textAlign: "center" as const,
   textTransform: "uppercase" as const,
   letterSpacing: "0.05em",
+};
+
+const link = {
+  color: "#0070FF",
+  textDecoration: "underline",
 };

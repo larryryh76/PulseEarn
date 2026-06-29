@@ -19,6 +19,7 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
     name: '',
     description: '',
     category: 'SOCIAL' as TaskCategory,
+    provider: 'internal',
     sponsorName: '',
     sponsorLogoUrl: '',
     sponsorWebsite: '',

@@ -83,7 +83,14 @@ export class EconomyConfigEngine {
       const snap = await getDoc(docRef);
 
       if (snap.exists()) {
-        this.cache = snap.data() as EconomyConfig;
+        const data = snap.data();
+        this.cache = {
+           ...DEFAULT_CONFIG,
+           ...data,
+           rewards: { ...DEFAULT_CONFIG.rewards, ...(data.rewards || {}) },
+           thresholds: { ...DEFAULT_CONFIG.thresholds, ...(data.thresholds || {}) },
+           security: { ...DEFAULT_CONFIG.security, ...(data.security || {}) }
+        } as EconomyConfig;
       } else {
         // Initialize with defaults if missing
         console.warn('[EconomyConfig] Config doc missing, initializing with defaults');

@@ -26,7 +26,7 @@ def recover():
         user_snap = user_ref.get()
 
         if not user_snap.exists:
-            print(f"MISSING PROFILE: {user.uid} ({user.email})")
+            print(f"MISSING PROFILE: {user.uid}")
 
             # Create minimal recovery profile
             new_user_data = {

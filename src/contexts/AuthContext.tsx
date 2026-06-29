@@ -19,6 +19,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,

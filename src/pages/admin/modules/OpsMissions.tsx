@@ -3,8 +3,6 @@ import {
   Trophy,
   Zap,
   Edit3,
-  ToggleLeft,
-  ToggleRight,
   MoreVertical
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
@@ -13,11 +11,7 @@ import {
   query,
   onSnapshot,
   doc,
-  updateDoc,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs
+  updateDoc
 } from 'firebase/firestore';
 import { SystemTaskDefinition } from '../../../types';
 import { cn } from '../../../utils';

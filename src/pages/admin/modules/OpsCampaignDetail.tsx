@@ -6,7 +6,6 @@ import {
   Users,
   CheckCircle2,
   BarChart3,
-  History,
   Target,
   Plus,
   Edit3,
@@ -344,34 +343,34 @@ const OpsCampaignDetail: React.FC = () => {
                   columns={[
                      {
                         header: 'User',
-                        accessor: (uid: string) => {
-                           const latestClaim = claims.find(c => c.userId === uid);
+                        accessor: (item: { id: string }) => {
+                           const latestClaim = claims.find(c => c.userId === item.id);
                            return (
                               <div>
                                  <p className="text-sm font-bold text-text-primary uppercase">{latestClaim?.metadata?.username || 'Anonymous'}</p>
-                                 <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{uid.slice(0, 12)}</p>
+                                 <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{item.id.slice(0, 12)}</p>
                               </div>
                            )
                         }
                      },
                      {
                         header: 'Status',
-                        accessor: (uid: string) => (
+                        accessor: (item: { id: string }) => (
                            <span className="text-[10px] font-bold text-primary uppercase">
-                              {claims.filter(c => c.userId === uid && c.validationState === 'APPROVED').length} / {tasks.length} Tasks
+                              {claims.filter(c => c.userId === item.id && c.validationState === 'APPROVED').length} / {tasks.length} Tasks
                            </span>
                         )
                      },
                      {
                         header: 'Joined',
-                        accessor: (uid: string) => (
+                        accessor: (item: { id: string }) => (
                            <p className="text-[10px] font-mono text-text-secondary uppercase">
-                              {claims.find(c => c.userId === uid)?.createdAt?.toDate().toLocaleDateString()}
+                              {claims.find(c => c.userId === item.id)?.createdAt?.toDate().toLocaleDateString()}
                            </p>
                         )
                      }
                   ]}
-                  data={Array.from(new Set(claims.map(c => c.userId)))}
+                  data={Array.from(new Set(claims.map(c => c.userId))).map(uid => ({ id: uid }))}
                   isLoading={false}
                 />
              )}

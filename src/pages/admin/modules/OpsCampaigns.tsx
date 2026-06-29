@@ -16,6 +16,7 @@ import {
   collection,
   query,
   doc,
+  setDoc,
   updateDoc,
   serverTimestamp,
   writeBatch,

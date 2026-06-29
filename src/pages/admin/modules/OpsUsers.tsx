@@ -4,8 +4,6 @@ import {
   MoreVertical,
   TrendingUp,
   ArrowLeft,
-  Calendar,
-  Smartphone,
   Activity,
   CheckCircle,
   Ban,
@@ -706,7 +704,7 @@ const OpsUsers: React.FC = () => {
                           <>
                              <section className="flex flex-col items-center text-center">
                                 <div className="w-24 h-24 rounded-3xl border border-border p-1 mb-6 relative">
-                                   <img src={selectedUser.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userDoc.id}`} alt="" className="w-full h-full rounded-2xl" />
+                                   <img src={selectedUser.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${selectedUser.id}`} alt="" className="w-full h-full rounded-2xl" />
                                    <div className={cn("absolute -bottom-2 -right-2 w-8 h-8 rounded-xl border border-border-bright flex items-center justify-center shadow-2xl", selectedUser.isBanned ? "bg-danger text-text-primary" : "bg-success text-text-primary")}>
                                       {selectedUser.isBanned ? <Ban size={16} /> : <CheckCircle size={16} />}
                                    </div>

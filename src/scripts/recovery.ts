@@ -4,7 +4,6 @@ import {
   getDocs,
   doc,
   setDoc,
-  serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
 

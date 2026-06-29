@@ -10,9 +10,7 @@ import {
   BarChart3,
   Users,
   DollarSign,
-  ShieldCheck,
-  LayoutGrid,
-  ArrowUpRight
+  ShieldCheck
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {

@@ -6,7 +6,6 @@ import {
   Zap,
   DollarSign,
   TrendingUp,
-  Activity,
   ArrowUpRight,
   ArrowDownLeft,
   Settings,

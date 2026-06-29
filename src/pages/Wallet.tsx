@@ -263,30 +263,30 @@ const Wallet: React.FC = () => {
         </Card>
 
         {/* THRESHOLD PROGRESS */}
-        <Card variant="compact" className="mb-12 md:mb-16 p-6 md:p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+        <Card variant="compact" className="mb-12 md:mb-16 p-6 md:p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 border-border">
            <div className="flex items-center gap-4">
               <div className={cn(
                  "w-12 h-12 rounded-2xl flex items-center justify-center border",
-                 thresholdMet ? "bg-success/5 border-success/20 text-success" : "bg-surface-bright border-border text-text-tertiary"
+                 thresholdMet ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
               )}>
                  <ShieldCheck size={24} />
               </div>
               <div className="space-y-1">
-                 <p className="text-sm font-bold text-text-primary">{thresholdMet ? 'Payout Available' : 'Payout Progress'}</p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTS Required</p>
+                 <p className="text-sm font-bold text-text-primary uppercase tracking-widest italic">{thresholdMet ? 'Threshold Secured' : 'Settlement Progress'}</p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Target: 10,000 PTS</p>
               </div>
            </div>
 
            <div className="flex-grow max-w-md w-full space-y-3">
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                 <span className="text-text-tertiary">Progress to payout</span>
-                 <span className="text-text-primary">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
+              <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+                 <span className="text-text-tertiary">Liquidity Ratio</span>
+                 <span className="text-primary">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
               </div>
-              <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border">
                  <motion.div
                    initial={{ width: 0 }}
                    animate={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
-                   className={cn("h-full", thresholdMet ? "bg-success" : "bg-primary")}
+                   className="h-full bg-primary shadow-[0_0_10px_rgba(0,112,255,0.4)] rounded-full"
                  />
               </div>
            </div>

@@ -20,7 +20,6 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
-import { cn } from '../../../utils';
 import { formatUSD } from '../../../utils/finance';
 import { WithdrawalRequest } from '../../../types';
 import toast from 'react-hot-toast';

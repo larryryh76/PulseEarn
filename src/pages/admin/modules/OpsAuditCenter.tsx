@@ -5,8 +5,6 @@ import {
   Zap,
   Clock,
   ShieldCheck,
-  Activity,
-  History,
   AlertTriangle,
   Fingerprint,
   ChevronRight,
@@ -27,7 +25,6 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { cn } from '../../../utils';
-import { motion, AnimatePresence } from 'framer-motion';
 import DataTable from '../../../components/admin/common/DataTable';
 import toast from 'react-hot-toast';
 

@@ -22,6 +22,7 @@ export interface PointTransactionRequest {
   taskClaimId?: string; // Optional: Links to a task_claim for atomic resolution
   metadata?: Record<string, any>;
   bypassLock?: boolean;
+  utcOffset?: number;
 }
 
 export type PointTransactionResult =

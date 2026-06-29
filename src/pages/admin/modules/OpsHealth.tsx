@@ -5,7 +5,6 @@ import {
   Clock,
   RefreshCw,
   AlertCircle,
-  CheckCircle2,
   Server,
   Wifi,
   Lock

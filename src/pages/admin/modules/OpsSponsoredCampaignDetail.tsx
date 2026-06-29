@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Zap,
-  Users,
-  CheckCircle2,
   BarChart3,
   History,
   Target,
@@ -15,7 +13,6 @@ import {
   Trash2,
   Pause,
   Play,
-  Activity,
   ShieldCheck,
   Info,
   TrendingUp
@@ -248,7 +245,7 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                             </div>
                             <div>
                                <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Provider ID</p>
-                               <p className="text-sm font-mono font-bold text-text-primary">{campaign.providerId || 'SYSTEM'}</p>
+                               <p className="text-sm font-mono font-bold text-text-primary">{campaign.sponsorReferenceId || 'SYSTEM'}</p>
                             </div>
                          </div>
                          <div className="space-y-6">

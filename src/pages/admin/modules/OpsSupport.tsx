@@ -24,7 +24,6 @@ import {
   Shield,
   Paperclip,
   Send,
-  X,
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../../../utils';

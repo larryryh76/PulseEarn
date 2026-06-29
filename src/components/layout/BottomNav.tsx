@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Shield, Wallet, User, TrendingUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { cn } from '../../utils';
 import { useTasks } from '../../hooks/useTasks';
 
@@ -41,21 +42,30 @@ const BottomNav: React.FC = () => {
               key={link.path}
               to={link.path}
               className={cn(
-                "flex flex-col items-center gap-2 transition-all relative",
-                isActive ? "text-primary" : "text-text-secondary"
+                "flex flex-col items-center gap-2 transition-all relative group",
+                isActive ? "text-primary scale-110" : "text-text-secondary hover:text-text-primary"
               )}
             >
               <div className="relative">
-                 <link.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                 {isActive && (
+                    <motion.div
+                       layoutId="nav-pill"
+                       className="absolute inset-0 -m-3 bg-primary/10 rounded-2xl blur-md"
+                    />
+                 )}
+                 <link.icon size={22} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
                  {link.path === '/tasks' && totalActionableCount > 0 && (
-                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg">
+                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg z-20">
                       <span className="text-[7px] font-bold text-text-primary">{totalActionableCount}</span>
                    </div>
                  )}
               </div>
-              <span className="text-[8px] font-bold uppercase tracking-widest">{link.name}</span>
+              <span className={cn("text-[8px] font-bold uppercase tracking-widest relative z-10 transition-colors", isActive ? "text-primary" : "text-text-tertiary")}>{link.name}</span>
               {isActive && (
-                <div className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full" />
+                <motion.div
+                   layoutId="nav-dot"
+                   className="absolute -bottom-2 w-4 h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(0,112,255,0.8)]"
+                />
               )}
             </Link>
           );

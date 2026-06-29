@@ -10,7 +10,6 @@ import {
   Copy,
   Check,
   HelpCircle,
-  Smartphone,
   Zap,
   Calendar,
   ShieldCheck,
@@ -279,36 +278,44 @@ const Profile: React.FC = () => {
                   <section className="space-y-6">
                     <div className="flex items-center gap-3">
                        <div className="w-1 h-5 bg-primary rounded-full" />
-                       <h2 className="text-lg font-bold tracking-tight">Account Security</h2>
+                       <h2 className="text-lg font-bold tracking-tight italic uppercase tracking-widest">Identity Node</h2>
                     </div>
-                    <Card variant="compact" className="space-y-4">
+                    <Card variant="compact" className="space-y-4 bg-surface-bright/50">
                       <div className="ledger-row border-0">
-                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Email Status</span>
-                        <div className="badge-system bg-success/10 text-success border-success/20">Verified</div>
+                        <span className="text-[11px] font-bold text-text-tertiary uppercase tracking-widest">Network Email</span>
+                        <span className="text-xs font-mono font-bold text-text-primary">{currentUser?.email}</span>
                       </div>
                       <div className="ledger-row border-0">
-                        <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Session Encryption</span>
-                        <div className="badge-system bg-success/10 text-success border-success/20">Active</div>
+                        <span className="text-[11px] font-bold text-text-tertiary uppercase tracking-widest">Security Clearance</span>
+                        <div className={cn(
+                          "badge-system",
+                          currentUser?.emailVerified ? "bg-success/10 text-success border-success/20" : "bg-warning/10 text-warning border-warning/20"
+                        )}>
+                          {currentUser?.emailVerified ? 'VERIFIED' : 'PENDING'}
+                        </div>
                       </div>
-                      <div className="ledger-row border-0">
-                         <span className="text-[11px] font-bold text-text-secondary uppercase tracking-widest">Last Secure Login</span>
-                         <span className="data-mono">{(userData?.security?.lastLogin?.toDate?.()?.toLocaleDateString() || "N/A") || 'N/A'}</span>
-                      </div>
+                      {userData?.lastSeen && (
+                        <div className="ledger-row border-0">
+                           <span className="text-[11px] font-bold text-text-tertiary uppercase tracking-widest">Last Activity</span>
+                           <span className="text-xs font-mono font-bold text-text-primary uppercase">{userData.lastSeen.toDate().toLocaleDateString()}</span>
+                        </div>
+                      )}
                     </Card>
                   </section>
 
                   <section className="space-y-6">
                     <div className="flex items-center gap-3">
                        <div className="w-1 h-5 bg-primary rounded-full" />
-                       <h2 className="text-lg font-bold tracking-tight">Device Status</h2>
+                       <h2 className="text-lg font-bold tracking-tight italic uppercase tracking-widest">Ecosystem Stats</h2>
                     </div>
-                    <Card variant="compact" className="flex items-center gap-6">
-                      <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group hover:border-primary/20 transition-colors">
-                        <Smartphone size={24} />
+                    <Card variant="compact" className="grid grid-cols-2 gap-4 bg-surface-bright/50">
+                      <div className="p-4 rounded-xl bg-background/40 border border-border">
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-1">Total Wins</p>
+                         <p className="text-xl font-mono font-bold text-text-primary">{userData?.stats?.totalWins || 0}</p>
                       </div>
-                      <div className="space-y-1">
-                         <p className="text-sm font-bold text-text-primary">Device Pairing</p>
-                         <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-widest">Linked</p>
+                      <div className="p-4 rounded-xl bg-background/40 border border-border">
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-1">Streak</p>
+                         <p className="text-xl font-mono font-bold text-warning">{userData?.streak || 0} D</p>
                       </div>
                     </Card>
                   </section>

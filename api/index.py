@@ -55,12 +55,42 @@ def is_admin(uid):
         return data.get('role') == 'admin'
     return False
 
+def is_moderator(uid):
+    user_doc = db.collection('users').document(uid).get()
+    if user_doc.exists:
+        data = user_doc.to_dict()
+        role = data.get('role')
+        return role in ['admin', 'moderator']
+    return False
+
+@app.route('/api/admin/promote-moderator', methods=['POST'])
+@verify_token
+def admin_promote_moderator():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Root authority required"}), 403
+
+    data = request.json
+    target_uid = data.get('userId')
+    if not target_uid:
+        return jsonify({"success": False, "error": "Target user ID required"}), 400
+
+    try:
+        user_ref = db.collection('users').document(target_uid)
+        user_ref.update({
+            'role': 'moderator',
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        return jsonify({"success": True, "message": "User promoted to moderator."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
 @app.route('/api/admin/verify-user', methods=['POST'])
 @verify_token
 def admin_verify_user():
     caller_uid = request.user['uid']
-    if not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Admin access required"}), 403
+    if not is_moderator(caller_uid):
+        return jsonify({"success": False, "error": "Moderator access required"}), 403
 
     data = request.json
     target_uid = data.get('userId')
@@ -95,8 +125,8 @@ def admin_delete_user():
 @verify_token
 def admin_list_auth_users():
     caller_uid = request.user['uid']
-    if not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Admin access required"}), 403
+    if not is_moderator(caller_uid):
+        return jsonify({"success": False, "error": "Moderator access required"}), 403
 
     try:
         users = []
@@ -112,6 +142,98 @@ def admin_list_auth_users():
             page = page.get_next_page()
 
         return jsonify({"success": True, "users": users})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/tasks/submit', methods=['POST'])
+@verify_token
+def submit_task():
+    data = request.json
+    user_id = request.user['uid']
+    task_id = data.get('taskId')
+    proof = data.get('proof')
+
+    if not task_id:
+        return jsonify({"success": False, "error": "MISSING_TASK_ID"}), 400
+
+    task_ref = db.collection('tasks').document(task_id)
+    user_task_ref = db.collection('users').document(user_id).collection('user_tasks').document(task_id)
+
+    @firestore.transactional
+    def process_submission(transaction):
+        task_snap = task_ref.get(transaction=transaction)
+        if not task_snap.exists: raise Exception("TASK_NOT_FOUND")
+        task_data = task_snap.to_dict()
+
+        if task_data.get('status') != 'ACTIVE': raise Exception("TASK_INACTIVE")
+
+        user_task_snap = user_task_ref.get(transaction=transaction)
+        if user_task_snap.exists:
+            ut_data = user_task_snap.to_dict()
+            if ut_data.get('status') == 'pending': raise Exception("TASK_AUDIT_IN_PROGRESS")
+            if task_data.get('cooldownPeriod', 0) == 0 and ut_data.get('status') == 'completed':
+                raise Exception("TASK_ALREADY_SECURED")
+
+            # Cooldown check
+            if task_data.get('cooldownPeriod', 0) > 0 and ut_data.get('lastCompleted'):
+                last_time = ut_data['lastCompleted']
+                if last_time.tzinfo is None: last_time = last_time.replace(tzinfo=timezone.utc)
+                diff = (datetime.now(timezone.utc) - last_time).total_seconds()
+                if diff < (task_data['cooldownPeriod'] * 3600):
+                    raise Exception("TASK_IN_COOLDOWN")
+
+        claim_id = f"claim_{user_id}_{task_id}_{int(datetime.now(timezone.utc).timestamp())}"
+        claim_ref = db.collection('task_claims').document(claim_id)
+
+        is_automated = task_data.get('verificationType') == 'automated'
+
+        claim_data = {
+            'id': claim_id,
+            'userId': user_id,
+            'taskId': task_id,
+            'campaignId': task_data.get('campaignId'),
+            'validationState': 'APPROVED' if is_automated else 'PENDING',
+            'completionState': 'COMPLETED' if is_automated else 'IN_PROGRESS',
+            'submittedProof': proof,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {
+                'taskTitle': task_data.get('title'),
+                'engineVersion': '6.0.0-BACKEND'
+            }
+        }
+        transaction.set(claim_ref, claim_data)
+
+        ut_update = {
+            'taskId': task_id,
+            'status': 'completed' if is_automated else 'pending',
+            'subtaskId': claim_id,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        if is_automated:
+            ut_update['lastCompleted'] = firestore.SERVER_TIMESTAMP
+            ut_update['totalCompletions'] = firestore.Increment(1)
+
+            # Update task counters
+            transaction.update(task_ref, {
+                'completionCount': firestore.Increment(1),
+                'totalDistributed': firestore.Increment(task_data.get('rewardAmount', 0)),
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+
+        transaction.set(user_task_ref, ut_update, merge=True)
+        return {"success": True, "claimId": claim_id, "automated": is_automated}
+
+    try:
+        transaction = db.transaction()
+        result = process_submission(transaction)
+
+        if result['automated']:
+            # Trigger reward execution (internal call to same API logic)
+            # For simplicity in this refactor, we just return that it was automated
+            # and let the frontend/system-event handle the point credit via /api/execute-transaction
+            pass
+
+        return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
@@ -337,20 +459,47 @@ def execute_transaction():
                 'execution_lock_at': firestore.SERVER_TIMESTAMP
             })
 
-        # Daily reward check
+        # Daily reward check & Advanced Streak Logic
         if tx_type == 'daily_reward':
-            last_reward = user_data.get('lastRewardDate')
             local_day = data.get('localDay')
+            if not local_day:
+                raise Exception("LOCAL_DAY_REQUIRED")
 
-            if local_day:
-                current_day = local_day
-            else:
-                current_day = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-
-            last_day = user_data.get('lastClaimedDay', 'NEVER')
-
-            if current_day == last_day:
+            last_day = user_data.get('lastClaimedDay')
+            if local_day == last_day:
                 raise Exception("DAILY_REWARD_COOLDOWN")
+
+            # Calculate bonus multiplier based on streak
+            streak = user_data.get('streak', 0)
+            if last_day:
+                try:
+                    last_dt = datetime.strptime(last_day, '%Y-%m-%d')
+                    curr_dt = datetime.strptime(local_day, '%Y-%m-%d')
+                    diff = (curr_dt - last_dt).days
+
+                    if diff == 1:
+                        # Consecutive day
+                        streak += 1
+                    elif diff > 1:
+                        # Streak broken
+                        streak = 1
+                    else:
+                        raise Exception("TEMPORAL_ANOMALY_DETECTED")
+                except:
+                    streak = 1
+            else:
+                streak = 1
+
+            # Industry Standard: Incremental rewards every 7 days
+            bonus_multiplier = 1.0 + (min(streak, 7) - 1) * 0.1 # Max 1.7x at Day 7
+            derived_amount = int(derived_amount * bonus_multiplier)
+
+            # Record streak in user doc update block below
+            user_ref_updates = {
+                'streak': streak,
+                'lastClaimedDay': local_day,
+                'lastRewardDate': firestore.SERVER_TIMESTAMP
+            }
 
         # Solvency
         current_points = user_data.get('points', 0)
@@ -385,26 +534,7 @@ def execute_transaction():
         }
 
         if tx_type == 'daily_reward':
-            updates['lastRewardDate'] = firestore.SERVER_TIMESTAMP
-            updates['lastClaimedDay'] = current_day
-
-            # Streak logic based on calendar days
-            last_day = user_data.get('lastClaimedDay')
-            if last_day:
-                try:
-                    last_dt = datetime.strptime(last_day, '%Y-%m-%d')
-                    curr_dt = datetime.strptime(current_day, '%Y-%m-%d')
-                    diff = (curr_dt - last_dt).days
-
-                    if diff == 1:
-                        updates['streak'] = firestore.Increment(1)
-                    elif diff > 1:
-                        updates['streak'] = 1
-                    # if diff == 0, already raised Exception
-                except:
-                    updates['streak'] = 1
-            else:
-                updates['streak'] = 1
+            updates.update(user_ref_updates)
 
         if tx_type == 'task_reward':
             updates['stats.tasksCompleted'] = firestore.Increment(1)
@@ -684,8 +814,8 @@ def fetch_market_price(asset_id):
 @verify_token
 def resolve_prediction():
     caller_uid = request.user['uid']
-    if not is_admin(caller_uid):
-        return jsonify({"success": False, "error": "Admin access required"}), 403
+    if not is_moderator(caller_uid):
+        return jsonify({"success": False, "error": "Moderator access required"}), 403
 
     data = request.json
     prediction_id = data.get('predictionId')
@@ -1091,6 +1221,44 @@ def send_branded_email(to_email, template_name, context, subject):
     except Exception as e:
         print(f"Branded email failure: {str(e)}")
         return False
+
+@app.route('/api/auth/send-verification', methods=['POST'])
+@verify_token
+def send_verification_email():
+    caller_uid = request.user['uid']
+    caller_email = request.user.get('email')
+
+    if not caller_email:
+        return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
+
+    # Fetch username for template
+    user_doc = db.collection('users').document(caller_uid).get()
+    username = user_doc.to_dict().get('username', 'Member') if user_doc.exists else 'Member'
+
+    try:
+        action_settings = auth.ActionCodeSettings(
+            url=f"https://pulseearn.online/auth/action",
+            handle_code_in_app=True
+        )
+        link = auth.generate_email_verification_link(caller_email, action_settings)
+
+        resend_key = os.environ.get('RESEND_API_KEY')
+        if not resend_key:
+            return jsonify({"success": False, "error": "SYSTEM_CONFIG_ERROR", "message": "Email dispatch unavailable."}), 500
+
+        success = send_branded_email(
+            caller_email,
+            'VerifyEmail',
+            {'username': username, 'link': link},
+            "Verify your PulseEarn account"
+        )
+
+        if not success:
+            return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
+
+        return jsonify({"success": True, "message": "Verification email dispatched."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token

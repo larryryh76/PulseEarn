@@ -326,22 +326,9 @@ const Dashboard: React.FC = () => {
                               item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
                            )}
                            onClick={() => {
-                              if (item.type === 'CAMPAIGN') {
-                                 if (item.originalId) navigate(`/campaigns/${item.originalId}`);
-                                 else navigate('/tasks');
-                              }
-                              else if (item.category === 'PREDICTION') navigate('/predictions');
+                              if (item.category === 'PREDICTION') navigate('/predictions');
                               else if (item.category === 'REFERRAL') navigate('/referrals');
-                              else if (item.type === 'MISSION') navigate('/tasks', { state: { highlightId: item.originalId } });
-                              else {
-                                 // It's a task. We should find the full task object.
-                                 const fullTask = tasks.find(t => t.id === item.originalId);
-                                 if (fullTask) {
-                                    navigate('/tasks', { state: { selectedTask: fullTask } });
-                                 } else {
-                                    navigate('/tasks');
-                                 }
-                              }
+                              else navigate('/tasks');
                            }}
                         >
                            <div className="space-y-6">
@@ -677,10 +664,6 @@ const Dashboard: React.FC = () => {
                               if (type.includes('prediction')) {
                                  navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
-                              else if (type.includes('campaign')) {
-                                 if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
-                                 else navigate('/tasks');
-                              }
                               else if (type.includes('task') || type.includes('mission')) {
                                  navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
@@ -791,14 +774,9 @@ const Dashboard: React.FC = () => {
                    <div className="space-y-3 pt-4">
                       <Button
                         onClick={() => {
-                           if (selectedTask.type === 'MISSION') {
-                              if (selectedTask.category === 'PREDICTION') navigate('/predictions');
-                              else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
-                              else navigate('/tasks');
-                           } else {
-                              if (selectedTask.campaignId) navigate(`/campaigns/${selectedTask.campaignId}`);
-                              else navigate('/tasks');
-                           }
+                           if (selectedTask.category === 'PREDICTION') navigate('/predictions');
+                           else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
+                           else navigate('/tasks');
                            setSelectedTask(null);
                         }}
                         variant="primary"

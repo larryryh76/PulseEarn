@@ -37,7 +37,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
-import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 import { UserEngine } from '../engines/system/UserEngine';
@@ -132,7 +131,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (result.success) {
-        await SystemTaskEngine.processEvent(uid, 'daily_login');
         toast.success('Daily Reward Claimed!', {
            icon: '🎁',
            duration: 5000,
@@ -339,14 +337,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Send initial verification with branded redirect
+    // Request branded verification email from backend
     try {
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } catch (err) {
+      console.error("[AuthContext] Backend Verification Request Failed:", err);
+      // Fallback to Firebase standard if backend fails
       await sendEmailVerification(user, {
         url: 'https://pulseearn.online/auth/action',
         handleCodeInApp: true
       });
-    } catch (err) {
-      console.error("[AuthContext] Initial Verification Dispatch Failed:", err);
     }
 
     await initializeUserProfile(user, username, referralCodeInput);

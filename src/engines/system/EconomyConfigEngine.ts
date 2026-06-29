@@ -37,7 +37,7 @@ export interface EconomyConfig {
 
 const DEFAULT_CONFIG: EconomyConfig = {
   rewards: {
-    dailyLoginPoints: 10,
+    dailyLoginPoints: 50,
     dailyLoginXP: 20,
     welcomeBonusPoints: 30,
     welcomeBonusXP: 50,

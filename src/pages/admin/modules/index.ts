@@ -1,9 +1,5 @@
 export { default as OpsOverview } from './OpsOverview';
-export { default as OpsCampaigns } from './OpsCampaigns';
-export { default as OpsCampaignDetail } from './OpsCampaignDetail';
 export { default as OpsTasks } from './OpsTasks';
-export { default as OpsSponsoredCampaigns } from './OpsSponsoredCampaigns';
-export { default as OpsSponsoredCampaignDetail } from './OpsSponsoredCampaignDetail';
 export { default as OpsPredictions } from './OpsPredictions';
 export { default as OpsValidation } from './OpsValidation';
 export { default as OpsWithdrawals } from './OpsWithdrawals';
@@ -12,7 +8,7 @@ export { default as OpsEconomy } from './OpsEconomy';
 export { default as OpsUsers } from './OpsUsers';
 export { default as OpsSupport } from './OpsSupport';
 export { default as OpsBroadcasts } from './OpsBroadcasts';
-export { default as OpsMissions } from './OpsMissions';
 export { default as OpsXP } from './OpsXP';
 export { default as OpsAuditCenter } from './OpsAuditCenter';
 export { default as OpsHealth } from './OpsHealth';
+export { default as OpsModerators } from './OpsModerators';

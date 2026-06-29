@@ -115,7 +115,13 @@ const Navbar: React.FC = () => {
                        Ops
                     </Link>
                   )}
-                  <button onClick={() => { logout(); navigate('/'); }} className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest">
+                  <button
+                    onClick={async () => {
+                      await logout();
+                      navigate('/');
+                    }}
+                    className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest"
+                  >
                     Sign Out
                   </button>
                 </div>
@@ -209,7 +215,11 @@ const Navbar: React.FC = () => {
                             <span className="text-[9px] font-black uppercase tracking-widest">Theme</span>
                          </button>
                          <button
-                           onClick={() => { logout(); navigate('/'); setIsMobileMenuOpen(false); }}
+                           onClick={async () => {
+                             await logout();
+                             navigate('/');
+                             setIsMobileMenuOpen(false);
+                           }}
                            className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-danger/5 border border-danger/20 text-danger/60"
                          >
                             <LogOut size={20} />

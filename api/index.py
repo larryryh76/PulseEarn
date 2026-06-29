@@ -167,7 +167,13 @@ def execute_transaction():
         # SERVER-SIDE CLAIM ID VALIDATION
         now_utc = datetime.now(timezone.utc)
         if tx_type == 'daily_reward':
-            expected_id = f"daily_{now_utc.strftime('%Y-%m-%d')}_{user_id}"
+            # Support client-provided local day for calendar boundary
+            local_day = data.get('localDay') # Expected format: YYYY-MM-DD
+            if local_day:
+                expected_id = f"daily_{local_day}_{user_id}"
+            else:
+                expected_id = f"daily_{now_utc.strftime('%Y-%m-%d')}_{user_id}"
+
             if claim_id != expected_id:
                 raise Exception("CLAIM_ID_MISMATCH")
         elif tx_type == 'task_reward' and claim_id.startswith('auto_'):
@@ -334,9 +340,14 @@ def execute_transaction():
         # Daily reward check
         if tx_type == 'daily_reward':
             last_reward = user_data.get('lastRewardDate')
-            now = datetime.now(timezone.utc)
-            current_day = now.strftime('%Y-%m-%d')
-            last_day = last_reward.strftime('%Y-%m-%d') if last_reward else 'NEVER'
+            local_day = data.get('localDay')
+
+            if local_day:
+                current_day = local_day
+            else:
+                current_day = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+            last_day = user_data.get('lastClaimedDay', 'NEVER')
 
             if current_day == last_day:
                 raise Exception("DAILY_REWARD_COOLDOWN")
@@ -375,17 +386,22 @@ def execute_transaction():
 
         if tx_type == 'daily_reward':
             updates['lastRewardDate'] = firestore.SERVER_TIMESTAMP
-            # Streak logic
-            last_reward_obj = user_data.get('lastRewardDate')
-            if last_reward_obj:
-                if last_reward_obj.tzinfo is None:
-                    last_reward_obj = last_reward_obj.replace(tzinfo=timezone.utc)
-                today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-                last_reward_day = last_reward_obj.replace(hour=0, minute=0, second=0, microsecond=0)
-                yesterday = today - timedelta(days=1)
-                if last_reward_day == yesterday:
-                    updates['streak'] = firestore.Increment(1)
-                elif last_reward_day < yesterday:
+            updates['lastClaimedDay'] = current_day
+
+            # Streak logic based on calendar days
+            last_day = user_data.get('lastClaimedDay')
+            if last_day:
+                try:
+                    last_dt = datetime.strptime(last_day, '%Y-%m-%d')
+                    curr_dt = datetime.strptime(current_day, '%Y-%m-%d')
+                    diff = (curr_dt - last_dt).days
+
+                    if diff == 1:
+                        updates['streak'] = firestore.Increment(1)
+                    elif diff > 1:
+                        updates['streak'] = 1
+                    # if diff == 0, already raised Exception
+                except:
                     updates['streak'] = 1
             else:
                 updates['streak'] = 1
@@ -1038,6 +1054,44 @@ def handle_provider_webhook(provider):
         print(f"WEBHOOK_CRITICAL_ERROR: {error_str}")
         return jsonify({"success": False, "error": "INTERNAL_TRANSACTION_ERROR"}), 500
 
+def send_branded_email(to_email, template_name, context, subject):
+    resend_key = os.environ.get('RESEND_API_KEY')
+    resend_from = os.environ.get('RESEND_FROM_EMAIL', 'hello@pulseearn.online')
+
+    if not resend_key:
+        print(f"WARN: RESEND_API_KEY not set. Cannot send branded email: {template_name}")
+        return False
+
+    try:
+        template_path = os.path.join(os.path.dirname(__file__), 'templates', f'{template_name}.html')
+        with open(template_path, 'r') as f:
+            html = f.read()
+
+        # Simple string replacement for context variables
+        for key, value in context.items():
+            html = html.replace(f'{{{{{key}}}}}', str(value))
+
+        payload = {
+            "from": f"PulseEarn <{resend_from}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html
+        }
+
+        res = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            },
+            json=payload,
+            timeout=15
+        )
+        return res.status_code in [200, 201]
+    except Exception as e:
+        print(f"Branded email failure: {str(e)}")
+        return False
+
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token
 def authorize_resend():
@@ -1046,6 +1100,10 @@ def authorize_resend():
 
     if not caller_email:
         return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
+
+    # Fetch username for template
+    user_doc = db.collection('users').document(caller_uid).get()
+    username = user_doc.to_dict().get('username', 'Member') if user_doc.exists else 'Member'
 
     cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
 
@@ -1076,44 +1134,18 @@ def authorize_resend():
         link = auth.generate_email_verification_link(caller_email, action_settings)
 
         resend_key = os.environ.get('RESEND_API_KEY')
-        resend_from = os.environ.get('RESEND_FROM_EMAIL', 'support@pulseearn.online')
-
         if not resend_key:
             print("WARN: RESEND_API_KEY not set. Falling back to client-side dispatch.")
             return jsonify({"success": True, "dispatchMethod": "client_fallback"})
 
-        # Real dispatch to Resend
-        payload = {
-            "from": f"PulseEarn <{resend_from}>",
-            "to": [caller_email],
-            "subject": "Verify your PulseEarn account",
-            "html": f"""
-                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-                    <h1 style="color: #0070FF;">PulseEarn</h1>
-                    <p>Welcome to the network! Please verify your email address to unlock full access to the platform.</p>
-                    <div style="margin: 30px 0;">
-                        <a href="{link}" style="background-color: #0070FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Verify Email Address</a>
-                    </div>
-                    <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link: <br> {link}</p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-                    <p style="font-size: 11px; color: #999;">If you didn't create an account, you can safely ignore this email.</p>
-                </div>
-            """
-        }
-
-        res = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {resend_key}",
-                "Content-Type": "application/json"
-            },
-            json=payload,
-            timeout=15
+        success = send_branded_email(
+            caller_email,
+            'VerifyEmail',
+            {'username': username, 'link': link},
+            "Verify your PulseEarn account"
         )
 
-        if res.status_code not in [200, 201]:
-            error_data = res.json() if res.content else {"message": "Unknown error"}
-            print(f"RESEND_ERROR: {res.status_code} - {error_data}")
+        if not success:
             return jsonify({"success": False, "error": "DISPATCH_FAILED", "message": "Failed to send verification email. Cooldown not applied."}), 502
 
         # Only update cooldown if dispatch succeeded

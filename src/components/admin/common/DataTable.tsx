@@ -78,7 +78,7 @@ const DataTable = <T extends { id: string | number }>({
             <thead>
               <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
                 {columns.map((col, idx) => (
-                  <th key={idx} className={cn("p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary", col.className)}>
+                  <th key={idx} className={cn("p-4 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary", col.className)}>
                     <div className="flex items-center gap-2">
                       {col.header}
                       {col.sortable && <ArrowUp size={10} className="opacity-30" />}
@@ -119,7 +119,7 @@ const DataTable = <T extends { id: string | number }>({
                       )}
                     >
                       {columns.map((col, idx) => (
-                        <td key={idx} className={cn("p-6 md:p-8", col.className)}>
+                        <td key={idx} className={cn("p-4 md:p-8", col.className)}>
                           {typeof col.accessor === 'function'
                             ? col.accessor(item)
                             : (item[col.accessor] as React.ReactNode)}

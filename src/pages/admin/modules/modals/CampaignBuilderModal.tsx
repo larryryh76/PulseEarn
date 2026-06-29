@@ -188,6 +188,19 @@ const CampaignBuilderModal: React.FC<CampaignBuilderModalProps> = ({ isOpen, onC
                          </select>
                       </div>
                       <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Offer Provider</label>
+                         <select
+                           value={formData.provider || 'internal'}
+                           onChange={e => setFormData({...formData, provider: e.target.value})}
+                           className="w-full bg-surface-bright border border-border-bright rounded-xl p-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest"
+                         >
+                            <option value="internal" className="bg-surface">Internal (Native)</option>
+                            <option value="offerwall_x" className="bg-surface">Offerwall X</option>
+                            <option value="survey_y" className="bg-surface">Survey Y</option>
+                            <option value="ad_network_z" className="bg-surface">Ad Network Z</option>
+                         </select>
+                      </div>
+                      <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Visibility</label>
                          <div className="flex gap-2 h-[50px]">
                             <button

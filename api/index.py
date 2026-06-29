@@ -10,6 +10,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from datetime import datetime, timezone, timedelta
 import math
+import html
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
@@ -168,7 +169,7 @@ def execute_transaction():
         now_utc = datetime.now(timezone.utc)
         if tx_type == 'daily_reward':
             # Support client-provided local day for calendar boundary
-            local_day = data.get('localDay') # Expected format: YYYY-MM-DD
+            local_day = metadata.get('localDay') # Extracted from metadata
             if local_day:
                 expected_id = f"daily_{local_day}_{user_id}"
             else:
@@ -340,7 +341,7 @@ def execute_transaction():
         # Daily reward check
         if tx_type == 'daily_reward':
             last_reward = user_data.get('lastRewardDate')
-            local_day = data.get('localDay')
+            local_day = metadata.get('localDay')
 
             if local_day:
                 current_day = local_day
@@ -1065,17 +1066,19 @@ def send_branded_email(to_email, template_name, context, subject):
     try:
         template_path = os.path.join(os.path.dirname(__file__), 'templates', f'{template_name}.html')
         with open(template_path, 'r') as f:
-            html = f.read()
+            template_content = f.read()
 
-        # Simple string replacement for context variables
+        # Simple string replacement for context variables with HTML escaping
         for key, value in context.items():
-            html = html.replace(f'{{{{{key}}}}}', str(value))
+            # Sanitize user inputs to prevent injection
+            safe_value = html.escape(str(value))
+            template_content = template_content.replace(f'{{{{{key}}}}}', safe_value)
 
         payload = {
             "from": f"PulseEarn <{resend_from}>",
             "to": [to_email],
             "subject": subject,
-            "html": html
+            "html": template_content
         }
 
         res = requests.post(

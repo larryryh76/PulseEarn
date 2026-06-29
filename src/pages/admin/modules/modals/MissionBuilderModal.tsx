@@ -163,7 +163,6 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                       <option value="ONCE">Once</option>
                       <option value="DAILY">Daily</option>
                       <option value="WEEKLY">Weekly</option>
-                      <option value="MONTHLY">Monthly</option>
                     </select>
                   </div>
                   <div className="space-y-2">

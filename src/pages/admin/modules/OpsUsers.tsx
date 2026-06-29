@@ -27,7 +27,7 @@ import {
   orderBy,
   startAfter
 } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
+import { db, auth } from '../../../firebase/config';
 import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -170,7 +170,7 @@ const OpsUsers: React.FC = () => {
           const userId = user.id;
 
           // 1. Purge from Firebase Auth
-          const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+          const idToken = await auth.currentUser?.getIdToken();
           const response = await fetch('/api/admin/delete-user', {
               method: 'POST',
               headers: {
@@ -339,7 +339,7 @@ const OpsUsers: React.FC = () => {
       const loadingToast = toast.loading('Updating user profile...');
       try {
           if (editForm.emailVerified && !selectedUser.emailVerified) {
-              const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+              const idToken = await auth.currentUser?.getIdToken();
               const response = await fetch('/api/admin/verify-user', {
                   method: 'POST',
                   headers: {
@@ -352,8 +352,11 @@ const OpsUsers: React.FC = () => {
               if (!resData.success) throw new Error(resData.error);
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { emailVerified, ...formToUpdate } = editForm;
+
           await updateDoc(doc(db, 'users', selectedUser.id), {
-              ...editForm,
+              ...formToUpdate,
               updatedAt: serverTimestamp()
           });
 

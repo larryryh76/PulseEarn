@@ -230,7 +230,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Min Level THR</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Required Level</label>
                          <input
                            type="number"
                            value={formData.minLevel}
@@ -239,7 +239,7 @@ const TaskBuilderModal: React.FC<TaskBuilderModalProps> = ({ isOpen, onClose, in
                          />
                       </div>
                       <div className="space-y-2.5">
-                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Settings Platform</label>
+                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary ml-1">Social Platform</label>
                          <select
                            value={formData.platform}
                            onChange={e => setFormData({...formData, platform: e.target.value as SocialPlatform})}

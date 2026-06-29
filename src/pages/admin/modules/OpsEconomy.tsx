@@ -298,6 +298,8 @@ const OpsEconomy: React.FC = () => {
                      { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },
                      { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPoints || 10000).toLocaleString()} PTS` },
                      { label: 'Daily Point Cap', value: `${(economyConfig?.security?.dailyRewardCap || 5000).toLocaleString()} PTS` },
+                     { label: 'Min Stake', value: `${(economyConfig?.rewards?.minPredictionStake || 10).toLocaleString()} PTS` },
+                     { label: 'Max Stake', value: `${(economyConfig?.rewards?.maxPredictionStake || 10000).toLocaleString()} PTS` },
                    ].map((item) => (
                      <div key={item.label} className="flex items-center justify-between p-5 rounded-2xl bg-surface-bright/50 border border-border group hover:border-primary/20 transition-all">
                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">{item.label}</p>

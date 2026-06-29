@@ -154,7 +154,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Periodicity</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Frequency</label>
                     <select
                       value={formData.period}
                       onChange={e => setFormData({...formData, period: e.target.value as any})}
@@ -163,10 +163,11 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                       <option value="ONCE">Once</option>
                       <option value="DAILY">Daily</option>
                       <option value="WEEKLY">Weekly</option>
+                      <option value="MONTHLY">Monthly</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Condition Field</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Tracking Field</label>
                     <input
                       value={formData.conditionField}
                       onChange={e => setFormData({...formData, conditionField: e.target.value})}
@@ -175,7 +176,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Target Threshold</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Goal Number</label>
                     <input
                       type="number"
                       value={formData.targetValue}
@@ -184,7 +185,7 @@ const MissionBuilderModal: React.FC<MissionBuilderModalProps> = ({ isOpen, onClo
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">System Priority</label>
+                    <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Sort Order</label>
                     <input
                       type="number"
                       value={formData.priority}

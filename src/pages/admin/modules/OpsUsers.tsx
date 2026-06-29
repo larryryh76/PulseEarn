@@ -387,24 +387,36 @@ const OpsUsers: React.FC = () => {
 
   const handleSearch = async (term: string) => {
     setSearchTerm(term);
+    if (!term) {
+       fetchUsers();
+       return;
+    }
+
     if (term.length > 2) {
        setLoading(true);
        try {
-          const qUsername = query(collection(db, 'users'), where('username', '>=', term), where('username', '<=', term + '\uf8ff'), limit(20));
-          const qEmail = query(collection(db, 'users'), where('email', '>=', term), where('email', '<=', term + '\uf8ff'), limit(20));
+          // Server-side exact match search as requested (full collection query)
+          const qUsername = query(collection(db, 'users'), where('username', '==', term));
+          const qEmail = query(collection(db, 'users'), where('email', '==', term));
 
           const [snapU, snapE] = await Promise.all([getDocs(qUsername), getDocs(qEmail)]);
           const results = [...snapU.docs, ...snapE.docs].map(d => ({ id: d.id, ...d.data() }));
 
+          // Also try partial match (prefix search)
+          const qUsernamePrefix = query(collection(db, 'users'), where('username', '>=', term), where('username', '<=', term + '\uf8ff'), limit(20));
+          const snapUPrefix = await getDocs(qUsernamePrefix);
+          results.push(...snapUPrefix.docs.map(d => ({ id: d.id, ...d.data() })));
+
           const unique = Array.from(new Map(results.map(u => [u.id, u])).values());
           setUsers(unique.filter((u: any) => u.status !== 'archived'));
-          setHasMore(false); // Search is limited to top hits
+          setHasMore(false); // Search results are not paginated here
        } catch (err) {
           toast.error("Search failed");
        } finally {
           setLoading(false);
        }
-    } else if (term.length === 0) {
+    } else if (term.length > 0) {
+       // Reset to paginated list for short terms to avoid stale search results
        fetchUsers();
     }
   };

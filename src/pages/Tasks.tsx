@@ -231,7 +231,7 @@ const Tasks: React.FC = () => {
               <div className="space-y-4">
                  <div className="flex items-center gap-2">
                     <Shield size={14} className="text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary/50">Available Objectives</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary/50">Available Tasks</span>
                  </div>
                  <h1 className="text-4xl md:text-6xl font-bold text-text-primary tracking-tighter leading-none uppercase">
                     Quests
@@ -347,7 +347,7 @@ const Tasks: React.FC = () => {
                  {availableStandaloneTasks.length > 0 && (
                     <div className="space-y-6">
                        <div className="flex items-center gap-3 px-2">
-                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Community Quests</h4>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Community Tasks</h4>
                           <div className="h-px flex-1 bg-border" />
                        </div>
                        <div className="grid grid-cols-1 gap-3">
@@ -403,7 +403,7 @@ const Tasks: React.FC = () => {
                     <div className="space-y-6">
                        <div className="flex items-center justify-between px-2">
                           <div className="flex items-center gap-3">
-                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Daily Objectives</h4>
+                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Daily Missions</h4>
                              <div className="h-px w-24 bg-border" />
                           </div>
                        </div>
@@ -630,7 +630,7 @@ const Tasks: React.FC = () => {
                                }}
                                className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] group italic shadow-xl"
                              >
-                                Initialize Quest <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                                Start Mission <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                              </Button>
                           )}
                        </div>

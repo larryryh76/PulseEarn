@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         source: 'Daily Login Bonus',
         claimId,
         xpReward: config.rewards.dailyLoginXP,
-        utcOffset // Send offset to backend for validation
+        metadata: { localDay: localDayStr }
       });
 
       if (result.success) {

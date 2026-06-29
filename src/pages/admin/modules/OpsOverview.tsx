@@ -11,8 +11,12 @@ import {
   RefreshCcw,
   MessageSquare,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  AlertTriangle,
+  UserPlus,
+  ArrowRight
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../firebase/config';
 import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, onSnapshot, orderBy, startAfter } from 'firebase/firestore';
 import { cn } from '../../../utils';
@@ -143,7 +147,8 @@ const OpsOverview: React.FC = () => {
   }, []);
 
   const metricItem = (label: string, value: string | number, icon: any, color: string, path?: string) => (
-    <div
+    <motion.div
+      layout
       onClick={() => path && navigate(path)}
       className={cn(
         "bg-surface border border-border p-5 md:p-6 rounded-xl hover:border-border-bright transition-all group shadow-2xl",
@@ -157,10 +162,15 @@ const OpsOverview: React.FC = () => {
           {path && <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50 group-hover:text-primary transition-colors">Audit</div>}
        </div>
        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-0.5 md:mb-1 truncate">{label}</p>
-       <p className="text-xl md:text-2xl font-mono font-bold tracking-tighter truncate">
+       <motion.p
+          key={value}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-xl md:text-2xl font-mono font-bold tracking-tighter truncate"
+       >
           {loading ? '---' : typeof value === 'number' ? value.toLocaleString() : value}
-       </p>
-    </div>
+       </motion.p>
+    </motion.div>
   );
 
   return (
@@ -202,6 +212,81 @@ const OpsOverview: React.FC = () => {
           {metricItem('24h PTS Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
           {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
           {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
+       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-3 px-1">
+                <Activity size={14} />
+                Live Event Feed
+             </h2>
+             <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl divide-y divide-white/5">
+                <AnimatePresence mode="popLayout">
+                   {recentLedger.slice(0, 5).map((tx, idx) => (
+                      <motion.button
+                         key={tx.id}
+                         initial={{ opacity: 0, x: -20 }}
+                         animate={{ opacity: 1, x: 0 }}
+                         transition={{ delay: idx * 0.1 }}
+                         className="w-full p-6 flex items-center justify-between hover:bg-surface-bright transition-colors group cursor-pointer text-left appearance-none outline-none"
+                         onClick={() => navigate('/admin/ledger')}
+                      >
+                         <div className="flex items-center gap-4">
+                            <div className={cn(
+                               "w-10 h-10 rounded-xl flex items-center justify-center border transition-all group-hover:scale-110 shadow-inner",
+                               tx.amount >= 0 ? "bg-success/5 border-success/10 text-success" : "bg-danger/5 border-danger/10 text-danger"
+                            )}>
+                               {tx.amount >= 0 ? <UserPlus size={18} /> : <CreditCard size={18} />}
+                            </div>
+                            <div>
+                               <p className="text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                               <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">{tx.userId.slice(0, 12)}...</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                            <p className={cn("text-sm font-mono font-bold", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                               {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
+                            </p>
+                            <p className="text-[8px] font-black text-text-tertiary/30 uppercase mt-1 tracking-widest">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                         </div>
+                      </motion.button>
+                   ))}
+                </AnimatePresence>
+             </div>
+          </div>
+
+          <div className="space-y-8">
+             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-3 px-1">
+                <ShieldAlert size={14} />
+                Critical Attention
+             </h2>
+             <div className="space-y-4">
+                {[
+                   { label: 'Pending Payouts', count: stats.pendingWithdrawals, path: '/admin/withdrawals', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                   { label: 'Open Inquiries', count: stats.pendingSupport, path: '/admin/support', icon: MessageSquare, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
+                   { label: 'Unresolved Threats', count: stats.fraudAnomalies, path: '/admin/security', icon: AlertTriangle, color: 'text-danger', bg: 'bg-danger/10' }
+                ].map(item => (
+                   <button
+                      key={item.label}
+                      onClick={() => navigate(item.path)}
+                      className="w-full p-6 bg-surface border border-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-border-bright transition-all shadow-xl text-left appearance-none outline-none"
+                   >
+                      <div className="flex items-center gap-4">
+                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border border-transparent shadow-inner transition-transform group-hover:scale-110", item.bg, item.color)}>
+                            <item.icon size={18} />
+                         </div>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">{item.label}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <span className={cn("text-xl font-mono font-bold tracking-tighter", item.count > 0 ? item.color : "text-text-tertiary/20")}>
+                            {item.count}
+                         </span>
+                         <ArrowRight size={14} className="text-text-tertiary/20 group-hover:text-primary transition-all group-hover:translate-x-1" />
+                      </div>
+                   </button>
+                ))}
+             </div>
+          </div>
        </div>
 
        <div className="space-y-6">

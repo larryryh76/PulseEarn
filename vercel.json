@@ -6,6 +6,7 @@
     { "source": "/referral", "destination": "/referrals", "permanent": true }
   ],
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/((?!api|assets|favicon|icons|og-image|robots|sitemap|.*\\.).*)", "destination": "/index.html" }
   ],
   "headers": [

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import {
   Activity,
-  Search,
   User,
   X,
   FileText,
@@ -14,10 +13,14 @@ import {
   query,
   limit,
   where,
-  onSnapshot
+  getDocs,
+  orderBy,
+  startAfter
 } from 'firebase/firestore';
 import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import DataTable from '../../../components/admin/common/DataTable';
+import toast from 'react-hot-toast';
 
 const OpsLedger: React.FC = () => {
   const [transactions, setTransactions] = React.useState<any[]>([]);
@@ -26,32 +29,67 @@ const OpsLedger: React.FC = () => {
   const [filterType, setFilterType] = React.useState<string>('ALL');
   const [selectedTx, setSelectedTx] = React.useState<any | null>(null);
 
-  React.useEffect(() => {
-    let q = query(collection(db, 'system_claims'), limit(100));
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
 
-    if (filterType !== 'ALL') {
-       q = query(
+  const fetchLedger = async (isNext = false) => {
+    setLoading(true);
+    try {
+       let q = query(
          collection(db, 'system_claims'),
-         where('type', '==', filterType),
-         limit(100)
+         orderBy('executedAt', 'desc'),
+         limit(20)
        );
-    }
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      data.sort((a, b) => {
-         const timeA = a.executedAt?.toMillis?.() || 0;
-         const timeB = b.executedAt?.toMillis?.() || 0;
-         return timeB - timeA;
-      });
-      setTransactions(data);
-      setLoading(false);
-    }, (err) => {
+       if (filterType !== 'ALL') {
+          q = query(
+            collection(db, 'system_claims'),
+            where('type', '==', filterType),
+            orderBy('executedAt', 'desc'),
+            limit(20)
+          );
+       }
+
+       if (isNext && lastDoc) {
+          if (filterType !== 'ALL') {
+             q = query(
+               collection(db, 'system_claims'),
+               where('type', '==', filterType),
+               orderBy('executedAt', 'desc'),
+               startAfter(lastDoc),
+               limit(20)
+             );
+          } else {
+             q = query(
+               collection(db, 'system_claims'),
+               orderBy('executedAt', 'desc'),
+               startAfter(lastDoc),
+               limit(20)
+             );
+          }
+       }
+
+       const snap = await getDocs(q);
+       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+       if (isNext) {
+          setTransactions(prev => [...prev, ...data]);
+       } else {
+          setTransactions(data);
+       }
+
+       setLastDoc(snap.docs[snap.docs.length - 1]);
+       setHasMore(snap.docs.length === 20);
+    } catch (err) {
        console.error("[OpsLedger] Query Failure:", err);
+       toast.error("Ledger sync failure");
+    } finally {
        setLoading(false);
-    });
+    }
+  };
 
-    return unsubscribe;
+  React.useEffect(() => {
+     fetchLedger();
   }, [filterType]);
 
   const filtered = transactions.filter(tx =>
@@ -70,102 +108,83 @@ const OpsLedger: React.FC = () => {
              </div>
              <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Real-time immutable record of platform point flow and economic settlements.</p>
           </div>
-
-          <div className="flex flex-col lg:flex-row items-center gap-4 w-full md:w-auto">
-             <div className="relative w-full lg:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-                <input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan ledger records..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-[11px] focus:border-primary/50 outline-none transition-all font-medium"
-                />
-             </div>
-             <select
-               value={filterType}
-               onChange={e => setFilterType(e.target.value)}
-               className="w-full lg:w-auto bg-surface-bright border border-border-bright rounded-xl px-6 py-3 text-[10px] text-text-secondary focus:border-primary/50 outline-none appearance-none font-bold uppercase tracking-widest cursor-pointer text-center"
-             >
-                <option value="ALL">ALL TYPES</option>
-                <option value="daily_reward">DAILY LOGINS</option>
-                <option value="task_reward">CAMPAIGN TASKS</option>
-                <option value="prediction_entry">FORECAST STAKES</option>
-                <option value="prediction_reward">FORECAST WINS</option>
-                <option value="withdrawal_debit">WITHDRAWALS</option>
-                <option value="admin_adjustment">ADJUSTMENTS</option>
-             </select>
-          </div>
        </header>
 
-       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto no-scrollbar">
-             <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-0">
-                <thead>
-                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Execution Hash</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User ID</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Source Entity</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Delta</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Timestamp</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 font-medium">
-                   {loading ? (
-                      [1,2,3,4,5,6,7,8].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-10"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
-                   ) : filtered.map((tx) => (
-                      <tr
-                        key={tx.id}
-                        onClick={() => setSelectedTx(tx)}
-                        className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-3">
-                               <div className={cn(
-                                 "w-2 h-2 rounded-full",
-                                 (tx.amount || 0) >= 0 ? "bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" : "bg-danger shadow-[0_0_8px_rgba(239,68,68,0.4)]"
-                               )} />
-                               <span className="text-[9px] md:text-[10px] font-mono text-text-secondary uppercase tracking-tighter">{tx.id.slice(0, 16).toUpperCase()}</span>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-2">
-                               <User size={12} className="text-text-tertiary" />
-                               <span className="text-[11px] md:text-xs font-mono text-text-primary group-hover:text-primary transition-colors">{tx.userId?.slice(0, 12)}...</span>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div>
-                               <p className="text-[11px] font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                               <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary/50 mt-0.5">{tx.type?.replace(/_/g, ' ')}</p>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8 text-right">
-                            <p className={cn(
-                               "text-xs md:text-sm font-mono font-bold",
-                               (tx.amount || 0) !== 0 ? ((tx.amount || 0) > 0 ? "text-success" : "text-danger") : "text-text-tertiary"
-                            )}>
-                               {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
-                               <span className="text-[8px] md:text-[9px] opacity-40 ml-1">PTS</span>
-                            </p>
-                         </td>
-                         <td className="p-6 md:p-8 text-right">
-                            <div className="flex flex-col items-end">
-                               <p className="text-[9px] md:text-[10px] font-mono text-text-secondary">{tx.executedAt?.toDate?.()?.toLocaleDateString()}</p>
-                               <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-0.5">{tx.executedAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
-                            </div>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-          {filtered.length === 0 && !loading && (
-             <div className="py-40 text-center border-t border-border">
-                <Activity size={48} className="mx-auto text-text-primary/5 mb-6" />
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-text-tertiary">No matching ledger records</p>
-             </div>
-          )}
-       </div>
+       <DataTable
+         columns={[
+           {
+             header: 'Execution Hash',
+             accessor: (tx: any) => (
+               <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    (tx.amount || 0) >= 0 ? "bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" : "bg-danger shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+                  )} />
+                  <span className="text-[9px] md:text-[10px] font-mono text-text-secondary uppercase tracking-tighter">{tx.id.slice(0, 16).toUpperCase()}</span>
+               </div>
+             )
+           },
+           {
+             header: 'User ID',
+             accessor: (tx: any) => (
+               <div className="flex items-center gap-2">
+                  <User size={12} className="text-text-tertiary" />
+                  <span className="text-[11px] md:text-xs font-mono text-text-primary group-hover:text-primary transition-colors">{tx.userId?.slice(0, 12)}...</span>
+               </div>
+             )
+           },
+           {
+             header: 'Source Entity',
+             accessor: (tx: any) => (
+               <div>
+                  <p className="text-[11px] font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary/50 mt-0.5">{tx.type?.replace(/_/g, ' ')}</p>
+               </div>
+             )
+           },
+           {
+             header: 'Delta',
+             className: 'text-right',
+             accessor: (tx: any) => (
+               <p className={cn(
+                  "text-xs md:text-sm font-mono font-bold",
+                  (tx.amount || 0) !== 0 ? ((tx.amount || 0) > 0 ? "text-success" : "text-danger") : "text-text-tertiary"
+               )}>
+                  {(tx.amount || 0) > 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
+                  <span className="text-[8px] md:text-[9px] opacity-40 ml-1">PTS</span>
+               </p>
+             )
+           },
+           {
+             header: 'Timestamp',
+             className: 'text-right',
+             accessor: (tx: any) => (
+               <div className="flex flex-col items-end">
+                  <p className="text-[9px] md:text-[10px] font-mono text-text-secondary">{tx.executedAt?.toDate?.()?.toLocaleDateString()}</p>
+                  <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-0.5">{tx.executedAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+               </div>
+             )
+           }
+         ]}
+         data={filtered}
+         isLoading={loading}
+         onRowClick={(tx) => setSelectedTx(tx)}
+         searchTerm={searchTerm}
+         onSearchChange={setSearchTerm}
+         onLoadMore={() => fetchLedger(true)}
+         hasMore={hasMore}
+         activeFilter={filterType}
+         onFilterChange={setFilterType}
+         filters={[
+            { id: 'ALL', label: 'All Types' },
+            { id: 'daily_reward', label: 'Daily Logins' },
+            { id: 'task_reward', label: 'Campaign Tasks' },
+            { id: 'prediction_entry', label: 'Forecast Stakes' },
+            { id: 'prediction_reward', label: 'Forecast Wins' },
+            { id: 'withdrawal_debit', label: 'Withdrawals' },
+            { id: 'admin_adjustment', label: 'Adjustments' }
+         ]}
+       />
 
        <AnimatePresence>
           {selectedTx && (

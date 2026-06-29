@@ -55,6 +55,66 @@ def is_admin(uid):
         return data.get('role') == 'admin'
     return False
 
+@app.route('/api/admin/verify-user', methods=['POST'])
+@verify_token
+def admin_verify_user():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
+    data = request.json
+    target_uid = data.get('userId')
+    if not target_uid:
+        return jsonify({"success": False, "error": "Missing userId"}), 400
+
+    try:
+        auth.update_user(target_uid, email_verified=True)
+        return jsonify({"success": True, "message": f"User {target_uid} marked as verified in Auth."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/admin/delete-user', methods=['POST'])
+@verify_token
+def admin_delete_user():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
+    data = request.json
+    target_uid = data.get('userId')
+    if not target_uid:
+        return jsonify({"success": False, "error": "Missing userId"}), 400
+
+    try:
+        auth.delete_user(target_uid)
+        return jsonify({"success": True, "message": f"User {target_uid} deleted from Firebase Auth."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/admin/list-auth-users', methods=['GET'])
+@verify_token
+def admin_list_auth_users():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
+    try:
+        users = []
+        page = auth.list_users()
+        while page:
+            for user in page.users:
+                users.append({
+                    "uid": user.uid,
+                    "email": user.email,
+                    "displayName": user.display_name,
+                    "emailVerified": user.email_verified
+                })
+            page = page.get_next_page()
+
+        return jsonify({"success": True, "users": users})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
 @app.route('/api/execute-transaction', methods=['POST'])
 @verify_token
 def execute_transaction():
@@ -110,6 +170,9 @@ def execute_transaction():
             expected_id = f"daily_{now_utc.strftime('%Y-%m-%d')}_{user_id}"
             if claim_id != expected_id:
                 raise Exception("CLAIM_ID_MISMATCH")
+        elif tx_type == 'task_reward' and claim_id.startswith('auto_'):
+            # Allow auto_claim prefix for automated tasks
+            pass
         elif tx_type == 'welcome_bonus':
             expected_id = f"welcome_{user_id}"
             if claim_id != expected_id:

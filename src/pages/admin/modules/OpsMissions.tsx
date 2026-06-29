@@ -2,7 +2,8 @@ import * as React from 'react';
 import {
   Trophy,
   Zap,
-  Edit3
+  Edit3,
+  MoreVertical
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -17,16 +18,16 @@ import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import MissionBuilderModal from './modals/MissionBuilderModal';
 import { Plus } from 'lucide-react';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsMissions: React.FC = () => {
   const [missions, setMissions] = React.useState<SystemTaskDefinition[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [selectedMission, setSelectedMission] = React.useState<SystemTaskDefinition | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   React.useEffect(() => {
-    // Audit: Removed orderBy to prevent "Missing Index" failures.
-    // Sorting is performed client-side for maximum reliability.
     const q = query(collection(db, 'system_task_definitions'));
     const unsubscribe = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as SystemTaskDefinition));
@@ -50,6 +51,11 @@ const OpsMissions: React.FC = () => {
      }
   };
 
+   const filtered = missions.filter(m =>
+     m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     m.id.toLowerCase().includes(searchTerm.toLowerCase())
+   );
+
   return (
     <div className="space-y-12">
        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -63,66 +69,91 @@ const OpsMissions: React.FC = () => {
 
           <button
             onClick={() => { setSelectedMission(null); setIsModalOpen(true); }}
-            className="w-full md:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+            className="w-full md:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all flex items-center justify-center gap-3 shadow-lg shadow-primary/20 shrink-0"
           >
              <Plus size={18} /> New Mission
           </button>
        </header>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {loading ? (
-             [1,2,3,4,5,6].map(i => <div key={i} className="h-64 bg-surface-bright border border-border rounded-[2rem] animate-pulse" />)
-          ) : missions.map((mission) => (
-             <div key={mission.id} className="bg-surface border border-border p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl flex flex-col group hover:border-primary/30 transition-all duration-500 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Trophy size={80} /></div>
-
-                <div className="flex justify-between items-start mb-6 relative z-10">
-                   <div className={cn(
-                     "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
-                     mission.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border-bright text-text-tertiary"
-                   )}>
-                      <Zap size={24} />
-                   </div>
-                   <button
-                     onClick={() => handleToggleStatus(mission)}
-                     className={cn(
-                       "px-3 py-1 rounded text-[8px] font-black uppercase tracking-[0.2em] border transition-all",
-                       mission.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-secondary border-border-bright"
-                     )}
-                   >
-                      {mission.active ? 'ACTIVE' : 'SUSPENDED'}
-                   </button>
-                </div>
-
-                <div className="space-y-2 mb-8 relative z-10">
-                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{mission.category}</p>
-                   <h3 className="text-lg font-bold text-text-primary uppercase italic truncate group-hover:text-primary transition-colors leading-none">{mission.title}</h3>
-                   <p className="text-[11px] text-text-tertiary leading-relaxed font-medium line-clamp-2">{mission.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-8 pt-6 border-t border-border relative z-10">
-                   <div>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Reward</p>
-                      <p className="text-sm font-mono font-bold text-text-primary">+{(mission.rewardPoints || 0).toLocaleString()} PTS</p>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mb-1">Settings </p>
-                      <p className="text-sm font-mono font-bold text-indigo-400">THR: {mission.targetValue}</p>
-                   </div>
-                </div>
-
-                <div className="mt-auto flex items-center justify-between relative z-10 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-                   <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest">Hash: {mission.id.slice(0, 12).toUpperCase()}</p>
-                   <button
-                     onClick={() => { setSelectedMission(mission); setIsModalOpen(true); }}
-                     className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all"
-                   >
-                      <Edit3 size={16} />
-                   </button>
-                </div>
-             </div>
-          ))}
-       </div>
+       <DataTable
+         columns={[
+           {
+             header: 'Mission Details',
+             accessor: (mission: SystemTaskDefinition) => (
+               <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner transition-all",
+                    mission.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border-bright text-text-tertiary"
+                  )}>
+                     <Zap size={20} />
+                  </div>
+                  <div>
+                     <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{mission.title}</p>
+                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-0.5">{mission.category}</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Configuration',
+             accessor: (mission: SystemTaskDefinition) => (
+               <div className="space-y-1">
+                  <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Trigger: {mission.trigger}</p>
+                  <p className="text-[9px] font-mono text-indigo-400">Target: {mission.targetValue}</p>
+               </div>
+             )
+           },
+           {
+             header: 'Rewards',
+             accessor: (mission: SystemTaskDefinition) => (
+               <div className="flex items-center gap-5">
+                  <div>
+                     <p className="text-xs font-mono font-bold text-text-primary">+{mission.rewardPoints.toLocaleString()}</p>
+                     <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">Points</p>
+                  </div>
+                  <div className="w-px h-6 bg-border" />
+                  <div>
+                     <p className="text-xs font-mono font-bold text-primary">+{mission.rewardXp.toLocaleString()}</p>
+                     <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">XP</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Status',
+             accessor: (mission: SystemTaskDefinition) => (
+               <button
+                 onClick={(e) => { e.stopPropagation(); handleToggleStatus(mission); }}
+                 className={cn(
+                   "px-3 py-1 rounded text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] border transition-all",
+                   mission.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-secondary border-border-bright"
+                 )}
+               >
+                  {mission.active ? 'ACTIVE' : 'SUSPENDED'}
+               </button>
+             )
+           },
+           {
+             header: 'Actions',
+             className: 'text-right',
+             accessor: (mission: SystemTaskDefinition) => (
+               <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => { setSelectedMission(mission); setIsModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                     <Edit3 size={16} />
+                  </button>
+                  <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                     <MoreVertical size={16} />
+                  </button>
+               </div>
+             )
+           }
+         ]}
+         data={filtered}
+         isLoading={loading}
+         onRowClick={(m) => { setSelectedMission(m); setIsModalOpen(true); }}
+         searchTerm={searchTerm}
+         onSearchChange={setSearchTerm}
+       />
 
        <MissionBuilderModal
          isOpen={isModalOpen}

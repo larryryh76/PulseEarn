@@ -6,7 +6,6 @@ import {
   Users,
   CheckCircle2,
   BarChart3,
-  History,
   Target,
   Plus,
   Edit3,
@@ -25,7 +24,11 @@ import {
   query,
   where,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
@@ -34,6 +37,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import TaskBuilderModal from './modals/TaskBuilderModal';
 import CampaignBuilderModal from './modals/CampaignBuilderModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsCampaignDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,11 +46,50 @@ const OpsCampaignDetail: React.FC = () => {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [claims, setClaims] = React.useState<TaskClaim[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'PARTICIPANTS' | 'STATS' | 'LEDGER' | 'AUDIT'>('OVERVIEW');
+  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'PARTICIPANTS' | 'LEDGER' | 'AUDIT'>('OVERVIEW');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+
+  const [hasMoreClaims, setHasMoreClaims] = React.useState(true);
+  const [lastClaimDoc, setLastClaimDoc] = React.useState<any>(null);
+
+  const fetchClaims = async (isNext = false) => {
+    if (!id) return;
+    try {
+      let q = query(
+        collection(db, 'task_claims'),
+        where('campaignId', '==', id),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastClaimDoc) {
+        q = query(
+          collection(db, 'task_claims'),
+          where('campaignId', '==', id),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastClaimDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
+
+      if (isNext) {
+        setClaims(prev => [...prev, ...data]);
+      } else {
+        setClaims(data);
+      }
+
+      setLastClaimDoc(snap.docs[snap.docs.length - 1]);
+      setHasMoreClaims(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsCampaignDetail] Claims Fetch Error:", err);
+    }
+  };
 
   const handleToggleTaskStatus = async (task: Task) => {
     const loadingToast = toast.loading('Updating task status...');
@@ -85,17 +128,10 @@ const OpsCampaignDetail: React.FC = () => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
     });
 
-    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id)), (snap) => {
-       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
-       setClaims(data.sort((a, b) => {
-          const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-          const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-          return timeB - timeA;
-       }));
-    });
+    fetchClaims();
 
     setLoading(false);
-    return () => { unsubCamp(); unsubTasks(); unsubClaims(); };
+    return () => { unsubCamp(); unsubTasks(); };
   }, [id, navigate]);
 
   if (loading || !campaign) return <div className="p-20 text-center animate-pulse">Synchronizing Record...</div>;
@@ -103,13 +139,11 @@ const OpsCampaignDetail: React.FC = () => {
   const stats = {
     completions: claims.filter(c => c.validationState === 'APPROVED').length,
     pending: claims.filter(c => c.validationState === 'PENDING').length,
-    rejected: claims.filter(c => c.validationState === 'REJECTED').length,
-    conversion: campaign.participantsCount > 0 ? (claims.filter(c => c.validationState === 'APPROVED').length / campaign.participantsCount * 100).toFixed(1) : '0'
+    rejected: claims.filter(c => c.validationState === 'REJECTED').length
   };
 
   return (
     <div className="space-y-8 pb-20">
-       {/* HIERARCHICAL BREADCRUMB */}
        <nav className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
           <button onClick={() => navigate('/admin/campaigns')} className="hover:text-primary transition-colors flex items-center gap-2">
              <ArrowLeft size={14} />
@@ -121,7 +155,6 @@ const OpsCampaignDetail: React.FC = () => {
           <span className="text-primary italic">{activeTab}</span>
        </nav>
 
-       {/* OPERATIONAL HEADER */}
        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 bg-surface border border-border p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
              <Target size={200} />
@@ -157,13 +190,11 @@ const OpsCampaignDetail: React.FC = () => {
           </div>
        </header>
 
-       {/* NAVIGATION TABS */}
        <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar">
           {[
             { id: 'OVERVIEW', label: 'Overview', icon: BarChart3 },
             { id: 'TASKS', label: 'Tasks', icon: Target },
             { id: 'PARTICIPANTS', label: 'Users', icon: Users },
-            { id: 'STATS', label: 'Analytics', icon: History },
             { id: 'LEDGER', label: 'Activity', icon: ShieldAlert },
             { id: 'AUDIT', label: 'Audit', icon: FileText },
           ].map(tab => (
@@ -181,7 +212,6 @@ const OpsCampaignDetail: React.FC = () => {
           ))}
        </div>
 
-       {/* CONTENT VIEWPORT */}
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
              {activeTab === 'OVERVIEW' && (
@@ -242,191 +272,147 @@ const OpsCampaignDetail: React.FC = () => {
              )}
 
              {activeTab === 'TASKS' && (
-                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
-                <div className="overflow-x-auto no-scrollbar">
-                   <table className="w-full text-left min-w-[700px]">
-                      <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Task Details</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Rewards</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Validation</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary text-right">Actions</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                         {tasks.map(task => (
-                            <tr key={task.id} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
-                               <td className="px-8 py-6">
-                                  <div className="flex items-center gap-4">
-                                     <div className={cn(
-                                        "w-8 h-8 rounded-lg border flex items-center justify-center transition-colors",
-                                        task.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
-                                     )}>
-                                        <Zap size={14} />
-                                     </div>
-                                     <div>
-                                        <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{task.title}</p>
-                                        <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {task.id.slice(0,8)}</p>
-                                     </div>
-                                  </div>
-                               </td>
-                               <td className="px-8 py-6">
-                                  <div className="flex items-center gap-3">
-                                     <div>
-                                        <p className="text-xs font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
-                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">PTS</p>
-                                     </div>
-                                     <div className="w-px h-4 bg-border" />
-                                     <div>
-                                        <p className="text-xs font-mono font-bold text-primary">+{task.xpReward}</p>
-                                        <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">XP</p>
-                                     </div>
-                                  </div>
-                               </td>
-                               <td className="px-8 py-6">
-                                  <span className="px-2 py-0.5 rounded bg-surface-bright border border-border text-[8px] font-black uppercase tracking-widest text-text-secondary">
-                                     {task.verificationType}
-                                  </span>
-                               </td>
-                               <td className="px-8 py-6 text-right">
-                                  <div className="flex justify-end gap-1">
-                                     <button onClick={() => handleToggleTaskStatus(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
-                                        {task.active ? <Pause size={14} /> : <Play size={14} />}
-                                     </button>
-                                     <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
-                                        <Edit3 size={14} />
-                                     </button>
-                                     <button onClick={() => handleDeleteTask(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all">
-                                        <Trash2 size={14} />
-                                     </button>
-                                  </div>
-                               </td>
-                            </tr>
-                         ))}
-                      </tbody>
-                   </table>
-                </div>
-                </div>
-             )}
-
-             {activeTab === 'STATS' && (
-                <div className="space-y-8">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <Card className="p-6 md:p-10 border-border">
-                         <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Submission Activity</h3>
-                         <div className="h-48 flex items-end gap-2">
-                            {[40, 70, 45, 90, 65, 80, 100].map((h, i) => (
-                               <div key={i} className="flex-1 bg-primary/20 rounded-t-lg transition-all hover:bg-primary" style={{ height: `${h}%` }} />
-                            ))}
-                         </div>
-                      </Card>
-                      <Card className="p-6 md:p-10 border-border">
-                         <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-8">Distribution Breakdown</h3>
-                         <div className="space-y-6">
-                            {[
-                               { label: 'Validated', count: stats.completions, color: 'bg-success' },
-                               { label: 'Pending', count: stats.pending, color: 'bg-warning' },
-                               { label: 'Rejected', count: stats.rejected, color: 'bg-danger' }
-                            ].map((item) => {
-                               const total = Math.max(claims.length, 1);
-                               const percent = (item.count / total * 100).toFixed(0);
-                               return (
-                               <div key={item.label} className="space-y-2">
-                                  <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                                     <span>{item.label}</span>
-                                     <span>{percent}% ({item.count})</span>
-                                  </div>
-                                  <div className="h-1.5 bg-surface-bright rounded-full overflow-hidden">
-                                     <div className={cn("h-full rounded-full", item.color)} style={{ width: `${percent}%` }} />
-                                  </div>
-                               </div>
-                            )})}
-                         </div>
-                      </Card>
-                   </div>
-                </div>
+                <DataTable
+                  columns={[
+                     {
+                        header: 'Task Details',
+                        accessor: (task: Task) => (
+                           <div className="flex items-center gap-4">
+                              <div className={cn(
+                                 "w-8 h-8 rounded-lg border flex items-center justify-center transition-colors",
+                                 task.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
+                              )}>
+                                 <Zap size={14} />
+                              </div>
+                              <div>
+                                 <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{task.title}</p>
+                                 <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {task.id.slice(0,8)}</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'Rewards',
+                        accessor: (task: Task) => (
+                           <div className="flex items-center gap-3">
+                              <div>
+                                 <p className="text-xs font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
+                                 <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">PTS</p>
+                              </div>
+                              <div className="w-px h-4 bg-border" />
+                              <div>
+                                 <p className="text-xs font-mono font-bold text-primary">+{task.xpReward}</p>
+                                 <p className="text-[7px] font-black text-text-tertiary uppercase tracking-widest">XP</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'Validation',
+                        accessor: (task: Task) => (
+                           <span className="px-2 py-0.5 rounded bg-surface-bright border border-border text-[8px] font-black uppercase tracking-widest text-text-secondary">
+                              {task.verificationType}
+                           </span>
+                        )
+                     },
+                     {
+                        header: 'Actions',
+                        className: 'text-right',
+                        accessor: (task: Task) => (
+                           <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => handleToggleTaskStatus(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
+                                 {task.active ? <Pause size={14} /> : <Play size={14} />}
+                              </button>
+                              <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                                 <Edit3 size={14} />
+                              </button>
+                              <button onClick={() => handleDeleteTask(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all">
+                                 <Trash2 size={14} />
+                              </button>
+                           </div>
+                        )
+                     }
+                  ]}
+                  data={tasks}
+                  isLoading={false}
+                />
              )}
 
              {activeTab === 'PARTICIPANTS' && (
-                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
-                   <div className="overflow-x-auto no-scrollbar">
-                   <table className="w-full text-left min-w-[500px]">
-                      <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Joined</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                         {Array.from(new Set(claims.map(c => c.userId))).map(uid => {
-                            const userClaims = claims.filter(c => c.userId === uid);
-                            const latestClaim = userClaims[0];
-                            return (
-                               <tr key={uid} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
-                                  <td className="px-8 py-6">
-                                     <p className="text-sm font-bold text-text-primary uppercase">{latestClaim.metadata?.username || 'Anonymous'}</p>
-                                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{uid.slice(0, 12)}</p>
-                                  </td>
-                                  <td className="px-8 py-6">
-                                     <span className="text-[10px] font-bold text-primary uppercase">
-                                        {userClaims.filter(c => c.validationState === 'APPROVED').length} / {tasks.length} Tasks
-                                     </span>
-                                  </td>
-                                  <td className="px-8 py-6">
-                                     <p className="text-[10px] font-mono text-text-secondary uppercase">
-                                        {latestClaim.createdAt?.toDate().toLocaleDateString()}
-                                     </p>
-                                  </td>
-                               </tr>
-                            )
-                         })}
-                      </tbody>
-                   </table>
-                   </div>
-                </div>
+                <DataTable
+                  columns={[
+                     {
+                        header: 'User',
+                        accessor: (item: { id: string }) => {
+                           const latestClaim = claims.find(c => c.userId === item.id);
+                           return (
+                              <div>
+                                 <p className="text-sm font-bold text-text-primary uppercase">{latestClaim?.metadata?.username || 'Anonymous'}</p>
+                                 <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">{item.id.slice(0, 12)}</p>
+                              </div>
+                           )
+                        }
+                     },
+                     {
+                        header: 'Status',
+                        accessor: (item: { id: string }) => (
+                           <span className="text-[10px] font-bold text-primary uppercase">
+                              {claims.filter(c => c.userId === item.id && c.validationState === 'APPROVED').length} / {tasks.length} Tasks
+                           </span>
+                        )
+                     },
+                     {
+                        header: 'Joined',
+                        accessor: (item: { id: string }) => (
+                           <p className="text-[10px] font-mono text-text-secondary uppercase">
+                              {claims.find(c => c.userId === item.id)?.createdAt?.toDate().toLocaleDateString()}
+                           </p>
+                        )
+                     }
+                  ]}
+                  data={Array.from(new Set(claims.map(c => c.userId))).map(uid => ({ id: uid }))}
+                  isLoading={false}
+                />
              )}
 
              {activeTab === 'LEDGER' && (
-                <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-xl">
-                   <div className="overflow-x-auto no-scrollbar">
-                   <table className="w-full text-left min-w-[600px]">
-                      <thead>
-                         <tr className="bg-surface-bright/50 border-b border-border whitespace-nowrap">
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Log Entry</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">User</th>
-                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-text-tertiary">Time</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                         {claims.map(claim => (
-                            <tr key={claim.id} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap">
-                               <td className="px-8 py-6">
-                                  <div className="flex items-center gap-3">
-                                     <div className={cn(
-                                        "w-2 h-2 rounded-full",
-                                        claim.validationState === 'APPROVED' ? "bg-success" : claim.validationState === 'REJECTED' ? "bg-danger" : "bg-warning"
-                                     )} />
-                                     <div>
-                                        <p className="text-sm font-bold text-text-primary uppercase tracking-tight italic">Task Claim: {claim.metadata?.taskTitle}</p>
-                                        <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Status: {claim.validationState}</p>
-                                     </div>
-                                  </div>
-                               </td>
-                               <td className="px-8 py-6">
-                                  <p className="text-[10px] font-bold text-text-secondary uppercase">{claim.metadata?.username || 'Anonymous'}</p>
-                               </td>
-                               <td className="px-8 py-6">
-                                  <p className="text-[10px] font-mono text-text-tertiary uppercase">
-                                     {claim.createdAt?.toDate().toLocaleString()}
-                                  </p>
-                               </td>
-                            </tr>
-                         ))}
-                      </tbody>
-                   </table>
-                   </div>
-                </div>
+                <DataTable
+                  columns={[
+                     {
+                        header: 'Log Entry',
+                        accessor: (claim: TaskClaim) => (
+                           <div className="flex items-center gap-3">
+                              <div className={cn(
+                                 "w-2 h-2 rounded-full",
+                                 claim.validationState === 'APPROVED' ? "bg-success" : claim.validationState === 'REJECTED' ? "bg-danger" : "bg-warning"
+                              )} />
+                              <div>
+                                 <p className="text-sm font-bold text-text-primary uppercase tracking-tight italic">Task Claim: {claim.metadata?.taskTitle}</p>
+                                 <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Status: {claim.validationState}</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'User',
+                        accessor: (claim: TaskClaim) => (
+                           <p className="text-[10px] font-bold text-text-secondary uppercase">{claim.metadata?.username || 'Anonymous'}</p>
+                        )
+                     },
+                     {
+                        header: 'Time',
+                        accessor: (claim: TaskClaim) => (
+                           <p className="text-[10px] font-mono text-text-tertiary uppercase">
+                              {claim.createdAt?.toDate().toLocaleString()}
+                           </p>
+                        )
+                     }
+                  ]}
+                  data={claims}
+                  isLoading={false}
+                  onLoadMore={() => fetchClaims(true)}
+                  hasMore={hasMoreClaims}
+                />
              )}
 
              {activeTab === 'AUDIT' && (
@@ -457,7 +443,6 @@ const OpsCampaignDetail: React.FC = () => {
              )}
           </div>
 
-          {/* SIDEBAR OPS */}
           <div className="lg:col-span-4 space-y-8">
              <section className="bg-surface border border-border p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] space-y-8 shadow-xl">
                 <div className="flex items-center justify-between">
@@ -466,14 +451,14 @@ const OpsCampaignDetail: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                    {claims.filter(c => c.validationState === 'PENDING').slice(0, 5).map(claim => (
-                      <div key={claim.id} className="p-4 rounded-xl bg-surface-bright border border-border flex items-center justify-between group hover:border-primary/40 transition-all cursor-pointer">
+                      <div key={claim.id} className="p-4 rounded-xl bg-surface-bright border border-border flex items-center justify-between group hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate('/admin/validation')}>
                          <div className="min-w-0">
                             <p className="text-[11px] font-bold text-text-primary truncate">{claim.metadata?.username || 'Anonymous User'}</p>
                             <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Ref: {claim.id.slice(-8)}</p>
                          </div>
-                         <button onClick={() => navigate('/admin/validation')} className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
+                         <div className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-colors">
                             <ArrowRight size={14} />
-                         </button>
+                         </div>
                       </div>
                    ))}
                    {claims.filter(c => c.validationState === 'PENDING').length === 0 && (

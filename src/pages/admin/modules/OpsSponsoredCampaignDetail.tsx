@@ -3,23 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Zap,
-  Users,
+  BarChart3,
+  History,
   Target,
   Plus,
   Edit3,
-  Briefcase,
+  ShieldAlert,
   ArrowRight,
   Trash2,
   Pause,
   Play,
-  Settings,
-  Globe,
   ShieldCheck,
-  TrendingUp,
-  Activity,
-  History,
   Info,
-  LayoutGrid
+  TrendingUp
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
@@ -30,7 +26,10 @@ import {
   where,
   updateDoc,
   deleteDoc,
-  serverTimestamp
+  orderBy,
+  limit,
+  startAfter,
+  getDocs
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
@@ -39,6 +38,7 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import TaskBuilderModal from './modals/TaskBuilderModal';
 import CampaignBuilderModal from './modals/CampaignBuilderModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsSponsoredCampaignDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,11 +47,75 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [claims, setClaims] = React.useState<TaskClaim[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<'ARCHITECTURE' | 'OPERATIONS' | 'INTELLIGENCE'>('ARCHITECTURE');
+  const [activeTab, setActiveTab] = React.useState<'OVERVIEW' | 'TASKS' | 'LEDGER' | 'INTELLIGENCE'>('OVERVIEW');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+
+  const [hasMoreClaims, setHasMoreClaims] = React.useState(true);
+  const [lastClaimDoc, setLastClaimDoc] = React.useState<any>(null);
+
+  const fetchClaims = async (isNext = false) => {
+    if (!id) return;
+    try {
+      let q = query(
+        collection(db, 'task_claims'),
+        where('campaignId', '==', id),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastClaimDoc) {
+        q = query(
+          collection(db, 'task_claims'),
+          where('campaignId', '==', id),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastClaimDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
+
+      if (isNext) {
+        setClaims(prev => [...prev, ...data]);
+      } else {
+        setClaims(data);
+      }
+
+      setLastClaimDoc(snap.docs[snap.docs.length - 1]);
+      setHasMoreClaims(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsSponsoredCampaignDetail] Claims Fetch Error:", err);
+    }
+  };
+
+  const handleToggleTaskStatus = async (task: Task) => {
+    const loadingToast = toast.loading('Updating task status...');
+    try {
+      await updateDoc(doc(db, 'tasks', task.id), {
+        active: !task.active,
+        status: !task.active ? 'ACTIVE' : 'INACTIVE'
+      });
+      toast.dismiss(loadingToast);
+      toast.success(`Task ${!task.active ? 'Activated' : 'Paused'}`);
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error("Failed to update task status");
+    }
+  };
+
+  const handleDeleteTask = async (task: Task) => {
+    if (!window.confirm(`Are you sure you want to delete: "${task.title}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'tasks', task.id));
+      toast.success("Task deleted successfully");
+    } catch (err) {
+      toast.error("Failed to delete task");
+    }
+  };
 
   React.useEffect(() => {
     if (!id) return;
@@ -62,309 +126,240 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
     });
 
     const unsubTasks = onSnapshot(query(collection(db, 'tasks'), where('campaignId', '==', id)), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-      setTasks(data.sort((a, b) => {
-         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-         return timeA - timeB;
-      }));
+      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
     });
 
-    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id)), (snap) => {
-       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
-       setClaims(data.sort((a, b) => {
-          const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-          const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-          return timeB - timeA;
-       }));
-    });
+    fetchClaims();
 
     setLoading(false);
-    return () => { unsubCamp(); unsubTasks(); unsubClaims(); };
+    return () => { unsubCamp(); unsubTasks(); };
   }, [id, navigate]);
 
-  const handleToggleTaskStatus = async (task: Task) => {
-    try {
-      const nextActive = !task.active;
-      await updateDoc(doc(db, 'tasks', task.id), {
-        active: nextActive,
-        status: nextActive ? 'ACTIVE' : 'PAUSED',
-        updatedAt: serverTimestamp()
-      });
-      toast.success(`Task ${nextActive ? 'Activated' : 'Paused'}`);
-    } catch (err) {
-      toast.error("Status update failure");
-    }
-  };
-
-  const handleDeleteTask = async (task: Task) => {
-    if (!window.confirm(`FORCE DELETE task "${task.title}"? This cannot be undone.`)) return;
-    try {
-      await deleteDoc(doc(db, 'tasks', task.id));
-      toast.success("Task purged from campaign");
-    } catch (err) {
-      toast.error("Deletion sequence failed");
-    }
-  };
-
-  if (loading || !campaign) return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6">
-       <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary animate-pulse">Syncing Mission Parameters</p>
-    </div>
-  );
+  if (loading || !campaign) return <div className="p-20 text-center animate-pulse">Synchronizing Record...</div>;
 
   const stats = {
-     completions: claims.filter(c => c.validationState === 'APPROVED').length,
-     pending: claims.filter(c => c.validationState === 'PENDING').length,
-     rejections: claims.filter(c => c.validationState === 'REJECTED').length,
-     roi: campaign.totalPrizePool > 0 ? ((claims.filter(c => c.validationState === 'APPROVED').length * 100) / (campaign.totalPrizePool / 100)).toFixed(1) : '0'
+    completions: claims.filter(c => c.validationState === 'APPROVED').length,
+    pending: claims.filter(c => c.validationState === 'PENDING').length,
+    rejections: claims.filter(c => c.validationState === 'REJECTED').length,
+    roi: campaign.totalPrizePool && claims.length > 0 ? ((claims.filter(c => c.validationState === 'APPROVED').length * 100) / claims.length).toFixed(1) : '0'
   };
 
   return (
-    <div className="space-y-12 pb-32">
-       {/* HIERARCHICAL BREADCRUMB */}
+    <div className="space-y-8 pb-20">
        <nav className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
-          <button onClick={() => navigate('/admin/sponsored')} className="hover:text-primary transition-colors flex items-center gap-2 group">
-             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-             Sponsored Campaigns
+          <button onClick={() => navigate('/admin/sponsored')} className="hover:text-primary transition-colors flex items-center gap-2">
+             <ArrowLeft size={14} />
+             Sponsored
           </button>
           <span className="opacity-20">/</span>
           <span className="text-text-secondary">{campaign.name}</span>
           <span className="opacity-20">/</span>
-          <span className="text-primary italic tracking-[0.2em]">{activeTab}</span>
+          <span className="text-primary italic">{activeTab}</span>
        </nav>
 
-       {/* MISSION CONTROL HEADER */}
-       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10 bg-surface border border-border p-10 md:p-14 rounded-[3rem] md:rounded-[4rem] shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-1000">
-             <Target size={360} />
+       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 bg-surface border border-border p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
+             <Target size={200} />
           </div>
 
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-8 md:gap-12 relative z-10 w-full md:w-auto">
-             <div className="w-28 h-28 rounded-[2.5rem] bg-surface-bright border border-border overflow-hidden shrink-0 flex items-center justify-center shadow-inner group-hover:border-primary/40 transition-colors">
-                {campaign.bannerUrl ? <img src={campaign.bannerUrl} className="w-full h-full object-cover" /> : <Briefcase size={48} className="text-text-tertiary/20" />}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 relative z-10 w-full md:w-auto">
+             <div className="w-20 h-20 md:w-24 md:h-24 rounded-[1.5rem] md:rounded-[2rem] bg-surface-bright border border-border overflow-hidden shrink-0">
+                {campaign.bannerUrl ? <img src={campaign.bannerUrl} className="w-full h-full object-cover" /> : <Target size={32} className="m-auto mt-6 md:mt-7 text-text-tertiary" />}
              </div>
-             <div className="space-y-5">
-                <div className="flex flex-wrap items-center gap-5">
-                   <h1 className="text-4xl md:text-6xl font-bold tracking-tighter uppercase italic text-text-primary leading-none">{campaign.name}</h1>
+             <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                   <h1 className="text-2xl md:text-4xl font-bold tracking-tight uppercase italic">{campaign.name}</h1>
                    <div className={cn(
-                     "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm italic",
+                     "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border",
                      campaign.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
                    )}>
                       {campaign.status}
                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-6">
-                   <div className="flex items-center gap-3">
-                      <Globe size={16} className="text-primary" />
-                      <p className="text-xs font-black text-text-tertiary uppercase tracking-widest italic">{campaign.sponsorName || 'PulseEarn Authority'}</p>
-                   </div>
-                   <div className="w-1.5 h-1.5 rounded-full bg-border" />
-                   <div className="flex items-center gap-3">
-                      <ShieldCheck size={16} className="text-success" />
-                      <p className="text-xs font-black text-text-tertiary uppercase tracking-widest italic">Asset Verified</p>
-                   </div>
-                </div>
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest">{campaign.sponsorName || 'Institutional Partner'}</p>
              </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 relative z-10 w-full lg:w-auto">
-             <Button variant="outline" className="w-full sm:w-auto h-16 px-10 rounded-2xl text-[10px] uppercase font-black tracking-widest italic shadow-xl" onClick={() => setIsCampaignModalOpen(true)}>
-                <Settings size={20} />
-                Parameters
+          <div className="flex items-center gap-4 relative z-10 w-full lg:w-auto">
+             <Button variant="outline" className="flex-1 lg:flex-none h-12 px-6 md:px-8 rounded-xl text-[10px]" onClick={() => setIsCampaignModalOpen(true)}>
+                <Edit3 size={16} />
+                Manage
              </Button>
-             <Button variant="primary" className="w-full sm:w-auto h-16 px-10 rounded-2xl text-[10px] uppercase font-black tracking-widest italic shadow-xl shadow-primary/20" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
-                <Plus size={20} />
-                Inject Work Unit
+             <Button variant="primary" className="flex-1 lg:flex-none h-12 px-6 md:px-8 rounded-xl text-[10px]" onClick={() => { setSelectedTask(null); setIsTaskModalOpen(true); }}>
+                <Plus size={16} />
+                Deploy Task
              </Button>
           </div>
        </header>
 
-       {/* HUB NAVIGATION */}
-       <div className="flex gap-2.5 p-2 bg-surface-bright/50 border border-border rounded-[1.5rem] w-full md:w-fit overflow-x-auto no-scrollbar">
+       <div className="flex gap-2 p-1.5 bg-surface-bright/50 border border-border rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar">
           {[
-            { id: 'ARCHITECTURE', label: 'Architecture', icon: LayoutGrid },
-            { id: 'OPERATIONS', label: 'Operations', icon: Activity },
-            { id: 'INTELLIGENCE', label: 'Intelligence', icon: TrendingUp },
+            { id: 'OVERVIEW', label: 'Overview', icon: BarChart3 },
+            { id: 'TASKS', label: 'Inventory', icon: Target },
+            { id: 'LEDGER', label: 'Traffic', icon: ShieldAlert },
+            { id: 'INTELLIGENCE', label: 'ROI', icon: History },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "flex items-center gap-4 px-8 py-4 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap italic",
-                activeTab === tab.id ? "bg-white text-black shadow-2xl scale-[1.02]" : "text-text-tertiary hover:text-text-primary hover:bg-surface-bright"
+                "flex items-center gap-3 px-4 md:px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === tab.id ? "bg-white text-black shadow-lg" : "text-text-tertiary hover:text-text-primary hover:bg-surface-bright"
               )}
             >
-              <tab.icon size={16} />
+              <tab.icon size={14} />
               {tab.label}
             </button>
           ))}
        </div>
 
-       {/* CONTENT VIEWPORT */}
-       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <div className="lg:col-span-8 space-y-12">
-             {activeTab === 'ARCHITECTURE' && (
-                <div className="space-y-12">
+       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-8">
+             {activeTab === 'OVERVIEW' && (
+                <div className="space-y-8">
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Card className="p-10 border-border bg-surface-bright/30 relative overflow-hidden group">
-                         <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
-                            <Zap size={80} />
-                         </div>
-                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-8">Authorized Bounty</p>
-                         <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-mono font-bold text-text-primary">{campaign.totalPrizePool?.toLocaleString()}</p>
-                            <span className="text-xs font-black text-primary uppercase">PTS</span>
-                         </div>
+                      <Card className="p-8 border-border">
+                         <p className="text-3xl font-mono font-bold text-text-primary">{campaign.participantsCount?.toLocaleString() || 0}</p>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Global Reach</p>
                       </Card>
-                      <Card className="p-10 border-border bg-surface-bright/30 relative overflow-hidden group">
-                         <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
-                            <Target size={80} />
-                         </div>
-                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-8">Deployment Units</p>
-                         <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-mono font-bold text-text-primary">{tasks.length}</p>
-                            <span className="text-xs font-black text-success uppercase">TASKS</span>
-                         </div>
+                      <Card className="p-8 border-border">
+                         <p className="text-3xl font-mono font-bold text-text-primary">{stats.completions.toLocaleString()}</p>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Conversions</p>
                       </Card>
-                      <Card className="p-10 border-border bg-surface-bright/30 relative overflow-hidden group">
-                         <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
-                            <Users size={80} />
-                         </div>
-                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-8">User Adoption</p>
-                         <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-mono font-bold text-text-primary">{campaign.participantsCount?.toLocaleString() || 0}</p>
-                            <span className="text-xs font-black text-indigo-400 uppercase">USERS</span>
-                         </div>
+                      <Card className="p-8 border-border">
+                         <p className="text-3xl font-mono font-bold text-text-primary">{campaign.remainingPool?.toLocaleString() || 0}</p>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mt-1">Budget Headroom</p>
                       </Card>
                    </div>
 
-                   <div className="bg-surface border border-border rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-2xl">
-                      <div className="p-8 border-b border-border bg-surface-bright/50 flex justify-between items-center">
-                         <div className="flex items-center gap-3">
-                            <Target size={18} className="text-primary" />
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Work Unit Registry</h3>
+                   <Card className="p-10 border-border space-y-10">
+                      <div className="flex items-center gap-3">
+                         <div className="w-1.5 h-6 bg-primary rounded-full" />
+                         <h2 className="text-xl font-bold uppercase italic">Operational Parameters</h2>
+                      </div>
+                      <div className="grid grid-cols-2 gap-12">
+                         <div className="space-y-6">
+                            <div>
+                               <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Offer Provider</p>
+                               <p className="text-sm font-bold text-text-primary uppercase">{campaign.provider || 'Internal'}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Provider ID</p>
+                               <p className="text-sm font-mono font-bold text-text-primary">{campaign.sponsorReferenceId || 'SYSTEM'}</p>
+                            </div>
                          </div>
-                         <span className="text-[9px] font-black text-primary bg-primary/10 px-3 py-1 rounded-lg border border-primary/20 tracking-widest uppercase italic">Operational</span>
-                      </div>
-                      <div className="overflow-x-auto no-scrollbar">
-                         <table className="w-full text-left">
-                            <thead>
-                               <tr className="bg-surface-bright/30 border-b border-border">
-                                  <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Module</th>
-                                  <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Economic Value</th>
-                                  <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-text-tertiary">Protocol</th>
-                                  <th className="px-8 py-6 text-[9px] font-black uppercase tracking-widest text-text-tertiary text-right">Ops</th>
-                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                               {tasks.map(task => (
-                                  <tr key={task.id} className="hover:bg-surface-bright/30 transition-colors group whitespace-nowrap cursor-pointer">
-                                     <td className="px-8 py-8">
-                                        <div className="flex items-center gap-5">
-                                           <div className={cn(
-                                              "w-12 h-12 rounded-xl border flex items-center justify-center transition-all shadow-inner group-hover:scale-105",
-                                              task.active ? "bg-primary/5 border-primary/10 text-primary shadow-primary/5" : "bg-surface-bright border-border text-text-tertiary"
-                                           )}>
-                                              <Target size={20} />
-                                           </div>
-                                           <div className="min-w-0">
-                                              <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors uppercase italic tracking-tight">{task.title}</p>
-                                              <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1.5 opacity-50">UID: {task.id.slice(0,12).toUpperCase()}</p>
-                                           </div>
-                                        </div>
-                                     </td>
-                                     <td className="px-8 py-8">
-                                        <div className="flex items-center gap-4">
-                                           <div className="space-y-1">
-                                              <p className="text-sm font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
-                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">PTS Bounty</p>
-                                           </div>
-                                           <div className="w-px h-8 bg-border" />
-                                           <div className="space-y-1">
-                                              <p className="text-sm font-mono font-bold text-primary">+{task.xpReward}</p>
-                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">XP Reward</p>
-                                           </div>
-                                        </div>
-                                     </td>
-                                     <td className="px-8 py-8">
-                                        <span className="px-3 py-1.5 rounded-lg bg-surface-bright border border-border text-[9px] font-black uppercase tracking-[0.15em] text-text-secondary italic">
-                                           {task.verificationType}
-                                        </span>
-                                     </td>
-                                     <td className="px-8 py-8 text-right" onClick={e => e.stopPropagation()}>
-                                        <div className="flex justify-end gap-2">
-                                           <button onClick={() => handleToggleTaskStatus(task)} className="p-3 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-primary transition-all border border-transparent hover:border-border">
-                                              {task.active ? <Pause size={18} /> : <Play size={18} />}
-                                           </button>
-                                           <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-3 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-text-primary transition-all border border-transparent hover:border-border">
-                                              <Edit3 size={18} />
-                                           </button>
-                                           <button onClick={() => handleDeleteTask(task)} className="p-3 hover:bg-surface-bright rounded-xl text-text-tertiary hover:text-danger transition-all border border-transparent hover:border-border">
-                                              <Trash2 size={18} />
-                                           </button>
-                                        </div>
-                                     </td>
-                                  </tr>
-                               ))}
-                               {tasks.length === 0 && (
-                                  <tr>
-                                     <td colSpan={4} className="px-8 py-32 text-center border-t border-border">
-                                        <div className="max-w-xs mx-auto space-y-8 opacity-20">
-                                           <Target size={48} className="mx-auto" />
-                                           <p className="text-[10px] font-black uppercase tracking-[0.5em]">No active work units defined</p>
-                                        </div>
-                                     </td>
-                                  </tr>
-                               )}
-                            </tbody>
-                         </table>
-                      </div>
-                   </div>
-                </div>
-             )}
-
-             {activeTab === 'OPERATIONS' && (
-                <div className="space-y-12">
-                   <Card className="p-10 border-border bg-surface shadow-2xl space-y-10">
-                      <div className="flex items-center gap-4 border-b border-border pb-6">
-                         <Activity size={20} className="text-primary" />
-                         <h2 className="text-lg font-bold uppercase italic tracking-tighter">Real-time Submission Stream</h2>
-                      </div>
-                      <div className="space-y-2">
-                         {claims.slice(0, 15).map(claim => (
-                            <div key={claim.id} className="p-5 rounded-2xl bg-surface-bright/50 border border-border hover:bg-surface-accent transition-all flex items-center justify-between group">
-                               <div className="flex items-center gap-5 min-w-0">
-                                  <div className={cn(
-                                     "w-2 h-2 rounded-full shadow-sm",
-                                     claim.validationState === 'APPROVED' ? "bg-success" : claim.validationState === 'REJECTED' ? "bg-danger" : "bg-warning animate-pulse"
-                                  )} />
-                                  <div className="min-w-0">
-                                     <p className="text-sm font-bold text-text-primary truncate uppercase italic">{claim.metadata?.username || 'ANONYMOUS'}</p>
-                                     <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Claim Type: {claim.metadata?.taskTitle || 'SECURED OBJECTIVE'}</p>
-                                  </div>
-                               </div>
-                               <div className="flex items-center gap-6 shrink-0">
-                                  <div className="text-right hidden sm:block">
-                                     <p className="text-[10px] font-mono font-bold text-text-secondary">{claim.createdAt?.toDate?.().toLocaleDateString()}</p>
-                                     <p className="text-[9px] font-mono text-text-tertiary mt-0.5 uppercase">{claim.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                  </div>
-                                  <button onClick={() => navigate('/admin/validation')} className="p-2.5 rounded-xl bg-surface-bright border border-border text-text-tertiary group-hover:text-primary transition-all">
-                                     <ArrowRight size={16} />
-                                  </button>
-                               </div>
+                         <div className="space-y-6">
+                            <div>
+                               <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2">Partner Website</p>
+                               <a href={campaign.sponsorWebsite} target="_blank" rel="noreferrer" className="text-sm font-bold text-primary flex items-center gap-2 hover:underline">
+                                  Access Partner <ArrowRight size={14} />
+                               </a>
                             </div>
-                         ))}
-                         {claims.length === 0 && (
-                            <div className="py-32 text-center opacity-20">
-                               <Activity size={48} className="mx-auto mb-6" />
-                               <p className="text-[10px] font-black uppercase tracking-[0.5em]">No operational flow detected</p>
-                            </div>
-                         )}
+                         </div>
                       </div>
                    </Card>
                 </div>
+             )}
+
+             {activeTab === 'TASKS' && (
+                <DataTable
+                  columns={[
+                     {
+                        header: 'Mission Unit',
+                        accessor: (task: Task) => (
+                           <div className="flex items-center gap-4">
+                              <div className={cn(
+                                 "w-10 h-10 rounded-xl border flex items-center justify-center transition-colors",
+                                 task.active ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
+                              )}>
+                                 <Zap size={18} />
+                              </div>
+                              <div>
+                                 <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{task.title}</p>
+                                 <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-1">ID: {task.id.slice(0,12).toUpperCase()}</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'Authorized Yield',
+                        accessor: (task: Task) => (
+                           <div className="flex items-center gap-4">
+                              <div>
+                                 <p className="text-xs font-mono font-bold text-text-primary">+{task.rewardAmount}</p>
+                                 <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">PTS</p>
+                              </div>
+                              <div className="w-px h-6 bg-border" />
+                              <div>
+                                 <p className="text-xs font-mono font-bold text-primary">+{task.xpReward}</p>
+                                 <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">XP</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'Actions',
+                        className: 'text-right',
+                        accessor: (task: Task) => (
+                           <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => handleToggleTaskStatus(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
+                                 {task.active ? <Pause size={14} /> : <Play size={14} />}
+                              </button>
+                              <button onClick={() => { setSelectedTask(task); setIsTaskModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                                 <Edit3 size={14} />
+                              </button>
+                              <button onClick={() => handleDeleteTask(task)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all">
+                                 <Trash2 size={14} />
+                              </button>
+                           </div>
+                        )
+                     }
+                  ]}
+                  data={tasks}
+                  isLoading={false}
+                />
+             )}
+
+             {activeTab === 'LEDGER' && (
+                <DataTable
+                  columns={[
+                     {
+                        header: 'Network Signal',
+                        accessor: (claim: TaskClaim) => (
+                           <div className="flex items-center gap-4">
+                              <div className={cn(
+                                 "w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]",
+                                 claim.validationState === 'APPROVED' ? "bg-success" : claim.validationState === 'REJECTED' ? "bg-danger" : "bg-warning"
+                              )} />
+                              <div>
+                                 <p className="text-sm font-bold text-text-primary uppercase tracking-tight italic">Claim: {claim.metadata?.taskTitle}</p>
+                                 <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Status: {claim.validationState}</p>
+                              </div>
+                           </div>
+                        )
+                     },
+                     {
+                        header: 'Node Identity',
+                        accessor: (claim: TaskClaim) => (
+                           <p className="text-[10px] font-bold text-text-secondary uppercase">{claim.metadata?.username || 'Anonymous'}</p>
+                        )
+                     },
+                     {
+                        header: 'Timestamp',
+                        className: 'text-right',
+                        accessor: (claim: TaskClaim) => (
+                           <div className="text-right">
+                              <p className="text-[10px] font-mono font-bold text-text-secondary">{claim.createdAt?.toDate?.().toLocaleDateString()}</p>
+                              <p className="text-[9px] font-mono text-text-tertiary mt-0.5 uppercase">{claim.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                           </div>
+                        )
+                     }
+                  ]}
+                  data={claims}
+                  isLoading={false}
+                  onLoadMore={() => fetchClaims(true)}
+                  hasMore={hasMoreClaims}
+                />
              )}
 
              {activeTab === 'INTELLIGENCE' && (
@@ -400,7 +395,6 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                          <div className="space-y-2">
                             <p className="text-4xl font-mono font-bold text-text-primary">{stats.roi}%</p>
                             <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Campaign ROI Index</p>
-                                              <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest opacity-40">XP Reward</p>
                          </div>
                          <p className="text-[10px] text-text-tertiary/60 leading-relaxed max-w-[180px] uppercase font-bold tracking-widest">Efficiency ratio based on reward distribution vs task adoption.</p>
                       </Card>
@@ -409,7 +403,6 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
              )}
           </div>
 
-          {/* OPERATIONAL SIDEBAR */}
           <div className="lg:col-span-4 space-y-12">
              <section className="bg-surface border border-border p-10 rounded-[3rem] md:rounded-[3.5rem] shadow-2xl space-y-10 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:rotate-12 transition-transform duration-1000">
@@ -438,9 +431,6 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
                          <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mt-1">Units: {tasks.length > 0 ? 'SYNCHRONIZED' : 'NULL'}</p>
                       </div>
                    </div>
-                </div>
-                <div className="pt-6 border-t border-border">
-                   <p className="text-[10px] text-text-tertiary font-bold italic leading-relaxed uppercase tracking-widest opacity-60">System monitoring confirms mission parameters are currently synchronized with partner requirements.</p>
                 </div>
              </section>
 

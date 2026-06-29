@@ -213,7 +213,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const status = getTaskStatus(t);
     if (status.status === 'completed') return false;
     if (status.status === 'cooldown') return false;
-    if (status.status === 'pending') return false;
 
     return true;
   });

@@ -3,32 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import {
   Layers,
   Plus,
-  Search,
-  Target,
   Zap,
   Copy,
   Edit3,
   Trash2,
   Play,
-  Pause
+  Pause,
+  Target
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-
-  onSnapshot,
   doc,
+  setDoc,
   updateDoc,
   serverTimestamp,
   writeBatch,
   getDocs,
-  where
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  onSnapshot
 } from 'firebase/firestore';
 import { Campaign } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import CampaignBuilderModal from './modals/CampaignBuilderModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsCampaigns: React.FC = () => {
   const navigate = useNavigate();
@@ -39,26 +42,51 @@ const OpsCampaigns: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
 
-  React.useEffect(() => {
-    const q = query(collection(db, 'campaigns'));
-    const unsubCamp = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-      setCampaigns(docs.sort((a, b) => {
-        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
-      setLoading(false);
-    }, (err) => {
-      console.error("[OpsCampaigns] Sync Failure:", err);
-      setLoading(false);
-    });
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
 
+  const fetchCampaigns = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'campaigns'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'campaigns'),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+
+      if (isNext) {
+        setCampaigns(prev => [...prev, ...data]);
+      } else {
+        setCampaigns(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsCampaigns] Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCampaigns();
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    return () => { unsubCamp(); unsubTasks(); };
+    return () => unsubTasks();
   }, []);
 
   const handleToggleStatus = async (campaign: Campaign) => {
@@ -69,6 +97,7 @@ const OpsCampaigns: React.FC = () => {
         updatedAt: serverTimestamp()
       });
       toast.success(`Campaign ${!campaign.active ? 'Activated' : 'Paused'}`);
+      fetchCampaigns();
     } catch (err) {
       toast.error("State transition failed");
     }
@@ -78,7 +107,7 @@ const OpsCampaigns: React.FC = () => {
     try {
       const { id, ...data } = campaign;
       const newRef = doc(collection(db, 'campaigns'));
-      await updateDoc(newRef, {
+      await setDoc(newRef, {
         ...data,
         id: newRef.id,
         name: `${data.name} (CLONE)`,
@@ -89,6 +118,7 @@ const OpsCampaigns: React.FC = () => {
         participantsCount: 0
       });
       toast.success("Campaign configuration cloned");
+      fetchCampaigns();
     } catch (err) {
       toast.error("Cloning engine failure");
     }
@@ -107,6 +137,7 @@ const OpsCampaigns: React.FC = () => {
       await batch.commit();
       toast.dismiss(loadingToast);
       toast.success("Campaign and child items purged");
+      fetchCampaigns();
     } catch (err) {
       toast.dismiss(loadingToast);
       toast.error("Purge sequence failed");
@@ -129,132 +160,105 @@ const OpsCampaigns: React.FC = () => {
              <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Manage and organize platform reward campaigns and distribution.</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-             <div className="relative w-full sm:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-                <input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan directory..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-[11px] focus:border-primary/50 outline-none transition-all font-medium"
-                />
-             </div>
-             <button
-               onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
-               className="w-full sm:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
-             >
-                <Plus size={18} />
-                New Campaign
-             </button>
-          </div>
+          <button
+            onClick={() => { setSelectedCampaign(null); setIsModalOpen(true); }}
+            className="w-full md:w-auto px-8 py-3 bg-primary text-text-primary rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+          >
+             <Plus size={18} /> New Campaign
+          </button>
        </header>
 
-       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto no-scrollbar">
-             <table className="w-full text-left border-collapse min-w-[1000px] lg:min-w-0">
-                <thead>
-                   <tr className="border-b border-border bg-surface-bright/50">
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Campaign</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Status</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Performance</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Reward Pool</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Budget</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary">Last Update</th>
-                      <th className="px-6 md:px-8 py-5 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-tertiary text-right">Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                   {loading ? (
-                      [1,2,3,4,5].map(i => (
-                         <tr key={i} className="animate-pulse">
-                            <td colSpan={7} className="px-8 py-10"><div className="h-4 bg-surface-bright rounded w-full" /></td>
-                         </tr>
-                      ))
-                   ) : filtered.length > 0 ? (
-                      filtered.map((camp) => (
-                         <tr
-                           key={camp.id}
-                           onClick={() => navigate(`/admin/campaigns/${camp.id}`)}
-                           className="hover:bg-surface-bright/50 transition-colors cursor-pointer group"
-                         >
-                            <td className="px-8 py-6">
-                               <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                                     {camp.bannerUrl ? (
-                                        <img src={camp.bannerUrl} className="w-full h-full object-cover" />
-                                     ) : <Target size={20} className="text-text-tertiary" />}
-                                  </div>
-                                  <div>
-                                     <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{camp.name}</p>
-                                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-0.5">{camp.id}</p>
-                                  </div>
-                               </div>
-                            </td>
-                            <td className="px-8 py-6">
-                               <div className={cn(
-                                 "inline-flex px-2 py-0.5 rounded-md font-black uppercase tracking-[0.1em] text-[8px] border",
-                                 camp.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
-                               )}>
-                                  {camp.status}
-                               </div>
-                            </td>
-                            <td className="px-8 py-6">
-                               <div className="flex items-center gap-4">
-                                  <div>
-                                     <p className="text-xs font-bold text-text-primary">{camp.participantsCount || 0}</p>
-                                     <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Users</p>
-                                  </div>
-                                  <div className="w-px h-6 bg-border" />
-                                  <div>
-                                     <p className="text-xs font-bold text-text-primary">{tasks.filter(t => t.campaignId === camp.id).length}</p>
-                                     <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Tasks</p>
-                                  </div>
-                               </div>
-                            </td>
-                            <td className="px-8 py-6">
-                               <div className="flex items-center gap-1.5">
-                                  <Zap size={10} className="text-success" />
-                                  <span className="text-xs font-mono font-bold text-text-primary">{(camp.totalPrizePool || 0).toLocaleString()}</span>
-                               </div>
-                            </td>
-                            <td className="px-8 py-6">
-                               <div className="w-24 h-1.5 bg-surface-bright rounded-full overflow-hidden border border-border">
-                                  <div
-                                    className="h-full bg-primary"
-                                    style={{ width: `${Math.max(5, (camp.remainingPool / (camp.totalPrizePool || 1)) * 100)}%` }}
-                                  />
-                               </div>
-                               <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mt-1.5">{(camp.remainingPool || 0).toLocaleString()} REMAINING</p>
-                            </td>
-                            <td className="px-8 py-6">
-                               <p className="text-[10px] font-bold text-text-secondary uppercase">
-                                  {camp.updatedAt?.toDate()?.toLocaleDateString() || 'N/A'}
-                               </p>
-                            </td>
-                            <td className="px-8 py-6 text-right" onClick={e => e.stopPropagation()}>
-                               <div className="flex items-center justify-end gap-1">
-                                  <button onClick={() => handleToggleStatus(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
-                                     {camp.active ? <Pause size={14} /> : <Play size={14} />}
-                                  </button>
-                                  <button onClick={() => handleClone(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-success transition-all" title="Clone"><Copy size={14} /></button>
-                                  <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all" title="Edit"><Edit3 size={14} /></button>
-                                  <button onClick={() => handleDelete(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all" title="Delete"><Trash2 size={14} /></button>
-                               </div>
-                            </td>
-                         </tr>
-                      ))
-                   ) : (
-                      <tr>
-                         <td colSpan={7} className="px-8 py-40 text-center">
-                            <Target size={48} className="mx-auto text-text-primary/5 mb-6" />
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary">No campaign entities identified</h3>
-                         </td>
-                      </tr>
-                   )}
-                </tbody>
-             </table>
-          </div>
-       </div>
+       <DataTable
+         columns={[
+           {
+             header: 'Campaign',
+             accessor: (camp: Campaign) => (
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-surface-bright border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                     {camp.bannerUrl ? (
+                        <img src={camp.bannerUrl} className="w-full h-full object-cover" />
+                     ) : <Target size={20} className="text-text-tertiary" />}
+                  </div>
+                  <div>
+                     <p className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{camp.name}</p>
+                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-0.5">{camp.id}</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Status',
+             accessor: (camp: Campaign) => (
+               <div className={cn(
+                 "inline-flex px-2 py-0.5 rounded-md font-black uppercase tracking-[0.1em] text-[8px] border",
+                 camp.active ? "bg-success/10 text-success border-success/20" : "bg-surface-accent text-text-tertiary border-border"
+               )}>
+                  {camp.status}
+               </div>
+             )
+           },
+           {
+             header: 'Performance',
+             accessor: (camp: Campaign) => (
+               <div className="flex items-center gap-4">
+                  <div>
+                     <p className="text-xs font-bold text-text-primary">{tasks.filter(t => t.campaignId === camp.id).length}</p>
+                     <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Tasks</p>
+                  </div>
+                  <div className="w-px h-6 bg-border" />
+                  <div>
+                     <p className="text-xs font-bold text-text-primary">{camp.participantsCount || 0}</p>
+                     <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Users</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Reward Pool',
+             accessor: (camp: Campaign) => (
+               <div className="flex items-center gap-1.5">
+                  <Zap size={10} className="text-success" />
+                  <span className="text-xs font-mono font-bold text-text-primary">{(camp.totalPrizePool || 0).toLocaleString()}</span>
+               </div>
+             )
+           },
+           {
+             header: 'Budget',
+             accessor: (camp: Campaign) => (
+               <div>
+                  <div className="w-24 h-1.5 bg-surface-bright rounded-full overflow-hidden border border-border">
+                     <div
+                       className="h-full bg-primary"
+                       style={{ width: `${Math.max(5, ((camp.remainingPool || 0) / (camp.totalPrizePool || 1)) * 100)}%` }}
+                     />
+                  </div>
+                  <p className="text-[8px] font-black uppercase tracking-widest text-text-tertiary mt-1.5">{(camp.remainingPool || 0).toLocaleString()} REMAINING</p>
+               </div>
+             )
+           },
+           {
+             header: 'Actions',
+             className: 'text-right',
+             accessor: (camp: Campaign) => (
+               <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => handleToggleStatus(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-primary transition-all">
+                     {camp.active ? <Pause size={14} /> : <Play size={14} />}
+                  </button>
+                  <button onClick={() => handleClone(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-success transition-all" title="Clone"><Copy size={14} /></button>
+                  <button onClick={() => { setSelectedCampaign(camp); setIsModalOpen(true); }} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all" title="Edit"><Edit3 size={14} /></button>
+                  <button onClick={() => handleDelete(camp)} className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all" title="Delete"><Trash2 size={14} /></button>
+               </div>
+             )
+           }
+         ]}
+         data={filtered}
+         isLoading={loading}
+         onRowClick={(camp) => navigate(`/admin/campaigns/${camp.id}`)}
+         searchTerm={searchTerm}
+         onSearchChange={setSearchTerm}
+         onLoadMore={() => fetchCampaigns(true)}
+         hasMore={hasMore}
+       />
 
        <CampaignBuilderModal
          isOpen={isModalOpen}

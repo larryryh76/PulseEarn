@@ -11,11 +11,14 @@ const DailyRewardCard: React.FC = () => {
 
   useEffect(() => {
     const updateCountdown = () => {
+      const utcOffset = -new Date().getTimezoneOffset();
       const now = new Date();
-      const nextReset = new Date();
-      nextReset.setUTCHours(24, 0, 0, 0);
+      const localNow = new Date(now.getTime() + utcOffset * 60000);
 
-      const diff = nextReset.getTime() - now.getTime();
+      const nextResetLocal = new Date(localNow);
+      nextResetLocal.setHours(24, 0, 0, 0);
+
+      const diff = nextResetLocal.getTime() - localNow.getTime();
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -30,11 +33,16 @@ const DailyRewardCard: React.FC = () => {
 
   const isClaimedToday = () => {
     if (!userData?.lastRewardDate) return false;
-    const lastDate = userData.lastRewardDate.toDate();
-    const now = new Date();
-    return lastDate.getUTCFullYear() === now.getUTCFullYear() &&
-           lastDate.getUTCMonth() === now.getUTCMonth() &&
-           lastDate.getUTCDate() === now.getUTCDate();
+    const utcOffset = -new Date().getTimezoneOffset();
+    const lastDateUTC = userData.lastRewardDate.toDate();
+    const nowUTC = new Date();
+
+    const lastDateLocal = new Date(lastDateUTC.getTime() + utcOffset * 60000);
+    const nowLocal = new Date(nowUTC.getTime() + utcOffset * 60000);
+
+    return lastDateLocal.getUTCFullYear() === nowLocal.getUTCFullYear() &&
+           lastDateLocal.getUTCMonth() === nowLocal.getUTCMonth() &&
+           lastDateLocal.getUTCDate() === nowLocal.getUTCDate();
   };
 
   const claimed = isClaimedToday();

@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Zap,
-  Search,
   Plus,
   Edit3,
   Trash2,
@@ -11,18 +10,21 @@ import {
 import {
   collection,
   query,
-
-  onSnapshot,
   doc,
   updateDoc,
   deleteDoc,
-  where
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { Task } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import TaskBuilderModal from './modals/TaskBuilderModal';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsTasks: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -34,26 +36,57 @@ const OpsTasks: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
-  React.useEffect(() => {
-    let q = query(collection(db, 'tasks'));
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
 
-    if (campaignIdFilter) {
-       q = query(
-         collection(db, 'tasks'),
-         where('campaignId', '==', campaignIdFilter)
-       );
-    }
+  const fetchTasks = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'tasks'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-      setTasks(docs.sort((a, b) => {
-        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
+      if (campaignIdFilter) {
+         q = query(
+           collection(db, 'tasks'),
+           where('campaignId', '==', campaignIdFilter),
+           orderBy('createdAt', 'desc'),
+           limit(20)
+         );
+      }
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'tasks'),
+          ...(campaignIdFilter ? [where('campaignId', '==', campaignIdFilter)] : []),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
+
+      if (isNext) {
+        setTasks(prev => [...prev, ...data]);
+      } else {
+        setTasks(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsTasks] Fetch Error:", err);
+    } finally {
       setLoading(false);
-    });
-    return unsubscribe;
+    }
+  };
+
+  React.useEffect(() => {
+    fetchTasks();
   }, [campaignIdFilter]);
 
   const handleToggleStatus = async (task: Task) => {
@@ -65,6 +98,7 @@ const OpsTasks: React.FC = () => {
       });
       toast.dismiss(loadingToast);
       toast.success(`Task ${!task.active ? 'Activated' : 'Paused'}`);
+      fetchTasks();
     } catch (err) {
       toast.dismiss(loadingToast);
       toast.error("Failed to update task status");
@@ -76,6 +110,7 @@ const OpsTasks: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'tasks', task.id));
       toast.success("Task deleted successfully");
+      fetchTasks();
     } catch (err) {
       toast.error("Failed to delete task");
     }
@@ -101,115 +136,102 @@ const OpsTasks: React.FC = () => {
              </p>
           </div>
 
-          <div className="flex items-center gap-4 w-full md:w-auto">
-             <div className="relative flex-1 md:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-                <input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Search tasks by title or ID..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
-                />
-             </div>
-             <button
-               onClick={() => {
-                 setSelectedTask(campaignIdFilter ? { campaignId: campaignIdFilter } as any : null);
-                 setIsModalOpen(true);
-               }}
-               className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
-             >
-                <Plus size={18} />
-                Create Task
-             </button>
-          </div>
+          <button
+            onClick={() => {
+              setSelectedTask(campaignIdFilter ? { campaignId: campaignIdFilter } as any : null);
+              setIsModalOpen(true);
+            }}
+            className="px-8 py-3 bg-primary text-text-primary rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 shrink-0"
+          >
+             <Plus size={18} />
+             Create Task
+          </button>
        </header>
 
-       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto no-scrollbar">
-             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
-                <thead>
-                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Task Details</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Verification</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Rewards</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Status</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 font-medium">
-                   {loading ? (
-                      [1,2,3,4,5].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
-                   ) : filtered.map((task) => (
-                      <tr key={task.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap">
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all">
-                                  <Zap size={18} />
-                               </div>
-                               <div>
-                                  <p className="text-xs md:text-sm font-bold text-text-primary uppercase italic group-hover:text-primary transition-colors">{task.title}</p>
-                                  <p className="text-[9px] font-mono text-text-tertiary mt-1">ID: {task.id.slice(0, 16).toUpperCase()}</p>
-                               </div>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-2">
-                               <MousePointer2 size={12} className="text-indigo-400" />
-                               <span className="text-[9px] md:text-[10px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-5">
-                               <div>
-                                  <p className="text-xs md:text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
-                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">PTS</p>
-                               </div>
-                               <div className="w-px h-6 bg-surface-bright" />
-                               <div>
-                                  <p className="text-xs md:text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
-                                  <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">XP</p>
-                               </div>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <button
-                              onClick={() => handleToggleStatus(task)}
-                              className={cn(
-                                "px-3 py-1 rounded text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] border",
-                                task.active ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
-                              )}
-                            >
-                               {task.active ? 'Active' : 'Suspended'}
-                            </button>
-                         </td>
-                         <td className="p-6 md:p-8 text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                               <button
-                                 onClick={() => { setSelectedTask(task); setIsModalOpen(true); }}
-                                 className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all"
-                               >
-                                  <Edit3 size={16} />
-                               </button>
-                               <button
-                                 onClick={() => handleDelete(task)}
-                                 className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all"
-                               >
-                                  <Trash2 size={16} />
-                               </button>
-                            </div>
-                         </td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-          </div>
-          {filtered.length === 0 && !loading && (
-             <div className="py-32 text-center border-t border-border">
-                <Zap size={48} className="mx-auto text-text-primary/5 mb-6" />
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-text-tertiary">No Tasks Found</p>
-             </div>
-          )}
-       </div>
+       <DataTable
+         columns={[
+           {
+             header: 'Task Details',
+             accessor: (task: Task) => (
+               <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border flex items-center justify-center text-text-tertiary group-hover:text-primary transition-all">
+                     <Zap size={18} />
+                  </div>
+                  <div>
+                     <p className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors">{task.title}</p>
+                     <p className="text-[9px] font-mono text-text-tertiary uppercase tracking-widest mt-0.5">ID: {task.id.slice(0, 16).toUpperCase()}</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Verification',
+             accessor: (task: Task) => (
+               <div className="flex items-center gap-2">
+                  <MousePointer2 size={12} className="text-indigo-400" />
+                  <span className="text-[9px] md:text-[10px] font-bold text-text-secondary uppercase tracking-widest">{task.verificationType}</span>
+               </div>
+             )
+           },
+           {
+             header: 'Rewards',
+             accessor: (task: Task) => (
+               <div className="flex items-center gap-5">
+                  <div>
+                     <p className="text-xs md:text-sm font-mono font-bold text-primary">+{(task.rewardAmount || 0).toLocaleString()}</p>
+                     <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">PTS</p>
+                  </div>
+                  <div className="w-px h-6 bg-surface-bright" />
+                  <div>
+                     <p className="text-xs md:text-sm font-mono font-bold text-indigo-400">+{(task.xpReward || 0).toLocaleString()}</p>
+                     <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50">XP</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Status',
+             accessor: (task: Task) => (
+               <button
+                 onClick={(e) => { e.stopPropagation(); handleToggleStatus(task); }}
+                 className={cn(
+                   "px-3 py-1 rounded text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] border",
+                   task.active ? "bg-success/10 text-success border-success/20" : "bg-surface-bright text-text-tertiary border-border-bright"
+                 )}
+               >
+                  {task.active ? 'Active' : 'Suspended'}
+               </button>
+             )
+           },
+           {
+             header: 'Actions',
+             className: 'text-right',
+             accessor: (task: Task) => (
+               <div className="flex justify-end gap-2 group-hover:translate-x-0 transition-all" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => { setSelectedTask(task); setIsModalOpen(true); }}
+                    className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all"
+                  >
+                     <Edit3 size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(task)}
+                    className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-danger transition-all"
+                  >
+                     <Trash2 size={16} />
+                  </button>
+               </div>
+             )
+           }
+         ]}
+         data={filtered}
+         isLoading={loading}
+         onRowClick={(task) => { setSelectedTask(task); setIsModalOpen(true); }}
+         searchTerm={searchTerm}
+         onSearchChange={setSearchTerm}
+         onLoadMore={() => fetchTasks(true)}
+         hasMore={hasMore}
+       />
 
        <TaskBuilderModal
          isOpen={isModalOpen}

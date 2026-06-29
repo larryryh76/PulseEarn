@@ -1,12 +1,9 @@
 import * as React from 'react';
 import {
   Users,
-  Search,
   MoreVertical,
   TrendingUp,
   ArrowLeft,
-  Calendar,
-  Smartphone,
   Activity,
   CheckCircle,
   Ban,
@@ -19,7 +16,6 @@ import {
   collection,
   query,
   limit,
-  onSnapshot,
   doc,
   updateDoc,
   serverTimestamp,
@@ -27,7 +23,9 @@ import {
   getDocs,
   where,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  orderBy,
+  startAfter
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
@@ -37,6 +35,7 @@ import { formatUSD } from '../../../utils/finance';
 import { calculateLevel } from '../../../utils/progression';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsUsers: React.FC = () => {
   const [users, setUsers] = React.useState<any[]>([]);
@@ -54,6 +53,46 @@ const OpsUsers: React.FC = () => {
      emailVerified: false
   });
 
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
+
+  const fetchUsers = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'users'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'users'),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const newUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isNext) {
+        setUsers(prev => [...prev, ...newUsers.filter((u: any) => u.status !== 'archived')]);
+      } else {
+        setUsers(newUsers.filter((u: any) => u.status !== 'archived'));
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsUsers] Fetch Error:", err);
+      toast.error("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
     const fetchConfig = async () => {
        try {
@@ -66,16 +105,7 @@ const OpsUsers: React.FC = () => {
        }
     };
     fetchConfig();
-
-    // Fix #12: Filter out archived users from the main list
-    // Fix #4: Use client-side filtering to handle existing users without 'status' field
-    const q = query(collection(db, 'users'), limit(100));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setUsers(allUsers.filter((u: any) => u.status !== 'archived'));
-      setLoading(false);
-    });
-    return unsubscribe;
+    fetchUsers();
   }, []);
 
   React.useEffect(() => {
@@ -103,7 +133,6 @@ const OpsUsers: React.FC = () => {
   }, [selectedUser]);
 
    const handleArchiveUser = async (user: any) => {
-      // Fix #12: Implement soft delete (archiving)
       if (!window.confirm(`AUTHORIZED ACTION: Archive user "${user.username}"? Their data will be hidden but preserved.`)) return;
       const loadingToast = toast.loading('Archiving user profile...');
       try {
@@ -124,6 +153,7 @@ const OpsUsers: React.FC = () => {
           toast.dismiss(loadingToast);
           toast.success('User archived and removed from active directory');
           setSelectedUser(null);
+          fetchUsers(); // Refresh list
       } catch (err: any) {
           console.error("[OpsUsers] Archive Error:", err);
           toast.dismiss(loadingToast);
@@ -132,7 +162,6 @@ const OpsUsers: React.FC = () => {
    };
 
    const handleDeleteUser = async (user: any) => {
-      // Fix #12: Hard delete requires double confirmation and is only for archived or critical cases
       if (!window.confirm(`CRITICAL ACTION: Deep purge user "${user.username}"? This permanently deletes ALL ledger and activity data.`)) return;
       if (!window.confirm(`FINAL WARNING: This action is irreversible. Proceed with permanent deletion?`)) return;
 
@@ -140,7 +169,22 @@ const OpsUsers: React.FC = () => {
       try {
           const userId = user.id;
 
-          // 1. Purge Linked Top-Level Records
+          // 1. Purge from Firebase Auth
+          const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+          const response = await fetch('/api/admin/delete-user', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${idToken}`
+              },
+              body: JSON.stringify({ userId })
+          });
+          const resData = await response.json();
+          if (!resData.success) {
+              console.warn("[OpsUsers] Auth deletion failed, continuing with Firestore purge:", resData.error);
+          }
+
+          // 2. Purge Linked Top-Level Records
           const collectionsToPurge = [
              { name: 'referrals', field: 'referrerId' },
              { name: 'referrals', field: 'refereeId' },
@@ -151,7 +195,6 @@ const OpsUsers: React.FC = () => {
              { name: 'system_audit', field: 'targetId' }
           ];
 
-          // Helper to delete in chunks of 500
           const deleteInChunks = async (docs: any[]) => {
              for (let i = 0; i < docs.length; i += 500) {
                 const batch = writeBatch(db);
@@ -166,14 +209,14 @@ const OpsUsers: React.FC = () => {
              await deleteInChunks(snap.docs);
           }
 
-          // 2. Purge User Sub-collections
+          // 3. Purge User Sub-collections
           const subCols = ['transactions', 'notifications', 'task_history', 'activities', 'user_tasks'];
           for (const sc of subCols) {
              const scSnap = await getDocs(collection(db, 'users', userId, sc));
              await deleteInChunks(scSnap.docs);
           }
 
-          // 3. Purge User Document
+          // 4. Purge User Document
           await deleteDoc(doc(db, 'users', userId));
 
           await setDoc(doc(collection(db, 'system_audit')), {
@@ -187,6 +230,7 @@ const OpsUsers: React.FC = () => {
           toast.dismiss(loadingToast);
           toast.success('User and all associated data purged');
           setSelectedUser(null);
+          fetchUsers(); // Refresh list
       } catch (err: any) {
           console.error("[OpsUsers] Deletion Error:", err);
           toast.dismiss(loadingToast);
@@ -217,7 +261,6 @@ const OpsUsers: React.FC = () => {
          if (result.success) {
             toast.dismiss(loadingToast);
             toast.success('Ledger Updated');
-            // Refresh local user state if needed (snapshot will handle it normally)
          } else {
             toast.dismiss(loadingToast);
             toast.error(result.error);
@@ -295,6 +338,20 @@ const OpsUsers: React.FC = () => {
       if (!selectedUser) return;
       const loadingToast = toast.loading('Updating user profile...');
       try {
+          if (editForm.emailVerified && !selectedUser.emailVerified) {
+              const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+              const response = await fetch('/api/admin/verify-user', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${idToken}`
+                  },
+                  body: JSON.stringify({ userId: selectedUser.id })
+              });
+              const resData = await response.json();
+              if (!resData.success) throw new Error(resData.error);
+          }
+
           await updateDoc(doc(db, 'users', selectedUser.id), {
               ...editForm,
               updatedAt: serverTimestamp()
@@ -312,9 +369,9 @@ const OpsUsers: React.FC = () => {
           toast.success('User profile updated');
           setSelectedUser({ ...selectedUser, ...editForm });
           setIsEditing(false);
-      } catch (err) {
+      } catch (err: any) {
           toast.dismiss(loadingToast);
-          toast.error('Failed to update user profile');
+          toast.error(`Update failed: ${err.message}`);
       }
   };
 
@@ -328,11 +385,29 @@ const OpsUsers: React.FC = () => {
       setIsEditing(true);
   };
 
-  const filtered = users.filter(u =>
-    u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.id?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    if (term.length > 2) {
+       setLoading(true);
+       try {
+          const qUsername = query(collection(db, 'users'), where('username', '>=', term), where('username', '<=', term + '\uf8ff'), limit(20));
+          const qEmail = query(collection(db, 'users'), where('email', '>=', term), where('email', '<=', term + '\uf8ff'), limit(20));
+
+          const [snapU, snapE] = await Promise.all([getDocs(qUsername), getDocs(qEmail)]);
+          const results = [...snapU.docs, ...snapE.docs].map(d => ({ id: d.id, ...d.data() }));
+
+          const unique = Array.from(new Map(results.map(u => [u.id, u])).values());
+          setUsers(unique.filter((u: any) => u.status !== 'archived'));
+          setHasMore(false); // Search is limited to top hits
+       } catch (err) {
+          toast.error("Search failed");
+       } finally {
+          setLoading(false);
+       }
+    } else if (term.length === 0) {
+       fetchUsers();
+    }
+  };
 
   return (
     <div className="space-y-12">
@@ -344,85 +419,85 @@ const OpsUsers: React.FC = () => {
              </div>
              <p className="text-xs font-medium text-text-tertiary">Platform user base management and account integrity auditing.</p>
           </div>
-
-          <div className="relative group w-full md:w-96">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-             <input
-               value={searchTerm}
-               onChange={e => setSearchTerm(e.target.value)}
-               placeholder="Scan directory by UID, Email, Username..."
-               className="w-full bg-surface-bright border border-border-bright rounded-xl py-3 pl-12 pr-6 text-sm focus:border-primary/50 outline-none transition-all font-medium"
-             />
-          </div>
        </header>
 
-       <div className="bg-surface border border-border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto no-scrollbar">
-             <table className="w-full text-left border-collapse min-w-[800px] lg:min-w-0">
-                <thead>
-                   <tr className="bg-surface-bright border-b border-border whitespace-nowrap">
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">User</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Balance</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Progression</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary">Sync Status</th>
-                      <th className="p-6 md:p-8 text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary text-right">Actions</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 font-medium">
-                   {loading ? (
-                      [1,2,3,4,5,6].map(i => <tr key={i} className="animate-pulse"><td colSpan={5} className="p-12"><div className="h-4 bg-surface-bright rounded w-full" /></td></tr>)
-                   ) : filtered.map((user) => {
-                      const expectedLevel = calculateLevel(user.xp || 0, xpPerLevel);
-                      const isSynced = (user.level || 1) === expectedLevel;
-
-                      return (
-                      <tr key={user.id} className="group hover:bg-surface-bright/50 transition-colors whitespace-nowrap cursor-pointer" onClick={() => setSelectedUser(user)}>
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-4">
-                               <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-surface-bright border border-border-bright" />
-                               <div>
-                                  <p className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
-                                  <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{user.email}</p>
-                               </div>
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{(user.points || 0).toLocaleString()} <span className="text-[8px] md:text-[9px] opacity-40">PTS</span></p>
-                            <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-success mt-1">&asymp; {formatUSD((user.points || 0) / 1000)}</p>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className="flex items-center gap-2 mb-1 md:mb-1.5">
-                               <TrendingUp size={12} className="text-primary md:w-[14px] md:h-[14px]" />
-                               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
-                            </div>
-                            <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP</p>
-                         </td>
-                         <td className="p-6 md:p-8">
-                            <div className={cn(
-                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit mb-2",
-                              isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
-                            )}>
-                               {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
-                            </div>
-                            <div className={cn(
-                              "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
-                              user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
-                            )}>
-                               {user.isBanned ? 'Restricted' : 'Authenticated'}
-                            </div>
-                         </td>
-                         <td className="p-6 md:p-8 text-right">
-                            <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
-                               <MoreVertical size={16} />
-                            </button>
-                         </td>
-                      </tr>
-                      );
-                   })}
-                </tbody>
-             </table>
-          </div>
-       </div>
+       <DataTable
+         columns={[
+           {
+             header: 'User',
+             accessor: (user: any) => (
+               <div className="flex items-center gap-4">
+                  <img src={user.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`} alt="" className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-surface-bright border border-border-bright" />
+                  <div>
+                     <p className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors italic">{user.username || 'ANONYMOUS'}</p>
+                     <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{user.email}</p>
+                  </div>
+               </div>
+             )
+           },
+           {
+             header: 'Balance',
+             accessor: (user: any) => (
+               <div>
+                  <p className="text-xs md:text-sm font-mono font-bold text-text-primary">{(user.points || 0).toLocaleString()} <span className="text-[8px] md:text-[9px] opacity-40">PTS</span></p>
+                  <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-success mt-1">&asymp; {formatUSD((user.points || 0) / 1000)}</p>
+               </div>
+             )
+           },
+           {
+             header: 'Progression',
+             accessor: (user: any) => (
+               <div>
+                  <div className="flex items-center gap-2 mb-1 md:mb-1.5">
+                     <TrendingUp size={12} className="text-primary md:w-[14px] md:h-[14px]" />
+                     <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-text-secondary">LVL {user.level || 1}</span>
+                  </div>
+                  <p className="text-[9px] md:text-[10px] font-mono text-text-tertiary uppercase">{(user.xp || 0).toLocaleString()} XP</p>
+               </div>
+             )
+           },
+           {
+             header: 'Sync Status',
+             accessor: (user: any) => {
+               const expectedLevel = calculateLevel(user.xp || 0, xpPerLevel);
+               const isSynced = (user.level || 1) === expectedLevel;
+               return (
+                  <div className="space-y-2">
+                     <div className={cn(
+                        "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                        isSynced ? "bg-success/10 text-success border-success/20" : "bg-danger/10 text-danger border-danger/20 animate-pulse"
+                     )}>
+                        {isSynced ? 'Synced' : `Mismatch (Exp: ${expectedLevel})`}
+                     </div>
+                     <div className={cn(
+                        "px-2 md:px-3 py-1 rounded text-[7px] md:text-[8px] font-black uppercase tracking-[0.2em] border w-fit",
+                        user.isBanned ? "bg-danger/10 text-danger border-danger/20" : "bg-success/10 text-success border-success/20"
+                     )}>
+                        {user.isBanned ? 'Restricted' : 'Authenticated'}
+                     </div>
+                  </div>
+               )
+             }
+           },
+           {
+             header: 'Actions',
+             className: 'text-right',
+             accessor: () => (
+               <button className="p-2 hover:bg-surface-bright rounded-lg text-text-tertiary hover:text-text-primary transition-all">
+                  <MoreVertical size={16} />
+               </button>
+             )
+           }
+         ]}
+         data={users}
+         isLoading={loading}
+         onRowClick={(user) => setSelectedUser(user)}
+         searchTerm={searchTerm}
+         onSearchChange={handleSearch}
+         searchPlaceholder="Scan directory by Email, Username..."
+         onLoadMore={() => fetchUsers(true)}
+         hasMore={hasMore}
+       />
 
        <AnimatePresence>
           {selectedUser && (
@@ -569,7 +644,7 @@ const OpsUsers: React.FC = () => {
                                    <input
                                       value={editForm.username}
                                       onChange={e => setEditForm({ ...editForm, username: e.target.value })}
-                                      className="w-full"
+                                      className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm"
                                       placeholder="Enter new username..."
                                    />
                                 </div>
@@ -578,7 +653,7 @@ const OpsUsers: React.FC = () => {
                                    <input
                                       value={editForm.email}
                                       onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                      className="w-full font-mono"
+                                      className="w-full font-mono bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm"
                                       placeholder="Enter active email..."
                                    />
                                 </div>
@@ -588,7 +663,7 @@ const OpsUsers: React.FC = () => {
                                       <select
                                          value={editForm.role}
                                          onChange={e => setEditForm({ ...editForm, role: e.target.value })}
-                                         className="w-full"
+                                         className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm appearance-none"
                                       >
                                          <option value="user">USER</option>
                                          <option value="moderator">MODERATOR</option>
@@ -597,7 +672,7 @@ const OpsUsers: React.FC = () => {
                                    </div>
                                    <div className="space-y-2">
                                       <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Verification Status</label>
-                                      <div className="flex items-center gap-4 h-[58px] bg-surface-bright border border-border rounded-2xl px-5">
+                                      <div className="flex items-center gap-4 h-[48px] bg-surface-bright border border-border rounded-xl px-5">
                                          <input
                                             type="checkbox"
                                             checked={editForm.emailVerified}
@@ -659,7 +734,7 @@ const OpsUsers: React.FC = () => {
                             </div>
                          </div>
                          <div className="bg-surface-bright rounded-2xl p-6 border border-border text-center shadow-inner">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Login Streak</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-2">Streak</p>
                             <p className="text-xl font-mono font-bold text-warning">{selectedUser.streak || 0} D</p>
                          </div>
                       </div>
@@ -667,7 +742,7 @@ const OpsUsers: React.FC = () => {
                       <section className="space-y-6">
                          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-tertiary flex items-center gap-3">
                             <Activity size={14} className="text-primary" />
-                            Administrative Ledger
+                            Ledger
                          </h4>
                          <div className="space-y-1 bg-surface-bright/50 border border-border rounded-2xl overflow-hidden shadow-inner">
                             {userActivity.map(tx => (
@@ -681,26 +756,6 @@ const OpsUsers: React.FC = () => {
                                   </p>
                                </div>
                             ))}
-                            {userActivity.length === 0 && (
-                               <div className="p-12 text-center text-text-tertiary/50 uppercase font-black text-[10px] tracking-widest">
-                                  No Ledger Events Identified
-                               </div>
-                            )}
-                         </div>
-                      </section>
-
-                      <section className="grid grid-cols-2 gap-4 pt-8 border-t border-border">
-                         <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-text-tertiary">
-                               <Calendar size={12} /> Joined Platform
-                            </div>
-                            <p className="text-xs font-bold text-text-primary uppercase italic">{selectedUser.createdAt?.toDate?.()?.toLocaleDateString() || 'PRE-MIGRATION'}</p>
-                         </div>
-                         <div className="space-y-2 text-right">
-                            <div className="flex items-center justify-end gap-2 text-[9px] font-black uppercase tracking-widest text-text-tertiary">
-                               <Smartphone size={12} /> Device Authority
-                            </div>
-                            <p className="text-xs font-bold text-text-primary uppercase italic">Active Session Linked</p>
                          </div>
                       </section>
                           </>

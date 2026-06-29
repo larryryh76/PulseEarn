@@ -70,7 +70,7 @@ export const seedTasks = async () => {
       const definitions: Partial<SystemTaskDefinition>[] = [
         {
           id: 'daily_checkin',
-          title: 'Daily Check-In',
+          title: 'Claim Daily Bonus',
           description: 'Log in today to keep your streak going',
           trigger: 'daily_login',
           category: 'DAILY',
@@ -85,7 +85,7 @@ export const seedTasks = async () => {
         },
         {
           id: 'welcome_aboard',
-          title: 'Welcome Aboard',
+          title: 'Complete First Objective',
           description: 'Complete your very first task',
           trigger: 'campaign_task_completed',
           category: 'WELCOME',
@@ -100,11 +100,11 @@ export const seedTasks = async () => {
         },
         {
           id: 'two_for_today',
-          title: 'Two for Today',
-          description: 'Complete 2 tasks today',
+          title: 'Complete 2 Tasks Today',
+          description: 'Execute two objectives within a 24h window',
           trigger: 'campaign_task_completed',
           category: 'DAILY',
-          conditionField: 'totalEarnedToday', // Proxy or custom logic
+          conditionField: 'totalEarnedToday',
           targetValue: 2,
           rewardPoints: 40,
           rewardXp: 80,
@@ -115,8 +115,8 @@ export const seedTasks = async () => {
         },
         {
           id: 'first_forecast',
-          title: 'First Forecast',
-          description: 'Place your first prediction today',
+          title: 'Place Daily Prediction',
+          description: 'Predict market movement to earn bonus PTS',
           trigger: 'prediction_submitted',
           category: 'DAILY',
           conditionField: 'stats.predictionsCount',
@@ -130,8 +130,8 @@ export const seedTasks = async () => {
         },
         {
           id: 'weekly_grind',
-          title: 'Weekly Grind',
-          description: 'Complete 5 tasks this week',
+          title: 'Complete 5 Tasks This Week',
+          description: 'Maintain high productivity throughout the week',
           trigger: 'campaign_task_completed',
           category: 'CAMPAIGN',
           conditionField: 'stats.tasksCompleted',
@@ -145,8 +145,8 @@ export const seedTasks = async () => {
         },
         {
           id: 'bring_a_friend',
-          title: 'Bring a Friend',
-          description: 'Refer one new user this week',
+          title: 'Refer One Friend This Week',
+          description: 'Expand the network to unlock rewards',
           trigger: 'referral_completed',
           category: 'REFERRAL',
           conditionField: 'stats.referralsCount',
@@ -160,8 +160,8 @@ export const seedTasks = async () => {
         },
         {
           id: 'forecast_streak',
-          title: 'Forecast Streak',
-          description: 'Settle 3 predictions this week',
+          title: 'Settle 3 Predictions This Week',
+          description: 'Successfully resolve three forecasts',
           trigger: 'prediction_completed',
           category: 'PREDICTION',
           conditionField: 'stats.predictionsCount',
@@ -175,8 +175,8 @@ export const seedTasks = async () => {
         },
         {
           id: 'level_climber',
-          title: 'Level Climber',
-          description: 'Reach Level 5',
+          title: 'Reach Level 5',
+          description: 'Climb the ranks to unlock higher limits',
           trigger: 'level_up',
           category: 'LEVEL',
           conditionField: 'level',

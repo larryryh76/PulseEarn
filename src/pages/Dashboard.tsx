@@ -419,7 +419,10 @@ const Dashboard: React.FC = () => {
                    </div>
                    <div className="space-y-4">
                       <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Earning Stats</h4>
-                      <p className="text-xs text-text-tertiary leading-relaxed">Your participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep active to maximize rewards.</p>
+                      <p className="text-xs text-text-tertiary leading-relaxed">
+                        Secure more objectives to scale your position. Current productivity:
+                        <span className="text-success font-bold ml-1 italic">{userData?.stats?.tasksCompleted || 0} Units</span>
+                      </p>
                    </div>
                 </div>
 

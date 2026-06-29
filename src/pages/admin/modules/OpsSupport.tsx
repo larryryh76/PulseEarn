@@ -3,9 +3,12 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-
-  onSnapshot,
-  where
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  onSnapshot
 } from 'firebase/firestore';
 import {
   SupportTicket,
@@ -16,42 +19,79 @@ import { SupportEngine } from '../../../engines/system/SupportEngine';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
   MessageSquare,
-  Search,
   User,
   Mail,
   Shield,
   Paperclip,
   Send,
-  X
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '../../../utils';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsSupport: React.FC = () => {
   const { currentUser } = useAuth();
   const [tickets, setTickets] = React.useState<SupportTicket[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<TicketStatus | 'ALL'>('ALL');
   const [selectedTicket, setSelectedTicket] = React.useState<SupportTicket | null>(null);
   const [messages, setMessages] = React.useState<SupportMessage[]>([]);
   const [replyText, setReplyText] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
 
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
+
+  const fetchTickets = async (isNext = false) => {
+    setLoading(true);
+    try {
+       let q = query(
+         collection(db, 'support_tickets'),
+         orderBy('updatedAt', 'desc'),
+         limit(20)
+       );
+
+       if (filter !== 'ALL') {
+          q = query(
+            collection(db, 'support_tickets'),
+            where('status', '==', filter),
+            orderBy('updatedAt', 'desc'),
+            limit(20)
+          );
+       }
+
+       if (isNext && lastDoc) {
+          q = query(
+            collection(db, 'support_tickets'),
+            ...(filter !== 'ALL' ? [where('status', '==', filter)] : []),
+            orderBy('updatedAt', 'desc'),
+            startAfter(lastDoc),
+            limit(20)
+          );
+       }
+
+       const snap = await getDocs(q);
+       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as SupportTicket));
+
+       if (isNext) {
+          setTickets(prev => [...prev, ...data]);
+       } else {
+          setTickets(data);
+       }
+
+       setLastDoc(snap.docs[snap.docs.length - 1]);
+       setHasMore(snap.docs.length === 20);
+    } catch (err) {
+       console.error("[OpsSupport] Fetch Failure:", err);
+    } finally {
+       setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    const q = filter === 'ALL'
-      ? query(collection(db, 'support_tickets'))
-      : query(collection(db, 'support_tickets'), where('status', '==', filter));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => doc.data() as SupportTicket);
-      setTickets(docs.sort((a, b) => {
-        const timeA = (a.updatedAt as any)?.toMillis?.() || 0;
-        const timeB = (b.updatedAt as any)?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
-    });
-
-    return unsubscribe;
+    fetchTickets();
   }, [filter]);
 
   React.useEffect(() => {
@@ -59,7 +99,7 @@ const OpsSupport: React.FC = () => {
     const q = collection(db, 'support_tickets', selectedTicket.id, 'support_messages');
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => doc.data() as SupportMessage);
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportMessage));
       setMessages(docs.sort((a, b) => {
         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
@@ -98,6 +138,7 @@ const OpsSupport: React.FC = () => {
     try {
       await SupportEngine.updateStatus(selectedTicket.id, status);
       toast.success(`Ticket Status: ${status}`);
+      fetchTickets();
     } catch (err) {
       toast.error('Adjustment Failed');
     }
@@ -131,30 +172,6 @@ const OpsSupport: React.FC = () => {
              </div>
              <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Platform integrity management and user inquiry resolution center.</p>
           </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-             <div className="relative group w-full sm:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
-                <input
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Scan queue..."
-                  className="w-full bg-surface-bright border border-border-bright rounded-xl pl-12 pr-6 py-3 text-[11px] text-text-primary focus:border-primary/50"
-                />
-             </div>
-             <select
-               value={filter}
-               onChange={e => setFilter(e.target.value as any)}
-               className="w-full sm:w-auto bg-surface-bright border border-border-bright rounded-xl px-6 py-3 text-[10px] text-text-secondary focus:border-primary/50 outline-none appearance-none font-bold uppercase tracking-widest cursor-pointer text-center"
-             >
-                <option value="ALL">ALL STATUS</option>
-                <option value="OPEN">OPEN</option>
-                <option value="PENDING">PENDING</option>
-                <option value="AWAITING_USER">AWAITING USER</option>
-                <option value="RESOLVED">RESOLVED</option>
-                <option value="CLOSED">CLOSED</option>
-             </select>
-          </div>
        </header>
 
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:h-[800px]">
@@ -163,30 +180,48 @@ const OpsSupport: React.FC = () => {
                 <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em]">Queue Hub</h3>
                 <span className="text-[10px] font-mono text-primary font-bold">{filteredTickets.length} TICKETS</span>
              </div>
-             <div className="flex-1 overflow-y-auto no-scrollbar">
-                {filteredTickets.map((ticket) => (
-                   <div
-                     key={ticket.id}
-                     onClick={() => setSelectedTicket(ticket)}
-                     className={cn(
-                       "p-6 border-b border-border cursor-pointer transition-all hover:bg-surface-bright group relative",
-                       selectedTicket?.id === ticket.id ? "bg-surface-accent border-l-4 border-l-primary" : "border-l-4 border-l-transparent"
-                     )}
-                   >
-                      <div className="flex justify-between items-start mb-3">
-                         <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-lg border", getStatusColor(ticket.status))}>
-                            {ticket.status}
-                         </span>
-                         <span className="text-[9px] font-mono text-text-tertiary/50 uppercase tracking-widest">{ticket.updatedAt?.toDate?.()?.toLocaleDateString()}</span>
-                      </div>
-                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-tight italic truncate group-hover:text-primary transition-colors">{ticket.subject}</h4>
-                      <div className="flex items-center gap-2 mt-2">
-                         <User size={10} className="text-text-tertiary" />
-                         <p className="text-[10px] text-text-tertiary truncate">{ticket.username} ({ticket.email})</p>
-                      </div>
-                      <p className="text-[10px] text-text-tertiary/50 mt-3 truncate italic leading-relaxed">{ticket.lastMessagePreview}</p>
-                   </div>
-                ))}
+
+             <div className="flex-1 overflow-y-auto no-scrollbar p-4">
+                <DataTable
+                  columns={[
+                     {
+                        header: 'Ticket Info',
+                        accessor: (ticket: SupportTicket) => (
+                           <div className="min-w-0 py-2">
+                              <div className="flex justify-between items-start mb-2">
+                                 <span className={cn("text-[7px] font-black uppercase tracking-[0.1em] px-1.5 py-0.5 rounded border", getStatusColor(ticket.status))}>
+                                    {ticket.status}
+                                 </span>
+                              </div>
+                              <h4 className="text-xs font-bold text-text-primary uppercase truncate group-hover:text-primary transition-colors italic">{ticket.subject}</h4>
+                              <p className="text-[9px] text-text-tertiary truncate mt-1">{ticket.username}</p>
+                           </div>
+                        )
+                     },
+                     {
+                        header: '',
+                        className: 'w-10 text-right',
+                        accessor: () => (
+                           <ChevronRight size={14} className="text-text-tertiary opacity-20 group-hover:opacity-100 transition-opacity" />
+                        )
+                     }
+                  ]}
+                  data={filteredTickets}
+                  isLoading={loading}
+                  onRowClick={(ticket) => setSelectedTicket(ticket)}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  onLoadMore={() => fetchTickets(true)}
+                  hasMore={hasMore}
+                  activeFilter={filter}
+                  onFilterChange={(f) => setFilter(f as any)}
+                  filters={[
+                     { id: 'ALL', label: 'All' },
+                     { id: 'OPEN', label: 'Open' },
+                     { id: 'PENDING', label: 'Pending' },
+                     { id: 'RESOLVED', label: 'Resolved' }
+                  ]}
+                />
              </div>
           </div>
 
@@ -289,10 +324,10 @@ const OpsSupport: React.FC = () => {
                 </>
              ) : (
                 <div className="flex-1 flex flex-col items-center justify-center space-y-8 opacity-20">
-                   <X size={80} className="text-text-primary" />
+                   <MessageSquare size={80} className="text-text-primary" />
                    <div className="text-center space-y-3">
-                      <h3 className="text-2xl font-bold text-text-primary uppercase tracking-widest italic">Select </h3>
-                      <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.6em]">System Submission Pending Analysis</p>
+                      <h3 className="text-2xl font-bold text-text-primary uppercase tracking-widest italic">Select Inquiry</h3>
+                      <p className="text-[10px] font-black text-text-secondary uppercase tracking-[0.6em]">Awaiting Administrative Engagement</p>
                    </div>
                 </div>
              )}

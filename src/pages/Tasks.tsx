@@ -50,7 +50,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const { tasks, campaigns, systemTasks, subtasks, unifiedHistory, loading } = useTasks();
+  const { tasks, campaigns, systemTasks, subtasks, unifiedHistory, loading, getTaskStatus } = useTasks();
   const [filter, setFilter] = useState<'ALL' | 'SOCIAL' | 'REFERRAL' | 'PREDICTION' | 'EDUCATION' | 'SPONSORED' | 'CHALLENGES'>('ALL');
   const [view, setView] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
@@ -367,10 +367,17 @@ const Tasks: React.FC = () => {
                                             {task.title}
                                          </h3>
                                          <div className="flex items-center gap-3 mt-1">
-                                            <div className="flex items-center gap-1">
-                                               <Zap size={10} className="text-primary" />
-                                               <span className="text-[10px] font-mono font-bold text-text-secondary">+{task.rewardAmount}</span>
-                                            </div>
+                                        {getTaskStatus(task).status === 'pending' ? (
+                                           <div className="flex items-center gap-1.5 text-warning">
+                                              <Clock size={10} className="animate-pulse" />
+                                              <span className="text-[8px] font-black uppercase tracking-widest">Under Review</span>
+                                           </div>
+                                        ) : (
+                                           <div className="flex items-center gap-1">
+                                              <Zap size={10} className="text-primary" />
+                                              <span className="text-[10px] font-mono font-bold text-text-secondary">+{task.rewardAmount}</span>
+                                           </div>
+                                        )}
                                             <div className="w-1 h-1 rounded-full bg-border" />
                                             <span className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{task.verificationType}</span>
                                             {task.provider && task.provider !== 'internal' && (

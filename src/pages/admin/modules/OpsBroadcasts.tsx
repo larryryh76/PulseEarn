@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {
-  Bell,
   Plus,
   ShieldAlert,
   Send,
@@ -15,28 +14,60 @@ import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { Bell as BellIcon, Clock } from 'lucide-react';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsBroadcasts: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [history, setHistory] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
+
+  const fetchBroadcasts = async (isNext = false) => {
+    setLoading(true);
+    try {
+      let q = query(
+        collection(db, 'broadcasts'),
+        orderBy('timestamp', 'desc'),
+        limit(20)
+      );
+
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'broadcasts'),
+          orderBy('timestamp', 'desc'),
+          startAfter(lastDoc),
+          limit(20)
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (isNext) {
+        setHistory(prev => [...prev, ...data]);
+      } else {
+        setHistory(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 20);
+    } catch (err) {
+      console.error("[OpsBroadcasts] Fetch Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const q = query(
-      collection(db, 'broadcasts'),
-      orderBy('timestamp', 'desc'),
-      limit(10)
-    );
-
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setHistory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    return unsubscribe;
+    fetchBroadcasts();
   }, []);
+
   const [formData, setFormData] = React.useState({
     title: '',
     description: '',
@@ -53,6 +84,7 @@ const OpsBroadcasts: React.FC = () => {
       toast.success("Global Signal Synchronized");
       setIsModalOpen(false);
       setFormData({ title: '', description: '', type: 'system' });
+      fetchBroadcasts(); // Refresh
     } catch (err) {
       toast.error("Deployment sequence failure");
     } finally {
@@ -65,7 +97,7 @@ const OpsBroadcasts: React.FC = () => {
        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="space-y-2">
              <div className="flex items-center gap-3 text-primary">
-                <Bell size={20} />
+                <BellIcon size={20} />
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight uppercase italic text-text-primary">Broadcast Hub</h1>
              </div>
              <p className="text-[11px] md:text-xs font-medium text-text-tertiary">Global synchronization of platform announcements and critical system alerts.</p>
@@ -110,10 +142,11 @@ const OpsBroadcasts: React.FC = () => {
              <span className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest">Global Broadcast Sync Active</span>
           </div>
 
-          {history.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4">
-              {history.map((item) => (
-                <div key={item.id} className="p-6 rounded-2xl bg-surface border border-border flex items-center justify-between group hover:border-border-bright transition-all">
+          <DataTable
+            columns={[
+              {
+                header: 'Signal Details',
+                accessor: (item: any) => (
                   <div className="flex items-center gap-6">
                     <div className={cn(
                       "w-10 h-10 rounded-xl flex items-center justify-center border",
@@ -126,29 +159,35 @@ const OpsBroadcasts: React.FC = () => {
                       <h4 className="text-sm font-bold text-text-primary uppercase italic tracking-tight">{item.title}</h4>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">{item.type}</span>
-                        <div className="w-1 h-1 rounded-full bg-surface-accent" />
-                        <div className="flex items-center gap-1.5 text-[9px] font-mono text-text-tertiary/50">
-                          <Clock size={10} />
-                          {item.timestamp?.toDate?.().toLocaleString()}
-                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="max-w-md hidden md:block">
+                )
+              },
+              {
+                header: 'Transmission Data',
+                accessor: (item: any) => (
+                  <div className="max-w-md">
                     <p className="text-[10px] text-text-tertiary truncate italic">{item.description}</p>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-40 text-center bg-surface border border-dashed border-border-bright rounded-[3rem] shadow-inner opacity-40 group hover:opacity-100 transition-opacity">
-               <div className="w-20 h-20 rounded-full border border-dashed border-border-bright mx-auto flex items-center justify-center mb-6 group-hover:border-primary/20 transition-all">
-                  <Bell size={40} className="text-text-primary/5 group-hover:text-primary/20 transition-all duration-700" />
-               </div>
-               <h3 className="text-sm font-bold uppercase tracking-widest text-text-tertiary mb-2">No active broadcasts</h3>
-               <p className="text-[10px] font-mono text-text-tertiary/50 uppercase tracking-widest">All communication channels currently silent</p>
-            </div>
-          )}
+                )
+              },
+              {
+                header: 'Timestamp',
+                className: 'text-right',
+                accessor: (item: any) => (
+                  <div className="flex items-center justify-end gap-1.5 text-[9px] font-mono text-text-tertiary/50">
+                    <Clock size={10} />
+                    {item.timestamp?.toDate?.().toLocaleString()}
+                  </div>
+                )
+              }
+            ]}
+            data={history}
+            isLoading={loading}
+            onLoadMore={() => fetchBroadcasts(true)}
+            hasMore={hasMore}
+          />
        </div>
 
        <AnimatePresence>

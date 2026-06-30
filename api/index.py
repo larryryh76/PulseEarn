@@ -225,18 +225,56 @@ def submit_task():
             })
 
         transaction.set(user_task_ref, ut_update, merge=True)
+
+        # SEC-003: Immediate Reward for Automated Tasks
+        if is_automated:
+            reward_amount = task_data.get('rewardAmount', 0)
+            xp_reward = task_data.get('xpReward', 0)
+
+            # Atomic point credit
+            transaction.update(user_ref, {
+                'points': firestore.Increment(reward_amount),
+                'xp': firestore.Increment(xp_reward),
+                'stats.totalEarnings': firestore.Increment(reward_amount)
+            })
+
+            # Update Liability
+            metrics_ref = db.collection('system_config').document('global_metrics')
+            transaction.update(metrics_ref, {
+                'totalPTSLiability': firestore.Increment(reward_amount),
+                'lastUpdatedAt': firestore.SERVER_TIMESTAMP
+            })
+
+            # Log to ledger
+            tx_ref = user_ref.collection('transactions').document()
+            transaction.set(tx_ref, {
+                'id': tx_ref.id,
+                'userId': user_id,
+                'type': 'task_reward',
+                'amount': reward_amount,
+                'source': task_data.get('title'),
+                'claimId': f"auto_{claim_id}",
+                'status': 'COMPLETED',
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'metadata': {'taskId': task_id, 'campaignId': task_data.get('campaignId')}
+            })
+
+            # Internal notification
+            notif_ref = user_ref.collection('notifications').document()
+            transaction.set(notif_ref, {
+                'type': 'reward_claimed',
+                'title': 'Task Approved',
+                'description': f"You earned {reward_amount:,} Points from: {task_data.get('title')}",
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'read': False,
+                'metadata': {'txId': tx_ref.id}
+            })
+
         return {"success": True, "claimId": claim_id, "automated": is_automated}
 
     try:
         transaction = db.transaction()
         result = process_submission(transaction)
-
-        if result['automated']:
-            # Trigger reward execution (internal call to same API logic)
-            # For simplicity in this refactor, we just return that it was automated
-            # and let the frontend/system-event handle the point credit via /api/execute-transaction
-            pass
-
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400

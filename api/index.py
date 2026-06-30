@@ -10,6 +10,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from datetime import datetime, timezone, timedelta
 import math
+import logging
+import traceback
+import html as html_lib
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
@@ -1312,6 +1315,57 @@ def handle_provider_webhook(provider):
             'metadata': {**data, 'offerId': offer_id, 'engine': 'WEBHOOK_v1'}
         })
 
+        # Transaction Ledger
+        tx_ref = user_ref.collection('transactions').document()
+        transaction.set(tx_ref, {
+            'id': tx_ref.id,
+            'userId': user_id,
+            'type': 'offerwall_reward',
+            'amount': internal_reward,
+            'source': f"Offerwall: {provider.upper()}",
+            'claimId': claim_id,
+            'status': 'COMPLETED',
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {'provider': provider, 'offerId': offer_id}
+        })
+
+        # Activity Log
+        act_ref = user_ref.collection('activities').document()
+        transaction.set(act_ref, {
+            'id': act_ref.id,
+            'userId': user_id,
+            'type': 'offerwall_completed',
+            'points': internal_reward,
+            'description': f"Completed offer on {provider.upper()}",
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {'txId': tx_ref.id}
+        })
+
+        # Referral logic: Reward referrer if applicable
+        referred_by = user_data.get('referredBy')
+        if referred_by and dist.get('referralShare', 0) > 0:
+            ref_reward = int(raw_advertiser_payout * dist['referralShare']) if raw_advertiser_payout > 0 else 0
+            if ref_reward > 0:
+                referrer_ref = db.collection('users').document(referred_by)
+                transaction.update(referrer_ref, {
+                    'points': firestore.Increment(ref_reward),
+                    'stats.totalEarnings': firestore.Increment(ref_reward)
+                })
+                transaction.update(metrics_ref, {'totalPTSLiability': firestore.Increment(ref_reward)})
+
+                # Referrer Tx
+                ref_tx_ref = referrer_ref.collection('transactions').document()
+                transaction.set(ref_tx_ref, {
+                    'id': ref_tx_ref.id,
+                    'userId': referred_by,
+                    'type': 'referral_bonus',
+                    'amount': ref_reward,
+                    'source': f"Ref Reward: {user_data.get('username', 'User')}",
+                    'claimId': f"ref_{claim_id}",
+                    'status': 'COMPLETED',
+                    'timestamp': firestore.SERVER_TIMESTAMP
+                })
+
         return True
 
     try:
@@ -1339,18 +1393,24 @@ def send_branded_email(to_email, template_name, context, subject):
 
     try:
         template_path = os.path.join(os.path.dirname(__file__), 'templates', f'{template_name}.html')
-        with open(template_path, 'r') as f:
-            html = f.read()
+        if not os.path.exists(template_path):
+            print(f"ERROR: Email template not found: {template_path}")
+            return False
 
-        # Simple string replacement for context variables
+        with open(template_path, 'r') as f:
+            html_content = f.read()
+
+        # Sanitize context and replace
         for key, value in context.items():
-            html = html.replace(f'{{{{{key}}}}}', str(value))
+            # If value is a link, don't escape it fully if it's meant to be a raw URL in href
+            safe_val = html_lib.escape(str(value)) if key != 'link' else str(value)
+            html_content = html_content.replace(f'{{{{{key}}}}}', safe_val)
 
         payload = {
             "from": f"PulseEarn <{resend_from}>",
             "to": [to_email],
             "subject": subject,
-            "html": html
+            "html": html_content
         }
 
         res = requests.post(
@@ -1391,6 +1451,19 @@ def lookup_referral_code():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/auth/request-password-reset', methods=['POST'])
+def request_password_reset():
+    data = request.json or {}
+    email = data.get('email')
+    if not email: return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
+    try:
+        user = auth.get_user_by_email(email)
+        user_doc = db.collection('users').document(user.uid).get().to_dict() or {}
+        link = auth.generate_password_reset_link(email, auth.ActionCodeSettings(url="https://pulseearn.online/login", handle_code_in_app=True))
+        send_branded_email(email, 'ResetPassword', {'username': user_doc.get('username', 'Member'), 'link': link}, "Reset your PulseEarn password")
+        return jsonify({"success": True})
+    except: return jsonify({"success": True})
+
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token
 def send_verification_email():
@@ -1400,11 +1473,9 @@ def send_verification_email():
     if not caller_email:
         return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
 
-    # Fetch username for template
     user_doc = db.collection('users').document(caller_uid).get()
     username = user_doc.to_dict().get('username', 'Member') if user_doc.exists else 'Member'
 
-    # Apply resend cooldown
     cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
 
     @firestore.transactional
@@ -1425,42 +1496,56 @@ def send_verification_email():
         transaction = db.transaction()
         check_cooldown(transaction)
 
-        action_settings = auth.ActionCodeSettings(
-            url=f"https://pulseearn.online/auth/action",
-            handle_code_in_app=True
-        )
+        action_settings = auth.ActionCodeSettings(url="https://pulseearn.online/auth/action", handle_code_in_app=True)
         link = auth.generate_email_verification_link(caller_email, action_settings)
 
         resend_key = os.environ.get('RESEND_API_KEY')
         if not resend_key:
             return jsonify({"success": False, "error": "SYSTEM_CONFIG_ERROR", "message": "Email dispatch unavailable."}), 500
 
-        success = send_branded_email(
-            caller_email,
-            'VerifyEmail',
-            {'username': username, 'link': link},
-            "Verify your PulseEarn account"
-        )
+        success = send_branded_email(caller_email, 'VerifyEmail', {'username': username, 'link': link}, "Verify your PulseEarn account")
+        if not success: return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
 
-        if not success:
-            return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
-
-        # Record successful dispatch for cooldown
-        cooldown_ref.set({
-            'userId': caller_uid,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }, merge=True)
-
+        cooldown_ref.set({'userId': caller_uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         return jsonify({"success": True, "message": "Verification email dispatched."})
     except Exception as e:
         error_msg = str(e)
         if "COOLDOWN_ACTIVE" in error_msg:
-            return jsonify({
-                "success": False,
-                "error": "COOLDOWN_ACTIVE",
-                "retryAfter": error_msg.split(':')[1]
-            }), 429
+            return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": error_msg.split(':')[1]}), 429
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/auth/request-email-change', methods=['POST'])
+@verify_token
+def request_email_change():
+    data = request.json or {}
+    new_email, uid, current_email = data.get('newEmail'), request.user['uid'], request.user.get('email')
+    user_doc = db.collection('users').document(uid).get().to_dict() or {}
+    link = auth.generate_verify_and_change_email_link(current_email, new_email, auth.ActionCodeSettings(url="https://pulseearn.online/me", handle_code_in_app=True))
+    success = send_branded_email(new_email, 'EmailChange', {'username': user_doc.get('username', 'Member'), 'link': link, 'newEmail': new_email}, "Confirm your new email")
+    return jsonify({"success": success})
+
+@app.route('/api/auth/send-welcome', methods=['POST'])
+@verify_token
+def send_welcome_email():
+    email = request.user.get('email')
+    user_doc = db.collection('users').document(request.user['uid']).get().to_dict() or {}
+    success = send_branded_email(email, 'Welcome', {'username': user_doc.get('username', 'Member')}, "Welcome to PulseEarn!")
+    return jsonify({"success": success})
+
+@app.route('/api/reconcile-metrics', methods=['POST'])
+@verify_token
+def reconcile_metrics():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid): return jsonify({"success": False, "error": "Forbidden"}), 403
+    try:
+        users = db.collection('users').stream()
+        total_balance = sum(u.to_dict().get('points', 0) for u in users)
+        db.collection('system_config').document('global_metrics').update({
+            'totalPTSLiability': total_balance,
+            'lastReconciledAt': firestore.SERVER_TIMESTAMP
+        })
+        return jsonify({"success": True, "reconciledLiability": total_balance})
+    except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token

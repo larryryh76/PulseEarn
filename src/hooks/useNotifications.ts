@@ -7,7 +7,8 @@ import {
   doc,
   updateDoc,
   writeBatch,
-  orderBy
+  orderBy,
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,23 +23,29 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Audit: Restored orderBy for synchronization integrity.
-    // Single-field index on sub-collection is automatic.
     const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
-    const q = query(notificationsRef, orderBy('timestamp', 'desc'), limit(100));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 1. Listen for recent notifications (last 100)
+    const q = query(notificationsRef, orderBy('timestamp', 'desc'), limit(100));
+    const unsubscribeList = onSnapshot(q, (snapshot) => {
       const notificationsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Notification));
-
       setNotifications(notificationsData);
-      setUnreadCount(notificationsData.filter(n => !n.read).length);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // 2. Dedicated Unread Count Listener (Accurate Badge)
+    const unreadQ = query(notificationsRef, where('read', '==', false));
+    const unsubscribeUnread = onSnapshot(unreadQ, (snapshot) => {
+      setUnreadCount(snapshot.size);
+    });
+
+    return () => {
+      unsubscribeList();
+      unsubscribeUnread();
+    };
   }, [currentUser]);
 
   const markAsRead = async (notificationId: string) => {

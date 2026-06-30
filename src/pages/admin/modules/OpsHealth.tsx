@@ -7,13 +7,15 @@ import {
   AlertCircle,
   Server,
   Wifi,
-  Lock
+  Lock,
+  ShieldAlert
 } from 'lucide-react';
 import { db, auth } from '../../../firebase/config';
 import { collection, query, where, getDocs, limit,  Timestamp, orderBy, startAfter } from 'firebase/firestore';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import DataTable from '../../../components/admin/common/DataTable';
+import toast from 'react-hot-toast';
 
 interface HealthMetric {
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
@@ -35,6 +37,7 @@ const OpsHealth: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [firestoreHealth, setFirestoreHealth] = useState<HealthMetric>({ status: 'ONLINE', lastChecked: new Date() });
   const [authHealth, setAuthHealth] = useState<HealthMetric>({ status: 'ONLINE', lastChecked: new Date() });
+  const [isReconciling, setIsReconciling] = useState(false);
   const [recentFailures, setRecentFailures] = useState<SystemAnomaly[]>([]);
   const [stats, setStats] = useState({
     permissionErrors24h: 0,
@@ -120,6 +123,32 @@ const OpsHealth: React.FC = () => {
 
     await fetchAnomalies();
     setIsRefreshing(false);
+  };
+
+  const handleReconcile = async () => {
+    if (!window.confirm("CRITICAL: Force recalculate global PTS liability from all user balances? This will overwrite global_metrics.")) return;
+    setIsReconciling(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/reconcile-metrics', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Metrics Reconciled: ${data.reconciledLiability.toLocaleString()} PTS`);
+        checkHealth();
+      } else {
+        toast.error(`Reconciliation Failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      toast.error(`System Error: ${err.message}`);
+    } finally {
+      setIsReconciling(false);
+    }
   };
 
   useEffect(() => {
@@ -274,6 +303,26 @@ const OpsHealth: React.FC = () => {
         </div>
 
         <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <ShieldAlert size={18} className="text-danger" />
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Integrity Controls</h2>
+          </div>
+          <Card className="p-8 space-y-6 bg-danger/[0.02] border-danger/10">
+             <div className="space-y-2">
+                <h3 className="text-[10px] font-black text-danger uppercase tracking-widest">Liability Reconciliation</h3>
+                <p className="text-[10px] text-text-tertiary leading-relaxed">Recalculate total PTS liability by scanning all user balances. Use this if the Overview reports offline metrics.</p>
+             </div>
+             <Button
+                onClick={handleReconcile}
+                isLoading={isReconciling}
+                variant="outline"
+                className="w-full rounded-xl border-danger/20 bg-danger/5 text-danger text-[9px] font-black uppercase tracking-widest hover:bg-danger/10"
+             >
+                <RefreshCw size={12} className="mr-2" />
+                Run Reconciler
+             </Button>
+          </Card>
+
           <div className="flex items-center gap-3">
             <Server size={18} className="text-primary" />
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-text-secondary">Network Topology</h2>

@@ -9,7 +9,6 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskClaim, PredictionRecord, TaskHistory } from '../types';
-import { TaskEngine } from '../engines/tasks/TaskEngine';
 
 export interface TaskContextType {
   tasks: Task[];
@@ -30,7 +29,7 @@ export interface TaskContextType {
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userTasks, setUserTasks] = useState<Record<string, UserTask>>({});
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -190,11 +189,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { status: 'available' as const };
   };
 
-  const submitTask = async (taskId: string, proofData?: string) => {
-    if (!currentUser || !userData) return { success: false, error: 'Unauthenticated' };
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return { success: false, error: 'Task not found' };
-    return TaskEngine.attemptTask({ userId: currentUser.uid, taskId, proof: proofData });
+  const submitTask = async (_taskId: string, _proofData?: string) => {
+    return { success: false, error: 'DEPRECATED_ENGINE' };
   };
 
   const claimTask = async (taskId: string) => submitTask(taskId);

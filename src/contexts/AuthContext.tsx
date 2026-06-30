@@ -24,10 +24,7 @@ import {
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc,
-  query,
-  where,
-  getDocs
+  addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -37,7 +34,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
-import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 import { UserEngine } from '../engines/system/UserEngine';
@@ -132,7 +128,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (result.success) {
-        await SystemTaskEngine.processEvent(uid, 'daily_login');
         toast.success('Daily Reward Claimed!', {
            icon: '🎁',
            duration: 5000,
@@ -262,15 +257,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Everything after this is wrapped in its own try/catch to isolate failures
 
-    // 1. Referral Linkage
+    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup
     if (referralCodeInput) {
        try {
-          const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            const referrerDoc = querySnapshot.docs[0];
-            const referredBy = referrerDoc.id;
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/referrals/lookup', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ referralCode: referralCodeInput })
+          });
+          const res = await response.json();
 
+          if (res.success) {
+            const referredBy = res.referrerId;
             await updateDoc(userRef, { referredBy });
 
             await setDoc(doc(collection(db, 'referrals')), {
@@ -339,14 +341,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Send initial verification with branded redirect
+    // Request branded verification email from backend
     try {
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } catch (err) {
+      console.error("[AuthContext] Backend Verification Request Failed:", err);
+      // Fallback to Firebase standard if backend fails
       await sendEmailVerification(user, {
         url: 'https://pulseearn.online/auth/action',
         handleCodeInApp: true
       });
-    } catch (err) {
-      console.error("[AuthContext] Initial Verification Dispatch Failed:", err);
     }
 
     await initializeUserProfile(user, username, referralCodeInput);

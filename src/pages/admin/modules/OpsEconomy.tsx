@@ -292,7 +292,7 @@ const OpsEconomy: React.FC = () => {
                 </h2>
                 <div className="space-y-4">
                    {[
-                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 10} PTS` },
+                     { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 50} PTS` },
                      { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPoints || 50} PTS` },
                      { label: 'Win Multiplier', value: `${economyConfig?.rewards?.predictionWinMultiplier?.toFixed(1) || '2.0'}X` },
                      { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },

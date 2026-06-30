@@ -2,14 +2,12 @@ import * as React from 'react';
 import { useEffect } from 'react';
 import {
   LayoutGrid,
-  Target,
   Zap,
   TrendingUp,
   ShieldCheck,
   CreditCard,
   Activity,
   Users,
-  Briefcase,
   ShieldAlert,
   Bell,
   Trophy,
@@ -40,8 +38,6 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'Overview', icon: LayoutGrid, path: '/admin/overview', category: 'CORE' },
-  { id: 'CAMPAIGNS', label: 'Campaigns', icon: Target, path: '/admin/campaigns', category: 'CORE' },
-  { id: 'SPONSORED', label: 'Sponsored', icon: Briefcase, path: '/admin/sponsored', category: 'CORE' },
   { id: 'TASKS', label: 'Task Library', icon: Zap, path: '/admin/tasks', category: 'CORE' },
   { id: 'PREDICTIONS', label: 'Markets', icon: TrendingUp, path: '/admin/predictions', category: 'CORE' },
 
@@ -52,9 +48,9 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'XP', label: 'XP Engine', icon: Trophy, path: '/admin/xp', category: 'ECONOMY' },
 
   { id: 'USERS', label: 'User Directory', icon: Users, path: '/admin/users', category: 'SYSTEM' },
+  { id: 'MODERATORS', label: 'Moderators', icon: ShieldCheck, path: '/admin/moderators', category: 'SYSTEM' },
   { id: 'SUPPORT', label: 'Support Desk', icon: MessageSquare, path: '/admin/support', category: 'SYSTEM' },
   { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts', category: 'SYSTEM' },
-  { id: 'MISSIONS', label: 'Global Missions', icon: Trophy, path: '/admin/missions', category: 'SYSTEM' },
 
   { id: 'SECURITY', label: 'Threat Stream', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY' },
   { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY' },
@@ -76,6 +72,10 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   const isAdmin = React.useMemo(() => {
     return userData?.role === 'admin';
   }, [userData]);
+
+  const isModerator = React.useMemo(() => {
+    return isAdmin || (userData?.role as string) === 'moderator';
+  }, [userData, isAdmin]);
 
   if (loading || !isInitialized) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">
@@ -102,7 +102,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     </div>
   );
 
-  if (!isAdmin) {
+  if (!isModerator) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 max-w-md">

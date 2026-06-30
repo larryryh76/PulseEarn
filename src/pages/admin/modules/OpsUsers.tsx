@@ -10,7 +10,8 @@ import {
   Plus,
   Minus,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import {
   collection,
@@ -27,7 +28,7 @@ import {
   orderBy,
   startAfter
 } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
+import { db, auth } from '../../../firebase/config';
 import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -552,6 +553,32 @@ const OpsUsers: React.FC = () => {
                                   <RefreshCw size={16} className={cn((selectedUser.level || 1) !== calculateLevel(selectedUser.xp || 0, xpPerLevel) && "text-danger animate-pulse")} />
                                </button>
                             </>
+                         )}
+                         {selectedUser.role !== 'admin' && selectedUser.role !== 'ADMIN' && selectedUser.role !== 'moderator' && !selectedUser.isRoot && (
+                            <button
+                              onClick={async () => {
+                                 if(!window.confirm(`Promote ${selectedUser.username} to MODERATOR?`)) return;
+                                 const load = toast.loading("Executing Promotion...");
+                                 const res = await fetch('/api/admin/promote-moderator', {
+                                    method: 'POST',
+                                    headers: {
+                                       'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                                       'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ userId: selectedUser.id })
+                                 });
+                                 const data = await res.json();
+                                 toast.dismiss(load);
+                                 if(data.success) {
+                                    toast.success("User Promoted");
+                                    setSelectedUser({...selectedUser, role: 'moderator'});
+                                 } else toast.error(data.error);
+                              }}
+                              className="px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-all shadow-lg"
+                            >
+                               <ShieldCheck size={14} className="mr-2 inline" />
+                               Promote
+                            </button>
                          )}
                          {selectedUser.isBanned ? (
                             <button

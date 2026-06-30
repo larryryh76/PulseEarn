@@ -29,9 +29,13 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <div className="flex flex-wrap gap-x-8 gap-y-2 justify-center md:justify-start">
                  <Link to="/privacy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Privacy Policy</Link>
                  <Link to="/terms" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Terms of Service</Link>
+                 <Link to="/cookies" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Cookie Policy</Link>
                  <Link to="/reward-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Reward Policy</Link>
                  <Link to="/fraud-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Fraud Policy</Link>
+                 <Link to="/referral-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Referral Policy</Link>
                  <Link to="/withdrawal-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Withdrawal Policy</Link>
+                 <Link to="/verification-policy" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Verification Policy</Link>
+                 <Link to="/community-guidelines" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Community Guidelines</Link>
                  <Link to="/help" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Help Center</Link>
                  <Link to="/support" className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">Support</Link>
               </div>

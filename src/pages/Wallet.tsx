@@ -570,10 +570,7 @@ const Wallet: React.FC = () => {
                         <Button
                            onClick={() => {
                               if (selectedTx.type.includes('prediction')) navigate('/predictions');
-                              else if (selectedTx.type.includes('task')) {
-                                 if (selectedTx.metadata?.campaignId) navigate(`/campaigns/${selectedTx.metadata.campaignId}`);
-                                 else navigate('/tasks');
-                              }
+                              else if (selectedTx.type.includes('task')) navigate('/tasks');
                               else if (selectedTx.type.includes('referral')) navigate('/referrals');
                               setSelectedTx(null);
                            }}

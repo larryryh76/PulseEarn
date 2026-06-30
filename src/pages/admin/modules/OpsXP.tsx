@@ -116,6 +116,8 @@ const OpsXP: React.FC = () => {
         const referralCounts = new Map<string, number>();
         const referralRecords = new Map<string, any>(); // key: referrerId_refereeId
 
+        // Fetch task history counts for all users in one pass if possible (or batch by 100)
+        // For now we pre-cache referral data as it is the largest N+1 vector.
         allReferralsSnap.forEach(d => {
            const data = d.data();
            const rid = data.referrerId;

@@ -7,7 +7,6 @@ import {
 } from 'firebase/firestore';
 import { Transaction } from '../../types';
 import { ActivityEngine } from '../system/ActivityEngine';
-import { SystemTaskEngine } from '../tasks/SystemTaskEngine';
 import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
 
 export interface PointTransactionRequest {
@@ -119,7 +118,6 @@ export class PointTransactionEngine {
           }
         });
 
-        await SystemTaskEngine.processEvent(userId, 'prediction_submitted');
         return res as PointTransactionResult;
       } else {
         throw new Error(res.error || 'SERVER_PREDICTION_FAILED');
@@ -166,15 +164,11 @@ export class PointTransactionEngine {
 
       // 3. System Event Triggers
       if (type === 'task_reward') {
-        SystemTaskEngine.processEvent(userId, 'campaign_task_completed').catch(() => {});
         ReferralProtectionEngine.qualifyReferral(userId).catch(() => {});
         if (tasksCompleted === 0) {
           ReferralProtectionEngine.processRetroactiveRewards(userId).catch(() => {});
         }
       }
-
-      if (type === 'referral_bonus') SystemTaskEngine.processEvent(userId, 'referral_completed').catch(() => {});
-      if (type === 'prediction_reward') SystemTaskEngine.processEvent(userId, 'prediction_completed').catch(() => {});
 
       // 4. Level Up Logic
       if (newLevel && newLevel > oldLevel) {
@@ -184,7 +178,6 @@ export class PointTransactionEngine {
           description: `Reached Level ${newLevel}!`,
           metadata: { level: newLevel }
         }).catch(() => {});
-        SystemTaskEngine.processEvent(userId, 'level_up').catch(() => {});
       }
     } catch (err) {
       console.error("[PointEngine] Side-effect failure:", err);

@@ -203,14 +203,16 @@ def submit_task():
         is_first_task = True
         if user_task_snap.exists:
             ut_data = user_task_snap.to_dict()
-            if ut_data.get('status') == 'pending': raise Exception("TASK_AUDIT_IN_PROGRESS")
+            if ut_data.get('status') == 'pending':
+                raise Exception("TASK_AUDIT_IN_PROGRESS")
             if task_data.get('cooldownPeriod', 0) == 0 and ut_data.get('status') == 'completed':
                 raise Exception("TASK_ALREADY_SECURED")
 
             # Cooldown check
             if task_data.get('cooldownPeriod', 0) > 0 and ut_data.get('lastCompleted'):
                 last_time = ut_data['lastCompleted']
-                if last_time.tzinfo is None: last_time = last_time.replace(tzinfo=timezone.utc)
+                if last_time.tzinfo is None:
+                    last_time = last_time.replace(tzinfo=timezone.utc)
                 diff = (datetime.now(timezone.utc) - last_time).total_seconds()
                 if diff < (task_data['cooldownPeriod'] * 3600):
                     raise Exception("TASK_IN_COOLDOWN")
@@ -579,8 +581,10 @@ def execute_transaction():
                 now_utc = datetime.now(timezone.utc)
                 parsed_local = datetime.strptime(local_day, '%Y-%m-%d').replace(tzinfo=timezone.utc)
                 diff_now = (parsed_local - now_utc).days
-                if diff_now > 1: raise Exception("FUTURE_DATE_FORBIDDEN")
-                if diff_now < -7: raise Exception("STALE_DATE_FORBIDDEN")
+                if diff_now > 1:
+                    raise Exception("FUTURE_DATE_FORBIDDEN")
+                if diff_now < -7:
+                    raise Exception("STALE_DATE_FORBIDDEN")
             except ValueError:
                 raise Exception("INVALID_DATE_FORMAT")
 
@@ -699,8 +703,10 @@ def execute_transaction():
 
         # Activity Log
         act_type = 'reward_received'
-        if tx_type == 'task_reward': act_type = 'task_completed'
-        elif tx_type == 'withdrawal_finalized': act_type = 'withdrawal_completed'
+        if tx_type == 'task_reward':
+            act_type = 'task_completed'
+        elif tx_type == 'withdrawal_finalized':
+            act_type = 'withdrawal_completed'
 
         act_ref = user_ref.collection('activities').document()
         transaction.set(act_ref, {
@@ -809,7 +815,8 @@ def execute_prediction():
     @firestore.transactional
     def pred_transaction(transaction):
         user_snap = user_ref.get(transaction=transaction)
-        if not user_snap.exists: raise Exception("ENTITY_NOT_FOUND")
+        if not user_snap.exists:
+            raise Exception("ENTITY_NOT_FOUND")
         user_data = user_snap.to_dict()
 
         # SEC-002: Backend Gating - Verify Level
@@ -845,7 +852,8 @@ def execute_prediction():
         calculated_reward = amount * multiplier
 
         claim_snap = claim_ref.get(transaction=transaction)
-        if claim_snap.exists: raise Exception("REWARD_ALREADY_CLAIMED")
+        if claim_snap.exists:
+            raise Exception("REWARD_ALREADY_CLAIMED")
 
         # Deduct points
         transaction.update(user_ref, {
@@ -925,7 +933,8 @@ def fetch_market_price(asset_id):
         url = "https://api.coingecko.com/api/v3/simple/price"
         res = requests.get(url, params={'ids': asset_id, 'vs_currencies': 'usd'}, timeout=10)
         price = res.json().get(asset_id, {}).get('usd')
-        if price is not None: return price
+        if price is not None:
+            return price
     except:
         pass
 
@@ -969,15 +978,18 @@ def resolve_prediction():
     @firestore.transactional
     def resolve_transaction(transaction):
         pred_snap = pred_ref.get(transaction=transaction)
-        if not pred_snap.exists: raise Exception("PREDICTION_NOT_FOUND")
+        if not pred_snap.exists:
+            raise Exception("PREDICTION_NOT_FOUND")
 
         pred_data = pred_snap.to_dict()
-        if pred_data.get('status') != 'ACTIVE': raise Exception("PREDICTION_ALREADY_RESOLVED")
+        if pred_data.get('status') != 'ACTIVE':
+            raise Exception("PREDICTION_ALREADY_RESOLVED")
 
         user_id = pred_data.get('userId')
         user_ref = db.collection('users').document(user_id)
         user_snap = user_ref.get(transaction=transaction)
-        if not user_snap.exists: raise Exception("USER_NOT_FOUND")
+        if not user_snap.exists:
+            raise Exception("USER_NOT_FOUND")
 
         is_win = (current_price > pred_data['entryPrice']) if pred_data['direction'] == 'UP' else (current_price < pred_data['entryPrice'])
         payout = pred_data.get('rewardAmount', 0) if is_win else 0
@@ -1071,18 +1083,22 @@ def process_referral_reward():
         def ref_reward_transaction(transaction):
             # 1. Read everything inside transaction
             ref_snap = ref_ref.get(transaction=transaction)
-            if not ref_snap.exists: raise Exception("REFERRAL_NOT_FOUND")
+            if not ref_snap.exists:
+                raise Exception("REFERRAL_NOT_FOUND")
             ref_data = ref_snap.to_dict()
-            if ref_data.get('status') != 'REGISTERED': raise Exception("REFERRAL_ALREADY_PROCESSED")
+            if ref_data.get('status') != 'REGISTERED':
+                raise Exception("REFERRAL_ALREADY_PROCESSED")
 
             referrer_snap = referrer_ref.get(transaction=transaction)
-            if not referrer_snap.exists: raise Exception("REFERRER_NOT_FOUND")
+            if not referrer_snap.exists:
+                raise Exception("REFERRER_NOT_FOUND")
             referrer_data = referrer_snap.to_dict()
             if referrer_data.get('stats', {}).get('tasksCompleted', 0) == 0:
                 raise Exception("REFERRER_NOT_QUALIFIED")
 
             claim_snap = claim_ref.get(transaction=transaction)
-            if claim_snap.exists: raise Exception("REWARD_ALREADY_CLAIMED")
+            if claim_snap.exists:
+                raise Exception("REWARD_ALREADY_CLAIMED")
 
             config_snap = config_ref.get(transaction=transaction)
             config = config_snap.to_dict() if config_snap.exists else {}
@@ -1181,8 +1197,10 @@ def evaluate_user_integrity():
             flags.append('MULTI_ACCOUNT_FP')
 
         risk_level = 'LOW'
-        if risk_score >= 60: risk_level = 'HIGH'
-        elif risk_score >= 20: risk_level = 'MEDIUM'
+        if risk_score >= 60:
+            risk_level = 'HIGH'
+        elif risk_score >= 20:
+            risk_level = 'MEDIUM'
 
         user_ref = users_ref.document(user_id)
         user_ref.update({
@@ -1294,6 +1312,13 @@ def handle_provider_webhook(provider):
         # Fetch user data for referral logic
         user_data = user_snap.to_dict()
 
+        # Read referrer snapshot early (before any writes) for referral logic
+        referred_by = user_data.get('referredBy')
+        referrer_snap = None
+        if referred_by and dist.get('referralShare', 0) > 0:
+            referrer_ref = db.collection('users').document(referred_by)
+            referrer_snap = referrer_ref.get(transaction=transaction)
+
         # Update user
         transaction.update(user_ref, {
             'points': firestore.Increment(internal_reward),
@@ -1344,14 +1369,12 @@ def handle_provider_webhook(provider):
             'metadata': {'txId': tx_ref.id}
         })
 
-        # Referral logic: Reward referrer if applicable
-        referred_by = user_data.get('referredBy')
-        if referred_by and dist.get('referralShare', 0) > 0:
+        # Referral logic: Reward referrer if applicable (using pre-fetched snapshot)
+        if referrer_snap is not None:
             ref_reward = int(raw_advertiser_payout * dist['referralShare']) if raw_advertiser_payout > 0 else 0
             if ref_reward > 0:
                 referrer_ref = db.collection('users').document(referred_by)
                 # Verify referrer exists before rewarding
-                referrer_snap = referrer_ref.get(transaction=transaction)
                 if referrer_snap.exists:
                     transaction.update(referrer_ref, {
                         'points': firestore.Increment(ref_reward),
@@ -1463,7 +1486,8 @@ def lookup_referral_code():
 def request_password_reset():
     data = request.json or {}
     email = data.get('email')
-    if not email: return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
+    if not email:
+        return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
     try:
         user = auth.get_user_by_email(email)
         cooldown_ref = db.collection('email_cooldowns').document(user.uid)
@@ -1474,7 +1498,8 @@ def request_password_reset():
             cooldown_data = cooldown_snap.to_dict()
             last_sent = cooldown_data.get('updatedAt')
             if last_sent:
-                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                if last_sent.tzinfo is None:
+                    last_sent = last_sent.replace(tzinfo=timezone.utc)
                 diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
                 if diff < 60:
                     return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
@@ -1484,7 +1509,7 @@ def request_password_reset():
         email_sent = send_branded_email(email, 'ResetPassword', {'username': user_doc.get('username', 'Member'), 'link': link}, "Reset your PulseEarn password")
 
         if not email_sent:
-            print(f"ERROR: Failed to send password reset email to {email}")
+            print(f"ERROR: Failed to send password reset email for user {user.uid}")
             return jsonify({"success": False, "error": "EMAIL_DISPATCH_FAILED"}), 502
 
         cooldown_ref.set({'userId': user.uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
@@ -1518,7 +1543,8 @@ def send_verification_email():
             data = snap.to_dict()
             last_sent = data.get('updatedAt')
             if last_sent:
-                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                if last_sent.tzinfo is None:
+                    last_sent = last_sent.replace(tzinfo=timezone.utc)
                 diff = (now - last_sent).total_seconds()
                 if diff < 60:
                     raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
@@ -1536,7 +1562,8 @@ def send_verification_email():
             return jsonify({"success": False, "error": "SYSTEM_CONFIG_ERROR", "message": "Email dispatch unavailable."}), 500
 
         success = send_branded_email(caller_email, 'VerifyEmail', {'username': username, 'link': link}, "Verify your PulseEarn account")
-        if not success: return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
+        if not success:
+            return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
 
         cooldown_ref.set({'userId': caller_uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         return jsonify({"success": True, "message": "Verification email dispatched."})
@@ -1568,7 +1595,8 @@ def request_email_change():
             cooldown_data = cooldown_snap.to_dict()
             last_sent = cooldown_data.get('updatedAt')
             if last_sent:
-                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                if last_sent.tzinfo is None:
+                    last_sent = last_sent.replace(tzinfo=timezone.utc)
                 diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
                 if diff < 60:
                     return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
@@ -1601,21 +1629,27 @@ def send_welcome_email():
         cooldown_data = cooldown_snap.to_dict()
         last_sent = cooldown_data.get('updatedAt')
         if last_sent:
-            if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+            if last_sent.tzinfo is None:
+                last_sent = last_sent.replace(tzinfo=timezone.utc)
             diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
             if diff < 60:
                 return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
 
     user_doc = db.collection('users').document(uid).get().to_dict() or {}
     success = send_branded_email(email, 'Welcome', {'username': user_doc.get('username', 'Member')}, "Welcome to PulseEarn!")
-    cooldown_ref.set({'userId': uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+
+    # Only set cooldown if email was successfully sent
+    if success:
+        cooldown_ref.set({'userId': uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+
     return jsonify({"success": success})
 
 @app.route('/api/reconcile-metrics', methods=['POST'])
 @verify_token
 def reconcile_metrics():
     caller_uid = request.user['uid']
-    if not is_admin(caller_uid): return jsonify({"success": False, "error": "Forbidden"}), 403
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Forbidden"}), 403
     try:
         users = db.collection('users').stream()
         total_balance = sum(u.to_dict().get('points', 0) for u in users)
@@ -1624,7 +1658,8 @@ def reconcile_metrics():
             'lastReconciledAt': firestore.SERVER_TIMESTAMP
         })
         return jsonify({"success": True, "reconciledLiability": total_balance})
-    except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token

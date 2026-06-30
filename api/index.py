@@ -1291,6 +1291,9 @@ def handle_provider_webhook(provider):
         if claim_snap.exists:
             raise Exception("ALREADY_PROCESSED")
 
+        # Fetch user data for referral logic
+        user_data = user_snap.to_dict()
+
         # Update user
         transaction.update(user_ref, {
             'points': firestore.Increment(internal_reward),
@@ -1347,24 +1350,29 @@ def handle_provider_webhook(provider):
             ref_reward = int(raw_advertiser_payout * dist['referralShare']) if raw_advertiser_payout > 0 else 0
             if ref_reward > 0:
                 referrer_ref = db.collection('users').document(referred_by)
-                transaction.update(referrer_ref, {
-                    'points': firestore.Increment(ref_reward),
-                    'stats.totalEarnings': firestore.Increment(ref_reward)
-                })
-                transaction.update(metrics_ref, {'totalPTSLiability': firestore.Increment(ref_reward)})
+                # Verify referrer exists before rewarding
+                referrer_snap = referrer_ref.get(transaction=transaction)
+                if referrer_snap.exists:
+                    transaction.update(referrer_ref, {
+                        'points': firestore.Increment(ref_reward),
+                        'stats.totalEarnings': firestore.Increment(ref_reward)
+                    })
+                    transaction.update(metrics_ref, {'totalPTSLiability': firestore.Increment(ref_reward)})
 
-                # Referrer Tx
-                ref_tx_ref = referrer_ref.collection('transactions').document()
-                transaction.set(ref_tx_ref, {
-                    'id': ref_tx_ref.id,
-                    'userId': referred_by,
-                    'type': 'referral_bonus',
-                    'amount': ref_reward,
-                    'source': f"Ref Reward: {user_data.get('username', 'User')}",
-                    'claimId': f"ref_{claim_id}",
-                    'status': 'COMPLETED',
-                    'timestamp': firestore.SERVER_TIMESTAMP
-                })
+                    # Referrer Tx
+                    ref_tx_ref = referrer_ref.collection('transactions').document()
+                    transaction.set(ref_tx_ref, {
+                        'id': ref_tx_ref.id,
+                        'userId': referred_by,
+                        'type': 'referral_bonus',
+                        'amount': ref_reward,
+                        'source': f"Ref Reward: {user_data.get('username', 'User')}",
+                        'claimId': f"ref_{claim_id}",
+                        'status': 'COMPLETED',
+                        'timestamp': firestore.SERVER_TIMESTAMP
+                    })
+                else:
+                    print(f"WARNING: Referrer {referred_by} not found for user {user_id}, skipping referral bonus")
 
         return True
 
@@ -1458,11 +1466,35 @@ def request_password_reset():
     if not email: return jsonify({"success": False, "error": "MISSING_EMAIL"}), 400
     try:
         user = auth.get_user_by_email(email)
+        cooldown_ref = db.collection('email_cooldowns').document(user.uid)
+
+        # Check cooldown
+        cooldown_snap = cooldown_ref.get()
+        if cooldown_snap.exists:
+            cooldown_data = cooldown_snap.to_dict()
+            last_sent = cooldown_data.get('updatedAt')
+            if last_sent:
+                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
+                if diff < 60:
+                    return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
+
         user_doc = db.collection('users').document(user.uid).get().to_dict() or {}
         link = auth.generate_password_reset_link(email, auth.ActionCodeSettings(url="https://pulseearn.online/login", handle_code_in_app=True))
-        send_branded_email(email, 'ResetPassword', {'username': user_doc.get('username', 'Member'), 'link': link}, "Reset your PulseEarn password")
+        email_sent = send_branded_email(email, 'ResetPassword', {'username': user_doc.get('username', 'Member'), 'link': link}, "Reset your PulseEarn password")
+
+        if not email_sent:
+            print(f"ERROR: Failed to send password reset email to {email}")
+            return jsonify({"success": False, "error": "EMAIL_DISPATCH_FAILED"}), 502
+
+        cooldown_ref.set({'userId': user.uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         return jsonify({"success": True})
-    except: return jsonify({"success": True})
+    except auth.UserNotFoundError:
+        # Return generic success for security (don't reveal if email exists)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"ERROR: Password reset failed: {str(e)}")
+        return jsonify({"success": False, "error": "REQUEST_FAILED"}), 500
 
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token
@@ -1512,24 +1544,71 @@ def send_verification_email():
         error_msg = str(e)
         if "COOLDOWN_ACTIVE" in error_msg:
             return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": error_msg.split(':')[1]}), 429
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"ERROR: Verification email dispatch failed for user {caller_uid}: {error_msg}")
+        return jsonify({"success": False, "error": "VERIFICATION_DISPATCH_FAILED"}), 500
 
 @app.route('/api/auth/request-email-change', methods=['POST'])
 @verify_token
 def request_email_change():
     data = request.json or {}
     new_email, uid, current_email = data.get('newEmail'), request.user['uid'], request.user.get('email')
-    user_doc = db.collection('users').document(uid).get().to_dict() or {}
-    link = auth.generate_verify_and_change_email_link(current_email, new_email, auth.ActionCodeSettings(url="https://pulseearn.online/me", handle_code_in_app=True))
-    success = send_branded_email(new_email, 'EmailChange', {'username': user_doc.get('username', 'Member'), 'link': link, 'newEmail': new_email}, "Confirm your new email")
-    return jsonify({"success": success})
+
+    # Validate inputs
+    if not new_email:
+        return jsonify({"success": False, "error": "MISSING_NEW_EMAIL"}), 400
+    if not current_email:
+        return jsonify({"success": False, "error": "MISSING_CURRENT_EMAIL"}), 400
+
+    try:
+        cooldown_ref = db.collection('email_cooldowns').document(uid)
+
+        # Check cooldown
+        cooldown_snap = cooldown_ref.get()
+        if cooldown_snap.exists:
+            cooldown_data = cooldown_snap.to_dict()
+            last_sent = cooldown_data.get('updatedAt')
+            if last_sent:
+                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
+                if diff < 60:
+                    return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
+
+        user_doc = db.collection('users').document(uid).get().to_dict() or {}
+        link = auth.generate_verify_and_change_email_link(current_email, new_email, auth.ActionCodeSettings(url="https://pulseearn.online/me", handle_code_in_app=True))
+        success = send_branded_email(new_email, 'EmailChange', {'username': user_doc.get('username', 'Member'), 'link': link, 'newEmail': new_email}, "Confirm your new email")
+
+        if not success:
+            print(f"ERROR: Failed to send email change request to {new_email} for user {uid}")
+            return jsonify({"success": False, "error": "EMAIL_DISPATCH_FAILED"}), 502
+
+        cooldown_ref.set({'userId': uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"ERROR: Email change request failed for user {uid}: {str(e)}")
+        return jsonify({"success": False, "error": "REQUEST_FAILED"}), 500
 
 @app.route('/api/auth/send-welcome', methods=['POST'])
 @verify_token
 def send_welcome_email():
     email = request.user.get('email')
-    user_doc = db.collection('users').document(request.user['uid']).get().to_dict() or {}
+    uid = request.user['uid']
+
+    cooldown_ref = db.collection('email_cooldowns').document(uid)
+
+    # Check cooldown
+    cooldown_snap = cooldown_ref.get()
+    if cooldown_snap.exists:
+        cooldown_data = cooldown_snap.to_dict()
+        last_sent = cooldown_data.get('updatedAt')
+        if last_sent:
+            if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+            diff = (datetime.now(timezone.utc) - last_sent).total_seconds()
+            if diff < 60:
+                return jsonify({"success": False, "error": "COOLDOWN_ACTIVE", "retryAfter": int(60 - diff)}), 429
+
+    user_doc = db.collection('users').document(uid).get().to_dict() or {}
     success = send_branded_email(email, 'Welcome', {'username': user_doc.get('username', 'Member')}, "Welcome to PulseEarn!")
+    cooldown_ref.set({'userId': uid, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
     return jsonify({"success": success})
 
 @app.route('/api/reconcile-metrics', methods=['POST'])
@@ -1541,7 +1620,7 @@ def reconcile_metrics():
         users = db.collection('users').stream()
         total_balance = sum(u.to_dict().get('points', 0) for u in users)
         db.collection('system_config').document('global_metrics').update({
-            'totalPTSLiability': total_balance,
+            'reconciledPTSLiability': total_balance,
             'lastReconciledAt': firestore.SERVER_TIMESTAMP
         })
         return jsonify({"success": True, "reconciledLiability": total_balance})

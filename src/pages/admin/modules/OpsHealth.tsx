@@ -129,7 +129,19 @@ const OpsHealth: React.FC = () => {
     if (!window.confirm("CRITICAL: Force recalculate global PTS liability from all user balances? This will overwrite global_metrics.")) return;
     setIsReconciling(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      if (!auth.currentUser) {
+        toast.error('Authentication required. Please sign in as admin.');
+        setIsReconciling(false);
+        return;
+      }
+
+      const idToken = await auth.currentUser.getIdToken();
+      if (!idToken) {
+        toast.error('Failed to obtain authentication token.');
+        setIsReconciling(false);
+        return;
+      }
+
       const res = await fetch('/api/reconcile-metrics', {
         method: 'POST',
         headers: {

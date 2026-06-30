@@ -8,7 +8,8 @@ import {
   updateDoc,
   writeBatch,
   orderBy,
-  where
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,20 +28,33 @@ export const useNotifications = () => {
 
     // 1. Listen for recent notifications (last 100)
     const q = query(notificationsRef, orderBy('timestamp', 'desc'), limit(100));
-    const unsubscribeList = onSnapshot(q, (snapshot) => {
-      const notificationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Notification));
-      setNotifications(notificationsData);
-      setLoading(false);
-    });
+    const unsubscribeList = onSnapshot(
+      q,
+      (snapshot) => {
+        const notificationsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Notification));
+        setNotifications(notificationsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to notifications:', error);
+        setLoading(false);
+      }
+    );
 
     // 2. Dedicated Unread Count Listener (Accurate Badge)
     const unreadQ = query(notificationsRef, where('read', '==', false));
-    const unsubscribeUnread = onSnapshot(unreadQ, (snapshot) => {
-      setUnreadCount(snapshot.size);
-    });
+    const unsubscribeUnread = onSnapshot(
+      unreadQ,
+      (snapshot) => {
+        setUnreadCount(snapshot.size);
+      },
+      (error) => {
+        console.error('Error listening to unread count:', error);
+      }
+    );
 
     return () => {
       unsubscribeList();
@@ -55,15 +69,17 @@ export const useNotifications = () => {
   };
 
   const markAllAsRead = async () => {
-    if (!currentUser || notifications.length === 0) return;
+    if (!currentUser) return;
 
-    const unread = notifications.filter(n => !n.read);
-    if (unread.length === 0) return;
+    const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
+    const unreadQ = query(notificationsRef, where('read', '==', false));
+    const unreadSnapshot = await getDocs(unreadQ);
+
+    if (unreadSnapshot.empty) return;
 
     const batch = writeBatch(db);
-    unread.forEach(n => {
-      const ref = doc(db, 'users', currentUser.uid, 'notifications', n.id);
-      batch.update(ref, { read: true });
+    unreadSnapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, { read: true });
     });
 
     await batch.commit();

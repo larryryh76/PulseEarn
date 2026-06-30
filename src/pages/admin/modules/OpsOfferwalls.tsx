@@ -58,7 +58,6 @@ const OpsOfferwalls: React.FC = () => {
            collection(db, 'system_claims'),
            where('type', '>=', 'offerwall_'),
            where('type', '<=', 'offerwall_\uf8ff'),
-           orderBy('type'),
            orderBy('executedAt', 'desc'),
            limit(10)
         );
@@ -68,7 +67,6 @@ const OpsOfferwalls: React.FC = () => {
               collection(db, 'system_claims'),
               where('type', '>=', 'offerwall_'),
               where('type', '<=', 'offerwall_\uf8ff'),
-              orderBy('type'),
               orderBy('executedAt', 'desc'),
               startAfter(lastCallbackDoc),
               limit(10)
@@ -126,10 +124,10 @@ const OpsOfferwalls: React.FC = () => {
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                    <BarChart3 size={20} />
                 </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Cumulative</span>
+                <span className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Visible Page</span>
              </div>
              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-1">Ecosystem Yield</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-1">Visible Yield</p>
                 <p className="text-2xl font-mono font-bold text-text-primary">{stats.totalRevenue.toLocaleString()} <span className="text-[10px] opacity-40">PTS</span></p>
              </div>
           </div>
@@ -139,10 +137,10 @@ const OpsOfferwalls: React.FC = () => {
                 <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success">
                    <ShieldCheck size={20} />
                 </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Verified</span>
+                <span className="text-[8px] font-black uppercase tracking-widest text-text-tertiary">Visible Page</span>
              </div>
              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-1">Successful Conversions</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary mb-1">Visible Conversions</p>
                 <p className="text-2xl font-mono font-bold text-text-primary">{stats.totalCallbacks.toLocaleString()} <span className="text-[10px] opacity-40">EVENTS</span></p>
              </div>
           </div>

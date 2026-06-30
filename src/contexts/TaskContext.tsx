@@ -4,7 +4,10 @@ import {
   query,
   where,
   limit,
-  collection
+  collection,
+  getDocs,
+  orderBy,
+  QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -43,6 +46,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) {
       setLoading(false);
+      // Clear historical data when user logs out
+      setSubtasks([]);
+      setTaskHistory([]);
+      setActivities([]);
+      setPredictions([]);
       return;
     }
 
@@ -70,66 +78,47 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserTasks(data);
     }));
 
-    // 4. Fetch user claims (Audit: Simplified query for immediate reactivity)
-    const subtasksQuery = query(
-      collection(db, 'task_claims'),
-      where('userId', '==', currentUser.uid),
-      limit(50)
-    );
-    unsubscribes.push(onSnapshot(subtasksQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim));
-      setSubtasks(data.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || 0;
-          const timeB = b.createdAt?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
-    }));
+    // SCALABILITY OPTIMIZATION: Non-critical historical data fetched via getDocs once on session start
+    // Critical state (active tasks/campaigns/progress) remains real-time.
+    let isCancelled = false;
+    const fetchHistoricalData = async () => {
+      const requestUserId = currentUser.uid;
 
-    // 4.5 Fetch User Task History (Audit: Simplified query for immediate reactivity)
-    const historyQuery = query(
-      collection(db, 'users', currentUser.uid, 'task_history'),
-      limit(50)
-    );
-    unsubscribes.push(onSnapshot(historyQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory));
-      setTaskHistory(data.sort((a, b) => {
-          const timeA = a.resolvedAt?.toMillis?.() || 0;
-          const timeB = b.resolvedAt?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
-    }));
+      const results = await Promise.allSettled([
+        getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'users', requestUserId, 'activities'), orderBy('timestamp', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
+      ]);
 
-    // 5. Fetch activities
-    const activitiesQuery = query(
-      collection(db, 'users', currentUser.uid, 'activities'),
-      limit(50)
-    );
-    unsubscribes.push(onSnapshot(activitiesQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity));
-      setActivities(data.sort((a, b) => {
-          const timeA = a.timestamp?.toMillis?.() || 0;
-          const timeB = b.timestamp?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
-    }));
+      if (isCancelled || currentUser.uid !== requestUserId) return;
 
-    // 6. Fetch Predictions History (Simplified query to avoid index latency/missing issues)
-    const predictionsQuery = query(
-      collection(db, 'user_predictions'),
-      where('userId', '==', currentUser.uid),
-      limit(50)
-    );
-    unsubscribes.push(onSnapshot(predictionsQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord));
-      // Sort in frontend to ensure immediate display even before Firestore index is fully optimized
-      setPredictions(data.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || Date.now();
-          const timeB = b.createdAt?.toMillis?.() || Date.now();
-          return timeB - timeA;
-      }));
-    }, (err) => {
-        console.error("[TaskContext] Prediction History Error:", err);
-    }));
+      if (results[0].status === 'fulfilled') {
+        setSubtasks(results[0].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
+      } else {
+        console.error("[TaskContext] Task Claims Fetch Error:", results[0].reason);
+      }
+
+      if (results[1].status === 'fulfilled') {
+        setTaskHistory(results[1].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
+      } else {
+        console.error("[TaskContext] Task History Fetch Error:", results[1].reason);
+      }
+
+      if (results[2].status === 'fulfilled') {
+        setActivities(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as Activity)));
+      } else {
+        console.error("[TaskContext] Activities Fetch Error:", results[2].reason);
+      }
+
+      if (results[3].status === 'fulfilled') {
+        setPredictions(results[3].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
+      } else {
+        console.error("[TaskContext] Predictions Fetch Error:", results[3].reason);
+      }
+    };
+
+    fetchHistoricalData();
 
     // 7. Fetch System Missions
     const defQ = query(collection(db, 'system_task_definitions'), where('active', '==', true));
@@ -159,6 +148,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 15000);
 
     return () => {
+      isCancelled = true;
       unsubscribes.forEach(unsub => unsub());
       clearTimeout(loadTimeout);
     };

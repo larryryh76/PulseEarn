@@ -235,6 +235,7 @@ export interface UserData {
   walletAddress?: string;
   totalWithdrawn?: number;
   avatarUrl?: string;
+  isRoot?: boolean;
   segment?: 'new' | 'active' | 'power' | 'inactive' | 'suspicious';
   onboardingCompleted?: boolean;
   fingerprint?: string;

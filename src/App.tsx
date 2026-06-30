@@ -29,7 +29,8 @@ import {
   OpsXP as AdminXP,
   OpsSupport as AdminSupport,
   OpsHealth as AdminHealth,
-  OpsModerators as AdminModerators
+  OpsModerators as AdminModerators,
+  OpsOfferwalls as AdminOfferwalls
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -69,7 +70,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
   if (loading) return (
@@ -80,9 +81,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdmin = userData?.role === 'admin';
+  const role = (userData?.role as string)?.toLowerCase();
+  const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
-  if (!isAdmin) {
+  if (!isOps) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -175,22 +177,23 @@ function App() {
         <Route path="/support-policy" element={<SupportPolicy />} />
         <Route path="/help" element={<HelpCenter />} />
 
-        <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
-        <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/validation" element={<AdminRoute><OpsLayout><AdminValidation /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><OpsLayout><AdminUsers /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/economy" element={<AdminRoute><OpsLayout><AdminEconomy /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/broadcasts" element={<AdminRoute><OpsLayout><AdminBroadcasts /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/audit" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/tasks" element={<AdminRoute><OpsLayout><AdminTasks /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/predictions" element={<AdminRoute><OpsLayout><AdminPredictions /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/health" element={<AdminRoute><OpsLayout><AdminHealth /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/moderators" element={<AdminRoute><OpsLayout><AdminModerators /></OpsLayout></AdminRoute>} />
+        <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
+        <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/security" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/economy" element={<OpsRoute><OpsLayout><AdminEconomy /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/broadcasts" element={<OpsRoute><OpsLayout><AdminBroadcasts /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/audit" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/tasks" element={<OpsRoute><OpsLayout><AdminTasks /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/predictions" element={<OpsRoute><OpsLayout><AdminPredictions /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/withdrawals" element={<OpsRoute><OpsLayout><AdminWithdrawals /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/support" element={<OpsRoute><OpsLayout><AdminSupport /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/xp" element={<OpsRoute><OpsLayout><AdminXP /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/health" element={<OpsRoute><OpsLayout><AdminHealth /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/moderators" element={<OpsRoute><OpsLayout><AdminModerators /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/offerwalls" element={<OpsRoute><OpsLayout><AdminOfferwalls /></OpsLayout></OpsRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -29,7 +29,8 @@ import {
   OpsXP as AdminXP,
   OpsSupport as AdminSupport,
   OpsHealth as AdminHealth,
-  OpsModerators as AdminModerators
+  OpsModerators as AdminModerators,
+  OpsOfferwalls as AdminOfferwalls
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -191,6 +192,7 @@ function App() {
         <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
         <Route path="/admin/health" element={<AdminRoute><OpsLayout><AdminHealth /></OpsLayout></AdminRoute>} />
         <Route path="/admin/moderators" element={<AdminRoute><OpsLayout><AdminModerators /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/offerwalls" element={<AdminRoute><OpsLayout><AdminOfferwalls /></OpsLayout></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

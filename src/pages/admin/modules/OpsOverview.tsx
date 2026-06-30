@@ -34,7 +34,8 @@ const OpsOverview: React.FC = () => {
     pendingVerifications: 0,
     fraudAnomalies: 0,
     volume24h: 0,
-    totalLiability: 0
+    totalLiability: 0,
+    offerwallEarnings24h: 0
   });
   const [loading, setLoading] = React.useState(true);
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
@@ -116,7 +117,15 @@ const OpsOverview: React.FC = () => {
           where('executedAt', '>=', Timestamp.fromDate(dayAgo))
         ));
         let volume = 0;
-        volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
+        let offerwallVolume = 0;
+        volSnap.forEach(d => {
+            const data = d.data();
+            const amount = Math.abs(data.amount || 0);
+            volume += amount;
+            if (data.type?.startsWith('offerwall_')) {
+                offerwallVolume += amount;
+            }
+        });
 
         setStats(prev => ({
           ...prev,
@@ -127,7 +136,8 @@ const OpsOverview: React.FC = () => {
           pendingSupport: supportCount.data().count,
           pendingVerifications: verificationsCount.data().count,
           fraudAnomalies: anomaliesCount.data().count,
-          volume24h: volume
+          volume24h: volume,
+          offerwallEarnings24h: offerwallVolume
         }));
         setLoading(false);
       } catch (err) {
@@ -207,11 +217,12 @@ const OpsOverview: React.FC = () => {
           </button>
        </header>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
           {metricItem('Total Users', stats.totalUsers, Users, 'text-primary', '/admin/users')}
           {metricItem('24h PTS Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
-          {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
-          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
+          {metricItem('24h Offerwall', stats.offerwallEarnings24h, ShieldCheck, 'text-indigo-400', '/admin/economy')}
+          {metricItem('USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
+          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-orange-400', '/admin/campaigns')}
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

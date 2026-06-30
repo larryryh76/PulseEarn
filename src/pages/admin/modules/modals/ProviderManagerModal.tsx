@@ -13,11 +13,14 @@ interface Props {
 }
 
 const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [selectedProvider, setSelectedProvider] = useState('offerwall_x');
+  const [selectedProvider, setSelectedProvider] = useState('wannads');
   const [config, setConfig] = useState({
     postbackSecret: '',
     apiKey: '',
-    active: true
+    active: true,
+    platformShare: 0.30,
+    userShare: 0.60,
+    referralShare: 0.10
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,9 +29,24 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
       const fetchConfig = async () => {
         const snap = await getDoc(doc(db, 'system_config', `provider_${selectedProvider}`));
         if (snap.exists()) {
-          setConfig(snap.data() as any);
+          const data = snap.data();
+          setConfig({
+             postbackSecret: data.postbackSecret || '',
+             apiKey: data.apiKey || '',
+             active: data.active ?? true,
+             platformShare: data.platformShare ?? 0.30,
+             userShare: data.userShare ?? 0.60,
+             referralShare: data.referralShare ?? 0.10
+          });
         } else {
-          setConfig({ postbackSecret: '', apiKey: '', active: true });
+          setConfig({
+             postbackSecret: '',
+             apiKey: '',
+             active: true,
+             platformShare: 0.30,
+             userShare: 0.60,
+             referralShare: 0.10
+          });
         }
       };
       fetchConfig();
@@ -91,9 +109,11 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     onChange={e => setSelectedProvider(e.target.value)}
                     className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-4 text-sm text-text-primary focus:border-primary/50 outline-none font-bold uppercase tracking-widest appearance-none"
                   >
-                     <option value="offerwall_x">Offerwall X</option>
-                     <option value="survey_y">Survey Y</option>
-                     <option value="ad_network_z">Ad Network Z</option>
+                     <option value="wannads">Wannads</option>
+                     <option value="lootably">Lootably</option>
+                     <option value="adgem">AdGem</option>
+                     <option value="bitlabs">BitLabs</option>
+                     <option value="cpx-research">CPX Research</option>
                   </select>
                </div>
 
@@ -122,6 +142,39 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
                        placeholder="Provider API key (optional)..."
                        className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-4 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
                      />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                     <div className="space-y-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Platform %</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={config.platformShare}
+                          onChange={e => setConfig({ ...config, platformShare: Number(e.target.value) })}
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">User %</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={config.userShare}
+                          onChange={e => setConfig({ ...config, userShare: Number(e.target.value) })}
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Ref %</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={config.referralShare}
+                          onChange={e => setConfig({ ...config, referralShare: Number(e.target.value) })}
+                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                        />
+                     </div>
                   </div>
 
                   <div className="flex items-center justify-between p-4 bg-surface-bright border border-border rounded-xl">

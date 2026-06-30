@@ -1176,6 +1176,7 @@ def handle_provider_webhook(provider):
     user_id = data.get('userId')
     offer_id = data.get('offerId')
     tx_id = data.get('transactionId')
+    raw_advertiser_payout = data.get('payout', 0) # The amount the advertiser paid (if provided)
 
     if not all([user_id, offer_id, tx_id]):
         return jsonify({"success": False, "error": "INVALID_PAYLOAD"}), 400
@@ -1191,7 +1192,23 @@ def handle_provider_webhook(provider):
     if offer_data.get('provider') == 'internal':
         return jsonify({"success": False, "error": "RESTRICTED_OFFER_TYPE"}), 403
 
-    internal_reward = offer_data.get('rewardAmount', 0)
+    # REVENUE ENGINE: Dynamic Calculation
+    # First, try to get provider-specific distribution
+    provider_config = provider_snap.to_dict() # Already fetched above
+    dist = {
+        'platformShare': provider_config.get('platformShare', 0.30),
+        'userShare': provider_config.get('userShare', 0.60),
+        'referralShare': provider_config.get('referralShare', 0.10)
+    }
+
+    if raw_advertiser_payout > 0:
+        # If the provider sends the payout, we can calculate shares dynamically
+        # This overrides the hardcoded task reward
+        internal_reward = int(raw_advertiser_payout * dist.get('userShare', 0.60))
+    else:
+        # Fallback to hardcoded task reward
+        internal_reward = offer_data.get('rewardAmount', 0)
+
     internal_xp = offer_data.get('xpReward', 0)
 
     claim_id = f"webhook_{provider}_{offer_id}_{user_id}_{tx_id}"

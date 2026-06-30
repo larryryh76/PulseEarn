@@ -26,11 +26,13 @@ def handle_exception(e):
 
     # Standardize all other errors to JSON
     import traceback
+    import logging
+    logging.exception("Unhandled exception")
     print(traceback.format_exc())
     return jsonify({
         "success": False,
         "error": "INTERNAL_SERVER_ERROR",
-        "message": str(e)
+        "message": "An internal server error occurred."
     }), 500
 
 # Initialize Firebase Admin
@@ -182,14 +184,17 @@ def submit_task():
     @firestore.transactional
     def process_submission(transaction):
         user_snap = user_ref.get(transaction=transaction)
-        if not user_snap.exists: raise Exception("USER_NOT_FOUND")
+        if not user_snap.exists:
+            raise Exception("USER_NOT_FOUND")
         user_data = user_snap.to_dict()
 
         task_snap = task_ref.get(transaction=transaction)
-        if not task_snap.exists: raise Exception("TASK_NOT_FOUND")
+        if not task_snap.exists:
+            raise Exception("TASK_NOT_FOUND")
         task_data = task_snap.to_dict()
 
-        if task_data.get('status') != 'ACTIVE': raise Exception("TASK_INACTIVE")
+        if task_data.get('status') != 'ACTIVE':
+            raise Exception("TASK_INACTIVE")
 
         user_task_snap = user_task_ref.get(transaction=transaction)
         is_first_task = True
@@ -425,6 +430,14 @@ def execute_transaction():
                         'validationState': 'APPROVED',
                         'resolvedAt': firestore.SERVER_TIMESTAMP,
                         'reviewedBy': caller_uid
+                    })
+                    # Update the user_tasks mirror to keep it in sync
+                    user_task_ref = user_ref.collection('user_tasks').document(task_id)
+                    transaction.update(user_task_ref, {
+                        'status': 'completed',
+                        'lastCompleted': firestore.SERVER_TIMESTAMP,
+                        'totalCompletions': firestore.Increment(1),
+                        'updatedAt': firestore.SERVER_TIMESTAMP
                     })
                 elif tc_data.get('validationState') != 'APPROVED':
                     raise Exception(f"CLAIM_NOT_APPROVED: {tc_data.get('validationState')}")

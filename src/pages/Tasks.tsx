@@ -15,6 +15,12 @@ const Tasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [proof, setProof] = useState('');
 
+  // Reset proof when modal closes
+  const closeTaskModal = () => {
+    setSelectedTask(null);
+    setProof('');
+  };
+
   const handleSubmit = async () => {
     if (!selectedTask) return;
     if (selectedTask.verificationType !== 'automated' && !proof.trim()) {
@@ -95,11 +101,11 @@ const Tasks: React.FC = () => {
 
               <div className="flex items-center gap-4">
                  <button
-                    className="h-10 px-6 rounded-lg bg-surface-bright border border-border text-[9px] font-black uppercase tracking-widest text-text-primary opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-all"
+                    className="h-10 px-6 rounded-lg bg-surface-bright border border-border text-[9px] font-black uppercase tracking-widest text-text-primary lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-all"
                  >
                     Execute
                  </button>
-                 <ChevronRight size={18} className="text-text-tertiary group-hover:translate-x-1 transition-transform" />
+                 <ChevronRight size={18} className="text-text-tertiary group-hover:translate-x-1 transition-transform lg:group-hover:hidden" />
               </div>
            </motion.div>
         ))}
@@ -111,7 +117,7 @@ const Tasks: React.FC = () => {
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    onClick={() => { if(!isSubmitting) setSelectedTask(null); }}
+                    onClick={() => { if(!isSubmitting) closeTaskModal(); }}
                     className="absolute inset-0 bg-background/90 backdrop-blur-xl"
                 />
                 <motion.div
@@ -130,7 +136,7 @@ const Tasks: React.FC = () => {
                         </div>
                         <button
                             disabled={isSubmitting}
-                            onClick={() => setSelectedTask(null)}
+                            onClick={closeTaskModal}
                             className="p-2 hover:bg-surface-bright rounded-xl transition-all text-text-tertiary"
                         >
                             <X size={20} />

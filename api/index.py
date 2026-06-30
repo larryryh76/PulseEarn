@@ -157,7 +157,8 @@ def submit_task():
         return jsonify({"success": False, "error": "MISSING_TASK_ID"}), 400
 
     task_ref = db.collection('tasks').document(task_id)
-    user_task_ref = db.collection('users').document(user_id).collection('user_tasks').document(task_id)
+    user_ref = db.collection('users').document(user_id)
+    user_task_ref = user_ref.collection('user_tasks').document(task_id)
 
     @firestore.transactional
     def process_submission(transaction):
@@ -290,20 +291,6 @@ def execute_transaction():
     if caller_uid != user_id and not is_admin(caller_uid):
         return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
-    # SEC-002: Backend Gating - Verify Level
-    user_ref = db.collection('users').document(user_id)
-    user_snap = user_ref.get()
-    if not user_snap.exists: return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
-
-    # Get config for unlock level
-    config_ref = db.collection('system_config').document('global_v1')
-    config_snap = config_ref.get()
-    config = config_snap.to_dict() if config_snap.exists else {}
-    unlock_level = config.get('thresholds', {}).get('predictionUnlockLevel', 5)
-
-    user_data = user_snap.to_dict()
-    if user_data.get('level', 1) < unlock_level:
-        return jsonify({"success": False, "error": f"LEVEL_{unlock_level}_REQUIRED"}), 403
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized', 'referral_bonus']
@@ -551,15 +538,18 @@ def execute_transaction():
                     elif diff > 1:
                         # Streak broken
                         streak = 1
+                    elif diff == 0:
+                        raise Exception("DAILY_REWARD_COOLDOWN")
                     else:
+                        # diff < 0 means they are trying to claim for a past day they already passed
                         raise Exception("TEMPORAL_ANOMALY_DETECTED")
-                except:
+                except ValueError:
                     streak = 1
             else:
                 streak = 1
 
             # Industry Standard: Incremental rewards every 7 days
-            bonus_multiplier = 1.0 + (min(streak, 7) - 1) * 0.1 # Max 1.7x at Day 7
+            bonus_multiplier = 1.0 + (min(streak, 7) - 1) * 0.1 # Max 1.6x at Day 7
             derived_amount = int(derived_amount * bonus_multiplier)
 
             # Record streak in user doc update block below
@@ -757,6 +747,15 @@ def execute_prediction():
         user_snap = user_ref.get(transaction=transaction)
         if not user_snap.exists: raise Exception("ENTITY_NOT_FOUND")
         user_data = user_snap.to_dict()
+
+        # SEC-002: Backend Gating - Verify Level
+        config_ref = db.collection('system_config').document('global_v1')
+        config_snap = config_ref.get(transaction=transaction)
+        config = config_snap.to_dict() if config_snap.exists else {}
+        unlock_level = config.get('thresholds', {}).get('predictionUnlockLevel', 5)
+
+        if user_data.get('level', 1) < unlock_level:
+            raise Exception(f"LEVEL_{unlock_level}_REQUIRED")
 
         if user_data.get('points', 0) < amount:
             raise Exception("INSUFFICIENT_FUNDS")

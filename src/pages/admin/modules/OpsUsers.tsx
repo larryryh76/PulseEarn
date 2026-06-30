@@ -554,7 +554,7 @@ const OpsUsers: React.FC = () => {
                                </button>
                             </>
                          )}
-                         {selectedUser.role !== 'admin' && selectedUser.role !== 'moderator' && (
+                         {selectedUser.role !== 'admin' && selectedUser.role !== 'ADMIN' && selectedUser.role !== 'moderator' && !selectedUser.isRoot && (
                             <button
                               onClick={async () => {
                                  if(!window.confirm(`Promote ${selectedUser.username} to MODERATOR?`)) return;

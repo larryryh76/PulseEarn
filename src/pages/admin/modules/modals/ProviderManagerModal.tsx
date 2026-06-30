@@ -10,10 +10,11 @@ import { cn } from '../../../../utils';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  providerId?: string | null;
 }
 
-const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [selectedProvider, setSelectedProvider] = useState('wannads');
+const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) => {
+  const [selectedProvider, setSelectedProvider] = useState(providerId || 'wannads');
   const [config, setConfig] = useState({
     postbackSecret: '',
     apiKey: '',
@@ -23,11 +24,13 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
     referralShare: 0.10
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setSelectedProvider(providerId || 'wannads');
       const fetchConfig = async () => {
-        const snap = await getDoc(doc(db, 'system_config', `provider_${selectedProvider}`));
+        const snap = await getDoc(doc(db, 'system_config', `provider_${providerId || 'wannads'}`));
         if (snap.exists()) {
           const data = snap.data();
           setConfig({
@@ -48,13 +51,31 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
              referralShare: 0.10
           });
         }
+        setValidationError(null);
       };
       fetchConfig();
     }
-  }, [isOpen, selectedProvider]);
+  }, [isOpen, providerId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate share distribution
+    const total = config.platformShare + config.userShare + config.referralShare;
+    if (Math.abs(total - 1.0) > 0.001) {
+      setValidationError(`Share distribution must sum to 1.0 (currently ${total.toFixed(3)})`);
+      return;
+    }
+
+    // Validate individual shares are in valid range
+    if (config.platformShare < 0 || config.platformShare > 1 ||
+        config.userShare < 0 || config.userShare > 1 ||
+        config.referralShare < 0 || config.referralShare > 1) {
+      setValidationError('Each share must be between 0 and 1');
+      return;
+    }
+
+    setValidationError(null);
     setIsSubmitting(true);
     try {
       await setDoc(doc(db, 'system_config', `provider_${selectedProvider}`), {
@@ -144,36 +165,61 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose }) => {
                      />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                     <div className="space-y-2">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Platform %</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={config.platformShare}
-                          onChange={e => setConfig({ ...config, platformShare: Number(e.target.value) })}
-                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
-                        />
+                  <div className="space-y-4">
+                     <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                           <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Platform %</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0"
+                             max="1"
+                             value={config.platformShare}
+                             onChange={e => {
+                               const val = Number(e.target.value);
+                               setConfig({ ...config, platformShare: Math.max(0, Math.min(1, val)) });
+                             }}
+                             className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">User %</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0"
+                             max="1"
+                             value={config.userShare}
+                             onChange={e => {
+                               const val = Number(e.target.value);
+                               setConfig({ ...config, userShare: Math.max(0, Math.min(1, val)) });
+                             }}
+                             className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Ref %</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0"
+                             max="1"
+                             value={config.referralShare}
+                             onChange={e => {
+                               const val = Number(e.target.value);
+                               setConfig({ ...config, referralShare: Math.max(0, Math.min(1, val)) });
+                             }}
+                             className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
+                           />
+                        </div>
                      </div>
-                     <div className="space-y-2">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">User %</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={config.userShare}
-                          onChange={e => setConfig({ ...config, userShare: Number(e.target.value) })}
-                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
-                        />
-                     </div>
-                     <div className="space-y-2">
-                        <label className="text-[8px] font-black uppercase tracking-widest text-text-tertiary ml-1">Ref %</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={config.referralShare}
-                          onChange={e => setConfig({ ...config, referralShare: Number(e.target.value) })}
-                          className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-3 text-xs font-mono text-text-primary outline-none"
-                        />
+                     {validationError && (
+                        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg">
+                           <p className="text-[10px] font-bold text-danger uppercase tracking-wide">{validationError}</p>
+                        </div>
+                     )}
+                     <div className="text-[9px] text-text-tertiary font-medium">
+                        Total: {((config.platformShare + config.userShare + config.referralShare) * 100).toFixed(1)}% (must equal 100%)
                      </div>
                   </div>
 

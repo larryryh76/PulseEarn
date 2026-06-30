@@ -17,7 +17,7 @@ const OpsOfferwalls: React.FC = () => {
   const [providers, setProviders] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [, setSelectedProviderId] = React.useState<string | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = React.useState<string | null>(null);
 
   const fetchProviders = async () => {
     setLoading(true);
@@ -87,15 +87,15 @@ const OpsOfferwalls: React.FC = () => {
                   <div className="flex items-center gap-4 text-[10px] font-mono font-bold">
                      <div className="flex flex-col">
                         <span className="text-[8px] text-text-tertiary uppercase">Platform</span>
-                        <span className="text-primary">{(p.platformShare * 100).toFixed(0)}%</span>
+                        <span className="text-primary">{((p.platformShare ?? 0) * 100).toFixed(0)}%</span>
                      </div>
                      <div className="flex flex-col">
                         <span className="text-[8px] text-text-tertiary uppercase">User</span>
-                        <span className="text-success">{(p.userShare * 100).toFixed(0)}%</span>
+                        <span className="text-success">{((p.userShare ?? 0) * 100).toFixed(0)}%</span>
                      </div>
                      <div className="flex flex-col">
                         <span className="text-[8px] text-text-tertiary uppercase">Ref</span>
-                        <span className="text-warning">{(p.referralShare * 100).toFixed(0)}%</span>
+                        <span className="text-warning">{((p.referralShare ?? 0) * 100).toFixed(0)}%</span>
                      </div>
                   </div>
                 )
@@ -124,6 +124,7 @@ const OpsOfferwalls: React.FC = () => {
        <ProviderManagerModal
          isOpen={isModalOpen}
          onClose={() => { setIsModalOpen(false); fetchProviders(); }}
+         providerId={selectedProviderId}
        />
     </div>
   );

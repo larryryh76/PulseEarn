@@ -46,6 +46,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) {
       setLoading(false);
+      // Clear historical data when user logs out
+      setSubtasks([]);
+      setTaskHistory([]);
+      setActivities([]);
+      setPredictions([]);
       return;
     }
 
@@ -75,21 +80,41 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // SCALABILITY OPTIMIZATION: Non-critical historical data fetched via getDocs once on session start
     // Critical state (active tasks/campaigns/progress) remains real-time.
+    let isCancelled = false;
     const fetchHistoricalData = async () => {
-      try {
-        const [subSnap, histSnap, actSnap, predSnap] = await Promise.all([
-          getDocs(query(collection(db, 'task_claims'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'), limit(20))),
-          getDocs(query(collection(db, 'users', currentUser.uid, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
-          getDocs(query(collection(db, 'users', currentUser.uid, 'activities'), orderBy('timestamp', 'desc'), limit(20))),
-          getDocs(query(collection(db, 'user_predictions'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'), limit(20)))
-        ]);
+      const requestUserId = currentUser.uid;
 
-        setSubtasks(subSnap.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
-        setTaskHistory(histSnap.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
-        setActivities(actSnap.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as Activity)));
-        setPredictions(predSnap.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
-      } catch (err) {
-        console.error("[TaskContext] Historical Fetch Error:", err);
+      const results = await Promise.allSettled([
+        getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'users', requestUserId, 'activities'), orderBy('timestamp', 'desc'), limit(20))),
+        getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
+      ]);
+
+      if (isCancelled || currentUser.uid !== requestUserId) return;
+
+      if (results[0].status === 'fulfilled') {
+        setSubtasks(results[0].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
+      } else {
+        console.error("[TaskContext] Task Claims Fetch Error:", results[0].reason);
+      }
+
+      if (results[1].status === 'fulfilled') {
+        setTaskHistory(results[1].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
+      } else {
+        console.error("[TaskContext] Task History Fetch Error:", results[1].reason);
+      }
+
+      if (results[2].status === 'fulfilled') {
+        setActivities(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as Activity)));
+      } else {
+        console.error("[TaskContext] Activities Fetch Error:", results[2].reason);
+      }
+
+      if (results[3].status === 'fulfilled') {
+        setPredictions(results[3].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
+      } else {
+        console.error("[TaskContext] Predictions Fetch Error:", results[3].reason);
       }
     };
 
@@ -123,6 +148,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 15000);
 
     return () => {
+      isCancelled = true;
       unsubscribes.forEach(unsub => unsub());
       clearTimeout(loadTimeout);
     };

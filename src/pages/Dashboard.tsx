@@ -322,7 +322,7 @@ const Dashboard: React.FC = () => {
                            key={item.id}
                            whileHover={{ y: -5 }}
                            className={cn(
-                              "w-[300px] md:w-80 p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[380px]",
+                              "w-[260px] md:w-80 p-6 md:p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[320px] md:min-h-[380px]",
                               item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
                            )}
                            onClick={() => {
@@ -352,10 +352,10 @@ const Dashboard: React.FC = () => {
 
                               <div className="space-y-2">
                                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.category || item.type}</p>
-                                 <h3 className="text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                 <h3 className="text-lg md:text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-2 md:line-clamp-1 group-hover:text-primary transition-colors italic">
                                     {item.title}
                                  </h3>
-                                 <p className="text-xs text-text-tertiary font-medium line-clamp-2 leading-relaxed min-h-[32px]">
+                                 <p className="text-xs text-text-tertiary font-medium line-clamp-3 md:line-clamp-2 leading-relaxed min-h-[48px] md:min-h-[32px]">
                                     {item.description || item.instructions || 'Secure this objective to claim your contribution rewards.'}
                                  </p>
                               </div>

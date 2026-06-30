@@ -14,6 +14,25 @@ import math
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return jsonify({
+            "success": False,
+            "error": e.name.upper().replace(' ', '_'),
+            "message": e.description
+        }), e.code
+
+    # Standardize all other errors to JSON
+    import traceback
+    print(traceback.format_exc())
+    return jsonify({
+        "success": False,
+        "error": "INTERNAL_SERVER_ERROR",
+        "message": str(e)
+    }), 500
+
 # Initialize Firebase Admin
 if not firebase_admin._apps:
     # In Vercel, it uses the default credentials if available
@@ -162,6 +181,10 @@ def submit_task():
 
     @firestore.transactional
     def process_submission(transaction):
+        user_snap = user_ref.get(transaction=transaction)
+        if not user_snap.exists: raise Exception("USER_NOT_FOUND")
+        user_data = user_snap.to_dict()
+
         task_snap = task_ref.get(transaction=transaction)
         if not task_snap.exists: raise Exception("TASK_NOT_FOUND")
         task_data = task_snap.to_dict()
@@ -169,6 +192,7 @@ def submit_task():
         if task_data.get('status') != 'ACTIVE': raise Exception("TASK_INACTIVE")
 
         user_task_snap = user_task_ref.get(transaction=transaction)
+        is_first_task = True
         if user_task_snap.exists:
             ut_data = user_task_snap.to_dict()
             if ut_data.get('status') == 'pending': raise Exception("TASK_AUDIT_IN_PROGRESS")
@@ -182,6 +206,13 @@ def submit_task():
                 diff = (datetime.now(timezone.utc) - last_time).total_seconds()
                 if diff < (task_data['cooldownPeriod'] * 3600):
                     raise Exception("TASK_IN_COOLDOWN")
+
+            if ut_data.get('status') == 'completed':
+                is_first_task = False
+        else:
+            # Check if user has ANY completed tasks to determine if this is their first
+            # Simplified: if tasksCompleted in stats is 0, this is the first.
+            is_first_task = user_data.get('stats', {}).get('tasksCompleted', 0) == 0
 
         claim_id = f"claim_{user_id}_{task_id}_{int(datetime.now(timezone.utc).timestamp())}"
         claim_ref = db.collection('task_claims').document(claim_id)
@@ -233,11 +264,13 @@ def submit_task():
             xp_reward = task_data.get('xpReward', 0)
 
             # Atomic point credit
-            transaction.update(user_ref, {
+            user_updates = {
                 'points': firestore.Increment(reward_amount),
                 'xp': firestore.Increment(xp_reward),
-                'stats.totalEarnings': firestore.Increment(reward_amount)
-            })
+                'stats.totalEarnings': firestore.Increment(reward_amount),
+                'stats.tasksCompleted': firestore.Increment(1)
+            }
+            transaction.update(user_ref, user_updates)
 
             # Update Liability
             metrics_ref = db.collection('system_config').document('global_metrics')
@@ -271,7 +304,7 @@ def submit_task():
                 'metadata': {'txId': tx_ref.id}
             })
 
-        return {"success": True, "claimId": claim_id, "automated": is_automated}
+        return {"success": True, "claimId": claim_id, "automated": is_automated, "isFirstTask": is_first_task}
 
     try:
         transaction = db.transaction()
@@ -285,10 +318,17 @@ def submit_task():
 def execute_transaction():
     data = request.json
     user_id = data.get('userId')
+    tx_type = data.get('type')
 
-    # Auth logic: uid must match userId, OR caller must be admin
+    # Auth logic: uid must match userId, OR caller must be admin/moderator (for task approvals)
     caller_uid = request.user['uid']
-    if caller_uid != user_id and not is_admin(caller_uid):
+    is_caller_admin = is_admin(caller_uid)
+    is_caller_mod = is_moderator(caller_uid)
+
+    # Moderators can trigger task_reward for others as part of the approval process
+    is_privileged_action = is_caller_admin or (is_caller_mod and tx_type == 'task_reward')
+
+    if caller_uid != user_id and not is_privileged_action:
         return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
 
 
@@ -296,7 +336,6 @@ def execute_transaction():
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized', 'referral_bonus']
     allowed_user_types = ['task_reward', 'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward']
 
-    tx_type = data.get('type')
     tx_col = db.collection('users').document(user_id).collection('transactions')
     tx_ref = tx_col.document()
 
@@ -334,7 +373,8 @@ def execute_transaction():
         now_utc = datetime.now(timezone.utc)
         if tx_type == 'daily_reward':
             # Support client-provided local day for calendar boundary
-            local_day = data.get('localDay') # Expected format: YYYY-MM-DD
+            # Fix: extract from metadata or top level
+            local_day = data.get('localDay') or metadata.get('localDay')
             if local_day:
                 expected_id = f"daily_{local_day}_{user_id}"
             else:
@@ -379,8 +419,16 @@ def execute_transaction():
                     raise Exception("CLAIM_OWNERSHIP_MISMATCH")
                 if tc_data.get('taskId') != task_id:
                     raise Exception("CLAIM_TASK_MISMATCH")
-                if tc_data.get('validationState') != 'APPROVED':
+                # If called by admin/mod, we allow approving a PENDING claim here
+                if tc_data.get('validationState') == 'PENDING' and is_privileged_action:
+                    transaction.update(tc_ref, {
+                        'validationState': 'APPROVED',
+                        'resolvedAt': firestore.SERVER_TIMESTAMP,
+                        'reviewedBy': caller_uid
+                    })
+                elif tc_data.get('validationState') != 'APPROVED':
                     raise Exception(f"CLAIM_NOT_APPROVED: {tc_data.get('validationState')}")
+
                 if tc_data.get('completionState') == 'COMPLETED' and tc_data.get('rewardTransactionId'):
                     raise Exception("CLAIM_ALREADY_REWARDED")
 
@@ -505,7 +553,7 @@ def execute_transaction():
 
         # Daily reward check & Advanced Streak Logic
         if tx_type == 'daily_reward':
-            local_day = data.get('localDay')
+            local_day = data.get('localDay') or metadata.get('localDay')
             if not local_day:
                 raise Exception("LOCAL_DAY_REQUIRED")
 

@@ -74,38 +74,38 @@ const Tasks: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3 md:gap-4">
         {tasks.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map(task => (
            <motion.div
              key={task.id}
              whileHover={{ x: 4 }}
              onClick={() => setSelectedTask(task)}
-             className="p-6 rounded-2xl bg-surface border border-border hover:border-primary/20 transition-all flex items-center justify-between group cursor-pointer"
+             className="p-4 md:p-6 rounded-2xl bg-surface border border-border hover:border-primary/20 transition-all flex items-center justify-between group cursor-pointer"
            >
-              <div className="flex items-center gap-6 min-w-0">
-                 <div className="w-14 h-14 rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-primary shrink-0 shadow-inner group-hover:border-primary/30 transition-all">
-                    <Target size={24} />
+              <div className="flex items-center gap-4 md:gap-6 min-w-0">
+                 <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-surface-bright border border-border flex items-center justify-center text-primary shrink-0 shadow-inner group-hover:border-primary/30 transition-all">
+                    <Target size={18} className="md:w-6 md:h-6" />
                  </div>
                  <div className="min-w-0">
-                    <h3 className="text-lg font-bold text-text-primary uppercase italic truncate group-hover:text-primary transition-colors">{task.title}</h3>
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <h3 className="text-sm md:text-lg font-bold text-text-primary uppercase italic truncate md:whitespace-normal md:line-clamp-1 group-hover:text-primary transition-colors pr-2">{task.title}</h3>
+                    <div className="flex items-center gap-2 md:gap-3 mt-1 md:mt-1.5">
                        <div className="flex items-center gap-1">
-                          <Zap size={12} className="text-primary" />
-                          <span className="text-xs font-mono font-bold text-text-secondary">+{task.rewardAmount}</span>
+                          <Zap size={10} className="md:w-3 md:h-3 text-primary" />
+                          <span className="text-[10px] md:text-xs font-mono font-bold text-text-secondary">+{task.rewardAmount}</span>
                        </div>
                        <div className="w-1 h-1 rounded-full bg-border" />
-                       <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">{task.verificationType}</span>
+                       <span className="text-[8px] md:text-[9px] font-black text-text-tertiary uppercase tracking-widest">{task.verificationType}</span>
                     </div>
                  </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4 shrink-0">
                  <button
-                    className="h-10 px-6 rounded-lg bg-surface-bright border border-border text-[9px] font-black uppercase tracking-widest text-text-primary lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-all"
+                    className="h-8 md:h-10 px-4 md:px-6 rounded-lg bg-surface-bright border border-border text-[8px] md:text-[9px] font-black uppercase tracking-widest text-text-primary lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-all"
                  >
                     Execute
                  </button>
-                 <ChevronRight size={18} className="text-text-tertiary group-hover:translate-x-1 transition-transform lg:group-hover:hidden" />
+                 <ChevronRight size={16} className="text-text-tertiary group-hover:translate-x-1 transition-transform lg:group-hover:hidden" />
               </div>
            </motion.div>
         ))}

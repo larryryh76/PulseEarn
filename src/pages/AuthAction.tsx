@@ -38,6 +38,8 @@ const AuthAction: React.FC = () => {
       switch (mode) {
         case 'verifyEmail': {
           await applyActionCode(auth, actionCode!);
+          // Reload user to sync verified state locally
+          if (auth.currentUser) await auth.currentUser.reload();
           setStatus('success');
           toast.success('Email verified successfully!');
           break;
@@ -144,8 +146,9 @@ const AuthAction: React.FC = () => {
 
                 <form onSubmit={handlePasswordReset} className="space-y-4 text-left">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">New Password</label>
+                    <label htmlFor="new-password" className="text-[10px] font-bold uppercase tracking-widest text-text-primary/30 ml-1">New Password</label>
                     <input
+                      id="new-password"
                       type="password"
                       placeholder="••••••••"
                       value={newPassword}

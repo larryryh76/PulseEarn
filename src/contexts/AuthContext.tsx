@@ -24,10 +24,7 @@ import {
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc,
-  query,
-  where,
-  getDocs
+  addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -260,15 +257,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Everything after this is wrapped in its own try/catch to isolate failures
 
-    // 1. Referral Linkage
+    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup
     if (referralCodeInput) {
        try {
-          const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            const referrerDoc = querySnapshot.docs[0];
-            const referredBy = referrerDoc.id;
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/referrals/lookup', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ referralCode: referralCodeInput })
+          });
+          const res = await response.json();
 
+          if (res.success) {
+            const referredBy = res.referrerId;
             await updateDoc(userRef, { referredBy });
 
             await setDoc(doc(collection(db, 'referrals')), {

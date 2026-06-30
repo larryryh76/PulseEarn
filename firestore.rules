@@ -27,9 +27,9 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
-      // Allow searching for referral codes during signup (limit 1)
-      // Allow admins to read all users
-      allow read: if isOwner(userId) || isModerator() || (isAuthenticated() && request.auth != null && request.query.limit <= 1);
+      // SEC-001: Removed limit-based lookup to prevent PII exposure.
+      // Referral lookups must be performed via backend or specialized indices.
+      allow read: if isOwner(userId) || isModerator();
       allow list: if isModerator();
 
       // CRITICAL: Prevent initial account escalation

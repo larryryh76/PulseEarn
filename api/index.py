@@ -52,7 +52,7 @@ def is_admin(uid):
     user_doc = db.collection('users').document(uid).get()
     if user_doc.exists:
         data = user_doc.to_dict()
-        return data.get('role') == 'admin'
+        return data.get('role') in ['admin', 'ADMIN'] or data.get('isRoot') == True
     return False
 
 def is_moderator(uid):
@@ -60,7 +60,7 @@ def is_moderator(uid):
     if user_doc.exists:
         data = user_doc.to_dict()
         role = data.get('role')
-        return role in ['admin', 'moderator']
+        return role in ['admin', 'ADMIN', 'moderator'] or data.get('isRoot') == True
     return False
 
 @app.route('/api/admin/promote-moderator', methods=['POST'])
@@ -187,6 +187,10 @@ def submit_task():
 
         is_automated = task_data.get('verificationType') == 'automated'
 
+        # Require proof for non-automated tasks
+        if not is_automated and not proof:
+            raise Exception("PROOF_REQUIRED")
+
         claim_data = {
             'id': claim_id,
             'userId': user_id,
@@ -247,6 +251,21 @@ def execute_transaction():
     caller_uid = request.user['uid']
     if caller_uid != user_id and not is_admin(caller_uid):
         return jsonify({"success": False, "error": f"Unauthorized: caller {caller_uid} does not match {user_id}"}), 403
+
+    # SEC-002: Backend Gating - Verify Level
+    user_ref = db.collection('users').document(user_id)
+    user_snap = user_ref.get()
+    if not user_snap.exists: return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    # Get config for unlock level
+    config_ref = db.collection('system_config').document('global_v1')
+    config_snap = config_ref.get()
+    config = config_snap.to_dict() if config_snap.exists else {}
+    unlock_level = config.get('thresholds', {}).get('predictionUnlockLevel', 5)
+
+    user_data = user_snap.to_dict()
+    if user_data.get('level', 1) < unlock_level:
+        return jsonify({"success": False, "error": f"LEVEL_{unlock_level}_REQUIRED"}), 403
 
     # Additional check for admin-only transaction types
     admin_only_types = ['admin_adjustment', 'AI_SYSTEM_CORRECTION', 'referral_reversal', 'penalty', 'withdrawal_finalized', 'referral_bonus']
@@ -464,6 +483,17 @@ def execute_transaction():
             local_day = data.get('localDay')
             if not local_day:
                 raise Exception("LOCAL_DAY_REQUIRED")
+
+            # Basic sanity check: user cannot claim for a day more than 1 day in future
+            # or more than 7 days in past (preventing massive retroactive minting)
+            try:
+                now_utc = datetime.now(timezone.utc)
+                parsed_local = datetime.strptime(local_day, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                diff_now = (parsed_local - now_utc).days
+                if diff_now > 1: raise Exception("FUTURE_DATE_FORBIDDEN")
+                if diff_now < -7: raise Exception("STALE_DATE_FORBIDDEN")
+            except ValueError:
+                raise Exception("INVALID_DATE_FORMAT")
 
             last_day = user_data.get('lastClaimedDay')
             if local_day == last_day:
@@ -1222,6 +1252,30 @@ def send_branded_email(to_email, template_name, context, subject):
         print(f"Branded email failure: {str(e)}")
         return False
 
+@app.route('/api/referrals/lookup', methods=['POST'])
+@verify_token
+def lookup_referral_code():
+    # SEC-001: Secure backend-only referral lookup
+    data = request.json
+    code = data.get('referralCode')
+    if not code:
+        return jsonify({"success": False, "error": "MISSING_CODE"}), 400
+
+    try:
+        q = db.collection('users').where('referralCode', '==', code).limit(1)
+        docs = q.get()
+        if not docs:
+            return jsonify({"success": False, "error": "INVALID_CODE"}), 404
+
+        referrer = docs[0].to_dict()
+        return jsonify({
+            "success": True,
+            "referrerId": docs[0].id,
+            "username": referrer.get('username')
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token
 def send_verification_email():
@@ -1235,7 +1289,27 @@ def send_verification_email():
     user_doc = db.collection('users').document(caller_uid).get()
     username = user_doc.to_dict().get('username', 'Member') if user_doc.exists else 'Member'
 
+    # Apply resend cooldown
+    cooldown_ref = db.collection('email_cooldowns').document(caller_uid)
+
+    @firestore.transactional
+    def check_cooldown(transaction):
+        snap = cooldown_ref.get(transaction=transaction)
+        now = datetime.now(timezone.utc)
+        if snap.exists:
+            data = snap.to_dict()
+            last_sent = data.get('updatedAt')
+            if last_sent:
+                if last_sent.tzinfo is None: last_sent = last_sent.replace(tzinfo=timezone.utc)
+                diff = (now - last_sent).total_seconds()
+                if diff < 60:
+                    raise Exception(f"COOLDOWN_ACTIVE:{int(60 - diff)}")
+        return True
+
     try:
+        transaction = db.transaction()
+        check_cooldown(transaction)
+
         action_settings = auth.ActionCodeSettings(
             url=f"https://pulseearn.online/auth/action",
             handle_code_in_app=True
@@ -1256,8 +1330,21 @@ def send_verification_email():
         if not success:
             return jsonify({"success": False, "error": "DISPATCH_FAILED"}), 502
 
+        # Record successful dispatch for cooldown
+        cooldown_ref.set({
+            'userId': caller_uid,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
         return jsonify({"success": True, "message": "Verification email dispatched."})
     except Exception as e:
+        error_msg = str(e)
+        if "COOLDOWN_ACTIVE" in error_msg:
+            return jsonify({
+                "success": False,
+                "error": "COOLDOWN_ACTIVE",
+                "retryAfter": error_msg.split(':')[1]
+            }), 429
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/authorize-resend', methods=['POST'])

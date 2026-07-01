@@ -27,23 +27,36 @@ def handle_exception(e):
     # Standardize all other errors to JSON
     import traceback
     import logging
-    logging.exception("Unhandled exception")
-    print(traceback.format_exc())
+    import sys
+    tb = traceback.format_exc()
+    logging.error(f"Unhandled exception: {str(e)}\n{tb}")
+
+    # Standard Flask responses for common errors
     return jsonify({
         "success": False,
         "error": "INTERNAL_SERVER_ERROR",
-        "message": "An internal server error occurred."
+        "message": str(e),
+        "traceback": tb.splitlines() if os.environ.get('FLASK_DEBUG') == '1' or os.environ.get('VERCEL') else None
     }), 500
 
-# Initialize Firebase Admin
-try:
-    if not firebase_admin._apps:
-        # In Vercel, it uses the default credentials if available
-        firebase_admin.initialize_app()
-    db = firestore.client()
-except Exception as e:
-    print(f"CRITICAL: Firebase initialization failed: {str(e)}")
-    db = None
+# Initialize Firebase Admin Robustly
+if not firebase_admin._apps:
+    try:
+        service_account_info = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+        if service_account_info:
+            import json
+            cred_dict = json.loads(service_account_info)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase Admin initialized via Service Account Env Var")
+        else:
+            # Fallback to default credentials (works in Vercel if configured via Google Cloud)
+            firebase_admin.initialize_app()
+            print("Firebase Admin initialized via Default Credentials")
+    except Exception as e:
+        print(f"CRITICAL: Firebase Admin Initialization Failed: {str(e)}")
+
+db = firestore.client()
 
 def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp:
@@ -1232,16 +1245,18 @@ def evaluate_user_integrity():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-@app.route('/api/webhooks/<provider>', methods=['POST'])
-@require_db
+@app.route('/api/webhooks/<provider>', methods=['POST', 'GET'])
 def handle_provider_webhook(provider):
     # Public endpoint, uses provider-specific signature verification
     raw_payload = request.get_data()
-    data = request.json
-    signature = request.headers.get('X-Provider-Signature')
 
-    if not signature:
-        return jsonify({"success": False, "error": "MISSING_SIGNATURE"}), 401
+    # Support both GET (query params) and POST (JSON) for different providers
+    if request.method == 'GET':
+        data = request.args.to_dict()
+    else:
+        data = request.json or {}
+
+    signature = request.headers.get('X-Provider-Signature') or data.get('signature')
 
     # Fetch provider config from Firestore
     provider_ref = db.collection('system_config').document(f'provider_{provider}')
@@ -1258,13 +1273,14 @@ def handle_provider_webhook(provider):
         return jsonify({"success": False, "error": "PROVIDER_CONFIG_INCOMPLETE"}), 500
 
     # Verify signature using raw bytes
-    if not verify_provider_signature(raw_payload, signature, secret):
+    # Note: verify_provider_signature in webhook_helper.py needs to handle provider-specific logic
+    if not verify_provider_signature(provider, raw_payload, data, signature, secret):
         return jsonify({"success": False, "error": "INVALID_SIGNATURE"}), 403
 
     # Extract user and reward data
-    user_id = data.get('userId')
-    offer_id = data.get('offerId')
-    tx_id = data.get('transactionId')
+    user_id = data.get('userId') or data.get('subId') or data.get('user_id')
+    offer_id = data.get('offerId') or data.get('offer_id') or data.get('campaign_id')
+    tx_id = data.get('transactionId') or data.get('trans_id') or data.get('id')
     raw_advertiser_payout = data.get('payout', 0) # The amount the advertiser paid (if provided)
 
     if not all([user_id, offer_id, tx_id]):
@@ -1420,6 +1436,110 @@ def lookup_referral_code():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/admin/broadcast', methods=['POST'])
+@verify_token
+def admin_broadcast():
+    caller_uid = request.user['uid']
+    if not is_moderator(caller_uid):
+        return jsonify({"success": False, "error": "Moderator access required"}), 403
+
+    data = request.json
+    title = data.get('title')
+    description = data.get('description')
+    broadcast_type = data.get('type', 'system')
+    send_email = data.get('sendEmail', False)
+
+    if not title or not description:
+        return jsonify({"success": False, "error": "Missing title or description"}), 400
+
+    try:
+        # 1. Log to broadcasts collection
+        broadcast_ref = db.collection('broadcasts').document()
+        broadcast_ref.set({
+            'title': title,
+            'description': description,
+            'type': broadcast_type,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'status': 'COMPLETED',
+            'authorId': caller_uid,
+            'emailSent': send_email
+        })
+
+        # 2. Fan-out notifications and emails
+        users_ref = db.collection('users')
+        users = users_ref.stream()
+
+        count = 0
+        for user_doc in users:
+            user_data = user_doc.to_dict()
+            uid = user_doc.id
+
+            # Internal Notification
+            notif_ref = db.collection('users').document(uid).collection('notifications').document()
+            notif_ref.set({
+                'title': title,
+                'description': description,
+                'type': broadcast_type,
+                'read': False,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'metadata': {'broadcastId': broadcast_ref.id}
+            })
+
+            # Email via Resend if requested
+            if send_email and user_data.get('email'):
+                send_branded_email(
+                    user_data['email'],
+                    'RewardReceived', # Use a generic template or create a new one
+                    {'username': user_data.get('username', 'Member'), 'reward_amount': title, 'source': description},
+                    f"PulseEarn: {title}"
+                )
+
+            count += 1
+
+        return jsonify({"success": True, "message": f"Broadcast sent to {count} users."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/reconcile-metrics', methods=['POST'])
+@verify_token
+def reconcile_metrics():
+    caller_uid = request.user['uid']
+    if not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "Admin access required"}), 403
+
+    try:
+        users_ref = db.collection('users')
+        docs = users_ref.stream()
+
+        total_pts = 0
+        total_xp = 0
+        user_count = 0
+
+        for doc in docs:
+            data = doc.to_dict()
+            if data.get('status') == 'archived': continue
+
+            total_pts += data.get('points', 0)
+            total_xp += data.get('xp', 0)
+            user_count += 1
+
+        metrics_ref = db.collection('system_config').document('global_metrics')
+        metrics_ref.update({
+            'totalPTSLiability': total_pts,
+            'totalXpDistributed': total_xp,
+            'totalUsersCount': user_count,
+            'lastReconciledAt': firestore.SERVER_TIMESTAMP,
+            'reconciledBy': caller_uid
+        })
+
+        return jsonify({
+            "success": True,
+            "message": "Metrics reconciled successfully",
+            "data": {"totalPTS": total_pts, "totalXP": total_xp, "userCount": user_count}
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token
 @require_db
@@ -1491,6 +1611,18 @@ def send_verification_email():
                 "retryAfter": error_msg.split(':')[1]
             }), 429
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/market/prices', methods=['GET'])
+def get_market_prices():
+    # Proxy market prices through backend to bypass frontend CORS issues
+    asset_ids = request.args.get('ids', 'bitcoin,ethereum,solana,binancecoin,ripple,cardano,dogecoin,the-open-network,avalanche-2,chainlink,sui,tron,shiba-inu,pepe,litecoin,polkadot,cosmos,arbitrum,optimism,near')
+
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        res = requests.get(url, params={'ids': asset_ids, 'vs_currencies': 'usd'}, timeout=10)
+        return jsonify({"success": True, "data": res.json()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 502
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token

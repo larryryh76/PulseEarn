@@ -9,6 +9,9 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   updateEmail as firebaseUpdateEmail,
+  updatePassword as firebaseUpdatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
@@ -16,14 +19,12 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
   collection,
-  addDoc,
-  query,
-  where,
-  getDocs
+  addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import toast from 'react-hot-toast';
@@ -33,7 +34,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
-import { SystemTaskEngine } from '../engines/tasks/SystemTaskEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 import { UserEngine } from '../engines/system/UserEngine';
@@ -50,6 +50,8 @@ interface AuthContextType {
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserEmail: (newEmail: string) => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<void>;
+  reauthenticate: (password: string) => Promise<void>;
   systemError: MaintenanceType | null;
 }
 
@@ -106,9 +108,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function checkDailyReward(uid: string) {
     try {
       const config = await EconomyConfigEngine.getConfig();
+
+      // Calculate local date string for the claim ID
+      const utcOffset = -new Date().getTimezoneOffset();
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const claimId = `daily_${todayStr}_${uid}`;
+      const localDate = new Date(now.getTime() + utcOffset * 60000);
+      const localDayStr = localDate.toISOString().split('T')[0];
+
+      const claimId = `daily_${localDayStr}_${uid}`;
 
       const result = await PointTransactionEngine.execute({
         userId: uid,
@@ -116,15 +123,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: 'daily_reward',
         source: 'Daily Login Bonus',
         claimId,
-        xpReward: config.rewards.dailyLoginXP
+        xpReward: config.rewards.dailyLoginXP,
+        metadata: { localDay: localDayStr }
       });
 
       if (result.success) {
-        await SystemTaskEngine.processEvent(uid, 'daily_login');
-        toast.success('Daily Reward Claimed!', { icon: '🎁' });
+        toast.success('Daily Reward Claimed!', {
+           icon: '🎁',
+           duration: 5000,
+           position: 'top-center'
+        });
+      } else if (result.error !== 'DAILY_REWARD_COOLDOWN' && result.error !== 'REWARD_ALREADY_CLAIMED') {
+         // Show visible error toast for legitimate failures
+         toast.error(`Daily Reward Error: ${result.error}`, { position: 'top-center' });
       }
     } catch (error: any) {
       console.error("[AuthContext] Daily Reward Sync Failed:", error.message);
+      toast.error(`System Error: Daily reward check failed`, { position: 'top-center' });
     }
   }
 
@@ -144,43 +159,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function updateUserPassword(newPassword: string) {
+    if (auth.currentUser) {
+      await firebaseUpdatePassword(auth.currentUser, newPassword);
+    }
+  }
+
+  async function reauthenticate(password: string) {
+    if (!auth.currentUser || !auth.currentUser.email) {
+      throw new Error("No active session found for re-authentication.");
+    }
+
+    // Ensure the account is a password provider
+    const providers = auth.currentUser.providerData.map(p => p.providerId);
+    if (!providers.includes('password')) {
+      throw new Error("Direct password updates are only available for email/password accounts.");
+    }
+
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+  }
+
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
-    if (userSnap.exists()) return;
-
-    const isAdmin = user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-    const role = isAdmin ? 'admin' : 'user';
-
-    let referredBy = null;
-    if (referralCodeInput) {
-      const q = query(collection(db, 'users'), where('referralCode', '==', referralCodeInput));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const referrerDoc = querySnapshot.docs[0];
-        referredBy = referrerDoc.id;
-
-        // 1. Log to Referrals Collection
-        await setDoc(doc(collection(db, 'referrals')), {
-          referrerId: referredBy,
-          refereeId: user.uid,
-          refereeUsername: username,
-          status: 'REGISTERED',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-
-        // 2. Notify Referrer
-        await NotificationEngine.send({
-          userId: referredBy,
-          title: 'New Referral Link',
-          description: `${username} joined using your code.`,
-          type: 'referral_joined'
-        });
-      }
+    if (userSnap.exists()) {
+       // Repair path for welcome bonus
+       try {
+          const claimRef = doc(db, 'system_claims', `welcome_${user.uid}`);
+          const claimSnap = await getDoc(claimRef);
+          if (!claimSnap.exists()) {
+             console.log("[AuthContext] Repairing Welcome Bonus...");
+             const config = await EconomyConfigEngine.getConfig();
+             await PointTransactionEngine.execute({
+               userId: user.uid,
+               amount: config.rewards.welcomeBonusPoints ?? 30,
+               type: 'welcome_bonus',
+               source: 'Welcome Bonus (Repair)',
+               claimId: `welcome_${user.uid}`,
+               xpReward: config.rewards.welcomeBonusXP ?? 50
+             });
+          }
+       } catch (err) {
+          console.error("[AuthContext] Welcome Bonus Repair Failed:", err);
+       }
+       return;
     }
 
+    // PHASE 4: Create document FIRST
     const referralCode = generateReferralCode(user.uid);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -192,14 +219,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username,
       points: 0,
       referralCode,
-      referredBy,
+      referredBy: null, // Initially null
       streak: 0,
       totalEarnedToday: 0,
       xp: 0,
       level: 1,
       lastRewardDate: Timestamp.fromDate(yesterday),
       createdAt: Timestamp.now(),
-      role: role as 'admin' | 'user',
+      role: 'user',
+      status: 'active',
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,
@@ -227,35 +255,111 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    // 2.5 New Identity Notification
-    await NotificationEngine.send({
-       userId: user.uid,
-       title: 'Identity Synchronized',
-       description: 'Your PulseEarn profile has been established. Welcome to the network.',
-       type: 'system'
-    });
+    // Everything after this is wrapped in its own try/catch to isolate failures
 
-    // 3. Immediately trigger referral reward check
-    await ReferralProtectionEngine.qualifyReferral(user.uid);
+    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup
+    if (referralCodeInput) {
+       try {
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/referrals/lookup', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${idToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ referralCode: referralCodeInput })
+          });
+          const res = await response.json();
 
-    // Priority 3: Autoritative Welcome Bonus
-    const config = await EconomyConfigEngine.getConfig();
-    await PointTransactionEngine.execute({
-      userId: user.uid,
-      amount: config.rewards.welcomeBonusPoints || 30,
-      type: 'welcome_bonus',
-      source: 'Welcome Bonus',
-      claimId: `welcome_${user.uid}`,
-      xpReward: config.rewards.welcomeBonusXP || 50
-    });
+          if (res.success) {
+            const referredBy = res.referrerId;
+            await updateDoc(userRef, { referredBy });
+
+            await setDoc(doc(collection(db, 'referrals')), {
+              referrerId: referredBy,
+              refereeId: user.uid,
+              refereeUsername: username,
+              status: 'REGISTERED',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+
+            await NotificationEngine.send({
+              userId: referredBy,
+              title: 'New Referral Link',
+              description: `${username} joined using your code.`,
+              type: 'referral_joined'
+            });
+
+            await ReferralProtectionEngine.qualifyReferral(user.uid);
+          }
+       } catch (err) {
+          console.error("[AuthContext] Referral Linkage Failure (Isolated):", err);
+       }
+    }
+
+    // 2. Welcome Bonus
+    try {
+      const config = await EconomyConfigEngine.getConfig();
+      const amount = config.rewards.welcomeBonusPoints ?? 30;
+      const xpReward = config.rewards.welcomeBonusXP ?? 50;
+
+      const result = await PointTransactionEngine.execute({
+        userId: user.uid,
+        amount,
+        type: 'welcome_bonus',
+        source: 'Welcome Bonus',
+        claimId: `welcome_${user.uid}`,
+        xpReward
+      });
+
+      if (result.success && amount > 0) {
+        toast.success(`Welcome Bonus Credited: +${amount} PTS`, {
+          icon: '🎁',
+          duration: 6000,
+          position: 'top-center'
+        });
+      }
+    } catch (err) {
+      console.error("[AuthContext] Welcome Bonus Dispatch Failed (Isolated):", err);
+    }
+
+    // 3. New Identity Notification
+    try {
+      await NotificationEngine.send({
+         userId: user.uid,
+         title: 'Identity Synchronized',
+         description: 'Your PulseEarn profile has been established. Welcome to the network.',
+         type: 'system'
+      });
+    } catch (err) {
+      console.error("[AuthContext] Profile Notification Failed (Isolated):", err);
+    }
   }
 
   async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Send initial verification
-    await sendEmailVerification(user);
+    // Request branded verification email from backend
+    try {
+      const idToken = await user.getIdToken();
+      await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    } catch (err) {
+      console.error("[AuthContext] Backend Verification Request Failed:", err);
+      // Fallback to Firebase standard if backend fails
+      await sendEmailVerification(user, {
+        url: 'https://pulseearn.online/auth/action',
+        handleCodeInApp: true
+      });
+    }
+
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
@@ -288,7 +392,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = docSnap.data() as UserData;
             const resolvedData = {
               ...data,
-              role: (user.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || data.role === 'admin') ? 'admin' : 'user'
+              role: data.role === 'admin' ? 'admin' : 'user',
+              status: data.status || 'active'
             };
 
             setUserData(resolvedData as UserData);
@@ -354,6 +459,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sendVerification,
     resetPassword,
     updateUserEmail,
+    updateUserPassword,
+    reauthenticate,
     systemError
   };
 

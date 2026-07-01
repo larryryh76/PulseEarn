@@ -15,6 +15,8 @@ export const mapAuthError = (error: any): string => {
       return 'An account already exists with this email address.';
     case 'auth/operation-not-allowed':
       return 'This operation is currently not allowed. Please contact support.';
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized for authentication. Please use the official platform URL.';
     case 'auth/weak-password':
       return 'The password is too weak. Please use at least 8 characters with a mix of symbols.';
     case 'auth/too-many-requests':

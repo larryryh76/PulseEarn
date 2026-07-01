@@ -25,7 +25,8 @@ import {
   writeBatch,
   query,
   where,
-  getCountFromServer
+  getCountFromServer,
+  onSnapshot
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
@@ -44,27 +45,27 @@ const OpsXP: React.FC = () => {
   });
 
   React.useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const docRef = doc(db, 'system_config', 'global_v1');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          setFormData({
-            xpPerLevel: data.thresholds?.xpPerLevel || 1000,
-            predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
-            minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
-            referralBonusPoints: data.rewards?.referralBonusPoints || 50,
-            referralBonusXP: data.rewards?.referralBonusXP || 50
-          });
-        }
-      } catch (err) {
-        toast.error("Failed to load progression config");
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    const docRef = doc(db, 'system_config', 'global_v1');
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setFormData({
+          xpPerLevel: data.thresholds?.xpPerLevel || 1000,
+          predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
+          minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
+          referralBonusPoints: data.rewards?.referralBonusPoints || 50,
+          referralBonusXP: data.rewards?.referralBonusXP || 50
+        });
       }
-    };
-    fetchConfig();
+      setLoading(false);
+    }, (err) => {
+      console.error("OpsXP Config Listener Error:", err);
+      toast.error("Failed to load live progression config");
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, []);
 
   const handleUpdate = async () => {
@@ -115,6 +116,8 @@ const OpsXP: React.FC = () => {
         const referralCounts = new Map<string, number>();
         const referralRecords = new Map<string, any>(); // key: referrerId_refereeId
 
+        // Fetch task history counts for all users in one pass if possible (or batch by 100)
+        // For now we pre-cache referral data as it is the largest N+1 vector.
         allReferralsSnap.forEach(d => {
            const data = d.data();
            const rid = data.referrerId;

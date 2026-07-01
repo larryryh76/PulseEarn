@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp, Sun, Moon, MessageSquare, FileText, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
@@ -34,6 +34,11 @@ const Navbar: React.FC = () => {
     { name: 'Tasks', path: '/tasks', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Me', path: '/me', icon: User },
+  ];
+
+  const secondaryLinks = [
+    { name: 'Support', path: '/support', icon: MessageSquare },
+    { name: 'Policies', path: '/legal/terms', icon: FileText },
   ];
 
   const actionableCampaignCount = campaigns.filter(c => {
@@ -110,7 +115,13 @@ const Navbar: React.FC = () => {
                        Ops
                     </Link>
                   )}
-                  <button onClick={() => { logout(); navigate('/'); }} className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest">
+                  <button
+                    onClick={async () => {
+                      await logout();
+                      navigate('/');
+                    }}
+                    className="text-[10px] font-bold text-danger/60 hover:text-danger transition-colors uppercase tracking-widest"
+                  >
                     Sign Out
                   </button>
                 </div>
@@ -173,9 +184,9 @@ const Navbar: React.FC = () => {
                 {currentUser ? (
                   <>
                     <div className="space-y-4">
-                      <p className="data-label px-2 text-primary">Navigation</p>
+                      <p className="data-label px-2 text-primary">System Hub</p>
                       <div className="grid grid-cols-1 gap-2">
-                        {navLinks.map((link) => (
+                        {secondaryLinks.map((link) => (
                           <Link
                             key={link.path}
                             to={link.path}
@@ -189,29 +200,39 @@ const Navbar: React.FC = () => {
                               <link.icon size={20} className={location.pathname === link.path ? "text-primary" : ""} />
                               {link.name}
                             </div>
-                            {link.path === '/tasks' && totalActionableCount > 0 && (
-                              <span className="w-5 h-5 bg-danger rounded-full flex items-center justify-center text-[9px] font-black text-text-primary shadow-lg">
-                                {totalActionableCount}
-                              </span>
-                            )}
                           </Link>
                         ))}
                       </div>
                     </div>
 
                     <div className="pt-8 border-t border-border flex flex-col gap-4">
+                      <div className="grid grid-cols-2 gap-3">
+                         <button
+                           onClick={() => { toggleTheme(); setIsMobileMenuOpen(false); }}
+                           className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-surface-bright border border-border text-text-secondary"
+                         >
+                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                            <span className="text-[9px] font-black uppercase tracking-widest">Theme</span>
+                         </button>
+                         <button
+                           onClick={async () => {
+                             await logout();
+                             navigate('/');
+                             setIsMobileMenuOpen(false);
+                           }}
+                           className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-danger/5 border border-danger/20 text-danger/60"
+                         >
+                            <LogOut size={20} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Sign Out</span>
+                         </button>
+                      </div>
+
                       {userData?.role === 'admin' && (
                         <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-primary bg-primary/5 border border-primary/10">
                           <Terminal size={20} />
-                          Admin Access
+                          Admin Operations
                         </Link>
                       )}
-                      <button
-                        onClick={() => { logout(); navigate('/'); setIsMobileMenuOpen(false); }}
-                        className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-danger/60 hover:bg-danger/5"
-                      >
-                        Sign Out
-                      </button>
                     </div>
                   </>
                 ) : (

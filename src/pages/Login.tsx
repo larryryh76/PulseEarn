@@ -24,9 +24,18 @@ const Login: React.FC = () => {
       await signInWithGoogle();
       navigate('/dashboard');
     } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast.error(mapAuthError(error));
+      // Fix #3: Catch and display Google auth errors with friendly messages
+      let message = 'An unexpected error occurred.';
+      if (error.code === 'auth/unauthorized-domain') {
+        message = 'Google login is temporarily unavailable. Use email instead.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = 'Sign-in window closed. Please try again.';
+      } else if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Check your connection and retry.';
+      } else {
+        message = mapAuthError(error);
       }
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -57,14 +66,8 @@ const Login: React.FC = () => {
     try {
       setIsSubmitting(true);
       await login(email, password);
-
-      // Determine destination based on role or admin email
-      const isAdminEmail = email.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-      if (isAdminEmail) {
-         navigate('/admin');
-      } else {
-         navigate('/dashboard');
-      }
+      // Post-login destination is handled by AuthContext and App route guards
+      navigate('/dashboard');
     } catch (error: any) {
       console.error("[Login] Auth Error:", error.code, error.message);
       toast.error(mapAuthError(error));

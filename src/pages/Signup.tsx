@@ -81,9 +81,18 @@ const Signup: React.FC = () => {
       toast.success('Registration successful! Welcome.');
       navigate('/guide');
     } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast.error(mapAuthError(error));
+      // Fix #3: Catch and display Google auth errors with friendly messages
+      let message = 'An unexpected error occurred.';
+      if (error.code === 'auth/unauthorized-domain') {
+        message = 'Google login is temporarily unavailable. Use email instead.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        message = 'Sign-in window closed. Please try again.';
+      } else if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Check your connection and retry.';
+      } else {
+        message = mapAuthError(error);
       }
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

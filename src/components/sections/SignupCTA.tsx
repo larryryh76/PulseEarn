@@ -37,7 +37,7 @@ const SignupCTA: React.FC = () => {
                 onClick={() => navigate('/signup')}
                 className="px-10 py-5 rounded-xl bg-text-primary text-background font-bold text-[10px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-95 transition-all shadow-2xl flex items-center justify-center gap-3"
               >
-                Create Account
+                Get Started
                 <ArrowRight size={18} />
               </button>
               <button

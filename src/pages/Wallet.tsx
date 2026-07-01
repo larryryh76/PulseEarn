@@ -25,7 +25,7 @@ import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
@@ -76,55 +76,95 @@ const Wallet: React.FC = () => {
     </>
   );
 
+  const validateAddress = (address: string, network: string) => {
+    if (!address) return false;
+
+    switch (network) {
+      case 'ERC20':
+      case 'BEP20':
+      case 'POLYGON':
+        // EVM: 0x followed by 40 hex chars [0-9a-fA-F]
+        return /^0x[a-fA-F0-9]{40}$/.test(address);
+      case 'TRC20':
+        // Tron: Starts with T, 34 chars (Base58: [1-9A-HJ-NP-Za-km-z])
+        return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
+      case 'SOLANA':
+        // Solana: Base58, 32-44 chars
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+      default:
+        return address.length > 20;
+    }
+  };
+
   const handleWithdraw = async () => {
     if (!eligibility.eligible) return toast.error(`Ineligible: ${eligibility.reason}`);
     if (isProcessing || isCompleted) return;
-    if (!withdrawalForm.walletAddress) return toast.error("Wallet address required");
+
+    const normalizedAddress = withdrawalForm.walletAddress.trim();
+    if (!normalizedAddress) return toast.error("Wallet address required");
+    if (!validateAddress(normalizedAddress, withdrawalForm.network)) {
+      return toast.error(`Invalid ${withdrawalForm.network} address format`);
+    }
+
     if (withdrawalForm.amount < WITHDRAWAL_MIN_PTS) return toast.error(`Minimum withdrawal is ${WITHDRAWAL_MIN_PTS} PTS`);
     if (withdrawalForm.amount > points) return toast.error("Insufficient balance");
 
     setIsProcessing(true);
-    try {
-      const claimId = `wd_${userData?.uid}_${Date.now()}`;
+    const claimId = `wd_${userData?.uid}_${Date.now()}`;
+    let withdrawalDocId = null;
 
-      // 1. Log the debit in transactions
+    try {
+      // 1. Create the withdrawal request first (Atomic Requirement)
+      // This ensures we have a record before debiting
+      const withdrawalRef = await addDoc(collection(db, 'withdrawals'), {
+        userId: userData?.uid,
+        userEmail: userData?.email,
+        username: userData?.username,
+        amountPoints: withdrawalForm.amount,
+        amountUSD: PTS_TO_USD(withdrawalForm.amount),
+        walletAddress: normalizedAddress,
+        network: withdrawalForm.network,
+        status: 'PENDING',
+        claimId,
+        createdAt: serverTimestamp()
+      });
+      withdrawalDocId = withdrawalRef.id;
+
+      // 2. Debit the points
       const result = await PointTransactionEngine.execute({
         userId: userData?.uid || '',
         amount: -withdrawalForm.amount,
         type: 'withdrawal_debit',
         source: 'System Withdrawal',
         claimId,
+        referenceId: withdrawalDocId,
         metadata: {
-          walletAddress: withdrawalForm.walletAddress,
-          network: withdrawalForm.network
+          walletAddress: normalizedAddress,
+          network: withdrawalForm.network,
+          withdrawalId: withdrawalDocId
         }
       });
 
       if (!result.success) {
-        toast.error(result.error);
-        return;
+        // Rollback attempt: Mark withdrawal as FAILED since debit didn't process
+        try {
+          await updateDoc(doc(db, 'withdrawals', withdrawalDocId), {
+            status: 'FAILED',
+            error: result.error,
+            updatedAt: serverTimestamp()
+          });
+        } catch (rollbackErr) {
+          console.error("[Wallet] Critical Rollback Failure:", rollbackErr);
+        }
+        throw new Error(result.error);
       }
-
-      // 2. Create the withdrawal request for admin review
-      await addDoc(collection(db, 'withdrawals'), {
-        userId: userData?.uid,
-        userEmail: userData?.email,
-        username: userData?.username,
-        amountPoints: withdrawalForm.amount,
-        amountUSD: PTS_TO_USD(withdrawalForm.amount),
-        walletAddress: withdrawalForm.walletAddress,
-        network: withdrawalForm.network,
-        status: 'PENDING',
-        transactionReference: result.txId,
-        claimId,
-        createdAt: serverTimestamp()
-      });
 
       setIsCompleted(true);
       toast.success("Withdrawal request submitted");
     } catch (err: any) {
-      console.error(err);
+      console.error("[Wallet] Withdrawal Error:", err);
       toast.error(err.message || "Withdrawal failed");
+      // TODO: Implement more robust rollback/retry logic for production
     } finally {
       setIsProcessing(false);
     }
@@ -223,30 +263,30 @@ const Wallet: React.FC = () => {
         </Card>
 
         {/* THRESHOLD PROGRESS */}
-        <Card variant="compact" className="mb-12 md:mb-16 p-6 md:p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+        <Card variant="compact" className="mb-12 md:mb-16 p-6 md:p-8 border-dashed bg-transparent flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 border-border">
            <div className="flex items-center gap-4">
               <div className={cn(
                  "w-12 h-12 rounded-2xl flex items-center justify-center border",
-                 thresholdMet ? "bg-success/5 border-success/20 text-success" : "bg-surface-bright border-border text-text-tertiary"
+                 thresholdMet ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary"
               )}>
                  <ShieldCheck size={24} />
               </div>
               <div className="space-y-1">
-                 <p className="text-sm font-bold text-text-primary">{thresholdMet ? 'Payout Available' : 'Payout Progress'}</p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Minimum 10,000 PTS Required</p>
+                 <p className="text-sm font-bold text-text-primary uppercase tracking-widest italic">{thresholdMet ? 'Threshold Secured' : 'Settlement Progress'}</p>
+                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Target: 10,000 PTS</p>
               </div>
            </div>
 
            <div className="flex-grow max-w-md w-full space-y-3">
-              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                 <span className="text-text-tertiary">Progress to payout</span>
-                 <span className="text-text-primary">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
+              <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em]">
+                 <span className="text-text-tertiary">Liquidity Ratio</span>
+                 <span className="text-primary">{Math.min(Math.floor((points / WITHDRAWAL_MIN_PTS) * 100), 100)}%</span>
               </div>
-              <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border">
                  <motion.div
                    initial={{ width: 0 }}
                    animate={{ width: `${Math.min((points / WITHDRAWAL_MIN_PTS) * 100, 100)}%` }}
-                   className={cn("h-full", thresholdMet ? "bg-success" : "bg-primary")}
+                   className="h-full bg-primary shadow-[0_0_10px_rgba(0,112,255,0.4)] rounded-full"
                  />
               </div>
            </div>
@@ -530,10 +570,7 @@ const Wallet: React.FC = () => {
                         <Button
                            onClick={() => {
                               if (selectedTx.type.includes('prediction')) navigate('/predictions');
-                              else if (selectedTx.type.includes('task')) {
-                                 if (selectedTx.metadata?.campaignId) navigate(`/campaigns/${selectedTx.metadata.campaignId}`);
-                                 else navigate('/tasks');
-                              }
+                              else if (selectedTx.type.includes('task')) navigate('/tasks');
                               else if (selectedTx.type.includes('referral')) navigate('/referrals');
                               setSelectedTx(null);
                            }}

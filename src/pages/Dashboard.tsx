@@ -32,6 +32,8 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 import OnboardingOverlay from '../components/OnboardingOverlay';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import DailyRewardCard from '../components/Dashboard/DailyRewardCard';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -158,7 +160,7 @@ const Dashboard: React.FC = () => {
           <div className="space-y-1">
              <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: ENTITY_READ_FAILURE</p>
              <p className="text-white/40 text-xs max-w-xs mx-auto font-bold uppercase tracking-widest leading-relaxed px-4">
-                We could not establish an authoritative handshake with your profile node.
+                We could not establish an authoritative syncing with your profile node.
              </p>
           </div>
        </div>
@@ -227,14 +229,21 @@ const Dashboard: React.FC = () => {
 
         {/* METRICS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group">
+           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group shadow-2xl transition-all hover:border-primary/40">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] -mr-16 -mt-16 group-hover:bg-primary/20 transition-all duration-700" />
-              <div className="flex justify-between items-start">
-                 <p className="data-label text-primary">Balance</p>
-                 <WalletIcon size={18} className="text-primary" />
+              <div className="flex justify-between items-start relative z-10">
+                 <p className="data-label text-primary">Pulse Balance</p>
+                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/20 text-primary">
+                    <WalletIcon size={16} />
+                 </div>
               </div>
-              <div className="space-y-1">
-                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{(userData?.points || 0)?.toLocaleString()} <span className="text-[10px] font-mono text-primary uppercase">PTS</span></p>
+              <div className="space-y-1 relative z-10">
+                 <div className="flex items-baseline gap-2">
+                    <h2 className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">
+                       <AnimatedNumber value={userData?.points || 0} />
+                    </h2>
+                    <span className="text-[10px] font-mono text-primary uppercase font-black">PTS</span>
+                 </div>
                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
               </div>
            </Card>
@@ -274,18 +283,7 @@ const Dashboard: React.FC = () => {
               </div>
            </Card>
 
-           <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
-              <div className="flex justify-between items-start">
-                 <p className="data-label">Streak</p>
-                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-surface-bright border border-border", userData?.streak && userData.streak > 0 ? "text-orange-500" : "text-text-tertiary")}>
-                    <Flame size={16} />
-                 </div>
-              </div>
-              <div className="space-y-1">
-                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{userData?.streak || 0} <span className="text-[10px] font-mono text-text-tertiary uppercase">Days</span></p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Streak</p>
-              </div>
-           </Card>
+           <DailyRewardCard />
 
            <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
               <div className="flex justify-between items-start">
@@ -324,23 +322,13 @@ const Dashboard: React.FC = () => {
                            key={item.id}
                            whileHover={{ y: -5 }}
                            className={cn(
-                              "w-[300px] md:w-80 p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[380px]",
+                              "w-[260px] md:w-80 p-6 md:p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[320px] md:min-h-[380px]",
                               item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
                            )}
                            onClick={() => {
-                              if (item.type === 'CAMPAIGN') navigate(`/campaigns/${item.originalId}`);
-                              else if (item.category === 'PREDICTION') navigate('/predictions');
+                              if (item.category === 'PREDICTION') navigate('/predictions');
                               else if (item.category === 'REFERRAL') navigate('/referrals');
-                              else if (item.type === 'MISSION') navigate('/tasks', { state: { highlightId: item.originalId } });
-                              else {
-                                 // It's a task. We should find the full task object.
-                                 const fullTask = tasks.find(t => t.id === item.originalId);
-                                 if (fullTask) {
-                                    navigate('/tasks', { state: { selectedTask: fullTask } });
-                                 } else {
-                                    navigate('/tasks');
-                                 }
-                              }
+                              else navigate('/tasks');
                            }}
                         >
                            <div className="space-y-6">
@@ -364,10 +352,10 @@ const Dashboard: React.FC = () => {
 
                               <div className="space-y-2">
                                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.category || item.type}</p>
-                                 <h3 className="text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-1 group-hover:text-primary transition-colors italic">
+                                 <h3 className="text-lg md:text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-2 md:line-clamp-1 group-hover:text-primary transition-colors italic">
                                     {item.title}
                                  </h3>
-                                 <p className="text-xs text-text-tertiary font-medium line-clamp-2 leading-relaxed min-h-[32px]">
+                                 <p className="text-xs text-text-tertiary font-medium line-clamp-3 md:line-clamp-2 leading-relaxed min-h-[48px] md:min-h-[32px]">
                                     {item.description || item.instructions || 'Secure this objective to claim your contribution rewards.'}
                                  </p>
                               </div>
@@ -418,7 +406,10 @@ const Dashboard: React.FC = () => {
                    </div>
                    <div className="space-y-4">
                       <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Earning Stats</h4>
-                      <p className="text-xs text-text-tertiary leading-relaxed">Your participation has increased by <span className="text-success font-bold">12.5%</span> this week. Keep active to maximize rewards.</p>
+                      <p className="text-xs text-text-tertiary leading-relaxed">
+                        Secure more objectives to scale your position. Current productivity:
+                        <span className="text-success font-bold ml-1 italic">{userData?.stats?.tasksCompleted || 0} Units</span>
+                      </p>
                    </div>
                 </div>
 
@@ -673,10 +664,6 @@ const Dashboard: React.FC = () => {
                               if (type.includes('prediction')) {
                                  navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
-                              else if (type.includes('campaign')) {
-                                 if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
-                                 else navigate('/tasks');
-                              }
                               else if (type.includes('task') || type.includes('mission')) {
                                  navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               }
@@ -787,13 +774,9 @@ const Dashboard: React.FC = () => {
                    <div className="space-y-3 pt-4">
                       <Button
                         onClick={() => {
-                           if (selectedTask.type === 'MISSION') {
-                              if (selectedTask.category === 'PREDICTION') navigate('/predictions');
-                              else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
-                              else navigate('/tasks');
-                           } else {
-                              navigate(`/campaigns/${selectedTask.campaignId}`);
-                           }
+                           if (selectedTask.category === 'PREDICTION') navigate('/predictions');
+                           else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
+                           else navigate('/tasks');
                            setSelectedTask(null);
                         }}
                         variant="primary"

@@ -22,6 +22,8 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!currentUser) return;
 
+    // Audit: Restored orderBy for synchronization integrity.
+    // Single-field index on sub-collection is automatic.
     const notificationsRef = collection(db, 'users', currentUser.uid, 'notifications');
     const q = query(notificationsRef, orderBy('timestamp', 'desc'), limit(100));
 

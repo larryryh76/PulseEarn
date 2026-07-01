@@ -11,24 +11,17 @@ import {
   RefreshCcw,
   MessageSquare,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  AlertTriangle,
+  UserPlus,
+  ArrowRight
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../firebase/config';
-import {
-  collection,
-  query,
-  where,
-  getCountFromServer,
-  getDocs,
-  limit,
-  Timestamp,
-  doc,
-  getDoc,
-  orderBy
-} from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, onSnapshot, orderBy, startAfter } from 'firebase/firestore';
 import { cn } from '../../../utils';
-import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
+import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -41,90 +34,131 @@ const OpsOverview: React.FC = () => {
     pendingVerifications: 0,
     fraudAnomalies: 0,
     volume24h: 0,
-    totalLiability: 0
+    totalLiability: 0,
+    offerwallPayouts24h: 0
   });
   const [loading, setLoading] = React.useState(true);
   const [lastSync, setLastSync] = React.useState<Date>(new Date());
   const [recentLedger, setRecentLedger] = React.useState<any[]>([]);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<any>(null);
 
-  const fetchOperationalData = async () => {
-    setLoading(true);
+  const fetchCountsRef = React.useRef<() => Promise<void>>(async () => {});
+
+  const fetchLedger = async (isNext = false) => {
     try {
-      const [
-        usersCount,
-        campaignsCount,
-        tasksCount,
-        withdrawalsCount,
-        supportCount,
-        verificationsCount,
-        anomaliesCount
-      ] = await Promise.all([
-        getCountFromServer(collection(db, 'users')),
-        getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true))),
-        getCountFromServer(query(collection(db, 'tasks'), where('active', '==', true))),
-        getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'PENDING'))),
-        getCountFromServer(query(collection(db, 'support_tickets'), where('status', '==', 'OPEN'))),
-        getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING'))),
-        getCountFromServer(collection(db, 'system_anomalies'))
-      ]);
-
-      const dayAgo = new Date();
-      dayAgo.setHours(dayAgo.getHours() - 24);
-      const volSnap = await getDocs(query(
-        collection(db, 'system_claims'),
-        where('executedAt', '>=', Timestamp.fromDate(dayAgo))
-      ));
-      let volume = 0;
-      volSnap.forEach(d => volume += Math.abs(d.data().amount || 0));
-
-      // Audit: Fixed liability bottleneck. Fetching from authoritative system_config metrics.
-      const configRef = doc(db, 'system_config', 'global_metrics');
-      const configSnap = await getDoc(configRef);
-      let totalPts = 0;
-      if (configSnap.exists()) {
-         totalPts = configSnap.data().totalPTSLiability || 0;
-      } else {
-         // Fallback for smaller user bases (< 1000)
-         const liabilitySnap = await getDocs(query(collection(db, 'users'), limit(1000)));
-         liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
-      }
-
-      // Audit: restored orderBy for system_claims
-      const ledgerSnap = await getDocs(query(
+      let q = query(
         collection(db, 'system_claims'),
         orderBy('executedAt', 'desc'),
-        limit(5)
-      ));
+        limit(10)
+      );
 
-      const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      setRecentLedger(ledgerData);
+      if (isNext && lastDoc) {
+        q = query(
+          collection(db, 'system_claims'),
+          orderBy('executedAt', 'desc'),
+          startAfter(lastDoc),
+          limit(10)
+        );
+      }
 
-      setStats({
-        totalUsers: usersCount.data().count,
-        activeCampaigns: campaignsCount.data().count,
-        activeTasks: tasksCount.data().count,
-        pendingWithdrawals: withdrawalsCount.data().count,
-        pendingSupport: supportCount.data().count,
-        pendingVerifications: verificationsCount.data().count,
-        fraudAnomalies: anomaliesCount.data().count,
-        volume24h: volume,
-        totalLiability: totalPts
-      });
-      setLastSync(new Date());
-    } catch (error: any) {
-      console.error("[OpsOverview] Authority Sync Failure:", error);
-      toast.error(`Sync Failure: ${error.message}`, { id: 'sync-error' });
-    } finally {
-      setLoading(false);
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (isNext) {
+        setRecentLedger(prev => [...prev, ...data]);
+      } else {
+        setRecentLedger(data);
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      setHasMore(snap.docs.length === 10);
+    } catch (err) {
+      console.error("[OpsOverview] Ledger Fetch Error:", err);
     }
   };
 
   React.useEffect(() => {
-    fetchOperationalData();
+    setLoading(true);
+
+    // Live metrics from system_config
+    const metricsUnsub = onSnapshot(doc(db, 'system_config', 'global_metrics'), (snap) => {
+      if (snap.exists()) {
+        setStats(prev => ({ ...prev, totalLiability: snap.data().totalPTSLiability || 0 }));
+      }
+      setLastSync(new Date());
+    });
+
+    // Counts - aggregate listener (simulated by frequent polling or direct onSnapshot if supported by collection)
+    const fetchCounts = async () => {
+      try {
+        const [
+          usersCount,
+          campaignsCount,
+          tasksCount,
+          withdrawalsCount,
+          supportCount,
+          verificationsCount,
+          anomaliesCount
+        ] = await Promise.all([
+          getCountFromServer(collection(db, 'users')),
+          getCountFromServer(query(collection(db, 'campaigns'), where('active', '==', true))),
+          getCountFromServer(query(collection(db, 'tasks'), where('active', '==', true))),
+          getCountFromServer(query(collection(db, 'withdrawals'), where('status', '==', 'PENDING'))),
+          getCountFromServer(query(collection(db, 'support_tickets'), where('status', '==', 'OPEN'))),
+          getCountFromServer(query(collection(db, 'task_claims'), where('validationState', '==', 'PENDING'))),
+          getCountFromServer(collection(db, 'system_anomalies'))
+        ]);
+
+        const dayAgo = new Date();
+        dayAgo.setHours(dayAgo.getHours() - 24);
+        const volSnap = await getDocs(query(
+          collection(db, 'system_claims'),
+          where('executedAt', '>=', Timestamp.fromDate(dayAgo))
+        ));
+        let volume = 0;
+        let offerwallVolume = 0;
+        volSnap.forEach(d => {
+            const data = d.data();
+            const amount = data.amount || 0;
+            volume += amount;
+            if (data.type?.startsWith('offerwall_')) {
+                offerwallVolume += amount;
+            }
+        });
+
+        setStats(prev => ({
+          ...prev,
+          totalUsers: usersCount.data().count,
+          activeCampaigns: campaignsCount.data().count,
+          activeTasks: tasksCount.data().count,
+          pendingWithdrawals: withdrawalsCount.data().count,
+          pendingSupport: supportCount.data().count,
+          pendingVerifications: verificationsCount.data().count,
+          fraudAnomalies: anomaliesCount.data().count,
+          volume24h: volume,
+          offerwallPayouts24h: offerwallVolume
+        }));
+        setLoading(false);
+      } catch (err) {
+        console.error("OpsOverview Polling Error:", err);
+      }
+    };
+
+    fetchCounts();
+    fetchLedger();
+    fetchCountsRef.current = fetchCounts;
+    const interval = setInterval(fetchCounts, 30000);
+
+    return () => {
+      metricsUnsub();
+      clearInterval(interval);
+    };
   }, []);
 
   const metricItem = (label: string, value: string | number, icon: any, color: string, path?: string) => (
-    <div
+    <motion.div
+      layout
       onClick={() => path && navigate(path)}
       className={cn(
         "bg-surface border border-border p-5 md:p-6 rounded-xl hover:border-border-bright transition-all group shadow-2xl",
@@ -138,10 +172,15 @@ const OpsOverview: React.FC = () => {
           {path && <div className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-text-tertiary/50 group-hover:text-primary transition-colors">Audit</div>}
        </div>
        <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary mb-0.5 md:mb-1 truncate">{label}</p>
-       <p className="text-xl md:text-2xl font-mono font-bold tracking-tighter truncate">
+       <motion.p
+          key={value}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-xl md:text-2xl font-mono font-bold tracking-tighter truncate"
+       >
           {loading ? '---' : typeof value === 'number' ? value.toLocaleString() : value}
-       </p>
-    </div>
+       </motion.p>
+    </motion.div>
   );
 
   return (
@@ -159,10 +198,18 @@ const OpsOverview: React.FC = () => {
                 </span>
                 <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
                 <span>Sync: {lastSync.toLocaleTimeString()}</span>
+                <span className="hidden sm:block w-1 h-1 rounded-full bg-surface-accent" />
+                <span className="text-primary italic">Engine: 5.0.0-PRO</span>
+                {stats.totalLiability === 0 && !loading && (
+                   <span className="text-danger flex items-center gap-1.5 animate-bounce ml-4">
+                      <ShieldAlert size={12} />
+                      CRITICAL: Liability Reporting Offline
+                   </span>
+                )}
              </div>
           </div>
           <button
-            onClick={fetchOperationalData}
+            onClick={() => { fetchCountsRef.current?.(); fetchLedger(); }}
             className="w-full md:w-auto px-6 py-2.5 bg-surface-bright border border-border-bright rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-surface-accent transition-all flex items-center justify-center gap-2"
           >
              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
@@ -170,11 +217,87 @@ const OpsOverview: React.FC = () => {
           </button>
        </header>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
           {metricItem('Total Users', stats.totalUsers, Users, 'text-primary', '/admin/users')}
           {metricItem('24h PTS Volume', stats.volume24h, Activity, 'text-success', '/admin/ledger')}
-          {metricItem('Total USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
-          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-indigo-400', '/admin/campaigns')}
+          {metricItem('24h Offerwall Payouts', stats.offerwallPayouts24h, ShieldCheck, 'text-indigo-400', '/admin/economy')}
+          {metricItem('USD Liability', formatUSD(stats.totalLiability / 1000), BarChart3, 'text-accent', '/admin/economy')}
+          {metricItem('Active Campaigns', stats.activeCampaigns, Target, 'text-orange-400', '/admin/campaigns')}
+       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-3 px-1">
+                <Activity size={14} />
+                Live Event Feed
+             </h2>
+             <div className="bg-surface border border-border rounded-3xl overflow-hidden shadow-2xl divide-y divide-white/5">
+                <AnimatePresence mode="popLayout">
+                   {recentLedger.slice(0, 5).map((tx, idx) => (
+                      <motion.button
+                         key={tx.id}
+                         initial={{ opacity: 0, x: -20 }}
+                         animate={{ opacity: 1, x: 0 }}
+                         transition={{ delay: idx * 0.1 }}
+                         className="w-full p-6 flex items-center justify-between hover:bg-surface-bright transition-colors group cursor-pointer text-left appearance-none outline-none"
+                         onClick={() => navigate('/admin/ledger')}
+                      >
+                         <div className="flex items-center gap-4">
+                            <div className={cn(
+                               "w-10 h-10 rounded-xl flex items-center justify-center border transition-all group-hover:scale-110 shadow-inner",
+                               tx.amount >= 0 ? "bg-success/5 border-success/10 text-success" : "bg-danger/5 border-danger/10 text-danger"
+                            )}>
+                               {tx.amount >= 0 ? <UserPlus size={18} /> : <CreditCard size={18} />}
+                            </div>
+                            <div>
+                               <p className="text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                               <p className="text-[9px] font-mono text-text-tertiary uppercase mt-1">{tx.userId.slice(0, 12)}...</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                            <p className={cn("text-sm font-mono font-bold", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                               {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()}
+                            </p>
+                            <p className="text-[8px] font-black text-text-tertiary/30 uppercase mt-1 tracking-widest">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                         </div>
+                      </motion.button>
+                   ))}
+                </AnimatePresence>
+             </div>
+          </div>
+
+          <div className="space-y-8">
+             <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-text-tertiary flex items-center gap-3 px-1">
+                <ShieldAlert size={14} />
+                Critical Attention
+             </h2>
+             <div className="space-y-4">
+                {[
+                   { label: 'Pending Payouts', count: stats.pendingWithdrawals, path: '/admin/withdrawals', icon: CreditCard, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                   { label: 'Open Inquiries', count: stats.pendingSupport, path: '/admin/support', icon: MessageSquare, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
+                   { label: 'Unresolved Threats', count: stats.fraudAnomalies, path: '/admin/security', icon: AlertTriangle, color: 'text-danger', bg: 'bg-danger/10' }
+                ].map(item => (
+                   <button
+                      key={item.label}
+                      onClick={() => navigate(item.path)}
+                      className="w-full p-6 bg-surface border border-border rounded-2xl flex items-center justify-between group cursor-pointer hover:border-border-bright transition-all shadow-xl text-left appearance-none outline-none"
+                   >
+                      <div className="flex items-center gap-4">
+                         <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border border-transparent shadow-inner transition-transform group-hover:scale-110", item.bg, item.color)}>
+                            <item.icon size={18} />
+                         </div>
+                         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">{item.label}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <span className={cn("text-xl font-mono font-bold tracking-tighter", item.count > 0 ? item.color : "text-text-tertiary/20")}>
+                            {item.count}
+                         </span>
+                         <ArrowRight size={14} className="text-text-tertiary/20 group-hover:text-primary transition-all group-hover:translate-x-1" />
+                      </div>
+                   </button>
+                ))}
+             </div>
+          </div>
        </div>
 
        <div className="space-y-6">
@@ -231,42 +354,53 @@ const OpsOverview: React.FC = () => {
        </div>
 
        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-6 md:p-10 space-y-8 md:space-y-10 shadow-2xl">
+          <div className="lg:col-span-2 space-y-6">
              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary">
+                <h3 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 text-text-secondary px-1">
                    <Activity size={16} className="text-primary" />
                    Recent Transactions
                 </h3>
              </div>
-             <div className="space-y-1">
-                {recentLedger.length > 0 ? recentLedger.map((tx) => (
-                   <div key={tx.id} onClick={() => navigate('/admin/ledger')} className="flex items-center justify-between p-4 md:p-5 border-b border-border last:border-0 hover:bg-surface-bright/50 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4 md:gap-5">
-                         <div className={cn(
-                           "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
-                           tx.amount >= 0 ? "bg-success" : "bg-danger"
-                         )} />
-                         <div>
-                            <p className="text-[11px] md:text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                            <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 10).toUpperCase()}</p>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className={cn("text-[11px] md:text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
-                           {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
-                         </p>
-                         <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
-                      </div>
-                   </div>
-                )) : (
-                  <div className="py-20 text-center opacity-20 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
-                    No recent transactions
-                  </div>
-                )}
-             </div>
+
+             <DataTable
+                columns={[
+                  {
+                    header: 'Transaction',
+                    accessor: (tx: any) => (
+                       <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full transition-all shadow-[0_0_5px_rgba(0,102,255,0.4)]",
+                            tx.amount >= 0 ? "bg-success" : "bg-danger"
+                          )} />
+                          <div>
+                             <p className="text-[11px] md:text-xs font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
+                             <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary uppercase mt-1">ID: {tx.id.slice(0, 10).toUpperCase()}</p>
+                          </div>
+                       </div>
+                    )
+                  },
+                  {
+                    header: 'Amount',
+                    className: 'text-right',
+                    accessor: (tx: any) => (
+                       <div>
+                          <p className={cn("text-[11px] md:text-xs font-mono font-bold italic", tx.amount >= 0 ? "text-success" : "text-danger")}>
+                            {tx.amount >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} PTS
+                          </p>
+                          <p className="text-[8px] md:text-[9px] font-mono text-text-tertiary/50 uppercase mt-1">{tx.executedAt?.toDate?.()?.toLocaleTimeString()}</p>
+                       </div>
+                    )
+                  }
+                ]}
+                data={recentLedger}
+                isLoading={loading}
+                onRowClick={() => navigate('/admin/ledger')}
+                onLoadMore={() => fetchLedger(true)}
+                hasMore={hasMore}
+             />
           </div>
 
-          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-6 md:p-10 flex flex-col justify-between group shadow-2xl">
+          <div className="bg-danger/[0.02] border border-danger/10 rounded-2xl p-6 md:p-10 flex flex-col justify-between group shadow-2xl h-fit">
              <div className="space-y-6 md:space-y-8">
                 <div className="flex items-center justify-between">
                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-danger/10 flex items-center justify-center text-danger border border-danger/20 group-hover:scale-110 transition-transform shadow-2xl shadow-danger/5">

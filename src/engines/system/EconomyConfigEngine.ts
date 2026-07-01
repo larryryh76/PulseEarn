@@ -16,6 +16,8 @@ export interface EconomyConfig {
     referralBonusPoints: number;
     referralBonusXP: number;
     predictionWinMultiplier: number; // e.g. 2.0
+    minPredictionStake: number;
+    maxPredictionStake: number;
     predictionXP: {
       win: number;
       loss: number;
@@ -35,13 +37,15 @@ export interface EconomyConfig {
 
 const DEFAULT_CONFIG: EconomyConfig = {
   rewards: {
-    dailyLoginPoints: 10,
+    dailyLoginPoints: 50,
     dailyLoginXP: 20,
     welcomeBonusPoints: 30,
     welcomeBonusXP: 50,
     referralBonusPoints: 50,
     referralBonusXP: 50,
     predictionWinMultiplier: 2.0,
+    minPredictionStake: 10,
+    maxPredictionStake: 10000,
     predictionXP: {
       win: 250,
       loss: 50
@@ -79,7 +83,14 @@ export class EconomyConfigEngine {
       const snap = await getDoc(docRef);
 
       if (snap.exists()) {
-        this.cache = snap.data() as EconomyConfig;
+        const data = snap.data();
+        this.cache = {
+           ...DEFAULT_CONFIG,
+           ...data,
+           rewards: { ...DEFAULT_CONFIG.rewards, ...(data.rewards || {}) },
+           thresholds: { ...DEFAULT_CONFIG.thresholds, ...(data.thresholds || {}) },
+           security: { ...DEFAULT_CONFIG.security, ...(data.security || {}) }
+        } as EconomyConfig;
       } else {
         // Initialize with defaults if missing
         console.warn('[EconomyConfig] Config doc missing, initializing with defaults');

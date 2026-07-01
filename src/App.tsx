@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Signup from './pages/Signup'
 import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
+import AuthAction from './pages/AuthAction'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Predictions from './pages/predictions/Predictions'
@@ -11,16 +12,11 @@ import Referrals from './pages/Referrals'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
-import CampaignDetails from './pages/CampaignDetails'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
-  OpsCampaigns as AdminCampaigns,
-  OpsCampaignDetail as AdminCampaignDetail,
-  OpsSponsoredCampaigns as AdminSponsored,
-  OpsSponsoredCampaignDetail as AdminSponsoredDetail,
   OpsValidation as AdminValidation,
   OpsLedger as AdminLedger,
   OpsUsers as AdminUsers,
@@ -30,10 +26,11 @@ import {
   OpsTasks as AdminTasks,
   OpsPredictions as AdminPredictions,
   OpsWithdrawals as AdminWithdrawals,
-  OpsMissions as AdminMissions,
   OpsXP as AdminXP,
   OpsSupport as AdminSupport,
-  OpsHealth as AdminHealth
+  OpsHealth as AdminHealth,
+  OpsModerators as AdminModerators,
+  OpsOfferwalls as AdminOfferwalls
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -62,11 +59,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdminRole = userData?.role === 'admin';
-  const isAdmin = isAdminEmail || isAdminRole;
+  const isAdmin = userData?.role === 'admin';
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
@@ -74,7 +70,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
   if (loading) return (
@@ -85,10 +81,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdminRole = userData?.role === 'admin';
+  const role = (userData?.role as string)?.toLowerCase();
+  const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
-  if (!isAdminEmail && !isAdminRole) {
+  if (!isOps) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -99,8 +95,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    const isAdminEmail = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
-    if (userData?.role === 'admin' || isAdminEmail) return <Navigate to="/admin" replace />;
+    if (userData?.role === 'admin') return <Navigate to="/admin" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -155,6 +150,7 @@ function App() {
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
+        <Route path="/auth/action" element={<AuthAction />} />
 
         {/* PERSISTENT APP ARCHITECTURE */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -162,7 +158,6 @@ function App() {
            <Route path="/tasks" element={<Tasks />} />
            <Route path="/predictions" element={<Predictions />} />
            <Route path="/referrals" element={<Referrals />} />
-           <Route path="/campaigns/:id" element={<CampaignDetails />} />
            <Route path="/wallet" element={<Wallet />} />
            <Route path="/me" element={<Profile />} />
            <Route path="/notifications" element={<Notifications />} />
@@ -182,26 +177,23 @@ function App() {
         <Route path="/support-policy" element={<SupportPolicy />} />
         <Route path="/help" element={<HelpCenter />} />
 
-        <Route path="/admin" element={<AdminRoute><Navigate to="/admin/overview" replace /></AdminRoute>} />
-        <Route path="/admin/overview" element={<AdminRoute><OpsLayout><AdminOverview /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/campaigns" element={<AdminRoute><OpsLayout><AdminCampaigns /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/campaigns/:id" element={<AdminRoute><OpsLayout><AdminCampaignDetail /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/sponsored" element={<AdminRoute><OpsLayout><AdminSponsored /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/sponsored/:id" element={<AdminRoute><OpsLayout><AdminSponsoredDetail /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/validation" element={<AdminRoute><OpsLayout><AdminValidation /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><OpsLayout><AdminUsers /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/economy" element={<AdminRoute><OpsLayout><AdminEconomy /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/broadcasts" element={<AdminRoute><OpsLayout><AdminBroadcasts /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/audit" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/tasks" element={<AdminRoute><OpsLayout><AdminTasks /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/predictions" element={<AdminRoute><OpsLayout><AdminPredictions /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/missions" element={<AdminRoute><OpsLayout><AdminMissions /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/support" element={<AdminRoute><OpsLayout><AdminSupport /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
-        <Route path="/admin/health" element={<AdminRoute><OpsLayout><AdminHealth /></OpsLayout></AdminRoute>} />
+        <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
+        <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/security" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/economy" element={<OpsRoute><OpsLayout><AdminEconomy /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/broadcasts" element={<OpsRoute><OpsLayout><AdminBroadcasts /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/audit" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/tasks" element={<OpsRoute><OpsLayout><AdminTasks /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/predictions" element={<OpsRoute><OpsLayout><AdminPredictions /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/withdrawals" element={<OpsRoute><OpsLayout><AdminWithdrawals /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/support" element={<OpsRoute><OpsLayout><AdminSupport /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/xp" element={<OpsRoute><OpsLayout><AdminXP /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/health" element={<OpsRoute><OpsLayout><AdminHealth /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/moderators" element={<OpsRoute><OpsLayout><AdminModerators /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/offerwalls" element={<OpsRoute><OpsLayout><AdminOfferwalls /></OpsLayout></OpsRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

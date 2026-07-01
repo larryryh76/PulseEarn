@@ -1,14 +1,23 @@
-import { collection, getDocs, addDoc, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, Query } from 'firebase/firestore';
+import { collection, getDocs, serverTimestamp, query, limit, startAfter, QueryDocumentSnapshot, DocumentData, orderBy, Query, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 export class BroadcastEngine {
   static async broadcastGlobal(title: string, description: string, type: 'system' | 'reward' | 'alert' = 'system') {
-    // Scalability: Optimized for memory efficiency using pagination
+    // Scalability: Optimized for memory efficiency using pagination and writeBatch
     const FETCH_LIMIT = 500;
-    const PROCESS_BATCH_SIZE = 50;
 
     let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
     let hasMore = true;
+    let totalSent = 0;
+
+    // Log the broadcast history
+    await writeBatch(db).set(doc(collection(db, 'broadcasts')), {
+      title,
+      description,
+      type,
+      timestamp: serverTimestamp(),
+      status: 'SENDING'
+    }).commit();
 
     while (hasMore) {
        const q: Query<DocumentData> = lastDoc
@@ -24,15 +33,28 @@ export class BroadcastEngine {
        const users = snap.docs;
        lastDoc = snap.docs[snap.docs.length - 1];
 
-       // Process this chunk in smaller sub-batches to avoid promise overloading
-       for (let i = 0; i < users.length; i += PROCESS_BATCH_SIZE) {
-        const chunk = users.slice(i, i + PROCESS_BATCH_SIZE);
-       await Promise.all(chunk.map((userDoc: QueryDocumentSnapshot<DocumentData>) =>
-          addDoc(collection(db, 'users', userDoc.id, 'notifications'), {
-            title, description, type, read: false, timestamp: serverTimestamp()
-          })
-       ));
+       // Use writeBatch for atomic efficiency (Max 500 operations per batch)
+       const batch = writeBatch(db);
+
+       users.forEach((userDoc) => {
+          const notifRef = doc(collection(db, 'users', userDoc.id, 'notifications'));
+          batch.set(notifRef, {
+            title,
+            description,
+            type,
+            read: false,
+            timestamp: serverTimestamp()
+          });
+       });
+
+       await batch.commit();
+       totalSent += users.length;
+
+       if (users.length < FETCH_LIMIT) {
+          hasMore = false;
        }
     }
+
+    console.log(`[BroadcastEngine] Completed. Sent to ${totalSent} users.`);
   }
 }

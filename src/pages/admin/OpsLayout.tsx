@@ -2,14 +2,12 @@ import * as React from 'react';
 import { useEffect } from 'react';
 import {
   LayoutGrid,
-  Target,
   Zap,
   TrendingUp,
   ShieldCheck,
   CreditCard,
   Activity,
   Users,
-  Briefcase,
   ShieldAlert,
   Bell,
   Trophy,
@@ -21,7 +19,8 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Terminal
+  Terminal,
+  Globe
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,29 +35,29 @@ interface NavItem {
   icon: React.ElementType;
   path: string;
   category: 'CORE' | 'ECONOMY' | 'SYSTEM' | 'SECURITY';
+  isAdminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'Overview', icon: LayoutGrid, path: '/admin/overview', category: 'CORE' },
-  { id: 'CAMPAIGNS', label: 'Campaigns', icon: Target, path: '/admin/campaigns', category: 'CORE' },
-  { id: 'SPONSORED', label: 'Sponsored', icon: Briefcase, path: '/admin/sponsored', category: 'CORE' },
   { id: 'TASKS', label: 'Task Library', icon: Zap, path: '/admin/tasks', category: 'CORE' },
   { id: 'PREDICTIONS', label: 'Markets', icon: TrendingUp, path: '/admin/predictions', category: 'CORE' },
 
   { id: 'VALIDATION', label: 'Approvals', icon: ShieldCheck, path: '/admin/validation', category: 'ECONOMY' },
-  { id: 'WITHDRAWALS', label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals', category: 'ECONOMY' },
-  { id: 'LEDGER', label: 'Transactions', icon: Activity, path: '/admin/ledger', category: 'ECONOMY' },
-  { id: 'ECONOMY', label: 'Economy Hub', icon: BarChart3, path: '/admin/economy', category: 'ECONOMY' },
-  { id: 'XP', label: 'XP Engine', icon: Trophy, path: '/admin/xp', category: 'ECONOMY' },
+  { id: 'WITHDRAWALS', label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals', category: 'ECONOMY', isAdminOnly: true },
+  { id: 'LEDGER', label: 'Transactions', icon: Activity, path: '/admin/ledger', category: 'ECONOMY', isAdminOnly: true },
+  { id: 'ECONOMY', label: 'Economy Hub', icon: BarChart3, path: '/admin/economy', category: 'ECONOMY', isAdminOnly: true },
+  { id: 'XP', label: 'XP Engine', icon: Trophy, path: '/admin/xp', category: 'ECONOMY', isAdminOnly: true },
 
   { id: 'USERS', label: 'User Directory', icon: Users, path: '/admin/users', category: 'SYSTEM' },
+  { id: 'OFFERWALLS', label: 'Offerwalls', icon: Globe, path: '/admin/offerwalls', category: 'SYSTEM', isAdminOnly: true },
+  { id: 'MODERATORS', label: 'Moderators', icon: ShieldCheck, path: '/admin/moderators', category: 'SYSTEM', isAdminOnly: true },
   { id: 'SUPPORT', label: 'Support Desk', icon: MessageSquare, path: '/admin/support', category: 'SYSTEM' },
   { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts', category: 'SYSTEM' },
-  { id: 'MISSIONS', label: 'Global Missions', icon: Trophy, path: '/admin/missions', category: 'SYSTEM' },
 
-  { id: 'SECURITY', label: 'Threat Stream', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY' },
-  { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY' },
-  { id: 'HEALTH', label: 'System Health', icon: Activity, path: '/admin/health', category: 'SECURITY' },
+  { id: 'SECURITY', label: 'Threat Stream', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY', isAdminOnly: true },
+  { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY', isAdminOnly: true },
+  { id: 'HEALTH', label: 'System Health', icon: Activity, path: '/admin/health', category: 'SECURITY', isAdminOnly: true },
 ];
 
 const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -74,9 +73,12 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   }, [pathname]);
 
   const isAdmin = React.useMemo(() => {
-    if (!currentUser) return false;
-    return currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL || userData?.role === 'admin';
-  }, [currentUser, userData]);
+    return userData?.role === 'admin';
+  }, [userData]);
+
+  const isModerator = React.useMemo(() => {
+    return isAdmin || (userData?.role as string) === 'moderator';
+  }, [userData, isAdmin]);
 
   if (loading || !isInitialized) return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-8">
@@ -103,7 +105,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     </div>
   );
 
-  if (!isAdmin) {
+  if (!isModerator) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 max-w-md">
@@ -116,40 +118,50 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     );
   }
 
-  const renderNavGroup = (category: string) => (
-    <div className="space-y-1 mb-8">
-       <p className={cn(
-         "text-[9px] font-black uppercase tracking-[0.2em] px-4 mb-2 text-text-tertiary transition-all",
-         isSidebarCollapsed && "opacity-0 invisible h-0"
-       )}>
-         {category}
-       </p>
-       {NAV_ITEMS.filter(item => item.category === category).map(item => {
-         const isActive = pathname === item.path;
-         return (
-           <Link
-             key={item.id}
-             to={item.path}
-             className={cn(
-               "flex items-center gap-4 px-4 py-3 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all group relative",
-               isActive
-                ? "bg-primary text-text-primary shadow-lg shadow-primary/20"
-                : "text-text-tertiary hover:text-text-primary hover:bg-surface-glass"
-             )}
-           >
-             <item.icon size={18} className={cn("shrink-0", isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-primary")} />
-             {!isSidebarCollapsed && <span>{item.label}</span>}
-             {isActive && !isSidebarCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-             {isSidebarCollapsed && (
-                <div className="absolute left-full ml-4 px-3 py-2 bg-[#12121A] border border-border-bright rounded text-[10px] font-bold whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none uppercase tracking-widest">
-                   {item.label}
-                </div>
-             )}
-           </Link>
-         );
-       })}
-    </div>
-  );
+  const renderNavGroup = (category: string) => {
+    const visibleItems = NAV_ITEMS.filter(item => {
+       if (item.category !== category) return false;
+       if (item.isAdminOnly && !isAdmin) return false;
+       return true;
+    });
+
+    if (visibleItems.length === 0) return null;
+
+    return (
+      <div className="space-y-1 mb-8">
+         <p className={cn(
+           "text-[9px] font-black uppercase tracking-[0.2em] px-4 mb-2 text-text-tertiary transition-all",
+           isSidebarCollapsed && "opacity-0 invisible h-0"
+         )}>
+           {category}
+         </p>
+         {visibleItems.map(item => {
+           const isActive = pathname === item.path;
+           return (
+             <Link
+               key={item.id}
+               to={item.path}
+               className={cn(
+                 "flex items-center gap-4 px-4 py-3 rounded-lg text-[11px] font-bold uppercase tracking-widest transition-all group relative",
+                 isActive
+                  ? "bg-primary text-text-primary shadow-lg shadow-primary/20"
+                  : "text-text-tertiary hover:text-text-primary hover:bg-surface-glass"
+               )}
+             >
+               <item.icon size={18} className={cn("shrink-0", isActive ? "text-text-primary" : "text-text-tertiary group-hover:text-primary")} />
+               {!isSidebarCollapsed && <span>{item.label}</span>}
+               {isActive && !isSidebarCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+               {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-4 px-3 py-2 bg-[#12121A] border border-border-bright rounded text-[10px] font-bold whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none uppercase tracking-widest">
+                     {item.label}
+                  </div>
+               )}
+             </Link>
+           );
+         })}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background text-text-primary selection:bg-primary/30 flex overflow-hidden font-sans transition-colors duration-300">
@@ -254,7 +266,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
                   <button onClick={() => setIsMobileOpen(false)} className="p-2 bg-surface-glass rounded-full"><X size={24} /></button>
                </div>
                <div className="flex-1 p-6 overflow-y-auto">
-                  {NAV_ITEMS.map(item => (
+                  {NAV_ITEMS.filter(item => !item.isAdminOnly || isAdmin).map(item => (
                      <Link
                        key={item.id}
                        to={item.path}

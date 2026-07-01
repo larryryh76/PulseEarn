@@ -49,6 +49,7 @@ export interface Task {
   maxClaims: number | null; // null for unlimited
   dailyLimit?: number;
   perUserLimit?: number;
+  provider: 'internal' | 'offerwall_x' | 'survey_y' | string;
   totalClaims: number;
   totalDistributed?: number;
   completionCount?: number;
@@ -132,6 +133,7 @@ export interface Campaign {
   budget?: number;
   totalPrizePool: number;
   remainingPool: number;
+  provider: 'internal' | 'offerwall_x' | 'survey_y' | string;
   pointsReward?: number;
   xpReward: number;
   active: boolean;
@@ -233,6 +235,7 @@ export interface UserData {
   walletAddress?: string;
   totalWithdrawn?: number;
   avatarUrl?: string;
+  isRoot?: boolean;
   segment?: 'new' | 'active' | 'power' | 'inactive' | 'suspicious';
   onboardingCompleted?: boolean;
   fingerprint?: string;
@@ -272,7 +275,7 @@ export interface UserData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus' | 'withdrawal_finalized';
+  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus' | 'withdrawal_finalized' | 'mission_reward';
   amount: number;
   source: string; // source system name
   timestamp: Timestamp;
@@ -407,7 +410,7 @@ export interface WithdrawalRequest {
   amountUSD: number;
   walletAddress: string;
   network: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID' | 'FAILED';
   adminNotes?: string;
   createdAt: Timestamp;
   processedAt?: Timestamp | null;
@@ -424,7 +427,7 @@ export type SystemTaskTrigger =
   | 'level_up'
   | 'profile_updated';
 
-export type SystemTaskCategory = 'WELCOME' | 'REFERRAL' | 'PREDICTION' | 'CAMPAIGN' | 'STREAK' | 'LEVEL';
+export type SystemTaskCategory = 'WELCOME' | 'REFERRAL' | 'PREDICTION' | 'CAMPAIGN' | 'STREAK' | 'LEVEL' | 'DAILY';
 
 export interface SystemTaskDefinition {
   id: string;
@@ -438,6 +441,7 @@ export interface SystemTaskDefinition {
   rewardXp: number;
   active: boolean;
   repeatable: boolean;
+  period: 'ONCE' | 'DAILY' | 'WEEKLY';
   priority: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;

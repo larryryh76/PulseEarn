@@ -26,12 +26,39 @@ const VerifyEmail: React.FC = () => {
   const handleResend = async () => {
     if (countdown > 0) return;
     setIsSending(true);
+
     try {
-      await sendVerification();
-      toast.success('Verification email sent!');
-      setCountdown(60);
-    } catch (error) {
-      toast.error('Too many requests. Please wait.');
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/authorize-resend', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.dispatchMethod === 'client_fallback') {
+          // Backend requested client-side dispatch (e.g. no API key configured)
+          await sendVerification();
+        }
+        toast.success('Verification email sent!');
+        setCountdown(60);
+      } else {
+        if (result.error === 'COOLDOWN_ACTIVE') {
+          setCountdown(parseInt(result.retryAfter || '60'));
+          toast.error(result.message || 'Please wait before resending.');
+        } else {
+          toast.error(result.message || 'Failed to send verification email.');
+        }
+      }
+    } catch (error: any) {
+      console.error('[VerifyEmail] Resend failed:', error);
+      toast.error('Failed to request resend. Please try again later.');
     } finally {
       setIsSending(false);
     }
@@ -55,7 +82,8 @@ const VerifyEmail: React.FC = () => {
   if (!currentUser) return <Navigate to="/login" replace />;
 
   // Bypass for admin
-  const isAdmin = currentUser.email?.toLowerCase() === import.meta.env.VITE_ADMIN_EMAIL;
+  const { userData } = useAuth();
+  const isAdmin = userData?.role === 'admin';
   if (currentUser.emailVerified || isAdmin) {
     const target = isAdmin ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;

@@ -26,7 +26,6 @@ import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import PredictionChart from './components/PredictionChart';
 import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';
-import { MarketResolutionEngine } from '../../engines/predictions/MarketResolutionEngine';
 import { PointTransactionEngine } from '../../engines/points/PointTransactionEngine';
 
 const STAKE_OPTIONS = [10, 50, 100, 500, 1000];
@@ -45,7 +44,6 @@ const Predictions: React.FC = () => {
   const [terminalView, setTerminalView] = useState<'EXPLORE' | 'PORTFOLIO'>('EXPLORE');
   const [historyFilter, setHistoryFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED'>('ALL');
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PredictionRecord | null>(null);
-  const [isResolving, setIsResolving] = useState(false);
 
   useEffect(() => {
      const fetchConfig = async () => {
@@ -70,30 +68,7 @@ const Predictions: React.FC = () => {
     }
   }, [location.state, userPredictions]);
 
-  // Auto-Resolution Logic (Ensures payouts happen when user views history)
-  useEffect(() => {
-    if (terminalView === 'PORTFOLIO' && !isResolving) {
-       const expired = userPredictions.filter(p => {
-          if (p.status !== 'ACTIVE') return false;
-          const createdAt = p.createdAt?.toDate?.() || new Date();
-          return (Date.now() - createdAt.getTime()) > (24 * 60 * 60 * 1000);
-       });
-
-       if (expired.length > 0) {
-          const runResolution = async () => {
-             setIsResolving(true);
-             try {
-                await MarketResolutionEngine.resolveExpiredPredictions();
-             } catch (err) {
-                console.error("Auto-Resolution failed:", err);
-             } finally {
-                setIsResolving(false);
-             }
-          };
-          runResolution();
-       }
-    }
-  }, [terminalView, userPredictions, isResolving]);
+  // Auto-Resolution Logic (Moved to server-side)
 
   // Unified Markets Engine (Stable)
   const allMarkets = useMemo(() => {
@@ -161,7 +136,9 @@ const Predictions: React.FC = () => {
          symbol: activeMarket.symbol,
          direction: prediction,
          entryPrice: coinData?.current_price || activeMarket.price || 0,
-         claimId: predId
+         claimId: predId,
+         // Fix #6: Compute and pass rewardAmount at submission time to prevent drift
+         rewardAmount: stake * (economyConfig?.rewards?.predictionWinMultiplier || 2.0)
       });
 
       if (!result.success) throw new Error(result.error);

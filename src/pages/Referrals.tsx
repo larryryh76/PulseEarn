@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReferralRecord } from '../types';
 import { cn } from '../utils';
@@ -41,21 +41,14 @@ const Referrals: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Removing orderBy to prevent "Missing Index" failures.
-    // Sorting is performed client-side for maximum reliability.
     const q = query(
       collection(db, 'referrals'),
-      where('referrerId', '==', currentUser.uid)
+      where('referrerId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as ReferralRecord));
-      // Client-side sort by createdAt
-      data.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis?.() || 0;
-        const timeB = b.createdAt?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
       setReferrals(data);
       setLoading(false);
     }, (err: any) => {

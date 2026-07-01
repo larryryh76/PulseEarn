@@ -25,7 +25,8 @@ import {
   query,
   where,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  orderBy
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
@@ -78,17 +79,21 @@ const OpsCampaignDetail: React.FC = () => {
       else navigate('/admin/campaigns');
     });
 
-    const unsubTasks = onSnapshot(query(collection(db, 'tasks'), where('campaignId', '==', id)), (snap) => {
+    const unsubTasks = onSnapshot(query(
+      collection(db, 'tasks'),
+      where('campaignId', '==', id),
+      orderBy('createdAt', 'desc')
+    ), (snap) => {
       setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
     });
 
-    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id)), (snap) => {
+    const unsubClaims = onSnapshot(query(
+      collection(db, 'task_claims'),
+      where('campaignId', '==', id),
+      orderBy('createdAt', 'desc')
+    ), (snap) => {
        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
-       setClaims(data.sort((a, b) => {
-          const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-          const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-          return timeB - timeA;
-       }));
+       setClaims(data);
     });
 
     setLoading(false);

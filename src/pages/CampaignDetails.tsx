@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { Task, TaskClaim, Campaign } from '../types';
@@ -51,7 +59,11 @@ const CampaignDetails: React.FC = () => {
           setCampaign(campData);
 
           // Fetch Tasks for this campaign
-          const tasksQ = query(collection(db, 'tasks'), where('campaignId', '==', id));
+          const tasksQ = query(
+            collection(db, 'tasks'),
+            where('campaignId', '==', id),
+            orderBy('createdAt', 'desc')
+          );
           const tasksSnap = await getDocs(tasksQ);
           const tasksData = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
           setTasks(tasksData);

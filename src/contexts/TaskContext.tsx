@@ -4,7 +4,8 @@ import {
   query,
   where,
   limit,
-  collection
+  collection,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -52,13 +53,21 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribes: (() => void)[] = [];
 
     // 1. Fetch active tasks
-    const tasksQuery = query(collection(db, 'tasks'), where('active', '==', true));
+    const tasksQuery = query(
+      collection(db, 'tasks'),
+      where('active', '==', true),
+      orderBy('createdAt', 'desc')
+    );
     unsubscribes.push(onSnapshot(tasksQuery, (snapshot) => {
       setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
     }));
 
     // 2. Fetch active campaigns
-    const campaignsQuery = query(collection(db, 'campaigns'), where('active', '==', true));
+    const campaignsQuery = query(
+      collection(db, 'campaigns'),
+      where('active', '==', true),
+      orderBy('createdAt', 'desc')
+    );
     unsubscribes.push(onSnapshot(campaignsQuery, (snapshot) => {
       setCampaigns(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign)));
     }));
@@ -71,63 +80,50 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserTasks(data);
     }));
 
-    // 4. Fetch user claims (Audit: Simplified query for immediate reactivity)
+    // 4. Fetch user claims
     const subtasksQuery = query(
       collection(db, 'task_claims'),
       where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(subtasksQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim));
-      setSubtasks(data.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || 0;
-          const timeB = b.createdAt?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
+      setSubtasks(data);
     }));
 
-    // 4.5 Fetch User Task History (Audit: Simplified query for immediate reactivity)
+    // 4.5 Fetch User Task History
     const historyQuery = query(
       collection(db, 'users', currentUser.uid, 'task_history'),
+      orderBy('resolvedAt', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(historyQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory));
-      setTaskHistory(data.sort((a, b) => {
-          const timeA = a.resolvedAt?.toMillis?.() || 0;
-          const timeB = b.resolvedAt?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
+      setTaskHistory(data);
     }));
 
     // 5. Fetch activities
     const activitiesQuery = query(
       collection(db, 'users', currentUser.uid, 'activities'),
+      orderBy('timestamp', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(activitiesQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity));
-      setActivities(data.sort((a, b) => {
-          const timeA = a.timestamp?.toMillis?.() || 0;
-          const timeB = b.timestamp?.toMillis?.() || 0;
-          return timeB - timeA;
-      }));
+      setActivities(data);
     }));
 
-    // 6. Fetch Predictions History (Simplified query to avoid index latency/missing issues)
+    // 6. Fetch Predictions History
     const predictionsQuery = query(
       collection(db, 'user_predictions'),
       where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
       limit(50)
     );
     unsubscribes.push(onSnapshot(predictionsQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord));
-      // Sort in frontend to ensure immediate display even before Firestore index is fully optimized
-      setPredictions(data.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis?.() || Date.now();
-          const timeB = b.createdAt?.toMillis?.() || Date.now();
-          return timeB - timeA;
-      }));
+      setPredictions(data);
     }, (err) => {
         console.error("[TaskContext] Prediction History Error:", err);
     }));

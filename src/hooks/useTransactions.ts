@@ -3,7 +3,8 @@ import {
   onSnapshot,
   query,
   limit,
-  collection
+  collection,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,10 +22,9 @@ export const useTransactions = (limitCount = 30) => {
       return;
     }
 
-    // Audit: Removed orderBy to prevent "Missing Index" failures on sub-collections.
-    // Client-side sorting used for stability. Increased fetch size to improve recent-first accuracy.
     const q = query(
       collection(db, 'users', currentUser.uid, 'transactions'),
+      orderBy('timestamp', 'desc'),
       limit(Math.max(limitCount, 100))
     );
 
@@ -33,12 +33,6 @@ export const useTransactions = (limitCount = 30) => {
         id: doc.id,
         ...doc.data()
       } as Transaction));
-
-      txs.sort((a, b) => {
-        const timeA = a.timestamp?.toMillis?.() || 0;
-        const timeB = b.timestamp?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
 
       setTransactions(txs);
       setLoading(false);

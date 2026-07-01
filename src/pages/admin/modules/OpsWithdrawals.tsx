@@ -14,7 +14,8 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
-  limit
+  limit,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { cn } from '../../../utils';
@@ -33,16 +34,12 @@ const OpsWithdrawals: React.FC = () => {
     const q = query(
       collection(db, 'withdrawals'),
       where('status', '==', filter),
+      orderBy('createdAt', 'desc'),
       limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as WithdrawalRequest));
-      data.sort((a, b) => {
-         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-         return timeB - timeA;
-      });
       setRequests(data);
       setLoading(false);
     }, (err) => {

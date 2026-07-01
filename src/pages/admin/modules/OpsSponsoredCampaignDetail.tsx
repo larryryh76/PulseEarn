@@ -30,7 +30,8 @@ import {
   where,
   updateDoc,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  orderBy
 } from 'firebase/firestore';
 import { Campaign, Task, TaskClaim } from '../../../types';
 import { cn } from '../../../utils';
@@ -61,22 +62,22 @@ const OpsSponsoredCampaignDetail: React.FC = () => {
       else navigate('/admin/sponsored');
     });
 
-    const unsubTasks = onSnapshot(query(collection(db, 'tasks'), where('campaignId', '==', id)), (snap) => {
+    const unsubTasks = onSnapshot(query(
+      collection(db, 'tasks'),
+      where('campaignId', '==', id),
+      orderBy('createdAt', 'asc')
+    ), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-      setTasks(data.sort((a, b) => {
-         const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-         const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-         return timeA - timeB;
-      }));
+      setTasks(data);
     });
 
-    const unsubClaims = onSnapshot(query(collection(db, 'task_claims'), where('campaignId', '==', id)), (snap) => {
+    const unsubClaims = onSnapshot(query(
+      collection(db, 'task_claims'),
+      where('campaignId', '==', id),
+      orderBy('createdAt', 'asc')
+    ), (snap) => {
        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskClaim));
-       setClaims(data.sort((a, b) => {
-          const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-          const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-          return timeB - timeA;
-       }));
+       setClaims(data);
     });
 
     setLoading(false);

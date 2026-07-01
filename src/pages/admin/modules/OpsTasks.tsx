@@ -11,12 +11,12 @@ import {
 import {
   collection,
   query,
-
   onSnapshot,
   doc,
   updateDoc,
   deleteDoc,
-  where
+  where,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { Task } from '../../../types';
@@ -35,22 +35,19 @@ const OpsTasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
 
   React.useEffect(() => {
-    let q = query(collection(db, 'tasks'));
+    let q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
 
     if (campaignIdFilter) {
        q = query(
          collection(db, 'tasks'),
-         where('campaignId', '==', campaignIdFilter)
+         where('campaignId', '==', campaignIdFilter),
+         orderBy('createdAt', 'desc')
        );
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-      setTasks(docs.sort((a, b) => {
-        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
+      setTasks(docs);
       setLoading(false);
     });
     return unsubscribe;

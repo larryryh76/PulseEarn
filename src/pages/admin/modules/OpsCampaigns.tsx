@@ -16,14 +16,14 @@ import { db } from '../../../firebase/config';
 import {
   collection,
   query,
-
   onSnapshot,
   doc,
   updateDoc,
   serverTimestamp,
   writeBatch,
   getDocs,
-  where
+  where,
+  orderBy
 } from 'firebase/firestore';
 import { Campaign } from '../../../types';
 import { cn } from '../../../utils';
@@ -40,14 +40,10 @@ const OpsCampaigns: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
 
   React.useEffect(() => {
-    const q = query(collection(db, 'campaigns'));
+    const q = query(collection(db, 'campaigns'), orderBy('createdAt', 'desc'));
     const unsubCamp = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-      setCampaigns(docs.sort((a, b) => {
-        const timeA = (a.createdAt as any)?.toMillis?.() || 0;
-        const timeB = (b.createdAt as any)?.toMillis?.() || 0;
-        return timeB - timeA;
-      }));
+      setCampaigns(docs);
       setLoading(false);
     }, (err) => {
       console.error("[OpsCampaigns] Sync Failure:", err);

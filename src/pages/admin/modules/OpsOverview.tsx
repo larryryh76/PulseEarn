@@ -14,7 +14,18 @@ import {
   CreditCard
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, query, where, getCountFromServer, getDocs, limit, Timestamp, doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getCountFromServer,
+  getDocs,
+  limit,
+  Timestamp,
+  doc,
+  getDoc,
+  orderBy
+} from 'firebase/firestore';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import { formatUSD } from '../../../utils/finance';
@@ -78,18 +89,14 @@ const OpsOverview: React.FC = () => {
          liabilitySnap.forEach(d => totalPts += (d.data().points || 0));
       }
 
-      // Audit: orderBy check for system_claims
+      // Audit: restored orderBy for system_claims
       const ledgerSnap = await getDocs(query(
         collection(db, 'system_claims'),
+        orderBy('executedAt', 'desc'),
         limit(5)
       ));
 
       const ledgerData = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-      ledgerData.sort((a, b) => {
-         const timeA = a.executedAt?.toMillis?.() || 0;
-         const timeB = b.executedAt?.toMillis?.() || 0;
-         return timeB - timeA;
-      });
       setRecentLedger(ledgerData);
 
       setStats({

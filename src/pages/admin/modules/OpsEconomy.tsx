@@ -530,7 +530,7 @@ const OpsEconomy: React.FC = () => {
                 </motion.div>
              </div>
           )}
-          <ProviderManagerModal isOpen={isManagingProviders} onClose={() => setIsManagingProviders(false)} providerId={null} />
+          <ProviderManagerModal isOpen={isManagingProviders} onClose={() => setIsManagingProviders(false)} />
        </AnimatePresence>
     </div>
   );

@@ -13,4 +13,3 @@ export { default as OpsAuditCenter } from './OpsAuditCenter';
 export { default as OpsHealth } from './OpsHealth';
 export { default as OpsModerators } from './OpsModerators';
 export { default as OpsOfferwalls } from './OpsOfferwalls';
-export { default as OpsCampaigns } from './OpsCampaigns';

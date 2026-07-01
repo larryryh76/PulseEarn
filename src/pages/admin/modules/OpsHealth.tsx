@@ -14,7 +14,6 @@ import { collection, query, where, getDocs, limit,  Timestamp, orderBy, startAft
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import DataTable from '../../../components/admin/common/DataTable';
-import { useAdminMetrics } from '../../../hooks/useAdminMetrics';
 
 interface HealthMetric {
   status: 'ONLINE' | 'OFFLINE' | 'DEGRADED';
@@ -138,8 +137,6 @@ const OpsHealth: React.FC = () => {
     }
   };
 
-  const { reconcile } = useAdminMetrics();
-
   return (
     <div className="space-y-10">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -150,25 +147,15 @@ const OpsHealth: React.FC = () => {
           </div>
           <p className="text-xs font-medium text-text-tertiary">Real-time infrastructure monitoring and failure diagnostics.</p>
         </div>
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <Button
-            onClick={reconcile}
-            variant="outline"
-            className="flex-1 md:flex-none rounded-xl border-primary/20 bg-primary/5 text-primary text-[10px] font-black uppercase tracking-widest"
-          >
-            <RefreshCw size={14} className="mr-2" />
-            Reconcile Metrics
-          </Button>
-          <Button
-            onClick={checkHealth}
-            isLoading={isRefreshing}
-            variant="outline"
-            className="flex-1 md:flex-none rounded-xl border-white/5 bg-white/5"
-          >
-            <RefreshCw size={14} className="mr-2" />
-            Refresh System
-          </Button>
-        </div>
+        <Button
+          onClick={checkHealth}
+          isLoading={isRefreshing}
+          variant="outline"
+          className="rounded-xl border-white/5 bg-white/5"
+        >
+          <RefreshCw size={14} className="mr-2" />
+          Refresh System
+        </Button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

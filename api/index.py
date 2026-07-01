@@ -41,7 +41,13 @@ def handle_exception(e):
 # Initialize Firebase Admin
 try:
     if not firebase_admin._apps:
-        firebase_admin.initialize_app()
+        # Resolve projectId from environment or fallback
+        project_id = os.environ.get('PROJECT_ID') or os.environ.get('GOOGLE_CLOUD_PROJECT') or 'pulseearn-production'
+
+        # Initialize with explicit projectId to prevent auth.verify_id_token() ValueErrors
+        # in environments without service account JSON files (like Vercel).
+        firebase_admin.initialize_app(options={'projectId': project_id})
+
     db = firestore.client()
 except Exception as e:
     logging.error(f"CRITICAL: Firebase initialization failed: {str(e)}")

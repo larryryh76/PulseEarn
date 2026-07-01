@@ -72,6 +72,13 @@
 
 ---
 
+## 0. AUDIT EVIDENCE
+Detailed audit scripts and visual evidence captured during this review are available in the repository at:
+- `investigation/audit_scripts/`: Automated Playwright scripts used to probe production endpoints.
+- `investigation/audit_results/`: Screenshots of production states, error logs, and module views.
+
+---
+
 ## 6. SECURITY RISKS
 - **Risk**: Firestore permission leakage warnings observed in logs.
 - **Evidence**: `FirebaseError: Missing or insufficient permissions` on `system_config/global_v1`.

@@ -186,6 +186,7 @@ function App() {
         <Route path="/admin/economy" element={<OpsRoute><OpsLayout><AdminEconomy /></OpsLayout></OpsRoute>} />
         <Route path="/admin/broadcasts" element={<OpsRoute><OpsLayout><AdminBroadcasts /></OpsLayout></OpsRoute>} />
         <Route path="/admin/audit" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/campaigns" element={<OpsRoute><OpsLayout><AdminCampaigns /></OpsLayout></OpsRoute>} />
         <Route path="/admin/tasks" element={<OpsRoute><OpsLayout><AdminTasks /></OpsLayout></OpsRoute>} />
         <Route path="/admin/predictions" element={<OpsRoute><OpsLayout><AdminPredictions /></OpsLayout></OpsRoute>} />
         <Route path="/admin/withdrawals" element={<OpsRoute><OpsLayout><AdminWithdrawals /></OpsLayout></OpsRoute>} />

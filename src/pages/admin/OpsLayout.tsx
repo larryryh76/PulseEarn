@@ -40,6 +40,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'OVERVIEW', label: 'Overview', icon: LayoutGrid, path: '/admin/overview', category: 'CORE' },
+  { id: 'CAMPAIGNS', label: 'Campaigns', icon: Target, path: '/admin/campaigns', category: 'CORE' },
   { id: 'TASKS', label: 'Task Library', icon: Zap, path: '/admin/tasks', category: 'CORE' },
   { id: 'PREDICTIONS', label: 'Markets', icon: TrendingUp, path: '/admin/predictions', category: 'CORE' },
 

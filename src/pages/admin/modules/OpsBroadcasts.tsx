@@ -71,7 +71,8 @@ const OpsBroadcasts: React.FC = () => {
   const [formData, setFormData] = React.useState({
     title: '',
     description: '',
-    type: 'system' as 'system' | 'reward' | 'alert'
+    type: 'system' as 'system' | 'reward' | 'alert',
+    sendEmail: false
   });
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -80,13 +81,38 @@ const OpsBroadcasts: React.FC = () => {
 
     setSubmitting(true);
     try {
-      await BroadcastEngine.broadcastGlobal(formData.title, formData.description, formData.type);
-      toast.success("Global Signal Synchronized");
-      setIsModalOpen(false);
-      setFormData({ title: '', description: '', type: 'system' });
-      fetchBroadcasts(); // Refresh
-    } catch (err) {
-      toast.error("Deployment sequence failure");
+      // Priority 1: Use Server-side broadcast for scalability and email support
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Global Signal Synchronized");
+        setIsModalOpen(false);
+        setFormData({ title: '', description: '', type: 'system', sendEmail: false });
+        fetchBroadcasts(); // Refresh
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err: any) {
+      console.error("[OpsBroadcast] API Failure, falling back to client-side engine:", err);
+      // Fallback: Client-side engine (Firestore limited)
+      try {
+        await BroadcastEngine.broadcastGlobal(formData.title, formData.description, formData.type);
+        toast.success("Signal Dispatched (Client Fallback)");
+        setIsModalOpen(false);
+        setFormData({ title: '', description: '', type: 'system', sendEmail: false });
+        fetchBroadcasts();
+      } catch (fbErr) {
+        toast.error("Deployment sequence failure");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -252,9 +278,24 @@ const OpsBroadcasts: React.FC = () => {
                          </div>
                       </div>
 
-                      <div className="p-6 bg-surface-bright/50 border border-border rounded-2xl flex items-center gap-4">
-                         <ShieldCheck size={24} className="text-success" />
-                         <p className="text-[10px] text-text-tertiary font-medium leading-relaxed italic uppercase tracking-widest">Broadcast will synchronize across all active platform users instantly.</p>
+                      <div className="space-y-4">
+                         <div className="flex items-center gap-4 h-[52px] bg-surface-bright border border-border rounded-xl px-5">
+                            <input
+                               type="checkbox"
+                               checked={formData.sendEmail}
+                               onChange={e => setFormData({ ...formData, sendEmail: e.target.checked })}
+                               className="w-6 h-6 accent-primary"
+                            />
+                            <div className="flex-1">
+                               <p className="text-[10px] font-black uppercase tracking-widest text-text-primary">Dispatch via Email</p>
+                               <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-widest">Uses Resend Branded Templates</p>
+                            </div>
+                         </div>
+
+                         <div className="p-6 bg-surface-bright/50 border border-border rounded-2xl flex items-center gap-4">
+                            <ShieldCheck size={24} className="text-success" />
+                            <p className="text-[10px] text-text-tertiary font-medium leading-relaxed italic uppercase tracking-widest">Broadcast will synchronize across all active platform users instantly.</p>
+                         </div>
                       </div>
 
                       <div className="pt-4 flex gap-4">

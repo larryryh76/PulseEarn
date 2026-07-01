@@ -43,7 +43,8 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isOwner(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'username', 'avatarUrl', 'bio', 'preferences', 'onboardingCompleted', 'avatar'
+          'username', 'avatarUrl', 'bio', 'preferences', 'onboardingCompleted', 'avatar',
+          'fingerprint', 'lastSeen', 'lastActionTimestamp'
         ])
       );
 

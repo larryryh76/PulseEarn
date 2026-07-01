@@ -1371,18 +1371,18 @@ def send_branded_email(to_email, template_name, context, subject):
     try:
         template_path = os.path.join(os.path.dirname(__file__), 'templates', f'{template_name}.html')
         with open(template_path, 'r') as f:
-            html = f.read()
+            template_content = f.read()
 
         # Secure string replacement with XSS sanitization
         for key, value in context.items():
             sanitized_value = html.escape(str(value))
-            html = html.replace(f'{{{{{key}}}}}', sanitized_value)
+            template_content = template_content.replace(f'{{{{{key}}}}}', sanitized_value)
 
         payload = {
             "from": f"PulseEarn <{resend_from}>",
             "to": [to_email],
             "subject": subject,
-            "html": html
+            "html": template_content
         }
 
         res = requests.post(

@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { collection, query, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
+import { db, auth } from '../../../firebase/config';
 import { Bell as BellIcon, Clock } from 'lucide-react';
 import DataTable from '../../../components/admin/common/DataTable';
 
@@ -146,7 +146,7 @@ const OpsBroadcasts: React.FC = () => {
           ].map((tpl) => (
             <div
               key={tpl.title}
-              onClick={() => { setFormData({ title: tpl.title, description: '', type: tpl.type as any }); setIsModalOpen(true); }}
+              onClick={() => { setFormData({ title: tpl.title, description: '', type: tpl.type as any, sendEmail: false }); setIsModalOpen(true); }}
               className="bg-surface border border-border p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] hover:border-primary/20 transition-all cursor-pointer group shadow-2xl relative overflow-hidden"
             >
                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><tpl.icon size={80} /></div>

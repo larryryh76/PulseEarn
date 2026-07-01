@@ -68,7 +68,7 @@ const OpsCampaigns: React.FC = () => {
                    {c.thumbnailUrl ? <img src={c.thumbnailUrl} className="w-full h-full object-cover" /> : <Target size={18} />}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-text-primary uppercase italic">{c.title}</p>
+                  <p className="text-sm font-bold text-text-primary uppercase italic">{c.name}</p>
                   <p className="text-[9px] font-mono text-text-tertiary mt-1 uppercase tracking-widest">{c.id}</p>
                 </div>
               </div>
@@ -80,9 +80,9 @@ const OpsCampaigns: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                    <Zap size={10} className="text-success" />
-                   <span className="text-[10px] font-mono font-bold text-text-primary">{c.totalRewardAmount?.toLocaleString() || 0} PTS</span>
+                   <span className="text-[10px] font-mono font-bold text-text-primary">{c.totalPrizePool?.toLocaleString() || 0} PTS</span>
                 </div>
-                <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{c.tasksCount || 0} Objectives</p>
+                <p className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{c.taskIds?.length || 0} Objectives</p>
               </div>
             )
           },
@@ -127,7 +127,7 @@ const OpsCampaigns: React.FC = () => {
             )
           }
         ]}
-        data={campaigns.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()))}
+        data={campaigns.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))}
         isLoading={loading}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}

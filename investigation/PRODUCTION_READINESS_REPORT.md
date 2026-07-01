@@ -81,7 +81,7 @@ Detailed audit scripts and visual evidence captured during this review are avail
 - **Evidence**: Missing components (`OpsCampaigns`), missing indexes, and a non-functional API layer.
 - **Impact**: Production stability is non-existent.
 
-### B. Firestore Permission Leakage
+### B. Auth Initialization Race Condition
 - **Risk**: Console noise indicates `system_config/global_v1` is being queried before valid authorization is established.
 - **Impact**: Unnecessary console errors and potential logic race conditions during boot.
 

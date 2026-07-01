@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe, X, Save, Trash2, Shield, Zap, Calculator } from 'lucide-react';
+import { Globe, X, Trash2, Shield, Calculator } from 'lucide-react';
 import { db } from '../../../../firebase/config';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -14,7 +14,6 @@ interface ProviderManagerModalProps {
 }
 
 const ProviderManagerModal: React.FC<ProviderManagerModalProps> = ({ isOpen, onClose, providerId }) => {
-  const [loading, setLoading] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [formData, setFormData] = React.useState({
     active: true,
@@ -34,7 +33,6 @@ const ProviderManagerModal: React.FC<ProviderManagerModalProps> = ({ isOpen, onC
     if (isOpen && providerId) {
       setIdInput(providerId);
       const fetchProvider = async () => {
-        setLoading(true);
         try {
           const snap = await getDoc(doc(db, 'system_config', `provider_${providerId.toLowerCase()}`));
           if (snap.exists()) {
@@ -42,8 +40,6 @@ const ProviderManagerModal: React.FC<ProviderManagerModalProps> = ({ isOpen, onC
           }
         } catch (err) {
           toast.error("Failed to load provider configuration");
-        } finally {
-          setLoading(false);
         }
       };
       fetchProvider();

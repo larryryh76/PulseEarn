@@ -138,7 +138,7 @@ const OpsHealth: React.FC = () => {
     }
   };
 
-  const { metrics, reconcile } = useAdminMetrics();
+  const { reconcile } = useAdminMetrics();
 
   return (
     <div className="space-y-10">

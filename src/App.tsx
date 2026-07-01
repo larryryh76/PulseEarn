@@ -30,7 +30,8 @@ import {
   OpsSupport as AdminSupport,
   OpsHealth as AdminHealth,
   OpsModerators as AdminModerators,
-  OpsOfferwalls as AdminOfferwalls
+  OpsOfferwalls as AdminOfferwalls,
+  OpsCampaigns as AdminCampaigns
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'

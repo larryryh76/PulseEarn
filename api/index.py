@@ -41,8 +41,11 @@ def handle_exception(e):
 # Initialize Firebase Admin
 try:
     if not firebase_admin._apps:
-        # Resolve projectId from environment or fallback
-        project_id = os.environ.get('PROJECT_ID') or os.environ.get('GOOGLE_CLOUD_PROJECT') or 'pulseearn-production'
+        # Resolve projectId from environment - fail fast if not set
+        project_id = os.environ.get('PROJECT_ID') or os.environ.get('GOOGLE_CLOUD_PROJECT')
+
+        if not project_id:
+            raise ValueError("PROJECT_ID or GOOGLE_CLOUD_PROJECT environment variable must be set. Refusing to default to production.")
 
         # Initialize with explicit projectId to prevent auth.verify_id_token() ValueErrors
         # in environments without service account JSON files (like Vercel).

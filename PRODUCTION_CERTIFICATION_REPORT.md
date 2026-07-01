@@ -38,7 +38,7 @@ The PulseEarn platform has undergone an infrastructure-first stabilization pass.
 1.  **Registration:** Fresh account created at `https://pulseearn.online/signup`. ✅
 2.  **Identity Sync:** User document created in Firestore without permission errors. ✅
 3.  **Welcome Bonus:** Credited +30 PTS via Point Engine on first login. ✅
-4.  **Admin Hub:** Logged in as `admin@pulse.com`. Promoted moderator test account. ✅
+4.  **Admin Hub:** Logged in as test admin account. Promoted moderator test account. ✅
 5.  **Task Flow:** Automated task submission rewarded +50 PTS instantly. ✅
 6.  **Console Health:** Zero `Unexpected token A` or `500` errors in browser console. ✅
 

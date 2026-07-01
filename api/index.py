@@ -86,6 +86,7 @@ def verify_token(f):
     return decorated_function
 
 def is_admin(uid):
+    if not db: return False
     user_doc = db.collection('users').document(uid).get()
     if user_doc.exists:
         data = user_doc.to_dict()
@@ -93,6 +94,7 @@ def is_admin(uid):
     return False
 
 def is_moderator(uid):
+    if not db: return False
     user_doc = db.collection('users').document(uid).get()
     if user_doc.exists:
         data = user_doc.to_dict()
@@ -100,8 +102,21 @@ def is_moderator(uid):
         return role in ['admin', 'ADMIN', 'moderator'] or data.get('isRoot') == True
     return False
 
+
+def require_db(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not db:
+            return jsonify({
+                "success": False,
+                "error": "DATABASE_OFFLINE",
+                "message": "Firebase database connection is not initialized. Please check server environment variables."
+            }), 503
+        return f(*args, **kwargs)
+    return decorated_function
 @app.route('/api/admin/promote-moderator', methods=['POST'])
 @verify_token
+@require_db
 def admin_promote_moderator():
     caller_uid = request.user['uid']
     if not is_admin(caller_uid):
@@ -124,6 +139,7 @@ def admin_promote_moderator():
 
 @app.route('/api/admin/verify-user', methods=['POST'])
 @verify_token
+@require_db
 def admin_verify_user():
     caller_uid = request.user['uid']
     if not is_moderator(caller_uid):
@@ -142,6 +158,7 @@ def admin_verify_user():
 
 @app.route('/api/admin/delete-user', methods=['POST'])
 @verify_token
+@require_db
 def admin_delete_user():
     caller_uid = request.user['uid']
     if not is_admin(caller_uid):
@@ -160,6 +177,7 @@ def admin_delete_user():
 
 @app.route('/api/admin/list-auth-users', methods=['GET'])
 @verify_token
+@require_db
 def admin_list_auth_users():
     caller_uid = request.user['uid']
     if not is_moderator(caller_uid):
@@ -184,6 +202,7 @@ def admin_list_auth_users():
 
 @app.route('/api/tasks/submit', methods=['POST'])
 @verify_token
+@require_db
 def submit_task():
     data = request.json
     user_id = request.user['uid']
@@ -336,6 +355,7 @@ def submit_task():
 
 @app.route('/api/execute-transaction', methods=['POST'])
 @verify_token
+@require_db
 def execute_transaction():
     data = request.json
     user_id = data.get('userId')
@@ -786,6 +806,7 @@ def execute_transaction():
 
 @app.route('/api/execute-prediction', methods=['POST'])
 @verify_token
+@require_db
 def execute_prediction():
     data = request.json
     user_id = data.get('userId')
@@ -956,6 +977,7 @@ def fetch_market_price(asset_id):
 
 @app.route('/api/resolve-prediction', methods=['POST'])
 @verify_token
+@require_db
 def resolve_prediction():
     caller_uid = request.user['uid']
     if not is_moderator(caller_uid):
@@ -1057,6 +1079,7 @@ def resolve_prediction():
 
 @app.route('/api/process-referral-reward', methods=['POST'])
 @verify_token
+@require_db
 def process_referral_reward():
     data = request.json
     referral_doc_id = data.get('referralDocId')
@@ -1165,6 +1188,7 @@ def process_referral_reward():
 
 @app.route('/api/evaluate-user-integrity', methods=['POST'])
 @verify_token
+@require_db
 def evaluate_user_integrity():
     data = request.json
     user_id = data.get('userId')
@@ -1389,6 +1413,7 @@ def send_branded_email(to_email, template_name, context, subject):
 
 @app.route('/api/referrals/lookup', methods=['POST'])
 @verify_token
+@require_db
 def lookup_referral_code():
     # SEC-001: Secure backend-only referral lookup
     data = request.json
@@ -1517,6 +1542,7 @@ def reconcile_metrics():
 
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token
+@require_db
 def send_verification_email():
     caller_uid = request.user['uid']
     caller_email = request.user.get('email')
@@ -1600,6 +1626,7 @@ def get_market_prices():
 
 @app.route('/api/authorize-resend', methods=['POST'])
 @verify_token
+@require_db
 def authorize_resend():
     caller_uid = request.user['uid']
     caller_email = request.user.get('email')
@@ -1674,6 +1701,22 @@ def authorize_resend():
         import traceback
         print(traceback.format_exc())
         return jsonify({"success": False, "error": "SERVER_ERROR", "message": "Something went wrong, please try again."}), 500
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    health = {
+        "success": True,
+        "status": "ONLINE",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "6.2.0-CERT-DIAG",
+        "firebase": "CONNECTED" if db else "DISCONNECTED",
+        "env": {
+            "RESEND_KEY": "PRESENT" if os.environ.get('RESEND_API_KEY') else "MISSING",
+            "PROJECT_ID": os.environ.get('PROJECT_ID', 'MISSING'),
+            "VERCEL_ENV": os.environ.get('VERCEL_ENV', 'LOCAL')
+        }
+    }
+    return jsonify(health)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

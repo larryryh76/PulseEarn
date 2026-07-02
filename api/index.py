@@ -15,7 +15,13 @@ import logging
 import html
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": ["https://pulseearn.online", "http://localhost:5173", "http://127.0.0.1:5173"]}})
+# Batch 3: Comprehensive CORS for production and development
+CORS(app, resources={r"/api/*": {"origins": [
+    "https://pulseearn.online",
+    "https://www.pulseearn.online",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]}})
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -61,18 +67,22 @@ def get_project_id():
         'pulseearn-a4b16' # Aligned with verified production frontend
     )
 
+# Batch 3: Optimized Firebase Admin bootstrapping
 try:
-    if not firebase_admin._apps:
+    # Use get_app to check for existence instead of private _apps
+    try:
+        firebase_admin.get_app()
+    except ValueError:
         project_id = get_project_id()
-
         # Initialize with explicit projectId to prevent auth.verify_id_token() ValueErrors
         # in environments without service account JSON files (like Vercel).
         firebase_admin.initialize_app(options={'projectId': project_id})
+        print(f"BOOT: Firebase Admin initialized for project: {project_id}")
 
     db = firestore.client()
-    logging.info(f"Firebase initialized successfully with project: {get_project_id()}")
+    print("BOOT: Firestore client established.")
 except Exception as e:
-    logging.error(f"CRITICAL: Firebase initialization failed: {str(e)}")
+    print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
     print(traceback.format_exc())
     db = None
 

@@ -28,29 +28,52 @@ def handle_exception(e):
         }), e.code
 
     # Standardize all other errors to JSON
+    # Batch 1: Improved error reporting for stabilization
     import traceback
     import logging
     logging.exception("Unhandled exception")
-    print(traceback.format_exc())
-    return jsonify({
+    tb = traceback.format_exc()
+    print(tb)
+
+    response = {
         "success": False,
         "error": "INTERNAL_SERVER_ERROR",
-        "message": "An internal server error occurred."
-    }), 500
+        "message": str(e) if os.environ.get('VERCEL_ENV') != 'production' else "An internal server error occurred."
+    }
+
+    # Include traceback in non-production or for specialized audit
+    if os.environ.get('DEBUG_TRACEBACK') == 'true':
+        response["traceback"] = tb
+
+    return jsonify(response), 500
 
 # Initialize Firebase Admin
+# SEC-000: Robust project ID discovery for Vercel/Firebase environments
+def get_project_id():
+    # Priority 1: Frontend-aligned Vercel Variable
+    # Priority 2: Standard Cloud Platform Variables
+    # Priority 3: Common Vercel/Firebase Overrides
+    return (
+        os.environ.get('VITE_FIREBASE_PROJECT_ID') or
+        os.environ.get('PROJECT_ID') or
+        os.environ.get('GOOGLE_CLOUD_PROJECT') or
+        os.environ.get('FIREBASE_PROJECT_ID') or
+        'pulseearn-a4b16' # Aligned with verified production frontend
+    )
+
 try:
     if not firebase_admin._apps:
-        # Resolve projectId from environment or fallback
-        project_id = os.environ.get('VITE_FIREBASE_PROJECT_ID') or os.environ.get('PROJECT_ID') or os.environ.get('GOOGLE_CLOUD_PROJECT') or 'pulseearn-production'
+        project_id = get_project_id()
 
         # Initialize with explicit projectId to prevent auth.verify_id_token() ValueErrors
         # in environments without service account JSON files (like Vercel).
         firebase_admin.initialize_app(options={'projectId': project_id})
 
     db = firestore.client()
+    logging.info(f"Firebase initialized successfully with project: {get_project_id()}")
 except Exception as e:
     logging.error(f"CRITICAL: Firebase initialization failed: {str(e)}")
+    print(traceback.format_exc())
     db = None
 
 
@@ -1583,15 +1606,23 @@ def authorize_resend():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
+    # Batch 1: Enhanced diagnostics
+    project_id = get_project_id()
+
     health = {
         "success": True,
         "status": "ONLINE",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "7.1.0-STABLE",
+        "version": "7.2.0-STABILIZED",
         "firebase": "CONNECTED" if db else "DISCONNECTED",
+        "diagnostics": {
+            "projectId": project_id,
+            "projectMismatch": project_id != 'pulseearn-a4b16',
+            "databaseInitialized": db is not None
+        },
         "env": {
             "RESEND_KEY": "PRESENT" if os.environ.get('RESEND_API_KEY') else "MISSING",
-            "PROJECT_ID": os.environ.get('PROJECT_ID', 'MISSING'),
+            "VITE_PROJECT_ID": "PRESENT" if os.environ.get('VITE_FIREBASE_PROJECT_ID') else "MISSING",
             "VERCEL_ENV": os.environ.get('VERCEL_ENV', 'LOCAL')
         }
     }

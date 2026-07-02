@@ -8,8 +8,14 @@ export async function safeFetch(url: string, options?: RequestInit): Promise<any
     // Check if response is JSON
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
+      // Successful responses without JSON body (e.g., 204 No Content) are valid
+      if (response.ok) {
+        return { success: true };
+      }
+
+      // Non-ok responses with non-JSON body are errors
       const text = await response.text();
-      // Silently log non-JSON response in prod to console
+      // Log non-JSON error responses to console in DEV mode only
       if (import.meta.env.DEV) {
           console.error("[API] Non-JSON Response:", text.slice(0, 200));
       }
@@ -24,6 +30,7 @@ export async function safeFetch(url: string, options?: RequestInit): Promise<any
 
     if (!response.ok) {
        return {
+          ...data,
           success: false,
           error: data.error || "UNKNOWN_ERROR",
           message: data.message || "An unexpected error occurred."

@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: investigation/production_audit.spec.ts >> Production Health and Connectivity Audit
-- Location: investigation/production_audit.spec.ts:3:1
+- Name: investigation/capture_prod_errors.spec.ts >> Capture Production Errors
+- Location: investigation/capture_prod_errors.spec.ts:3:1
 
 # Error details
 

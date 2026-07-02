@@ -125,8 +125,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let currentProgress: any[] = [];
 
     const syncSystemTasks = () => {
-      if (currentDefinitions.length === 0) return;
-
       const sysTasksData = currentDefinitions.map(def => {
         const progress = currentProgress.find(ud => ud.systemTaskId === def.id);
         return { id: def.id, definition: def, progress };

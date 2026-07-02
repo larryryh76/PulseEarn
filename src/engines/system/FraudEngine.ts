@@ -1,4 +1,5 @@
 import { db, auth } from '../../firebase/config';
+import { safeFetch } from '../../utils/api';
 import {
   doc,
   updateDoc,
@@ -15,7 +16,7 @@ export class FraudEngine {
   static async evaluateUserIntegrity(userId: string, fingerprint: string): Promise<void> {
     try {
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/evaluate-user-integrity', {
+      const res = await safeFetch('/api/evaluate-user-integrity', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -24,7 +25,6 @@ export class FraudEngine {
         body: JSON.stringify({ userId, fingerprint })
       });
 
-      const res = await response.json();
       if (!res.success) {
         console.warn(`[FraudEngine] Server-side integrity check failed: ${res.error}`);
       }

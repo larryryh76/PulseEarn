@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { safeFetch } from '../../../utils/api';
 import {
   Users,
   MoreVertical,
@@ -171,8 +172,8 @@ const OpsUsers: React.FC = () => {
           const userId = user.id;
 
           // 1. Purge from Firebase Auth
-          const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
-          const response = await fetch('/api/admin/delete-user', {
+          const idToken = await auth.currentUser?.getIdToken();
+          const resData = await safeFetch('/api/admin/delete-user', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -180,9 +181,8 @@ const OpsUsers: React.FC = () => {
               },
               body: JSON.stringify({ userId })
           });
-          const resData = await response.json();
           if (!resData.success) {
-              console.warn("[OpsUsers] Auth deletion failed, continuing with Firestore purge:", resData.error);
+              console.warn("[OpsUsers] Auth deletion failed, continuing with Firestore purge:", resData.message || resData.error);
           }
 
           // 2. Purge Linked Top-Level Records
@@ -340,8 +340,8 @@ const OpsUsers: React.FC = () => {
       const loadingToast = toast.loading('Updating user profile...');
       try {
           if (editForm.emailVerified && !selectedUser.emailVerified) {
-              const idToken = await (window as any).firebaseAuth?.currentUser?.getIdToken();
-              const response = await fetch('/api/admin/verify-user', {
+              const idToken = await auth.currentUser?.getIdToken();
+              const resData = await safeFetch('/api/admin/verify-user', {
                   method: 'POST',
                   headers: {
                       'Content-Type': 'application/json',
@@ -349,8 +349,7 @@ const OpsUsers: React.FC = () => {
                   },
                   body: JSON.stringify({ userId: selectedUser.id })
               });
-              const resData = await response.json();
-              if (!resData.success) throw new Error(resData.error);
+              if (!resData.success) throw new Error(resData.message || resData.error);
           }
 
           await updateDoc(doc(db, 'users', selectedUser.id), {
@@ -559,7 +558,7 @@ const OpsUsers: React.FC = () => {
                               onClick={async () => {
                                  if(!window.confirm(`Promote ${selectedUser.username} to MODERATOR?`)) return;
                                  const load = toast.loading("Executing Promotion...");
-                                 const res = await fetch('/api/admin/promote-moderator', {
+                                 const data = await safeFetch('/api/admin/promote-moderator', {
                                     method: 'POST',
                                     headers: {
                                        'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
@@ -567,12 +566,11 @@ const OpsUsers: React.FC = () => {
                                     },
                                     body: JSON.stringify({ userId: selectedUser.id })
                                  });
-                                 const data = await res.json();
                                  toast.dismiss(load);
                                  if(data.success) {
                                     toast.success("User Promoted");
                                     setSelectedUser({...selectedUser, role: 'moderator'});
-                                 } else toast.error(data.error);
+                                 } else toast.error(data.message || data.error);
                               }}
                               className="px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-all shadow-lg"
                             >

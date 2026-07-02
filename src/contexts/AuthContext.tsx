@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeFetch } from '../utils/api';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -190,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const claimRef = doc(db, 'system_claims', `welcome_${user.uid}`);
           const claimSnap = await getDoc(claimRef);
           if (!claimSnap.exists()) {
-             console.log("[AuthContext] Repairing Welcome Bonus...");
+             if (import.meta.env.DEV) console.log("[AuthContext] Repairing Welcome Bonus...");
              const config = await EconomyConfigEngine.getConfig();
              await PointTransactionEngine.execute({
                userId: user.uid,
@@ -261,7 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (referralCodeInput) {
        try {
           const idToken = await user.getIdToken();
-          const response = await fetch('/api/referrals/lookup', {
+          const res = await safeFetch('/api/referrals/lookup', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${idToken}`,
@@ -269,7 +270,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             },
             body: JSON.stringify({ referralCode: referralCodeInput })
           });
-          const res = await response.json();
 
           if (res.success) {
             const referredBy = res.referrerId;
@@ -344,13 +344,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Request branded verification email from backend
     try {
       const idToken = await user.getIdToken();
-      await fetch('/api/auth/send-verification', {
+      const res = await safeFetch('/api/auth/send-verification', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
           'Content-Type': 'application/json'
         }
       });
+      if (!res.success) throw new Error(res.message);
     } catch (err) {
       console.error("[AuthContext] Backend Verification Request Failed:", err);
       // Fallback to Firebase standard if backend fails
@@ -412,7 +413,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              try {
                 // Re-run initialization using current auth metadata
                 await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`);
-                console.log("[AuthContext] Identity Refreshed Successfully.");
+                if (import.meta.env.DEV) console.log("[AuthContext] Identity Refreshed Successfully.");
              } catch (healError) {
                 console.error("[AuthContext] Self-Healing Failed:", healError);
                 setSystemError('IDENTITY_NOT_FOUND');

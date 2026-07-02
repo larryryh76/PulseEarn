@@ -118,7 +118,7 @@ export class EconomyConfigEngine {
       }, { merge: true });
 
       this.cache = null; // Invalidate cache
-      console.log('[EconomyConfig] Global economy configuration updated');
+      if (import.meta.env.DEV) console.log('[EconomyConfig] Global economy configuration updated');
     } catch (err) {
       console.error('[EconomyConfig] Update failed:', err);
       throw err;

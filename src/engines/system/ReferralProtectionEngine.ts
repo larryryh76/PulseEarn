@@ -1,4 +1,5 @@
 import { db, auth } from '../../firebase/config';
+import { safeFetch } from '../../utils/api';
 import {
   collection,
   query,
@@ -52,7 +53,7 @@ export class ReferralProtectionEngine {
       const snap = await getDocs(pendingQuery);
       if (snap.empty) return;
 
-      console.log(`[ReferralProtection] Processing ${snap.size} retroactive rewards for referrer ${referrerId}`);
+      if (import.meta.env.DEV) console.log(`[ReferralProtection] Processing ${snap.size} retroactive rewards for referrer ${referrerId}`);
 
       for (const refDoc of snap.docs) {
         const refData = refDoc.data();
@@ -76,7 +77,7 @@ export class ReferralProtectionEngine {
 
     try {
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/process-referral-reward', {
+      const res = await safeFetch('/api/process-referral-reward', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +91,6 @@ export class ReferralProtectionEngine {
         })
       });
 
-      const res = await response.json();
       if (!res.success) {
         console.warn(`[ReferralProtection] Server-side processing failed: ${res.error}`);
       }

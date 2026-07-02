@@ -87,7 +87,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const logAdminAction = async (action: string, metadata: any) => {
     try {
       // Internal logging for admin actions
-      console.log(`[AdminAudit] ${action}`, metadata);
+      if (import.meta.env.DEV) console.log(`[AdminAudit] ${action}`, metadata);
     } catch (err) {
       console.error("[AdminAudit] Failed to log action:", err);
     }

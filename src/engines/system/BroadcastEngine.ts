@@ -55,6 +55,6 @@ export class BroadcastEngine {
        }
     }
 
-    console.log(`[BroadcastEngine] Completed. Sent to ${totalSent} users.`);
+    if (import.meta.env.DEV) console.log(`[BroadcastEngine] Completed. Sent to ${totalSent} users.`);
   }
 }

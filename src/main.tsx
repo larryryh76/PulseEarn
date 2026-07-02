@@ -15,12 +15,14 @@ window.addEventListener('error', (e) => {
   }
 });
 
-// Runtime Debug Telemetry
-console.log("-----------------------------------------");
-console.log("PULSE_EARN_BOOT: Initialize System");
-console.log(`PULSE_EARN_BOOT: Environment: ${import.meta.env.MODE}`);
-console.log(`PULSE_EARN_BOOT: Admin Link: ${import.meta.env.VITE_ADMIN_EMAIL ? 'CONFIGURED' : 'NOT_SET'}`);
-console.log("-----------------------------------------");
+// Batch 4: Clean production telemetry
+if (import.meta.env.DEV) {
+  console.log("-----------------------------------------");
+  console.log("PULSE_EARN_BOOT: Initialize System");
+  console.log(`PULSE_EARN_BOOT: Environment: ${import.meta.env.MODE}`);
+  console.log(`PULSE_EARN_BOOT: Admin Link: ${import.meta.env.VITE_ADMIN_EMAIL ? 'CONFIGURED' : 'NOT_SET'}`);
+  console.log("-----------------------------------------");
+}
 
 // Seed initial tasks if collection is empty (Admin check performed inside seedTasks)
 // seedTasks();

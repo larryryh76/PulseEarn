@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { auth } from '../firebase/config';
+import { safeFetch } from '../utils/api';
 
 const VerifyEmail: React.FC = () => {
   const { currentUser, logout, sendVerification } = useAuth();
@@ -31,15 +32,13 @@ const VerifyEmail: React.FC = () => {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) throw new Error('Not authenticated');
 
-      const response = await fetch('/api/authorize-resend', {
+      const result = await safeFetch('/api/authorize-resend', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
           'Content-Type': 'application/json'
         }
       });
-
-      const result = await response.json();
 
       if (result.success) {
         if (result.dispatchMethod === 'client_fallback') {

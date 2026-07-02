@@ -31,7 +31,9 @@ class AdminLogger {
       metadata
     };
 
-    console.log(`[AdminOps][${level}][${module}] ${message}`, metadata || '');
+    if (import.meta.env.DEV) {
+      console.log(`[AdminOps][${level}][${module}] ${message}`, metadata || '');
+    }
 
     this.logs.unshift(entry);
     if (this.logs.length > this.MAX_LOGS) {

@@ -95,6 +95,64 @@ def calculate_level(xp, base_level_xp=1000):
     level = math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
     return level
 
+def evaluate_missions(user_id):
+    """
+    SEC-004: Server-authoritative mission evaluation.
+    Analyzes user stats against system_task_definitions and updates user_system_tasks progress.
+    """
+    if not db: return
+
+    try:
+        user_ref = db.collection('users').document(user_id)
+        user_snap = user_ref.get()
+        if not user_snap.exists: return
+        user_data = user_snap.to_dict()
+
+        # Fetch active mission definitions
+        definitions = db.collection('system_task_definitions').where('active', '==', True).get()
+
+        for d_doc in definitions:
+            d = d_doc.to_dict()
+            field = d.get('conditionField')
+            target = d.get('targetValue', 1)
+
+            # Resolve progress from user data
+            # Support nested fields like 'stats.tasksCompleted'
+            current_value = 0
+            if '.' in field:
+                parts = field.split('.')
+                current_value = user_data
+                for p in parts:
+                    if isinstance(current_value, dict):
+                        current_value = current_value.get(p, 0)
+                    else:
+                        current_value = 0
+                        break
+            else:
+                current_value = user_data.get(field, 0)
+
+            # Cap progress at target
+            progress = min(current_value, target)
+            is_completed = progress >= target
+
+            ust_id = f"{user_id}_{d_doc.id}"
+            ust_ref = db.collection('user_system_tasks').document(ust_id)
+
+            # Use separate transaction or batch for individual mission updates to avoid massive conflicts
+            # For simplicity in this logic, we use a merge update.
+            ust_ref.set({
+                'userId': user_id,
+                'systemTaskId': d_doc.id,
+                'category': d.get('category'),
+                'progress': progress,
+                'target': target,
+                'status': 'COMPLETED' if is_completed else 'IN_PROGRESS',
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+
+    except Exception as e:
+        logging.error(f"Mission Evaluation Failed for {user_id}: {str(e)}")
+
 def verify_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -368,6 +426,8 @@ def submit_task():
     try:
         transaction = db.transaction()
         result = process_submission(transaction)
+        # Background mission check after activity
+        evaluate_missions(user_id)
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -521,34 +581,60 @@ def execute_transaction():
                 if not task_id:
                     raise Exception("MISSING_MISSION_ID")
 
-                # Missions use state-based sync, so we check user_system_tasks doc
-                ust_id = f"{user_id}_{task_id}"
-                ust_ref = db.collection('user_system_tasks').document(ust_id)
-                ust_snap = ust_ref.get(transaction=transaction)
-                if not ust_snap.exists:
-                    raise Exception("MISSION_RECORD_NOT_FOUND")
-
-                ust_data = ust_snap.to_dict()
-                if ust_data.get('status') != 'COMPLETED':
-                    raise Exception(f"MISSION_NOT_COMPLETED: {ust_data.get('status')}")
-                if ust_data.get('rewarded'):
-                    raise Exception("MISSION_ALREADY_REWARDED")
-
+                # SEC-004: Server-authoritative mission verification
+                # We perform evaluation inside the transaction before rewarding
                 def_ref = db.collection('system_task_definitions').document(task_id)
                 def_snap = def_ref.get(transaction=transaction)
                 if not def_snap.exists:
                     raise Exception("MISSION_DEFINITION_NOT_FOUND")
 
                 def_data = def_snap.to_dict()
+                field = def_data.get('conditionField')
+                target = def_data.get('targetValue', 1)
+
+                # Resolve current progress from user data
+                current_value = 0
+                if '.' in field:
+                    parts = field.split('.')
+                    current_value = user_data
+                    for p in parts:
+                        if isinstance(current_value, dict):
+                            current_value = current_value.get(p, 0)
+                        else:
+                            current_value = 0
+                            break
+                else:
+                    current_value = user_data.get(field, 0)
+
+                if current_value < target:
+                    raise Exception(f"MISSION_CRITERIA_NOT_MET: {current_value}/{target}")
+
+                # Missions use state-based sync, so we check user_system_tasks doc
+                ust_id = f"{user_id}_{task_id}"
+                ust_ref = db.collection('user_system_tasks').document(ust_id)
+                ust_snap = ust_ref.get(transaction=transaction)
+
+                # Check for existing rewarded state
+                if ust_snap.exists:
+                    ust_data = ust_snap.to_dict()
+                    if ust_data.get('rewarded'):
+                        raise Exception("MISSION_ALREADY_REWARDED")
+
                 derived_amount = def_data.get('rewardPoints', 0)
                 derived_xp = def_data.get('rewardXp', 0)
 
-                # Mark mission as REWARDED
-                transaction.update(ust_ref, {
+                # Mark mission as REWARDED (and ensure status is COMPLETED)
+                transaction.set(ust_ref, {
+                    'userId': user_id,
+                    'systemTaskId': task_id,
+                    'status': 'COMPLETED',
+                    'progress': min(current_value, target),
+                    'target': target,
                     'rewarded': True,
                     'rewardTransactionId': tx_ref.id,
-                    'claimedAt': firestore.SERVER_TIMESTAMP
-                })
+                    'claimedAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
 
             elif tx_type == 'daily_reward':
                 derived_amount = config.get('rewards', {}).get('dailyLoginPoints', 50)
@@ -809,6 +895,8 @@ def execute_transaction():
     try:
         transaction = db.transaction()
         result = update_in_transaction(transaction)
+        # Background mission check after economy event
+        evaluate_missions(user_id)
         return jsonify(result)
     except Exception as e:
         import traceback
@@ -960,6 +1048,8 @@ def execute_prediction():
     try:
         transaction = db.transaction()
         result = pred_transaction(transaction)
+        # Background mission check after prediction
+        evaluate_missions(user_id)
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -1092,6 +1182,11 @@ def resolve_prediction():
     try:
         transaction = db.transaction()
         result = resolve_transaction(transaction)
+        # Background mission check after resolution
+        # Result contains 'userId' in some cases, or we get from data
+        pred_snap = db.collection('user_predictions').document(prediction_id).get()
+        if pred_snap.exists:
+            evaluate_missions(pred_snap.to_dict().get('userId'))
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -1200,6 +1295,8 @@ def process_referral_reward():
 
         transaction = db.transaction()
         result = ref_reward_transaction(transaction)
+        # Background mission check after referral reward
+        evaluate_missions(referrer_id)
         return jsonify(result)
 
     except Exception as e:

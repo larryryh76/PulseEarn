@@ -120,26 +120,34 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     fetchHistoricalData();
 
-    // 7. Fetch System Missions
+    // 7. Fetch System Missions - Batch 3: Parallelized non-nested listeners
+    let currentDefinitions: any[] = [];
+    let currentProgress: any[] = [];
+
+    const syncSystemTasks = () => {
+      const sysTasksData = currentDefinitions.map(def => {
+        const progress = currentProgress.find(ud => ud.systemTaskId === def.id);
+        return { id: def.id, definition: def, progress };
+      });
+      setSystemTasks(sysTasksData);
+    };
+
     const defQ = query(collection(db, 'system_task_definitions'), where('active', '==', true));
     unsubscribes.push(onSnapshot(defQ, (defSnap) => {
-      const userQ = query(collection(db, 'user_system_tasks'), where('userId', '==', currentUser.uid));
-      const unsubUserSys = onSnapshot(userQ, (userSysSnap) => {
-        const sysTasksData = defSnap.docs.map(d => {
-          const def = d.data();
-          const progress = userSysSnap.docs.find(ud => ud.data().systemTaskId === d.id)?.data();
-          return { id: d.id, definition: def, progress };
-        });
-        setSystemTasks(sysTasksData as any);
-        setLoading(false);
-      }, (err) => {
-        console.error("[TaskContext] User System Tasks Error:", err);
-        setLoading(false);
-      });
-      unsubscribes.push(unsubUserSys);
+      currentDefinitions = defSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      syncSystemTasks();
+      setLoading(false);
     }, (err) => {
       console.error("[TaskContext] System Definitions Error:", err);
       setLoading(false);
+    }));
+
+    const userQ = query(collection(db, 'user_system_tasks'), where('userId', '==', currentUser.uid));
+    unsubscribes.push(onSnapshot(userQ, (userSysSnap) => {
+      currentProgress = userSysSnap.docs.map(d => d.data());
+      syncSystemTasks();
+    }, (err) => {
+      console.error("[TaskContext] User System Tasks Error:", err);
     }));
 
     // Safety timeout: If loading is still true after 15 seconds, force it to false

@@ -106,8 +106,10 @@ const Dashboard: React.FC = () => {
        });
     });
 
-    // 3. Unclaimed System Missions
-    systemTasks.filter(st => st.progress?.status !== 'CLAIMED').forEach(st => {
+    // 3. Unclaimed System Missions - Batch 3: Improved visibility & status filtering
+    systemTasks
+      .filter(st => st.progress?.status !== 'CLAIMED' && st.definition?.active !== false)
+      .forEach(st => {
        rail.push({
           id: `mission_${st.id}`,
           originalId: st.id,

@@ -4,6 +4,7 @@ import { db, auth } from '../../../firebase/config';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import DataTable from '../../../components/admin/common/DataTable';
 import toast from 'react-hot-toast';
+import { safeFetch } from '../../../utils/api';
 
 const OpsModerators: React.FC = () => {
   const [mods, setModerators] = React.useState<any[]>([]);
@@ -32,7 +33,7 @@ const OpsModerators: React.FC = () => {
 
      try {
         const idToken = await auth.currentUser?.getIdToken();
-        const res = await fetch('/api/admin/promote-moderator', {
+        const data = await safeFetch('/api/admin/promote-moderator', {
            method: 'POST',
            headers: {
               'Content-Type': 'application/json',
@@ -40,9 +41,8 @@ const OpsModerators: React.FC = () => {
            },
            body: JSON.stringify({ userId: user.id })
         });
-        const data = await res.json();
         if (data.success) toast.success("User promoted to Moderator.");
-        else toast.error(data.error);
+        else toast.error(data.message || data.error);
      } catch (err) {
         toast.error("Promotion failed.");
      } finally {

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { auth } from '../firebase/config';
+import { safeFetch } from '../utils/api';
 import { Task } from '../types';
 
 const Tasks: React.FC = () => {
@@ -30,7 +31,7 @@ const Tasks: React.FC = () => {
     setIsSubmitting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/tasks/submit', {
+      const data = await safeFetch('/api/tasks/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
@@ -38,13 +39,13 @@ const Tasks: React.FC = () => {
         },
         body: JSON.stringify({ taskId: selectedTask.id, proof: proof || 'AUTOMATED_VALIDATION' })
       });
-      const data = await res.json();
+
       if (data.success) {
         toast.success(data.automated ? 'Task Completed!' : 'Submitted for Review');
         setSelectedTask(null);
         setProof('');
       } else {
-        toast.error(data.error || 'Submission failed');
+        toast.error(data.message || data.error || 'Submission failed');
       }
     } catch (err) {
       toast.error('System error');

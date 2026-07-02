@@ -1,4 +1,5 @@
 import { db, auth } from '../../firebase/config';
+import { safeFetch } from '../../utils/api';
 import {
   doc,
   collection,
@@ -38,7 +39,7 @@ export class PointTransactionEngine {
 
     try {
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/execute-transaction', {
+      const res = await safeFetch('/api/execute-transaction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,8 +47,6 @@ export class PointTransactionEngine {
         },
         body: JSON.stringify(request)
       });
-
-      const res = await response.json();
 
       if (res.success) {
         // Trigger background missions and activity logs after successful transaction
@@ -93,7 +92,7 @@ export class PointTransactionEngine {
 
     try {
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/execute-prediction', {
+      const res = await safeFetch('/api/execute-prediction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,8 +100,6 @@ export class PointTransactionEngine {
         },
         body: JSON.stringify(request)
       });
-
-      const res = await response.json();
 
       if (res.success) {
         await ActivityEngine.log({
@@ -135,7 +132,7 @@ export class PointTransactionEngine {
   static async resolvePrediction(predictionId: string, currentPrice: number, _manualRewardPool?: number): Promise<void> {
     try {
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/resolve-prediction', {
+      const res = await safeFetch('/api/resolve-prediction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +141,6 @@ export class PointTransactionEngine {
         body: JSON.stringify({ predictionId, currentPrice })
       });
 
-      const res = await response.json();
       if (!res.success) {
         throw new Error(res.error || 'SERVER_RESOLUTION_FAILED');
       }

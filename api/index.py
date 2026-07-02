@@ -1,5 +1,6 @@
 import os
 import requests
+import sys
 import hashlib
 import hmac
 from webhook_helper import verify_provider_signature
@@ -68,22 +69,23 @@ def get_project_id():
     )
 
 # Batch 3: Optimized Firebase Admin bootstrapping
+# Batch 4: Emergency Boot Patch & Stdout Flush for Vercel
 try:
-    # Use get_app to check for existence instead of private _apps
     try:
         firebase_admin.get_app()
     except ValueError:
         project_id = get_project_id()
-        # Initialize with explicit projectId to prevent auth.verify_id_token() ValueErrors
-        # in environments without service account JSON files (like Vercel).
         firebase_admin.initialize_app(options={'projectId': project_id})
         print(f"BOOT: Firebase Admin initialized for project: {project_id}")
+        sys.stdout.flush()
 
     db = firestore.client()
     print("BOOT: Firestore client established.")
+    sys.stdout.flush()
 except Exception as e:
     print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
     print(traceback.format_exc())
+    sys.stdout.flush()
     db = None
 
 
@@ -110,7 +112,7 @@ def evaluate_missions(user_id):
     SEC-004: Server-authoritative mission evaluation.
     Analyzes user stats against system_task_definitions and updates user_system_tasks progress.
     """
-    if not db: return
+    if not db or not user_id: return
 
     try:
         user_ref = db.collection('users').document(user_id)
@@ -124,6 +126,8 @@ def evaluate_missions(user_id):
         for d_doc in definitions:
             d = d_doc.to_dict()
             field = d.get('conditionField')
+            if not field: continue
+
             target = d.get('targetValue', 1)
 
             # Resolve progress from user data
@@ -131,19 +135,24 @@ def evaluate_missions(user_id):
             current_value = 0
             if '.' in field:
                 parts = field.split('.')
-                current_value = user_data
+                ptr = user_data
                 for p in parts:
-                    if isinstance(current_value, dict):
-                        current_value = current_value.get(p, 0)
+                    if isinstance(ptr, dict):
+                        ptr = ptr.get(p, 0)
                     else:
-                        current_value = 0
+                        ptr = 0
                         break
+                current_value = ptr
             else:
                 current_value = user_data.get(field, 0)
 
             # Cap progress at target
-            progress = min(current_value, target)
-            is_completed = progress >= target
+            try:
+                progress = min(float(current_value or 0), float(target))
+                is_completed = progress >= float(target)
+            except (ValueError, TypeError):
+                progress = 0
+                is_completed = False
 
             ust_id = f"{user_id}_{d_doc.id}"
             ust_ref = db.collection('user_system_tasks').document(ust_id)
@@ -161,7 +170,8 @@ def evaluate_missions(user_id):
             }, merge=True)
 
     except Exception as e:
-        logging.error(f"Mission Evaluation Failed for {user_id}: {str(e)}")
+        print(f"ERROR: Mission Evaluation Failed for {user_id}: {str(e)}")
+        sys.stdout.flush()
 
 def verify_token(f):
     @wraps(f)
@@ -1710,6 +1720,10 @@ def authorize_resend():
         print(traceback.format_exc())
         return jsonify({"success": False, "error": "SERVER_ERROR", "message": "Something went wrong, please try again."}), 500
 
+
+@app.route('/api/ping', methods=['GET'])
+def ping():
+    return jsonify({"success": True, "message": "PONG", "timestamp": datetime.now(timezone.utc).isoformat()})
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

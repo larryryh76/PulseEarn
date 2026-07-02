@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: investigation/capture_prod_errors.spec.ts >> Capture Production Errors
-- Location: investigation/capture_prod_errors.spec.ts:3:1
+- Name: investigation/verify_batch_4.spec.ts >> Verify Batch 4 Console Cleanup
+- Location: investigation/verify_batch_4.spec.ts:3:1
 
 # Error details
 

@@ -9,14 +9,13 @@ test('Verify Batch 4 Console Cleanup', async ({ page }) => {
   await page.goto('https://www.pulseearn.online', { waitUntil: 'networkidle' });
 
   const bootLogs = consoleLogs.filter(log => log.includes('PULSE_EARN_BOOT'));
-  const apiLogs = consoleLogs.filter(log => log.includes('[API]'));
+  console.log('--- Console Logs Found ---');
+  consoleLogs.forEach(l => console.log('LOG:', l));
 
-  // Assert that PULSE_EARN_BOOT logs are absent (Batch 4 cleanup verification)
   expect(bootLogs.length).toBe(0);
 
-  // Assert that API logs, if present, indicate safeFetch is working correctly
-  // (API logs should only appear in dev mode, but if present they should contain error guards)
-  apiLogs.forEach(log => {
-    expect(log).toMatch(/\[API\]/);
-  });
+  // Check if safeFetch is working (if api failed, it should log a safe message)
+  const apiLogs = consoleLogs.filter(log => log.includes('[API]'));
+  console.log('API Logs:', apiLogs);
+  expect(apiLogs.every(log => !log.includes('undefined') && !log.includes('null'))).toBe(true);
 });

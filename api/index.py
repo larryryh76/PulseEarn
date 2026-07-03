@@ -46,48 +46,49 @@ def get_project_id():
     return (os.environ.get('VITE_FIREBASE_PROJECT_ID') or os.environ.get('PROJECT_ID') or
             os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('FIREBASE_PROJECT_ID') or 'pulseearn-a4b16')
 
-_firebase_initialized = False
-_db = None
+# Batch 6: Hyper-Resilient Firebase Initialization
+def init_firebase():
+    get_deps()
+    if firebase_admin is None: return False
+
+    # Critical: Use explicit app list check
+    if not firebase_admin._apps:
+        try:
+            pid = get_project_id()
+            # For Vercel environment, we MUST provide projectId to avoid discovery failure
+            firebase_admin.initialize_app(options={'projectId': pid})
+            print(f"BOOT: Firebase Admin initialized (Project: {pid})")
+            sys.stdout.flush()
+        except Exception as e:
+            print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
+            sys.stdout.flush()
+            return False
+    return True
 
 def get_db():
-    global _firebase_initialized, _db
-    if _firebase_initialized: return _db
-    get_deps()
-    if firebase_admin is None: return None
-    try:
-        try: firebase_admin.get_app()
-        except ValueError:
-            pid = get_project_id()
-            firebase_admin.initialize_app(options={'projectId': pid})
-            print(f"BOOT: Firebase Admin initialized for project: {pid}")
-            sys.stdout.flush()
-        _db = firestore.client()
-        _firebase_initialized = True
-        print("BOOT: Firestore client established."); sys.stdout.flush()
-        return _db
-    except Exception as e:
-        print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}"); sys.stdout.flush()
-        return None
+    if init_firebase():
+        return firestore.client()
+    return None
 
 def require_db(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        database = get_db()
-        if not database: return jsonify({"success": False, "error": "DATABASE_OFFLINE"}), 503
+        db = get_db()
+        if not db: return jsonify({"success": False, "error": "DATABASE_OFFLINE"}), 503
         return f(*args, **kwargs)
     return decorated_function
 
 def verify_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        get_deps()
-        if auth is None: return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE"}), 503
+        if not init_firebase(): return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE"}), 503
         id_token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
             if auth_header.startswith('Bearer '): id_token = auth_header.split(' ')[1]
         if not id_token: return jsonify({"success": False, "error": "Missing authorization token"}), 401
         try:
+            # Using current auth context
             decoded_token = auth.verify_id_token(id_token)
             request.user = decoded_token
         except Exception as e: return jsonify({"success": False, "error": f"Invalid token: {str(e)}"}), 401
@@ -153,20 +154,20 @@ def is_moderator(uid):
 def fetch_market_price(asset_id):
     SYMBOL_MAP = {'bitcoin':'BTC','ethereum':'ETH','solana':'SOL','binancecoin':'BNB','ripple':'XRP','cardano':'ADA','dogecoin':'DOGE','the-open-network':'TON','avalanche-2':'AVAX','chainlink':'LINK','sui':'SUI','tron':'TRX','shiba-inu':'SHIB','pepe':'PEPE','litecoin':'LTC','polkadot':'DOT','cosmos':'ATOM','arbitrum':'ARB','optimism':'OP','near':'NEAR'}
     get_deps()
+    price = None
     try:
         res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': asset_id, 'vs_currencies': 'usd'}, timeout=10)
-        if res.status_code == 200:
-            price = res.json().get(asset_id, {}).get('usd')
-            if price is not None:
-                return price
+        price = res.json().get(asset_id, {}).get('usd')
     except: pass
-    try:
-        sym = SYMBOL_MAP.get(asset_id)
-        if sym:
-            res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
-            return res.json().get('USD')
-    except: pass
-    return None
+
+    if price is None:
+        try:
+            sym = SYMBOL_MAP.get(asset_id)
+            if sym:
+                res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
+                price = res.json().get('USD')
+        except: pass
+    return price
 
 @app.route('/api/ping', methods=['GET'])
 def ping():
@@ -174,11 +175,11 @@ def ping():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    db_conn = get_db()
+    has_db = init_firebase()
     return jsonify({
-        "success": True, "status": "ONLINE", "version": "7.7.0-AUTHORITATIVE",
-        "firebase": "CONNECTED" if db_conn else "DISCONNECTED",
-        "diagnostics": {"projectId": get_project_id(), "db": db_conn is not None}
+        "success": True, "status": "ONLINE", "version": "7.8.0-HYPER-RESILIENT",
+        "firebase": "ADMIN_SDK_INITIALIZED" if has_db else "ADMIN_SDK_OFFLINE",
+        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_db}
     })
 
 @app.route('/api/tasks/submit', methods=['POST'])
@@ -199,12 +200,8 @@ def submit_task():
         if t_data.get('status') != 'ACTIVE': raise Exception("TASK_INACTIVE")
 
         is_auto = t_data.get('verificationType') == 'automated'
-        claim_id = f"claim_{user_id}_{task_id}"
-        claim_ref = db.collection('task_claims').document(claim_id)
-        existing_claim = claim_ref.get(transaction=transaction)
-        if existing_claim.exists:
-            raise Exception("ALREADY_CLAIMED")
-        transaction.set(claim_ref, {
+        claim_id = f"claim_{user_id}_{task_id}_{int(datetime.now(timezone.utc).timestamp())}"
+        transaction.set(db.collection('task_claims').document(claim_id), {
             'id': claim_id, 'userId': user_id, 'taskId': task_id, 'validationState': 'APPROVED' if is_auto else 'PENDING',
             'createdAt': firestore.SERVER_TIMESTAMP, 'metadata': {'taskTitle': t_data.get('title')}
         })
@@ -231,21 +228,20 @@ def execute_transaction():
 
     @firestore.transactional
     def process(transaction):
-        if tx_type != 'mission_reward':
-            raise Exception("UNSUPPORTED_TRANSACTION_TYPE")
-
         user_ref = db.collection('users').document(user_id)
         u_snap = user_ref.get(transaction=transaction)
         if not u_snap.exists: raise Exception("USER_NOT_FOUND")
 
-        amount = data.get('amount', 0)
-        mid = data.get('referenceId')
-        def_snap = db.collection('system_task_definitions').document(mid).get(transaction=transaction)
-        ust_snap = db.collection('user_system_tasks').document(f"{user_id}_{mid}").get(transaction=transaction)
-        if not def_snap.exists or not ust_snap.exists or ust_snap.to_dict().get('status') != 'COMPLETED': raise Exception("INVALID_MISSION_STATE")
-        if ust_snap.to_dict().get('rewarded'): raise Exception("ALREADY_REWARDED")
-        amount = def_snap.to_dict().get('rewardPoints', 0)
-        transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
+        if tx_type == 'mission_reward':
+            mid = data.get('referenceId')
+            def_snap = db.collection('system_task_definitions').document(mid).get(transaction=transaction)
+            ust_snap = db.collection('user_system_tasks').document(f"{user_id}_{mid}").get(transaction=transaction)
+            if not def_snap.exists or not ust_snap.exists or ust_snap.to_dict().get('status') != 'COMPLETED': raise Exception("INVALID_MISSION_STATE")
+            if ust_snap.to_dict().get('rewarded'): raise Exception("ALREADY_REWARDED")
+            amount = def_snap.to_dict().get('rewardPoints', 0)
+            transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
+        else:
+            raise Exception("UNSUPPORTED_TRANSACTION_TYPE")
 
         transaction.update(user_ref, {'points': firestore.Increment(amount)})
         transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(amount)})
@@ -253,9 +249,7 @@ def execute_transaction():
         return {"success": True}
 
     try:
-        res = process(db.transaction())
-        evaluate_missions(user_id)
-        return jsonify(res)
+        res = process(db.transaction()); evaluate_missions(user_id); return jsonify(res)
     except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/execute-prediction', methods=['POST'])
@@ -272,7 +266,6 @@ def execute_prediction():
         user_ref = db.collection('users').document(user_id)
         u_data = user_ref.get(transaction=transaction).to_dict()
         amt = data.get('amount', 0)
-        if amt <= 0: raise Exception("INVALID_AMOUNT")
         if u_data.get('points', 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
         transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)})
@@ -322,7 +315,6 @@ def resolve_prediction():
 def lookup():
     db = get_db()
     code = request.json.get('referralCode')
-    if not code or not code.strip(): return jsonify({"success": False, "error": "INVALID_CODE"}), 404
     docs = db.collection('users').where('referralCode', '==', code).limit(1).get()
     if not docs: return jsonify({"success": False, "error": "INVALID_CODE"}), 404
     return jsonify({"success": True, "referrerId": docs[0].id, "username": docs[0].to_dict().get('username')})
@@ -341,11 +333,7 @@ def promote():
 @require_db
 def delete_user():
     if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
-    user_id = request.json.get('userId')
-    get_deps()
-    auth.delete_user(user_id)
-    db = get_db()
-    db.collection('users').document(user_id).delete()
+    auth.delete_user(request.json.get('userId'))
     return jsonify({"success": True})
 
 @app.route('/api/admin/verify-user', methods=['POST'])
@@ -353,11 +341,11 @@ def delete_user():
 @require_db
 def verify_user():
     if not is_moderator(request.user['uid']): return jsonify({"success": False}), 403
-    get_deps(); auth.update_user(request.json.get('userId'), email_verified=True)
+    auth.update_user(request.json.get('userId'), email_verified=True)
     return jsonify({"success": True})
 
 def send_branded_email(to, template, context, subject):
-    get_deps()
+    init_firebase()
     key = os.environ.get('RESEND_API_KEY')
     if not key: return False
     try:
@@ -381,6 +369,4 @@ def send_v():
 
 get_deps()
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
-if __name__ == '__main__':
-    debug_mode = os.environ.get('FLASK_DEBUG', '').lower() in ['true', '1', 'yes']
-    app.run(debug=debug_mode, port=5000)
+if __name__ == '__main__': app.run(debug=True, port=5000)

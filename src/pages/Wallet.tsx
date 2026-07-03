@@ -28,6 +28,7 @@ import { getWithdrawalEligibility } from '../utils/eligibility';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
+import { mapTransactionType } from '../utils/transactionLabels';
 
 const Wallet: React.FC = () => {
   const navigate = useNavigate();
@@ -47,19 +48,6 @@ const Wallet: React.FC = () => {
   const usdValue = PTS_TO_USD(points);
   const eligibility = getWithdrawalEligibility(userData);
   const thresholdMet = points >= WITHDRAWAL_MIN_PTS;
-
-  const mapTransactionType = (type: Transaction['type']) => {
-    switch (type) {
-      case 'daily_reward': return 'Reward Received';
-      case 'task_reward': return 'Task Reward';
-      case 'referral_bonus': return 'Referral Bonus';
-      case 'prediction_reward': return 'Prediction Reward';
-      case 'prediction_entry': return 'Prediction Stake';
-      case 'withdrawal_debit': return 'Withdrawal';
-      case 'admin_adjustment': return 'Admin Adjustment';
-      default: return 'Transaction';
-    }
-  };
 
   if (loading) return (
     <>

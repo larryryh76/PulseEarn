@@ -135,12 +135,29 @@ const OpsLedger: React.FC = () => {
            },
            {
              header: 'Source Entity',
-             accessor: (tx: any) => (
-               <div>
-                  <p className="text-[11px] font-bold text-text-primary uppercase italic tracking-tight">{tx.source || tx.type?.replace(/_/g, ' ')}</p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary/50 mt-0.5">{tx.type?.replace(/_/g, ' ')}</p>
-               </div>
-             )
+             accessor: (tx: any) => {
+               const mapTransactionType = (type: string) => {
+                 switch (type) {
+                   case 'daily_reward': return 'Daily Login Bonus';
+                   case 'task_reward': return 'Task Reward';
+                   case 'referral_bonus': return 'Referral Bonus';
+                   case 'prediction_reward': return 'Prediction Win';
+                   case 'prediction_entry': return 'Prediction Stake';
+                   case 'withdrawal_debit': return 'Withdrawal Request';
+                   case 'admin_adjustment': return 'Admin Adjustment';
+                   case 'welcome_bonus': return 'Welcome Bonus';
+                   case 'mission_reward': return 'Mission Reward';
+                   case 'withdrawal_finalized': return 'Withdrawal Settlement';
+                   default: return type?.replace(/_/g, ' ') || 'Transaction';
+                 }
+               };
+               return (
+                 <div>
+                    <p className="text-[11px] font-bold text-text-primary uppercase italic tracking-tight">{tx.source || mapTransactionType(tx.type)}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-text-tertiary/50 mt-0.5">{mapTransactionType(tx.type)}</p>
+                 </div>
+               );
+             }
            },
            {
              header: 'Delta',

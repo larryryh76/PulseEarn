@@ -177,7 +177,7 @@ def ping():
 def health_check():
     has_db = init_firebase()
     return jsonify({
-        "success": True, "status": "ONLINE", "version": "7.8.0-HYPER-RESILIENT",
+        "success": True, "status": "ONLINE", "version": "7.9.0-AUTHORITATIVE-LEDGER",
         "firebase": "ADMIN_SDK_INITIALIZED" if has_db else "ADMIN_SDK_OFFLINE",
         "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_db}
     })

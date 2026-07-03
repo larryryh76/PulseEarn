@@ -154,17 +154,20 @@ def is_moderator(uid):
 def fetch_market_price(asset_id):
     SYMBOL_MAP = {'bitcoin':'BTC','ethereum':'ETH','solana':'SOL','binancecoin':'BNB','ripple':'XRP','cardano':'ADA','dogecoin':'DOGE','the-open-network':'TON','avalanche-2':'AVAX','chainlink':'LINK','sui':'SUI','tron':'TRX','shiba-inu':'SHIB','pepe':'PEPE','litecoin':'LTC','polkadot':'DOT','cosmos':'ATOM','arbitrum':'ARB','optimism':'OP','near':'NEAR'}
     get_deps()
+    price = None
     try:
         res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': asset_id, 'vs_currencies': 'usd'}, timeout=10)
-        return res.json().get(asset_id, {}).get('usd')
-    except:
+        price = res.json().get(asset_id, {}).get('usd')
+    except: pass
+
+    if price is None:
         try:
             sym = SYMBOL_MAP.get(asset_id)
             if sym:
                 res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
-                return res.json().get('USD')
+                price = res.json().get('USD')
         except: pass
-    return None
+    return price
 
 @app.route('/api/ping', methods=['GET'])
 def ping():
@@ -175,8 +178,8 @@ def health_check():
     has_db = init_firebase()
     return jsonify({
         "success": True, "status": "ONLINE", "version": "7.8.0-HYPER-RESILIENT",
-        "firebase": "CONNECTED" if has_db else "DISCONNECTED",
-        "diagnostics": {"projectId": get_project_id(), "init": has_db}
+        "firebase": "ADMIN_SDK_INITIALIZED" if has_db else "ADMIN_SDK_OFFLINE",
+        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_db}
     })
 
 @app.route('/api/tasks/submit', methods=['POST'])
@@ -229,7 +232,6 @@ def execute_transaction():
         u_snap = user_ref.get(transaction=transaction)
         if not u_snap.exists: raise Exception("USER_NOT_FOUND")
 
-        amount = data.get('amount', 0)
         if tx_type == 'mission_reward':
             mid = data.get('referenceId')
             def_snap = db.collection('system_task_definitions').document(mid).get(transaction=transaction)
@@ -238,6 +240,8 @@ def execute_transaction():
             if ust_snap.to_dict().get('rewarded'): raise Exception("ALREADY_REWARDED")
             amount = def_snap.to_dict().get('rewardPoints', 0)
             transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
+        else:
+            raise Exception("UNSUPPORTED_TRANSACTION_TYPE")
 
         transaction.update(user_ref, {'points': firestore.Increment(amount)})
         transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(amount)})
@@ -282,8 +286,12 @@ def resolve_prediction():
     db = get_db()
     if not is_moderator(request.user['uid']): return jsonify({"success": False, "error": "Forbidden"}), 403
     pred_id = request.json.get('predictionId')
+    if not pred_id: return jsonify({"success": False, "error": "MISSING_PREDICTION_ID"}), 400
     pred_ref = db.collection('user_predictions').document(pred_id)
-    pred_data = pred_ref.get().to_dict()
+    pred_snap = pred_ref.get()
+    if not pred_snap.exists: return jsonify({"success": False, "error": "PREDICTION_NOT_FOUND"}), 404
+    pred_data = pred_snap.to_dict()
+    if not pred_data or 'assetId' not in pred_data: return jsonify({"success": False, "error": "INVALID_PREDICTION_DATA"}), 400
     price = fetch_market_price(pred_data['assetId'])
     if price is None: return jsonify({"success": False, "error": "PRICE_FEED_OFFLINE"}), 503
     @firestore.transactional
@@ -325,7 +333,7 @@ def promote():
 @require_db
 def delete_user():
     if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
-    init_firebase(); auth.delete_user(request.json.get('userId'))
+    auth.delete_user(request.json.get('userId'))
     return jsonify({"success": True})
 
 @app.route('/api/admin/verify-user', methods=['POST'])
@@ -333,7 +341,7 @@ def delete_user():
 @require_db
 def verify_user():
     if not is_moderator(request.user['uid']): return jsonify({"success": False}), 403
-    init_firebase(); auth.update_user(request.json.get('userId'), email_verified=True)
+    auth.update_user(request.json.get('userId'), email_verified=True)
     return jsonify({"success": True})
 
 def send_branded_email(to, template, context, subject):

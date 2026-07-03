@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test('API Force Database Init', async ({ page }) => {
   await page.goto('https://www.pulseearn.online/login');
-  await page.fill('input[type="email"]', 'admin@pulse.com');
-  await page.fill('input[type="password"]', 'dereal01');
+  await page.fill('input[type="email"]', process.env.ADMIN_EMAIL || '');
+  await page.fill('input[type="password"]', process.env.ADMIN_PASSWORD || '');
   await page.click('button:has-text("Sign In")');
   await page.waitForTimeout(10000);
 

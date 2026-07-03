@@ -9,7 +9,7 @@ export async function safeFetch(url: string, options?: RequestInit): Promise<any
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       const text = await response.text();
-      // Silently log non-JSON response in prod to console
+      // Log non-JSON response in development only (silent in production)
       if (import.meta.env.DEV) {
           console.error("[API] Non-JSON Response:", text.slice(0, 200));
       }

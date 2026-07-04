@@ -55,9 +55,17 @@ def init_firebase():
     if not firebase_admin._apps:
         try:
             pid = get_project_id()
-            # For Vercel environment, we MUST provide projectId to avoid discovery failure
-            firebase_admin.initialize_app(options={'projectId': pid})
-            print(f"BOOT: Firebase Admin initialized (Project: {pid})")
+            sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+
+            if sa_json:
+                from firebase_admin import credentials
+                cred = credentials.Certificate(json.loads(sa_json))
+                firebase_admin.initialize_app(cred, options={'projectId': pid})
+                print(f"BOOT: Firebase Admin initialized with Service Account (Project: {pid})")
+            else:
+                # For Vercel environment, we MUST provide projectId to avoid discovery failure
+                firebase_admin.initialize_app(options={'projectId': pid})
+                print(f"BOOT: Firebase Admin initialized with ADC (Project: {pid})")
             sys.stdout.flush()
         except Exception as e:
             print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
@@ -175,11 +183,29 @@ def ping():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    has_db = init_firebase()
+    has_sdk = init_firebase()
+    db_ok = False
+    auth_ok = False
+    try:
+        if has_sdk:
+            db = get_db()
+            # Real validation: test read
+            db.collection('system_config').document('global_v1').get()
+            db_ok = True
+            # Real validation: test auth service
+            auth.get_user('non-existent-user')
+            auth_ok = True
+    except Exception as e:
+        # Expected error for non-existent user is okay, but connection errors are not
+        if 'no user' in str(e).lower(): auth_ok = True
+        else: print(f"HEALTH_FAILURE: {str(e)}")
+
     return jsonify({
-        "success": True, "status": "ONLINE", "version": "7.8.0-HYPER-RESILIENT",
-        "firebase": "ADMIN_SDK_INITIALIZED" if has_db else "ADMIN_SDK_OFFLINE",
-        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_db}
+        "success": True, "status": "ONLINE", "version": "8.0.0-PRO-CERTIFIED",
+        "firebase": "ADMIN_SDK_INITIALIZED" if has_sdk else "ADMIN_SDK_OFFLINE",
+        "database": "CONNECTED" if db_ok else "DISCONNECTED",
+        "auth_service": "OPERATIONAL" if auth_ok else "DEGRADED",
+        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_sdk}
     })
 
 @app.route('/api/tasks/submit', methods=['POST'])
@@ -240,6 +266,16 @@ def execute_transaction():
             if ust_snap.to_dict().get('rewarded'): raise Exception("ALREADY_REWARDED")
             amount = def_snap.to_dict().get('rewardPoints', 0)
             transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
+        elif tx_type in ['daily_reward', 'welcome_bonus']:
+            cfg_snap = db.collection('system_config').document('global_v1').get(transaction=transaction)
+            cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
+            rewards = cfg.get('rewards', {})
+            amount = rewards.get('dailyLoginPoints', 50) if tx_type == 'daily_reward' else rewards.get('welcomeBonusPoints', 30)
+        elif tx_type == 'admin_adjustment':
+            if not is_admin(caller_uid): raise Exception("FORBIDDEN")
+            amount = data.get('amount', 0)
+        elif tx_type == 'withdrawal_finalized':
+            amount = 0
         else:
             raise Exception("UNSUPPORTED_TRANSACTION_TYPE")
 
@@ -318,6 +354,69 @@ def lookup():
     docs = db.collection('users').where('referralCode', '==', code).limit(1).get()
     if not docs: return jsonify({"success": False, "error": "INVALID_CODE"}), 404
     return jsonify({"success": True, "referrerId": docs[0].id, "username": docs[0].to_dict().get('username')})
+
+@app.route('/api/process-referral-reward', methods=['POST'])
+@verify_token
+@require_db
+def process_referral():
+    db = get_db()
+    data = request.json
+    ref_id, referrer_id = data.get('referralDocId'), data.get('referrerId')
+
+    @firestore.transactional
+    def process(transaction):
+        ref_ref = db.collection('referrals').document(ref_id)
+        r_snap = ref_ref.get(transaction=transaction)
+        if not r_snap.exists or r_snap.to_dict().get('status') != 'REGISTERED':
+            return {"success": False, "error": "INVALID_REFERRAL_STATE"}
+
+        cfg_snap = db.collection('system_config').document('global_v1').get(transaction=transaction)
+        cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
+        bonus = cfg.get('rewards', {}).get('referralBonusPoints', 500)
+
+        referrer_ref = db.collection('users').document(referrer_id)
+        transaction.update(referrer_ref, {
+            'points': firestore.Increment(bonus),
+            'stats.referralsCount': firestore.Increment(1)
+        })
+        transaction.update(ref_ref, {'status': 'SUCCESSFUL', 'rewardedAt': firestore.SERVER_TIMESTAMP})
+        transaction.update(db.collection('system_config').document('global_metrics'), {
+            'totalPTSLiability': firestore.Increment(bonus)
+        })
+        return {"success": True}
+
+    try:
+        return jsonify(process(db.transaction()))
+    except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/evaluate-user-integrity', methods=['POST'])
+@verify_token
+@require_db
+def evaluate_integrity():
+    db = get_db()
+    data = request.json
+    uid, fp = data.get('userId'), data.get('fingerprint')
+    if not uid or not fp: return jsonify({"success": False}), 400
+
+    dupes = db.collection('users').where('fingerprint', '==', fp).get()
+    is_multi = len([d for d in dupes if d.id != uid]) > 0
+
+    if is_multi:
+        db.collection('users').document(uid).update({
+            'isFlagged': True,
+            'fraudFlags': firestore.ArrayUnion(['MULTI_ACCOUNT_FINGERPRINT'])
+        })
+    return jsonify({"success": True, "flagged": is_multi})
+
+@app.route('/api/authorize-resend', methods=['POST'])
+@verify_token
+@require_db
+def authorize_resend():
+    has_key = os.environ.get('RESEND_API_KEY') is not None
+    return jsonify({
+        "success": True,
+        "dispatchMethod": "branded" if has_key else "client_fallback"
+    })
 
 @app.route('/api/admin/promote-moderator', methods=['POST'])
 @verify_token

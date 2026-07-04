@@ -858,6 +858,13 @@ def _maint_deploy_rules():
     body = request.json or {}
     out = {}
 
+    # Diagnostic: list existing rule releases so we can discover the exact storage release name.
+    if body.get('action') == 'list':
+        lr = _rq.get(f"https://firebaserules.googleapis.com/v1/projects/{project}/releases", headers=H)
+        return jsonify({"success": True, "status": lr.status_code,
+                        "releases": [r.get('name') for r in (lr.json().get('releases', []) if lr.status_code == 200 else [])],
+                        "raw": lr.text[:500] if lr.status_code != 200 else None})
+
     def deploy(source_text, release_name, label):
         rs = _rq.post(f"https://firebaserules.googleapis.com/v1/projects/{project}/rulesets",
                       headers=H, data=json.dumps({"source": {"files": [

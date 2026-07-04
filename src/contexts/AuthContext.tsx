@@ -151,6 +151,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function resetPassword(email: string) {
+    // Route through the backend so the user receives the BRANDED PulseEarn email (via Resend)
+    // instead of Firebase's default template. The server returns dispatchMethod === 'server'
+    // when it sent the branded email, or 'client_fallback' when branded delivery is unavailable
+    // (no Resend key / send failure) — in which case we dispatch via the Firebase client SDK so
+    // password reset always works. Errors also fall back rather than leaving the user stuck.
+    try {
+      const res = await safeFetch('/api/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (res?.success && res?.dispatchMethod !== 'client_fallback') return;
+    } catch {
+      // ignore and fall back to Firebase client SDK below
+    }
     await sendPasswordResetEmail(auth, email);
   }
 

@@ -865,6 +865,22 @@ def _maint_deploy_rules():
                         "releases": [r.get('name') for r in (lr.json().get('releases', []) if lr.status_code == 200 else [])],
                         "raw": lr.text[:500] if lr.status_code != 200 else None})
 
+    if body.get('action') == 'verify':
+        rel = body.get('release', 'cloud.firestore')
+        rr = _rq.get(f"https://firebaserules.googleapis.com/v1/projects/{project}/releases/{rel}", headers=H)
+        if rr.status_code != 200:
+            return jsonify({"success": False, "status": rr.status_code, "raw": rr.text[:300]})
+        rsname = rr.json().get('rulesetName')
+        gs = _rq.get(f"https://firebaserules.googleapis.com/v1/{rsname}", headers=H)
+        src = ""
+        if gs.status_code == 200:
+            for f in gs.json().get('source', {}).get('files', []):
+                src += f.get('content', '')
+        markers = body.get('markers', [])
+        return jsonify({"success": True, "rulesetName": rsname,
+                        "markersPresent": {m: (m in src) for m in markers},
+                        "sourceLen": len(src)})
+
     def deploy(source_text, release_name, label):
         rs = _rq.post(f"https://firebaserules.googleapis.com/v1/projects/{project}/rulesets",
                       headers=H, data=json.dumps({"source": {"files": [

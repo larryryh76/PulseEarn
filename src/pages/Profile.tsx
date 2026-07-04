@@ -49,8 +49,8 @@ const Profile: React.FC = () => {
     try {
       await reauthenticate(emailForm.currentPassword);
       await updateUserEmail(emailForm.email);
-      toast.success('Email address updated successfully');
-      setEmailForm(prev => ({ ...prev, currentPassword: '' }));
+      toast.success(`Confirmation link sent to ${emailForm.email}. Click it to complete the change.`);
+      setEmailForm(prev => ({ ...prev, email: currentUser?.email || '', currentPassword: '' }));
     } catch (err: any) {
       toast.error(err.message || 'Failed to update email');
     } finally {

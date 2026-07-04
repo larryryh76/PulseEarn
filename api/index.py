@@ -870,6 +870,55 @@ def send_v():
         return jsonify({"success": True})
     return jsonify({"success": False}), 500
 
+@app.route('/api/auth/request-email-change', methods=['POST'])
+@verify_token
+@require_db
+def request_email_change():
+    """Verified, BRANDED email change. Sends a confirmation link (branded EmailChange.html via
+    Resend) to the NEW address; Firebase only swaps the account email after the user clicks it.
+
+    This replaces the client-side firebaseUpdateEmail() call, which (a) is blocked by Firebase
+    when email-enumeration protection is on, (b) changed the email with NO verification of the
+    new address, and (c) would send Firebase's default (unbranded) template. The current user is
+    authenticated, and reauthentication is already enforced client-side before this runs.
+    """
+    u = request.user
+    db = get_db()
+    data = request.get_json(silent=True) or {}
+    new_email = (data.get('newEmail') or data.get('email') or '').strip().lower()
+    current_email = (u.get('email') or '').lower()
+
+    if not new_email or '@' not in new_email:
+        return jsonify({"success": False, "error": "INVALID_EMAIL",
+                        "message": "Please enter a valid email address."}), 400
+    if new_email == current_email:
+        return jsonify({"success": False, "error": "SAME_EMAIL",
+                        "message": "That is already your current email address."}), 400
+
+    # Reject if the new address already belongs to another account (prevents takeover/collision).
+    try:
+        existing = auth.get_user_by_email(new_email)
+        if existing and existing.uid != u['uid']:
+            return jsonify({"success": False, "error": "EMAIL_IN_USE",
+                            "message": "That email address is already in use."}), 409
+    except Exception:
+        pass  # Not found -> address is free, which is what we want.
+
+    try:
+        user_data = db.collection('users').document(u['uid']).get().to_dict() or {}
+        # Sends the confirmation to new_email; the account email is only updated once clicked.
+        link = auth.generate_verify_and_change_email_link(
+            current_email, new_email,
+            auth.ActionCodeSettings(url='https://pulseearn.online/auth/action', handle_code_in_app=True))
+        sent = send_branded_email(new_email, 'EmailChange',
+                                  {'username': user_data.get('username', 'Member'), 'link': link},
+                                  "Confirm your new PulseEarn email address")
+        method = "server" if sent else "client_fallback"
+        return jsonify({"success": True, "dispatchMethod": method,
+                        "message": "A confirmation link has been sent to your new email address."})
+    except Exception as e:
+        return jsonify({"success": False, "error": "DISPATCH_ERROR", "message": str(e)}), 500
+
 # --- Frontend-contract endpoints (previously missing -> 404) ---
 
 @app.route('/api/authorize-resend', methods=['POST'])

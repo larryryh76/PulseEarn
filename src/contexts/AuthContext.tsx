@@ -170,9 +170,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function updateUserEmail(newEmail: string) {
-    if (auth.currentUser) {
-      await firebaseUpdateEmail(auth.currentUser, newEmail);
+    if (!auth.currentUser) throw new Error('No active session found.');
+    // Route through the backend so the user receives the BRANDED PulseEarn confirmation email
+    // (via Resend) at the NEW address, and the account email is only swapped after they click it
+    // (verified change). Raw client-side firebaseUpdateEmail is blocked by Firebase when
+    // email-enumeration protection is enabled and performs an UNVERIFIED change, so it's only a
+    // last-resort fallback when the branded server dispatch is unavailable.
+    const token = await auth.currentUser.getIdToken();
+    try {
+      const res = await safeFetch('/api/auth/request-email-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newEmail }),
+      });
+      if (res?.success && res?.dispatchMethod !== 'client_fallback') return;
+      if (res?.success === false) throw new Error(res?.message || 'Failed to update email');
+    } catch (err) {
+      // A definitive server rejection (e.g. email already in use) should surface, not fall back.
+      if (err instanceof Error && err.message && err.message !== 'Failed to fetch') throw err;
     }
+    await firebaseUpdateEmail(auth.currentUser, newEmail);
   }
 
   async function updateUserPassword(newPassword: string) {

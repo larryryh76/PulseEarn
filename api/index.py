@@ -550,15 +550,23 @@ def execute_prediction():
     if request.user['uid'] != user_id and not is_admin(request.user['uid']): return jsonify({"success": False, "error": "Unauthorized"}), 403
     price = fetch_market_price(data.get('assetId'))
     if price is None: return jsonify({"success": False, "error": "PRICE_FEED_OFFLINE"}), 503
+    claim_id = data.get('claimId')
+    if not claim_id: return jsonify({"success": False, "error": "MISSING_CLAIM_ID"}), 400
     @firestore.transactional
     def process(transaction):
         user_ref = db.collection('users').document(user_id)
+        pred_ref = db.collection('user_predictions').document(claim_id)
+        # Reads before writes.
         u_data = user_ref.get(transaction=transaction).to_dict()
+        # Idempotency: a given claimId may only ever create one prediction (prevents
+        # replay double-debits).
+        if pred_ref.get(transaction=transaction).exists: raise Exception("DUPLICATE_CLAIM")
         amt = data.get('amount', 0)
+        if not isinstance(amt, (int, float)) or amt <= 0: raise Exception("INVALID_AMOUNT")
         if u_data.get('points', 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
         transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)})
-        transaction.set(db.collection('user_predictions').document(data.get('claimId')), {
+        transaction.set(pred_ref, {
             'userId': user_id, 'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
             'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price, 'status': 'ACTIVE',
             'createdAt': firestore.SERVER_TIMESTAMP

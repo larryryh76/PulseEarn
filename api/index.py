@@ -193,20 +193,26 @@ def health_check():
             db.collection('system_config').document('global_v1').get()
             db_ok = True
             # Real validation: test auth service
-            auth.get_user('non-existent-user')
-            auth_ok = True
+            try:
+                auth.get_user('non-existent-user')
+                auth_ok = True
+            except auth.UserNotFoundError:
+                # Expected error for non-existent user is okay
+                auth_ok = True
     except Exception as e:
-        # Expected error for non-existent user is okay, but connection errors are not
-        if 'no user' in str(e).lower(): auth_ok = True
-        else: print(f"HEALTH_FAILURE: {str(e)}")
+        print(f"HEALTH_FAILURE: {str(e)}")
+
+    # Service is degraded if critical dependencies are down
+    is_healthy = has_sdk and db_ok and auth_ok
+    status_code = 200 if is_healthy else 503
 
     return jsonify({
-        "success": True, "status": "ONLINE", "version": "8.0.0-PRO-CERTIFIED",
+        "success": is_healthy, "status": "ONLINE" if is_healthy else "DEGRADED", "version": "8.0.0-PRO-CERTIFIED",
         "firebase": "ADMIN_SDK_INITIALIZED" if has_sdk else "ADMIN_SDK_OFFLINE",
         "database": "CONNECTED" if db_ok else "DISCONNECTED",
         "auth_service": "OPERATIONAL" if auth_ok else "DEGRADED",
         "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_sdk}
-    })
+    }), status_code
 
 @app.route('/api/tasks/submit', methods=['POST'])
 @verify_token
@@ -267,6 +273,14 @@ def execute_transaction():
             amount = def_snap.to_dict().get('rewardPoints', 0)
             transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
         elif tx_type in ['daily_reward', 'welcome_bonus']:
+            # Guard against duplicate claims by checking if claim already exists
+            claim_id = data.get('claimId')
+            if not claim_id:
+                raise Exception("MISSING_CLAIM_ID")
+            claim_ref = db.collection('system_claims').document(claim_id)
+            claim_snap = claim_ref.get(transaction=transaction)
+            if claim_snap.exists:
+                raise Exception("ALREADY_REWARDED")
             cfg_snap = db.collection('system_config').document('global_v1').get(transaction=transaction)
             cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
             rewards = cfg.get('rewards', {})
@@ -361,7 +375,7 @@ def lookup():
 def process_referral():
     db = get_db()
     data = request.json
-    ref_id, referrer_id = data.get('referralDocId'), data.get('referrerId')
+    ref_id, provided_referrer_id = data.get('referralDocId'), data.get('referrerId')
 
     @firestore.transactional
     def process(transaction):
@@ -370,11 +384,21 @@ def process_referral():
         if not r_snap.exists or r_snap.to_dict().get('status') != 'REGISTERED':
             return {"success": False, "error": "INVALID_REFERRAL_STATE"}
 
+        # Load referrer from the referral document itself, not from request body
+        referral_data = r_snap.to_dict()
+        actual_referrer_id = referral_data.get('referrerId')
+        if not actual_referrer_id:
+            return {"success": False, "error": "REFERRER_NOT_FOUND"}
+
+        # Validate against provided referrerId if present
+        if provided_referrer_id and provided_referrer_id != actual_referrer_id:
+            return {"success": False, "error": "REFERRER_MISMATCH"}
+
         cfg_snap = db.collection('system_config').document('global_v1').get(transaction=transaction)
         cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
         bonus = cfg.get('rewards', {}).get('referralBonusPoints', 500)
 
-        referrer_ref = db.collection('users').document(referrer_id)
+        referrer_ref = db.collection('users').document(actual_referrer_id)
         transaction.update(referrer_ref, {
             'points': firestore.Increment(bonus),
             'stats.referralsCount': firestore.Increment(1)
@@ -398,7 +422,14 @@ def evaluate_integrity():
     uid, fp = data.get('userId'), data.get('fingerprint')
     if not uid or not fp: return jsonify({"success": False}), 400
 
-    dupes = db.collection('users').where('fingerprint', '==', fp).get()
+    # Authorization check: caller can only act on their own account unless admin
+    caller_uid = request.user['uid']
+    if caller_uid != uid and not is_admin(caller_uid):
+        return jsonify({"success": False, "error": "UNAUTHORIZED"}), 403
+
+    # Use FieldFilter API instead of deprecated positional where()
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    dupes = db.collection('users').where(filter=FieldFilter('fingerprint', '==', fp)).get()
     is_multi = len([d for d in dupes if d.id != uid]) > 0
 
     if is_multi:

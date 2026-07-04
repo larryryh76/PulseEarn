@@ -377,7 +377,7 @@ def submit_task():
         if is_auto:
             pts, xp = t_data.get('rewardAmount', 0), t_data.get('xpReward', 0)
             transaction.update(user_ref, {'points': firestore.Increment(pts), 'xp': firestore.Increment(xp), 'stats.tasksCompleted': firestore.Increment(1)})
-            transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)})
+            transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)}, merge=True)
             transaction.set(ut_ref, {'taskId': task_id, 'status': 'completed',
                                      'lastCompleted': firestore.SERVER_TIMESTAMP,
                                      'totalCompletions': firestore.Increment(1)}, merge=True)
@@ -556,8 +556,8 @@ def execute_transaction():
             transaction.set(ref, payload, merge=merge)
 
         if points_delta != 0:
-            transaction.update(db.collection('system_config').document('global_metrics'),
-                               {'totalPTSLiability': firestore.Increment(points_delta)})
+            transaction.set(db.collection('system_config').document('global_metrics'),
+                            {'totalPTSLiability': firestore.Increment(points_delta)}, merge=True)
 
         # Immutable ledger entry for auditability.
         transaction.set(user_ref.collection('transactions').document(), {
@@ -599,7 +599,7 @@ def execute_prediction():
         if not isinstance(amt, (int, float)) or amt <= 0: raise Exception("INVALID_AMOUNT")
         if u_data.get('points', 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
-        transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)})
+        transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)}, merge=True)
         transaction.set(pred_ref, {
             'userId': user_id, 'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
             'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price, 'status': 'ACTIVE',
@@ -633,7 +633,7 @@ def resolve_prediction():
         payout = p['stakeAmount'] * 2 if win else 0
         user_ref = db.collection('users').document(p['userId'])
         transaction.update(user_ref, {'points': firestore.Increment(payout)})
-        transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(payout)})
+        transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(payout)}, merge=True)
         transaction.update(pred_ref, {'status': 'RESOLVED', 'exitPrice': price, 'resolvedAt': firestore.SERVER_TIMESTAMP})
         return {"success": True, "win": win, "userId": p['userId']}
     try:
@@ -864,8 +864,8 @@ def process_referral_reward():
             'xp': firestore.Increment(xp),
             'stats.referralsConverted': firestore.Increment(1)
         })
-        transaction.update(db.collection('system_config').document('global_metrics'),
-                           {'totalPTSLiability': firestore.Increment(points)})
+        transaction.set(db.collection('system_config').document('global_metrics'),
+                        {'totalPTSLiability': firestore.Increment(points)}, merge=True)
         transaction.update(ref_ref, {
             'status': 'QUALIFIED', 'rewarded': True,
             'rewardPoints': points, 'rewardXP': xp,

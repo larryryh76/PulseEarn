@@ -78,16 +78,32 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserTasks(data);
     }));
 
+    // 4. Activity timeline — REAL-TIME so it stays in sync with the balance and Wallet ledger
+    // (both of which are also real-time). The server now writes an activity entry atomically
+    // with every balance change, so this listener surfaces rewards the instant they are granted
+    // instead of only after a page reload.
+    const activitiesQuery = query(
+      collection(db, 'users', currentUser.uid, 'activities'),
+      orderBy('timestamp', 'desc'),
+      limit(30)
+    );
+    unsubscribes.push(onSnapshot(activitiesQuery, (snapshot) => {
+      setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Activity)));
+    }, (error) => {
+      console.error("[TaskContext] Activities Listener Error:", error);
+    }));
+
     // SCALABILITY OPTIMIZATION: Non-critical historical data fetched via getDocs once on session start
     // Critical state (active tasks/campaigns/progress) remains real-time.
     let isCancelled = false;
     const fetchHistoricalData = async () => {
       const requestUserId = currentUser.uid;
 
+      // NOTE: activities are handled by a dedicated real-time listener above; they are
+      // intentionally not re-fetched here to avoid a stale one-time snapshot overwriting it.
       const results = await Promise.allSettled([
         getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
         getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
-        getDocs(query(collection(db, 'users', requestUserId, 'activities'), orderBy('timestamp', 'desc'), limit(20))),
         getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
       ]);
 
@@ -106,15 +122,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (results[2].status === 'fulfilled') {
-        setActivities(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as Activity)));
+        setPredictions(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
       } else {
-        console.error("[TaskContext] Activities Fetch Error:", results[2].reason);
-      }
-
-      if (results[3].status === 'fulfilled') {
-        setPredictions(results[3].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
-      } else {
-        console.error("[TaskContext] Predictions Fetch Error:", results[3].reason);
+        console.error("[TaskContext] Predictions Fetch Error:", results[2].reason);
       }
     };
 

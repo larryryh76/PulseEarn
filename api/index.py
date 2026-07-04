@@ -447,8 +447,18 @@ def execute_transaction():
             if amt <= 0: raise Exception("INVALID_AMOUNT")
             min_wd = float((cfg.get('thresholds', {}) or {}).get('minWithdrawalPoints', 10000) or 10000)
             if amt < min_wd: raise Exception("BELOW_MIN_WITHDRAWAL")
+            # SEC: enforce ALL withdrawal eligibility gates server-side (mirrors
+            # src/utils/eligibility.ts) so a crafted client cannot bypass anti-fraud rules.
             if float(u.get('level', 1) or 1) < 2: raise Exception("LEVEL_TOO_LOW")
             if float(u.get('points', 0) or 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
+            if int((u.get('stats') or {}).get('tasksCompleted', 0) or 0) < 5:
+                raise Exception("INSUFFICIENT_TASKS")
+            if str(u.get('riskLevel') or 'LOW').upper() == 'HIGH':
+                raise Exception("ACCOUNT_UNDER_REVIEW")
+            created = u.get('createdAt')
+            if isinstance(created, datetime):
+                age_days = (datetime.now(timezone.utc) - created).total_seconds() / 86400.0
+                if age_days < 3: raise Exception("ACCOUNT_TOO_NEW")
             meta = data.get('metadata') or {}
             addr = (meta.get('walletAddress') or '').strip()
             network = (meta.get('network') or '').strip()

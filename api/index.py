@@ -305,26 +305,63 @@ def submit_task():
     db = get_db()
     data, user_id = request.json, request.user['uid']
     task_id = data.get('taskId')
+    proof = (data.get('proof') or '').strip()
     if not task_id: return jsonify({"success": False, "error": "MISSING_TASK_ID"}), 400
 
     @firestore.transactional
     def process(transaction):
-        user_ref, task_ref = db.collection('users').document(user_id), db.collection('tasks').document(task_id)
-        u_snap, t_snap = user_ref.get(transaction=transaction), task_ref.get(transaction=transaction)
+        user_ref = db.collection('users').document(user_id)
+        task_ref = db.collection('tasks').document(task_id)
+        ut_ref = user_ref.collection('user_tasks').document(task_id)
+        # All reads must precede writes in a Firestore transaction.
+        u_snap = user_ref.get(transaction=transaction)
+        t_snap = task_ref.get(transaction=transaction)
+        ut_snap = ut_ref.get(transaction=transaction)
         if not u_snap.exists or not t_snap.exists: raise Exception("NOT_FOUND")
         t_data = t_snap.to_dict()
-        if t_data.get('status') != 'ACTIVE': raise Exception("TASK_INACTIVE")
+        u_data = u_snap.to_dict()
+
+        # Task must be active (support both boolean 'active' and 'status' schemas).
+        if t_data.get('active') is False or (t_data.get('status') and t_data.get('status') != 'ACTIVE'):
+            raise Exception("TASK_INACTIVE")
+
+        # SEC: server-authoritative idempotency + cooldown guard (prevents reward farming / replay).
+        cooldown_hours = float(t_data.get('cooldownPeriod') or 0)
+        now = datetime.now(timezone.utc)
+        if ut_snap.exists:
+            ut = ut_snap.to_dict()
+            st = ut.get('status')
+            if st == 'pending':
+                raise Exception("ALREADY_PENDING")
+            if cooldown_hours <= 0 and st == 'completed':
+                raise Exception("ALREADY_COMPLETED")
+            if cooldown_hours > 0:
+                last = ut.get('lastCompleted')
+                if isinstance(last, datetime) and (now - last).total_seconds() < cooldown_hours * 3600:
+                    raise Exception("ON_COOLDOWN")
 
         is_auto = t_data.get('verificationType') == 'automated'
-        claim_id = f"claim_{user_id}_{task_id}_{int(datetime.now(timezone.utc).timestamp())}"
+        claim_id = f"claim_{user_id}_{task_id}_{int(now.timestamp())}"
         transaction.set(db.collection('task_claims').document(claim_id), {
-            'id': claim_id, 'userId': user_id, 'taskId': task_id, 'validationState': 'APPROVED' if is_auto else 'PENDING',
-            'createdAt': firestore.SERVER_TIMESTAMP, 'metadata': {'taskTitle': t_data.get('title')}
+            'id': claim_id, 'userId': user_id, 'taskId': task_id,
+            'validationState': 'APPROVED' if is_auto else 'PENDING',
+            'completionState': 'COMPLETED' if is_auto else 'IN_PROGRESS',
+            'submittedProof': proof or None,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {'taskTitle': t_data.get('title'), 'username': u_data.get('username')}
         })
         if is_auto:
             pts, xp = t_data.get('rewardAmount', 0), t_data.get('xpReward', 0)
             transaction.update(user_ref, {'points': firestore.Increment(pts), 'xp': firestore.Increment(xp), 'stats.tasksCompleted': firestore.Increment(1)})
             transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)})
+            transaction.set(ut_ref, {'taskId': task_id, 'status': 'completed',
+                                     'lastCompleted': firestore.SERVER_TIMESTAMP,
+                                     'totalCompletions': firestore.Increment(1)}, merge=True)
+            transaction.set(task_ref, {'totalClaims': firestore.Increment(1),
+                                       'completionCount': firestore.Increment(1)}, merge=True)
+        else:
+            transaction.set(ut_ref, {'taskId': task_id, 'status': 'pending',
+                                     'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         return {"success": True, "claimId": claim_id, "automated": is_auto}
 
     try:
@@ -449,7 +486,24 @@ def promote():
 @require_db
 def delete_user():
     if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
-    auth.delete_user(request.json.get('userId'))
+    target = request.json.get('userId')
+    if not target: return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    db = get_db()
+    errors = {}
+    # Remove the Firestore profile so no orphaned/ghost user document remains.
+    try:
+        db.collection('users').document(target).delete()
+    except Exception as e:
+        errors['firestore'] = str(e)
+    # Remove the Auth account (tolerate a missing account so cleanup is idempotent).
+    try:
+        auth.delete_user(target)
+    except Exception as e:
+        msg = str(e)
+        if 'USER_NOT_FOUND' not in msg and 'no user record' not in msg.lower():
+            errors['auth'] = msg
+    if errors:
+        return jsonify({"success": False, "error": "PARTIAL_DELETE", "details": errors}), 500
     return jsonify({"success": True})
 
 @app.route('/api/admin/verify-user', methods=['POST'])

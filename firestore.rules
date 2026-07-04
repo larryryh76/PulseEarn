@@ -73,8 +73,9 @@ service cloud.firestore {
 
       match /user_tasks/{taskId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow update: if isOwner(userId) &&
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'lastCompleted', 'totalCompletions']);
+        // SEC: cooldown/completion state is server-authoritative (written via Admin SDK in
+        // /api/tasks/submit). Owners may NOT edit it, else they could reset cooldowns and
+        // farm rewards. Writes restricted to server/admin authority.
         allow write: if isAdmin();
       }
 
@@ -126,7 +127,11 @@ service cloud.firestore {
     match /task_claims/{claimId} {
       allow read: if isAuthenticated();
       allow list: if isModerator();
-      allow create: if isAuthenticated();
+      // SEC: prevent forged/pre-approved claims. Users may only create their OWN claim in
+      // a PENDING state; reward-granting claims are written server-side (Admin SDK).
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.validationState == 'PENDING';
       allow update, delete: if isModerator();
     }
 
@@ -187,12 +192,10 @@ service cloud.firestore {
     match /withdrawals/{withdrawalId} {
       allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin();
-      // Fix #14: Enforce withdrawal gates (account age and level)
-      allow create: if isAuthenticated() &&
-                      request.resource.data.userId == request.auth.uid &&
-                      request.resource.data.status == 'PENDING' &&
-                      request.resource.data.keys().hasOnly(['userId', 'amount', 'method', 'address', 'status', 'createdAt', 'metadata', 'amountPoints', 'amountUSD', 'userEmail', 'username', 'claimId']) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= 2;
+      // SEC: Withdrawals are created ONLY server-side (Admin SDK) inside the same
+      // transaction that debits points. Direct client creation is forbidden to prevent
+      // unfunded payout requests. See /api/execute-transaction (withdrawal_debit).
+      allow create: if false;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

@@ -377,12 +377,34 @@ def submit_task():
         if is_auto:
             pts, xp = t_data.get('rewardAmount', 0), t_data.get('xpReward', 0)
             transaction.update(user_ref, {'points': firestore.Increment(pts), 'xp': firestore.Increment(xp), 'stats.tasksCompleted': firestore.Increment(1)})
-            transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)})
+            transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)}, merge=True)
             transaction.set(ut_ref, {'taskId': task_id, 'status': 'completed',
                                      'lastCompleted': firestore.SERVER_TIMESTAMP,
                                      'totalCompletions': firestore.Increment(1)}, merge=True)
             transaction.set(task_ref, {'totalClaims': firestore.Increment(1),
                                        'completionCount': firestore.Increment(1)}, merge=True)
+            # Ledger + activity for instant/automated tasks (manual tasks are recorded later
+            # via /api/execute-transaction). Written atomically so an auto-approved task
+            # reward is visible in the Wallet (transactions) and activity feed (activities).
+            task_title = t_data.get('title') or 'Task'
+            cur_points = float(u_data.get('points', 0) or 0)
+            transaction.set(user_ref.collection('transactions').document(), {
+                'type': 'task_reward', 'amount': float(pts or 0), 'xp': float(xp or 0),
+                'source': 'Task Reward', 'description': f"Completed: {task_title}",
+                'claimId': claim_id, 'referenceId': task_id,
+                'balanceAfter': cur_points + float(pts or 0),
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'metadata': {'taskId': task_id, 'taskName': task_title, 'xpEarned': xp,
+                             'verificationStatus': 'automated'}
+            })
+            act_ref = user_ref.collection('activities').document()
+            transaction.set(act_ref, {
+                'id': act_ref.id, 'userId': user_id, 'type': 'task_reward', 'points': float(pts or 0),
+                'description': f"Completed: {task_title}", 'referenceId': task_id,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'metadata': {'taskId': task_id, 'taskName': task_title, 'xpEarned': xp,
+                             'verificationStatus': 'automated', 'loggedBy': 'ServerLedger_V1'}
+            })
         else:
             transaction.set(ut_ref, {'taskId': task_id, 'status': 'pending',
                                      'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
@@ -401,6 +423,23 @@ def submit_task():
 USER_SELF_TX = {'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward'}
 ADMIN_TX = {'admin_adjustment', 'task_reward', 'withdrawal_finalized', 'withdrawal_debit_reversal',
             'penalty', 'referral_reversal', 'referral_bonus', 'AI_SYSTEM_CORRECTION'}
+
+# Fallback human-readable labels for the activity timeline, used when the client did not
+# supply a source/description. Keeps the activity feed readable for every transaction type.
+ACTIVITY_LABELS = {
+    'daily_reward': 'Daily Login Bonus',
+    'welcome_bonus': 'Welcome Bonus',
+    'task_reward': 'Task Reward',
+    'mission_reward': 'Mission Reward',
+    'referral_bonus': 'Referral Reward',
+    'referral_reversal': 'Referral Reversal',
+    'admin_adjustment': 'Account Adjustment',
+    'penalty': 'Account Penalty',
+    'AI_SYSTEM_CORRECTION': 'System Correction',
+    'withdrawal_debit': 'Withdrawal Requested',
+    'withdrawal_debit_reversal': 'Withdrawal Refunded',
+    'withdrawal_finalized': 'Withdrawal Completed',
+}
 
 @app.route('/api/execute-transaction', methods=['POST'])
 @verify_token
@@ -556,8 +595,8 @@ def execute_transaction():
             transaction.set(ref, payload, merge=merge)
 
         if points_delta != 0:
-            transaction.update(db.collection('system_config').document('global_metrics'),
-                               {'totalPTSLiability': firestore.Increment(points_delta)})
+            transaction.set(db.collection('system_config').document('global_metrics'),
+                            {'totalPTSLiability': firestore.Increment(points_delta)}, merge=True)
 
         # Immutable ledger entry for auditability.
         transaction.set(user_ref.collection('transactions').document(), {
@@ -567,6 +606,25 @@ def execute_transaction():
             'balanceAfter': cur_points + points_delta,
             'createdAt': firestore.SERVER_TIMESTAMP, 'metadata': data.get('metadata') or {}
         })
+
+        # Timeline activity entry — written ATOMICALLY with the ledger entry so the activity
+        # feed (Dashboard + Notifications page, which read users/{uid}/activities) can never
+        # drift from the transactions ledger (Wallet). The client previously removed activity
+        # logging expecting the server to handle it "transactionally", but the server never
+        # did, so rewards were invisible in the activity feed. This restores 1:1 parity.
+        act_ref = user_ref.collection('activities').document()
+        act_desc = data.get('description') or data.get('source') or ACTIVITY_LABELS.get(tx_type, 'Account Update')
+        transaction.set(act_ref, {
+            'id': act_ref.id,
+            'userId': user_id,
+            'type': tx_type,
+            'points': points_delta,
+            'description': act_desc,
+            'referenceId': data.get('referenceId'),
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {**(data.get('metadata') or {}), 'transactionReference': claim_id, 'loggedBy': 'ServerLedger_V1'}
+        })
+
         transaction.set(claim_ref, {'userId': user_id, 'type': tx_type, 'amount': points_delta,
                                     'executedAt': firestore.SERVER_TIMESTAMP})
         return {"success": True, "oldLevel": old_level, "newLevel": new_level}
@@ -591,19 +649,43 @@ def execute_prediction():
         user_ref = db.collection('users').document(user_id)
         pred_ref = db.collection('user_predictions').document(claim_id)
         # Reads before writes.
-        u_data = user_ref.get(transaction=transaction).to_dict()
+        u_snap = user_ref.get(transaction=transaction)
+        if not u_snap.exists: raise Exception("USER_NOT_FOUND")
+        u_data = u_snap.to_dict() or {}
         # Idempotency: a given claimId may only ever create one prediction (prevents
         # replay double-debits).
         if pred_ref.get(transaction=transaction).exists: raise Exception("DUPLICATE_CLAIM")
         amt = data.get('amount', 0)
         if not isinstance(amt, (int, float)) or amt <= 0: raise Exception("INVALID_AMOUNT")
-        if u_data.get('points', 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
+        cur_points = float(u_data.get('points', 0) or 0)
+        if cur_points < amt: raise Exception("INSUFFICIENT_FUNDS")
+        symbol = (data.get('symbol') or '').upper()
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
-        transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)})
+        transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)}, merge=True)
         transaction.set(pred_ref, {
             'userId': user_id, 'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
             'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price, 'status': 'ACTIVE',
             'createdAt': firestore.SERVER_TIMESTAMP
+        })
+        # Ledger + activity written atomically so the stake debit is visible in the Wallet
+        # (transactions) and the activity feed (activities) — previously it appeared in neither.
+        transaction.set(user_ref.collection('transactions').document(), {
+            'type': 'prediction_stake', 'amount': -amt, 'xp': 0,
+            'source': 'Forecast Stake', 'description': f"Placed forecast on {symbol}",
+            'claimId': claim_id, 'referenceId': claim_id,
+            'balanceAfter': cur_points - amt,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
+                         'direction': data.get('direction'), 'entryPrice': price, 'stakeAmount': amt}
+        })
+        act_ref = user_ref.collection('activities').document()
+        transaction.set(act_ref, {
+            'id': act_ref.id, 'userId': user_id, 'type': 'prediction_placed', 'points': -amt,
+            'description': f"Placed forecast on {symbol}", 'referenceId': claim_id,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
+                         'direction': data.get('direction'), 'entryPrice': price, 'stakeAmount': amt,
+                         'predictionStatus': 'ACTIVE', 'loggedBy': 'ServerLedger_V1'}
         })
         return {"success": True}
     try:
@@ -629,12 +711,38 @@ def resolve_prediction():
     def process(transaction):
         p = pred_ref.get(transaction=transaction).to_dict()
         if p['status'] != 'ACTIVE': raise Exception("ALREADY_RESOLVED")
+        user_ref = db.collection('users').document(p['userId'])
+        # Read the user (before any write) so we can record an accurate running balance.
+        u_snap = user_ref.get(transaction=transaction)
+        cur_points = float((u_snap.to_dict() or {}).get('points', 0) or 0) if u_snap.exists else 0.0
         win = (price > p['entryPrice']) if p['direction'] == 'UP' else (price < p['entryPrice'])
         payout = p['stakeAmount'] * 2 if win else 0
-        user_ref = db.collection('users').document(p['userId'])
+        symbol = (p.get('symbol') or '').upper()
+        outcome = 'won' if win else 'lost'
         transaction.update(user_ref, {'points': firestore.Increment(payout)})
-        transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(payout)})
+        transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(payout)}, merge=True)
         transaction.update(pred_ref, {'status': 'RESOLVED', 'exitPrice': price, 'resolvedAt': firestore.SERVER_TIMESTAMP})
+        # Settlement ledger + activity written atomically so prediction winnings/losses are
+        # visible in the Wallet (transactions) and the activity feed (activities). Previously
+        # the payout mutated the balance but left no ledger trail or timeline entry.
+        transaction.set(user_ref.collection('transactions').document(), {
+            'type': 'prediction_reward', 'amount': payout, 'xp': 0,
+            'source': 'Forecast Settlement', 'description': f"Forecast {outcome} on {symbol}",
+            'claimId': f"resolve_{pred_id}", 'referenceId': pred_id,
+            'balanceAfter': cur_points + payout,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {'win': win, 'exitPrice': price, 'entryPrice': p.get('entryPrice'),
+                         'stakeAmount': p.get('stakeAmount'), 'symbol': p.get('symbol')}
+        })
+        act_ref = user_ref.collection('activities').document()
+        transaction.set(act_ref, {
+            'id': act_ref.id, 'userId': p['userId'], 'type': 'prediction_settled', 'points': payout,
+            'description': f"Forecast {outcome} on {symbol}", 'referenceId': pred_id,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {'win': win, 'exitPrice': price, 'entryPrice': p.get('entryPrice'),
+                         'stakeAmount': p.get('stakeAmount'), 'symbol': p.get('symbol'),
+                         'predictionStatus': 'RESOLVED', 'loggedBy': 'ServerLedger_V1'}
+        })
         return {"success": True, "win": win, "userId": p['userId']}
     try:
         res = process(db.transaction()); evaluate_missions(res['userId']); return jsonify(res)
@@ -857,19 +965,41 @@ def process_referral_reward():
             return {"success": True, "alreadyRewarded": True}
         if r.get('status') != 'REGISTERED':
             raise Exception("INVALID_REFERRAL_STATE")
-        if not referrer_ref.get(transaction=transaction).exists:
+        referrer_snap = referrer_ref.get(transaction=transaction)
+        if not referrer_snap.exists:
             raise Exception("REFERRER_NOT_FOUND")
+        referrer_points = float((referrer_snap.to_dict() or {}).get('points', 0) or 0)
         transaction.update(referrer_ref, {
             'points': firestore.Increment(points),
             'xp': firestore.Increment(xp),
             'stats.referralsConverted': firestore.Increment(1)
         })
-        transaction.update(db.collection('system_config').document('global_metrics'),
-                           {'totalPTSLiability': firestore.Increment(points)})
+        transaction.set(db.collection('system_config').document('global_metrics'),
+                        {'totalPTSLiability': firestore.Increment(points)}, merge=True)
         transaction.update(ref_ref, {
             'status': 'QUALIFIED', 'rewarded': True,
             'rewardPoints': points, 'rewardXP': xp,
             'qualifiedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        # Ledger + activity for the referrer, written atomically so the referral bonus shows
+        # up in the Wallet (transactions) and the activity feed (activities). Previously the
+        # balance moved with no ledger trail or timeline entry.
+        referee_name = r.get('refereeUsername') or r.get('refereeEmail') or 'a new member'
+        transaction.set(referrer_ref.collection('transactions').document(), {
+            'type': 'referral_bonus', 'amount': points, 'xp': xp,
+            'source': 'Referral Reward', 'description': f"Referral bonus for {referee_name}",
+            'claimId': f"referral_{referral_doc_id}", 'referenceId': referral_doc_id,
+            'balanceAfter': referrer_points + points,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {'refereeId': referee_id, 'referralDocId': referral_doc_id}
+        })
+        act_ref = referrer_ref.collection('activities').document()
+        transaction.set(act_ref, {
+            'id': act_ref.id, 'userId': referrer_id, 'type': 'referral_reward_earned', 'points': points,
+            'description': f"Referral bonus for {referee_name}", 'referenceId': referral_doc_id,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'metadata': {'refereeId': referee_id, 'referralDocId': referral_doc_id,
+                         'xpEarned': xp, 'loggedBy': 'ServerLedger_V1'}
         })
         return {"success": True, "alreadyRewarded": False, "points": points, "xp": xp}
 

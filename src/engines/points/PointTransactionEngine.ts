@@ -88,7 +88,7 @@ export class PointTransactionEngine {
     claimId: string;
     rewardAmount?: number;
   }): Promise<PointTransactionResult> {
-    const { userId, claimId, symbol } = request;
+    const { userId, claimId } = request;
 
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -102,19 +102,9 @@ export class PointTransactionEngine {
       });
 
       if (res.success) {
-        await ActivityEngine.log({
-          userId,
-          type: 'prediction_placed',
-          points: -request.amount,
-          description: `Placed forecast on ${symbol.toUpperCase()}`,
-          referenceId: res.predictionId,
-          metadata: {
-            ...request,
-            predictionStatus: 'ACTIVE',
-            transactionReference: res.txId
-          }
-        });
-
+        // NOTE: the prediction_placed activity + stake ledger entry are now written
+        // server-side, atomically inside /api/execute-prediction. Logging here as well
+        // would create a duplicate timeline entry, so it is intentionally omitted.
         return res as PointTransactionResult;
       } else {
         throw new Error(res.error || 'SERVER_PREDICTION_FAILED');

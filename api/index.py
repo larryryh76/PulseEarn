@@ -826,6 +826,67 @@ def process_referral_reward():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+# --- TEMPORARY maintenance endpoint: deploy Firestore/Storage security rules ---
+# Gated by the RULES_DEPLOY_TOKEN env secret. Uses the runtime service account.
+# This endpoint is removed after rules are deployed & verified (certification remediation).
+@app.route('/api/_maint/deploy-rules', methods=['POST'])
+def _maint_deploy_rules():
+    expected = os.environ.get('RULES_DEPLOY_TOKEN')
+    provided = request.headers.get('X-Deploy-Token')
+    if not expected or not provided or provided != expected:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    try:
+        import requests as _rq
+        from google.oauth2 import service_account
+        import google.auth.transport.requests as gatr
+    except Exception as e:
+        return jsonify({"success": False, "error": f"DEP_MISSING: {e}"}), 500
+
+    raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    if not raw:
+        return jsonify({"success": False, "error": "NO_SERVICE_ACCOUNT"}), 500
+    info = json.loads(raw)
+    if isinstance(info.get('private_key'), str):
+        info['private_key'] = info['private_key'].replace('\\n', '\n')
+    project = info['project_id']
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/firebase",
+                      "https://www.googleapis.com/auth/cloud-platform"])
+    creds.refresh(gatr.Request())
+    tok = creds.token
+    H = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+    body = request.json or {}
+    out = {}
+
+    def deploy(source_text, release_name, label):
+        rs = _rq.post(f"https://firebaserules.googleapis.com/v1/projects/{project}/rulesets",
+                      headers=H, data=json.dumps({"source": {"files": [
+                          {"name": label, "content": source_text}]}}))
+        if rs.status_code not in (200, 201):
+            return {"ok": False, "stage": "ruleset", "status": rs.status_code, "body": rs.text[:400]}
+        rsname = rs.json()["name"]
+        rn = f"projects/{project}/releases/{release_name}"
+        up = _rq.patch(f"https://firebaserules.googleapis.com/v1/{rn}", headers=H,
+                       data=json.dumps({"release": {"name": rn, "rulesetName": rsname}}))
+        if up.status_code == 200:
+            return {"ok": True, "ruleset": rsname.split('/')[-1], "release": release_name, "op": "update"}
+        cr = _rq.post(f"https://firebaserules.googleapis.com/v1/projects/{project}/releases",
+                      headers=H, data=json.dumps({"name": rn, "rulesetName": rsname}))
+        if cr.status_code in (200, 201):
+            return {"ok": True, "ruleset": rsname.split('/')[-1], "release": release_name, "op": "create"}
+        return {"ok": False, "stage": "release", "update": up.status_code, "create": cr.status_code,
+                "body": (up.text[:200] + " | " + cr.text[:200])}
+
+    try:
+        if body.get('firestore'):
+            out['firestore'] = deploy(body['firestore'], 'cloud.firestore', 'firestore.rules')
+        if body.get('storage'):
+            bucket = body.get('bucket') or f"{project}.appspot.com"
+            out['storage'] = deploy(body['storage'], f"firebase.storage/{bucket}", 'storage.rules')
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "partial": out}), 500
+    return jsonify({"success": True, "project": project, "results": out})
+
 get_deps()
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

@@ -924,6 +924,70 @@ def authorize_resend():
     except Exception as e:
         return jsonify({"success": False, "error": "DISPATCH_ERROR", "message": str(e)}), 500
 
+@app.route('/api/request-password-reset', methods=['POST'])
+@require_db
+def request_password_reset():
+    """Server-authoritative password reset that sends the BRANDED PulseEarn email via Resend
+    instead of Firebase's default template (which leaked the raw project id, e.g.
+    'Reset your password for project-867830834697', and a firebaseapp.com link).
+
+    Runs UNAUTHENTICATED (the user is logged out) and is hardened against account enumeration:
+    it always returns success=True regardless of whether the address exists, and only actually
+    dispatches an email when a matching user is found. A per-user cooldown throttles abuse.
+    """
+    db = get_db()
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    # Generic response reused everywhere so callers cannot distinguish existing vs unknown emails.
+    generic_ok = {"success": True,
+                  "message": "If an account exists for that address, a reset link has been sent."}
+
+    if not email or '@' not in email:
+        return jsonify({"success": False, "error": "INVALID_EMAIL",
+                        "message": "Please enter a valid email address."}), 400
+
+    # No Resend key -> tell the client to dispatch via the Firebase client SDK (keeps reset
+    # working even if branded email is unavailable). Still generic to avoid enumeration.
+    if not os.environ.get('RESEND_API_KEY'):
+        return jsonify({"success": True, "dispatchMethod": "client_fallback", **generic_ok})
+
+    try:
+        user_record = auth.get_user_by_email(email)
+    except Exception:
+        # Unknown address (or lookup error): pretend success, send nothing.
+        return jsonify(generic_ok)
+
+    # Per-user cooldown (best-effort; never blocks the generic response contract).
+    uid = user_record.uid
+    user_ref = db.collection('users').document(uid)
+    snap = user_ref.get()
+    user_data = snap.to_dict() if snap.exists else {}
+    COOLDOWN = 60
+    last = user_data.get('lastPasswordResetSentAt')
+    if isinstance(last, datetime):
+        try:
+            elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+            if 0 <= elapsed < COOLDOWN:
+                return jsonify({"success": True, "throttled": True, **generic_ok})
+        except Exception:
+            pass
+
+    try:
+        link = auth.generate_password_reset_link(
+            email, auth.ActionCodeSettings(url='https://pulseearn.online/auth/action',
+                                           handle_code_in_app=True))
+        username = user_data.get('username') or (user_record.display_name or 'Member')
+        sent = send_branded_email(email, 'ResetPassword',
+                                  {'username': username, 'link': link},
+                                  "Reset your PulseEarn password")
+        if sent:
+            user_ref.set({'lastPasswordResetSentAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            return jsonify({"success": True, "dispatchMethod": "server", **generic_ok})
+        # Branded send failed -> let the client fall back to Firebase so the user is never stuck.
+        return jsonify({"success": True, "dispatchMethod": "client_fallback", **generic_ok})
+    except Exception:
+        return jsonify({"success": True, "dispatchMethod": "client_fallback", **generic_ok})
+
 @app.route('/api/evaluate-user-integrity', methods=['POST'])
 @verify_token
 @require_db

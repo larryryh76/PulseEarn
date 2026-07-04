@@ -370,36 +370,172 @@ def submit_task():
         return jsonify(res)
     except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
 
+# Authorization matrix for execute-transaction. User-claimable reward types may be
+# initiated by the account owner; everything that grants/adjusts balance arbitrarily
+# is restricted to admins. Reward *amounts* for user-claimable types are ALWAYS read
+# from server config so a crafted client cannot inflate its own payout.
+USER_SELF_TX = {'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward'}
+ADMIN_TX = {'admin_adjustment', 'task_reward', 'withdrawal_finalized', 'withdrawal_debit_reversal',
+            'penalty', 'referral_reversal', 'referral_bonus', 'AI_SYSTEM_CORRECTION'}
+
 @app.route('/api/execute-transaction', methods=['POST'])
 @verify_token
 @require_db
 def execute_transaction():
     db = get_db()
-    data, user_id, tx_type = request.json, request.json.get('userId'), request.json.get('type')
+    data = request.json or {}
+    user_id, tx_type, claim_id = data.get('userId'), data.get('type'), data.get('claimId')
     caller_uid = request.user['uid']
-    if caller_uid != user_id and not is_admin(caller_uid): return jsonify({"success": False, "error": "Unauthorized"}), 403
+    if not user_id or not tx_type or not claim_id:
+        return jsonify({"success": False, "error": "MISSING_FIELDS"}), 400
+
+    caller_is_admin = is_admin(caller_uid)
+    is_self = caller_uid == user_id
+
+    if tx_type in ADMIN_TX and tx_type not in USER_SELF_TX:
+        if not caller_is_admin: return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    elif tx_type in USER_SELF_TX:
+        if not is_self and not caller_is_admin: return jsonify({"success": False, "error": "Unauthorized"}), 403
+    else:
+        return jsonify({"success": False, "error": "UNSUPPORTED_TRANSACTION_TYPE"}), 400
+
+    # Server-side economy config (authoritative reward values + safety caps).
+    cfg_snap = db.collection('system_config').document('global_v1').get()
+    cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
+    rewards = cfg.get('rewards', {}) or {}
+    security = cfg.get('security', {}) or {}
+    max_single = float(security.get('maxSingleReward', 5000) or 5000)
 
     @firestore.transactional
     def process(transaction):
         user_ref = db.collection('users').document(user_id)
+        claim_ref = db.collection('system_claims').document(claim_id)
+        # ---- READS (must precede all writes) ----
         u_snap = user_ref.get(transaction=transaction)
         if not u_snap.exists: raise Exception("USER_NOT_FOUND")
+        u = u_snap.to_dict()
+        if claim_ref.get(transaction=transaction).exists: raise Exception("REWARD_ALREADY_CLAIMED")
+
+        points_delta = 0.0
+        xp_delta = 0.0
+        post_writes = []  # deferred writes executed after user update
 
         if tx_type == 'mission_reward':
             mid = data.get('referenceId')
-            def_snap = db.collection('system_task_definitions').document(mid).get(transaction=transaction)
-            ust_snap = db.collection('user_system_tasks').document(f"{user_id}_{mid}").get(transaction=transaction)
-            if not def_snap.exists or not ust_snap.exists or ust_snap.to_dict().get('status') != 'COMPLETED': raise Exception("INVALID_MISSION_STATE")
+            def_ref = db.collection('system_task_definitions').document(mid)
+            ust_ref = db.collection('user_system_tasks').document(f"{user_id}_{mid}")
+            def_snap = def_ref.get(transaction=transaction)
+            ust_snap = ust_ref.get(transaction=transaction)
+            if not def_snap.exists or not ust_snap.exists or ust_snap.to_dict().get('status') != 'COMPLETED':
+                raise Exception("INVALID_MISSION_STATE")
             if ust_snap.to_dict().get('rewarded'): raise Exception("ALREADY_REWARDED")
-            amount = def_snap.to_dict().get('rewardPoints', 0)
-            transaction.update(db.collection('user_system_tasks').document(f"{user_id}_{mid}"), {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP})
-        else:
-            raise Exception("UNSUPPORTED_TRANSACTION_TYPE")
+            points_delta = float(def_snap.to_dict().get('rewardPoints', 0) or 0)
+            xp_delta = float(def_snap.to_dict().get('rewardXP', 0) or 0)
+            post_writes.append((ust_ref, {'rewarded': True, 'claimedAt': firestore.SERVER_TIMESTAMP}, True))
 
-        transaction.update(user_ref, {'points': firestore.Increment(amount)})
-        transaction.update(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(amount)})
-        transaction.set(db.collection('system_claims').document(data.get('claimId')), {'userId': user_id, 'executedAt': firestore.SERVER_TIMESTAMP})
-        return {"success": True}
+        elif tx_type == 'daily_reward':
+            points_delta = float(rewards.get('dailyLoginPoints', 50) or 0)
+            xp_delta = float(rewards.get('dailyLoginXP', 20) or 0)
+            post_writes.append((user_ref, {'lastRewardDate': firestore.SERVER_TIMESTAMP}, True))
+
+        elif tx_type == 'welcome_bonus':
+            points_delta = float(rewards.get('welcomeBonusPoints', 30) or 0)
+            xp_delta = float(rewards.get('welcomeBonusXP', 50) or 0)
+
+        elif tx_type == 'withdrawal_debit':
+            amt = abs(float(data.get('amount', 0) or 0))
+            if amt <= 0: raise Exception("INVALID_AMOUNT")
+            min_wd = float((cfg.get('thresholds', {}) or {}).get('minWithdrawalPoints', 10000) or 10000)
+            if amt < min_wd: raise Exception("BELOW_MIN_WITHDRAWAL")
+            if float(u.get('level', 1) or 1) < 2: raise Exception("LEVEL_TOO_LOW")
+            if float(u.get('points', 0) or 0) < amt: raise Exception("INSUFFICIENT_FUNDS")
+            meta = data.get('metadata') or {}
+            addr = (meta.get('walletAddress') or '').strip()
+            network = (meta.get('network') or '').strip()
+            if not addr or not network: raise Exception("MISSING_PAYOUT_DETAILS")
+            points_delta = -amt
+            # Create the withdrawal request server-side, atomically with the debit, so an
+            # unfunded (never-debited) payout request can never exist. Client cannot create
+            # withdrawals directly (see firestore.rules).
+            wd_ref = db.collection('withdrawals').document(claim_id)
+            post_writes.append((wd_ref, {
+                'userId': user_id, 'userEmail': u.get('email'), 'username': u.get('username'),
+                'amountPoints': amt, 'amountUSD': meta.get('amountUSD'),
+                'walletAddress': addr, 'network': network,
+                'status': 'PENDING', 'claimId': claim_id, 'debited': True,
+                'debitedAt': firestore.SERVER_TIMESTAMP, 'createdAt': firestore.SERVER_TIMESTAMP
+            }, False))
+
+        elif tx_type == 'task_reward':
+            ref_task = data.get('referenceId')
+            t_snap = db.collection('tasks').document(ref_task).get(transaction=transaction) if ref_task else None
+            if t_snap is not None and t_snap.exists:
+                points_delta = float(t_snap.to_dict().get('rewardAmount', 0) or 0)
+                xp_delta = float(t_snap.to_dict().get('xpReward', 0) or 0)
+            else:
+                points_delta = float(data.get('amount', 0) or 0)
+                xp_delta = float(data.get('xpReward', 0) or 0)
+            tclaim = data.get('taskClaimId')
+            if tclaim:
+                post_writes.append((db.collection('task_claims').document(tclaim),
+                                    {'validationState': 'APPROVED', 'completionState': 'COMPLETED',
+                                     'reviewedAt': firestore.SERVER_TIMESTAMP, 'reviewedBy': caller_uid}, True))
+            post_writes.append((user_ref, {'stats.tasksCompleted': firestore.Increment(1)}, True))
+
+        elif tx_type == 'withdrawal_finalized':
+            wd_id = (data.get('metadata') or {}).get('withdrawalId') or data.get('referenceId')
+            if not wd_id: raise Exception("MISSING_WITHDRAWAL_ID")
+            wd_ref = db.collection('withdrawals').document(wd_id)
+            wd_snap = wd_ref.get(transaction=transaction)
+            if not wd_snap.exists: raise Exception("WITHDRAWAL_NOT_FOUND")
+            if not wd_snap.to_dict().get('debited'): raise Exception("WITHDRAWAL_NOT_DEBITED")
+            post_writes.append((wd_ref, {'payoutFinalizedAt': firestore.SERVER_TIMESTAMP}, True))
+            # No balance change: points were already debited at request time.
+
+        else:  # admin adjustments / reversals / penalties / bonuses (admin authority already enforced)
+            points_delta = float(data.get('amount', 0) or 0)
+            xp_delta = float(data.get('xpReward', 0) or 0)
+
+        # Safety cap for non-admin-initiated positive rewards.
+        if not caller_is_admin and points_delta > max_single:
+            points_delta = max_single
+
+        # Never drive balance below zero.
+        cur_points = float(u.get('points', 0) or 0)
+        if cur_points + points_delta < 0:
+            points_delta = -cur_points
+        cur_xp = float(u.get('xp', 0) or 0)
+        if cur_xp + xp_delta < 0:
+            xp_delta = -cur_xp
+
+        # ---- WRITES ----
+        user_updates = {}
+        if points_delta != 0: user_updates['points'] = firestore.Increment(points_delta)
+        if xp_delta != 0: user_updates['xp'] = firestore.Increment(xp_delta)
+        old_level = int(u.get('level', 1) or 1)
+        new_level = calculate_level(cur_xp + xp_delta)
+        if new_level != old_level: user_updates['level'] = new_level
+        if user_updates:
+            transaction.update(user_ref, user_updates)
+
+        for ref, payload, merge in post_writes:
+            transaction.set(ref, payload, merge=merge)
+
+        if points_delta != 0:
+            transaction.update(db.collection('system_config').document('global_metrics'),
+                               {'totalPTSLiability': firestore.Increment(points_delta)})
+
+        # Immutable ledger entry for auditability.
+        transaction.set(user_ref.collection('transactions').document(), {
+            'type': tx_type, 'amount': points_delta, 'xp': xp_delta,
+            'source': data.get('source'), 'description': data.get('description'),
+            'claimId': claim_id, 'referenceId': data.get('referenceId'),
+            'balanceAfter': cur_points + points_delta,
+            'createdAt': firestore.SERVER_TIMESTAMP, 'metadata': data.get('metadata') or {}
+        })
+        transaction.set(claim_ref, {'userId': user_id, 'type': tx_type, 'amount': points_delta,
+                                    'executedAt': firestore.SERVER_TIMESTAMP})
+        return {"success": True, "oldLevel": old_level, "newLevel": new_level}
 
     try:
         res = process(db.transaction()); evaluate_missions(user_id); return jsonify(res)

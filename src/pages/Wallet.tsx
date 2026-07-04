@@ -25,8 +25,6 @@ import { Transaction } from '../types';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getWithdrawalEligibility } from '../utils/eligibility';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 
 const Wallet: React.FC = () => {
@@ -111,51 +109,26 @@ const Wallet: React.FC = () => {
 
     setIsProcessing(true);
     const claimId = `wd_${userData?.uid}_${Date.now()}`;
-    let withdrawalDocId = null;
 
     try {
-      // 1. Create the withdrawal request first (Atomic Requirement)
-      // This ensures we have a record before debiting
-      const withdrawalRef = await addDoc(collection(db, 'withdrawals'), {
-        userId: userData?.uid,
-        userEmail: userData?.email,
-        username: userData?.username,
-        amountPoints: withdrawalForm.amount,
-        amountUSD: PTS_TO_USD(withdrawalForm.amount),
-        walletAddress: normalizedAddress,
-        network: withdrawalForm.network,
-        status: 'PENDING',
-        claimId,
-        createdAt: serverTimestamp()
-      });
-      withdrawalDocId = withdrawalRef.id;
-
-      // 2. Debit the points
+      // Server-authoritative: the backend atomically debits points AND creates the
+      // withdrawal request in a single transaction. This prevents unfunded payout
+      // requests (clients can no longer create withdrawal docs directly).
       const result = await PointTransactionEngine.execute({
         userId: userData?.uid || '',
         amount: -withdrawalForm.amount,
         type: 'withdrawal_debit',
         source: 'System Withdrawal',
         claimId,
-        referenceId: withdrawalDocId,
+        referenceId: claimId,
         metadata: {
           walletAddress: normalizedAddress,
           network: withdrawalForm.network,
-          withdrawalId: withdrawalDocId
+          amountUSD: PTS_TO_USD(withdrawalForm.amount)
         }
       });
 
       if (!result.success) {
-        // Rollback attempt: Mark withdrawal as FAILED since debit didn't process
-        try {
-          await updateDoc(doc(db, 'withdrawals', withdrawalDocId), {
-            status: 'FAILED',
-            error: result.error,
-            updatedAt: serverTimestamp()
-          });
-        } catch (rollbackErr) {
-          console.error("[Wallet] Critical Rollback Failure:", rollbackErr);
-        }
         throw new Error(result.error);
       }
 
@@ -164,7 +137,6 @@ const Wallet: React.FC = () => {
     } catch (err: any) {
       console.error("[Wallet] Withdrawal Error:", err);
       toast.error(err.message || "Withdrawal failed");
-      // TODO: Implement more robust rollback/retry logic for production
     } finally {
       setIsProcessing(false);
     }

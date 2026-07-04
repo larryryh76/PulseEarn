@@ -46,32 +46,106 @@ def get_project_id():
     return (os.environ.get('VITE_FIREBASE_PROJECT_ID') or os.environ.get('PROJECT_ID') or
             os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('FIREBASE_PROJECT_ID') or 'pulseearn-a4b16')
 
-# Batch 6: Hyper-Resilient Firebase Initialization
+# Global initialization state for accurate, false-positive-free diagnostics.
+_FIREBASE_STATE = {
+    "initialized": False,
+    "credential_source": None,   # "FIREBASE_SERVICE_ACCOUNT" | "SPLIT_VARS" | None
+    "credentials_loaded": False,
+    "error": None,
+}
+
+def get_storage_bucket():
+    # VITE_ prefixed vars are readable in the Vercel Python runtime (see get_project_id).
+    pid = get_project_id()
+    return (os.environ.get('FIREBASE_STORAGE_BUCKET') or
+            os.environ.get('VITE_FIREBASE_STORAGE_BUCKET') or
+            f"{pid}.appspot.com")
+
+def load_service_account_credentials():
+    """
+    Build explicit service-account credentials from Vercel environment variables.
+
+    Method A (preferred): FIREBASE_SERVICE_ACCOUNT -> full service-account JSON.
+    Method B (fallback):  FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.
+
+    Returns (cred, source) or (None, None) when neither configuration exists.
+    Application Default Credentials are intentionally NOT used.
+    """
+    from firebase_admin import credentials
+
+    # Method A: single full-JSON variable.
+    sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    if sa_json:
+        info = json.loads(sa_json)
+        return credentials.Certificate(info), "FIREBASE_SERVICE_ACCOUNT"
+
+    # Method B: split variables.
+    project_id = os.environ.get('FIREBASE_PROJECT_ID')
+    client_email = os.environ.get('FIREBASE_CLIENT_EMAIL')
+    private_key = os.environ.get('FIREBASE_PRIVATE_KEY')
+    if project_id and client_email and private_key:
+        # Vercel stores multiline secrets with literal "\n"; normalise to real newlines.
+        private_key = private_key.replace('\\n', '\n')
+        info = {
+            "type": "service_account",
+            "project_id": project_id,
+            "client_email": client_email,
+            "private_key": private_key,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+        return credentials.Certificate(info), "SPLIT_VARS"
+
+    return None, None
+
+# Firebase Admin initialization with explicit service-account credentials only.
 def init_firebase():
     get_deps()
-    if firebase_admin is None: return False
+    if firebase_admin is None:
+        _FIREBASE_STATE.update({"initialized": False, "credentials_loaded": False,
+                                "error": "FIREBASE_ADMIN_IMPORT_FAILED"})
+        return False
 
-    # Critical: Use explicit app list check
-    if not firebase_admin._apps:
-        try:
-            pid = get_project_id()
-            sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    # Already initialized in this warm invocation.
+    if firebase_admin._apps:
+        return True
 
-            if sa_json:
-                from firebase_admin import credentials
-                cred = credentials.Certificate(json.loads(sa_json))
-                firebase_admin.initialize_app(cred, options={'projectId': pid})
-                print(f"BOOT: Firebase Admin initialized with Service Account (Project: {pid})")
-            else:
-                # For Vercel environment, we MUST provide projectId to avoid discovery failure
-                firebase_admin.initialize_app(options={'projectId': pid})
-                print(f"BOOT: Firebase Admin initialized with ADC (Project: {pid})")
-            sys.stdout.flush()
-        except Exception as e:
-            print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
+    try:
+        pid = get_project_id()
+        cred, source = load_service_account_credentials()
+
+        if cred is None:
+            # Never silently initialize with Application Default Credentials. Fail clearly.
+            _FIREBASE_STATE.update({
+                "initialized": False,
+                "credential_source": None,
+                "credentials_loaded": False,
+                "error": "MISSING_SERVICE_ACCOUNT_CREDENTIALS",
+            })
+            print("BOOT_CRITICAL: No explicit service-account credentials found. "
+                  "Set FIREBASE_SERVICE_ACCOUNT (preferred) or "
+                  "FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.")
             sys.stdout.flush()
             return False
-    return True
+
+        firebase_admin.initialize_app(cred, options={'projectId': pid})
+        _FIREBASE_STATE.update({
+            "initialized": True,
+            "credential_source": source,
+            "credentials_loaded": True,
+            "error": None,
+        })
+        print(f"BOOT: Firebase Admin initialized with Service Account via {source} (Project: {pid})")
+        sys.stdout.flush()
+        return True
+    except Exception as e:
+        _FIREBASE_STATE.update({
+            "initialized": False,
+            "credentials_loaded": False,
+            "error": f"INIT_FAILED: {str(e)}",
+        })
+        print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
+        sys.stdout.flush()
+        return False
 
 def get_db():
     if init_firebase():
@@ -82,14 +156,16 @@ def require_db(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         db = get_db()
-        if not db: return jsonify({"success": False, "error": "DATABASE_OFFLINE"}), 503
+        if not db: return jsonify({"success": False, "error": "DATABASE_OFFLINE",
+                                   "detail": _FIREBASE_STATE.get("error")}), 503
         return f(*args, **kwargs)
     return decorated_function
 
 def verify_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not init_firebase(): return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE"}), 503
+        if not init_firebase(): return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE",
+                                                 "detail": _FIREBASE_STATE.get("error")}), 503
         id_token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
@@ -184,34 +260,63 @@ def ping():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     has_sdk = init_firebase()
+    creds_ok = _FIREBASE_STATE.get("credentials_loaded", False)
     db_ok = False
     auth_ok = False
+    storage_ok = False
+    storage_error = None
     try:
         if has_sdk:
             db = get_db()
-            # Real validation: test read
+            # Real validation: credentialed Firestore read.
             db.collection('system_config').document('global_v1').get()
             db_ok = True
-            # Real validation: test auth service
+            # Real validation: credentialed Auth Admin operation.
             try:
                 auth.get_user('non-existent-user')
                 auth_ok = True
             except auth.UserNotFoundError:
-                # Expected error for non-existent user is okay
+                # Reaching "user not found" proves the credentialed call succeeded.
                 auth_ok = True
+            # Real validation: credentialed Storage bucket reachability.
+            try:
+                from firebase_admin import storage
+                bucket = storage.bucket(get_storage_bucket())
+                bucket.exists()
+                storage_ok = True
+            except Exception as se:
+                storage_error = str(se)
+                print(f"HEALTH_STORAGE_FAILURE: {storage_error}")
     except Exception as e:
         print(f"HEALTH_FAILURE: {str(e)}")
 
-    # Service is degraded if critical dependencies are down
-    is_healthy = has_sdk and db_ok and auth_ok
+    # No false positives: healthy only when credentials load AND every credentialed
+    # dependency actually responds.
+    is_healthy = has_sdk and creds_ok and db_ok and auth_ok and storage_ok
     status_code = 200 if is_healthy else 503
 
     return jsonify({
-        "success": is_healthy, "status": "ONLINE" if is_healthy else "DEGRADED", "version": "8.0.0-PRO-CERTIFIED",
+        "success": is_healthy,
+        "status": "ONLINE" if is_healthy else "DEGRADED",
+        "version": "8.1.0-PRO-CERTIFIED",
         "firebase": "ADMIN_SDK_INITIALIZED" if has_sdk else "ADMIN_SDK_OFFLINE",
+        "credentials": "LOADED" if creds_ok else "MISSING",
+        "credential_source": _FIREBASE_STATE.get("credential_source"),
         "database": "CONNECTED" if db_ok else "DISCONNECTED",
         "auth_service": "OPERATIONAL" if auth_ok else "DEGRADED",
-        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_sdk}
+        "storage": "REACHABLE" if storage_ok else "UNREACHABLE",
+        "diagnostics": {
+            "projectId": get_project_id(),
+            "adminSdkInit": has_sdk,
+            "credentialsLoaded": creds_ok,
+            "credentialSource": _FIREBASE_STATE.get("credential_source"),
+            "firestoreReachable": db_ok,
+            "authReachable": auth_ok,
+            "storageReachable": storage_ok,
+            "storageBucket": get_storage_bucket(),
+            "initError": _FIREBASE_STATE.get("error"),
+            "storageError": storage_error,
+        }
     }), status_code
 
 @app.route('/api/tasks/submit', methods=['POST'])

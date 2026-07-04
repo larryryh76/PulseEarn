@@ -46,24 +46,91 @@ def get_project_id():
     return (os.environ.get('VITE_FIREBASE_PROJECT_ID') or os.environ.get('PROJECT_ID') or
             os.environ.get('GOOGLE_CLOUD_PROJECT') or os.environ.get('FIREBASE_PROJECT_ID') or 'pulseearn-a4b16')
 
-# Batch 6: Hyper-Resilient Firebase Initialization
+def get_storage_bucket_name():
+    return (os.environ.get('VITE_FIREBASE_STORAGE_BUCKET') or os.environ.get('FIREBASE_STORAGE_BUCKET')
+            or f"{get_project_id()}.appspot.com")
+
+# Structured initialization state (no silent/false-positive init).
+_INIT_STATE = {"ready": False, "error": None, "method": None}
+
+def _load_service_account():
+    """
+    Resolve explicit service-account credentials from environment variables.
+    Method A (preferred): FIREBASE_SERVICE_ACCOUNT = full JSON string.
+    Method B (fallback): FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.
+    Returns (service_account_dict, method_name) or (None, None) when nothing is configured.
+    Raises RuntimeError when a configured credential is malformed.
+    """
+    raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    if raw:
+        try:
+            data = json.loads(raw)
+        except Exception as e:
+            raise RuntimeError(f"FIREBASE_SERVICE_ACCOUNT is not valid JSON: {e}")
+        if not isinstance(data, dict) or not data.get('private_key') or not data.get('client_email'):
+            raise RuntimeError("FIREBASE_SERVICE_ACCOUNT JSON is missing required fields (private_key/client_email).")
+        if isinstance(data.get('private_key'), str):
+            data['private_key'] = data['private_key'].replace('\\n', '\n')
+        return data, 'FIREBASE_SERVICE_ACCOUNT'
+
+    pid = os.environ.get('FIREBASE_PROJECT_ID') or os.environ.get('VITE_FIREBASE_PROJECT_ID')
+    email = os.environ.get('FIREBASE_CLIENT_EMAIL')
+    pk = os.environ.get('FIREBASE_PRIVATE_KEY')
+    if pid and email and pk:
+        return {
+            "type": "service_account",
+            "project_id": pid,
+            "client_email": email,
+            "private_key": pk.replace('\\n', '\n'),
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }, 'SPLIT_VARS'
+
+    return None, None
+
+# Explicit-credential Firebase Admin initialization (ADC is NOT used as the primary method).
 def init_firebase():
     get_deps()
-    if firebase_admin is None: return False
+    if firebase_admin is None:
+        _INIT_STATE.update(ready=False, error="DEPENDENCIES_UNAVAILABLE", method=None)
+        return False
 
-    # Critical: Use explicit app list check
-    if not firebase_admin._apps:
-        try:
-            pid = get_project_id()
-            # For Vercel environment, we MUST provide projectId to avoid discovery failure
-            firebase_admin.initialize_app(options={'projectId': pid})
-            print(f"BOOT: Firebase Admin initialized (Project: {pid})")
-            sys.stdout.flush()
-        except Exception as e:
-            print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
-            sys.stdout.flush()
-            return False
-    return True
+    if firebase_admin._apps:
+        _INIT_STATE.update(ready=True)
+        return True
+
+    try:
+        sa, method = _load_service_account()
+    except Exception as e:
+        _INIT_STATE.update(ready=False, error=str(e), method="INVALID_CREDENTIALS")
+        print(f"BOOT_CRITICAL: {str(e)}"); sys.stdout.flush()
+        return False
+
+    if not sa:
+        _INIT_STATE.update(ready=False, error="MISSING_SERVICE_ACCOUNT_CREDENTIALS", method=None)
+        print("BOOT_CRITICAL: No Firebase service-account credentials found. "
+              "Set FIREBASE_SERVICE_ACCOUNT (full JSON) or FIREBASE_PROJECT_ID + "
+              "FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.")
+        sys.stdout.flush()
+        return False
+
+    try:
+        from firebase_admin import credentials
+        pid = sa.get('project_id') or get_project_id()
+        cred = credentials.Certificate(sa)
+        firebase_admin.initialize_app(cred, options={
+            'projectId': pid,
+            'storageBucket': get_storage_bucket_name(),
+        })
+        _INIT_STATE.update(ready=True, error=None, method=method)
+        print(f"BOOT: Firebase Admin initialized with explicit credentials "
+              f"(Project: {pid}, Method: {method})")
+        sys.stdout.flush()
+        return True
+    except Exception as e:
+        _INIT_STATE.update(ready=False, error=str(e), method=method)
+        print(f"BOOT_CRITICAL: Firebase initialization failed: {str(e)}")
+        sys.stdout.flush()
+        return False
 
 def get_db():
     if init_firebase():
@@ -81,7 +148,11 @@ def require_db(f):
 def verify_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not init_firebase(): return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE"}), 503
+        if not init_firebase():
+            return jsonify({
+                "success": False, "error": "AUTH_SERVICE_OFFLINE",
+                "reason": _INIT_STATE.get("error") or "ADMIN_SDK_NOT_INITIALIZED"
+            }), 503
         id_token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
@@ -175,12 +246,57 @@ def ping():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    has_db = init_firebase()
-    return jsonify({
-        "success": True, "status": "ONLINE", "version": "7.8.0-HYPER-RESILIENT",
-        "firebase": "ADMIN_SDK_INITIALIZED" if has_db else "ADMIN_SDK_OFFLINE",
-        "diagnostics": {"projectId": get_project_id(), "adminSdkInit": has_db}
-    })
+    # No false positives: every check below reflects a real, credentialed operation.
+    result = {
+        "success": False,
+        "status": "OFFLINE",
+        "version": "8.0.0-VERIFIED",
+        "projectId": get_project_id(),
+        "credentialMethod": None,
+        "checks": {
+            "adminSdkInitialized": False,
+            "credentialsLoaded": False,
+            "firestoreReachable": False,
+            "storageReachable": False,
+        },
+    }
+
+    initialized = init_firebase()
+    result["checks"]["adminSdkInitialized"] = initialized
+    result["credentialMethod"] = _INIT_STATE.get("method")
+
+    if not initialized:
+        result["error"] = _INIT_STATE.get("error") or "ADMIN_SDK_OFFLINE"
+        result["message"] = ("Firebase Admin SDK is not initialized. Verify service-account "
+                             "credentials (FIREBASE_SERVICE_ACCOUNT or split FIREBASE_* vars).")
+        return jsonify(result), 503
+
+    # Credentials were accepted by credentials.Certificate() during init.
+    result["checks"]["credentialsLoaded"] = True
+
+    # Real credentialed Firestore read (requires a valid signed token exchange).
+    try:
+        db = firestore.client()
+        list(db.collection('system_config').limit(1).get())
+        result["checks"]["firestoreReachable"] = True
+    except Exception as e:
+        result["error"] = "FIRESTORE_UNREACHABLE"
+        result["message"] = str(e)
+        return jsonify(result), 503
+
+    # Storage reachability (non-fatal; reported explicitly).
+    try:
+        from firebase_admin import storage
+        bucket = storage.bucket(get_storage_bucket_name())
+        bucket.exists()
+        result["checks"]["storageReachable"] = True
+    except Exception as e:
+        result["checks"]["storageReachable"] = False
+        result["storageError"] = str(e)
+
+    result["success"] = True
+    result["status"] = "ONLINE"
+    return jsonify(result)
 
 @app.route('/api/tasks/submit', methods=['POST'])
 @verify_token
@@ -366,6 +482,159 @@ def send_v():
     if send_branded_email(u['email'], 'VerifyEmail', {'username': user_data.get('username','Member'), 'link': link}, "Verify your PulseEarn account"):
         return jsonify({"success": True})
     return jsonify({"success": False}), 500
+
+# --- Frontend-contract endpoints (previously missing -> 404) ---
+
+@app.route('/api/authorize-resend', methods=['POST'])
+@verify_token
+@require_db
+def authorize_resend():
+    """Server-authoritative resend of the email-verification link with a cooldown.
+    Matches VerifyEmail.tsx contract: success / dispatchMethod / COOLDOWN_ACTIVE+retryAfter."""
+    db = get_db()
+    u = request.user
+    uid = u['uid']
+    email = u.get('email')
+    user_ref = db.collection('users').document(uid)
+    snap = user_ref.get()
+    user_data = snap.to_dict() if snap.exists else {}
+
+    COOLDOWN = 60
+    last = user_data.get('lastVerificationSentAt')
+    now = datetime.now(timezone.utc)
+    if isinstance(last, datetime):
+        try:
+            elapsed = (now - last).total_seconds()
+            if 0 <= elapsed < COOLDOWN:
+                retry = int(COOLDOWN - elapsed)
+                return jsonify({
+                    "success": False, "error": "COOLDOWN_ACTIVE",
+                    "retryAfter": str(retry),
+                    "message": f"Please wait {retry}s before resending."
+                }), 429
+        except Exception:
+            pass
+
+    if not email:
+        return jsonify({"success": False, "error": "NO_EMAIL", "message": "No email on account."}), 400
+
+    # No Resend key configured -> instruct client to dispatch via Firebase client SDK.
+    if not os.environ.get('RESEND_API_KEY'):
+        user_ref.set({'lastVerificationSentAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        return jsonify({"success": True, "dispatchMethod": "client_fallback"})
+
+    try:
+        link = auth.generate_email_verification_link(
+            email, auth.ActionCodeSettings(url='https://pulseearn.online/auth/action', handle_code_in_app=True))
+        sent = send_branded_email(email, 'VerifyEmail',
+                                  {'username': user_data.get('username', 'Member'), 'link': link},
+                                  "Verify your PulseEarn account")
+        if sent:
+            user_ref.set({'lastVerificationSentAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            return jsonify({"success": True, "dispatchMethod": "server"})
+        return jsonify({"success": False, "error": "DISPATCH_FAILED",
+                        "message": "Failed to send verification email."}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": "DISPATCH_ERROR", "message": str(e)}), 500
+
+@app.route('/api/evaluate-user-integrity', methods=['POST'])
+@verify_token
+@require_db
+def evaluate_user_integrity():
+    """Server-side fraud/integrity scoring. Matches FraudEngine.evaluateUserIntegrity contract."""
+    db = get_db()
+    data = request.json or {}
+    user_id = data.get('userId')
+    fingerprint = data.get('fingerprint')
+    caller = request.user['uid']
+    if not user_id:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    if caller != user_id and not is_admin(caller):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    user_ref = db.collection('users').document(user_id)
+    if not user_ref.get().exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    risk_added, flags = 0, []
+    try:
+        if fingerprint:
+            dupes = db.collection('users').where('fingerprint', '==', fingerprint).limit(10).get()
+            others = [d.id for d in dupes if d.id != user_id]
+            if others:
+                risk_added = 25
+                flags.append('SHARED_DEVICE_FINGERPRINT')
+        update = {'lastIntegrityCheck': firestore.SERVER_TIMESTAMP}
+        if fingerprint:
+            update['fingerprint'] = fingerprint
+        if risk_added:
+            update['riskScore'] = firestore.Increment(risk_added)
+            update['fraudFlags'] = firestore.ArrayUnion(flags)
+        user_ref.set(update, merge=True)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    return jsonify({"success": True, "riskAdded": risk_added, "flags": flags})
+
+@app.route('/api/process-referral-reward', methods=['POST'])
+@verify_token
+@require_db
+def process_referral_reward():
+    """Server-authoritative referral reward. Matches ReferralProtectionEngine contract.
+    Idempotent: transitions the referral REGISTERED -> QUALIFIED exactly once."""
+    db = get_db()
+    data = request.json or {}
+    referral_doc_id = data.get('referralDocId')
+    referrer_id = data.get('referrerId')
+    referee_id = data.get('refereeId')
+    caller = request.user['uid']
+
+    if not referral_doc_id or not referrer_id or not referee_id:
+        return jsonify({"success": False, "error": "MISSING_PARAMETERS"}), 400
+    if caller not in (referrer_id, referee_id) and not is_admin(caller):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    cfg_snap = db.collection('system_config').document('global_v1').get()
+    rewards = (cfg_snap.to_dict() or {}).get('rewards', {}) if cfg_snap.exists else {}
+    points = rewards.get('referralBonusPoints', 50)
+    xp = rewards.get('referralBonusXP', 50)
+
+    ref_ref = db.collection('referrals').document(referral_doc_id)
+    referrer_ref = db.collection('users').document(referrer_id)
+
+    @firestore.transactional
+    def process(transaction):
+        ref_snap = ref_ref.get(transaction=transaction)
+        if not ref_snap.exists: raise Exception("REFERRAL_NOT_FOUND")
+        r = ref_snap.to_dict()
+        if r.get('refereeId') != referee_id or r.get('referrerId') != referrer_id:
+            raise Exception("REFERRAL_MISMATCH")
+        if r.get('rewarded') or r.get('status') == 'QUALIFIED':
+            return {"success": True, "alreadyRewarded": True}
+        if r.get('status') != 'REGISTERED':
+            raise Exception("INVALID_REFERRAL_STATE")
+        if not referrer_ref.get(transaction=transaction).exists:
+            raise Exception("REFERRER_NOT_FOUND")
+        transaction.update(referrer_ref, {
+            'points': firestore.Increment(points),
+            'xp': firestore.Increment(xp),
+            'stats.referralsConverted': firestore.Increment(1)
+        })
+        transaction.update(db.collection('system_config').document('global_metrics'),
+                           {'totalPTSLiability': firestore.Increment(points)})
+        transaction.update(ref_ref, {
+            'status': 'QUALIFIED', 'rewarded': True,
+            'rewardPoints': points, 'rewardXP': xp,
+            'qualifiedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        return {"success": True, "alreadyRewarded": False, "points": points, "xp": xp}
+
+    try:
+        res = process(db.transaction())
+        evaluate_missions(referrer_id)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 get_deps()
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})

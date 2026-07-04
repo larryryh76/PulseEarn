@@ -294,6 +294,30 @@ def health_check():
         result["checks"]["storageReachable"] = False
         result["storageError"] = str(e)
 
+    # Opt-in email deliverability check (?deep=email): reports whether the sending domain
+    # is DNS-verified in Resend. No secrets are exposed — only domain verification status.
+    if request.args.get('deep') == 'email':
+        email_status = {"resendKeyConfigured": bool(os.environ.get('RESEND_API_KEY')),
+                        "fromAddress": EMAIL_FROM, "domainVerified": None}
+        key = os.environ.get('RESEND_API_KEY')
+        if key:
+            try:
+                dr = requests.get("https://api.resend.com/domains",
+                                  headers={"Authorization": f"Bearer {key}"}, timeout=10)
+                if dr.status_code == 200:
+                    domains = dr.json().get('data', []) or []
+                    send_domain = EMAIL_FROM.split('@')[-1].rstrip('>').strip()
+                    match = next((d for d in domains if d.get('name') == send_domain), None)
+                    email_status["sendingDomain"] = send_domain
+                    email_status["domainVerified"] = (match or {}).get('status') == 'verified'
+                    email_status["domainStatus"] = (match or {}).get('status') if match else 'NOT_FOUND'
+                    email_status["templatesPresent"] = os.path.isdir(os.path.join(os.path.dirname(__file__), 'templates'))
+                else:
+                    email_status["error"] = f"resend_api_status_{dr.status_code}"
+            except Exception as e:
+                email_status["error"] = str(e)
+        result["email"] = email_status
+
     result["success"] = True
     result["status"] = "ONLINE"
     return jsonify(result)
@@ -668,17 +692,29 @@ def verify_user():
     auth.update_user(request.json.get('userId'), email_verified=True)
     return jsonify({"success": True})
 
+EMAIL_FROM = "PulseEarn <hello@pulseearn.online>"
+
 def send_branded_email(to, template, context, subject):
     init_firebase()
     key = os.environ.get('RESEND_API_KEY')
-    if not key: return False
+    if not key:
+        print("[email] RESEND_API_KEY missing; cannot send", flush=True)
+        return False
     try:
         path = os.path.join(os.path.dirname(__file__), 'templates', f'{template}.html')
         with open(path, 'r') as f: content = f.read()
         for k, v in context.items(): content = content.replace(f'{{{{{k}}}}}', html.escape(str(v)))
-        res = requests.post("https://api.resend.com/emails", headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json={"from": "PulseEarn <hello@pulseearn.online>", "to": [to], "subject": subject, "html": content}, timeout=15)
-        return res.status_code in [200, 201]
-    except: return False
+        res = requests.post("https://api.resend.com/emails",
+                            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                            json={"from": EMAIL_FROM, "to": [to], "subject": subject, "html": content}, timeout=15)
+        if res.status_code in (200, 201):
+            return True
+        # Surface the real failure (e.g. unverified domain, invalid key) instead of swallowing it.
+        print(f"[email] Resend send failed template={template} status={res.status_code} body={res.text[:300]}", flush=True)
+        return False
+    except Exception as e:
+        print(f"[email] Resend send exception template={template}: {e}", flush=True)
+        return False
 
 @app.route('/api/auth/send-verification', methods=['POST'])
 @verify_token

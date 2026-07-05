@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Predictions from './pages/predictions/Predictions'
 import Referrals from './pages/Referrals'
+import ReferralsPreview from './pages/_preview/ReferralsPreview'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
@@ -146,6 +147,7 @@ function App() {
         }}
       />
       <Routes>
+        <Route path="/__preview/referrals" element={<ReferralsPreview />} />
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

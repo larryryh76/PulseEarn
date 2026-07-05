@@ -1,809 +1,128 @@
-import React, { useMemo, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTasks } from '../hooks/useTasks';
-import {
-  Zap,
-  TrendingUp,
-  Clock,
-  Activity as ActivityIcon,
-  Target,
-  LayoutGrid,
-  BarChart3,
-  CreditCard,
-  UserPlus,
-  ArrowRight,
-  ChevronRight,
-  Flame,
-  Wallet as WalletIcon,
-  CheckCircle2,
-  X,
-  Calendar,
-  TrendingDown,
-  Gift,
-  MousePointer2,
-  Trophy,
-  ArrowUpRight
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
-import { cn } from '../utils';
-import { formatUSD } from '../utils/finance';
-import Card from '../components/ui/CardLegacy';
-import Button from '../components/ui/ButtonLegacy';
-import { getXpProgress, getLevelTier } from '../utils/progression';
-import OnboardingOverlay from '../components/OnboardingOverlay';
-import AnimatedNumber from '../components/ui/AnimatedNumber';
-import DailyRewardCard from '../components/Dashboard/DailyRewardCard';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import React, { useMemo, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { CheckSquare, Users, BarChart3, Clock } from 'lucide-react'
+import { doc, updateDoc } from 'firebase/firestore'
+import { useAuth } from '../contexts/AuthContext'
+import { useTasks } from '../hooks/useTasks'
+import { db } from '../firebase/config'
+import OnboardingOverlay from '../components/OnboardingOverlay'
+import DashboardHeader from '../components/Dashboard/DashboardHeader'
+import { WalletSnapshotCard, ProgressionCard, StatChip } from '../components/Dashboard/MetricCards'
+import DailyRewardCard from '../components/Dashboard/DailyRewardCard'
+import ContinueEarning from '../components/Dashboard/ContinueEarning'
+import ActivePredictions from '../components/Dashboard/ActivePredictions'
+import ActivityFeed from '../components/Dashboard/ActivityFeed'
+import NotificationsPanel from '../components/Dashboard/NotificationsPanel'
+import { StateError, StateLoading } from '../components/system/states'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="mx-auto max-w-7xl px-4 pb-24 pt-24 md:px-8 md:pt-28">{children}</div>
+)
 
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const { userData, currentUser } = useAuth();
-  const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
-  const [selectedActivity, setSelectedActivity] = React.useState<any | null>(null);
+  const { userData, currentUser, systemError } = useAuth()
+  const { subtasks, loading } = useTasks()
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
-  const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
-  const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const pendingReviews = useMemo(
+    () => subtasks.filter((s) => s.validationState === 'PENDING').length,
+    [subtasks],
+  )
 
   React.useEffect(() => {
-    if (userData && userData.onboardingCompleted === false) {
-       setShowOnboarding(true);
-    }
-  }, [userData]);
+    if (userData && userData.onboardingCompleted === false) setShowOnboarding(true)
+  }, [userData])
 
   const handleOnboardingComplete = async () => {
-    setShowOnboarding(false);
+    setShowOnboarding(false)
     if (currentUser) {
-       try {
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-             onboardingCompleted: true
-          });
-       } catch (err) {
-          console.error("Failed to save onboarding state:", err);
-       }
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), { onboardingCompleted: true })
+      } catch (err) {
+        console.error('Failed to save onboarding state:', err)
+      }
     }
-  };
+  }
 
-  // Modern Intelligent Discovery Engine
-  const discoveredTasks = useMemo(() => {
-    const rail: any[] = [];
+  if (systemError) return null // MaintenanceOverlay handled in AuthContext
 
-    // 1. Featured Campaigns
-    activeCampaigns.filter(c => c.featured).forEach(c => {
-       rail.push({
-          id: `campaign_${c.id}`,
-          originalId: c.id,
-          type: 'CAMPAIGN',
-          title: c.name,
-          category: c.category,
-          reward: c.totalPrizePool || 0,
-          image: c.bannerUrl,
-          description: c.description,
-          participants: c.participantsCount,
-          priority: 100
-       });
-    });
-
-    // 2. High-Value Actionable Tasks
-    tasks.filter(t => t.active && getTaskStatus(t).status === 'available').slice(0, 8).forEach(t => {
-       const campaign = activeCampaigns.find(c => c.id === t.campaignId);
-       rail.push({
-          id: `task_${t.id}`,
-          originalId: t.id,
-          campaignId: t.campaignId,
-          campaignName: campaign?.name,
-          type: 'TASK',
-          title: t.title,
-          category: t.category,
-          reward: t.rewardAmount,
-          xp: t.xpReward,
-          instructions: t.instructions,
-          verificationType: t.verificationType,
-          priority: t.rewardAmount > 500 ? 90 : 70
-       });
-    });
-
-    // 3. Unclaimed System Missions - Batch 3: Improved visibility & status filtering
-    systemTasks
-      .filter(st => st.progress?.status !== 'CLAIMED' && st.definition?.active !== false)
-      .forEach(st => {
-       rail.push({
-          id: `mission_${st.id}`,
-          originalId: st.id,
-          type: 'MISSION',
-          title: st.definition.title,
-          category: st.definition.category,
-          reward: st.definition.rewardPoints,
-          xp: st.definition.rewardXp,
-          description: st.definition.description,
-          progress: st.progress?.progress || 0,
-          target: st.definition.targetValue,
-          status: st.progress?.status || 'IN_PROGRESS',
-          priority: st.progress?.status === 'COMPLETED' ? 95 : 80
-       });
-    });
-
-    return rail.sort((a, b) => b.priority - a.priority);
-  }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
-
-  if (loading) return (
-    <div className="pt-32 px-6 max-w-7xl mx-auto space-y-12">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-surface rounded-2xl animate-pulse" />
-        <div className="h-10 w-64 bg-surface rounded-xl animate-pulse" />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-surface border border-border/5 rounded-[2rem] animate-pulse" />)}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-         <div className="lg:col-span-2 h-[600px] bg-surface border border-border/5 rounded-[2.5rem] animate-pulse" />
-         <div className="h-[600px] bg-surface border border-border/5 rounded-[2.5rem] animate-pulse" />
-      </div>
-    </div>
-  );
-
-  const { systemError } = useAuth();
-
-  if (systemError) return null; // MaintenanceOverlay handled in AuthContext
-
-  if (!userData && !loading) return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-8 px-6 text-center">
-       <div className="relative">
-          <div className="absolute inset-0 bg-danger/10 blur-2xl rounded-full" />
-          <div className="relative w-20 h-20 rounded-3xl bg-[#12121A] border border-danger/20 flex items-center justify-center text-danger shadow-2xl">
-             <ActivityIcon size={32} />
+  if (loading) {
+    return (
+      <Shell>
+        <div className="space-y-8">
+          <div className="flex items-center gap-4">
+            <Skeleton className="size-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-40" />
+            </div>
           </div>
-       </div>
-       <div className="space-y-3">
-          <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Authority Sync Failed</h2>
-          <div className="space-y-1">
-             <p className="text-text-tertiary text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic: ENTITY_READ_FAILURE</p>
-             <p className="text-white/40 text-xs max-w-xs mx-auto font-bold uppercase tracking-widest leading-relaxed px-4">
-                We could not establish an authoritative syncing with your profile node.
-             </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-40 rounded-xl" />
+            ))}
           </div>
-       </div>
-       <div className="flex flex-col gap-4 w-full max-w-xs">
-          <Button
-            onClick={() => window.location.reload()}
-            className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic shadow-xl"
-          >
-             Re-Initialize Session
-          </Button>
-          <button
-             onClick={() => navigate('/support')}
-             className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-primary transition-colors"
-          >
-             Report Infrastructure Issue
-          </button>
-       </div>
-    </div>
-  );
+          <StateLoading rows={4} rowClassName="h-20" />
+        </div>
+      </Shell>
+    )
+  }
+
+  if (!userData) {
+    return (
+      <Shell>
+        <StateError
+          title="We couldn't sync your profile"
+          description="We could not establish an authoritative connection with your account. Please try again."
+          onRetry={() => window.location.reload()}
+        />
+      </Shell>
+    )
+  }
+
+  const stats = userData.stats
 
   return (
     <>
       <AnimatePresence>
-         {showOnboarding && <OnboardingOverlay onComplete={handleOnboardingComplete} />}
+        {showOnboarding && <OnboardingOverlay onComplete={handleOnboardingComplete} />}
       </AnimatePresence>
 
-      <div className="pt-24 md:pt-32 pb-32 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto space-y-12 md:space-y-20">
-        {/* HEADER */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 md:gap-12">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-4"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Dashboard</span>
+      <Shell>
+        <div className="space-y-8">
+          <DashboardHeader userData={userData} />
+
+          {/* Hero metrics */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <WalletSnapshotCard userData={userData} />
+            <ProgressionCard userData={userData} />
+            <DailyRewardCard />
+          </div>
+
+          {/* Secondary stat strip */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatChip icon={CheckSquare} label="Tasks completed" value={stats?.tasksCompleted ?? 0} tone="primary" />
+            <StatChip icon={Users} label="Referrals" value={stats?.referralsCount ?? 0} tone="success" />
+            <StatChip icon={BarChart3} label="Predictions" value={stats?.predictionsCount ?? 0} tone="primary" />
+            <StatChip icon={Clock} label="Pending reviews" value={pendingReviews} tone="warning" />
+          </div>
+
+          {/* Main grid */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-8 lg:col-span-2">
+              <ContinueEarning />
+              <ActivePredictions />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-               Welcome back, <span className="text-text-tertiary">{userData?.username}</span>
-            </h1>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-wrap gap-3"
-          >
-             {[
-               { name: 'Tasks', path: '/tasks', icon: LayoutGrid },
-               { name: 'Prediction', path: '/predictions', icon: BarChart3 },
-               { name: 'Withdraw', path: '/wallet', icon: CreditCard },
-               { name: 'Invite', path: '/referrals', icon: UserPlus },
-             ].map((action) => (
-               <Link
-                key={action.name}
-                to={action.path}
-                className="flex items-center gap-3 px-5 py-3 rounded-xl bg-surface-bright border border-border hover:bg-surface-accent hover:border-primary/40 transition-all group"
-               >
-                 <action.icon size={14} className="text-text-tertiary group-hover:text-primary transition-colors" />
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary group-hover:text-text-primary transition-colors">{action.name}</span>
-               </Link>
-             ))}
-          </motion.div>
-        </div>
-
-        {/* METRICS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-           <Card variant="compact" className="bg-primary/[0.03] border-primary/20 p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] relative overflow-hidden group shadow-2xl transition-all hover:border-primary/40">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[50px] -mr-16 -mt-16 group-hover:bg-primary/20 transition-all duration-700" />
-              <div className="flex justify-between items-start relative z-10">
-                 <p className="data-label text-primary">Pulse Balance</p>
-                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/20 text-primary">
-                    <WalletIcon size={16} />
-                 </div>
-              </div>
-              <div className="space-y-1 relative z-10">
-                 <div className="flex items-baseline gap-2">
-                    <h2 className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">
-                       <AnimatedNumber value={userData?.points || 0} />
-                    </h2>
-                    <span className="text-[10px] font-mono text-primary uppercase font-black">PTS</span>
-                 </div>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">≈ {formatUSD((userData?.points || 0) / 1000)} USD</p>
-              </div>
-           </Card>
-
-           <Card variant="compact" className="p-6 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="flex justify-between items-start relative z-10">
-                 <p className="data-label">Progression</p>
-                 <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-surface-accent border border-border-bright", getLevelTier(userData?.level || 1).color)}>
-                    <TrendingUp size={16} />
-                 </div>
-              </div>
-              <div className="space-y-4 relative z-10">
-                 <div className="flex flex-col">
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-baseline gap-2">
-                          <p className="text-2xl font-bold text-text-primary tracking-tight">LVL {userData?.level || 1}</p>
-                          <span className={cn("text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md bg-white/[0.05] border border-border", getLevelTier(userData?.level || 1).color)}>
-                             {getLevelTier(userData?.level || 1).title}
-                          </span>
-                       </div>
-                       <span className="text-[10px] font-mono font-bold text-primary">{getXpProgress(userData?.xp || 0).progress}%</span>
-                    </div>
-                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mt-1">
-                       {(userData?.xp || 0)?.toLocaleString()} / {getXpProgress(userData?.xp || 0).nextLevelXp?.toLocaleString()} XP
-                    </p>
-                 </div>
-                 <div className="h-2 w-full bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border-bright mt-2">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
-                      className="h-full transition-all duration-1000 rounded-full relative shadow-[0_0_20px_rgba(0,112,255,0.6)] bg-primary"
-                    >
-                       <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                    </motion.div>
-                 </div>
-              </div>
-           </Card>
-
-           <DailyRewardCard />
-
-           <Card variant="compact" className="p-5 md:p-8 flex flex-col justify-between min-h-[140px] md:min-h-[160px] bg-surface border-border group col-span-1">
-              <div className="flex justify-between items-start">
-                 <p className="data-label">Pending</p>
-                 <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-bright border border-border text-text-tertiary group-hover:text-warning transition-colors">
-                    <Clock size={16} />
-                 </div>
-              </div>
-              <div className="space-y-1">
-                 <p className="text-2xl md:text-3xl font-bold text-text-primary tracking-tighter">{pendingSubtasks.length}</p>
-                 <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">In Review</p>
-              </div>
-           </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 items-start">
-          {/* PRIMARY EARNING FEED */}
-          <div className="lg:col-span-2 space-y-16">
-            {/* MODERN TASK RAIL */}
-            <section className="space-y-8">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                     <h2 className="text-xl font-bold tracking-tight italic">Earn</h2>
-                  </div>
-                  <Link to="/tasks" className="flex items-center gap-2 group">
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary group-hover:text-primary transition-colors">View All</span>
-                     <ChevronRight size={14} className="text-text-tertiary/50 group-hover:text-primary transition-colors" />
-                  </Link>
-               </div>
-
-               <div className="relative -mx-4 md:-mx-6 px-4 md:px-6 overflow-x-auto no-scrollbar pb-8">
-                  <div className="flex gap-6 min-w-max py-2">
-                     {discoveredTasks.map((item) => (
-                        <motion.div
-                           key={item.id}
-                           whileHover={{ y: -5 }}
-                           className={cn(
-                              "w-[260px] md:w-80 p-6 md:p-8 rounded-[2.5rem] bg-surface border transition-all cursor-pointer flex flex-col justify-between group min-h-[320px] md:min-h-[380px]",
-                              item.type === 'CAMPAIGN' ? "border-primary/20 bg-primary/[0.02]" : "border-border hover:border-border-bright shadow-sm hover:shadow-xl"
-                           )}
-                           onClick={() => {
-                              if (item.category === 'PREDICTION') navigate('/predictions');
-                              else if (item.category === 'REFERRAL') navigate('/referrals');
-                              else navigate('/tasks');
-                           }}
-                        >
-                           <div className="space-y-6">
-                              <div className="flex justify-between items-start">
-                                 <div className={cn(
-                                    "w-12 h-12 rounded-2xl flex items-center justify-center border shadow-inner",
-                                    item.type === 'CAMPAIGN' ? "bg-primary/10 border-primary/20 text-primary" : "bg-surface-bright border-border text-text-tertiary group-hover:text-text-primary"
-                                 )}>
-                                    {item.category === 'PREDICTION' ? <BarChart3 size={20} /> :
-                                     item.category === 'REFERRAL' ? <UserPlus size={20} /> :
-                                     item.type === 'MISSION' ? <Calendar size={20} /> : <Target size={20} />}
-                                 </div>
-                                 <div className="text-right">
-                                    <div className="flex items-center gap-1.5 justify-end">
-                                       <Zap size={12} className="text-primary" />
-                                       <span className="text-lg font-mono font-bold text-text-primary">+{item.reward.toLocaleString()}</span>
-                                    </div>
-                                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-text-tertiary">Authorized Reward</p>
-                                 </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{item.category || item.type}</p>
-                                 <h3 className="text-lg md:text-xl font-bold text-text-primary tracking-tighter leading-tight line-clamp-2 md:line-clamp-1 group-hover:text-primary transition-colors italic">
-                                    {item.title}
-                                 </h3>
-                                 <p className="text-xs text-text-tertiary font-medium line-clamp-3 md:line-clamp-2 leading-relaxed min-h-[48px] md:min-h-[32px]">
-                                    {item.description || item.instructions || 'Secure this objective to claim your contribution rewards.'}
-                                 </p>
-                              </div>
-                           </div>
-
-                           <div className="pt-8 flex items-center justify-between border-t border-border mt-8">
-                              <div className="flex items-center gap-3">
-                                 {item.type === 'MISSION' && item.target > 0 ? (
-                                    <div className="flex flex-col gap-1.5">
-                                       <div className="w-20 h-1 bg-surface-bright rounded-full overflow-hidden">
-                                          <div className="h-full bg-primary" style={{ width: `${(item.progress / item.target) * 100}%` }} />
-                                       </div>
-                                       <span className="text-[8px] font-black text-text-tertiary uppercase tracking-widest">{Math.round((item.progress / item.target) * 100)}% Complete</span>
-                                    </div>
-                                 ) : item.type === 'CAMPAIGN' ? (
-                                    <div className="flex -space-x-2">
-                                       {[1,2,3].map(i => <div key={i} className="w-5 h-5 rounded-full border border-black bg-surface-bright" />)}
-                                       <span className="pl-4 text-[9px] font-black text-text-tertiary uppercase tracking-widest">+{item.participants || 0}</span>
-                                    </div>
-                                 ) : (
-                                    <div className="flex items-center gap-1.5 text-success">
-                                       <Gift size={10} />
-                                       <span className="text-[9px] font-black uppercase tracking-widest">Available</span>
-                                    </div>
-                                 )}
-                              </div>
-                              <div className="w-8 h-8 rounded-xl bg-surface-bright flex items-center justify-center text-text-tertiary group-hover:bg-primary group-hover:text-text-primary transition-all">
-                                 <ArrowRight size={14} />
-                              </div>
-                           </div>
-                        </motion.div>
-                     ))}
-                  </div>
-               </div>
-            </section>
-
-            {/* DASHBOARD ANALYTICS / STATS OVERVIEW */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-6 md:space-y-8 group hover:border-primary/20 transition-all">
-                   <div className="flex justify-between items-start">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
-                         <TrendingUp size={20} />
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Global Rank</p>
-                         <p className="text-xl font-bold text-text-primary tracking-tighter italic">TOP 1%</p>
-                      </div>
-                   </div>
-                   <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Earning Stats</h4>
-                      <p className="text-xs text-text-tertiary leading-relaxed">
-                        Secure more objectives to scale your position. Current productivity:
-                        <span className="text-success font-bold ml-1 italic">{userData?.stats?.tasksCompleted || 0} Units</span>
-                      </p>
-                   </div>
-                </div>
-
-                <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface-bright/50 border border-border space-y-6 md:space-y-8 group hover:border-orange-500/20 transition-all">
-                   <div className="flex justify-between items-start">
-                      <div className="w-12 h-12 rounded-2xl bg-orange-500/5 border border-orange-500/10 flex items-center justify-center text-orange-500">
-                         <Flame size={20} />
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Hot Streak</p>
-                         <p className="text-xl font-bold text-text-primary tracking-tighter italic">{userData?.streak || 0} DAYS</p>
-                      </div>
-                   </div>
-                   <div className="space-y-4">
-                      <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest">Loyalty Multiplier</h4>
-                      <p className="text-xs text-text-tertiary leading-relaxed">Daily login recorded. Maintain your streak to unlock <span className="text-orange-500 font-bold">Bonus Yield</span> multipliers.</p>
-                   </div>
-                </div>
-            </section>
-          </div>
-
-          {/* ACTIVITY FEED */}
-          <div className="space-y-16">
-            {activities.length > 0 && (
-              <section className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ActivityIcon size={18} className="text-primary" />
-                    <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Activity</h2>
-                  </div>
-                  <Link to="/notifications" state={{ tab: 'ACTIVITY' }} className="text-[9px] font-black uppercase tracking-widest text-text-tertiary hover:text-primary transition-colors">See All</Link>
-                </div>
-
-                <div className="space-y-2">
-                  {activities.slice(0, 6).map((activity) => {
-                    const isPositive = activity.points > 0;
-
-                    return (
-                      <div
-                        key={activity.id}
-                        onClick={() => setSelectedActivity(activity)}
-                        className="p-5 rounded-2xl bg-surface border border-border group hover:bg-surface-accent hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden"
-                      >
-                        <div className={cn(
-                           "absolute inset-y-0 left-0 w-0.5 transition-all group-hover:w-1",
-                           isPositive ? "bg-success" : "bg-primary"
-                        )} />
-
-                        <div className="flex items-center gap-5">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-inner",
-                            isPositive ? "bg-success/5 border-success/10 text-success" : "bg-surface-bright border-border-bright text-text-tertiary"
-                          )}>
-                            {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
-                             activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
-                             activity.type.includes('referral') ? <UserPlus size={18} /> :
-                             activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
-                          </div>
-
-                          <div className="flex-grow min-w-0">
-                            <p className="text-[11px] font-bold text-text-primary leading-tight group-hover:text-primary transition-colors truncate uppercase tracking-tight italic">
-                               {activity.description}
-                            </p>
-                            <div className="flex items-center gap-3 mt-1.5">
-                               <span className={cn(
-                                 "text-[8px] font-black uppercase tracking-[0.1em]",
-                                 isPositive ? "text-success" : "text-text-tertiary"
-                               )}>
-                                 {isPositive ? `+${activity.points.toLocaleString()} PTS` : 'Event Registered'}
-                               </span>
-                               <div className="w-1 h-1 rounded-full bg-surface-bright" />
-                               <span className="text-[8px] text-text-tertiary font-bold uppercase tracking-widest">
-                                {activity.timestamp?.toDate?.() ? (activity.timestamp?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "") : ""}
-                               </span>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 text-text-tertiary/50 group-hover:text-primary transition-colors">
-                             <ChevronRight size={16} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* PENDING VALIDATIONS SUMMARY */}
-            {pendingSubtasks.length > 0 && (
-               <section className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <Clock size={18} className="text-warning" />
-                    <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px]">Pending Reviews</h2>
-                  </div>
-                  <div className="space-y-3">
-                     {pendingSubtasks.slice(0, 3).map(s => (
-                        <div key={s.id} className="p-4 rounded-xl border border-warning/10 bg-warning/[0.02] flex items-center justify-between">
-                           <div className="min-w-0">
-                              <p className="text-[10px] font-bold text-text-primary truncate max-w-[140px]">{s.metadata?.taskTitle || 'Campaign'}</p>
-                              <p className="text-[8px] font-bold text-warning uppercase tracking-widest mt-1">Verification Active</p>
-                           </div>
-                           <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center text-warning">
-                              <Clock size={14} />
-                           </div>
-                        </div>
-                     ))}
-                  </div>
-               </section>
-            )}
-
-            {/* COMPLETED SUMMARY / NEXT MILESTONE */}
-            <section className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-surface border border-border relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <Trophy size={80} />
-               </div>
-               <div className="flex flex-col items-center gap-6 relative z-10">
-                  <div className="w-16 h-16 rounded-full bg-success/5 flex items-center justify-center text-success border border-success/10 shadow-[0_0_30px_rgba(34,197,94,0.1)]">
-                     <CheckCircle2 size={32} />
-                  </div>
-                  <div className="text-center space-y-1">
-                     <p className="text-4xl font-bold text-text-primary tracking-tighter leading-none">{userData?.stats?.tasksCompleted || 0}</p>
-                     <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Verified Contributions</p>
-                  </div>
-                  <div className="w-full space-y-3">
-                     <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">Next Milestone</span>
-                        <span className="text-[9px] font-mono text-text-secondary">Level {userData?.level ? userData.level + 1 : 2}</span>
-                     </div>
-                     <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary"
-                          style={{ width: `${getXpProgress(userData?.xp || 0).progress}%` }}
-                        />
-                     </div>
-                  </div>
-               </div>
-            </section>
+            <div className="space-y-6">
+              <NotificationsPanel />
+              <ActivityFeed />
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* ACTIVITY DETAIL OVERLAY */}
-      <AnimatePresence>
-        {selectedActivity && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12">
-             <motion.div
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setSelectedActivity(null)}
-               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
-             />
-             <motion.div
-               initial={{ scale: 0.95, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
-             >
-                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-lg">
-                        <ActivityIcon size={18} />
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">Activity Log</p>
-                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedActivity.type.replace(/_/g, ' ')}</h3>
-                      </div>
-                   </div>
-                   <button onClick={() => setSelectedActivity(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
-                      <X size={18} />
-                   </button>
-                </div>
-
-                <div className="p-8 space-y-8">
-                   <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-text-tertiary mb-2">
-                         <Calendar size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                         <span className="text-text-tertiary/50">•</span>
-                         <Clock size={12} className="text-primary/40" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">{selectedActivity.timestamp?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedActivity.description}</h2>
-                   </div>
-
-                   <div className="bg-surface-bright border border-border rounded-2xl overflow-hidden divide-y divide-white/5">
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Transaction Yield</span>
-                         <div className="flex items-baseline gap-1.5">
-                            <span className={cn("text-xl font-mono font-bold", selectedActivity.points >= 0 ? "text-success" : "text-danger")}>
-                               {selectedActivity.points > 0 ? '+' : ''}{selectedActivity.points.toLocaleString()}
-                            </span>
-                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
-                         </div>
-                      </div>
-
-                      {selectedActivity.metadata?.symbol && (
-                         <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Asset Index</span>
-                            <span className="text-xs font-bold text-text-primary uppercase tracking-widest">{selectedActivity.metadata.symbol} / USD</span>
-                         </div>
-                      )}
-
-                      {selectedActivity.metadata?.direction && (
-                         <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Forecast Vector</span>
-                            <div className="flex items-center gap-2">
-                               {selectedActivity.metadata.direction === 'UP' ? <TrendingUp size={14} className="text-success" /> : <TrendingDown size={14} className="text-danger" />}
-                               <span className={cn("text-xs font-bold uppercase tracking-widest", selectedActivity.metadata.direction === 'UP' ? "text-success" : "text-danger")}>{selectedActivity.metadata.direction}</span>
-                            </div>
-                         </div>
-                      )}
-
-                      {selectedActivity.metadata?.entryPrice && (
-                         <div className="p-5 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Execution Price</span>
-                            <span className="text-xs font-mono font-bold text-text-primary">${selectedActivity.metadata.entryPrice.toLocaleString()}</span>
-                         </div>
-                      )}
-
-                      {selectedActivity.metadata?.taskName && (
-                         <div className="p-5 flex justify-between items-start gap-4">
-                            <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] whitespace-nowrap">Objective</span>
-                            <span className="text-[11px] font-bold text-text-primary uppercase tracking-tight text-right italic">{selectedActivity.metadata.taskName}</span>
-                         </div>
-                      )}
-
-                      <div className="p-5 flex justify-between items-center">
-                         <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Ledger Status</span>
-                         <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                            <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">Immutable</span>
-                         </div>
-                      </div>
-                   </div>
-
-                   <div className="space-y-4">
-                      <div className="flex justify-between items-center px-1">
-                         <span className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.3em]">Network Hash</span>
-                         <span className="text-[9px] font-mono text-text-tertiary truncate max-w-[140px]">{selectedActivity.referenceId || selectedActivity.id}</span>
-                      </div>
-                      {(selectedActivity.type.includes('prediction') ||
-                        selectedActivity.type.includes('campaign') ||
-                        selectedActivity.type.includes('task') ||
-                        selectedActivity.type.includes('mission') ||
-                        selectedActivity.type.includes('referral') ||
-                        selectedActivity.type.includes('withdrawal')) && (
-                        <Button
-                           onClick={() => {
-                              const type = selectedActivity.type as string;
-                              if (type.includes('prediction')) {
-                                 navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId || selectedActivity.id } });
-                              }
-                              else if (type.includes('task') || type.includes('mission')) {
-                                 navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
-                              }
-                              else if (type.includes('referral')) navigate('/referrals');
-                              else if (type.includes('withdrawal')) navigate('/wallet');
-                              else if (type.includes('support')) navigate('/support');
-                              setSelectedActivity(null);
-                           }}
-                           variant="primary"
-                           className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group"
-                        >
-                           View Source Context <ArrowUpRight size={14} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                        </Button>
-                      )}
-                   </div>
-                </div>
-
-                <div className="p-8 bg-background border-t border-border flex justify-center">
-                   <p className="text-[9px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Reward System</p>
-                </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* TASK DETAIL OVERLAY */}
-      <AnimatePresence>
-        {selectedTask && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-12">
-             <motion.div
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setSelectedTask(null)}
-               className="absolute inset-0 bg-background/90 backdrop-blur-xl"
-             />
-             <motion.div
-               initial={{ scale: 0.95, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.95, opacity: 0 }}
-               className="relative w-full max-w-lg bg-surface border border-border-bright rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
-             >
-                <div className="p-6 border-b border-border flex items-center justify-between bg-surface-bright/50">
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                        {selectedTask.type === 'MISSION' ? <Trophy size={20} /> : <Target size={20} />}
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-tertiary leading-none mb-1">{selectedTask.campaignName || 'Platform Objective'}</p>
-                        <h3 className="text-[10px] font-black text-text-primary uppercase tracking-[0.15em]">{selectedTask.type}</h3>
-                      </div>
-                   </div>
-                   <button onClick={() => setSelectedTask(null)} className="w-10 h-10 flex items-center justify-center hover:bg-surface-bright rounded-xl transition-all text-text-tertiary">
-                      <X size={18} />
-                   </button>
-                </div>
-
-                <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
-                   <div className="space-y-4">
-                      <h2 className="text-2xl font-bold text-text-primary tracking-tight uppercase italic leading-tight">{selectedTask.title}</h2>
-                      <p className="text-sm text-text-secondary leading-relaxed opacity-70">
-                         {selectedTask.description || selectedTask.instructions || 'Execute this objective to secure authorized contribution rewards.'}
-                      </p>
-                   </div>
-
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="p-5 rounded-2xl bg-surface-bright border border-border space-y-2">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">Reward</p>
-                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-text-primary">{selectedTask.reward.toLocaleString()}</span>
-                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">PTS</span>
-                         </div>
-                      </div>
-
-                      <div className="p-5 rounded-2xl bg-surface-bright border border-border space-y-2">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em]">XP Reward</p>
-                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-mono font-bold text-primary">{selectedTask.xp?.toLocaleString() || '100'}</span>
-                            <span className="text-[9px] font-black text-text-tertiary uppercase tracking-widest">XP</span>
-                         </div>
-                      </div>
-                   </div>
-
-                   <div className="p-5 rounded-2xl bg-surface-bright border border-border flex justify-between items-center">
-                      <span className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">Method</span>
-                      <div className="flex items-center gap-2">
-                         <MousePointer2 size={14} className="text-success" />
-                         <span className="text-[10px] font-black text-text-primary uppercase tracking-widest italic">{selectedTask.verificationType || 'AUTOMATED'}</span>
-                      </div>
-                   </div>
-
-                   {selectedTask.type === 'MISSION' && selectedTask.target > 0 && (
-                      <div className="p-6 rounded-2xl bg-surface-bright/50 border border-dashed border-border-bright space-y-4">
-                         <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-black text-text-primary/30 uppercase tracking-[0.2em]">Quest Progress</span>
-                            <span className="text-[10px] font-mono text-primary font-bold">{Math.round((selectedTask.progress / selectedTask.target) * 100)}%</span>
-                         </div>
-                         <div className="w-full h-1 bg-surface-bright rounded-full overflow-hidden">
-                            <motion.div
-                               initial={{ width: 0 }}
-                               animate={{ width: `${(selectedTask.progress / selectedTask.target) * 100}%` }}
-                               className="h-full bg-primary"
-                            />
-                         </div>
-                      </div>
-                   )}
-
-                   <div className="space-y-3 pt-4">
-                      <Button
-                        onClick={() => {
-                           if (selectedTask.category === 'PREDICTION') navigate('/predictions');
-                           else if (selectedTask.category === 'REFERRAL') navigate('/referrals');
-                           else navigate('/tasks');
-                           setSelectedTask(null);
-                        }}
-                        variant="primary"
-                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl group italic"
-                      >
-                         Continue <ArrowUpRight size={16} className="ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      </Button>
-                      <button
-                        onClick={() => setSelectedTask(null)}
-                        className="w-full h-12 text-[10px] font-black text-text-tertiary uppercase tracking-[0.3em] hover:text-text-primary transition-colors"
-                      >
-                         Return to Session
-                      </button>
-                   </div>
-                </div>
-
-                <div className="p-8 bg-background border-t border-border flex justify-center">
-                   <p className="text-[8px] font-black text-text-tertiary/50 uppercase tracking-[0.6em]">PulseEarn Rewards</p>
-                </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      </Shell>
     </>
-  );
-};
+  )
+}
 
-export default Dashboard;
+export default Dashboard

@@ -47,6 +47,7 @@ import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
+import PredictionsPreview from './pages/_preview/PredictionsPreview'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -146,6 +147,7 @@ function App() {
         }}
       />
       <Routes>
+        <Route path="/__preview/predictions" element={<PredictionsPreview />} />
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

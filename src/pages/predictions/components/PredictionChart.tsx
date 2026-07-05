@@ -123,7 +123,7 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
   }, [assetId]);
 
   return (
-    <div className="w-full bg-surface-bright/50 border border-border rounded-2xl overflow-hidden p-2 relative">
+    <div className="w-full bg-muted/40 border border-border rounded-xl overflow-hidden p-2 relative">
        {loading && (
           <div className="absolute inset-0 z-10 bg-background/40 backdrop-blur-sm flex items-center justify-center">
              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />

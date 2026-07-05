@@ -1,5 +1,5 @@
 import { ShieldAlert, RefreshCcw, AlertTriangle } from 'lucide-react';
-import Button from './Button';
+import Button from './ButtonLegacy';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import Logo from './Logo';
 

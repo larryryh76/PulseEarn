@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Shield, TrendingUp, Globe, CreditCard, BarChart3 } from 'lucide-react';
-import Card from '../ui/Card';
+import Card from '../ui/CardLegacy';
 import { cn } from '../../utils';
 
 const Features: React.FC = () => {

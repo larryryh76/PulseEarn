@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, X, Key, Globe } from 'lucide-react';
 import { db } from '../../../../firebase/config';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import Button from '../../../../components/ui/Button';
+import Button from '../../../../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import { cn } from '../../../../utils';
 

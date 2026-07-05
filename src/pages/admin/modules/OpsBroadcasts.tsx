@@ -12,7 +12,7 @@ import {
 import { BroadcastEngine } from '../../../engines/system/BroadcastEngine';
 import { cn } from '../../../utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import Button from '../../../components/ui/Button';
+import Button from '../../../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import { collection, query, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
 import { db } from '../../../firebase/config';

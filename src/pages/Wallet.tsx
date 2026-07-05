@@ -22,8 +22,8 @@ import { cn } from '../utils';
 import toast from 'react-hot-toast';
 import { PTS_TO_USD, formatUSD, WITHDRAWAL_MIN_PTS } from '../utils/finance';
 import { Transaction } from '../types';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Card from '../components/ui/CardLegacy';
+import Button from '../components/ui/ButtonLegacy';
 import { getWithdrawalEligibility } from '../utils/eligibility';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 

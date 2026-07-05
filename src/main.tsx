@@ -1,11 +1,13 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { TaskProvider } from './contexts/TaskContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+import { queryClient } from './lib/queryClient'
 
 // Global Handler for Chunk Load Errors (Deployment Refresh)
 window.addEventListener('error', (e) => {
@@ -30,6 +32,7 @@ if (import.meta.env.DEV) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary name="App Root">
+      <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
             <TaskProvider>
@@ -48,6 +51,7 @@ createRoot(document.getElementById('root')!).render(
             </TaskProvider>
         </AuthProvider>
       </ThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

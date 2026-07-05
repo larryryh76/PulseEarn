@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import MainLayout from '../components/layout/MainLayout';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';

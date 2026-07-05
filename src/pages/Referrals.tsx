@@ -15,11 +15,11 @@ import {
   Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReferralRecord } from '../types';
-import Card from '../components/ui/Card';
+import Card from '../components/ui/CardLegacy';
 import toast from 'react-hot-toast';
 
 const Referrals: React.FC = () => {

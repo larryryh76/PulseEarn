@@ -12,7 +12,7 @@ import {
   ShieldAlert,
   Loader2
 } from 'lucide-react';
-import Button from '../../../components/ui/Button';
+import Button from '../../../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import { db } from '../../../firebase/config';
 import {

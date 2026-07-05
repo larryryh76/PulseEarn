@@ -6,7 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, TaskClaim } from '../types';
 import { cn } from '../utils';
-import Button from './ui/Button';
+import Button from './ui/ButtonLegacy';
 
 interface TaskDetailDrawerProps {
   isOpen: boolean;

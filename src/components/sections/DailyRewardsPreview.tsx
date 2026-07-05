@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Gift, Zap, DollarSign, ChevronRight } from 'lucide-react';
 import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';
-import Card from '../ui/Card';
+import Card from '../ui/CardLegacy';
 import { cn } from '../../utils';
 import { useNavigate } from 'react-router-dom';
 import { useCryptoData } from '../../hooks/useCryptoData';

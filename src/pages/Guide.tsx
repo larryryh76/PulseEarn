@@ -11,7 +11,7 @@ import {
   MousePointer2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 
 const Guide: React.FC = () => {
   const navigate = useNavigate();

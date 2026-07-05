@@ -23,8 +23,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Card from '../components/ui/CardLegacy';
+import Button from '../components/ui/ButtonLegacy';
 
 
 const Notifications: React.FC = () => {

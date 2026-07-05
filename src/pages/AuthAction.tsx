@@ -9,7 +9,7 @@ import { auth } from '../firebase/config';
 import MainLayout from '../components/layout/MainLayout';
 import { Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 
 const AuthAction: React.FC = () => {

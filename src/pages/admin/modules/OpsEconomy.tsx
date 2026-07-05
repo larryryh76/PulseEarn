@@ -29,7 +29,7 @@ import {
 } from 'firebase/firestore';
 import { formatUSD } from '../../../utils/finance';
 import { motion, AnimatePresence } from 'framer-motion';
-import Button from "../../../components/ui/Button";
+import Button from "../../../components/ui/ButtonLegacy";
 import toast from "react-hot-toast";
 import { cn } from '../../../utils';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';

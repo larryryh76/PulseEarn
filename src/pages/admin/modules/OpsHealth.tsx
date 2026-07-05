@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import { db, auth } from '../../../firebase/config';
 import { collection, query, where, getDocs, limit,  Timestamp, orderBy, startAfter } from 'firebase/firestore';
-import Card from '../../../components/ui/Card';
-import Button from '../../../components/ui/Button';
+import Card from '../../../components/ui/CardLegacy';
+import Button from '../../../components/ui/ButtonLegacy';
 import DataTable from '../../../components/admin/common/DataTable';
 
 interface HealthMetric {

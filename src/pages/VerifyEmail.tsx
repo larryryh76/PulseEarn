@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 import { useAuth } from '../contexts/AuthContext';
 import { Mail, RefreshCw, LogOut, Loader2, CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';

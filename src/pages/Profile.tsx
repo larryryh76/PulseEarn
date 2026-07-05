@@ -24,8 +24,8 @@ import toast from 'react-hot-toast';
 import { useNavigate, Link } from 'react-router-dom';
 import { doc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import Card from '../components/ui/CardLegacy';
+import Button from '../components/ui/ButtonLegacy';
 import { getXpProgress, getLevelTier } from '../utils/progression';
 
 const Profile: React.FC = () => {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import { Target, Zap, Shield, ChevronRight, Search, X, FileText, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Button from '../components/ui/Button';
+import Button from '../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import { auth } from '../firebase/config';
 import { safeFetch } from '../utils/api';

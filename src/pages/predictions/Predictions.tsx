@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils';
-import Button from '../../components/ui/Button';
+import Button from '../../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import PredictionChart from './components/PredictionChart';
 import { EconomyConfigEngine } from '../../engines/system/EconomyConfigEngine';

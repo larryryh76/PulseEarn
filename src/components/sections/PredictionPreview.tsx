@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bitcoin, TrendingUp, TrendingDown, Clock, Target } from 'lucide-react';
-import Card from '../ui/Card';
+import Card from '../ui/CardLegacy';
 import { cn } from '../../utils';
 import { useNavigate } from 'react-router-dom';
 import { useCryptoData } from '../../hooks/useCryptoData';

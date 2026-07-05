@@ -27,7 +27,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../../../utils';
-import Button from '../../../components/ui/Button';
+import Button from '../../../components/ui/ButtonLegacy';
 import toast from 'react-hot-toast';
 import DataTable from '../../../components/admin/common/DataTable';
 

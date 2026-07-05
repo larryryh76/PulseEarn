@@ -11,7 +11,7 @@ import {
   Gift
 } from 'lucide-react';
 import { cn } from '../utils';
-import Button from './ui/Button';
+import Button from './ui/ButtonLegacy';
 
 interface Step {
   title: string;

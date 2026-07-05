@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Flame, Clock, Gift, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import Card from '../ui/Card';
+import Card from '../ui/CardLegacy';
 import { cn } from '../../utils';
 
 const DailyRewardCard: React.FC = () => {

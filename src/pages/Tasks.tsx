@@ -37,7 +37,7 @@ function SummaryStat({
 }
 
 export default function Tasks() {
-  const { tasks, loading, getTaskStatus } = useTasks()
+  const { tasks, unifiedHistory, loading, getTaskStatus } = useTasks()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'ALL' | TaskCategory>('ALL')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -51,11 +51,17 @@ export default function Tasks() {
   }, [tasks, getTaskStatus])
 
   const summary = useMemo(() => {
+    // `tasks` from the context already excludes completed/cooldown tasks, so actionable
+    // entries are the open ones and rejected retries. The true lifetime completed count
+    // comes from unifiedHistory (task history + legacy claims + claimed missions).
     const available = entries.filter((e) => e.status === 'available' || e.status === 'rejected')
-    const completed = entries.filter((e) => e.status === 'completed' || e.status === 'pending')
     const potential = available.reduce((sum, e) => sum + (e.task.rewardAmount || 0), 0)
-    return { availableCount: available.length, completedCount: completed.length, potential }
-  }, [entries])
+    return {
+      availableCount: available.length,
+      completedCount: (unifiedHistory || []).length,
+      potential,
+    }
+  }, [entries, unifiedHistory])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -93,7 +99,7 @@ export default function Tasks() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SummaryStat icon={ListChecks} label="Tasks available" value={summary.availableCount.toLocaleString()} />
             <SummaryStat icon={Zap} label="Potential rewards" value={`${summary.potential.toLocaleString()} PTS`} />
-            <SummaryStat icon={CheckCircle2} label="Completed or in review" value={summary.completedCount.toLocaleString()} />
+            <SummaryStat icon={CheckCircle2} label="Completed all-time" value={summary.completedCount.toLocaleString()} />
           </div>
         </header>
 

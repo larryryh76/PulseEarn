@@ -111,6 +111,21 @@ export function statusMeta(key: TaskStatusKey): StatusMeta {
   return STATUS_META[key] || STATUS_META.available
 }
 
+/** Map server error codes from /api/tasks/submit to friendly, user-facing copy. */
+const SUBMIT_ERROR_COPY: Record<string, string> = {
+  ALREADY_PENDING: 'This task is already awaiting review.',
+  ALREADY_COMPLETED: 'You have already completed this task.',
+  ON_COOLDOWN: 'This task is on cooldown. Check back later.',
+  TASK_INACTIVE: 'This task is no longer available.',
+  NOT_FOUND: 'This task could not be found.',
+  MISSING_TASK_ID: 'Something went wrong. Please try again.',
+}
+
+export function submitErrorMessage(code?: string, fallback?: string): string {
+  if (code && SUBMIT_ERROR_COPY[code]) return SUBMIT_ERROR_COPY[code]
+  return fallback || 'Submission failed. Please try again.'
+}
+
 /** Short "available in Xh Ym" label for cooldown tasks. */
 export function cooldownLabel(nextAvailable?: Date): string {
   if (!nextAvailable) return 'On cooldown'

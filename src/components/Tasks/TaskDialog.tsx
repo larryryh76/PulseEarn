@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { auth } from '../../firebase/config'
 import { safeFetch } from '../../utils/api'
 import type { Task } from '../../types'
-import { categoryMeta, verificationMeta, toneChip } from './helpers'
+import { categoryMeta, verificationMeta, toneChip, submitErrorMessage } from './helpers'
 
 export default function TaskDialog({
   task,
@@ -57,7 +57,7 @@ export default function TaskDialog({
         setProof('')
         onOpenChange(false)
       } else {
-        toast.error(data.message || data.error || 'Submission failed')
+        toast.error(submitErrorMessage(data.error, data.message))
       }
     } catch {
       toast.error('System error. Please try again.')

@@ -66,7 +66,7 @@ export default function ContinueEarning() {
       )
 
     systemTasks
-      .filter((st) => st.progress?.status !== 'CLAIMED' && st.definition?.active !== false)
+      .filter((st) => st?.definition && st.progress?.status !== 'CLAIMED' && st.definition?.active !== false)
       .forEach((st) =>
         rail.push({
           id: `mission_${st.id}`,

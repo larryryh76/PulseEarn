@@ -30,6 +30,23 @@ const SYMBOL_MAP: Record<string, string> = {
   'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
 };
 
+// Display names for assets, used when a price-only provider (exchange APIs) is the
+// source and CoinGecko's rich metadata is unavailable.
+const ASSET_NAME_MAP: Record<string, string> = {
+  'bitcoin': 'Bitcoin', 'ethereum': 'Ethereum', 'solana': 'Solana', 'binancecoin': 'BNB', 'ripple': 'XRP',
+  'cardano': 'Cardano', 'dogecoin': 'Dogecoin', 'the-open-network': 'Toncoin', 'avalanche-2': 'Avalanche', 'chainlink': 'Chainlink',
+  'sui': 'Sui', 'tron': 'TRON', 'shiba-inu': 'Shiba Inu', 'pepe': 'Pepe', 'litecoin': 'Litecoin',
+  'polkadot': 'Polkadot', 'cosmos': 'Cosmos', 'arbitrum': 'Arbitrum', 'optimism': 'Optimism', 'near': 'NEAR'
+};
+
+// Keyless coin icon CDN, keyed by lowercase symbol.
+const iconFor = (sym: string) => `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`;
+
+// Reliable, keyless exchange endpoint. Returns last trade + 24h open per product.
+const COINBASE_EXCHANGE_URL = 'https://api.exchange.coinbase.com';
+
+type CryptoSource = 'coingecko' | 'coinbase' | 'cryptocompare';
+
 // A price is considered stale once it is older than this. The feed refreshes every
 // 60s, so 90s means a single missed cycle (plus buffer) flags the data as stale. A
 // prediction platform must never present stale prices as live, so consumers use this
@@ -48,11 +65,51 @@ export const useCryptoData = () => {
   const [globalData, setGlobalData] = useState<GlobalMarketData | null>(cache.global);
   const [loading, setLoading] = useState(cache.market.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<'coingecko' | 'cryptocompare'>('coingecko');
+  const [source, setSource] = useState<CryptoSource>('coingecko');
   // Timestamp of the last SUCCESSFUL fetch (0 = never loaded). Authoritative freshness signal.
   const [lastUpdated, setLastUpdated] = useState<number>(cache.timestamp);
   // Ticks every 30s so `isStale` recomputes even while fetches are failing.
   const [, setFreshnessTick] = useState(0);
+
+  // Reliable, keyless fallback using Coinbase Exchange per-product stats. Provides the
+  // authoritative last trade price and 24h open (for change %). Names/icons come from
+  // the static registry since exchanges don't return metadata. Partial failures are
+  // tolerated (allSettled) but if NO product resolves we throw so the next tier runs.
+  const fetchFromCoinbase = async () => {
+    const entries = Object.entries(SYMBOL_MAP);
+    const results = await Promise.allSettled(
+      entries.map(([, sym]) =>
+        axios.get(`${COINBASE_EXCHANGE_URL}/products/${sym}-USD/stats`, { timeout: 8000 }),
+      ),
+    );
+
+    const mapped: CryptoMarketData[] = [];
+    results.forEach((r, i) => {
+      if (r.status !== 'fulfilled') return;
+      const [id, sym] = entries[i];
+      const last = parseFloat(r.value.data?.last);
+      const open = parseFloat(r.value.data?.open);
+      if (!Number.isFinite(last) || last <= 0) return;
+      mapped.push({
+        id,
+        symbol: sym.toLowerCase(),
+        name: ASSET_NAME_MAP[id] || id,
+        image: iconFor(sym),
+        current_price: last,
+        market_cap: 0,
+        market_cap_rank: 0,
+        price_change_percentage_24h: Number.isFinite(open) && open > 0 ? ((last - open) / open) * 100 : 0,
+        total_volume: parseFloat(r.value.data?.volume) || 0,
+      });
+    });
+
+    if (mapped.length === 0) throw new Error('Coinbase returned no valid prices');
+
+    setMarketData(mapped);
+    setSource('coinbase');
+    cache = { ...cache, market: mapped, timestamp: Date.now() };
+    setLastUpdated(cache.timestamp);
+  };
 
   const fetchFromCryptoCompare = async () => {
     const symbols = Object.values(SYMBOL_MAP).join(',');
@@ -116,12 +173,22 @@ export const useCryptoData = () => {
         setLastUpdated(cache.timestamp);
         setError(null);
       } catch (cgError) {
-        console.warn('CoinGecko failed, falling back to CryptoCompare...', cgError);
-        await fetchFromCryptoCompare();
-        setError('Using fallback market data source');
+        // CoinGecko is frequently rate-limited (429) from shared IPs. Fall through a
+        // chain of reliable keyless providers before giving up. Never fabricate prices.
+        console.warn('[v0] CoinGecko unavailable, trying Coinbase…', cgError);
+        try {
+          await fetchFromCoinbase();
+          setError(null);
+        } catch (cbError) {
+          console.warn('[v0] Coinbase unavailable, trying CryptoCompare…', cbError);
+          await fetchFromCryptoCompare();
+          setError(null);
+        }
       }
     } catch (err) {
-      console.error('All crypto data sources failed:', err);
+      // Every live source failed. Surface an explicit unavailable state — do NOT show
+      // stale cache as if it were live (consumers gate on isStale/lastUpdated).
+      console.error('[v0] All crypto data sources failed:', err);
       setError('Market data currently unavailable');
     } finally {
       setLoading(false);

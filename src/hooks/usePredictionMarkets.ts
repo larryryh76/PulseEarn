@@ -22,7 +22,7 @@ export interface UsePredictionMarketsResult {
   winMultiplier: number
   points: number
   /** Live-feed freshness signals surfaced to the UI. */
-  source: 'coingecko' | 'cryptocompare'
+  source: 'coingecko' | 'coinbase' | 'cryptocompare'
   lastUpdated: number
   isStale: boolean
   feedError: string | null

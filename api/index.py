@@ -223,22 +223,65 @@ def is_moderator(uid):
     return False
 
 def fetch_market_price(asset_id):
+    # Authoritative price used for prediction entry + settlement. Tries multiple
+    # independent providers so a single provider outage (e.g. CoinGecko 429 rate limit)
+    # never blocks settlement. Returns None only when EVERY source fails — callers must
+    # treat None as PRICE_FEED_OFFLINE and never fabricate a price.
     SYMBOL_MAP = {'bitcoin':'BTC','ethereum':'ETH','solana':'SOL','binancecoin':'BNB','ripple':'XRP','cardano':'ADA','dogecoin':'DOGE','the-open-network':'TON','avalanche-2':'AVAX','chainlink':'LINK','sui':'SUI','tron':'TRX','shiba-inu':'SHIB','pepe':'PEPE','litecoin':'LTC','polkadot':'DOT','cosmos':'ATOM','arbitrum':'ARB','optimism':'OP','near':'NEAR'}
     get_deps()
-    price = None
+    sym = SYMBOL_MAP.get(asset_id)
+
+    def _valid(p):
+        try:
+            return p is not None and float(p) > 0
+        except (TypeError, ValueError):
+            return False
+
+    # Tier 1: CoinGecko (rich data, but frequently rate-limited from shared IPs)
     try:
         res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': asset_id, 'vs_currencies': 'usd'}, timeout=10)
         price = res.json().get(asset_id, {}).get('usd')
-    except: pass
+        if _valid(price):
+            return float(price)
+    except Exception as e:
+        print(f"[price] coingecko failed for {asset_id}: {e}", flush=True)
 
-    if price is None:
+    # Tier 2: Coinbase Exchange (reliable, keyless, last trade price)
+    if sym:
         try:
-            sym = SYMBOL_MAP.get(asset_id)
-            if sym:
-                res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
-                price = res.json().get('USD')
-        except: pass
-    return price
+            res = requests.get(f"https://api.exchange.coinbase.com/products/{sym}-USD/stats", timeout=10)
+            price = res.json().get('last')
+            if _valid(price):
+                return float(price)
+        except Exception as e:
+            print(f"[price] coinbase failed for {asset_id}: {e}", flush=True)
+
+    # Tier 3: Kraken (reliable, keyless; 'c' = last trade closed array)
+    if sym:
+        try:
+            ksym = 'XBT' if sym == 'BTC' else sym
+            res = requests.get("https://api.kraken.com/0/public/Ticker", params={'pair': f"{ksym}USD"}, timeout=10)
+            result = res.json().get('result', {})
+            if result:
+                first = next(iter(result.values()))
+                price = first.get('c', [None])[0]
+                if _valid(price):
+                    return float(price)
+        except Exception as e:
+            print(f"[price] kraken failed for {asset_id}: {e}", flush=True)
+
+    # Tier 4: CryptoCompare (needs a key on some plans, kept as last resort)
+    if sym:
+        try:
+            res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': sym, 'tsyms': 'USD'}, timeout=10)
+            price = res.json().get('USD')
+            if _valid(price):
+                return float(price)
+        except Exception as e:
+            print(f"[price] cryptocompare failed for {asset_id}: {e}", flush=True)
+
+    print(f"[price] ALL providers failed for {asset_id} — returning None (PRICE_FEED_OFFLINE)", flush=True)
+    return None
 
 @app.route('/api/ping', methods=['GET'])
 def ping():

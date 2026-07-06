@@ -1,4 +1,4 @@
-import { ArrowLeft, BarChart3, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, BarChart3, Activity, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,7 @@ interface MarketDetailProps {
   isLocked: boolean
   unlockLevel: number
   userLevel: number
-  source: 'coingecko' | 'cryptocompare'
+  source: 'coingecko' | 'coinbase' | 'cryptocompare'
   lastUpdated: number
   isStale: boolean
   onBack: () => void
@@ -40,7 +40,7 @@ export default function MarketDetail({
   const change = coin?.price_change_percentage_24h ?? market.change ?? null
   const unavailable = isPriceUnavailable(price)
   const positive = (change ?? 0) >= 0
-  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : 'CryptoCompare'
+  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : source === 'coinbase' ? 'Coinbase' : 'CryptoCompare'
 
   return (
     <div className="space-y-6">

@@ -29,7 +29,7 @@ function FeedStatus({
   loading: boolean
   isStale: boolean
   feedError: string | null
-  source: 'coingecko' | 'cryptocompare'
+  source: 'coingecko' | 'coinbase' | 'cryptocompare'
   lastUpdated: number
 }) {
   if (loading && !lastUpdated) {
@@ -56,7 +56,7 @@ function FeedStatus({
       </span>
     )
   }
-  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : 'CryptoCompare'
+  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : source === 'coinbase' ? 'Coinbase' : 'CryptoCompare'
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span className="size-1.5 animate-pulse rounded-full bg-success" />

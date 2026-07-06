@@ -423,9 +423,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
+            // Preserve the authoritative role from Firestore — never coerce moderator → user.
+            // The only normalization is ensuring unknown/missing roles fall back to 'user'.
+            const firestoreRole = data.role;
+            const resolvedRole: UserData['role'] =
+              firestoreRole === 'admin' || firestoreRole === 'moderator' ? firestoreRole : 'user';
+
             const resolvedData = {
               ...data,
-              role: data.role === 'admin' ? 'admin' : 'user',
+              role: resolvedRole,
               status: data.status || 'active'
             };
 

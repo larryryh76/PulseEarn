@@ -840,10 +840,81 @@ def lookup():
 @verify_token
 @require_db
 def promote():
-    if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
+    admin_uid = request.user['uid']
+    if not is_admin(admin_uid): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     db = get_db()
-    db.collection('users').document(request.json.get('userId')).update({'role': 'moderator'})
-    return jsonify({"success": True})
+    # Accept either userId (direct) or email (lookup)
+    target_id = request.json.get('userId')
+    email = (request.json.get('email') or '').strip().lower()
+    if not target_id and not email:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    if not target_id and email:
+        docs = db.collection('users').where('email', '==', email).limit(1).get()
+        if not docs:
+            return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+        target_id = docs[0].id
+    target_doc = db.collection('users').document(target_id).get()
+    if not target_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+    target_data = target_doc.to_dict()
+    if target_data.get('role') == 'moderator':
+        return jsonify({"success": False, "error": "ALREADY_MODERATOR"}), 400
+    db.collection('users').document(target_id).update({'role': 'moderator'})
+    # Audit log
+    db.collection('admin_audit_logs').add({
+        'action': 'PROMOTE_MODERATOR',
+        'actorId': admin_uid,
+        'targetId': target_id,
+        'targetUsername': target_data.get('username', 'unknown'),
+        'previousRole': target_data.get('role', 'user'),
+        'newRole': 'moderator',
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    # Notify the promoted user
+    db.collection('users').document(target_id).collection('notifications').add({
+        'title': 'Role Upgraded',
+        'description': 'You have been granted Moderator access on PulseEarn.',
+        'type': 'system',
+        'read': False,
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    return jsonify({"success": True, "message": f"{target_data.get('username')} promoted to Moderator."})
+
+@app.route('/api/admin/demote-moderator', methods=['POST'])
+@verify_token
+@require_db
+def demote():
+    admin_uid = request.user['uid']
+    if not is_admin(admin_uid): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    target_id = request.json.get('userId')
+    if not target_id: return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    db = get_db()
+    target_doc = db.collection('users').document(target_id).get()
+    if not target_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+    target_data = target_doc.to_dict()
+    if target_data.get('role') != 'moderator':
+        return jsonify({"success": False, "error": "NOT_A_MODERATOR"}), 400
+    db.collection('users').document(target_id).update({'role': 'user'})
+    # Audit log
+    db.collection('admin_audit_logs').add({
+        'action': 'DEMOTE_MODERATOR',
+        'actorId': admin_uid,
+        'targetId': target_id,
+        'targetUsername': target_data.get('username', 'unknown'),
+        'previousRole': 'moderator',
+        'newRole': 'user',
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    # Notify the demoted user
+    db.collection('users').document(target_id).collection('notifications').add({
+        'title': 'Role Updated',
+        'description': 'Your Moderator access on PulseEarn has been revoked.',
+        'type': 'system',
+        'read': False,
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    return jsonify({"success": True, "message": f"{target_data.get('username')} revoked from Moderator."})
 
 @app.route('/api/admin/delete-user', methods=['POST'])
 @verify_token

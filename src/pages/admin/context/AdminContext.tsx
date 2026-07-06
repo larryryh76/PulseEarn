@@ -51,8 +51,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
-      // 2. Role Verification
-      if (userData?.role !== 'admin') {
+      // 2. Role Verification — both 'admin' and 'moderator' are ops-level roles.
+      const role = (userData?.role as string);
+      if (role !== 'admin' && role !== 'moderator') {
         logger.log('WARN', 'AUTH', 'Unauthorized access attempt', { uid: currentUser.uid, email: currentUser.email });
         setIsInitialized(false);
         return;

@@ -224,7 +224,7 @@ export interface UserData {
   level: number;
   lastRewardDate?: Timestamp;
   createdAt: Timestamp;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'moderator';
   isBanned?: boolean;
   isFlagged?: boolean;
   flagReason?: string;

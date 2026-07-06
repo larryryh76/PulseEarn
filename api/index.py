@@ -1205,6 +1205,280 @@ def process_referral_reward():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+@app.route('/api/internal/deploy-firebase-config', methods=['POST'])
+@require_db
+def deploy_firebase_config():
+    """
+    ONE-TIME ENDPOINT — deploys Firestore rules, indexes, and Storage rules
+    via Firebase Management REST API using the already-initialized service account.
+    Protected by a deploy secret. REMOVE THIS ENDPOINT AFTER USE.
+    """
+    import time, base64
+
+    # Validate deploy secret header
+    deploy_secret = os.environ.get('DEPLOY_SECRET', '')
+    provided = request.headers.get('X-Deploy-Secret', '')
+    if not deploy_secret or provided != deploy_secret:
+        return jsonify({"success": False, "error": "Forbidden"}), 403
+
+    results = {}
+    project_id = get_project_id()
+
+    try:
+        # Get an access token from the service account using google-auth
+        import google.auth
+        import google.auth.transport.requests
+        from google.oauth2 import service_account as sa_module
+
+        sa_data, _ = _load_service_account()
+        if not sa_data:
+            return jsonify({"success": False, "error": "No service account credentials found"}), 500
+
+        scopes = [
+            'https://www.googleapis.com/auth/cloud-platform',
+            'https://www.googleapis.com/auth/firebase',
+        ]
+        credentials = sa_module.Credentials.from_service_account_info(sa_data, scopes=scopes)
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        token = credentials.token
+
+        headers_auth = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'x-goog-user-project': project_id,
+        }
+
+        # ── 1. Deploy Firestore Rules ─────────────────────────────────────
+        firestore_rules_source = r"""rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() { return request.auth != null; }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isRoot == true
+      );
+    }
+    function isModerator() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator'
+      );
+    }
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isModerator();
+      allow list: if isModerator();
+      allow create: if isOwner(userId) && request.resource.data.role == 'user' && request.resource.data.points == 0 && request.resource.data.xp == 0 && request.resource.data.isBanned == false;
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username','avatarUrl','bio','preferences','onboardingCompleted','avatar','fingerprint','lastSeen','lastActionTimestamp']));
+      allow delete: if isAdmin();
+      match /transactions/{txId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isAdmin(); }
+      match /notifications/{notifId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isOwner(userId) || isAdmin(); }
+      match /task_history/{histId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isAdmin(); }
+      match /activities/{actId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isAdmin(); }
+      match /user_tasks/{taskId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isAdmin(); }
+      match /campaign_participation/{campaignId} { allow read: if isOwner(userId) || isAdmin(); allow write: if isOwner(userId) || isAdmin(); }
+    }
+    match /system_config/{configId} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /system_claims/{claimId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin(); allow list: if isAdmin(); allow update, delete: if isAdmin();
+    }
+    match /campaigns/{campaignId} {
+      allow read, list: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']) && request.time > resource.data.updatedAt + duration.value(5,'s'));
+      allow write: if isAdmin();
+    }
+    match /tasks/{taskId} {
+      allow read, list: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount','totalDistributed','totalClaims']) && request.time > resource.data.updatedAt + duration.value(5,'s'));
+      allow write: if isAdmin();
+    }
+    match /task_claims/{claimId} {
+      allow read: if isAuthenticated(); allow list: if isModerator();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.validationState == 'PENDING';
+      allow update, delete: if isModerator();
+    }
+    match /system_task_definitions/{id} { allow read, list: if isAuthenticated(); allow write: if isAdmin(); }
+    match /user_system_tasks/{id} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    match /user_predictions/{predictionId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin(); allow delete: if isAdmin();
+    }
+    match /referrals/{referralId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && (request.query.filters.referrerId == request.auth.uid || request.query.filters.refereeId == request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
+      allow update: if isAdmin() || (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt','metadata']));
+      allow delete: if isAdmin();
+    }
+    match /support_tickets/{ticketId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && (request.query.filters.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage','updatedAt','attachments']));
+      allow delete: if isAdmin();
+      match /support_messages/{msgId} {
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isAdmin());
+        allow create: if isAuthenticated() && (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isAdmin());
+      }
+    }
+    match /withdrawals/{withdrawalId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin(); allow create: if false; allow update: if isAdmin(); allow delete: if isAdmin();
+    }
+    match /system_anomalies/{id} { allow read, list: if isAdmin(); allow create: if false; allow update, delete: if false; }
+    match /system_audit/{id} { allow read, list: if isAdmin(); allow create: if isAdmin(); allow update, delete: if false; }
+    match /system_security/{id} { allow read, write: if isAdmin(); }
+    match /system_uploads/{id} { allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin()); allow create: if isAuthenticated(); }
+    match /system_fingerprints/{id} { allow read, list: if isAdmin(); allow create, update: if isAuthenticated() && id.startsWith(request.auth.uid); allow delete: if isAdmin(); }
+    match /broadcasts/{id} { allow read, list: if isAuthenticated(); allow write: if isAdmin(); }
+  }
+}"""
+
+        rules_payload = {
+            "source": {
+                "files": [{"name": "firestore.rules", "content": firestore_rules_source}]
+            }
+        }
+        r1 = requests.post(
+            f'https://firebaserules.googleapis.com/v1/projects/{project_id}/rulesets',
+            headers=headers_auth,
+            json=rules_payload,
+            timeout=30
+        )
+        results['rules_create'] = r1.status_code
+
+        if r1.status_code in (200, 201):
+            ruleset_name = r1.json().get('name', '')
+            # Apply the new ruleset to the Firestore release
+            release_payload = {"rulesetName": ruleset_name}
+            r2 = requests.patch(
+                f'https://firebaserules.googleapis.com/v1/projects/{project_id}/releases/cloud.firestore',
+                headers=headers_auth,
+                json=release_payload,
+                timeout=30
+            )
+            results['rules_release'] = r2.status_code
+            results['rules_ok'] = r2.status_code in (200, 201)
+        else:
+            results['rules_error'] = r1.text[:300]
+            results['rules_ok'] = False
+
+        # ── 2. Deploy Storage Rules ───────────────────────────────────────
+        storage_rules_source = r"""rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() { return request.auth != null; }
+    function getUserData() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isAuthenticated() && (getUserData().role == 'admin' || getUserData().role == 'ADMIN' || getUserData().isRoot == true); }
+    function isModerator() { return isAuthenticated() && (isAdmin() || getUserData().role == 'moderator'); }
+    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    match /users/{userId}/avatars/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if (isOwner(userId) || isAdmin()) && request.resource.size < 2 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
+    match /support_tickets/{ticketId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isModerator());
+      allow write: if isAuthenticated() && (firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isModerator()) && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*|application/pdf');
+    }
+    match /task_claims/{claimId}/{allPaths=**} {
+      allow read: if isModerator() || (isAuthenticated() && firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid);
+      allow write: if isAuthenticated() && (firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid || isModerator()) && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
+    match /campaigns/{campaignId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+    }
+    match /system/{allPaths=**} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+  }
+}"""
+
+        storage_rules_payload = {
+            "source": {
+                "files": [{"name": "storage.rules", "content": storage_rules_source}]
+            }
+        }
+        r3 = requests.post(
+            f'https://firebaserules.googleapis.com/v1/projects/{project_id}/rulesets',
+            headers=headers_auth,
+            json=storage_rules_payload,
+            timeout=30
+        )
+        results['storage_rules_create'] = r3.status_code
+
+        if r3.status_code in (200, 201):
+            storage_ruleset_name = r3.json().get('name', '')
+            bucket = get_storage_bucket_name()
+            encoded_bucket = bucket.replace('.', '%2E').replace('/', '%2F')
+            r4 = requests.patch(
+                f'https://firebaserules.googleapis.com/v1/projects/{project_id}/releases/firebase.storage%2F{encoded_bucket}',
+                headers=headers_auth,
+                json={"rulesetName": storage_ruleset_name},
+                timeout=30
+            )
+            # If the specific bucket release doesn't exist, create it
+            if r4.status_code == 404:
+                r4 = requests.post(
+                    f'https://firebaserules.googleapis.com/v1/projects/{project_id}/releases',
+                    headers=headers_auth,
+                    json={"name": f"projects/{project_id}/releases/firebase.storage/{bucket}", "rulesetName": storage_ruleset_name},
+                    timeout=30
+                )
+            results['storage_release'] = r4.status_code
+            results['storage_ok'] = r4.status_code in (200, 201)
+        else:
+            results['storage_error'] = r3.text[:300]
+            results['storage_ok'] = False
+
+        # ── 3. Deploy Firestore Indexes ───────────────────────────────────
+        indexes_to_create = [
+            {"collectionGroup":"task_claims","queryScope":"COLLECTION","fields":[{"fieldPath":"userId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"task_claims","queryScope":"COLLECTION","fields":[{"fieldPath":"validationState","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"user_predictions","queryScope":"COLLECTION","fields":[{"fieldPath":"userId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"user_predictions","queryScope":"COLLECTION","fields":[{"fieldPath":"taskId","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"}]},
+            {"collectionGroup":"referrals","queryScope":"COLLECTION","fields":[{"fieldPath":"referrerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"referrals","queryScope":"COLLECTION","fields":[{"fieldPath":"refereeId","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"}]},
+            {"collectionGroup":"withdrawals","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"role","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+            {"collectionGroup":"system_audit","queryScope":"COLLECTION","fields":[{"fieldPath":"action","order":"ASCENDING"},{"fieldPath":"timestamp","order":"DESCENDING"}]},
+            {"collectionGroup":"system_anomalies","queryScope":"COLLECTION","fields":[{"fieldPath":"userId","order":"ASCENDING"},{"fieldPath":"timestamp","order":"DESCENDING"}]},
+        ]
+
+        index_results = []
+        for idx in indexes_to_create:
+            ri = requests.post(
+                f'https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/collectionGroups/{idx["collectionGroup"]}/indexes',
+                headers=headers_auth,
+                json={"queryScope": idx["queryScope"], "fields": idx["fields"]},
+                timeout=20
+            )
+            # 200/201 = created, 409 = already exists (fine)
+            index_results.append({
+                "collection": idx["collectionGroup"],
+                "fields": [f["fieldPath"] for f in idx["fields"]],
+                "status": ri.status_code,
+                "ok": ri.status_code in (200, 201, 409)
+            })
+
+        results['indexes'] = index_results
+        results['indexes_ok'] = all(i['ok'] for i in index_results)
+        results['success'] = results.get('rules_ok') and results.get('storage_ok') and results.get('indexes_ok')
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "partial": results}), 500
+
+    return jsonify(results)
+
+
 get_deps()
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

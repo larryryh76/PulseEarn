@@ -14,6 +14,7 @@ import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
+import Offerwalls from './pages/Offerwalls'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
@@ -163,6 +164,7 @@ function App() {
            <Route path="/notifications" element={<Notifications />} />
            <Route path="/support" element={<SupportCenter />} />
            <Route path="/guide" element={<Guide />} />
+           <Route path="/offerwalls" element={<Offerwalls />} />
         </Route>
 
         <Route path="/privacy" element={<PrivacyPolicy />} />

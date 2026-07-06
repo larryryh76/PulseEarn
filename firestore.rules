@@ -236,5 +236,38 @@ service cloud.firestore {
       allow list: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // 11. Offerwall Platform (Phase 17)
+    // All writes are exclusively via Admin SDK (Python backend) — never from the client.
+
+    match /offerwall_providers/{providerId} {
+      // Admin reads for Operations Center real-time listener.
+      // Never expose API keys or secrets — those are stripped server-side.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      // All writes go through backend /api/offerwall/* endpoints (Admin SDK).
+      allow write: if false;
+    }
+
+    match /offerwall_callbacks/{callbackId} {
+      // Callbacks are server-written; admin can read the full audit log.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /offerwall_rewards/{rewardId} {
+      // Owners can read their own rewards. Admins can read all.
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /offerwall_events/{eventId} {
+      // Immutable audit event log — admin read only.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
   }
 }

@@ -99,6 +99,7 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ activity, onClick }) => {
     if (activity.type.includes('referral')) return <UserPlus size={14} />;
     if (activity.type.includes('level')) return <TrendingUp size={14} />;
     if (activity.type.includes('withdrawal')) return <CreditCard size={14} />;
+    if (activity.type.includes('offerwall')) return <Layers size={14} />;
     return <Zap size={14} />;
   };
   const timeStr = activity.timestamp?.toDate?.()

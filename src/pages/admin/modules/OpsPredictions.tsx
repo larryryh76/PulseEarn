@@ -23,9 +23,7 @@ import { db } from '../../../firebase/config';
 import { PredictionRecord, Campaign } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
-import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 import { MarketResolutionEngine } from '../../../engines/predictions/MarketResolutionEngine';
-import { useCryptoData } from '../../../hooks/useCryptoData';
 import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsPredictions: React.FC = () => {
@@ -33,8 +31,6 @@ const OpsPredictions: React.FC = () => {
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const { marketData } = useCryptoData();
-
   const [hasMore, setHasMore] = React.useState(true);
   const [lastDoc, setLastDoc] = React.useState<any>(null);
 
@@ -99,20 +95,27 @@ const OpsPredictions: React.FC = () => {
   };
 
   const resolveCampaign = async (campaign: Campaign) => {
-    const coinId = campaign.predictionAsset || 'bitcoin';
-    const currentPrice = marketData.find(c => c.id === coinId)?.current_price;
+    if (!window.confirm(`SETTLE CAMPAIGN: "${campaign.name}"?\n\nThe backend will fetch the authoritative live price at settlement time.`)) return;
 
-    if (!currentPrice) return toast.error("Price logic vector unavailable");
-    if (!window.confirm(`SETTLE CAMPAIGN: "${campaign.name}" at $${currentPrice.toLocaleString()}?`)) return;
-
-    const loadingToast = toast.loading('Executing settlement matrix...');
+    const loadingToast = toast.loading('Executing settlement...');
     try {
       const predsQ = query(collection(db, 'user_predictions'), where('taskId', '==', campaign.id), where('status', '==', 'ACTIVE'));
       const predsSnap = await getDocs(predsQ);
 
-      for (const pDoc of predsSnap.docs) {
-        await PointTransactionEngine.resolvePrediction(pDoc.id, currentPrice);
-      }
+      // Each prediction is settled server-side via /api/resolve-prediction which
+      // re-fetches the authoritative live price at the moment of settlement.
+      // Never pass a client-fetched price — the server is the single source of truth.
+      const results = await Promise.allSettled(
+        predsSnap.docs.map(pDoc =>
+          fetch('/api/resolve-prediction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ predictionId: pDoc.id }),
+          }).then(r => r.json())
+        )
+      );
+
+      const failures = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.success));
 
       await updateDoc(doc(db, 'campaigns', campaign.id), {
         active: false,
@@ -121,8 +124,12 @@ const OpsPredictions: React.FC = () => {
       });
 
       toast.dismiss(loadingToast);
-      toast.success(`Campaign ${campaign.name} finalized`);
-      fetchPredictions(); // Refresh
+      if (failures.length > 0) {
+        toast.error(`Campaign archived. ${failures.length} prediction(s) failed settlement — check audit logs.`);
+      } else {
+        toast.success(`Campaign "${campaign.name}" settled and archived.`);
+      }
+      fetchPredictions();
     } catch (err: any) {
       toast.dismiss(loadingToast);
       toast.error(`Settlement Failed: ${err.message}`);

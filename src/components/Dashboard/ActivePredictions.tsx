@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { StateEmpty } from '../system/states'
 import { useTasks } from '../../hooks/useTasks'
+import { formatPrice } from '../Predictions/helpers'
 
 export default function ActivePredictions() {
   const { predictions } = useTasks()
@@ -62,7 +63,7 @@ export default function ActivePredictions() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Entry ${p.entryPrice?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      Entry {formatPrice(p.entryPrice)}
                     </p>
                   </div>
                   <div className="text-right">

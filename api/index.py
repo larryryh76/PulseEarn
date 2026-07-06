@@ -1100,6 +1100,689 @@ def process_referral_reward():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OFFERWALL ENTERPRISE PLATFORM — Phase 17
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Architecture: provider-agnostic callback pipeline.
+# Adding a new provider = add its PARAM_MAP entry, zero other code changes.
+#
+# Callback pipeline:
+#   Receive → Extract Params → Verify Signature → Dedup → Fraud Gate
+#           → PointTransactionEngine → Wallet → XP → Activity → History
+#           → Notifications → Audit Log
+#
+# All mutations are server-side Firestore transactions (no frontend writes).
+
+import hashlib
+import hmac as hmac_lib
+
+# ─── Provider Param Registry ──────────────────────────────────────────────────
+# Each entry maps a provider slug to how to extract and verify its callback.
+OFFERWALL_PROVIDER_REGISTRY = {
+    'lootably': {
+        'user_param': 'sub_id',
+        'tx_param': 'transaction_id',
+        'offer_param': 'offer_id',
+        'offer_name_param': 'offer_name',
+        'amount_param': 'amount',
+        'sig_param': 'signature',
+        'sig_method': 'md5',
+        'sig_fields': ['offer_id', 'amount', 'sub_id', 'secret'],
+        'success_response': '1',
+    },
+    'bitlabs': {
+        'user_param': 'uid',
+        'tx_param': 'transaction_id',
+        'offer_param': 'survey_id',
+        'offer_name_param': 'survey_name',
+        'amount_param': 'reward',
+        'sig_param': 'signature',
+        'sig_method': 'sha256',
+        'sig_fields': ['uid', 'survey_id', 'reward', 'secret'],
+        'success_response': 'OK',
+    },
+    'cpxresearch': {
+        'user_param': 'ext_user_id',
+        'tx_param': 'trans_id',
+        'offer_param': 'survey_id',
+        'offer_name_param': None,
+        'amount_param': 'amount_local',
+        'sig_param': 'hash',
+        'sig_method': 'md5',
+        'sig_fields': ['ext_user_id', 'trans_id', 'secret'],
+        'success_response': '1',
+    },
+    'adgem': {
+        'user_param': 'publisher_user_id',
+        'tx_param': 'transaction_id',
+        'offer_param': 'offer_id',
+        'offer_name_param': 'offer_name',
+        'amount_param': 'amount',
+        'sig_param': 'security_token',
+        'sig_method': 'md5',
+        'sig_fields': ['app_id', 'transaction_id', 'publisher_user_id', 'amount', 'secret'],
+        'success_response': 'OK',
+    },
+    'offertoro': {
+        'user_param': 'oid',
+        'tx_param': 'tid',
+        'offer_param': 'cid',
+        'offer_name_param': 'offer_name',
+        'amount_param': 'payout',
+        'sig_param': 'hash',
+        'sig_method': 'md5',
+        'sig_fields': ['oid', 'tid', 'payout', 'secret'],
+        'success_response': '1',
+    },
+    'timewall': {
+        'user_param': 'user_id',
+        'tx_param': 'reward_id',
+        'offer_param': 'offer_id',
+        'offer_name_param': 'offer_name',
+        'amount_param': 'reward_amount',
+        'sig_param': 'signature',
+        'sig_method': 'hmac_sha256',
+        'sig_fields': ['user_id', 'reward_id', 'offer_id', 'reward_amount'],
+        'success_response': 'OK',
+    },
+}
+
+# ─── Signature Verification ────────────────────────────────────────────────────
+def _verify_offerwall_sig(method, fields, params, secret, received_sig):
+    """Constant-time signature verification for all supported provider methods."""
+    try:
+        if method in ('md5', 'sha1', 'sha256'):
+            raw = ''.join(secret if f == 'secret' else str(params.get(f, '')) for f in fields)
+            if method == 'md5':
+                computed = hashlib.md5(raw.encode('utf-8')).hexdigest()
+            elif method == 'sha1':
+                computed = hashlib.sha1(raw.encode('utf-8')).hexdigest()
+            else:
+                computed = hashlib.sha256(raw.encode('utf-8')).hexdigest()
+            return hmac_lib.compare_digest(computed, received_sig or '')
+        elif method == 'hmac_sha256':
+            message = ''.join(str(params.get(f, '')) for f in fields if f != 'secret')
+            computed = hmac_lib.new(secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
+            return hmac_lib.compare_digest(computed, received_sig or '')
+        elif method == 'query_string_md5':
+            sorted_str = '&'.join(f"{k}={params[k]}" for k in sorted(params.keys())) + secret
+            computed = hashlib.md5(sorted_str.encode('utf-8')).hexdigest()
+            return hmac_lib.compare_digest(computed, received_sig or '')
+    except Exception:
+        pass
+    return False
+
+# ─── Offerwall Audit Event Writer ──────────────────────────────────────────────
+def _write_offerwall_event(db, provider_id, event_type, severity, message, **kwargs):
+    """Write an immutable event to the offerwall_events collection (no transaction needed)."""
+    try:
+        db.collection('offerwall_events').add({
+            'providerId': provider_id,
+            'eventType': event_type,
+            'severity': severity,
+            'message': message,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            **{k: v for k, v in kwargs.items() if v is not None}
+        })
+    except Exception as e:
+        print(f"[Offerwall] Event write failed: {e}")
+
+# ─── Main Callback Endpoint ────────────────────────────────────────────────────
+@app.route('/api/offerwall/callback/<provider_id>', methods=['GET', 'POST'])
+def offerwall_callback(provider_id):
+    """
+    Universal offerwall callback endpoint.
+    URL: /api/offerwall/callback/{provider_slug}
+    Accepts GET or POST depending on provider.
+    """
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+
+    db = firestore.client()
+    from flask import request as req
+
+    # ── 1. Validate provider ────────────────────────────────────────────────
+    pmap = OFFERWALL_PROVIDER_REGISTRY.get(provider_id)
+    if not pmap:
+        # Unknown provider — log and reject silently (don't reveal provider list)
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               f'Unknown provider: {provider_id}')
+        return 'UNKNOWN_PROVIDER', 400
+
+    # ── 2. Extract all params (GET or POST) ─────────────────────────────────
+    if req.method == 'GET':
+        params = dict(req.args)
+    else:
+        params = {**dict(req.args), **(req.get_json(force=True, silent=True) or {}), **req.form}
+    # Flatten single-value lists (werkzeug MultiDict)
+    params = {k: (v[0] if isinstance(v, list) else str(v)) for k, v in params.items()}
+
+    # ── 3. Load provider config from Firestore ───────────────────────────────
+    config_snap = db.collection('offerwall_providers').document(provider_id).get()
+    if not config_snap.exists:
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               'Provider config not found in Firestore')
+        return pmap['success_response'], 200  # ACK to provider anyway
+
+    config = config_snap.to_dict()
+    if not config.get('enabled', False):
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
+                               'Provider is disabled, callback ignored')
+        return pmap['success_response'], 200  # Silently ack disabled providers
+
+    secret = config.get('secret', '')
+    multiplier = float(config.get('rewardMultiplier', 1.0))
+    user_share = float(config.get('userSharePct', 0.85))
+    platform_share = float(config.get('platformSharePct', 0.15))
+    min_reward = int(config.get('minimumReward', 1))
+    max_reward = int(config.get('maximumReward', 100000))
+    fraud_rules = config.get('fraudRules', {})
+
+    # ── 4. Extract canonical fields ──────────────────────────────────────────
+    user_id = params.get(pmap['user_param'], '')
+    provider_tx_id = params.get(pmap['tx_param'], '')
+    offer_id = params.get(pmap['offer_param'], '')
+    offer_name_key = pmap.get('offer_name_param')
+    offer_name = params.get(offer_name_key, f'Offer {offer_id}') if offer_name_key else f'Offer {offer_id}'
+    raw_amount_str = params.get(pmap['amount_param'], '0')
+    received_sig = params.get(pmap['sig_param'], '')
+
+    try:
+        raw_amount = float(raw_amount_str)
+    except ValueError:
+        raw_amount = 0.0
+
+    if not user_id or not provider_tx_id:
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               f'Missing required params: user_id={user_id}, tx_id={provider_tx_id}',
+                               metadata={'params_received': list(params.keys())})
+        return pmap['success_response'], 200
+
+    # ── 5. Signature Verification ────────────────────────────────────────────
+    sig_valid = _verify_offerwall_sig(
+        pmap['sig_method'],
+        pmap['sig_fields'],
+        params,
+        secret,
+        received_sig
+    )
+
+    dedup_key = f"{provider_id}:{provider_tx_id}"
+    ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
+    user_agent = req.headers.get('User-Agent', 'unknown')[:500]
+
+    # Write initial callback record (outside transaction — dedup needs to read it)
+    callback_ref = db.collection('offerwall_callbacks').document()
+    callback_id = callback_ref.id
+
+    callback_data = {
+        'providerId': provider_id,
+        'providerName': config.get('name', provider_id),
+        'userId': user_id,
+        'offerId': offer_id,
+        'offerName': offer_name,
+        'rawAmount': raw_amount,
+        'providerTransactionId': provider_tx_id,
+        'dedupKey': dedup_key,
+        'signatureValid': sig_valid,
+        'isDuplicate': False,
+        'fraudBlocked': False,
+        'fraudFlags': [],
+        'status': 'PENDING',
+        'pointsAwarded': 0,
+        'userPoints': 0,
+        'platformPoints': 0,
+        'transactionId': None,
+        'ipAddress': ip_address,
+        'userAgent': user_agent,
+        'receivedAt': firestore.SERVER_TIMESTAMP,
+        'processedAt': None,
+        'rawPayload': params,
+        'auditTrail': [f'Received at {datetime.utcnow().isoformat()}Z from {ip_address}'],
+    }
+
+    if not sig_valid:
+        callback_data['status'] = 'INVALID_SIGNATURE'
+        callback_ref.set(callback_data)
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               f'Signature verification failed for tx {provider_tx_id}',
+                               callbackId=callback_id, userId=user_id)
+        # Update provider stats
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.failedCallbacks': firestore.Increment(1),
+            'stats.lastFailedSync': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+        return pmap['success_response'], 200  # ACK but don't reward
+
+    # ── 6. Duplicate Detection ───────────────────────────────────────────────
+    existing = db.collection('offerwall_callbacks').where('dedupKey', '==', dedup_key).limit(1).get()
+    if existing and len(existing) > 0:
+        callback_data['status'] = 'DUPLICATE'
+        callback_data['isDuplicate'] = True
+        callback_ref.set(callback_data)
+        _write_offerwall_event(db, provider_id, 'callback_duplicate', 'warning',
+                               f'Duplicate callback for tx {provider_tx_id}',
+                               callbackId=callback_id, userId=user_id)
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.duplicateCallbackAttempts': firestore.Increment(1),
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+        return pmap['success_response'], 200  # ACK silently
+
+    # ── 7. User Validation ───────────────────────────────────────────────────
+    user_ref = db.collection('users').document(user_id)
+    user_snap = user_ref.get()
+    if not user_snap.exists:
+        callback_data['status'] = 'INVALID_SIGNATURE'
+        callback_data['fraudFlags'] = ['USER_NOT_FOUND']
+        callback_ref.set(callback_data)
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               f'User {user_id} not found', callbackId=callback_id)
+        return pmap['success_response'], 200
+
+    user_data = user_snap.to_dict()
+
+    # ── 8. Fraud Gate ────────────────────────────────────────────────────────
+    fraud_flags = []
+    if user_data.get('isBanned'):
+        fraud_flags.append('USER_BANNED')
+    if user_data.get('isFlagged'):
+        fraud_flags.append('USER_FLAGGED')
+
+    # Daily reward cap check for this provider
+    max_daily = fraud_rules.get('maxRewardsPerUserPerDay', 50)
+    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    daily_count_snap = (db.collection('offerwall_callbacks')
+                        .where('userId', '==', user_id)
+                        .where('providerId', '==', provider_id)
+                        .where('status', '==', 'REWARD_ISSUED')
+                        .get())
+    today_count = sum(1 for s in daily_count_snap
+                      if s.to_dict().get('receivedAt') and
+                         str(s.to_dict().get('receivedAt', ''))[:10] == today_str)
+    if today_count >= max_daily:
+        fraud_flags.append('DAILY_REWARD_CAP_EXCEEDED')
+
+    fraud_blocked = len(fraud_flags) > 0
+    if fraud_blocked:
+        callback_data['status'] = 'FRAUD_BLOCKED'
+        callback_data['fraudBlocked'] = True
+        callback_data['fraudFlags'] = fraud_flags
+        callback_ref.set(callback_data)
+        _write_offerwall_event(db, provider_id, 'fraud_blocked', 'error',
+                               f'Fraud block for user {user_id}: {fraud_flags}',
+                               callbackId=callback_id, userId=user_id,
+                               metadata={'fraudFlags': fraud_flags})
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.fraudAlerts': firestore.Increment(1),
+            'stats.lastFailedSync': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+        return pmap['success_response'], 200
+
+    # ── 9. Points Calculation ────────────────────────────────────────────────
+    total_pts = round(raw_amount * multiplier)
+    total_pts = min(max(total_pts, min_reward), max_reward)
+    user_points = round(total_pts * user_share)
+    platform_points = round(total_pts * platform_share)
+
+    if user_points <= 0:
+        callback_data['status'] = 'INVALID_SIGNATURE'
+        callback_data['auditTrail'].append('Points calculation resulted in 0 — skipped')
+        callback_ref.set(callback_data)
+        return pmap['success_response'], 200
+
+    # ── 10. Atomic Economy Transaction ───────────────────────────────────────
+    claim_id = f"offerwall_{provider_id}_{provider_tx_id}"
+    xp_reward = max(1, user_points // 10)
+
+    @firestore.transactional
+    def process_reward(txn):
+        u_snap = user_ref.get(transaction=txn)
+        if not u_snap.exists:
+            raise Exception("USER_NOT_FOUND")
+        u = u_snap.to_dict()
+        current_pts = float(u.get('points', 0) or 0)
+        current_xp = float(u.get('xp', 0) or 0)
+        balance_after = current_pts + user_points
+        new_xp = current_xp + xp_reward
+
+        # Calculate level
+        from math import floor, log
+        base_xp = 1000
+        if new_xp < base_xp:
+            new_level = 1
+        else:
+            new_level = int(floor(log(new_xp / base_xp) / log(3))) + 2
+
+        # Update user wallet
+        txn.update(user_ref, {
+            'points': firestore.Increment(user_points),
+            'xp': firestore.Increment(xp_reward),
+            'level': new_level,
+            'totalEarnedToday': firestore.Increment(user_points),
+            'stats.totalEarnings': firestore.Increment(user_points),
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        # Update callback record
+        txn.update(callback_ref, {
+            'status': 'REWARD_ISSUED',
+            'pointsAwarded': total_pts,
+            'userPoints': user_points,
+            'platformPoints': platform_points,
+            'processedAt': firestore.SERVER_TIMESTAMP,
+            'auditTrail': firestore.ArrayUnion([f'Reward issued: {user_points} pts to {user_id}']),
+        })
+
+        # Write offerwall reward record
+        reward_ref = db.collection('offerwall_rewards').document()
+        txn.set(reward_ref, {
+            'userId': user_id,
+            'callbackId': callback_id,
+            'providerId': provider_id,
+            'providerName': config.get('name', provider_id),
+            'offerId': offer_id,
+            'offerName': offer_name,
+            'pointsAwarded': total_pts,
+            'userPoints': user_points,
+            'platformPoints': platform_points,
+            'status': 'APPROVED',
+            'transactionId': None,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        # post_ledger — immutable ledger + activity + notification (all 4 surfaces)
+        post_ledger(txn, user_ref, user_id,
+                    tx_type='offerwall_reward',
+                    amount=user_points,
+                    xp=xp_reward,
+                    source=f'Offerwall: {config.get("name", provider_id)}',
+                    description=f'Offer completed: {offer_name}',
+                    claim_id=claim_id,
+                    reference_id=provider_tx_id,
+                    balance_after=balance_after,
+                    activity_type='reward_received',
+                    metadata={
+                        'providerId': provider_id,
+                        'providerName': config.get('name', provider_id),
+                        'offerId': offer_id,
+                        'offerName': offer_name,
+                        'rawAmount': raw_amount,
+                        'totalPoints': total_pts,
+                        'userPoints': user_points,
+                        'platformPoints': platform_points,
+                        'callbackId': callback_id,
+                        'xpEarned': xp_reward,
+                    })
+
+        # Update global metrics
+        txn.set(db.collection('system_config').document('global_metrics'), {
+            'totalPTSLiability': firestore.Increment(user_points),
+            'offerwallRevenueLifetime': firestore.Increment(total_pts),
+        }, merge=True)
+
+        return {'balance_after': balance_after, 'new_level': new_level}
+
+    try:
+        result = process_reward(db.transaction())
+
+        # ── 11. Provider Stats Update (outside transaction) ──────────────────
+        today = datetime.utcnow()
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.approvedRewards': firestore.Increment(1),
+            'stats.revenueToday': firestore.Increment(total_pts),
+            'stats.revenueThisWeek': firestore.Increment(total_pts),
+            'stats.revenueThisMonth': firestore.Increment(total_pts),
+            'stats.lifetimeRevenue': firestore.Increment(total_pts),
+            'stats.pendingCallbacks': firestore.Increment(-1),
+            'stats.connectionStatus': 'connected',
+            'stats.apiStatus': 'ok',
+            'stats.callbackStatus': 'ok',
+            'stats.lastSuccessfulSync': firestore.SERVER_TIMESTAMP,
+            'stats.outstandingUserLiability': firestore.Increment(user_points),
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+
+        # ── 12. Audit Log ────────────────────────────────────────────────────
+        _write_offerwall_event(db, provider_id, 'reward_issued', 'info',
+                               f'Reward issued: {user_points} pts to user {user_id} for offer {offer_name}',
+                               callbackId=callback_id, userId=user_id,
+                               metadata={
+                                   'userPoints': user_points, 'platformPoints': platform_points,
+                                   'totalPts': total_pts, 'offerId': offer_id,
+                               })
+
+        return pmap['success_response'], 200
+
+    except Exception as e:
+        # Mark callback failed
+        callback_ref.set({'status': 'REWARD_FAILED', 'auditTrail': firestore.ArrayUnion([f'Error: {str(e)}'])}, merge=True)
+        _write_offerwall_event(db, provider_id, 'reward_issued', 'error',
+                               f'Reward failed for tx {provider_tx_id}: {str(e)}',
+                               callbackId=callback_id, userId=user_id)
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.failedCallbacks': firestore.Increment(1),
+            'stats.lastFailedSync': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+        print(f"[Offerwall] Reward failed: {str(e)}")
+        sys.stdout.flush()
+        return pmap['success_response'], 200  # Always ACK provider
+
+# ─── Admin: Get All Providers ──────────────────────────────────────────────────
+@app.route('/api/offerwall/providers', methods=['GET'])
+@verify_token
+def offerwall_get_providers():
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    """List all configured offerwall providers with their live stats."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        snaps = db.collection('offerwall_providers').get()
+        providers = []
+        for s in snaps:
+            d = s.to_dict()
+            # Never expose raw secret to client
+            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey')}
+            d_safe['id'] = s.id
+            providers.append(d_safe)
+        return jsonify({'success': True, 'providers': providers})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ─── Admin: Upsert Provider ────────────────────────────────────────────────────
+@app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
+@verify_token
+def offerwall_upsert_provider(provider_id):
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    """Create or update an offerwall provider config. Admin only."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    from flask import request as req
+
+    body = req.get_json(force=True, silent=True) or {}
+
+    allowed_fields = {
+        'name', 'enabled', 'affiliateId', 'apiKey', 'secret',
+        'callbackUrl', 'webhookUrl', 'rewardMultiplier',
+        'userSharePct', 'platformSharePct', 'minimumReward',
+        'maximumReward', 'fraudRules',
+    }
+    payload = {k: v for k, v in body.items() if k in allowed_fields}
+    if not payload:
+        return jsonify({'success': False, 'error': 'NO_VALID_FIELDS'}), 400
+
+    payload['updatedAt'] = firestore.SERVER_TIMESTAMP
+    ref = db.collection('offerwall_providers').document(provider_id)
+    snap = ref.get()
+    if not snap.exists:
+        payload['createdAt'] = firestore.SERVER_TIMESTAMP
+        payload['stats'] = {
+            'connectionStatus': 'offline', 'apiStatus': 'unknown',
+            'webhookStatus': 'unknown', 'callbackStatus': 'unknown',
+            'lastSuccessfulSync': None, 'lastFailedSync': None,
+            'pendingRewards': 0, 'approvedRewards': 0, 'rejectedRewards': 0,
+            'pendingCallbacks': 0, 'failedCallbacks': 0,
+            'duplicateCallbackAttempts': 0, 'fraudAlerts': 0,
+            'revenueToday': 0, 'revenueThisWeek': 0,
+            'revenueThisMonth': 0, 'lifetimeRevenue': 0,
+            'currentProviderBalance': 0, 'minimumPayout': 0,
+            'remainingUntilPayout': 0, 'estimatedPayoutDate': None,
+            'expectedPlatformRevenue': 0, 'outstandingUserLiability': 0,
+        }
+        ref.set(payload)
+        _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
+                               f'Provider {provider_id} created')
+    else:
+        ref.set(payload, merge=True)
+        _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
+                               f'Provider {provider_id} updated: {list(payload.keys())}')
+
+    return jsonify({'success': True, 'providerId': provider_id})
+
+# ─── Admin: Get Callback Log ───────────────────────────────────────────────────
+@app.route('/api/offerwall/callbacks', methods=['GET'])
+@verify_token
+def offerwall_get_callbacks():
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    """Paginated callback log across all or one provider."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    from flask import request as req
+
+    provider_filter = req.args.get('provider')
+    limit = min(int(req.args.get('limit', 100)), 500)
+
+    query = db.collection('offerwall_callbacks').order_by('receivedAt', direction='DESCENDING').limit(limit)
+    if provider_filter:
+        query = query.where('providerId', '==', provider_filter)
+
+    snaps = query.get()
+    callbacks = []
+    for s in snaps:
+        d = s.to_dict()
+        d['id'] = s.id
+        # Remove raw payload from list view
+        d.pop('rawPayload', None)
+        callbacks.append(d)
+    return jsonify({'success': True, 'callbacks': callbacks, 'count': len(callbacks)})
+
+# ─── Admin: Revenue Analytics ──────────────────────────────────────────────────
+@app.route('/api/offerwall/analytics', methods=['GET'])
+@verify_token
+def offerwall_analytics():
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    """Aggregate revenue analytics across all providers."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    # Fetch all providers with stats
+    provider_snaps = db.collection('offerwall_providers').get()
+    providers = [{**s.to_dict(), 'id': s.id} for s in provider_snaps]
+
+    # Aggregate totals
+    gross = sum(p.get('stats', {}).get('lifetimeRevenue', 0) for p in providers)
+    user_rewards = sum(
+        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.85)))
+        for p in providers
+    )
+    platform_rev = gross - user_rewards
+    revenue_today = sum(p.get('stats', {}).get('revenueToday', 0) for p in providers)
+    revenue_week = sum(p.get('stats', {}).get('revenueThisWeek', 0) for p in providers)
+    revenue_month = sum(p.get('stats', {}).get('revenueThisMonth', 0) for p in providers)
+    fraud_total = sum(p.get('stats', {}).get('fraudAlerts', 0) for p in providers)
+    duplicates_total = sum(p.get('stats', {}).get('duplicateCallbackAttempts', 0) for p in providers)
+    approved_total = sum(p.get('stats', {}).get('approvedRewards', 0) for p in providers)
+    rejected_total = sum(p.get('stats', {}).get('rejectedRewards', 0) for p in providers)
+    pending_liabilities = sum(p.get('stats', {}).get('outstandingUserLiability', 0) for p in providers)
+    total_callbacks = approved_total + rejected_total + duplicates_total + fraud_total
+    conversion_rate = round((approved_total / max(total_callbacks, 1)) * 100, 2)
+    rejection_rate = round((rejected_total / max(total_callbacks, 1)) * 100, 2)
+    fraud_rate = round((fraud_total / max(total_callbacks, 1)) * 100, 2)
+
+    return jsonify({
+        'success': True,
+        'summary': {
+            'grossRevenue': gross, 'userRewards': user_rewards,
+            'platformRevenue': platform_rev, 'platformProfit': platform_rev,
+            'pendingLiabilities': pending_liabilities,
+            'revenueToday': revenue_today, 'revenueThisWeek': revenue_week,
+            'revenueThisMonth': revenue_month,
+            'conversionRate': conversion_rate, 'rejectionRate': rejection_rate,
+            'fraudRate': fraud_rate,
+        },
+        'providers': [{
+            'id': p['id'], 'name': p.get('name', p['id']),
+            'enabled': p.get('enabled', False),
+            'revenueToday': p.get('stats', {}).get('revenueToday', 0),
+            'revenueThisMonth': p.get('stats', {}).get('revenueThisMonth', 0),
+            'lifetimeRevenue': p.get('stats', {}).get('lifetimeRevenue', 0),
+            'approvedRewards': p.get('stats', {}).get('approvedRewards', 0),
+            'fraudAlerts': p.get('stats', {}).get('fraudAlerts', 0),
+            'connectionStatus': p.get('stats', {}).get('connectionStatus', 'offline'),
+        } for p in providers],
+    })
+
+# ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
+@app.route('/api/offerwall/user-providers', methods=['GET'])
+@verify_token
+def offerwall_user_providers():
+    """Return enabled providers for the user-facing offerwalls page (no secrets)."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
+    providers = []
+    for s in snaps:
+        d = s.to_dict()
+        providers.append({
+            'id': s.id,
+            'name': d.get('name', s.id),
+            'affiliateId': d.get('affiliateId', ''),
+            'callbackUrl': d.get('callbackUrl', ''),
+            'minimumReward': d.get('minimumReward', 1),
+            'maximumReward': d.get('maximumReward', 100000),
+            'rewardMultiplier': d.get('rewardMultiplier', 1.0),
+        })
+    return jsonify({'success': True, 'providers': providers})
+
+# ─── User: Get Own Offerwall Rewards ──────────────────────────────────────────
+@app.route('/api/offerwall/my-rewards', methods=['GET'])
+@verify_token
+def offerwall_my_rewards():
+    """Return the calling user's offerwall reward history."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    from flask import request as req
+
+    user_id = request.user['uid']
+    limit = min(int(req.args.get('limit', 50)), 200)
+    snaps = (db.collection('offerwall_rewards')
+             .where('userId', '==', user_id)
+             .order_by('createdAt', direction='DESCENDING')
+             .limit(limit)
+             .get())
+    rewards = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    return jsonify({'success': True, 'rewards': rewards, 'count': len(rewards)})
+
+# ─────────────────────────────────────────────────────────────────────────────
 get_deps()
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

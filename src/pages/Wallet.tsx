@@ -55,6 +55,13 @@ const Wallet: React.FC = () => {
       case 'prediction_entry': return 'Prediction Stake';
       case 'withdrawal_debit': return 'Withdrawal';
       case 'admin_adjustment': return 'Admin Adjustment';
+      case 'offerwall_reward': return 'Offerwall Reward';
+      case 'mission_reward': return 'Mission Reward';
+      case 'welcome_bonus': return 'Welcome Bonus';
+      case 'referral_reversal': return 'Referral Reversal';
+      case 'penalty': return 'Penalty';
+      case 'prediction_stake': return 'Prediction Stake';
+      case 'withdrawal_finalized': return 'Withdrawal Finalized';
       default: return 'Transaction';
     }
   };

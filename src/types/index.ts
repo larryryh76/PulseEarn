@@ -275,7 +275,7 @@ export interface UserData {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'daily_reward' | 'task_reward' | 'referral_bonus' | 'prediction_reward' | 'prediction_stake' | 'admin_adjustment' | 'prediction_entry' | 'AI_SYSTEM_CORRECTION' | 'withdrawal_debit' | 'referral_reversal' | 'penalty' | 'welcome_bonus' | 'withdrawal_finalized' | 'mission_reward';
+  type: TransactionType;
   amount: number;
   source: string; // source system name
   timestamp: Timestamp;
@@ -417,6 +417,182 @@ export interface WithdrawalRequest {
   paidAt?: Timestamp | null;
   transactionHash?: string;
 }
+
+// ─── Offerwall Types ──────────────────────────────────────────────────────────
+
+export type OfferwallProviderSlug =
+  | 'lootably'
+  | 'bitlabs'
+  | 'cpxresearch'
+  | 'adgem'
+  | 'offertoro'
+  | 'timewall'
+  | string; // extensible
+
+export type OfferwallCallbackStatus =
+  | 'PENDING'
+  | 'VALIDATED'
+  | 'DUPLICATE'
+  | 'INVALID_SIGNATURE'
+  | 'FRAUD_BLOCKED'
+  | 'REWARD_ISSUED'
+  | 'REWARD_FAILED'
+  | 'REVERSED';
+
+export type OfferwallRewardStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVERSED';
+
+export interface OfferwallProvider {
+  id: string;                    // slug e.g. 'lootably'
+  name: string;                  // Display name e.g. 'Lootably'
+  enabled: boolean;
+  // Credentials
+  affiliateId: string;
+  apiKey: string;
+  secret: string;
+  callbackUrl: string;
+  webhookUrl: string;
+  // Economy
+  rewardMultiplier: number;      // e.g. 1.0
+  userSharePct: number;          // e.g. 0.85 (85%)
+  platformSharePct: number;      // e.g. 0.15
+  minimumReward: number;         // in points
+  maximumReward: number;         // in points
+  // Fraud
+  fraudRules: {
+    maxRewardsPerUserPerDay: number;
+    maxRewardAmountPerDay: number;
+    minTimeBetweenRewardsSec: number;
+    blockVPN: boolean;
+    blockDuplicateIp: boolean;
+  };
+  // Stats (live aggregates)
+  stats?: {
+    connectionStatus: 'connected' | 'degraded' | 'offline';
+    apiStatus: 'ok' | 'error' | 'unknown';
+    webhookStatus: 'ok' | 'error' | 'unknown';
+    callbackStatus: 'ok' | 'error' | 'unknown';
+    lastSuccessfulSync: Timestamp | null;
+    lastFailedSync: Timestamp | null;
+    pendingRewards: number;
+    approvedRewards: number;
+    rejectedRewards: number;
+    pendingCallbacks: number;
+    failedCallbacks: number;
+    duplicateCallbackAttempts: number;
+    fraudAlerts: number;
+    revenueToday: number;
+    revenueThisWeek: number;
+    revenueThisMonth: number;
+    lifetimeRevenue: number;
+    // Withdrawal forecasting
+    currentProviderBalance: number;
+    minimumPayout: number;
+    remainingUntilPayout: number;
+    estimatedPayoutDate: Timestamp | null;
+    expectedPlatformRevenue: number;
+    outstandingUserLiability: number;
+  };
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface OfferwallCallback {
+  id: string;
+  providerId: OfferwallProviderSlug;
+  providerName: string;
+  // Raw payload
+  userId: string;
+  offerId: string;
+  offerName: string;
+  rawAmount: number;            // Provider's currency unit
+  pointsAwarded: number;        // After multiplier
+  userPoints: number;           // User's share
+  platformPoints: number;       // Platform share
+  // Validation
+  status: OfferwallCallbackStatus;
+  signatureValid: boolean;
+  isDuplicate: boolean;
+  fraudBlocked: boolean;
+  fraudFlags: string[];
+  // Transaction reference
+  transactionId: string | null;
+  // Provider metadata
+  providerTransactionId: string;
+  providerUserId: string;
+  ipAddress: string;
+  userAgent: string;
+  // Audit
+  receivedAt: Timestamp;
+  processedAt: Timestamp | null;
+  auditTrail: string[];
+  rawPayload: Record<string, any>;
+}
+
+export interface OfferwallReward {
+  id: string;
+  userId: string;
+  callbackId: string;
+  providerId: OfferwallProviderSlug;
+  providerName: string;
+  offerId: string;
+  offerName: string;
+  pointsAwarded: number;
+  userPoints: number;
+  platformPoints: number;
+  status: OfferwallRewardStatus;
+  transactionId: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  metadata?: Record<string, any>;
+}
+
+export interface OfferwallEvent {
+  id: string;
+  providerId: OfferwallProviderSlug;
+  eventType: 'callback_received' | 'callback_validated' | 'callback_duplicate' | 'callback_invalid' | 'reward_issued' | 'fraud_blocked' | 'provider_config_updated' | 'provider_enabled' | 'provider_disabled';
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+  callbackId?: string;
+  userId?: string;
+  metadata?: Record<string, any>;
+  timestamp: Timestamp;
+}
+
+// ─── Revenue Analytics ────────────────────────────────────────────────────────
+export interface OfferwallRevenueSnapshot {
+  date: string; // ISO date
+  providerId: OfferwallProviderSlug;
+  grossRevenue: number;         // total points value
+  userRewards: number;          // paid to users
+  platformRevenue: number;      // kept by platform
+  platformProfit: number;       // platformRevenue - costs
+  pendingLiabilities: number;
+  callbackCount: number;
+  validCallbacks: number;
+  duplicates: number;
+  fraudBlocked: number;
+  conversionRate: number;       // validated / total callbacks
+  rejectionRate: number;
+  fraudRate: number;
+}
+
+// Update Transaction type to include offerwall_reward
+export type TransactionType =
+  | 'daily_reward'
+  | 'task_reward'
+  | 'referral_bonus'
+  | 'prediction_reward'
+  | 'prediction_stake'
+  | 'admin_adjustment'
+  | 'prediction_entry'
+  | 'AI_SYSTEM_CORRECTION'
+  | 'withdrawal_debit'
+  | 'referral_reversal'
+  | 'penalty'
+  | 'welcome_bonus'
+  | 'withdrawal_finalized'
+  | 'mission_reward'
+  | 'offerwall_reward';
 
 export type SystemTaskTrigger =
   | 'referral_completed'

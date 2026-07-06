@@ -299,13 +299,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               updatedAt: serverTimestamp()
             });
 
-            await NotificationEngine.send({
-              userId: referredBy,
-              title: 'New Referral Link',
-              description: `${username} joined using your code.`,
-              type: 'referral_joined'
-            });
-
+            // NOTE: The referrer notification is written server-side atomically inside
+            // /api/process-referral-reward via post_ledger. Do NOT write it here from the
+            // new user's session — that is a cross-user write that Firestore rules reject.
             await ReferralProtectionEngine.qualifyReferral(user.uid);
           }
        } catch (err) {
@@ -399,8 +395,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeData: (() => void) | undefined;
 
+    // Track whether this is the first snapshot for this auth session so daily reward
+    // only fires once per login, not on every Firestore document update.
+    let hasCheckedDailyRewardThisSession = false;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      // Reset the per-session flag when the auth state changes (new login / logout)
+      hasCheckedDailyRewardThisSession = false;
 
       if (user) {
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
@@ -417,7 +419,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (resolvedData.role !== 'admin') {
               UserEngine.recordFingerprint(user.uid);
-              if (user.emailVerified) {
+              // Only check daily reward once per authentication session, not on every update
+              if (user.emailVerified && !hasCheckedDailyRewardThisSession) {
+                hasCheckedDailyRewardThisSession = true;
                 checkDailyReward(user.uid);
               }
             }

@@ -229,8 +229,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
     ...subtasks.filter(s =>
        s.validationState === 'APPROVED' &&
-       !taskHistory.find(h => h.claimId === s.id) &&
-       !taskHistory.find(h => h.taskId === s.taskId)
+       // Only exclude if this specific claim already has a matching task_history entry by claimId.
+       // Do NOT exclude by taskId alone — that incorrectly hides repeat cooldown completions.
+       !taskHistory.find(h => h.claimId === s.id)
     ).map(s => ({
        id: s.id,
        taskTitle: s.metadata?.taskTitle || 'Task Completed',

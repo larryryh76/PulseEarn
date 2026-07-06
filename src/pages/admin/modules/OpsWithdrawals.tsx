@@ -116,7 +116,8 @@ const OpsWithdrawals: React.FC = () => {
 
       if (status === 'REJECTED') {
          if (req) {
-            await PointTransactionEngine.execute({
+            // Execute refund FIRST via server transaction — this is authoritative
+            const refundResult = await PointTransactionEngine.execute({
                userId,
                amount: req.amountPoints,
                type: 'admin_adjustment',
@@ -125,9 +126,14 @@ const OpsWithdrawals: React.FC = () => {
                description: `PTS reversal for rejected withdrawal #${id.slice(0,8)}`,
                bypassLock: true
             });
+            // Only update the withdrawal status if the refund succeeded atomically
+            if (!refundResult.success) {
+               throw new Error(`Refund failed: ${refundResult.error}. Withdrawal status NOT changed to prevent double-refund.`);
+            }
          }
       }
 
+      // Update withdrawal status only after all financial operations have completed
       await updateDoc(doc(db, 'withdrawals', id), updateData);
 
       const notifRef = doc(collection(db, 'users', userId, 'notifications'));

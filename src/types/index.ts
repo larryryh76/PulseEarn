@@ -8,7 +8,7 @@ export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 export type TaskCategory = 'SOCIAL' | 'REFERRAL' | 'EDUCATION' | 'PREDICTION' | 'COMMUNITY' | 'EVENTS' | 'SPONSORED' | 'CUSTOM';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 
-export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
+export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'QUALIFIED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
 export type TicketStatus = 'OPEN' | 'PENDING' | 'AWAITING_USER' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TicketCategory =
@@ -357,7 +357,7 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'subtask_update' | 'moderation_notice' | 'payout_processed';
+  type: 'task_completed' | 'reward_claimed' | 'referral_joined' | 'streak_bonus' | 'system' | 'prediction_result' | 'subtask_update' | 'moderation_notice' | 'payout_processed' | 'task_approved' | 'task_rejected' | 'withdrawal_approved' | 'withdrawal_paid' | 'withdrawal_rejected' | 'moderator_promoted' | 'moderator_demoted';
   read: boolean;
   timestamp: Timestamp;
   metadata?: Record<string, any>;

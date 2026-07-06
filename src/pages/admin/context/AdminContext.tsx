@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../../../firebase/config';
-import { collection, getDocs, limit, query } from 'firebase/firestore';
+import { collection, getDocs, addDoc, limit, query, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { logger } from '../utils/AdminLogger';
 
@@ -51,8 +51,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
-      // 2. Role Verification
-      if (userData?.role !== 'admin') {
+      // 2. Role Verification — admin AND moderator are valid ops roles
+      const role = (userData?.role as string)?.toLowerCase();
+      const isValidOpsRole = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
+      if (!isValidOpsRole) {
         logger.log('WARN', 'AUTH', 'Unauthorized access attempt', { uid: currentUser.uid, email: currentUser.email });
         setIsInitialized(false);
         return;
@@ -86,8 +88,12 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logAdminAction = async (action: string, metadata: any) => {
     try {
-      // Internal logging for admin actions
-      if (import.meta.env.DEV) console.log(`[AdminAudit] ${action}`, metadata);
+      await addDoc(collection(db, 'system_audit'), {
+        action,
+        performedBy: currentUser?.uid,
+        timestamp: serverTimestamp(),
+        ...metadata
+      });
     } catch (err) {
       console.error("[AdminAudit] Failed to log action:", err);
     }

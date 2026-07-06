@@ -15,7 +15,6 @@ import {
   doc,
   writeBatch,
   getDoc,
-  setDoc,
   serverTimestamp,
   orderBy,
   startAfter,
@@ -114,19 +113,6 @@ const OpsValidation: React.FC = () => {
             completedAt: claimData.createdAt
           }
         });
-
-        if (rewardResult.success) {
-          const notifRef = doc(collection(db, 'users', claimData.userId, 'notifications'));
-          await setDoc(notifRef, {
-            type: 'task_approved',
-            title: 'Task Approved!',
-            description: `Your submission for "${taskData.title}" was approved. +${taskData.rewardAmount} PTS awarded.`,
-            taskId: claimData.taskId,
-            taskTitle: taskData.title,
-            timestamp: serverTimestamp(),
-            read: false
-          });
-        }
 
         if (!rewardResult.success) {
           toast.dismiss(loadingToast);

@@ -714,9 +714,12 @@ def execute_prediction():
         symbol = (data.get('symbol') or '').upper()
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
         transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)}, merge=True)
+        # Server-authoritative reward calculation. Never trust client-sent rewardAmount.
+        win_multiplier = 2.0
         transaction.set(pred_ref, {
             'userId': user_id, 'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
-            'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price, 'status': 'ACTIVE',
+            'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price,
+            'rewardAmount': round(amt * win_multiplier), 'status': 'ACTIVE',
             'createdAt': firestore.SERVER_TIMESTAMP
         })
         # Ledger + activity written atomically so the stake debit is visible in the Wallet
@@ -766,7 +769,10 @@ def resolve_prediction():
         outcome = 'won' if win else 'lost'
         transaction.update(user_ref, {'points': firestore.Increment(payout)})
         transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(payout)}, merge=True)
-        transaction.update(pred_ref, {'status': 'RESOLVED', 'exitPrice': price, 'resolvedAt': firestore.SERVER_TIMESTAMP})
+        transaction.update(pred_ref, {
+            'status': 'RESOLVED', 'exitPrice': price,
+            'rewardAmount': payout, 'resolvedAt': firestore.SERVER_TIMESTAMP
+        })
         # Settlement ledger + activity + notification written atomically. The user is not
         # watching when a moderator resolves the market, so a notification IS appropriate here.
         post_ledger(transaction, user_ref, p['userId'],
@@ -799,7 +805,57 @@ def lookup():
 def promote():
     if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
     db = get_db()
-    db.collection('users').document(request.json.get('userId')).update({'role': 'moderator'})
+    target_id = request.json.get('userId')
+    if not target_id:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    target_snap = db.collection('users').document(target_id).get()
+    if not target_snap.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+    target_data = target_snap.to_dict() or {}
+    if target_data.get('role') == 'admin':
+        return jsonify({"success": False, "error": "CANNOT_DEMOTE_ADMIN"}), 400
+    db.collection('users').document(target_id).update({'role': 'moderator'})
+    # Audit log
+    try:
+        db.collection('system_audit').add({
+            'action': 'MODERATOR_PROMOTED',
+            'targetUserId': target_id,
+            'targetUsername': target_data.get('username', ''),
+            'performedBy': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP
+        })
+    except Exception:
+        pass
+    return jsonify({"success": True})
+
+@app.route('/api/admin/demote-moderator', methods=['POST'])
+@verify_token
+@require_db
+def demote():
+    """Revoke moderator access — admin only. Cannot demote another admin."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
+    db = get_db()
+    target_id = request.json.get('userId')
+    if not target_id:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    target_snap = db.collection('users').document(target_id).get()
+    if not target_snap.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+    target_data = target_snap.to_dict() or {}
+    if target_data.get('role') == 'admin':
+        return jsonify({"success": False, "error": "CANNOT_DEMOTE_ADMIN"}), 400
+    db.collection('users').document(target_id).update({'role': 'user'})
+    # Audit log
+    try:
+        db.collection('system_audit').add({
+            'action': 'MODERATOR_DEMOTED',
+            'targetUserId': target_id,
+            'targetUsername': target_data.get('username', ''),
+            'performedBy': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP
+        })
+    except Exception:
+        pass
     return jsonify({"success": True})
 
 @app.route('/api/admin/delete-user', methods=['POST'])
@@ -846,7 +902,11 @@ def send_branded_email(to, template, context, subject):
     try:
         path = os.path.join(os.path.dirname(__file__), 'templates', f'{template}.html')
         with open(path, 'r') as f: content = f.read()
-        for k, v in context.items(): content = content.replace(f'{{{{{k}}}}}', html.escape(str(v)))
+        # 'link' values are Firebase-signed URLs — do NOT html.escape them as that converts
+        # '&' → '&amp;' and breaks the URL. Only escape plaintext values (username, etc.).
+        for k, v in context.items():
+            safe_v = str(v) if k == 'link' else html.escape(str(v))
+            content = content.replace(f'{{{{{k}}}}}', safe_v)
         res = requests.post("https://api.resend.com/emails",
                             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                             json={"from": EMAIL_FROM, "to": [to], "subject": subject, "html": content}, timeout=15)

@@ -61,15 +61,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const isAdmin = userData?.role === 'admin';
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
-  // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
-  if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
+  if (!currentUser.emailVerified && !isAdmin && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 
   return <>{children}</>;
 };
 
+// OpsRoute: allows admin AND moderator (moderator sees filtered nav via OpsLayout)
 const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
@@ -86,6 +85,27 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!isOps) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// AdminRoute: ADMIN ONLY — moderators are redirected to /admin/overview
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  const isAdmin = userData?.role === 'admin' || userData?.isRoot === true;
+  if (!isAdmin) {
+    // Moderators who try to access admin-only pages are bounced back to overview
+    return <Navigate to="/admin/overview" replace />;
   }
 
   return <>{children}</>;
@@ -180,20 +200,23 @@ function App() {
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
+        {/* Admin-only routes — moderators are redirected to /admin/overview */}
+        <Route path="/admin/ledger" element={<AdminRoute><OpsLayout><AdminLedger /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/security" element={<AdminRoute><OpsLayout><AdminAuditCenter /></OpsLayout></AdminRoute>} />
+        {/* /admin/audit redirects to /admin/security — they are the same module */}
+        <Route path="/admin/audit" element={<AdminRoute><Navigate to="/admin/security" replace /></AdminRoute>} />
+        <Route path="/admin/economy" element={<AdminRoute><OpsLayout><AdminEconomy /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/broadcasts" element={<AdminRoute><OpsLayout><AdminBroadcasts /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/withdrawals" element={<AdminRoute><OpsLayout><AdminWithdrawals /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/xp" element={<AdminRoute><OpsLayout><AdminXP /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/health" element={<AdminRoute><OpsLayout><AdminHealth /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/moderators" element={<AdminRoute><OpsLayout><AdminModerators /></OpsLayout></AdminRoute>} />
+        <Route path="/admin/offerwalls" element={<AdminRoute><OpsLayout><AdminOfferwalls /></OpsLayout></AdminRoute>} />
+        {/* Ops routes — accessible by admin AND moderator */}
         <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/security" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/economy" element={<OpsRoute><OpsLayout><AdminEconomy /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/broadcasts" element={<OpsRoute><OpsLayout><AdminBroadcasts /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/audit" element={<OpsRoute><OpsLayout><AdminAuditCenter /></OpsLayout></OpsRoute>} />
         <Route path="/admin/tasks" element={<OpsRoute><OpsLayout><AdminTasks /></OpsLayout></OpsRoute>} />
         <Route path="/admin/predictions" element={<OpsRoute><OpsLayout><AdminPredictions /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/withdrawals" element={<OpsRoute><OpsLayout><AdminWithdrawals /></OpsLayout></OpsRoute>} />
         <Route path="/admin/support" element={<OpsRoute><OpsLayout><AdminSupport /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/xp" element={<OpsRoute><OpsLayout><AdminXP /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/health" element={<OpsRoute><OpsLayout><AdminHealth /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/moderators" element={<OpsRoute><OpsLayout><AdminModerators /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/offerwalls" element={<OpsRoute><OpsLayout><AdminOfferwalls /></OpsLayout></OpsRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

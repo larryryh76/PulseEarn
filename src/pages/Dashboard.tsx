@@ -39,7 +39,7 @@ import { db } from '../firebase/config';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { userData, currentUser } = useAuth();
+  const { userData, currentUser, systemError } = useAuth();
   const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
   const [selectedActivity, setSelectedActivity] = React.useState<any | null>(null);
 
@@ -144,8 +144,6 @@ const Dashboard: React.FC = () => {
       </div>
     </div>
   );
-
-  const { systemError } = useAuth();
 
   if (systemError) return null; // MaintenanceOverlay handled in AuthContext
 

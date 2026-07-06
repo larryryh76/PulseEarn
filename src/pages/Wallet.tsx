@@ -48,13 +48,20 @@ const Wallet: React.FC = () => {
 
   const mapTransactionType = (type: Transaction['type']) => {
     switch (type) {
-      case 'daily_reward': return 'Reward Received';
+      case 'daily_reward': return 'Daily Reward';
+      case 'welcome_bonus': return 'Welcome Bonus';
       case 'task_reward': return 'Task Reward';
+      case 'mission_reward': return 'Mission Reward';
       case 'referral_bonus': return 'Referral Bonus';
+      case 'referral_reversal': return 'Referral Reversed';
       case 'prediction_reward': return 'Prediction Reward';
+      case 'prediction_stake': return 'Prediction Stake';
       case 'prediction_entry': return 'Prediction Stake';
       case 'withdrawal_debit': return 'Withdrawal';
+      case 'withdrawal_finalized': return 'Withdrawal Finalized';
       case 'admin_adjustment': return 'Admin Adjustment';
+      case 'AI_SYSTEM_CORRECTION': return 'System Correction';
+      case 'penalty': return 'Penalty';
       default: return 'Transaction';
     }
   };

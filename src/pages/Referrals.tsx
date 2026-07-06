@@ -84,11 +84,14 @@ const Referrals: React.FC = () => {
 
   const isUnlocked = (userData?.stats?.tasksCompleted || 0) > 0;
 
+  // Server transitions to 'QUALIFIED'; legacy records may use 'REWARDED'. Treat both as rewarded.
+  const isRewarded = (status: string) => status === 'QUALIFIED' || status === 'REWARDED';
+
   const stats = [
     { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-primary' },
-    { label: 'PTS Earned', value: (referrals.filter(r => r.status === 'REWARDED').length * rewardAmount).toLocaleString(), icon: Zap, color: 'text-accent' },
+    { label: 'PTS Earned', value: (referrals.filter(r => isRewarded(r.status)).length * rewardAmount).toLocaleString(), icon: Zap, color: 'text-accent' },
     { label: 'Pending', value: referrals.filter(r => r.status === 'REGISTERED').length, icon: Clock, color: 'text-warning' },
-    { label: 'Successful', value: referrals.filter(r => r.status === 'REWARDED').length, icon: CheckCircle2, color: 'text-success' },
+    { label: 'Successful', value: referrals.filter(r => isRewarded(r.status)).length, icon: CheckCircle2, color: 'text-success' },
   ];
 
   return (
@@ -214,7 +217,7 @@ const Referrals: React.FC = () => {
                            <CheckCircle2 size={14} className="text-success" />
                            <h3 className="text-[10px] font-black uppercase tracking-widest text-text-tertiary">Qualified (Rewarded)</h3>
                          </div>
-                         {referrals.filter(r => r.status === 'REWARDED').map(ref => (
+                         {referrals.filter(r => isRewarded(r.status)).map(ref => (
                            <div key={ref.id} className="p-6 bg-success/[0.02] border border-success/10 rounded-2xl flex items-center justify-between group hover:border-success/30 transition-all">
                               <div className="flex items-center gap-4">
                                  <div className="w-10 h-10 rounded-xl bg-success/5 border border-success/10 flex items-center justify-center text-success">
@@ -230,7 +233,7 @@ const Referrals: React.FC = () => {
                               </div>
                            </div>
                          ))}
-                         {referrals.filter(r => r.status === 'REWARDED').length === 0 && (
+                         {referrals.filter(r => isRewarded(r.status)).length === 0 && (
                            <p className="text-[10px] italic text-text-tertiary px-6">No qualified referrals yet.</p>
                          )}
                        </div>
@@ -246,7 +249,7 @@ const Referrals: React.FC = () => {
                              </div>
                            </div>
                          </div>
-                         {referrals.filter(r => r.status !== 'REWARDED').map(ref => (
+                         {referrals.filter(r => !isRewarded(r.status)).map(ref => (
                            <div key={ref.id} className="p-6 bg-surface-bright/30 border border-border rounded-2xl flex items-center justify-between group hover:border-border-bright transition-all">
                               <div className="flex items-center gap-4">
                                  <div className="w-10 h-10 rounded-xl bg-surface-bright border border-border-bright flex items-center justify-center text-text-tertiary">
@@ -264,7 +267,7 @@ const Referrals: React.FC = () => {
                               </div>
                            </div>
                          ))}
-                         {referrals.filter(r => r.status !== 'REWARDED').length === 0 && (
+                         {referrals.filter(r => !isRewarded(r.status)).length === 0 && (
                            <p className="text-[10px] italic text-text-tertiary px-6">No pending referrals.</p>
                          )}
                        </div>

@@ -13,7 +13,6 @@ import {
   Trophy,
   BarChart3,
   MessageSquare,
-  FileText,
   LogOut,
   ChevronRight,
   ChevronLeft,
@@ -55,8 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'SUPPORT', label: 'Support Desk', icon: MessageSquare, path: '/admin/support', category: 'SYSTEM' },
   { id: 'NOTIFICATIONS', label: 'Broadcasts', icon: Bell, path: '/admin/broadcasts', category: 'SYSTEM' },
 
-  { id: 'SECURITY', label: 'Threat Stream', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY', isAdminOnly: true },
-  { id: 'AUDIT', label: 'Audit Logs', icon: FileText, path: '/admin/audit', category: 'SECURITY', isAdminOnly: true },
+  { id: 'SECURITY', label: 'Audit & Threats', icon: ShieldAlert, path: '/admin/security', category: 'SECURITY', isAdminOnly: true },
   { id: 'HEALTH', label: 'System Health', icon: Activity, path: '/admin/health', category: 'SECURITY', isAdminOnly: true },
 ];
 

@@ -1100,6 +1100,68 @@ def process_referral_reward():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TASK LIFECYCLE MANAGEMENT — Phase 18 (Sync Audit)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Critical: All task state changes must be soft-deletes (active: false).
+# Hard-delete (doc.delete()) breaks Firestore listeners — deleted docs don't
+# appear in snapshots. Instead, mark inactive and let listeners filter naturally.
+
+@app.route('/api/admin/tasks/<task_id>/disable', methods=['POST'])
+@verify_token
+def disable_task(task_id):
+    """Admin: Soft-delete a task by setting active: false. Triggers listener updates."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        db.collection('tasks').document(task_id).update({
+            'active': False,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+            'disabledAt': firestore.SERVER_TIMESTAMP,
+            'disabledBy': request.user['uid'],
+        })
+        # Audit log
+        db.collection('system_log').add({
+            'action': 'task_disabled',
+            'taskId': task_id,
+            'adminId': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": task_id, "active": False})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/tasks/<task_id>/enable', methods=['POST'])
+@verify_token
+def enable_task(task_id):
+    """Admin: Re-enable a disabled task by setting active: true. Triggers listener updates."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        db.collection('tasks').document(task_id).update({
+            'active': True,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+            'disabledAt': None,
+            'disabledBy': None,
+        })
+        # Audit log
+        db.collection('system_log').add({
+            'action': 'task_enabled',
+            'taskId': task_id,
+            'adminId': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": task_id, "active": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17

@@ -61,11 +61,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. Fetch active tasks
     const tasksQuery = query(collection(db, 'tasks'), where('active', '==', true));
     unsubscribes.push(onSnapshot(tasksQuery, (snapshot) => {
-      const activeTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-      console.log("[v0] TaskContext: Tasks listener fired with", activeTasks.length, "active tasks");
-      setTasks(activeTasks);
-    }, (error) => {
-      console.error("[v0] TaskContext: Tasks listener error:", error);
+      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
     }));
 
     // 2. Fetch active campaigns

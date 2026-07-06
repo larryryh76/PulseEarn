@@ -1583,6 +1583,32 @@ def offerwall_callback(provider_id):
                         'xpEarned': xp_reward,
                     })
 
+        # Write task_history entry for offerwall completion tracking
+        # This makes offerwall rewards visible in the task completion history
+        task_hist_ref = db.collection('users').document(user_id).collection('task_history').document()
+        txn.set(task_hist_ref, {
+            'claimId': claim_id,
+            'taskType': 'offerwall',
+            'providerId': provider_id,
+            'providerName': config.get('name', provider_id),
+            'offerId': offer_id,
+            'offerName': offer_name,
+            'resolvedStatus': 'APPROVED',
+            'pointsAwarded': user_points,
+            'xpAwarded': xp_reward,
+            'rawProviderAmount': raw_amount,
+            'totalPointsValue': total_pts,
+            'userShare': user_points,
+            'platformShare': platform_points,
+            'completionProof': {'provider': provider_id, 'callbackId': callback_id},
+            'resolvedAt': firestore.SERVER_TIMESTAMP,
+            'metadata': {
+                'providerTransactionId': provider_tx_id,
+                'isProviderManaged': True,
+                'verificationMethod': 'provider_callback',
+            }
+        })
+
         # Update global metrics
         txn.set(db.collection('system_config').document('global_metrics'), {
             'totalPTSLiability': firestore.Increment(user_points),
@@ -1611,7 +1637,7 @@ def offerwall_callback(provider_id):
             'updatedAt': firestore.SERVER_TIMESTAMP,
         }, merge=True)
 
-        # ── 12. Audit Log ────────────────────────────────────────────────────
+        # ── 12. Audit Log ────────────���───────────────────────────────────────
         _write_offerwall_event(db, provider_id, 'reward_issued', 'info',
                                f'Reward issued: {user_points} pts to user {user_id} for offer {offer_name}',
                                callbackId=callback_id, userId=user_id,

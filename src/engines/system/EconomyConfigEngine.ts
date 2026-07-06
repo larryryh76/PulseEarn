@@ -41,8 +41,8 @@ const DEFAULT_CONFIG: EconomyConfig = {
     dailyLoginXP: 20,
     welcomeBonusPoints: 30,
     welcomeBonusXP: 50,
-    referralBonusPoints: 50,
-    referralBonusXP: 50,
+    referralBonusPoints: 500,
+    referralBonusXP: 100,
     predictionWinMultiplier: 2.0,
     minPredictionStake: 10,
     maxPredictionStake: 10000,
@@ -84,6 +84,7 @@ export class EconomyConfigEngine {
 
       if (snap.exists()) {
         const data = snap.data();
+        // Always merge defaults so any missing keys (like referralBonusPoints) get the canonical value
         this.cache = {
            ...DEFAULT_CONFIG,
            ...data,
@@ -91,9 +92,15 @@ export class EconomyConfigEngine {
            thresholds: { ...DEFAULT_CONFIG.thresholds, ...(data.thresholds || {}) },
            security: { ...DEFAULT_CONFIG.security, ...(data.security || {}) }
         } as EconomyConfig;
+        // Back-fill any missing reward keys into Firestore so all users see same values
+        const missingKeys = Object.keys(DEFAULT_CONFIG.rewards).filter(
+          k => data.rewards?.[k] === undefined
+        );
+        if (missingKeys.length > 0) {
+          await this.updateConfig({ rewards: this.cache.rewards });
+        }
       } else {
-        // Initialize with defaults if missing
-        console.warn('[EconomyConfig] Config doc missing, initializing with defaults');
+        // Initialize with canonical defaults
         await this.updateConfig(DEFAULT_CONFIG);
         this.cache = DEFAULT_CONFIG;
       }

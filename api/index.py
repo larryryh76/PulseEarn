@@ -797,10 +797,32 @@ def lookup():
 @verify_token
 @require_db
 def promote():
-    if not is_admin(request.user['uid']): return jsonify({"success": False}), 403
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    user_id = request.json.get('userId')
+    if not user_id: return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
     db = get_db()
-    db.collection('users').document(request.json.get('userId')).update({'role': 'moderator'})
-    return jsonify({"success": True})
+    try:
+        db.collection('users').document(user_id).update({'role': 'moderator', 'updatedAt': firestore.SERVER_TIMESTAMP})
+        # CRITICAL: set Firebase Auth custom claim so the role survives token refresh
+        auth.set_custom_user_claims(user_id, {'role': 'moderator'})
+        return jsonify({"success": True, "message": "Promoted. User must sign out and sign back in."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/demote-moderator', methods=['POST'])
+@verify_token
+@require_db
+def demote():
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    user_id = request.json.get('userId')
+    if not user_id: return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+    db = get_db()
+    try:
+        db.collection('users').document(user_id).update({'role': 'user', 'updatedAt': firestore.SERVER_TIMESTAMP})
+        auth.set_custom_user_claims(user_id, {'role': 'user'})
+        return jsonify({"success": True, "message": "Demoted. User must sign out and sign back in."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/delete-user', methods=['POST'])
 @verify_token
@@ -1047,8 +1069,8 @@ def process_referral_reward():
 
     cfg_snap = db.collection('system_config').document('global_v1').get()
     rewards = (cfg_snap.to_dict() or {}).get('rewards', {}) if cfg_snap.exists else {}
-    points = rewards.get('referralBonusPoints', 50)
-    xp = rewards.get('referralBonusXP', 50)
+    points = rewards.get('referralBonusPoints', 500)
+    xp = rewards.get('referralBonusXP', 100)
 
     ref_ref = db.collection('referrals').document(referral_doc_id)
     referrer_ref = db.collection('users').document(referrer_id)
@@ -1106,6 +1128,49 @@ def process_referral_reward():
 # Critical: All task state changes must be soft-deletes (active: false).
 # Hard-delete (doc.delete()) breaks Firestore listeners — deleted docs don't
 # appear in snapshots. Instead, mark inactive and let listeners filter naturally.
+
+@app.route('/api/admin/tasks/create', methods=['POST'])
+@verify_token
+def create_task():
+    """Admin/Moderator: Create a new task and make it immediately live (active: true)."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+    user_doc = db.collection('users').document(uid).get()
+    role = (user_doc.to_dict() or {}).get('role', 'user') if user_doc.exists else 'user'
+    if role not in ('admin', 'moderator'):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    data = request.json or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({"success": False, "error": "MISSING_TITLE"}), 400
+    reward = data.get('rewardAmount')
+    if reward is None or int(reward) < 1:
+        return jsonify({"success": False, "error": "INVALID_REWARD"}), 400
+    try:
+        task_ref = db.collection('tasks').document()
+        task_ref.set({
+            'title': title,
+            'description': (data.get('description') or '').strip(),
+            'type': data.get('type', 'manual'),
+            'rewardAmount': int(reward),
+            'xpReward': int(data.get('xpReward') or 0),
+            'proofLabel': data.get('proofLabel') or 'Proof',
+            'proofPlaceholder': data.get('proofPlaceholder') or 'Paste your proof link here',
+            'maxCompletions': data.get('maxCompletions'),  # None = unlimited
+            'cooldownHours': int(data.get('cooldownHours') or 0),
+            'url': data.get('url') or None,
+            'active': True,
+            'completionCount': 0,
+            'createdBy': uid,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": task_ref.id})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/tasks/<task_id>/disable', methods=['POST'])
 @verify_token

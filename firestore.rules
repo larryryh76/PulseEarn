@@ -201,16 +201,22 @@ service cloud.firestore {
     }
 
     // 9. System Logs & Security
+    // OBS-002: system_anomalies must only be written by the server (Admin SDK bypasses rules).
+    // Allowing authenticated client writes lets any user inject spoofed threat data into the
+    // admin Threat Stream. Client reads/writes are blocked; Admin SDK retains full access.
     match /system_anomalies/{id} {
       allow read: if isAdmin();
       allow list: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if false;
+      allow update, delete: if false;
     }
 
+    // system_audit: admin-read-only; writes come from Admin SDK (server) or admin-role clients.
     match /system_audit/{id} {
       allow read: if isAdmin();
       allow list: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /system_security/{id} {

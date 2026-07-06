@@ -337,6 +337,16 @@ const OpsUsers: React.FC = () => {
 
   const handleUpdateProfile = async () => {
       if (!selectedUser) return;
+
+      // SEC-008: Enforce role enum — only known valid values may be written directly.
+      // Admin promotion is intentionally allowed here (admin editing another user) but the
+      // value must be one of the defined roles to prevent arbitrary string injection.
+      const VALID_ROLES = ['user', 'moderator', 'admin'] as const;
+      if (!VALID_ROLES.includes(editForm.role as typeof VALID_ROLES[number])) {
+          toast.error(`Invalid role value: "${editForm.role}". Must be user, moderator, or admin.`);
+          return;
+      }
+
       const loadingToast = toast.loading('Updating user profile...');
       try {
           if (editForm.emailVerified && !selectedUser.emailVerified) {
@@ -352,8 +362,11 @@ const OpsUsers: React.FC = () => {
               if (!resData.success) throw new Error(resData.message || resData.error);
           }
 
+          // Only write the safe subset of fields — never allow client to write arbitrary keys.
           await updateDoc(doc(db, 'users', selectedUser.id), {
-              ...editForm,
+              username: editForm.username,
+              email: editForm.email,
+              role: editForm.role,
               updatedAt: serverTimestamp()
           });
 

@@ -799,6 +799,42 @@ def lookup():
     if not docs: return jsonify({"success": False, "error": "INVALID_CODE"}), 404
     return jsonify({"success": True, "referrerId": docs[0].id, "username": docs[0].to_dict().get('username')})
 
+@app.route('/api/check-referral-sanity', methods=['POST'])
+@verify_token
+@require_db
+def check_referral_sanity():
+    """Server-side referral sanity check. Writes fraudFlags/riskScore via Admin SDK only."""
+    db = get_db()
+    referrer_id = request.json.get('referrerId')
+    referee_id = request.json.get('refereeId')
+    if not referrer_id or not referee_id:
+        return jsonify({"success": True, "passed": True})
+    try:
+        referrer_snap = db.collection('users').document(referrer_id).get()
+        referee_snap = db.collection('users').document(referee_id).get()
+        if not referrer_snap.exists or not referee_snap.exists:
+            return jsonify({"success": True, "passed": False})
+        referrer = referrer_snap.to_dict() or {}
+        referee = referee_snap.to_dict() or {}
+        # Same-device check — written server-side so Firestore rules are satisfied
+        if (referrer.get('fingerprint') and referee.get('fingerprint') and
+                referrer['fingerprint'] == referee['fingerprint']):
+            db.collection('users').document(referee_id).update({
+                'fraudFlags': firestore.ArrayUnion(['SAME_DEVICE_REFERRAL']),
+                'riskScore': firestore.Increment(30)
+            })
+            db.collection('system_anomalies').add({
+                'type': 'SAME_DEVICE_REFERRAL',
+                'referrerId': referrer_id,
+                'refereeId': referee_id,
+                'timestamp': firestore.SERVER_TIMESTAMP
+            })
+            return jsonify({"success": True, "passed": False})
+        return jsonify({"success": True, "passed": True})
+    except Exception as e:
+        return jsonify({"success": True, "passed": True, "error": str(e)})
+
+
 @app.route('/api/admin/promote-moderator', methods=['POST'])
 @verify_token
 @require_db

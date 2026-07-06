@@ -1,12 +1,5 @@
-import { db, auth } from '../../firebase/config';
+import { auth } from '../../firebase/config';
 import { safeFetch } from '../../utils/api';
-import {
-  doc,
-  updateDoc,
-  increment,
-  arrayUnion,
-  getDoc
-} from 'firebase/firestore';
 
 export class FraudEngine {
   /**
@@ -38,26 +31,22 @@ export class FraudEngine {
    */
   static async checkReferralSanity(referrerId: string, refereeId: string): Promise<boolean> {
     try {
-      const referrerRef = doc(db, 'users', referrerId);
-      const refereeRef = doc(db, 'users', refereeId);
+      // NOTE: Do NOT write fraudFlags/riskScore directly from the client.
+      // Firestore rules restrict those fields to server-side (Admin SDK) writes only.
+      // Delegate to the server-side integrity endpoint which has Admin SDK access.
+      const token = await auth.currentUser?.getIdToken();
+      const res = await safeFetch('/api/check-referral-sanity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ referrerId, refereeId })
+      });
 
-      const [rSnap, eSnap] = await Promise.all([getDoc(referrerRef), getDoc(refereeRef)]);
-
-      if (!rSnap.exists() || !eSnap.exists()) return false;
-
-      const referrer = rSnap.data();
-      const referee = eSnap.data();
-
-      // Flag 1: Same Device referral
-      if (referrer.fingerprint && referee.fingerprint && referrer.fingerprint === referee.fingerprint) {
-         await updateDoc(refereeRef, {
-            fraudFlags: arrayUnion('SAME_DEVICE_REFERRAL'),
-            riskScore: increment(30)
-         });
-         return false; // Fail sanity check
-      }
-
-      return true;
+      // Server returns { success: true, passed: boolean }
+      if (!res.success) return true; // Default to pass on server error
+      return res.passed === true;
     } catch (err) {
       return true; // Default to pass on error to avoid blocking legitimate users
     }

@@ -119,7 +119,9 @@ export class PointTransactionEngine {
    * Atomic Market Prediction Resolution
    * Moved to server-side execution to satisfy Phase A field-level security locks.
    */
-  static async resolvePrediction(predictionId: string, currentPrice: number, _manualRewardPool?: number): Promise<void> {
+  // currentPrice is intentionally removed: the backend re-fetches the authoritative
+  // live price server-side and ignores any price passed by the client.
+  static async resolvePrediction(predictionId: string): Promise<void> {
     try {
       const token = await auth.currentUser?.getIdToken();
       const res = await safeFetch('/api/resolve-prediction', {
@@ -128,7 +130,7 @@ export class PointTransactionEngine {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ predictionId, currentPrice })
+        body: JSON.stringify({ predictionId })
       });
 
       if (!res.success) {

@@ -44,7 +44,9 @@ function HistoryRow({ pred, onSelect }: { pred: PredictionRecord; onSelect: (p: 
               ? `${pred.stakeAmount.toLocaleString()} PTS`
               : meta.won
                 ? `+${(pred.rewardAmount || 0).toLocaleString()} PTS`
-                : '—'}
+                : pred.rewardAmount
+                  ? `+${pred.rewardAmount.toLocaleString()} PTS`
+                  : '—'}
           </p>
         </div>
         <span className={cn('hidden rounded-full border px-2.5 py-0.5 text-xs font-medium sm:inline-flex', toneChip[meta.tone])}>

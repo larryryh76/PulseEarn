@@ -108,7 +108,7 @@ export class MarketResolutionEngine {
 
         if (isExpired || pred.id.startsWith('auto_')) {
           try {
-            await PointTransactionEngine.resolvePrediction(pred.id, currentPrice);
+            await PointTransactionEngine.resolvePrediction(pred.id);
             resolved++;
           } catch (err: any) {
             if (err.message === 'PREDICTION_ALREADY_RESOLVED') continue;

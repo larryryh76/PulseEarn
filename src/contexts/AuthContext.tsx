@@ -438,7 +438,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserData(resolvedData as UserData);
             setSystemError(null);
 
-            if (resolvedData.role !== 'admin') {
+            // Ops roles skip fingerprint recording and daily reward — they are
+            // operational accounts, not regular earners. Recording their fingerprint
+            // would pollute fraud signals; triggering daily reward is architecturally wrong.
+            const isOpsUser = resolvedData.role === 'admin' || resolvedData.role === 'moderator';
+            if (!isOpsUser) {
               UserEngine.recordFingerprint(user.uid);
               if (user.emailVerified) {
                 checkDailyReward(user.uid);

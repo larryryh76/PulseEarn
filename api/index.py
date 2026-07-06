@@ -860,8 +860,8 @@ def promote():
     if target_data.get('role') == 'moderator':
         return jsonify({"success": False, "error": "ALREADY_MODERATOR"}), 400
     db.collection('users').document(target_id).update({'role': 'moderator'})
-    # Audit log
-    db.collection('admin_audit_logs').add({
+    # Write to system_audit — the single audit collection surfaced in OpsAuditCenter
+    db.collection('system_audit').add({
         'action': 'PROMOTE_MODERATOR',
         'actorId': admin_uid,
         'targetId': target_id,
@@ -896,8 +896,8 @@ def demote():
     if target_data.get('role') != 'moderator':
         return jsonify({"success": False, "error": "NOT_A_MODERATOR"}), 400
     db.collection('users').document(target_id).update({'role': 'user'})
-    # Audit log
-    db.collection('admin_audit_logs').add({
+    # Write to system_audit — the single audit collection surfaced in OpsAuditCenter
+    db.collection('system_audit').add({
         'action': 'DEMOTE_MODERATOR',
         'actorId': admin_uid,
         'targetId': target_id,

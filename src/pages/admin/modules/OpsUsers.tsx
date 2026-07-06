@@ -553,30 +553,58 @@ const OpsUsers: React.FC = () => {
                                </button>
                             </>
                          )}
-                         {selectedUser.role !== 'admin' && selectedUser.role !== 'ADMIN' && selectedUser.role !== 'moderator' && !selectedUser.isRoot && (
-                            <button
-                              onClick={async () => {
-                                 if(!window.confirm(`Promote ${selectedUser.username} to MODERATOR?`)) return;
-                                 const load = toast.loading("Executing Promotion...");
-                                 const data = await safeFetch('/api/admin/promote-moderator', {
-                                    method: 'POST',
-                                    headers: {
-                                       'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
-                                       'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({ userId: selectedUser.id })
-                                 });
-                                 toast.dismiss(load);
-                                 if(data.success) {
-                                    toast.success("User Promoted");
-                                    setSelectedUser({...selectedUser, role: 'moderator'});
-                                 } else toast.error(data.message || data.error);
-                              }}
-                              className="px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-all shadow-lg"
-                            >
-                               <ShieldCheck size={14} className="mr-2 inline" />
-                               Promote
-                            </button>
+                         {selectedUser.role !== 'admin' && selectedUser.role !== 'ADMIN' && !selectedUser.isRoot && (
+                            selectedUser.role === 'moderator' ? (
+                               // Revoke path — moderator → user
+                               <button
+                                 onClick={async () => {
+                                    if (!window.confirm(`Revoke Moderator access from ${selectedUser.username}?`)) return;
+                                    const load = toast.loading('Revoking access...');
+                                    const data = await safeFetch('/api/admin/demote-moderator', {
+                                       method: 'POST',
+                                       headers: {
+                                          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                                          'Content-Type': 'application/json'
+                                       },
+                                       body: JSON.stringify({ userId: selectedUser.id })
+                                    });
+                                    toast.dismiss(load);
+                                    if (data.success) {
+                                       toast.success('Moderator access revoked');
+                                       setSelectedUser({ ...selectedUser, role: 'user' });
+                                    } else toast.error(data.message || data.error);
+                                 }}
+                                 className="px-6 py-2.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-[10px] font-black uppercase tracking-widest hover:bg-danger/20 transition-all shadow-lg"
+                               >
+                                  <ShieldCheck size={14} className="mr-2 inline" />
+                                  Revoke
+                               </button>
+                            ) : (
+                               // Promote path — user → moderator
+                               <button
+                                 onClick={async () => {
+                                    if (!window.confirm(`Promote ${selectedUser.username} to MODERATOR?`)) return;
+                                    const load = toast.loading('Executing Promotion...');
+                                    const data = await safeFetch('/api/admin/promote-moderator', {
+                                       method: 'POST',
+                                       headers: {
+                                          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                                          'Content-Type': 'application/json'
+                                       },
+                                       body: JSON.stringify({ userId: selectedUser.id })
+                                    });
+                                    toast.dismiss(load);
+                                    if (data.success) {
+                                       toast.success('User Promoted');
+                                       setSelectedUser({ ...selectedUser, role: 'moderator' });
+                                    } else toast.error(data.message || data.error);
+                                 }}
+                                 className="px-6 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-all shadow-lg"
+                               >
+                                  <ShieldCheck size={14} className="mr-2 inline" />
+                                  Promote
+                               </button>
+                            )
                          )}
                          {selectedUser.isBanned ? (
                             <button

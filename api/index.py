@@ -696,6 +696,10 @@ def execute_prediction():
     if price is None: return jsonify({"success": False, "error": "PRICE_FEED_OFFLINE"}), 503
     claim_id = data.get('claimId')
     if not claim_id: return jsonify({"success": False, "error": "MISSING_CLAIM_ID"}), 400
+    # Read win multiplier from economy config (server-authoritative, not client-sent).
+    cfg_snap = db.collection('system_config').document('global_v1').get()
+    cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
+    win_multiplier = float((cfg.get('rewards') or {}).get('predictionWinMultiplier', 2.0) or 2.0)
     @firestore.transactional
     def process(transaction):
         user_ref = db.collection('users').document(user_id)
@@ -714,8 +718,7 @@ def execute_prediction():
         symbol = (data.get('symbol') or '').upper()
         transaction.update(user_ref, {'points': firestore.Increment(-amt)})
         transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(-amt)}, merge=True)
-        # Server-authoritative reward calculation. Never trust client-sent rewardAmount.
-        win_multiplier = 2.0
+        # Server-authoritative reward calculation — win_multiplier read from config above.
         transaction.set(pred_ref, {
             'userId': user_id, 'assetId': data.get('assetId'), 'symbol': data.get('symbol'),
             'direction': data.get('direction'), 'stakeAmount': amt, 'entryPrice': price,
@@ -744,8 +747,10 @@ def execute_prediction():
 @verify_token
 @require_db
 def resolve_prediction():
+    # Market resolution credits points to users — admin authority required.
+    # Moderators can view predictions but cannot settle them.
     db = get_db()
-    if not is_moderator(request.user['uid']): return jsonify({"success": False, "error": "Forbidden"}), 403
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "Forbidden"}), 403
     pred_id = request.json.get('predictionId')
     if not pred_id: return jsonify({"success": False, "error": "MISSING_PREDICTION_ID"}), 400
     pred_ref = db.collection('user_predictions').document(pred_id)
@@ -755,6 +760,10 @@ def resolve_prediction():
     if not pred_data or 'assetId' not in pred_data: return jsonify({"success": False, "error": "INVALID_PREDICTION_DATA"}), 400
     price = fetch_market_price(pred_data['assetId'])
     if price is None: return jsonify({"success": False, "error": "PRICE_FEED_OFFLINE"}), 503
+    # Read win multiplier from authoritative config (same source as placement).
+    cfg_snap = db.collection('system_config').document('global_v1').get()
+    cfg = cfg_snap.to_dict() if cfg_snap.exists else {}
+    win_multiplier = float((cfg.get('rewards') or {}).get('predictionWinMultiplier', 2.0) or 2.0)
     @firestore.transactional
     def process(transaction):
         p = pred_ref.get(transaction=transaction).to_dict()
@@ -764,7 +773,7 @@ def resolve_prediction():
         u_snap = user_ref.get(transaction=transaction)
         cur_points = float((u_snap.to_dict() or {}).get('points', 0) or 0) if u_snap.exists else 0.0
         win = (price > p['entryPrice']) if p['direction'] == 'UP' else (price < p['entryPrice'])
-        payout = p['stakeAmount'] * 2 if win else 0
+        payout = p['stakeAmount'] * win_multiplier if win else 0
         symbol = (p.get('symbol') or '').upper()
         outcome = 'won' if win else 'lost'
         transaction.update(user_ref, {'points': firestore.Increment(payout)})

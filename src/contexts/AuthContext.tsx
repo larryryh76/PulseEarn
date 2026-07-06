@@ -408,9 +408,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
+            // Preserve the exact role stored in Firestore. Do NOT coerce 'moderator' → 'user':
+            // OpsRoute and AdminRoute both check userData.role === 'moderator', and silently
+            // collapsing it to 'user' would prevent moderators from ever reaching /admin/*.
+            const VALID_ROLES = ['admin', 'moderator', 'user'] as const;
+            type AppRole = typeof VALID_ROLES[number];
+            const rawRole = (data.role as string)?.toLowerCase() as AppRole;
+            const resolvedRole: AppRole = VALID_ROLES.includes(rawRole) ? rawRole : 'user';
             const resolvedData = {
               ...data,
-              role: data.role === 'admin' ? 'admin' : 'user',
+              role: resolvedRole,
               status: data.status || 'active'
             };
 

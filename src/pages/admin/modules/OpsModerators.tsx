@@ -9,8 +9,7 @@ import {
   getDocs,
   doc,
   setDoc,
-  serverTimestamp,
-  addDoc
+  serverTimestamp
 } from 'firebase/firestore';
 import DataTable from '../../../components/admin/common/DataTable';
 import toast from 'react-hot-toast';
@@ -58,16 +57,9 @@ const OpsModerators: React.FC = () => {
       });
 
       if (data.success) {
-        // Write audit log
-        await addDoc(collection(db, 'system_audit'), {
-          action: 'MODERATOR_PROMOTED',
-          targetUserId: user.id,
-          targetUsername: userData.username || email,
-          performedBy: auth.currentUser?.uid,
-          timestamp: serverTimestamp()
-        });
-
-        // Write in-app notification to the promoted user
+        // Audit log is written server-side by /api/admin/promote-moderator — no duplicate here.
+        // Write in-app notification to the promoted user (admin writes to another user's
+        // subcollection — allowed by isAdmin() in Firestore rules).
         await setDoc(doc(collection(db, 'users', user.id, 'notifications')), {
           type: 'moderator_promoted',
           title: 'Moderator Access Granted',
@@ -87,13 +79,13 @@ const OpsModerators: React.FC = () => {
     }
   };
 
-  const handleDemote = async (userId: string, username: string) => {
+  const handleDemote = (userId: string, username: string) => {
     setConfirmDemote({ id: userId, username });
   };
 
   const confirmDemotion = async () => {
     if (!confirmDemote) return;
-    const { id: userId, username } = confirmDemote;
+    const { id: userId } = confirmDemote;
     setConfirmDemote(null);
 
     const load = toast.loading("Revoking moderator access...");
@@ -110,16 +102,8 @@ const OpsModerators: React.FC = () => {
       });
 
       if (data.success) {
-        // Write audit log
-        await addDoc(collection(db, 'system_audit'), {
-          action: 'MODERATOR_DEMOTED',
-          targetUserId: userId,
-          targetUsername: username,
-          performedBy: auth.currentUser?.uid,
-          timestamp: serverTimestamp()
-        });
-
-        // Notify the demoted user
+        // Audit log is written server-side by /api/admin/demote-moderator — no duplicate here.
+        // Notify the demoted user.
         await setDoc(doc(collection(db, 'users', userId, 'notifications')), {
           type: 'moderator_demoted',
           title: 'Moderator Access Revoked',

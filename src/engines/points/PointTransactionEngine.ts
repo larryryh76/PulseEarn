@@ -1,11 +1,5 @@
-import { db, auth } from '../../firebase/config';
+import { auth } from '../../firebase/config';
 import { safeFetch } from '../../utils/api';
-import {
-  doc,
-  collection,
-  serverTimestamp,
-  setDoc
-} from 'firebase/firestore';
 import { Transaction } from '../../types';
 import { ActivityEngine } from '../system/ActivityEngine';
 import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
@@ -170,20 +164,12 @@ export class PointTransactionEngine {
     }
   }
 
-  private static async logValidationFailure(userId: string, claimId: string, error: string, request: any) {
-    try {
-      await setDoc(doc(collection(db, 'system_anomalies')), {
-        userId,
-        claimId,
-        error,
-        requestType: request.type || request.code || 'UNKNOWN',
-        timestamp: serverTimestamp(),
-        severity: request.severity || ((error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM'),
-        context: 'SYSTEM_VALIDATION_FAILURE',
-        metadata: { ...request, engineVersion: '5.0.0-PRO' }
-      });
-    } catch (e) {
-      // Background logging failsafe
-    }
+  private static async logValidationFailure(userId: string, claimId: string, error: string, _request: any) {
+    // system_anomalies is write-restricted to Admin SDK (server-side) only.
+    // Client writes to this collection are blocked by Firestore rules.
+    // The server already logs anomalies in /api/execute-transaction error paths.
+    // Emit a console warning so engineers can see failures during debugging.
+    const severity = (error === 'REWARD_ALREADY_CLAIMED' || error === 'RACE_CONDITION_DETECTED') ? 'HIGH' : 'MEDIUM';
+    console.warn(`[PointEngine] Validation failure [${severity}]: ${error} | claim=${claimId} | user=${userId}`);
   }
 }

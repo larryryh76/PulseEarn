@@ -364,6 +364,19 @@ const Dashboard: React.FC = () => {
   const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
   const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
 
+  // SYNC VERIFICATION (Phase 18): Ensure all surfaces stay in sync
+  useEffect(() => {
+    if (tasks.length > 0) {
+      const inactiveTasks = tasks.filter(t => t.active === false);
+      if (inactiveTasks.length > 0) {
+        console.warn("[v0] SYNC DEFECT: Dashboard received", inactiveTasks.length, "inactive tasks (should be filtered by TaskContext)");
+      }
+    }
+    if (activities.length > 0 && activities.some(a => !a.timestamp)) {
+      console.warn("[v0] SYNC DEFECT: Dashboard activities missing timestamps");
+    }
+  }, [tasks, activities]);
+
   const isClaimedToday = useMemo(() => {
     if (!userData?.lastRewardDate) return false;
     const last = userData.lastRewardDate.toDate();

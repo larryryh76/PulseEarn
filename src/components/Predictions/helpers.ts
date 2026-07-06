@@ -11,7 +11,9 @@ export const toneChip: Record<Tone, string> = {
   muted: 'bg-muted border-border text-muted-foreground',
 }
 
-/** A tradable market, unified from prediction campaigns and live global assets. */
+/** A tradable market, unified from prediction campaigns and live global assets.
+ *  `price`/`change` are `null` when no live quote exists for the asset — never 0 as a
+ *  fabricated placeholder. Consumers must render an explicit "unavailable" state. */
 export interface Market {
   id: string
   assetId: string
@@ -20,8 +22,8 @@ export interface Market {
   question: string
   isCampaign: boolean
   image: string
-  price: number
-  change: number
+  price: number | null
+  change: number | null
 }
 
 /**
@@ -44,8 +46,9 @@ export function buildMarkets(campaigns: Campaign[], marketData: CryptoMarketData
         question: c.predictionQuestion || c.description,
         isCampaign: true,
         image: coin?.image || '',
-        price: coin?.current_price || 0,
-        change: coin?.price_change_percentage_24h || 0,
+        // No live quote for this asset → null (unavailable), never a fabricated 0.
+        price: coin ? coin.current_price : null,
+        change: coin ? coin.price_change_percentage_24h : null,
       }
     })
 
@@ -109,15 +112,32 @@ export type HistoryFilter = (typeof HISTORY_FILTERS)[number]['value']
 /** Preset stake amounts offered in the trade panel. */
 export const STAKE_OPTIONS = [10, 50, 100, 500, 1000] as const
 
-export function formatPrice(value: number): string {
-  if (!value) return '$0.00'
+/** Format a live price. Returns "Unavailable" for null/0 rather than a fake "$0.00". */
+export function formatPrice(value: number | null | undefined): string {
+  if (value == null || value === 0) return 'Unavailable'
   const digits = value < 1 ? 4 : 2
   return `$${value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
 }
 
-export function formatChange(change?: number): string {
-  const v = change || 0
-  return `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+/** True when a market has no live quote and must show an unavailable state. */
+export function isPriceUnavailable(value: number | null | undefined): boolean {
+  return value == null || value === 0
+}
+
+export function formatChange(change?: number | null): string {
+  if (change == null) return '—'
+  return `${change > 0 ? '+' : ''}${change.toFixed(2)}%`
+}
+
+/** Relative "updated Xs ago" label from a timestamp (ms). */
+export function formatFreshness(lastUpdated?: number): string {
+  if (!lastUpdated) return 'never'
+  const seconds = Math.max(0, Math.floor((Date.now() - lastUpdated) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ago`
 }
 
 export function formatDateTime(ts?: { toDate?: () => Date }): string {

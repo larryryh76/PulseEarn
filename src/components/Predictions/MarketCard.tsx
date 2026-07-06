@@ -2,7 +2,7 @@ import { BarChart3, ArrowRight, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatChange, formatPrice, type Market } from './helpers'
+import { formatChange, formatPrice, isPriceUnavailable, type Market } from './helpers'
 
 export default function MarketCard({
   market,
@@ -13,6 +13,7 @@ export default function MarketCard({
   multiplier: number
   onSelect: (market: Market) => void
 }) {
+  const unavailable = isPriceUnavailable(market.price)
   const positive = (market.change || 0) >= 0
 
   return (
@@ -38,10 +39,19 @@ export default function MarketCard({
             )}
           </div>
           <div className="text-right">
-            <p className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatPrice(market.price)}</p>
-            <p className={cn('font-mono text-xs tabular-nums', positive ? 'text-success' : 'text-danger')}>
-              {formatChange(market.change)}
-            </p>
+            {unavailable ? (
+              <>
+                <p className="text-sm font-semibold text-muted-foreground">Unavailable</p>
+                <p className="text-xs text-muted-foreground">No live quote</p>
+              </>
+            ) : (
+              <>
+                <p className="font-mono text-sm font-semibold tabular-nums text-foreground">{formatPrice(market.price)}</p>
+                <p className={cn('font-mono text-xs tabular-nums', positive ? 'text-success' : 'text-danger')}>
+                  {formatChange(market.change)}
+                </p>
+              </>
+            )}
           </div>
         </div>
 

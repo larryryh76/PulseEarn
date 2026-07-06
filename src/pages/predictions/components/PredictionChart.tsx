@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, AreaSeries } from 'lightweight-charts';
+import { WifiOff } from 'lucide-react';
 import axios from 'axios';
 
 interface PredictionChartProps {
@@ -11,10 +12,12 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     if (!chartContainerRef.current) return;
+    setUnavailable(false);
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -83,22 +86,20 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
           }
         }
 
-        if (isMounted && chartData.length > 0) {
-           series.setData(chartData);
-           chart.timeScale().fitContent();
+        if (isMounted) {
+          if (chartData.length > 0) {
+            series.setData(chartData);
+            chart.timeScale().fitContent();
+          } else {
+            // No real data returned — never fabricate a chart. Show unavailable state.
+            setUnavailable(true);
+          }
         }
       } catch (err) {
-        console.error('All chart data sources failed:', err);
-        // Generate simulated data on network failure
-        const data = [];
-        let time = Math.floor(Date.now() / 1000) - (100 * 60);
-        let value = 100;
-        for (let i = 0; i < 100; i++) {
-          value += (Math.random() - 0.5) * 2;
-          data.push({ time: time as any, value });
-          time += 60;
-        }
-        if (isMounted) series.setData(data);
+        // A prediction platform must NEVER simulate market prices. On total feed
+        // failure we surface an explicit unavailable state instead of fake data.
+        console.error('[v0] Chart data unavailable — no live source:', err);
+        if (isMounted) setUnavailable(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -127,6 +128,13 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
        {loading && (
           <div className="absolute inset-0 z-10 bg-background/40 backdrop-blur-sm flex items-center justify-center">
              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+       )}
+       {unavailable && !loading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/60 backdrop-blur-sm text-center px-4">
+             <WifiOff className="size-5 text-muted-foreground" />
+             <p className="text-sm font-medium text-foreground">Chart data unavailable</p>
+             <p className="text-xs text-muted-foreground">Live price history could not be loaded. No simulated data is shown.</p>
           </div>
        )}
        <div ref={chartContainerRef} className="w-full h-[200px] sm:h-[240px]" />

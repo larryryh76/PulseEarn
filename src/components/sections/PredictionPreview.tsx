@@ -84,8 +84,12 @@ const PredictionPreview: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-right space-y-0.5">
-                    <p className="text-xl font-mono font-bold text-text-primary tracking-tight leading-none">{loading ? '---' : formatUSD(btc?.current_price || 0)}</p>
-                    <span className="text-[10px] font-bold text-success uppercase tracking-widest">Live</span>
+                    <p className="text-xl font-mono font-bold text-text-primary tracking-tight leading-none">
+                      {loading ? '---' : btc?.current_price ? formatUSD(btc.current_price) : 'Unavailable'}
+                    </p>
+                    <span className={cn('text-[10px] font-bold uppercase tracking-widest', btc?.current_price ? 'text-success' : 'text-text-primary/30')}>
+                      {btc?.current_price ? 'Live' : 'No feed'}
+                    </span>
                   </div>
                 </div>
 

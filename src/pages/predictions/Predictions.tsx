@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { LineChart, Zap, Activity, History as HistoryIcon, Search } from 'lucide-react'
+import { LineChart, Zap, Activity, History as HistoryIcon, Search, AlertTriangle } from 'lucide-react'
 import { useTasks } from '../../hooks/useTasks'
 import { usePredictionMarkets } from '../../hooks/usePredictionMarkets'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,11 +12,58 @@ import PredictionHistory from '../../components/Predictions/PredictionHistory'
 import PredictionDetailDialog from '../../components/Predictions/PredictionDetailDialog'
 import { cn } from '@/lib/utils'
 import type { PredictionRecord } from '../../types'
-import type { Market } from '../../components/Predictions/helpers'
+import { formatFreshness, type Market } from '../../components/Predictions/helpers'
 
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="mx-auto max-w-7xl px-4 pb-24 pt-24 md:px-8 md:pt-28">{children}</div>
 )
+
+/** Authoritative live-feed status. Never claims "Live" when data is stale or missing. */
+function FeedStatus({
+  loading,
+  isStale,
+  feedError,
+  source,
+  lastUpdated,
+}: {
+  loading: boolean
+  isStale: boolean
+  feedError: string | null
+  source: 'coingecko' | 'cryptocompare'
+  lastUpdated: number
+}) {
+  if (loading && !lastUpdated) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="size-1.5 rounded-full bg-muted-foreground" />
+        Connecting to market feed…
+      </span>
+    )
+  }
+  if (feedError && !lastUpdated) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-danger">
+        <AlertTriangle className="size-3.5" />
+        Market data unavailable
+      </span>
+    )
+  }
+  if (isStale) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-warning">
+        <AlertTriangle className="size-3.5" />
+        Data stale · reconnecting
+      </span>
+    )
+  }
+  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : 'CryptoCompare'
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="size-1.5 animate-pulse rounded-full bg-success" />
+      Live · {sourceLabel} · {formatFreshness(lastUpdated)}
+    </span>
+  )
+}
 
 function SummaryStat({
   icon: Icon,
@@ -61,6 +108,10 @@ export default function Predictions() {
     userLevel,
     winMultiplier,
     points,
+    source,
+    lastUpdated,
+    isStale,
+    feedError,
     placePrediction,
   } = usePredictionMarkets()
 
@@ -120,9 +171,12 @@ export default function Predictions() {
       <div className="space-y-8">
         <header className="space-y-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-primary">
-              <LineChart className="size-4" />
-              <span className="text-xs font-medium uppercase tracking-wide">Prediction Market</span>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-primary">
+                <LineChart className="size-4" />
+                <span className="text-xs font-medium uppercase tracking-wide">Prediction Market</span>
+              </div>
+              <FeedStatus loading={marketLoading} isStale={isStale} feedError={feedError} source={source} lastUpdated={lastUpdated} />
             </div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">Predictions</h1>
             <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
@@ -148,6 +202,9 @@ export default function Predictions() {
             isLocked={isLocked}
             unlockLevel={unlockLevel}
             userLevel={userLevel}
+            source={source}
+            lastUpdated={lastUpdated}
+            isStale={isStale}
             onBack={() => setSelectedMarketId(null)}
             onSubmit={handleSubmit}
           />

@@ -21,6 +21,11 @@ export interface UsePredictionMarketsResult {
   userLevel: number
   winMultiplier: number
   points: number
+  /** Live-feed freshness signals surfaced to the UI. */
+  source: 'coingecko' | 'cryptocompare'
+  lastUpdated: number
+  isStale: boolean
+  feedError: string | null
   placePrediction: (market: Market, direction: 'UP' | 'DOWN', stake: number) => Promise<PlaceResult>
 }
 
@@ -31,7 +36,15 @@ export interface UsePredictionMarketsResult {
  * through the server-side transaction engine.
  */
 export function usePredictionMarkets(): UsePredictionMarketsResult {
-  const { marketData = [], loading: marketLoading, getCoin } = useCryptoData()
+  const {
+    marketData = [],
+    loading: marketLoading,
+    getCoin,
+    source,
+    lastUpdated,
+    isStale,
+    error: feedError,
+  } = useCryptoData()
   const { currentUser, userData } = useAuth()
   const { campaigns: contextCampaigns = [] } = useTasks()
 
@@ -70,7 +83,16 @@ export function usePredictionMarkets(): UsePredictionMarketsResult {
       if (points < stake) return { success: false, error: 'Insufficient points for this stake.' }
 
       const coin = getCoin(market.assetId)
-      const entryPrice = coin?.current_price || market.price || 0
+      const entryPrice = coin?.current_price ?? market.price ?? 0
+      // Never let a user stake against a market with no live price, or against a stale
+      // feed. The backend re-fetches and is authoritative (PRICE_FEED_OFFLINE), but we
+      // block early for a clear UX and to avoid pointless failed transactions.
+      if (!entryPrice) {
+        return { success: false, error: 'Live price unavailable for this market. Try again shortly.' }
+      }
+      if (isStale) {
+        return { success: false, error: 'Market data is stale. Waiting for a fresh price before staking.' }
+      }
       const claimId = `${currentUser.uid}_${market.id}_${Date.now()}`
 
       try {
@@ -91,7 +113,7 @@ export function usePredictionMarkets(): UsePredictionMarketsResult {
         return { success: false, error: err instanceof Error ? err.message : 'Submission failed.' }
       }
     },
-    [currentUser, userData, isLocked, unlockLevel, points, getCoin, winMultiplier],
+    [currentUser, userData, isLocked, unlockLevel, points, getCoin, winMultiplier, isStale],
   )
 
   return {
@@ -103,6 +125,10 @@ export function usePredictionMarkets(): UsePredictionMarketsResult {
     userLevel,
     winMultiplier,
     points,
+    source,
+    lastUpdated,
+    isStale,
+    feedError,
     placePrediction,
   }
 }

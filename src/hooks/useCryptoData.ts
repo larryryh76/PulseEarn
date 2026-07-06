@@ -30,6 +30,12 @@ const SYMBOL_MAP: Record<string, string> = {
   'polkadot': 'DOT', 'cosmos': 'ATOM', 'arbitrum': 'ARB', 'optimism': 'OP', 'near': 'NEAR'
 };
 
+// A price is considered stale once it is older than this. The feed refreshes every
+// 60s, so 90s means a single missed cycle (plus buffer) flags the data as stale. A
+// prediction platform must never present stale prices as live, so consumers use this
+// to gate rendering and staking.
+export const PRICE_STALE_MS = 90_000;
+
 // Memory cache for market data to prevent redundant fetches and layout shifts
 let cache: {
   market: CryptoMarketData[];
@@ -43,6 +49,10 @@ export const useCryptoData = () => {
   const [loading, setLoading] = useState(cache.market.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'coingecko' | 'cryptocompare'>('coingecko');
+  // Timestamp of the last SUCCESSFUL fetch (0 = never loaded). Authoritative freshness signal.
+  const [lastUpdated, setLastUpdated] = useState<number>(cache.timestamp);
+  // Ticks every 30s so `isStale` recomputes even while fetches are failing.
+  const [, setFreshnessTick] = useState(0);
 
   const fetchFromCryptoCompare = async () => {
     const symbols = Object.values(SYMBOL_MAP).join(',');
@@ -68,6 +78,8 @@ export const useCryptoData = () => {
 
     setMarketData(mapped);
     setSource('cryptocompare');
+    cache = { ...cache, market: mapped, timestamp: Date.now() };
+    setLastUpdated(cache.timestamp);
   };
 
   const fetchMarketData = async () => {
@@ -101,6 +113,7 @@ export const useCryptoData = () => {
         };
 
         setSource('coingecko');
+        setLastUpdated(cache.timestamp);
         setError(null);
       } catch (cgError) {
         console.warn('CoinGecko failed, falling back to CryptoCompare...', cgError);
@@ -123,10 +136,19 @@ export const useCryptoData = () => {
     }
 
     const interval = setInterval(fetchMarketData, 60000); // Update every minute
-    return () => clearInterval(interval);
+    // Recompute freshness independently so staleness surfaces even while fetches fail.
+    const freshness = setInterval(() => setFreshnessTick((t) => t + 1), 30000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(freshness);
+    };
   }, []);
 
   const getCoin = (id: string) => marketData.find(c => c.id === id);
+
+  // Stale once the last successful fetch is older than the threshold. Never stale
+  // before the first successful load (that is "loading"/"unavailable", not "stale").
+  const isStale = lastUpdated > 0 && Date.now() - lastUpdated > PRICE_STALE_MS;
 
   return {
     marketData,
@@ -134,6 +156,8 @@ export const useCryptoData = () => {
     loading,
     error,
     source,
+    lastUpdated,
+    isStale,
     getCoin,
     refresh: fetchMarketData
   };

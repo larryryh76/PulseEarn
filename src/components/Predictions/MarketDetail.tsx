@@ -1,10 +1,10 @@
-import { ArrowLeft, BarChart3, Activity } from 'lucide-react'
+import { ArrowLeft, BarChart3, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import PredictionChart from '../../pages/predictions/components/PredictionChart'
 import TradePanel from './TradePanel'
-import { formatChange, formatPrice, type Market } from './helpers'
+import { formatChange, formatPrice, formatFreshness, isPriceUnavailable, type Market } from './helpers'
 import type { CryptoMarketData } from '../../hooks/useCryptoData'
 
 interface MarketDetailProps {
@@ -15,6 +15,9 @@ interface MarketDetailProps {
   isLocked: boolean
   unlockLevel: number
   userLevel: number
+  source: 'coingecko' | 'cryptocompare'
+  lastUpdated: number
+  isStale: boolean
   onBack: () => void
   onSubmit: (direction: 'UP' | 'DOWN', stake: number) => Promise<{ success: boolean; error?: string }>
 }
@@ -27,12 +30,17 @@ export default function MarketDetail({
   isLocked,
   unlockLevel,
   userLevel,
+  source,
+  lastUpdated,
+  isStale,
   onBack,
   onSubmit,
 }: MarketDetailProps) {
-  const price = coin?.current_price || market.price || 0
-  const change = coin?.price_change_percentage_24h ?? market.change ?? 0
-  const positive = change >= 0
+  const price = coin?.current_price ?? market.price ?? null
+  const change = coin?.price_change_percentage_24h ?? market.change ?? null
+  const unavailable = isPriceUnavailable(price)
+  const positive = (change ?? 0) >= 0
+  const sourceLabel = source === 'coingecko' ? 'CoinGecko' : 'CryptoCompare'
 
   return (
     <div className="space-y-6">
@@ -61,19 +69,43 @@ export default function MarketDetail({
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-semibold text-foreground">{market.symbol}</h2>
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
-                        <span className="size-1.5 rounded-full bg-success" />
-                        Live
-                      </Badge>
+                      {unavailable ? (
+                        <Badge variant="secondary" className="gap-1 text-[10px] text-muted-foreground">
+                          <span className="size-1.5 rounded-full bg-muted-foreground" />
+                          No live quote
+                        </Badge>
+                      ) : isStale ? (
+                        <Badge variant="secondary" className="gap-1 text-[10px] text-warning">
+                          <AlertTriangle className="size-2.5" />
+                          Stale
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-[10px]">
+                          <span className="size-1.5 animate-pulse rounded-full bg-success" />
+                          Live
+                        </Badge>
+                      )}
                     </div>
                     <p className="max-w-md text-pretty text-sm text-muted-foreground">{market.question}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">{formatPrice(price)}</p>
-                  <p className={cn('font-mono text-sm tabular-nums', positive ? 'text-success' : 'text-danger')}>
-                    {formatChange(change)} · 24h
-                  </p>
+                  {unavailable ? (
+                    <>
+                      <p className="text-2xl font-semibold text-muted-foreground">Unavailable</p>
+                      <p className="text-sm text-muted-foreground">No live price feed</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">{formatPrice(price)}</p>
+                      <p className={cn('font-mono text-sm tabular-nums', positive ? 'text-success' : 'text-danger')}>
+                        {formatChange(change)} · 24h
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {sourceLabel} · updated {formatFreshness(lastUpdated)}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -100,6 +132,8 @@ export default function MarketDetail({
             isLocked={isLocked}
             unlockLevel={unlockLevel}
             userLevel={userLevel}
+            priceUnavailable={unavailable}
+            isStale={isStale}
             onSubmit={onSubmit}
           />
         </div>

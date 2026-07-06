@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, TrendingDown, Zap, Lock } from 'lucide-react'
+import { TrendingUp, TrendingDown, Zap, Lock, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +15,8 @@ interface TradePanelProps {
   isLocked: boolean
   unlockLevel: number
   userLevel: number
+  priceUnavailable?: boolean
+  isStale?: boolean
   onSubmit: (direction: 'UP' | 'DOWN', stake: number) => Promise<{ success: boolean; error?: string }>
 }
 
@@ -25,6 +27,8 @@ export default function TradePanel({
   isLocked,
   unlockLevel,
   userLevel,
+  priceUnavailable = false,
+  isStale = false,
   onSubmit,
 }: TradePanelProps) {
   const navigate = useNavigate()
@@ -34,6 +38,9 @@ export default function TradePanel({
 
   const payout = Math.round(stake * multiplier)
   const insufficient = stake > points
+  // Cannot forecast without a live, fresh price. Backend is authoritative, but we gate
+  // the UI so users never stake against a missing or stale market quote.
+  const feedBlocked = priceUnavailable || isStale
 
   const handleSubmit = async () => {
     if (!direction) return
@@ -165,13 +172,28 @@ export default function TradePanel({
           <p className="text-xs text-danger">You don&apos;t have enough points for this stake.</p>
         ) : null}
 
+        {feedBlocked ? (
+          <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+            <p className="text-xs text-warning">
+              {priceUnavailable
+                ? 'Live price unavailable for this market. Forecasting is disabled until a quote loads.'
+                : 'Market data is stale. Forecasting is paused until a fresh price arrives.'}
+            </p>
+          </div>
+        ) : null}
+
         <Button
           className="w-full"
           size="lg"
-          disabled={!direction || submitting || insufficient}
+          disabled={!direction || submitting || insufficient || feedBlocked}
           onClick={handleSubmit}
         >
-          {submitting ? 'Opening position…' : `Forecast ${market.symbol} ${direction ? (direction === 'UP' ? 'Up' : 'Down') : ''}`}
+          {feedBlocked
+            ? 'Forecasting unavailable'
+            : submitting
+              ? 'Opening position…'
+              : `Forecast ${market.symbol} ${direction ? (direction === 'UP' ? 'Up' : 'Down') : ''}`}
         </Button>
       </CardContent>
     </Card>

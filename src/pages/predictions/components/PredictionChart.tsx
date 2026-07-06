@@ -70,19 +70,34 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ assetId }) => {
              value: p[1]
           }));
         } catch (cgError) {
-          console.warn('CoinGecko chart failed, falling back to CryptoCompare...', cgError);
-          // Fallback: CryptoCompare
+          // CoinGecko is frequently rate-limited (429). Fall through keyless providers
+          // before giving up — never simulate a chart.
+          console.warn('[v0] CoinGecko chart unavailable, trying Coinbase…', cgError);
           const sym = SYMBOL_MAP[assetId];
-          if (sym) {
-            const res = await axios.get(`https://min-api.cryptocompare.com/data/v2/histohour`, {
-              params: { fsym: sym, tsym: 'USD', limit: 24 }
+          try {
+            if (!sym) throw new Error('No symbol mapping for Coinbase');
+            // Coinbase candles: [time(s), low, high, open, close, volume], newest first.
+            const res = await axios.get(`https://api.exchange.coinbase.com/products/${sym}-USD/candles`, {
+              params: { granularity: 3600 },
             });
-            chartData = res.data.Data.Data.map((p: any) => ({
-              time: p.time as any,
-              value: p.close
-            }));
-          } else {
-            throw new Error('No symbol mapping found for fallback');
+            chartData = (res.data as number[][])
+              .slice(0, 24)
+              .map((c) => ({ time: c[0] as any, value: c[4] }))
+              .sort((a, b) => (a.time as number) - (b.time as number));
+          } catch (cbError) {
+            console.warn('[v0] Coinbase chart unavailable, trying CryptoCompare…', cbError);
+            // Last resort: CryptoCompare
+            if (sym) {
+              const res = await axios.get(`https://min-api.cryptocompare.com/data/v2/histohour`, {
+                params: { fsym: sym, tsym: 'USD', limit: 24 }
+              });
+              chartData = res.data.Data.Data.map((p: any) => ({
+                time: p.time as any,
+                value: p.close
+              }));
+            } else {
+              throw new Error('No symbol mapping found for fallback');
+            }
           }
         }
 

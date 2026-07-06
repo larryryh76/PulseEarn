@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Globe, CheckCircle2, Clock, Shield, ArrowRight,
-  RefreshCw, TrendingUp, Zap, Award, ExternalLink,
-  ChevronDown, ChevronRight, AlertCircle, Star
+  Globe, CheckCircle2, Clock, Shield,
+  RefreshCw, Zap, Award, ExternalLink,
+  ChevronDown, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { safeFetch } from '../utils/api';
@@ -263,8 +263,7 @@ const Offerwalls: React.FC = () => {
   const [tab, setTab] = useState<'earn' | 'history'>('earn');
 
   const userPoints = userData?.points ?? 0;
-  const userTotalEarned = userData?.stats?.totalEarnings ?? 0;
-
+  
   const loadProviders = useCallback(async () => {
     if (!currentUser) return;
     setProvidersLoading(true);

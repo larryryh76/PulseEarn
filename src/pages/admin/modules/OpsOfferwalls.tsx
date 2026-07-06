@@ -6,29 +6,20 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Clock,
-  DollarSign,
-  TrendingUp,
   RefreshCw,
-  Shield,
   Layers,
   BarChart3,
   Settings,
   List,
-  Zap,
-  ArrowUpRight,
-  Eye,
   ChevronDown,
   ChevronRight,
-  AlertCircle,
   Copy,
   Check
 } from 'lucide-react';
 import { db } from '../../../firebase/config';
-import { collection, onSnapshot, orderBy, limit, query } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { safeFetch } from '../../../utils/api';
-import { auth } from '../../../firebase/config';
 import ProviderManagerModal from './modals/ProviderManagerModal';
 import toast from 'react-hot-toast';
 import { cn } from '../../../utils';

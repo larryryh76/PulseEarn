@@ -150,7 +150,6 @@ export function verifySignature(
   params: Record<string, string>,
   secret: string,
   receivedSig: string,
-  providerSlug?: string,
 ): boolean {
   try {
     switch (method) {

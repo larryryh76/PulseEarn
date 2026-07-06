@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, X, Key, Globe, Settings, AlertTriangle,
-  ChevronDown, ChevronRight, ToggleLeft, ToggleRight,
-  Save, Trash2, RefreshCw, Lock, DollarSign, Zap
+  Shield, X, Key, Globe, AlertTriangle,
+  ChevronDown, ChevronRight,
+  Save, Lock, DollarSign
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { safeFetch } from '../../../../utils/api';

@@ -810,11 +810,149 @@ def resolve_prediction():
 @verify_token
 @require_db
 def lookup():
+    """Lookup referrer by code. Returns referrer ID for validation during signup."""
     db = get_db()
     code = request.json.get('referralCode')
     docs = db.collection('users').where('referralCode', '==', code).limit(1).get()
     if not docs: return jsonify({"success": False, "error": "INVALID_CODE"}), 404
     return jsonify({"success": True, "referrerId": docs[0].id, "username": docs[0].to_dict().get('username')})
+
+@app.route('/api/referrals/apply-signup-bonus', methods=['POST'])
+@verify_token
+@require_db
+def apply_signup_bonus():
+    """Apply referral bonuses immediately on signup (REFEREE + REFERRER).
+    
+    Called during initializeUserProfile after referral code validation.
+    Atomically distributes:
+    - 30 PTS to referee (new user)
+    - 50 PTS to referrer (who referred them)
+    Both logged to ledger with full audit trail.
+    """
+    db = get_db()
+    caller_id = request.user['uid']  # The new user (referee)
+    data = request.json or {}
+    referrer_id = data.get('referrerId')  # Who referred them
+    referral_doc_id = data.get('referralDocId')  # Document ID of referral record
+    
+    if not referrer_id or not referral_doc_id:
+        return jsonify({"success": False, "error": "MISSING_PARAMETERS"}), 400
+    if caller_id == referrer_id:
+        return jsonify({"success": False, "error": "SELF_REFERRAL"}), 400
+    
+    cfg_snap = db.collection('system_config').document('global_v1').get()
+    rewards = (cfg_snap.to_dict() or {}).get('rewards', {}) if cfg_snap.exists else {}
+    referee_bonus_pts = rewards.get('referralBonusPoints', 30)  # Referee gets bonus
+    referee_bonus_xp = rewards.get('referralBonusXP', 0)
+    referrer_bonus_pts = rewards.get('referralBonusPoints', 50)  # Referrer gets bonus
+    referrer_bonus_xp = rewards.get('referralBonusXP', 100)
+    
+    referee_ref = db.collection('users').document(caller_id)
+    referrer_ref = db.collection('users').document(referrer_id)
+    referral_ref = db.collection('referrals').document(referral_doc_id)
+    
+    @firestore.transactional
+    def apply_bonuses(transaction):
+        # Verify referral record exists and is in REGISTERED state
+        ref_snap = referral_ref.get(transaction=transaction)
+        if not ref_snap.exists:
+            raise Exception("REFERRAL_NOT_FOUND")
+        r = ref_snap.to_dict()
+        if r.get('refereeId') != caller_id or r.get('referrerId') != referrer_id:
+            raise Exception("REFERRAL_MISMATCH")
+        if r.get('status') != 'REGISTERED':
+            raise Exception("ALREADY_PROCESSED")
+        
+        # Verify both users exist
+        referee_snap = referee_ref.get(transaction=transaction)
+        referrer_snap = referrer_ref.get(transaction=transaction)
+        if not referee_snap.exists or not referrer_snap.exists:
+            raise Exception("USER_NOT_FOUND")
+        
+        # Apply bonus to REFEREE (new user)
+        transaction.update(referee_ref, {
+            'points': firestore.Increment(referee_bonus_pts),
+            'xp': firestore.Increment(referee_bonus_xp),
+            'stats.referralsReceived': firestore.Increment(1)
+        })
+        
+        # Apply bonus to REFERRER (who referred them)
+        transaction.update(referrer_ref, {
+            'points': firestore.Increment(referrer_bonus_pts),
+            'xp': firestore.Increment(referrer_bonus_xp),
+            'stats.referralsCount': firestore.Increment(1)
+        })
+        
+        # Update global metrics
+        total_liability = referee_bonus_pts + referrer_bonus_pts
+        transaction.set(db.collection('system_config').document('global_metrics'),
+                       {'totalPTSLiability': firestore.Increment(total_liability)}, merge=True)
+        
+        # Mark referral as qualified/rewarded
+        transaction.update(referral_ref, {
+            'status': 'QUALIFIED',
+            'rewarded': True,
+            'refereeBonusPoints': referee_bonus_pts,
+            'referrerBonusPoints': referrer_bonus_pts,
+            'qualifiedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+        
+        # Create ledger entries for both users
+        referee_new_balance = (referee_snap.to_dict() or {}).get('points', 0) + referee_bonus_pts
+        post_ledger(transaction, referee_ref, caller_id,
+                   tx_type='referral_bonus_received',
+                   amount=referee_bonus_pts,
+                   xp=referee_bonus_xp,
+                   source='Referral Program',
+                   description=f'Signup bonus from referral',
+                   claim_id=f'referral_signup_{referral_doc_id}',
+                   reference_id=referral_doc_id,
+                   balance_after=referee_new_balance,
+                   activity_type='referral_bonus_received')
+        
+        # Referrer ledger entry
+        referrer_new_balance = (referrer_snap.to_dict() or {}).get('points', 0) + referrer_bonus_pts
+        post_ledger(transaction, referrer_ref, referrer_id,
+                   tx_type='referral_bonus_earned',
+                   amount=referrer_bonus_pts,
+                   xp=referrer_bonus_xp,
+                   source='Referral Program',
+                   description=f'Bonus for referring {r.get("refereeUsername", "new member")}',
+                   claim_id=f'referral_reward_{referral_doc_id}',
+                   reference_id=referral_doc_id,
+                   balance_after=referrer_new_balance,
+                   activity_type='referral_bonus_earned')
+    
+    try:
+        transaction = db.transaction()
+        apply_bonuses(transaction)
+        
+        # Send notifications after transaction succeeds
+        notify = {
+            'referee': {
+                'userId': caller_id,
+                'title': 'Referral Bonus Received',
+                'description': f'You earned {referee_bonus_pts} PTS from your referral signup!',
+                'type': 'referral_bonus_received'
+            },
+            'referrer': {
+                'userId': referrer_id,
+                'title': 'Referral Bonus Earned',
+                'description': f'You earned {referrer_bonus_pts} PTS! {r.get("refereeUsername", "A new member")} joined using your code.',
+                'type': 'referral_bonus_earned'
+            }
+        }
+        
+        return jsonify({
+            "success": True,
+            "refereeBonusPoints": referee_bonus_pts,
+            "referrerBonusPoints": referrer_bonus_pts,
+            "notifications": notify
+        })
+    except Exception as e:
+        print(f"[Referral Signup Bonus] Error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/promote-moderator', methods=['POST'])
 @verify_token
@@ -1261,7 +1399,7 @@ def enable_task(task_id):
 # Adding a new provider = add its PARAM_MAP entry, zero other code changes.
 #
 # Callback pipeline:
-#   Receive → Extract Params → Verify Signature → Dedup → Fraud Gate
+#   Receive → Extract Params �� Verify Signature → Dedup → Fraud Gate
 #           → PointTransactionEngine → Wallet → XP → Activity → History
 #           → Notifications → Audit Log
 #

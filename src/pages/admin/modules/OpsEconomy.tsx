@@ -293,7 +293,8 @@ const OpsEconomy: React.FC = () => {
                 <div className="space-y-4">
                    {[
                      { label: 'Daily Login', value: `+${economyConfig?.rewards?.dailyLoginPoints || 50} PTS` },
-                     { label: 'Referral Bonus', value: `+${economyConfig?.rewards?.referralBonusPoints || 50} PTS` },
+                     { label: 'Referrer Bonus', value: `+${economyConfig?.rewards?.referralBonusPointsReferrer || 50} PTS` },
+                     { label: 'Referee Bonus', value: `+${economyConfig?.rewards?.referralBonusPointsReferee || 30} PTS` },
                      { label: 'Win Multiplier', value: `${economyConfig?.rewards?.predictionWinMultiplier?.toFixed(1) || '2.0'}X` },
                      { label: 'Predict Unlock', value: `LVL ${economyConfig?.thresholds?.predictionUnlockLevel || 5}` },
                      { label: 'Min Withdrawal', value: `${(economyConfig?.thresholds?.minWithdrawalPoints || 10000).toLocaleString()} PTS` },
@@ -353,8 +354,12 @@ const OpsEconomy: React.FC = () => {
                                <input type="number" value={economyConfig.rewards.dailyLoginXP} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, dailyLoginXP: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
-                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral Points</label>
-                               <input type="number" value={economyConfig.rewards.referralBonusPoints} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPoints: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referrer Points</label>
+                               <input type="number" value={economyConfig.rewards.referralBonusPointsReferrer} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPointsReferrer: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referee Points</label>
+                               <input type="number" value={economyConfig.rewards.referralBonusPointsReferee} onChange={e => setEconomyConfig({...economyConfig, rewards: {...economyConfig.rewards, referralBonusPointsReferee: Number(e.target.value)}})} className="w-full bg-surface-bright border border-border rounded-xl px-4 py-3 text-sm font-mono" />
                             </div>
                             <div className="space-y-2">
                                <label className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary ml-1">Referral XP</label>

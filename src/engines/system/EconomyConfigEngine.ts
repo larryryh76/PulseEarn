@@ -13,8 +13,9 @@ export interface EconomyConfig {
     dailyLoginXP: number;
     welcomeBonusPoints: number;
     welcomeBonusXP: number;
-    referralBonusPoints: number;
-    referralBonusXP: number;
+    referralBonusPointsReferee: number;  // Bonus for new user (referee)
+    referralBonusPointsReferrer: number; // Bonus for who referred them (referrer)
+    referralBonusXP: number;             // Shared XP for both
     predictionWinMultiplier: number; // e.g. 2.0
     minPredictionStake: number;
     maxPredictionStake: number;
@@ -41,8 +42,9 @@ const DEFAULT_CONFIG: EconomyConfig = {
     dailyLoginXP: 20,
     welcomeBonusPoints: 30,
     welcomeBonusXP: 50,
-    referralBonusPoints: 50,
-    referralBonusXP: 100,
+    referralBonusPointsReferee: 30,   // New user gets 30 PTS when referred
+    referralBonusPointsReferrer: 50,  // Referrer gets 50 PTS
+    referralBonusXP: 100,             // Both get 100 XP
     predictionWinMultiplier: 2.0,
     minPredictionStake: 10,
     maxPredictionStake: 10000,
@@ -83,29 +85,16 @@ export class EconomyConfigEngine {
       const snap = await getDoc(docRef);
 
       if (snap.exists()) {
-        const data = snap.data();
-        // Always merge defaults so any missing keys (like referralBonusPoints) get the canonical value
-        this.cache = {
-           ...DEFAULT_CONFIG,
-           ...data,
-           rewards: { ...DEFAULT_CONFIG.rewards, ...(data.rewards || {}) },
-           thresholds: { ...DEFAULT_CONFIG.thresholds, ...(data.thresholds || {}) },
-           security: { ...DEFAULT_CONFIG.security, ...(data.security || {}) }
-        } as EconomyConfig;
+        // Always merge defaults so any missing keys get the canonical value
+        const data = (snap.data() as any) || {};
+        this.cache = { ...DEFAULT_CONFIG, ...data };
 
-        // DATA INTEGRITY: Detect and correct known bad values.
-        // Historically the Python API had a fallback of 500 for referralBonusPoints
-        // which could seed Firestore with an incorrect value. Detect and repair it.
-        const storedReferralPts = data.rewards?.referralBonusPoints;
-        const referralPtsBad = storedReferralPts === undefined || storedReferralPts === null || storedReferralPts === 500;
-
-        // Back-fill any missing reward keys OR fix the known bad 500 value
-        const missingKeys = Object.keys(DEFAULT_CONFIG.rewards).filter(
-          k => data.rewards?.[k] === undefined
-        );
-        if (missingKeys.length > 0 || referralPtsBad) {
-          // Clamp to DEFAULT_CONFIG value — do not use the 500 seed
-          this.cache.rewards.referralBonusPoints = DEFAULT_CONFIG.rewards.referralBonusPoints;
+        // Historically the Python API had a fallback of 500 for referralBonusPointsReferrer
+        // (before the fix). Auto-detect and auto-correct on read. This prevents old seed
+        // data from leaking into clients; the next write will use the correct value.
+        const storedReferralPts = data.rewards?.referralBonusPointsReferrer;
+        if (storedReferralPts === 500 && this.cache) {
+          this.cache.rewards.referralBonusPointsReferrer = DEFAULT_CONFIG.rewards.referralBonusPointsReferrer;
           await this.updateConfig({ rewards: this.cache.rewards });
         }
       } else {

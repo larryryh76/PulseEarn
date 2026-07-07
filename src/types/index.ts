@@ -8,7 +8,7 @@ export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 export type TaskCategory = 'SOCIAL' | 'REFERRAL' | 'EDUCATION' | 'PREDICTION' | 'COMMUNITY' | 'EVENTS' | 'SPONSORED' | 'CUSTOM';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 
-export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
+export type ReferralStatus = 'INVITED' | 'REGISTERED' | 'VERIFIED' | 'ACTIVATED' | 'QUALIFIED' | 'REWARDED' | 'FLAGGED' | 'REVERSED';
 export type TicketStatus = 'OPEN' | 'PENDING' | 'AWAITING_USER' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TicketCategory =
@@ -218,6 +218,7 @@ export interface UserData {
   points: number;
   referralCode: string;
   referredBy: string | null;
+  referralDocId?: string; // Document ID of the referral record (if user was referred)
   streak: number;
   totalEarnedToday: number;
   xp: number;
@@ -245,7 +246,8 @@ export interface UserData {
   fraudFlags?: string[];
   stats?: {
     tasksCompleted: number;
-    referralsCount: number;
+    referralsCount: number;           // Number of people user has referred (referrer count)
+    referralsReceived?: number;       // Number of times user was referred to (referee count)
     predictionsCount: number;
     totalWins?: number;
     predictionRewards?: number;
@@ -295,10 +297,14 @@ export interface ReferralRecord {
   refereeId: string;
   refereeUsername: string;
   status: ReferralStatus;
+  rewarded?: boolean;
+  refereeBonusPoints?: number;  // Amount referee received
+  referrerBonusPoints?: number; // Amount referrer received
   rewardTransactionId?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  fraudFlags: string[];
+  qualifiedAt?: Timestamp;      // When referee received bonus
+  fraudFlags?: string[];
 }
 
 export interface SupportTicket {

@@ -80,7 +80,7 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchConfig = async () => {
       const config = await EconomyConfigEngine.getConfig();
-      setRewardAmount(config.rewards.referralBonusPoints);
+      setRewardAmount(config.rewards.referralBonusPointsReferrer);
     };
     fetchConfig();
   }, []);

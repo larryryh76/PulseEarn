@@ -388,13 +388,16 @@ const Dashboard: React.FC = () => {
 
   const discoveredTasks = useMemo(() => {
     const rail: any[] = [];
-    activeCampaigns.filter(c => c.featured).forEach(c => {
+    // Defensive: Only include featured campaigns that are active
+    activeCampaigns.filter(c => c.featured && c.active).forEach(c => {
       rail.push({ id: `campaign_${c.id}`, originalId: c.id, type: 'CAMPAIGN', title: c.name, category: c.category, reward: c.totalPrizePool || 0, description: c.description, priority: 100 });
     });
-    tasks.filter(t => t.active && getTaskStatus(t).status === 'available').slice(0, 8).forEach(t => {
+    // Defensive: Double-check tasks are active before adding (guards against TaskContext sync issues)
+    tasks.filter(t => t.active === true && getTaskStatus(t).status === 'available').slice(0, 8).forEach(t => {
       const campaign = activeCampaigns.find(c => c.id === t.campaignId);
       rail.push({ id: `task_${t.id}`, originalId: t.id, campaignId: t.campaignId, campaignName: campaign?.name, type: 'TASK', title: t.title, category: t.category, reward: t.rewardAmount, xp: t.xpReward, instructions: t.instructions, verificationType: t.verificationType, priority: t.rewardAmount > 500 ? 90 : 70 });
     });
+    // Defensive: Filter out inactive missions
     systemTasks.filter(st => st.progress?.status !== 'CLAIMED' && st.definition?.active !== false).forEach(st => {
       rail.push({ id: `mission_${st.id}`, originalId: st.id, type: 'MISSION', title: st.definition.title, category: st.definition.category, reward: st.definition.rewardPoints, xp: st.definition.rewardXp, description: st.definition.description, progress: st.progress?.progress || 0, target: st.definition.targetValue, status: st.progress?.status || 'IN_PROGRESS', priority: st.progress?.status === 'COMPLETED' ? 95 : 80 });
     });
@@ -454,6 +457,11 @@ const Dashboard: React.FC = () => {
 
   const { level = 1, xp = 0, points = 0, streak = 0, stats } = userData!;
   const xpProg = getXpProgress(xp);
+
+  // Streak verification: Log value to catch inconsistencies across pages
+  useEffect(() => {
+    console.log("[v0] Dashboard streak value:", streak, "for user:", userData?.username);
+  }, [streak, userData?.username]);
 
   return (
     <>

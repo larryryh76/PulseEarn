@@ -92,11 +92,20 @@ export class EconomyConfigEngine {
            thresholds: { ...DEFAULT_CONFIG.thresholds, ...(data.thresholds || {}) },
            security: { ...DEFAULT_CONFIG.security, ...(data.security || {}) }
         } as EconomyConfig;
-        // Back-fill any missing reward keys into Firestore so all users see same values
+
+        // DATA INTEGRITY: Detect and correct known bad values.
+        // Historically the Python API had a fallback of 500 for referralBonusPoints
+        // which could seed Firestore with an incorrect value. Detect and repair it.
+        const storedReferralPts = data.rewards?.referralBonusPoints;
+        const referralPtsBad = storedReferralPts === undefined || storedReferralPts === null || storedReferralPts === 500;
+
+        // Back-fill any missing reward keys OR fix the known bad 500 value
         const missingKeys = Object.keys(DEFAULT_CONFIG.rewards).filter(
           k => data.rewards?.[k] === undefined
         );
-        if (missingKeys.length > 0) {
+        if (missingKeys.length > 0 || referralPtsBad) {
+          // Clamp to DEFAULT_CONFIG value — do not use the 500 seed
+          this.cache.rewards.referralBonusPoints = DEFAULT_CONFIG.rewards.referralBonusPoints;
           await this.updateConfig({ rewards: this.cache.rewards });
         }
       } else {

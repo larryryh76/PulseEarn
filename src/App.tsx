@@ -60,11 +60,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isAdmin = userData?.role === 'admin';
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
-  if (!currentUser.emailVerified && !isAdmin && !isTestBypass && window.location.pathname !== '/verify-email') {
+  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 
@@ -82,7 +82,7 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const role = (userData?.role as string)?.toLowerCase();
+  const role = userData?.role;
   const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
   if (!isOps) {
@@ -96,7 +96,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    if (userData?.role === 'admin') return <Navigate to="/admin" replace />;
+    if (userData?.role === 'admin' || userData?.role === 'moderator') return <Navigate to="/admin" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;

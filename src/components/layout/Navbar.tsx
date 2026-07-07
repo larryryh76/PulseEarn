@@ -109,7 +109,7 @@ const Navbar: React.FC = () => {
                       )}
                    </Link>
 
-                  {userData?.role === 'admin' && (
+                  {(userData?.role === 'admin' || userData?.role === 'moderator') && (
                     <Link to="/admin" className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest flex items-center gap-2">
                        <Terminal size={14} />
                        Ops
@@ -227,10 +227,10 @@ const Navbar: React.FC = () => {
                          </button>
                       </div>
 
-                      {userData?.role === 'admin' && (
+                      {(userData?.role === 'admin' || userData?.role === 'moderator') && (
                         <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 p-5 rounded-2xl font-bold uppercase tracking-widest text-[11px] text-primary bg-primary/5 border border-primary/10">
                           <Terminal size={20} />
-                          Admin Operations
+                          {userData?.role === 'admin' ? 'Admin Operations' : 'Moderator Panel'}
                         </Link>
                       )}
                     </div>

@@ -10,7 +10,7 @@ import { auth } from '../firebase/config';
 import { safeFetch } from '../utils/api';
 
 const VerifyEmail: React.FC = () => {
-  const { currentUser, logout, sendVerification } = useAuth();
+  const { currentUser, userData, logout, sendVerification } = useAuth();
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -80,11 +80,10 @@ const VerifyEmail: React.FC = () => {
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Bypass for admin
-  const { userData } = useAuth();
-  const isAdmin = userData?.role === 'admin';
-  if (currentUser.emailVerified || isAdmin) {
-    const target = isAdmin ? '/admin' : '/dashboard';
+  // Bypass for ops users (admin + moderator)
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
+  if (currentUser.emailVerified || isOpsUser) {
+    const target = isOpsUser ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;
   }
 

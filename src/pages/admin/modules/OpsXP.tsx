@@ -41,7 +41,7 @@ const OpsXP: React.FC = () => {
     predictionUnlockLevel: 5,
     minWithdrawalPoints: 10000,
     referralBonusPoints: 50,
-    referralBonusXP: 50
+    referralBonusXP: 100
   });
 
   React.useEffect(() => {
@@ -55,7 +55,7 @@ const OpsXP: React.FC = () => {
           predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
           minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
           referralBonusPoints: data.rewards?.referralBonusPoints || 50,
-          referralBonusXP: data.rewards?.referralBonusXP || 50
+          referralBonusXP: data.rewards?.referralBonusXP || 100
         });
       }
       setLoading(false);

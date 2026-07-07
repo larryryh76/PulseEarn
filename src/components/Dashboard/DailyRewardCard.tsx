@@ -83,7 +83,7 @@ const DailyRewardCard: React.FC = () => {
         <div className="h-1.5 w-full bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border">
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${Math.min((((userData?.streak || 0) - 1) % 7 + 1) / 7 * 100, 100)}%` }}
+            animate={{ width: `${userData?.streak ? Math.min(((userData.streak - 1) % 7 + 1) / 7 * 100, 100) : 0}%` }}
             className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.4)]"
           />
         </div>

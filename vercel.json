@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "git": {
+    "deploymentEnabled": true,
+    "deploymentRoleArn": null,
+    "autoAddIntegration": true
+  },
   "redirects": [
     { "source": "/prediction", "destination": "/predictions", "permanent": true },
     { "source": "/profile", "destination": "/me", "permanent": true },

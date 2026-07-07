@@ -77,7 +77,7 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
   }, [userData]);
 
   const isModerator = React.useMemo(() => {
-    return isAdmin || (userData?.role as string) === 'moderator';
+    return isAdmin || userData?.role === 'moderator';
   }, [userData, isAdmin]);
 
   if (loading || !isInitialized) return (

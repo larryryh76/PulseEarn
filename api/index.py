@@ -565,7 +565,30 @@ def execute_transaction():
         elif tx_type == 'daily_reward':
             points_delta = float(rewards.get('dailyLoginPoints', 50) or 0)
             xp_delta = float(rewards.get('dailyLoginXP', 20) or 0)
-            post_writes.append((user_ref, {'lastRewardDate': firestore.SERVER_TIMESTAMP}, True))
+            # ── Streak calculation ──────────────────────────────────────────────
+            # Use UTC-day boundaries so streaks are server-authoritative and
+            # immune to client timezone manipulation.  A streak increments when
+            # the previous daily reward was claimed on the immediately preceding
+            # UTC day; it resets to 1 when more than one day was skipped.
+            now_utc = datetime.now(timezone.utc)
+            today_utc = now_utc.date()
+            yesterday_utc = today_utc - timedelta(days=1)
+            last_reward = u.get('lastRewardDate')
+            current_streak = int(u.get('streak', 0) or 0)
+            if last_reward is not None:
+                last_day = last_reward.date() if hasattr(last_reward, 'date') else today_utc
+                if last_day == yesterday_utc:
+                    new_streak = current_streak + 1   # consecutive day
+                elif last_day == today_utc:
+                    new_streak = current_streak       # same day (shouldn't reach here — claimId guard)
+                else:
+                    new_streak = 1                    # streak broken
+            else:
+                new_streak = 1                        # first ever claim
+            post_writes.append((user_ref, {
+                'lastRewardDate': firestore.SERVER_TIMESTAMP,
+                'streak': new_streak
+            }, True))
 
         elif tx_type == 'welcome_bonus':
             points_delta = float(rewards.get('welcomeBonusPoints', 30) or 0)
@@ -1069,7 +1092,8 @@ def process_referral_reward():
 
     cfg_snap = db.collection('system_config').document('global_v1').get()
     rewards = (cfg_snap.to_dict() or {}).get('rewards', {}) if cfg_snap.exists else {}
-    points = rewards.get('referralBonusPoints', 500)
+    # Default is 50, matching EconomyConfigEngine.DEFAULT_CONFIG.rewards.referralBonusPoints
+    points = rewards.get('referralBonusPoints', 50)
     xp = rewards.get('referralBonusXP', 100)
 
     ref_ref = db.collection('referrals').document(referral_doc_id)
@@ -1093,7 +1117,8 @@ def process_referral_reward():
         transaction.update(referrer_ref, {
             'points': firestore.Increment(points),
             'xp': firestore.Increment(xp),
-            'stats.referralsConverted': firestore.Increment(1)
+            # Use the canonical field name matching UserData.stats.referralsCount
+            'stats.referralsCount': firestore.Increment(1)
         })
         transaction.set(db.collection('system_config').document('global_metrics'),
                         {'totalPTSLiability': firestore.Increment(points)}, merge=True)

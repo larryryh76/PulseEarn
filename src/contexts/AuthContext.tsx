@@ -406,9 +406,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
-            // Preserve moderator role; only collapse to 'user' if no admin/moderator role exists
-            const resolvedRole = data.role === 'admin' ? 'admin' : ((data.role as string) === 'moderator' ? 'moderator' : 'user');
-            const resolvedData = {
+            // Preserve all valid roles — admin, moderator, user
+            const resolvedRole: UserData['role'] =
+              data.role === 'admin' ? 'admin' :
+              data.role === 'moderator' ? 'moderator' : 'user';
+            const resolvedData: UserData = {
               ...data,
               role: resolvedRole,
               status: data.status || 'active'
@@ -417,7 +419,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserData(resolvedData as UserData);
             setSystemError(null);
 
-            if (resolvedData.role !== 'admin') {
+            // Skip fingerprinting and daily reward checks for ops users (admin/moderator)
+            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator') {
               UserEngine.recordFingerprint(user.uid);
               if (user.emailVerified) {
                 checkDailyReward(user.uid);

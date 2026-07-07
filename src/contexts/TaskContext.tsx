@@ -61,7 +61,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. Fetch active tasks
     const tasksQuery = query(collection(db, 'tasks'), where('active', '==', true));
     unsubscribes.push(onSnapshot(tasksQuery, (snapshot) => {
-      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
+      const activeTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+      // Defensive check: only keep tasks that are actually marked active
+      const filteredTasks = activeTasks.filter(t => t.active === true);
+      if (filteredTasks.length !== activeTasks.length) {
+        console.warn(`[TaskContext] SYNC DEFECT: ${activeTasks.length - filteredTasks.length} inactive tasks detected in active query`);
+      }
+      setTasks(filteredTasks);
     }));
 
     // 2. Fetch active campaigns

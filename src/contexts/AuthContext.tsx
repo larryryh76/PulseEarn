@@ -406,9 +406,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
+            // Preserve moderator role; only collapse to 'user' if no admin/moderator role exists
+            const resolvedRole = data.role === 'admin' ? 'admin' : ((data.role as string) === 'moderator' ? 'moderator' : 'user');
             const resolvedData = {
               ...data,
-              role: data.role === 'admin' ? 'admin' : 'user',
+              role: resolvedRole,
               status: data.status || 'active'
             };
 

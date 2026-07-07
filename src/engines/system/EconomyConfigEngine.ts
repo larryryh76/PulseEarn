@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: EconomyConfig = {
     dailyLoginXP: 20,
     welcomeBonusPoints: 30,
     welcomeBonusXP: 50,
-    referralBonusPoints: 500,
+    referralBonusPoints: 50,
     referralBonusXP: 100,
     predictionWinMultiplier: 2.0,
     minPredictionStake: 10,

@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Terminal,
+  Settings,
   Globe
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -109,9 +109,9 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-6 max-w-md">
-           <Terminal size={48} className="text-danger mx-auto" />
+           <ShieldAlert size={48} className="text-danger mx-auto" />
            <h1 className="text-2xl font-bold tracking-tighter uppercase">Access Denied</h1>
-           <p className="text-text-secondary text-sm">Your credentials are not authorized for PulseEarn Operations. This attempt has been logged.</p>
+           <p className="text-text-secondary text-sm">Your credentials are not authorized for PulseEarn Administration. This attempt has been logged.</p>
            <button onClick={() => navigate('/')} className="px-8 py-3 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded hover:bg-white/90 transition-all">Return to Home</button>
         </motion.div>
       </div>
@@ -173,9 +173,9 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
         <div className="p-6 border-b border-border flex items-center justify-between">
            <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded bg-primary flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-                 <Terminal size={18} className="text-text-primary" />
+                 <Settings size={18} className="text-text-primary" />
               </div>
-              {!isSidebarCollapsed && <span className="text-xs font-black uppercase tracking-[0.3em]">Ops Control</span>}
+              {!isSidebarCollapsed && <span className="text-xs font-black uppercase tracking-[0.3em]">Admin Panel</span>}
            </div>
            <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="p-2 hover:bg-surface-glass rounded text-text-tertiary hover:text-text-primary">
               {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -225,8 +225,8 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
          <header className="h-16 border-b border-border px-8 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-40">
             <div className="flex items-center gap-6">
                <div className="lg:hidden flex items-center gap-3">
-                  <Terminal size={20} className="text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Ops Control</span>
+                  <Settings size={20} className="text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Admin Panel</span>
                </div>
             </div>
 
@@ -260,8 +260,8 @@ const OpsLayoutContent: React.FC<{ children: React.ReactNode }> = ({ children })
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] lg:hidden bg-background flex flex-col">
                <div className="p-6 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                     <Terminal size={24} className="text-primary" />
-                     <span className="text-sm font-black uppercase tracking-widest">Ops Control</span>
+                     <Settings size={24} className="text-primary" />
+                     <span className="text-sm font-black uppercase tracking-widest">Admin Panel</span>
                   </div>
                   <button onClick={() => setIsMobileOpen(false)} className="p-2 bg-surface-glass rounded-full"><X size={24} /></button>
                </div>

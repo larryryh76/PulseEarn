@@ -115,6 +115,11 @@ const Profile: React.FC = () => {
     }
   }, [userData]);
 
+  // Streak verification: Log value to catch inconsistencies across pages
+  useEffect(() => {
+    console.log("[v0] Profile streak value:", userData?.streak, "for user:", userData?.username);
+  }, [userData?.streak, userData?.username]);
+
   const updatePreference = async (key: string, value: boolean) => {
     if (!userData?.uid) return;
     const newPrefs = { ...prefs, [key]: value };

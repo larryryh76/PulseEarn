@@ -1535,14 +1535,45 @@ def offerwall_callback(provider_id):
     from flask import request as req
 
     # ── 1. Validate provider ────────────────────────────────────────────────
+    # ── 2. Load provider config from cache (single source of truth) ──────────
+    from services.provider_cache import get_provider_cache
+    provider_cache = get_provider_cache()
+    cached_provider = provider_cache.get_provider(provider_id, allow_cache=True)
+    
+    if not cached_provider:
+        # Try to load from Firestore directly if cache misses
+        config_snap = db.collection('offerwall_providers').document(provider_id).get()
+        if not config_snap.exists:
+            _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                                   f'Unknown provider: {provider_id}')
+            return 'UNKNOWN_PROVIDER', 400
+        
+        cached_provider = config_snap.to_dict()
+        # Refresh cache for next time
+        provider_cache.refresh_async()
+    
+    # Get signature params from cache
     pmap = OFFERWALL_PROVIDER_REGISTRY.get(provider_id)
     if not pmap:
-        # Unknown provider — log and reject silently (don't reveal provider list)
-        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
-                               f'Unknown provider: {provider_id}')
-        return 'UNKNOWN_PROVIDER', 400
+        # Try to build from cache if provider exists
+        if cached_provider:
+            # Provider exists in Firestore but not in hardcoded registry - this is OK
+            # Use default mapping for this provider
+            pmap = {
+                'user_param': 'user_id',
+                'tx_param': 'transaction_id',
+                'offer_param': 'offer_id',
+                'amount_param': 'reward_amount',
+                'sig_param': 'signature',
+                'offer_name_param': 'offer_name',
+                'success_response': 'OK',
+            }
+        else:
+            _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                                   f'Unknown provider: {provider_id}')
+            return 'UNKNOWN_PROVIDER', 400
 
-    # ── 2. Extract all params (GET or POST) ─────────────────────────────────
+    # ── 3. Extract all params (GET or POST) ─────────────────────────────────
     if req.method == 'GET':
         params = dict(req.args)
     else:
@@ -1550,14 +1581,13 @@ def offerwall_callback(provider_id):
     # Flatten single-value lists (werkzeug MultiDict)
     params = {k: (v[0] if isinstance(v, list) else str(v)) for k, v in params.items()}
 
-    # ── 3. Load provider config from Firestore ───────────────────────────────
-    config_snap = db.collection('offerwall_providers').document(provider_id).get()
-    if not config_snap.exists:
-        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
-                               'Provider config not found in Firestore')
-        return pmap['success_response'], 200  # ACK to provider anyway
-
-    config = config_snap.to_dict()
+    # ── 4. Verify cached config matches Firestore ────────────────────────────
+    if not provider_cache.verify_against_firestore(provider_id):
+        # Mismatch detected - refresh cache and try again
+        provider_cache.invalidate()
+        cached_provider = provider_cache.get_provider(provider_id, allow_cache=False)
+    
+    config = cached_provider
     if not config.get('enabled', False):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
                                'Provider is disabled, callback ignored')
@@ -1985,6 +2015,12 @@ def offerwall_upsert_provider(provider_id):
                 'reason': 'Provider document was not persisted to Firestore'
             }), 500
 
+        # Invalidate cache to reflect changes
+        from services.provider_cache import get_provider_cache
+        provider_cache = get_provider_cache()
+        provider_cache.invalidate()
+        provider_cache.refresh_async()  # Warm up cache in background
+
         return jsonify({
             'success': True,
             'providerId': provider_id,
@@ -1997,6 +2033,39 @@ def offerwall_upsert_provider(provider_id):
         return jsonify({
             'success': False,
             'error': 'WRITE_FAILED',
+            'reason': str(e)
+        }), 500
+
+# ─── Admin: Refresh Provider Cache ────────────────────────────────────────────
+@app.route('/api/offerwall/cache/refresh', methods=['POST'])
+@verify_token
+def offerwall_refresh_cache():
+    """Manually refresh the provider cache. Admin only."""
+    if not is_admin(request.user['uid']): 
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    
+    try:
+        from services.provider_cache import get_provider_cache
+        provider_cache = get_provider_cache()
+        success = provider_cache._refresh_from_firestore(force=True)
+        
+        if success:
+            providers = provider_cache.get_all_providers()
+            return jsonify({
+                'success': True,
+                'message': f'Cache refreshed: {len(providers)} providers loaded',
+                'providerCount': len(providers)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'CACHE_REFRESH_FAILED',
+                'reason': 'Failed to refresh cache from Firestore'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'REFRESH_ERROR',
             'reason': str(e)
         }), 500
 
@@ -2135,5 +2204,14 @@ def offerwall_my_rewards():
 
 # ─────────────────────────────────────────────────────────────────────────────
 get_deps()
+
+# Initialize provider cache on startup
+try:
+    from services.provider_cache import init_provider_cache
+    init_provider_cache()
+    print("[Offerwall] Provider cache initialized on startup")
+except Exception as e:
+    print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
+
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

@@ -1943,7 +1943,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────────────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────��───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):
@@ -2029,11 +2029,16 @@ def offerwall_upsert_provider(provider_id):
         })
     
     except Exception as e:
-        print(f"[Offerwall] Provider upsert error for {provider_id}: {str(e)}")
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[Offerwall] Provider upsert error for {provider_id}:")
+        print(f"  Exception: {str(e)}")
+        print(f"  Trace: {error_trace}")
         return jsonify({
             'success': False,
             'error': 'WRITE_FAILED',
-            'reason': str(e)
+            'reason': str(e),
+            'trace': error_trace if True else None  # Include trace in dev/debug
         }), 500
 
 # ─── Admin: Refresh Provider Cache ────────────────────────────────────────────

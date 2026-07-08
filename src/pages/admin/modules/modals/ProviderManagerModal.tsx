@@ -350,6 +350,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         const errorType = res.error || 'UNKNOWN_ERROR';
         const reason = res.reason || res.message || 'Unknown error';
         
+        // Log full response for debugging
+        console.error('[ProviderManagerModal] API Error Response:', res);
+        
         let message = `Save failed: ${reason}`;
         if (errorType === 'WRITE_VERIFICATION_FAILED') {
           message = `Save failed: ${reason}. Provider was not persisted to Firestore. Please try again.`;
@@ -357,6 +360,10 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
           message = 'Connection error. Please check your internet and try again.';
         } else if (errorType === 'COMMUNICATION_ERROR') {
           message = 'Communication error. The server returned an invalid response. Please try again.';
+        } else if (errorType === 'MISSING_REQUIRED_FIELDS') {
+          message = `Missing fields: ${reason}. Please fill all required fields.`;
+        } else if (errorType === 'WRITE_FAILED') {
+          message = `Server error: ${reason}. Check the browser console for details.`;
         }
         
         throw new Error(message);

@@ -1935,7 +1935,17 @@ def offerwall_upsert_provider(provider_id):
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
-        return jsonify({'success': False, 'error': 'NO_VALID_FIELDS'}), 400
+        return jsonify({'success': False, 'error': 'NO_VALID_FIELDS', 'reason': 'No valid provider fields provided'}), 400
+    
+    # Validate required fields
+    required_fields = {'name', 'affiliateId', 'callbackUrl', 'webhookUrl'}
+    missing_fields = required_fields - set(payload.keys())
+    if missing_fields:
+        return jsonify({
+            'success': False,
+            'error': 'MISSING_REQUIRED_FIELDS',
+            'reason': f'Missing required fields: {", ".join(sorted(missing_fields))}'
+        }), 400
 
     try:
         payload['updatedAt'] = firestore.SERVER_TIMESTAMP

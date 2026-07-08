@@ -1937,33 +1937,58 @@ def offerwall_upsert_provider(provider_id):
     if not payload:
         return jsonify({'success': False, 'error': 'NO_VALID_FIELDS'}), 400
 
-    payload['updatedAt'] = firestore.SERVER_TIMESTAMP
-    ref = db.collection('offerwall_providers').document(provider_id)
-    snap = ref.get()
-    if not snap.exists:
-        payload['createdAt'] = firestore.SERVER_TIMESTAMP
-        payload['stats'] = {
-            'connectionStatus': 'offline', 'apiStatus': 'unknown',
-            'webhookStatus': 'unknown', 'callbackStatus': 'unknown',
-            'lastSuccessfulSync': None, 'lastFailedSync': None,
-            'pendingRewards': 0, 'approvedRewards': 0, 'rejectedRewards': 0,
-            'pendingCallbacks': 0, 'failedCallbacks': 0,
-            'duplicateCallbackAttempts': 0, 'fraudAlerts': 0,
-            'revenueToday': 0, 'revenueThisWeek': 0,
-            'revenueThisMonth': 0, 'lifetimeRevenue': 0,
-            'currentProviderBalance': 0, 'minimumPayout': 0,
-            'remainingUntilPayout': 0, 'estimatedPayoutDate': None,
-            'expectedPlatformRevenue': 0, 'outstandingUserLiability': 0,
-        }
-        ref.set(payload)
-        _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
-                               f'Provider {provider_id} created')
-    else:
-        ref.set(payload, merge=True)
-        _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
-                               f'Provider {provider_id} updated: {list(payload.keys())}')
+    try:
+        payload['updatedAt'] = firestore.SERVER_TIMESTAMP
+        ref = db.collection('offerwall_providers').document(provider_id)
+        snap = ref.get()
+        is_new = not snap.exists
+        
+        if is_new:
+            payload['createdAt'] = firestore.SERVER_TIMESTAMP
+            payload['stats'] = {
+                'connectionStatus': 'offline', 'apiStatus': 'unknown',
+                'webhookStatus': 'unknown', 'callbackStatus': 'unknown',
+                'lastSuccessfulSync': None, 'lastFailedSync': None,
+                'pendingRewards': 0, 'approvedRewards': 0, 'rejectedRewards': 0,
+                'pendingCallbacks': 0, 'failedCallbacks': 0,
+                'duplicateCallbackAttempts': 0, 'fraudAlerts': 0,
+                'revenueToday': 0, 'revenueThisWeek': 0,
+                'revenueThisMonth': 0, 'lifetimeRevenue': 0,
+                'currentProviderBalance': 0, 'minimumPayout': 0,
+                'remainingUntilPayout': 0, 'estimatedPayoutDate': None,
+                'expectedPlatformRevenue': 0, 'outstandingUserLiability': 0,
+            }
+            ref.set(payload)
+            _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
+                                   f'Provider {provider_id} created')
+        else:
+            ref.set(payload, merge=True)
+            _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
+                                   f'Provider {provider_id} updated: {list(payload.keys())}')
 
-    return jsonify({'success': True, 'providerId': provider_id})
+        # Verify write actually succeeded by reading back
+        verify_snap = ref.get()
+        if not verify_snap.exists:
+            return jsonify({
+                'success': False,
+                'error': 'WRITE_VERIFICATION_FAILED',
+                'reason': 'Provider document was not persisted to Firestore'
+            }), 500
+
+        return jsonify({
+            'success': True,
+            'providerId': provider_id,
+            'isNew': is_new,
+            'message': f'Provider {"created" if is_new else "updated"} successfully'
+        })
+    
+    except Exception as e:
+        print(f"[Offerwall] Provider upsert error for {provider_id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'WRITE_FAILED',
+            'reason': str(e)
+        }), 500
 
 # ─── Admin: Get Callback Log ───────────────────────────────────────────────────
 @app.route('/api/offerwall/callbacks', methods=['GET'])

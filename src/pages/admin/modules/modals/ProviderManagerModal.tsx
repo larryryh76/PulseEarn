@@ -339,11 +339,23 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         body: JSON.stringify(payload),
       });
 
-      if (!res.success) throw new Error(res.error || 'Save failed');
-      toast.success(isNew ? 'Provider created' : 'Provider updated');
+      if (!res.success) {
+        const reason = res.reason || res.error || 'Unknown error';
+        const message = res.error === 'WRITE_VERIFICATION_FAILED' 
+          ? `Save failed: ${reason}. Provider was not persisted to Firestore. This is a critical persistence issue.`
+          : `Save failed: ${reason}`;
+        throw new Error(message);
+      }
+      
+      toast.success(res.message || (isNew ? 'Provider created' : 'Provider updated'));
+      
+      // Small delay to allow Firestore listener to update the provider list
+      await new Promise(resolve => setTimeout(resolve, 500));
       onClose();
     } catch (e: any) {
-      setError(e.message || 'Failed to save provider');
+      const errorMsg = e.message || 'Failed to save provider';
+      console.error('[ProviderManagerModal] Save error:', errorMsg);
+      setError(errorMsg);
     } finally {
       setSubmitting(false);
     }

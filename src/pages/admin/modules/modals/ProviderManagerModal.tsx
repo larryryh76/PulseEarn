@@ -337,6 +337,13 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       if (form.secret.trim()) payload.secret = form.secret.trim();
 
       const targetId = form.id.trim().toLowerCase().replace(/\s+/g, '_');
+      console.log('[v0] Submitting provider form:', { 
+        id: targetId, 
+        payload, 
+        hasSecret: !!form.secret.trim(),
+        hasApiKey: !!form.apiKey.trim()
+      });
+      
       const res = await safeFetch(`/api/offerwall/providers/${targetId}`, {
         method: 'POST',
         headers: {
@@ -345,6 +352,8 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         },
         body: JSON.stringify(payload),
       });
+      
+      console.log('[v0] Provider API response:', res);
 
       if (!res.success) {
         const errorType = res.error || 'UNKNOWN_ERROR';

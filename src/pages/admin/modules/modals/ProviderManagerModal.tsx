@@ -295,9 +295,16 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   const validate = (): string | null => {
     if (!form.id.trim()) return 'Provider ID is required';
     if (!form.name.trim()) return 'Provider name is required';
+    if (!form.affiliateId.trim()) return 'Affiliate ID is required';
+    if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
+    if (!form.webhookUrl.trim()) return 'Webhook URL is required';
+    
     const sum = form.userSharePct + form.platformSharePct;
     if (Math.abs(sum - 1.0) > 0.001) return `User + Platform share must equal 100% (currently ${(sum * 100).toFixed(1)}%)`;
+    if (form.minimumReward < 0) return 'Minimum reward cannot be negative';
+    if (form.maximumReward <= 0) return 'Maximum reward must be greater than 0';
     if (form.minimumReward >= form.maximumReward) return 'Minimum reward must be less than maximum reward';
+    
     return null;
   };
 
@@ -339,11 +346,32 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         body: JSON.stringify(payload),
       });
 
-      if (!res.success) throw new Error(res.error || 'Save failed');
-      toast.success(isNew ? 'Provider created' : 'Provider updated');
+      if (!res.success) {
+        const errorType = res.error || 'UNKNOWN_ERROR';
+        const reason = res.reason || res.message || 'Unknown error';
+        
+        let message = `Save failed: ${reason}`;
+        if (errorType === 'WRITE_VERIFICATION_FAILED') {
+          message = `Save failed: ${reason}. Provider was not persisted to Firestore. Please try again.`;
+        } else if (errorType === 'CONNECTIVITY_ERROR') {
+          message = 'Connection error. Please check your internet and try again.';
+        } else if (errorType === 'COMMUNICATION_ERROR') {
+          message = 'Communication error. The server returned an invalid response. Please try again.';
+        }
+        
+        throw new Error(message);
+      }
+      
+      const successMsg = res.message || (isNew ? 'Provider created successfully' : 'Provider updated successfully');
+      toast.success(successMsg);
+      
+      // Small delay to allow Firestore listener to update the provider list
+      await new Promise(resolve => setTimeout(resolve, 500));
       onClose();
     } catch (e: any) {
-      setError(e.message || 'Failed to save provider');
+      const errorMsg = e?.message || 'Failed to save provider. Please try again.';
+      console.error('[ProviderManagerModal] Save error:', errorMsg);
+      setError(errorMsg);
     } finally {
       setSubmitting(false);
     }

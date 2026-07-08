@@ -36,7 +36,6 @@ import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
-import { ReferralProtectionEngine } from '../engines/system/ReferralProtectionEngine';
 import { UserEngine } from '../engines/system/UserEngine';
 
 interface AuthContextType {
@@ -273,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Everything after this is wrapped in its own try/catch to isolate failures
 
-    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup
+    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup + immediate bonus distribution
     if (referralCodeInput) {
        try {
           const idToken = await user.getIdToken();
@@ -288,9 +287,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (res.success) {
             const referredBy = res.referrerId;
-            await updateDoc(userRef, { referredBy });
-
-            await setDoc(doc(collection(db, 'referrals')), {
+            
+            // Create referral record first
+            const referralDocRef = doc(collection(db, 'referrals'));
+            const referralDocId = referralDocRef.id;
+            
+            await setDoc(referralDocRef, {
               referrerId: referredBy,
               refereeId: user.uid,
               refereeUsername: username,
@@ -299,14 +301,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               updatedAt: serverTimestamp()
             });
 
-            await NotificationEngine.send({
-              userId: referredBy,
-              title: 'New Referral Link',
-              description: `${username} joined using your code.`,
-              type: 'referral_joined'
+            // Update user with referral info
+            await updateDoc(userRef, { 
+              referredBy,
+              referralDocId 
             });
 
-            await ReferralProtectionEngine.qualifyReferral(user.uid);
+            // Immediately apply signup bonuses (30 PTS to referee, 50 PTS to referrer)
+            const bonusRes = await safeFetch('/api/referrals/apply-signup-bonus', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                referrerId: referredBy,
+                referralDocId: referralDocId
+              })
+            });
+
+            if (bonusRes.success) {
+              // Show toasts for both users if in same session
+              toast.success(`Referral Bonus: +${bonusRes.refereeBonusPoints} PTS`, {
+                icon: '🎁',
+                duration: 6000,
+                position: 'top-center'
+              });
+
+              // Notify referrer about the bonus and new member
+              await NotificationEngine.send({
+                userId: referredBy,
+                title: 'Referral Bonus Earned',
+                description: `${username} joined using your code. You earned ${bonusRes.referrerBonusPoints} PTS!`,
+                type: 'referral_joined'
+              });
+            }
           }
        } catch (err) {
           console.error("[AuthContext] Referral Linkage Failure (Isolated):", err);

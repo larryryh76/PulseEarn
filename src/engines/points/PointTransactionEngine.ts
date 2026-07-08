@@ -8,7 +8,6 @@ import {
 } from 'firebase/firestore';
 import { Transaction } from '../../types';
 import { ActivityEngine } from '../system/ActivityEngine';
-import { ReferralProtectionEngine } from '../system/ReferralProtectionEngine';
 
 export interface PointTransactionRequest {
   userId: string;
@@ -143,18 +142,14 @@ export class PointTransactionEngine {
   }
 
   private static async triggerSideEffects(res: any) {
-    const { userId, type, newLevel, oldLevel, tasksCompleted } = res;
+    const { userId, newLevel, oldLevel } = res;
 
     try {
       // 1. & 2. Notification and Activity now handled transactionally in execute() for atomicity
 
       // 3. System Event Triggers
-      if (type === 'task_reward') {
-        ReferralProtectionEngine.qualifyReferral(userId).catch(() => {});
-        if (tasksCompleted === 0) {
-          ReferralProtectionEngine.processRetroactiveRewards(userId).catch(() => {});
-        }
-      }
+      // NOTE: Referral bonuses are now applied immediately on signup via /api/referrals/apply-signup-bonus
+      // so no additional processing needed here
 
       // 4. Level Up Logic
       if (newLevel && newLevel > oldLevel) {

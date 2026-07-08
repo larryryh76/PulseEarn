@@ -1,5 +1,4 @@
-import { db, auth } from '../../firebase/config';
-import { safeFetch } from '../../utils/api';
+import { db } from '../../firebase/config';
 import {
   collection,
   query,
@@ -11,91 +10,74 @@ import {
 
 export class ReferralProtectionEngine {
   /**
-   * Checks if a user has met the qualifications to reward their referrer.
-   * Triggered when a referee (userId) signs up or completes an action.
+   * DEPRECATED: Signup bonuses are now applied immediately via /api/referrals/apply-signup-bonus
+   * during signup, so retroactive processing is no longer needed.
+   * 
+   * This class remains for backward compatibility and potential future use cases.
    */
-  static async qualifyReferral(userId: string): Promise<void> {
+
+  /**
+   * Validates that a referral record exists and is in valid state.
+   * Used for audit checks and verification.
+   */
+  static async validateReferralRecord(referralDocId: string): Promise<boolean> {
     try {
-      const refQuery = query(
-        collection(db, 'referrals'),
-        where('refereeId', '==', userId),
-        where('status', '==', 'REGISTERED')
-      );
-
-      const snap = await getDocs(refQuery);
-      if (snap.empty) return;
-
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) return;
-      const userData = userSnap.data();
-
-      for (const refDoc of snap.docs) {
-        await this.processReferralReward(refDoc.id, refDoc.data(), userData);
-      }
+      const refRef = doc(db, 'referrals', referralDocId);
+      const snap = await getDoc(refRef);
+      return snap.exists() && snap.data()?.status === 'QUALIFIED';
     } catch (err) {
-      console.error("[ReferralProtection] Qualification check failed:", err);
+      console.error("[ReferralProtection] Validation failed:", err);
+      return false;
     }
   }
 
   /**
-   * Retroactively processes rewards for a referrer who just became qualified.
-   * Triggered when a user completes their first task.
+   * Gets all referrals for a user (as referrer) and calculates total earned.
+   * Used for dashboard stats and analytics.
    */
-  static async processRetroactiveRewards(referrerId: string): Promise<void> {
+  static async getReferralStats(referrerId: string): Promise<{
+    totalReferrals: number;
+    convertedReferrals: number;
+    totalEarned: number;
+  }> {
     try {
-      const pendingQuery = query(
+      const q = query(
         collection(db, 'referrals'),
-        where('referrerId', '==', referrerId),
-        where('status', '==', 'REGISTERED')
+        where('referrerId', '==', referrerId)
       );
 
-      const snap = await getDocs(pendingQuery);
-      if (snap.empty) return;
+      const snap = await getDocs(q);
+      const referrals = snap.docs.map(d => d.data());
+      
+      const converted = referrals.filter(r => r.status === 'QUALIFIED').length;
 
-      if (import.meta.env.DEV) console.log(`[ReferralProtection] Processing ${snap.size} retroactive rewards for referrer ${referrerId}`);
-
-      for (const refDoc of snap.docs) {
-        const refData = refDoc.data();
-        const refereeRef = doc(db, 'users', refData.refereeId);
-        const refereeSnap = await getDoc(refereeRef);
-        if (!refereeSnap.exists()) continue;
-
-        await this.processReferralReward(refDoc.id, refData, refereeSnap.data());
-      }
+      return {
+        totalReferrals: referrals.length,
+        convertedReferrals: converted,
+        totalEarned: referrals.reduce((sum: number, r: any) => sum + (r.referrerBonusPoints || 0), 0)
+      };
     } catch (err) {
-      console.error("[ReferralProtection] Retroactive processing failed:", err);
+      console.error("[ReferralProtection] Stats retrieval failed:", err);
+      return { totalReferrals: 0, convertedReferrals: 0, totalEarned: 0 };
     }
   }
 
   /**
-   * Core logic to reward a referrer for a specific referral record.
-   * Moved to server-side execution to satisfy Phase A field-level security locks.
+   * Gets all referrals where a user is the referee.
+   * Used to show how the user got their signup bonus.
    */
-  private static async processReferralReward(referralDocId: string, refData: any, refereeData: any): Promise<void> {
-    const { referrerId, refereeId } = refData;
-
+  static async getUserReferralSource(refereeId: string): Promise<any | null> {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await safeFetch('/api/process-referral-reward', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          referralDocId,
-          referrerId,
-          refereeId,
-          refereeUsername: refereeData.username
-        })
-      });
+      const q = query(
+        collection(db, 'referrals'),
+        where('refereeId', '==', refereeId)
+      );
 
-      if (!res.success) {
-        console.warn(`[ReferralProtection] Server-side processing failed: ${res.error}`);
-      }
+      const snap = await getDocs(q);
+      return snap.empty ? null : snap.docs[0].data();
     } catch (err) {
-      console.error(`[ReferralProtection] Failed to trigger server-side reward for ${referralDocId}:`, err);
+      console.error("[ReferralProtection] Source lookup failed:", err);
+      return null;
     }
   }
 }

@@ -30,7 +30,6 @@ import {
 } from 'firebase/firestore';
 import { calculateLevel } from '../../../utils/progression';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
-import { ReferralProtectionEngine } from '../../../engines/system/ReferralProtectionEngine';
 
 const OpsXP: React.FC = () => {
   const [loading, setLoading] = React.useState(true);
@@ -40,7 +39,8 @@ const OpsXP: React.FC = () => {
     xpPerLevel: 1000,
     predictionUnlockLevel: 5,
     minWithdrawalPoints: 10000,
-    referralBonusPoints: 50,
+    referralBonusPointsReferrer: 50,
+    referralBonusPointsReferee: 30,
     referralBonusXP: 100
   });
 
@@ -54,7 +54,8 @@ const OpsXP: React.FC = () => {
           xpPerLevel: data.thresholds?.xpPerLevel || 1000,
           predictionUnlockLevel: data.thresholds?.predictionUnlockLevel || 5,
           minWithdrawalPoints: data.thresholds?.minWithdrawalPoints || 10000,
-          referralBonusPoints: data.rewards?.referralBonusPoints || 50,
+          referralBonusPointsReferrer: data.rewards?.referralBonusPointsReferrer || 50,
+          referralBonusPointsReferee: data.rewards?.referralBonusPointsReferee || 30,
           referralBonusXP: data.rewards?.referralBonusXP || 100
         });
       }
@@ -76,7 +77,8 @@ const OpsXP: React.FC = () => {
         'thresholds.xpPerLevel': formData.xpPerLevel,
         'thresholds.predictionUnlockLevel': formData.predictionUnlockLevel,
         'thresholds.minWithdrawalPoints': formData.minWithdrawalPoints,
-        'rewards.referralBonusPoints': formData.referralBonusPoints,
+        'rewards.referralBonusPointsReferrer': formData.referralBonusPointsReferrer,
+        'rewards.referralBonusPointsReferee': formData.referralBonusPointsReferee,
         'rewards.referralBonusXP': formData.referralBonusXP,
         updatedAt: serverTimestamp()
       });
@@ -154,16 +156,8 @@ const OpsXP: React.FC = () => {
            }
 
            // 1.2 Retroactive Referral Check (Issue 5 Synchronization Fix)
-           if ((userData.stats?.tasksCompleted || 0) > 0) {
-              // Filter pending referrals from pre-fetched referralRecords Map
-              const pendingRefs = Array.from(referralRecords.values()).filter(
-                 ref => ref.referrerId === userDoc.id && ref.status === 'REGISTERED'
-              );
-              if (pendingRefs.length > 0) {
-                 await ReferralProtectionEngine.processRetroactiveRewards(userDoc.id);
-                 referralRewards += pendingRefs.length;
-              }
-           }
+           // NOTE: Referral bonuses are now applied immediately on signup
+           // Old referrals with status REGISTERED are no longer applicable
 
            // 1.5 Stats Reconciliation (Referral Count Check)
            const actualInvitationCount = referralCounts.get(userDoc.id) || 0;
@@ -230,7 +224,7 @@ const OpsXP: React.FC = () => {
               if (referrerTasksCompleted > 0 && !isAlreadyRewarded && !claimIds.has(syncClaimReferrer) && !claimIds.has(activeClaimReferrer) && !claimIds.has(legacyClaimReferrer)) {
                  const result = await PointTransactionEngine.execute({
                     userId: referrerId,
-                    amount: formData.referralBonusPoints,
+                    amount: formData.referralBonusPointsReferrer,
                     type: 'referral_bonus',
                     source: `Integrity Sync: ${userData.username || 'Anonymous'}`,
                     claimId: syncClaimReferrer,
@@ -348,12 +342,25 @@ const OpsXP: React.FC = () => {
                    </div>
 
                    <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Referral Reward (PTS)</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Referrer Bonus (PTS)</label>
                       <div className="relative group">
                          <input
                            type="number"
-                           value={formData.referralBonusPoints}
-                           onChange={e => setFormData({...formData, referralBonusPoints: Number(e.target.value)})}
+                           value={formData.referralBonusPointsReferrer}
+                           onChange={e => setFormData({...formData, referralBonusPointsReferrer: Number(e.target.value)})}
+                           className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
+                         />
+                         <Trophy className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-50 transition-opacity" size={16} />
+                      </div>
+                   </div>
+
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-text-tertiary ml-1">Referee Bonus (PTS)</label>
+                      <div className="relative group">
+                         <input
+                           type="number"
+                           value={formData.referralBonusPointsReferee}
+                           onChange={e => setFormData({...formData, referralBonusPointsReferee: Number(e.target.value)})}
                            className="w-full bg-surface-bright border border-border-bright rounded-2xl px-6 py-5 text-sm font-mono text-text-primary focus:border-primary/50 outline-none transition-all"
                          />
                          <Trophy className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-50 transition-opacity" size={16} />

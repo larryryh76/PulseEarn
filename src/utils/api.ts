@@ -9,14 +9,16 @@ export async function safeFetch(url: string, options?: RequestInit): Promise<any
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
       const text = await response.text();
-      // Silently log non-JSON response in prod to console
-      if (import.meta.env.DEV) {
-          console.error("[API] Non-JSON Response:", text.slice(0, 200));
-      }
+      console.error("[API] Non-JSON Response:", {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        body: text.slice(0, 500)
+      });
       return {
         success: false,
         error: "COMMUNICATION_ERROR",
-        message: "The system returned an invalid response. Please try again later."
+        message: `Server error (${response.status}): ${text.slice(0, 100) || 'No response body'}`
       };
     }
 

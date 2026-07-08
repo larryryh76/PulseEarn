@@ -1943,7 +1943,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────��───────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────���───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):
@@ -2015,11 +2015,14 @@ def offerwall_upsert_provider(provider_id):
                 'reason': 'Provider document was not persisted to Firestore'
             }), 500
 
-        # Invalidate cache to reflect changes
-        from services.provider_cache import get_provider_cache
-        provider_cache = get_provider_cache()
-        provider_cache.invalidate()
-        provider_cache.refresh_async()  # Warm up cache in background
+        # Invalidate cache to reflect changes (non-critical, doesn't fail request)
+        try:
+            from services.provider_cache import get_provider_cache
+            provider_cache = get_provider_cache()
+            provider_cache.invalidate()
+            provider_cache.refresh_async()  # Warm up cache in background
+        except Exception as cache_err:
+            print(f"[Offerwall] Cache invalidation failed (non-critical): {str(cache_err)}")
 
         return jsonify({
             'success': True,

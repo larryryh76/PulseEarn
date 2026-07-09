@@ -1943,7 +1943,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────����───────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────�����───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):
@@ -1978,14 +1978,12 @@ def offerwall_upsert_provider(provider_id):
         }), 400
 
     try:
-        print(f"[Offerwall] Upserting provider {provider_id}")
-        print(f"[Offerwall] Payload keys: {list(payload.keys())}")
-        
+        # Ensure payload is JSON-serializable (flatten nested objects if needed)
         payload['updatedAt'] = firestore.SERVER_TIMESTAMP
+        
         ref = db.collection('offerwall_providers').document(provider_id)
         snap = ref.get()
         is_new = not snap.exists
-        print(f"[Offerwall] Is new provider: {is_new}")
         
         if is_new:
             payload['createdAt'] = firestore.SERVER_TIMESTAMP
@@ -2002,41 +2000,32 @@ def offerwall_upsert_provider(provider_id):
                 'remainingUntilPayout': 0, 'estimatedPayoutDate': None,
                 'expectedPlatformRevenue': 0, 'outstandingUserLiability': 0,
             }
-            print(f"[Offerwall] Writing new provider document...")
             ref.set(payload)
-            print(f"[Offerwall] New provider written successfully")
             _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
                                    f'Provider {provider_id} created')
         else:
-            print(f"[Offerwall] Updating existing provider...")
             ref.set(payload, merge=True)
-            print(f"[Offerwall] Provider updated successfully")
             _write_offerwall_event(db, provider_id, 'provider_config_updated', 'info',
                                    f'Provider {provider_id} updated: {list(payload.keys())}')
 
         # Verify write actually succeeded by reading back
-        print(f"[Offerwall] Verifying write...")
         verify_snap = ref.get()
         if not verify_snap.exists:
-            print(f"[Offerwall] WRITE VERIFICATION FAILED - document doesn't exist!")
             return jsonify({
                 'success': False,
                 'error': 'WRITE_VERIFICATION_FAILED',
                 'reason': 'Provider document was not persisted to Firestore'
             }), 500
-        print(f"[Offerwall] Write verified successfully")
 
         # Invalidate cache to reflect changes (non-critical, doesn't fail request)
         try:
             from services.provider_cache import get_provider_cache
             provider_cache = get_provider_cache()
             provider_cache.invalidate()
-            provider_cache.refresh_async()  # Warm up cache in background
-            print(f"[Offerwall] Cache invalidated")
+            provider_cache.refresh_async()
         except Exception as cache_err:
-            print(f"[Offerwall] Cache invalidation failed (non-critical): {str(cache_err)}")
+            pass  # Cache errors don't block the response
 
-        print(f"[Offerwall] Provider upsert completed successfully for {provider_id}")
         return jsonify({
             'success': True,
             'providerId': provider_id,
@@ -2047,15 +2036,10 @@ def offerwall_upsert_provider(provider_id):
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"[Offerwall] ❌ Provider upsert error for {provider_id}:")
-        print(f"  Exception: {str(e)}")
-        print(f"  Type: {type(e).__name__}")
-        print(f"  Trace:\n{error_trace}")
         return jsonify({
             'success': False,
             'error': 'WRITE_FAILED',
             'reason': str(e),
-            'trace': error_trace
         }), 500
 
 # ─── Admin: Refresh Provider Cache ────────────────────────────────────────────

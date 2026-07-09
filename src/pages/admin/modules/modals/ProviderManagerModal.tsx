@@ -337,13 +337,6 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       if (form.secret.trim()) payload.secret = form.secret.trim();
 
       const targetId = form.id.trim().toLowerCase().replace(/\s+/g, '_');
-      console.log('[v0] Submitting provider form:', { 
-        id: targetId, 
-        payload, 
-        hasSecret: !!form.secret.trim(),
-        hasApiKey: !!form.apiKey.trim()
-      });
-      
       const res = await safeFetch(`/api/offerwall/providers/${targetId}`, {
         method: 'POST',
         headers: {
@@ -352,27 +345,22 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         },
         body: JSON.stringify(payload),
       });
-      
-      console.log('[v0] Provider API response:', res);
 
       if (!res.success) {
         const errorType = res.error || 'UNKNOWN_ERROR';
-        const reason = res.reason || res.message || 'Unknown error';
+        const reason = res.reason || res.message || 'An unexpected error occurred';
         
-        // Log full response for debugging
-        console.error('[ProviderManagerModal] API Error Response:', res);
-        
-        let message = `Save failed: ${reason}`;
-        if (errorType === 'WRITE_VERIFICATION_FAILED') {
-          message = `Save failed: ${reason}. Provider was not persisted to Firestore. Please try again.`;
+        let message = reason;
+        if (errorType === 'MISSING_REQUIRED_FIELDS') {
+          message = `Missing required fields: ${reason}`;
+        } else if (errorType === 'WRITE_VERIFICATION_FAILED') {
+          message = 'Provider was created but could not be verified. Please refresh and try again.';
+        } else if (errorType === 'NO_VALID_FIELDS') {
+          message = 'No valid provider fields were provided. Please fill the form.';
         } else if (errorType === 'CONNECTIVITY_ERROR') {
           message = 'Connection error. Please check your internet and try again.';
         } else if (errorType === 'COMMUNICATION_ERROR') {
-          message = 'Communication error. The server returned an invalid response. Please try again.';
-        } else if (errorType === 'MISSING_REQUIRED_FIELDS') {
-          message = `Missing fields: ${reason}. Please fill all required fields.`;
-        } else if (errorType === 'WRITE_FAILED') {
-          message = `Server error: ${reason}. Check the browser console for details.`;
+          message = 'Server communication error. Please try again.';
         }
         
         throw new Error(message);

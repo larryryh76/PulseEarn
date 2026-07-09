@@ -297,7 +297,6 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     if (!form.name.trim()) return 'Provider name is required';
     if (!form.affiliateId.trim()) return 'Affiliate ID is required';
     if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
-    if (!form.webhookUrl.trim()) return 'Webhook URL is required';
     
     const sum = form.userSharePct + form.platformSharePct;
     if (Math.abs(sum - 1.0) > 0.001) return `User + Platform share must equal 100% (currently ${(sum * 100).toFixed(1)}%)`;
@@ -320,12 +319,13 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       const token = await currentUser.getIdToken();
 
       // Build payload — only include secret/apiKey if non-empty (edit mode blanks them for security)
+      const resolvedCallbackUrl = form.callbackUrl.trim() || callbackUrl;
       const payload: Record<string, any> = {
         name: form.name.trim(),
         enabled: form.enabled,
         affiliateId: form.affiliateId.trim(),
-        callbackUrl: form.callbackUrl.trim() || callbackUrl,
-        webhookUrl: form.webhookUrl.trim(),
+        callbackUrl: resolvedCallbackUrl,
+        webhookUrl: form.webhookUrl.trim() || resolvedCallbackUrl,
         rewardMultiplier: form.rewardMultiplier,
         userSharePct: form.userSharePct,
         platformSharePct: form.platformSharePct,

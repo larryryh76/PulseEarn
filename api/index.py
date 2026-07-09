@@ -1943,7 +1943,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────�����───────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────������───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):
@@ -1966,10 +1966,15 @@ def offerwall_upsert_provider(provider_id):
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
         return jsonify({'success': False, 'error': 'NO_VALID_FIELDS', 'reason': 'No valid provider fields provided'}), 400
-    
-    # Validate required fields
-    required_fields = {'name', 'affiliateId', 'callbackUrl', 'webhookUrl'}
-    missing_fields = required_fields - set(payload.keys())
+
+    # A callback URL is always derivable, so default webhookUrl to it when the
+    # provider (e.g. CPX Research) only exposes a single postback endpoint.
+    if not payload.get('webhookUrl') and payload.get('callbackUrl'):
+        payload['webhookUrl'] = payload['callbackUrl']
+
+    # Validate required fields — webhookUrl is optional (defaults to callbackUrl)
+    required_fields = {'name', 'affiliateId', 'callbackUrl'}
+    missing_fields = {f for f in required_fields if not str(payload.get(f, '')).strip()}
     if missing_fields:
         return jsonify({
             'success': False,

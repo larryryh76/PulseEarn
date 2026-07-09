@@ -348,15 +348,19 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
 
       if (!res.success) {
         const errorType = res.error || 'UNKNOWN_ERROR';
-        const reason = res.reason || res.message || 'Unknown error';
+        const reason = res.reason || res.message || 'An unexpected error occurred';
         
-        let message = `Save failed: ${reason}`;
-        if (errorType === 'WRITE_VERIFICATION_FAILED') {
-          message = `Save failed: ${reason}. Provider was not persisted to Firestore. Please try again.`;
+        let message = reason;
+        if (errorType === 'MISSING_REQUIRED_FIELDS') {
+          message = `Missing required fields: ${reason}`;
+        } else if (errorType === 'WRITE_VERIFICATION_FAILED') {
+          message = 'Provider was created but could not be verified. Please refresh and try again.';
+        } else if (errorType === 'NO_VALID_FIELDS') {
+          message = 'No valid provider fields were provided. Please fill the form.';
         } else if (errorType === 'CONNECTIVITY_ERROR') {
           message = 'Connection error. Please check your internet and try again.';
         } else if (errorType === 'COMMUNICATION_ERROR') {
-          message = 'Communication error. The server returned an invalid response. Please try again.';
+          message = 'Server communication error. Please try again.';
         }
         
         throw new Error(message);

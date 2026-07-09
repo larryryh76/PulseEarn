@@ -1943,7 +1943,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────────────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────�����───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):
@@ -1978,7 +1978,9 @@ def offerwall_upsert_provider(provider_id):
         }), 400
 
     try:
+        # Ensure payload is JSON-serializable (flatten nested objects if needed)
         payload['updatedAt'] = firestore.SERVER_TIMESTAMP
+        
         ref = db.collection('offerwall_providers').document(provider_id)
         snap = ref.get()
         is_new = not snap.exists
@@ -2015,11 +2017,14 @@ def offerwall_upsert_provider(provider_id):
                 'reason': 'Provider document was not persisted to Firestore'
             }), 500
 
-        # Invalidate cache to reflect changes
-        from services.provider_cache import get_provider_cache
-        provider_cache = get_provider_cache()
-        provider_cache.invalidate()
-        provider_cache.refresh_async()  # Warm up cache in background
+        # Invalidate cache to reflect changes (non-critical, doesn't fail request)
+        try:
+            from services.provider_cache import get_provider_cache
+            provider_cache = get_provider_cache()
+            provider_cache.invalidate()
+            provider_cache.refresh_async()
+        except Exception as cache_err:
+            pass  # Cache errors don't block the response
 
         return jsonify({
             'success': True,
@@ -2029,11 +2034,12 @@ def offerwall_upsert_provider(provider_id):
         })
     
     except Exception as e:
-        print(f"[Offerwall] Provider upsert error for {provider_id}: {str(e)}")
+        import traceback
+        error_trace = traceback.format_exc()
         return jsonify({
             'success': False,
             'error': 'WRITE_FAILED',
-            'reason': str(e)
+            'reason': str(e),
         }), 500
 
 # ─── Admin: Refresh Provider Cache ────────────────────────────────────────────

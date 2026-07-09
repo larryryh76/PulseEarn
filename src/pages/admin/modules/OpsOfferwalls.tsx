@@ -16,8 +16,6 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { db } from '../../../firebase/config';
-import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { safeFetch } from '../../../utils/api';
 import ProviderManagerModal from './modals/ProviderManagerModal';
@@ -447,18 +445,29 @@ const OpsOfferwalls: React.FC = () => {
   const [selectedProviderId, setSelectedProviderId] = React.useState<string | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Real-time provider listener
+  // Single source of truth: load providers from the backend (Admin SDK).
+  // Client-side Firestore reads are blocked by security rules, which is why
+  // the list showed 0 while backend analytics saw providers.
+  const loadProviders = React.useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await safeFetch('/api/offerwall/providers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.success && Array.isArray(res.providers)) {
+        setProviders(res.providers);
+      }
+    } catch (err) {
+      console.error('[OpsOfferwalls] Failed to load providers:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
   React.useEffect(() => {
-    const q = query(collection(db, 'offerwall_providers'));
-    const unsub = onSnapshot(q, snap => {
-      setProviders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, err => {
-      console.error('[OpsOfferwalls] Provider listener error:', err);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+    loadProviders();
+  }, [loadProviders]);
 
   const loadAnalytics = React.useCallback(async () => {
     if (!currentUser) return;
@@ -499,6 +508,7 @@ const OpsOfferwalls: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    await loadProviders();
     if (tab === 'analytics') await loadAnalytics();
     if (tab === 'callbacks') await loadCallbacks();
     setRefreshing(false);
@@ -694,7 +704,7 @@ const OpsOfferwalls: React.FC = () => {
 
       <ProviderManagerModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); loadProviders(); }}
         providerId={selectedProviderId}
       />
     </div>

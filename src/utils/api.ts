@@ -25,14 +25,18 @@ export async function safeFetch(url: string, options?: RequestInit): Promise<any
     const data = await response.json();
 
     if (!response.ok) {
+       // Preserve every field the backend sent (notably `reason`) so the UI
+       // can show the real cause instead of a generic fallback.
        return {
+          ...data,
           success: false,
           error: data.error || "UNKNOWN_ERROR",
-          message: data.message || "An unexpected error occurred."
+          reason: data.reason || data.message,
+          message: data.message || data.reason || data.error || "An unexpected error occurred."
        };
     }
 
-    return { success: true, ...data };
+    return { ...data, success: true };
   } catch (err: any) {
     if (import.meta.env.DEV) {
         console.error("[API] Fetch Failure:", err.message);

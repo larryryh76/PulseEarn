@@ -458,11 +458,6 @@ const Dashboard: React.FC = () => {
   const { level = 1, xp = 0, points = 0, streak = 0, stats } = userData!;
   const xpProg = getXpProgress(xp);
 
-  // Streak verification: Log value to catch inconsistencies across pages
-  useEffect(() => {
-    console.log("[v0] Dashboard streak value:", streak, "for user:", userData?.username);
-  }, [streak, userData?.username]);
-
   return (
     <>
       <AnimatePresence>

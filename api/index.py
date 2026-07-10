@@ -1391,6 +1391,103 @@ def enable_task(task_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/admin/tasks/<task_id>/delete', methods=['POST'])
+@verify_token
+def delete_task(task_id):
+    """Admin: Permanently delete a single task definition (hard delete)."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        db.collection('tasks').document(task_id).delete()
+        db.collection('system_log').add({
+            'action': 'task_deleted',
+            'taskId': task_id,
+            'adminId': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": task_id, "deleted": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def _delete_collection_batched(db, coll_ref, batch_size=400, predicate=None):
+    """Delete all docs in a collection reference in batches.
+    Optional predicate(doc_dict) -> bool decides whether to delete each doc.
+    Returns count deleted."""
+    deleted = 0
+    while True:
+        docs = list(coll_ref.limit(batch_size).stream())
+        if not docs:
+            break
+        batch = db.batch()
+        batch_count = 0
+        for doc in docs:
+            if predicate is not None and not predicate(doc.to_dict() or {}):
+                continue
+            batch.delete(doc.reference)
+            batch_count += 1
+        if batch_count:
+            batch.commit()
+            deleted += batch_count
+        # If a predicate skipped every doc in this page, avoid an infinite loop.
+        if predicate is not None and batch_count == 0:
+            break
+    return deleted
+
+@app.route('/api/admin/tasks/wipe-all', methods=['POST'])
+@verify_token
+def wipe_all_tasks():
+    """Admin: Permanently delete ALL task/campaign/mission data and user progress.
+    Offerwall data is explicitly preserved. Requires body {"confirm": "DELETE ALL TASKS"}.
+    """
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    data = request.json or {}
+    if data.get('confirm') != 'DELETE ALL TASKS':
+        return jsonify({"success": False, "error": "CONFIRMATION_REQUIRED",
+                        "reason": "Body must include confirm: 'DELETE ALL TASKS'"}), 400
+    db = firestore.client()
+    counts = {}
+    try:
+        # 1. Task/campaign/mission DEFINITIONS (full wipe — offerwall lives elsewhere).
+        counts['tasks'] = _delete_collection_batched(db, db.collection('tasks'))
+        counts['system_task_definitions'] = _delete_collection_batched(db, db.collection('system_task_definitions'))
+        # 2. Top-level progress/claim collections (offerwall never writes these).
+        counts['task_claims'] = _delete_collection_batched(db, db.collection('task_claims'))
+        counts['system_claims'] = _delete_collection_batched(db, db.collection('system_claims'))
+        counts['user_system_tasks'] = _delete_collection_batched(db, db.collection('user_system_tasks'))
+        # 3. Per-user subcollections: user_tasks (full) and task_history (non-offerwall only).
+        ut_deleted = 0
+        th_deleted = 0
+        for user_doc in db.collection('users').stream():
+            uref = user_doc.reference
+            ut_deleted += _delete_collection_batched(db, uref.collection('user_tasks'))
+            th_deleted += _delete_collection_batched(
+                db, uref.collection('task_history'),
+                predicate=lambda d: d.get('taskType') != 'offerwall' and not d.get('providerId')
+            )
+        counts['user_tasks'] = ut_deleted
+        counts['task_history_non_offerwall'] = th_deleted
+        # Audit trail
+        db.collection('system_log').add({
+            'action': 'tasks_wiped_all',
+            'adminId': request.user['uid'],
+            'counts': counts,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "deleted": counts,
+                        "message": "All task, campaign, and mission data wiped. Offerwall preserved."})
+    except Exception as e:
+        import traceback
+        return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
+                        "partialCounts": counts, "trace": traceback.format_exc()}), 500
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1943,7 +2040,7 @@ def offerwall_get_providers():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ─── Admin: Upsert Provider ────────────────────────────────������───────────────────
+# ─── Admin: Upsert Provider ────────────────────────────────�������───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
 @verify_token
 def offerwall_upsert_provider(provider_id):

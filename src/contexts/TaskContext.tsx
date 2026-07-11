@@ -21,7 +21,6 @@ export interface TaskContextType {
   taskHistory: TaskHistory[];
   unifiedHistory: any[];
   activities: Activity[];
-  systemTasks: { id: string; definition: any; progress: any }[];
   predictions: PredictionRecord[];
   loading: boolean;
   submitTask: (taskId: string, proofData?: string) => Promise<{ success: boolean; error?: string }>;
@@ -40,8 +39,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistory[]>([]);
   const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [systemTasks, setSystemTasks] = useState<{ id: string; definition: any; progress: any }[]>([]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -136,37 +133,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     fetchHistoricalData();
 
-    // 7. Fetch System Missions - Batch 3: Parallelized non-nested listeners
-    let currentDefinitions: any[] = [];
-    let currentProgress: any[] = [];
-
-    const syncSystemTasks = () => {
-      if (currentDefinitions.length === 0) return;
-
-      const sysTasksData = currentDefinitions.map(def => {
-        const progress = currentProgress.find(ud => ud.systemTaskId === def.id);
-        return { id: def.id, definition: def, progress };
-      });
-      setSystemTasks(sysTasksData);
-    };
-
-    const defQ = query(collection(db, 'system_task_definitions'), where('active', '==', true));
-    unsubscribes.push(onSnapshot(defQ, (defSnap) => {
-      currentDefinitions = defSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      syncSystemTasks();
-      setLoading(false);
-    }, (err) => {
-      console.error("[TaskContext] System Definitions Error:", err);
-      setLoading(false);
-    }));
-
-    const userQ = query(collection(db, 'user_system_tasks'), where('userId', '==', currentUser.uid));
-    unsubscribes.push(onSnapshot(userQ, (userSysSnap) => {
-      currentProgress = userSysSnap.docs.map(d => d.data());
-      syncSystemTasks();
-    }, (err) => {
-      console.error("[TaskContext] User System Tasks Error:", err);
-    }));
+    // Mark loading as complete once historical data is fetched
+    setTimeout(() => setLoading(false), 100);
 
     // Safety timeout: If loading is still true after 15 seconds, force it to false
     const loadTimeout = setTimeout(() => {
@@ -270,7 +238,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       taskHistory,
       unifiedHistory,
       activities,
-      systemTasks,
       predictions,
       loading,
       submitTask,

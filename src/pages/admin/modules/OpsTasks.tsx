@@ -8,7 +8,7 @@ import { safeFetch } from '../../../utils/api';
 import toast from 'react-hot-toast';
 import { cn } from '../../../utils';
 
-const TASK_TYPES = ['manual', 'automated', 'referral', 'campaign', 'welcome', 'level'] as const;
+const TASK_TYPES = ['manual', 'automated', 'referral', 'campaign', 'welcome', 'level', 'mission'] as const;
 
 const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [form, setForm] = React.useState({

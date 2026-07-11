@@ -207,7 +207,7 @@ const Notifications: React.FC = () => {
                     "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 transition-all bg-surface-bright border-border-bright text-text-tertiary group-hover:text-primary",
                   )}>
                     {activity.type.includes('prediction') ? <BarChart3 size={18} /> :
-                      activity.type.includes('task') || activity.type.includes('mission') ? <Target size={18} /> :
+                      activity.type.includes('task') ? <Target size={18} /> :
                         activity.type.includes('referral') ? <UserPlus size={18} /> :
                           activity.type.includes('level') ? <TrendingUp size={18} /> : <Zap size={18} />}
                   </div>
@@ -347,7 +347,6 @@ const Notifications: React.FC = () => {
                       {(selectedActivity.type.includes('prediction') ||
                         selectedActivity.type.includes('campaign') ||
                         selectedActivity.type.includes('task') ||
-                        selectedActivity.type.includes('mission') ||
                         selectedActivity.type.includes('referral') ||
                         selectedActivity.type.includes('withdrawal')) && (
                         <Button
@@ -358,7 +357,7 @@ const Notifications: React.FC = () => {
                                  if (selectedActivity.metadata?.campaignId) navigate(`/campaigns/${selectedActivity.metadata.campaignId}`);
                                  else navigate('/tasks');
                               }
-                              else if (type.includes('task') || type.includes('mission')) navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
+                              else if (type.includes('task')) navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId || selectedActivity.id } });
                               else if (type.includes('referral')) navigate('/referrals');
                               else if (type.includes('withdrawal')) navigate('/wallet');
                               setSelectedActivity(null);

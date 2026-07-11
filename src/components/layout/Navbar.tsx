@@ -13,7 +13,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { currentUser, userData, logout } = useAuth();
-  const { tasks, userTasks, systemTasks, campaigns } = useTasks();
+  const { tasks, userTasks, campaigns } = useTasks();
   const { unreadCount } = useNotifications();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -50,9 +50,7 @@ const Navbar: React.FC = () => {
     });
   }).length;
 
-  const claimableMissionCount = systemTasks.filter(m => m.progress?.status === 'COMPLETED').length;
-
-  const totalActionableCount = actionableCampaignCount + claimableMissionCount;
+  const totalActionableCount = actionableCampaignCount;
 
   return (
     <>

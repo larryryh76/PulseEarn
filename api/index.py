@@ -1488,7 +1488,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════��════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1896,13 +1896,21 @@ def offerwall_callback(provider_id):
         }, merge=True)
         return pmap['success_response'], 200
 
-    # ── 9. Points Calculation ──────────────────────��─────────────────────────
+    # ── 9. Points Calculation ──────────────────────���─────────────────────────
     total_pts = round(raw_amount * multiplier)
     total_pts = min(max(total_pts, min_reward), max_reward)
     user_points = round(total_pts * user_share)
     platform_points = round(total_pts * platform_share)
 
-    if user_points <= 0:
+    # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ──
+    reversal_type = 'AWARD'
+    if is_reversal:
+        user_points = -abs(user_points)
+        platform_points = -abs(platform_points)
+        reversal_type = 'CHARGEBACK'
+        callback_data['auditTrail'].append(f'REVERSAL DETECTED: charging back {-user_points} points')
+
+    if abs(user_points) <= 0:
         callback_data['status'] = 'INVALID_SIGNATURE'
         callback_data['auditTrail'].append('Points calculation resulted in 0 — skipped')
         callback_ref.set(callback_data)
@@ -1942,13 +1950,15 @@ def offerwall_callback(provider_id):
         })
 
         # Update callback record
+        callback_status = 'CHARGEBACK_ISSUED' if is_reversal else 'REWARD_ISSUED'
         txn.update(callback_ref, {
-            'status': 'REWARD_ISSUED',
+            'status': callback_status,
             'pointsAwarded': total_pts,
             'userPoints': user_points,
             'platformPoints': platform_points,
+            'isReversal': is_reversal,
             'processedAt': firestore.SERVER_TIMESTAMP,
-            'auditTrail': firestore.ArrayUnion([f'Reward issued: {user_points} pts to {user_id}']),
+            'auditTrail': firestore.ArrayUnion([f'{reversal_type}: {abs(user_points)} pts to {user_id}']),
         })
 
         # Write offerwall reward record
@@ -1970,16 +1980,19 @@ def offerwall_callback(provider_id):
         })
 
         # post_ledger — immutable ledger + activity + notification (all 4 surfaces)
+        # For chargebacks, use 'offerwall_chargeback' type and mark activity as 'chargeback'.
+        ledger_tx_type = 'offerwall_chargeback' if is_reversal else 'offerwall_reward'
+        activity_type = 'chargeback_issued' if is_reversal else 'reward_received'
         post_ledger(txn, user_ref, user_id,
-                    tx_type='offerwall_reward',
+                    tx_type=ledger_tx_type,
                     amount=user_points,
-                    xp=xp_reward,
+                    xp=(0 if is_reversal else xp_reward),  # Don't award XP on chargebacks
                     source=f'Offerwall: {config.get("name", provider_id)}',
-                    description=f'Offer completed: {offer_name}',
+                    description=f'{"Chargeback" if is_reversal else "Offer completed"}: {offer_name}',
                     claim_id=claim_id,
                     reference_id=provider_tx_id,
                     balance_after=balance_after,
-                    activity_type='reward_received',
+                    activity_type=activity_type,
                     metadata={
                         'providerId': provider_id,
                         'providerName': config.get('name', provider_id),
@@ -1991,6 +2004,8 @@ def offerwall_callback(provider_id):
                         'platformPoints': platform_points,
                         'callbackId': callback_id,
                         'xpEarned': xp_reward,
+                        'isReversal': is_reversal,
+                        'reversalReason': 'Provider chargeback status',
                     })
 
         # Write task_history entry for offerwall completion tracking

@@ -7,7 +7,7 @@ import { useTasks } from '../../hooks/useTasks';
 
 const BottomNav: React.FC = () => {
   const location = useLocation();
-  const { tasks, userTasks, systemTasks, campaigns } = useTasks();
+  const { tasks, userTasks, campaigns } = useTasks();
 
   const isAdminView = location.pathname.startsWith('/admin');
   if (isAdminView) return null;
@@ -29,8 +29,7 @@ const BottomNav: React.FC = () => {
     });
   }).length;
 
-  const claimableMissionCount = systemTasks.filter(m => m.progress?.status === 'COMPLETED').length;
-  const totalActionableCount = actionableCampaignCount + claimableMissionCount;
+  const totalActionableCount = actionableCampaignCount;
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl border-t border-border px-6 py-4 safe-area-bottom">

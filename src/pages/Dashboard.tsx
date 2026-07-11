@@ -95,7 +95,7 @@ const ActivityItem: React.FC<ActivityItemProps> = ({ activity, onClick }) => {
   const isPositive = activity.points > 0;
   const getIcon = () => {
     if (activity.type.includes('prediction')) return <BarChart3 size={14} />;
-    if (activity.type.includes('task') || activity.type.includes('mission')) return <Target size={14} />;
+    if (activity.type.includes('task')) return <Target size={14} />;
     if (activity.type.includes('referral')) return <UserPlus size={14} />;
     if (activity.type.includes('level')) return <TrendingUp size={14} />;
     if (activity.type.includes('withdrawal')) return <CreditCard size={14} />;
@@ -324,7 +324,7 @@ const DiscoveryItem: React.FC<{ item: any; onClick: () => void }> = ({ item, onC
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { userData, currentUser } = useAuth();
-  const { activities, tasks, campaigns, loading, getTaskStatus, subtasks, systemTasks } = useTasks();
+  const { activities, tasks, campaigns, loading, getTaskStatus, subtasks } = useTasks();
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -397,12 +397,8 @@ const Dashboard: React.FC = () => {
       const campaign = activeCampaigns.find(c => c.id === t.campaignId);
       rail.push({ id: `task_${t.id}`, originalId: t.id, campaignId: t.campaignId, campaignName: campaign?.name, type: 'TASK', title: t.title, category: t.category, reward: t.rewardAmount, xp: t.xpReward, instructions: t.instructions, verificationType: t.verificationType, priority: t.rewardAmount > 500 ? 90 : 70 });
     });
-    // Defensive: Filter out inactive missions
-    systemTasks.filter(st => st.progress?.status !== 'CLAIMED' && st.definition?.active !== false).forEach(st => {
-      rail.push({ id: `mission_${st.id}`, originalId: st.id, type: 'MISSION', title: st.definition.title, category: st.definition.category, reward: st.definition.rewardPoints, xp: st.definition.rewardXp, description: st.definition.description, progress: st.progress?.progress || 0, target: st.definition.targetValue, status: st.progress?.status || 'IN_PROGRESS', priority: st.progress?.status === 'COMPLETED' ? 95 : 80 });
-    });
     return rail.sort((a, b) => b.priority - a.priority);
-  }, [activeCampaigns, tasks, systemTasks, getTaskStatus]);
+  }, [activeCampaigns, tasks, getTaskStatus]);
 
   const handleItemClick = (item: any) => {
     setSelectedTask(item);
@@ -835,12 +831,12 @@ const Dashboard: React.FC = () => {
                   <span className="text-[9px] font-medium text-text-tertiary/50 font-mono truncate max-w-[160px]">
                     {selectedActivity.referenceId || selectedActivity.id}
                   </span>
-                  {(selectedActivity.type.includes('prediction') || selectedActivity.type.includes('task') || selectedActivity.type.includes('mission') || selectedActivity.type.includes('referral') || selectedActivity.type.includes('withdrawal')) && (
+                  {(selectedActivity.type.includes('prediction') || selectedActivity.type.includes('task') || selectedActivity.type.includes('referral') || selectedActivity.type.includes('withdrawal')) && (
                     <button
                       onClick={() => {
                         const t = selectedActivity.type as string;
                         if (t.includes('prediction')) navigate('/predictions', { state: { view: 'PORTFOLIO', highlightId: selectedActivity.referenceId } });
-                        else if (t.includes('task') || t.includes('mission')) navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId } });
+                        else if (t.includes('task')) navigate('/tasks', { state: { view: 'COMPLETED', highlightId: selectedActivity.referenceId } });
                         else if (t.includes('referral')) navigate('/referrals');
                         else if (t.includes('withdrawal')) navigate('/wallet');
                         setSelectedActivity(null);

@@ -8,7 +8,7 @@ import { safeFetch } from '../../../utils/api';
 import toast from 'react-hot-toast';
 import { cn } from '../../../utils';
 
-const TASK_TYPES = ['manual', 'automated', 'referral', 'campaign', 'welcome', 'level'] as const;
+const TASK_TYPES = ['manual', 'automated', 'referral', 'campaign', 'welcome', 'level', 'mission'] as const;
 
 const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [form, setForm] = React.useState({
@@ -333,6 +333,31 @@ const OpsTasks: React.FC = () => {
     });
   }, []);
 
+  const [purging, setPurging] = React.useState(false);
+  const handlePurgeMissions = async () => {
+    if (!window.confirm('Permanently delete all legacy missions ("Network Builder" etc.) and their progress? Standard tasks and offerwall are not affected.')) return;
+    setPurging(true);
+    const load = toast.loading('Purging legacy missions...');
+    try {
+      const idToken = await auth.currentUser?.getIdToken(true);
+      const res = await safeFetch('/api/admin/missions/purge', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (res.success) {
+        const total = Object.values(res.deleted || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
+        toast.success(`Purged ${total} legacy mission record(s).`);
+      } else {
+        toast.error(res.error || 'Purge failed.');
+      }
+    } catch {
+      toast.error('Network error during purge.');
+    } finally {
+      toast.dismiss(load);
+      setPurging(false);
+    }
+  };
+
   const handleArchive = async (taskId: string) => {
     setActioningId(taskId);
     const load = toast.loading('Archiving...');
@@ -405,6 +430,14 @@ const OpsTasks: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+            <button
+              onClick={handlePurgeMissions}
+              disabled={purging}
+              title='Delete legacy missions like "Network Builder" (merged into Tasks)'
+              className="w-full md:w-auto px-6 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={16} /> Purge Legacy Missions
+            </button>
             <button
               onClick={() => setShowWipe(true)}
               className="w-full md:w-auto px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors"

@@ -26,8 +26,24 @@ Visit TimeWall's placement dashboard and create a placement with:
    - **Affiliate ID:** `853f8fefa60863bd` (your Placement ID from TimeWall dashboard)
    - **Secret:** [Copy from TimeWall "Your Secret Key"]
    - **Callback URL:** Auto-fills to `https://pulseearn.online/api/offerwall/callback/timewall`
-4. Click **Save Provider**
-5. Click **TEST** button to validate connection
+4. Set **Economics** correctly (IMPORTANT for TimeWall):
+   - **User Share:** `100%` and **Platform Share:** `0%`
+   - **Reward Multiplier:** `1.0`
+   - TimeWall's `currencyAmount` is already the *net PTS to award the user* (computed
+     from your 300-per-$1 conversion rate), so it must NOT be split again. Providers
+     that instead send gross USD revenue should use a fractional user share.
+5. Click **Save Provider**
+6. Click **TEST** button to validate connection
+
+### Signature Spec (auto-applied for `timewall`)
+The backend now matches TimeWall's official postback hash exactly:
+```
+hash = sha256( userID + revenue + SecretKey )    // concatenated, no separator
+```
+- Method: **sha256**  |  Fields: **[userID, revenue, secret]**  |  Separator: none
+- Lifecycle `type` handling: `credit` → pay, `chargeback` → deduct,
+  `hold`/`hold_cancelled` → acknowledged with HTTP 200 but **no credit/deduction**.
+- Chargebacks arrive with negative `currencyAmount`/`revenue` and are deducted from the user.
 
 ### 3. Expected Outcomes
 

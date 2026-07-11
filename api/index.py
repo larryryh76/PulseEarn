@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════���══════════════════���════════════════════════════════════════════════════
+# ═══════�����══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1744,8 +1744,9 @@ def offerwall_callback(provider_id):
 
     secret = config.get('secret', '')
     multiplier = float(config.get('rewardMultiplier', 1.0))
-    user_share = float(config.get('userSharePct', 0.85))
-    platform_share = float(config.get('platformSharePct', 0.15))
+    # Business rule: user receives 30% of the awarded points, platform keeps 70%.
+    user_share = float(config.get('userSharePct', 0.30))
+    platform_share = float(config.get('platformSharePct', 0.70))
     min_reward = int(config.get('minimumReward', 1))
     max_reward = int(config.get('maximumReward', 100000))
     fraud_rules = config.get('fraudRules', {})
@@ -1770,7 +1771,7 @@ def offerwall_callback(provider_id):
                                metadata={'params_received': list(params.keys())})
         return pmap['success_response'], 200
 
-    # ── 5. Signature Verification ────────────────────────────────────────────
+    # ── 5. Signature Verification ───────────────────────────────────────��────
     sig_valid = _verify_offerwall_sig(
         pmap.get('sig_method', 'md5'),
         pmap.get('sig_fields', []),
@@ -1929,7 +1930,7 @@ def offerwall_callback(provider_id):
     if raw_amount < 0:
         is_reversal = True
 
-    # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ──
+    # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ─���
     reversal_type = 'AWARD'
     if is_reversal:
         user_points = -abs(user_points)
@@ -2411,7 +2412,7 @@ def offerwall_analytics():
     # Aggregate totals
     gross = sum(p.get('stats', {}).get('lifetimeRevenue', 0) for p in providers)
     user_rewards = sum(
-        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.85)))
+        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.30)))
         for p in providers
     )
     platform_rev = gross - user_rewards
@@ -2566,7 +2567,7 @@ def offerwall_test_connection(provider_id):
     return jsonify({'success': result_code == 'OK', 'code': result_code,
                     'message': result_msg, 'checks': checks})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════���═══════════════════════════════════════════════════
 # PHASE 18.4 — CALLBACK CENTER (test payload, test, replay)
 # ═══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/offerwall/providers/<provider_id>/callback-payload', methods=['GET'])
@@ -2693,7 +2694,7 @@ def offerwall_regenerate_secret(provider_id):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 18.7 — PROVIDER FAILOVER (auto-disable unhealthy providers)
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════���════════════════════════════
 @app.route('/api/offerwall/failover/scan', methods=['POST'])
 @verify_token
 def offerwall_failover_scan():

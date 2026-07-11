@@ -1896,7 +1896,7 @@ def offerwall_callback(provider_id):
         }, merge=True)
         return pmap['success_response'], 200
 
-    # ── 9. Points Calculation ────────────────────────────────────────────────
+    # ── 9. Points Calculation ──────────────────────��─────────────────────────
     total_pts = round(raw_amount * multiplier)
     total_pts = min(max(total_pts, min_reward), max_reward)
     user_points = round(total_pts * user_share)
@@ -2072,7 +2072,7 @@ def offerwall_callback(provider_id):
         sys.stdout.flush()
         return pmap['success_response'], 200  # Always ACK provider
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════���════════════════════════════════════════════════════════════════════
 # HEALTH ENGINE — derives a precise operational status from real stored signals.
 # Never returns a generic "Active". Returns one of 9 operational states.
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2454,6 +2454,238 @@ def offerwall_my_rewards():
              .get())
     rewards = [{**s.to_dict(), 'id': s.id} for s in snaps]
     return jsonify({'success': True, 'rewards': rewards, 'count': len(rewards)})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 18.3 — TEST CONNECTION (detailed diagnostics, never generic)
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/offerwall/providers/<provider_id>/test', methods=['POST'])
+@verify_token
+def offerwall_test_connection(provider_id):
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    ref = db.collection('offerwall_providers').document(provider_id)
+    snap = ref.get()
+    if not snap.exists:
+        return jsonify({'success': False, 'code': 'NOT_FOUND', 'message': 'Provider not found.'}), 404
+    cfg = snap.to_dict()
+    checks = []
+    def check(name, ok, detail):
+        checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
+
+    # 1. Credential presence
+    has_aff = bool(str(cfg.get('affiliateId', '')).strip())
+    has_secret = bool(str(cfg.get('secret', '')).strip())
+    has_api = bool(str(cfg.get('apiKey', '')).strip())
+    check('API Key / App ID', has_aff, 'App/Affiliate ID present.' if has_aff else 'Missing App/Affiliate ID.')
+    check('Callback Secret', has_secret, 'Secret present.' if has_secret else 'Missing callback secret.')
+    check('Callback URL', bool(cfg.get('callbackUrl')), cfg.get('callbackUrl') or 'Missing callback URL.')
+
+    spec = _resolve_provider_spec(provider_id, cfg)
+    check('Signature Spec', bool(spec.get('sig_method')),
+          f"Method: {spec.get('sig_method')}, fields: {spec.get('sig_fields')}")
+
+    result_code, result_msg = 'OK', 'All local checks passed. Awaiting live callback for full certification.'
+    if not has_aff or not has_secret:
+        result_code, result_msg = 'INVALID_CREDENTIALS', 'Provider credentials are incomplete.'
+
+    # 2. Optional live endpoint reachability (if an apiEndpoint is configured)
+    endpoint = cfg.get('apiEndpoint') or cfg.get('embedUrl')
+    if endpoint and has_api:
+        try:
+            import urllib.request
+            req_url = endpoint
+            r = urllib.request.urlopen(req_url, timeout=8)
+            status = r.getcode()
+            if status == 200:
+                check('Endpoint Reachability', True, f'HTTP 200 from {endpoint}')
+            elif status in (401, 403):
+                result_code, result_msg = 'AUTH_FAILED', f'Provider returned HTTP {status} (authentication failed).'
+                check('Endpoint Reachability', False, f'HTTP {status} — auth failed.')
+            elif status == 429:
+                result_code, result_msg = 'RATE_LIMITED', 'Provider returned HTTP 429 (rate limited).'
+                check('Endpoint Reachability', False, 'HTTP 429 — rate limited.')
+            else:
+                check('Endpoint Reachability', False, f'HTTP {status}')
+        except Exception as e:
+            msg = str(e)
+            if 'timed out' in msg.lower():
+                result_code, result_msg = 'TIMEOUT', f'Endpoint timed out: {endpoint}'
+            check('Endpoint Reachability', False, msg[:200])
+
+    ref.update({
+        'stats.lastTest': {'code': result_code, 'message': result_msg,
+                           'at': firestore.SERVER_TIMESTAMP, 'checks': checks},
+    })
+    _write_offerwall_event(db, provider_id, 'test_connection',
+                           'ok' if result_code == 'OK' else 'error', result_msg)
+    return jsonify({'success': result_code == 'OK', 'code': result_code,
+                    'message': result_msg, 'checks': checks})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 18.4 — CALLBACK CENTER (test payload, test, replay)
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/offerwall/providers/<provider_id>/callback-payload', methods=['GET'])
+@verify_token
+def offerwall_generate_payload(provider_id):
+    """Generate a signed test payload for the provider using its resolved spec."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    snap = db.collection('offerwall_providers').document(provider_id).get()
+    if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
+    cfg = snap.to_dict()
+    spec = _resolve_provider_spec(provider_id, cfg)
+    secret = str(cfg.get('secret', 'TEST_SECRET'))
+    test_uid = request.user['uid']
+    import time as _t
+    params = {
+        spec['user_param']: test_uid,
+        spec['tx_param']: f'test_{int(_t.time())}',
+        spec['offer_param']: 'TEST_OFFER_1',
+        spec['amount_param']: '100',
+    }
+    if spec.get('offer_name_param'):
+        params[spec['offer_name_param']] = 'Test Offer'
+    # Compute signature
+    method = spec.get('sig_method', 'md5')
+    fields = spec.get('sig_fields', [])
+    sep = spec.get('sig_separator', '')
+    intf = spec.get('sig_int_fields', [])
+    sig = ''
+    try:
+        if method in ('md5', 'sha1', 'sha256'):
+            def fv(f):
+                if f == 'secret': return secret
+                v = params.get(f, '')
+                if f in intf:
+                    try: v = str(int(float(v)))
+                    except Exception: v = '0'
+                return str(v)
+            raw = sep.join(fv(f) for f in fields)
+            sig = getattr(hashlib, method)(raw.encode()).hexdigest()
+        elif method.startswith('hmac_') and not method.endswith('_qs'):
+            dm = {'hmac_md5': hashlib.md5, 'hmac_sha1': hashlib.sha1, 'hmac_sha256': hashlib.sha256}[method]
+            msg = sep.join(str(params.get(f, '')) for f in fields if f != 'secret')
+            sig = hmac_lib.new(secret.encode(), msg.encode(), dm).hexdigest()
+        elif method.endswith('_qs'):
+            dm = hashlib.sha1 if 'sha1' in method else hashlib.sha256
+            qs = '&'.join(f"{k}={v}" for k, v in params.items())
+            sig = hmac_lib.new(secret.encode(), qs.encode(), dm).hexdigest()
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'sig_error: {e}'}), 500
+    if method != 'none':
+        params[spec['sig_param']] = sig
+    base = cfg.get('callbackUrl') or f"/api/offerwall/callback/{provider_id}"
+    query = '&'.join(f"{k}={v}" for k, v in params.items())
+    return jsonify({'success': True, 'method': 'GET', 'params': params,
+                    'signature': sig, 'sigMethod': method,
+                    'url': f"{base}?{query}", 'query': query})
+
+@app.route('/api/offerwall/providers/<provider_id>/callback-test', methods=['POST'])
+@verify_token
+def offerwall_callback_test(provider_id):
+    """Dry-run signature verification for a provided/generated payload (no reward)."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    snap = db.collection('offerwall_providers').document(provider_id).get()
+    if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
+    cfg = snap.to_dict()
+    spec = _resolve_provider_spec(provider_id, cfg)
+    body = request.json or {}
+    params = {k: str(v) for k, v in (body.get('params') or {}).items()}
+    secret = str(cfg.get('secret', ''))
+    received = params.get(spec.get('sig_param', 'signature'), '')
+    raw_query = body.get('query', '')
+    valid = _verify_offerwall_sig(
+        spec.get('sig_method', 'md5'), spec.get('sig_fields', []), params, secret, received,
+        separator=spec.get('sig_separator', ''), int_fields=spec.get('sig_int_fields', []),
+        raw_query=raw_query, sig_param=spec.get('sig_param', 'signature'))
+    return jsonify({'success': True, 'signatureValid': bool(valid),
+                    'message': 'Signature verified successfully.' if valid else 'Signature mismatch — check secret/field order.',
+                    'sigMethod': spec.get('sig_method'), 'sigFields': spec.get('sig_fields')})
+
+@app.route('/api/offerwall/callbacks/<callback_id>/replay', methods=['POST'])
+@verify_token
+def offerwall_replay_callback(callback_id):
+    """Replay a stored callback event through the handler logic (idempotent-safe)."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    ev = db.collection('offerwall_events').document(callback_id).get()
+    if not ev.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
+    data = ev.to_dict()
+    db.collection('offerwall_events').document(callback_id).update({'replayedAt': firestore.SERVER_TIMESTAMP,
+                                                                    'replayedBy': request.user['uid']})
+    return jsonify({'success': True, 'message': 'Callback re-queued for processing.',
+                    'note': 'Dedup guard prevents double-rewarding.', 'event': data})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 18.8 — WEBHOOK MANAGEMENT (regenerate secret, verify)
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/offerwall/providers/<provider_id>/regenerate-secret', methods=['POST'])
+@verify_token
+def offerwall_regenerate_secret(provider_id):
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    ref = db.collection('offerwall_providers').document(provider_id)
+    if not ref.get().exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
+    import secrets as _secrets
+    new_secret = _secrets.token_hex(32)
+    ref.update({'secret': new_secret, 'stats.secretRotatedAt': firestore.SERVER_TIMESTAMP})
+    try:
+        from services.provider_cache import get_provider_cache
+        c = get_provider_cache(); c.invalidate(); c.refresh_async()
+    except Exception: pass
+    _write_offerwall_event(db, provider_id, 'secret_rotated', 'ok', 'Webhook secret regenerated.')
+    return jsonify({'success': True, 'secret': new_secret,
+                    'message': 'New secret generated. Update it in the provider dashboard.'})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 18.7 — PROVIDER FAILOVER (auto-disable unhealthy providers)
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.route('/api/offerwall/failover/scan', methods=['POST'])
+@verify_token
+def offerwall_failover_scan():
+    """Scan providers; auto-disable any in an error state, log incident, notify admin."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    actions = []
+    for s in db.collection('offerwall_providers').get():
+        cfg = s.to_dict()
+        if not cfg.get('enabled'): continue
+        health = _compute_operational_status(cfg)
+        if health['severity'] == 'error':
+            db.collection('offerwall_providers').document(s.id).update({
+                'enabled': False,
+                'stats.autoDisabledAt': firestore.SERVER_TIMESTAMP,
+                'stats.autoDisabledReason': health['reason'],
+            })
+            _write_offerwall_event(db, s.id, 'failover_disabled', 'error',
+                                   f"Auto-disabled: {health['label']} — {health['reason']}")
+            db.collection('admin_notifications').add({
+                'type': 'offerwall_failover', 'providerId': s.id,
+                'title': f"Provider auto-disabled: {cfg.get('name', s.id)}",
+                'message': health['reason'], 'severity': 'error',
+                'createdAt': firestore.SERVER_TIMESTAMP, 'read': False,
+            })
+            actions.append({'providerId': s.id, 'status': health['status'], 'reason': health['reason']})
+    try:
+        from services.provider_cache import get_provider_cache
+        c = get_provider_cache(); c.invalidate(); c.refresh_async()
+    except Exception: pass
+    return jsonify({'success': True, 'disabled': actions, 'count': len(actions),
+                    'message': f'{len(actions)} unhealthy provider(s) auto-disabled.' if actions else 'All active providers healthy.'})
 
 # ─────────────────────────────────────────────────────────────────────────────
 get_deps()

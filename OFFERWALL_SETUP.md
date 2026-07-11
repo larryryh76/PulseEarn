@@ -26,14 +26,24 @@ Visit TimeWall's placement dashboard and create a placement with:
    - **Affiliate ID:** `853f8fefa60863bd` (your Placement ID from TimeWall dashboard)
    - **Secret:** [Copy from TimeWall "Your Secret Key"]
    - **Callback URL:** Auto-fills to `https://pulseearn.online/api/offerwall/callback/timewall`
-4. Set **Economics** correctly (IMPORTANT for TimeWall):
-   - **User Share:** `100%` and **Platform Share:** `0%`
+4. Set **Economics** (defaults are already correct):
+   - **User Share:** `30%` and **Platform Share:** `70%`
    - **Reward Multiplier:** `1.0`
-   - TimeWall's `currencyAmount` is already the *net PTS to award the user* (computed
-     from your 300-per-$1 conversion rate), so it must NOT be split again. Providers
-     that instead send gross USD revenue should use a fractional user share.
-5. Click **Save Provider**
-6. Click **TEST** button to validate connection
+   - **How the reward is computed (IMPORTANT):** PulseEarn ignores the provider's own
+     currency-conversion rate and instead computes the reward from the provider's
+     **gross USD** field (`revenue` for TimeWall, `amount_usd` for CPX):
+
+     ```
+     gross_points = USD_revenue × 1000 (internal $1 = 1000 PTS) × multiplier
+     user_points  = gross_points × 30%
+     platform     = gross_points × 70%
+     ```
+
+     Example — a $1.00 TimeWall offer → 1000 gross PTS → **user gets 300 PTS ($0.30)**,
+     platform keeps 700 PTS. This is immune to whatever "Currency Conversion Rate" you
+     set on the TimeWall/CPX dashboard, so you cannot accidentally double-discount users.
+5. Click **Save Provider** — the connection is **auto-tested on save**, so a correctly
+   configured provider flips to **Connected** immediately (no need to click TEST manually).
 
 ### Signature Spec (auto-applied for `timewall`)
 The backend now matches TimeWall's official postback hash exactly:
@@ -43,7 +53,7 @@ hash = sha256( userID + revenue + SecretKey )    // concatenated, no separator
 - Method: **sha256**  |  Fields: **[userID, revenue, secret]**  |  Separator: none
 - Lifecycle `type` handling: `credit` → pay, `chargeback` → deduct,
   `hold`/`hold_cancelled` → acknowledged with HTTP 200 but **no credit/deduction**.
-- Chargebacks arrive with negative `currencyAmount`/`revenue` and are deducted from the user.
+- Chargebacks arrive with negative `revenue` and are deducted from the user at the same 30%.
 
 ### 3. Expected Outcomes
 
@@ -70,7 +80,11 @@ Check **Offerwall Callbacks** section in admin to see callback history and any v
 
 ## Setting Up CPX Research
 
-Same process as TimeWall, but use CPX's Affiliate ID and Secret from their dashboard.
+Same process as TimeWall — enter CPX's App ID and Secret from their dashboard. CPX uses
+the same USD-based economics: the reward is computed from CPX's `amount_usd` field, so the
+30% user / 70% platform split is applied by PulseEarn regardless of the conversion rate you
+configure on the CPX dashboard. CPX signature: `md5(trans_id + secret)`; a `status=2`
+postback is treated as a chargeback and deducted from the user.
 
 ## Troubleshooting
 

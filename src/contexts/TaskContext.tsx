@@ -39,6 +39,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subtasks, setSubtasks] = useState<TaskClaim[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistory[]>([]);
   const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) {
@@ -197,8 +198,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   });
 
-  const completedMissions = systemTasks.filter(m => m.progress?.status === 'CLAIMED');
-
   const unifiedHistory = [
     ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
     ...subtasks.filter(s =>
@@ -212,16 +211,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
        xpReward: s.xpGranted || 0,
        resolvedAt: s.resolvedAt,
        type: 'LEGACY_CLAIM'
-    })),
-    ...completedMissions.filter(m =>
-       !taskHistory.find(h => h.taskId === m.id)
-    ).map(m => ({
-       id: m.id,
-       taskTitle: m.definition?.title,
-       rewardAmount: m.definition?.rewardPoints,
-       xpReward: m.definition?.rewardXp,
-       resolvedAt: m.progress?.claimedAt,
-       type: 'MISSION'
     }))
   ].sort((a, b) => {
     const timeA = a.resolvedAt?.toMillis?.() || 0;

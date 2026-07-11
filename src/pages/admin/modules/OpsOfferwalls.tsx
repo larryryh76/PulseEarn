@@ -585,6 +585,30 @@ const OpsOfferwalls: React.FC = () => {
     toast.success('Refreshed');
   };
 
+  const [scanning, setScanning] = React.useState(false);
+  const runFailoverScan = async () => {
+    if (!currentUser) return;
+    setScanning(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await safeFetch('/api/offerwall/failover/scan', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.success) {
+        if (res.count > 0) toast.error(`${res.count} unhealthy provider(s) auto-disabled`);
+        else toast.success('All active providers healthy');
+        await loadProviders();
+      } else {
+        toast.error('Failover scan failed');
+      }
+    } catch {
+      toast.error('Failover scan request failed');
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const totalFraud = providers.reduce((acc, p) => acc + (p.stats?.fraudAlerts || 0), 0);
   const totalRevenue = providers.reduce((acc, p) => acc + (p.stats?.lifetimeRevenue || 0), 0);
   const activeCount = providers.filter(p => p.enabled).length;
@@ -616,6 +640,15 @@ const OpsOfferwalls: React.FC = () => {
             className="p-2.5 rounded-xl border border-border text-text-tertiary hover:bg-surface-bright hover:text-text-primary transition-all"
           >
             <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
+          </button>
+          <button
+            onClick={runFailoverScan}
+            disabled={scanning}
+            title="Scan providers and auto-disable any in an error state"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-warning/25 bg-warning/5 text-warning text-[11px] font-bold uppercase tracking-widest hover:bg-warning/10 transition-all disabled:opacity-50"
+          >
+            {scanning ? <div className="w-3.5 h-3.5 border border-warning/40 border-t-warning rounded-full animate-spin" /> : <AlertTriangle size={14} />}
+            Failover Scan
           </button>
           <button
             onClick={() => { setSelectedProviderId(null); setIsModalOpen(true); }}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, X, Key, Globe, AlertTriangle,
   ChevronDown, ChevronRight,
-  Save, Lock, DollarSign
+  Save, Lock, DollarSign, RefreshCw, Copy, Check
 } from 'lucide-react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { safeFetch } from '../../../../utils/api';
@@ -35,6 +35,10 @@ interface ProviderForm {
   platformSharePct: number;
   minimumReward: number;
   maximumReward: number;
+  dailyCap: number;
+  cooldownSeconds: number;
+  priority: number;
+  fraudThreshold: number;
   fraudRules: FraudRules;
 }
 
@@ -60,6 +64,10 @@ const BLANK_FORM: ProviderForm = {
   platformSharePct: 0.15,
   minimumReward: 1,
   maximumReward: 100000,
+  dailyCap: 0,
+  cooldownSeconds: 0,
+  priority: 100,
+  fraudThreshold: 80,
   fraudRules: DEFAULT_FRAUD_RULES,
 };
 
@@ -252,6 +260,10 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
             platformSharePct: found.platformSharePct ?? 0.15,
             minimumReward: found.minimumReward ?? 1,
             maximumReward: found.maximumReward ?? 100000,
+            dailyCap: found.dailyCap ?? 0,
+            cooldownSeconds: found.cooldownSeconds ?? 0,
+            priority: found.priority ?? 100,
+            fraudThreshold: found.fraudThreshold ?? 80,
             fraudRules: { ...DEFAULT_FRAUD_RULES, ...(found.fraudRules || {}) },
           });
         }
@@ -280,6 +292,41 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
 
   const setFraud = (field: keyof FraudRules, value: any) =>
     setForm(f => ({ ...f, fraudRules: { ...f.fraudRules, [field]: value } }));
+
+  const [regenerating, setRegenerating] = useState(false);
+  const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [secretCopied, setSecretCopied] = useState(false);
+
+  const regenerateSecret = async () => {
+    if (!providerId || !currentUser) return;
+    if (!window.confirm('Regenerate the callback secret? The provider dashboard must be updated with the new value or callbacks will fail.')) return;
+    setRegenerating(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await safeFetch(`/api/offerwall/providers/${providerId}/regenerate-secret`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.success && res.secret) {
+        setNewSecret(res.secret);
+        toast.success('New secret generated — copy it now');
+      } else {
+        toast.error(res.message || 'Failed to regenerate secret');
+      }
+    } catch {
+      toast.error('Regenerate request failed');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const copySecret = () => {
+    if (!newSecret) return;
+    navigator.clipboard.writeText(newSecret).then(() => {
+      setSecretCopied(true);
+      setTimeout(() => setSecretCopied(false), 2000);
+    });
+  };
 
   // Auto-fill name from known provider
   const handleKnownProvider = (id: string) => {
@@ -331,6 +378,10 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         platformSharePct: form.platformSharePct,
         minimumReward: form.minimumReward,
         maximumReward: form.maximumReward,
+        dailyCap: form.dailyCap,
+        cooldownSeconds: form.cooldownSeconds,
+        priority: form.priority,
+        fraudThreshold: form.fraudThreshold,
         fraudRules: form.fraudRules,
       };
       if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
@@ -542,6 +593,41 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                     </Field>
                   </Section>
 
+                  {/* Webhook Security — edit mode only */}
+                  {!isNew && (
+                    <Section icon={<Lock size={15} />} title="Webhook Security" subtitle="Rotate the signing secret used to verify incoming callbacks" defaultOpen={false}>
+                      <div className="px-4 py-3 bg-warning/5 border border-warning/15 rounded-xl">
+                        <p className="text-[10px] text-warning font-semibold">
+                          Rotating the secret immediately invalidates the old one. Update the provider dashboard right away or callbacks will fail signature verification.
+                        </p>
+                      </div>
+                      {newSecret && (
+                        <div className="px-4 py-3 bg-surface-bright border border-border rounded-xl space-y-2">
+                          <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">New Secret (copy now — shown once)</p>
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1 text-[11px] font-mono text-primary break-all">{newSecret}</span>
+                            <button
+                              type="button"
+                              onClick={copySecret}
+                              className="p-1.5 rounded-lg hover:bg-surface-accent text-text-tertiary hover:text-primary transition-all shrink-0"
+                            >
+                              {secretCopied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={regenerateSecret}
+                        disabled={regenerating}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-danger/20 bg-danger/5 text-danger text-[11px] font-bold uppercase tracking-widest hover:bg-danger/10 transition-all disabled:opacity-50"
+                      >
+                        {regenerating ? <div className="w-3.5 h-3.5 border border-danger/40 border-t-danger rounded-full animate-spin" /> : <RefreshCw size={13} />}
+                        Regenerate Secret
+                      </button>
+                    </Section>
+                  )}
+
                   {/* Economy */}
                   <Section icon={<DollarSign size={15} />} title="Economy" subtitle="Reward multiplier, user/platform split, and reward caps">
                     <Field label="Reward Multiplier" hint="Multiplies raw provider amount before splitting (1.0 = no change, 2.0 = double)">
@@ -577,6 +663,26 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                       </Field>
                       <Field label="Maximum Reward (PTS)" hint="Callbacks above this value are capped or rejected">
                         <NumInput value={form.maximumReward} onChange={v => set('maximumReward', v)} min={1} step={100} />
+                      </Field>
+                    </div>
+                  </Section>
+
+                  {/* Revenue Configuration */}
+                  <Section icon={<DollarSign size={15} />} title="Revenue Configuration" subtitle="Caps, cooldown, routing priority, and fraud sensitivity" defaultOpen={false}>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Daily Cap (PTS)" hint="Max points this provider can award per day (0 = unlimited)">
+                        <NumInput value={form.dailyCap} onChange={v => set('dailyCap', v)} min={0} step={1000} />
+                      </Field>
+                      <Field label="Cooldown (sec)" hint="Minimum seconds between offers shown to a user (0 = none)">
+                        <NumInput value={form.cooldownSeconds} onChange={v => set('cooldownSeconds', v)} min={0} step={5} />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Routing Priority" hint="Lower number = higher priority in failover ordering">
+                        <NumInput value={form.priority} onChange={v => set('priority', v)} min={1} step={1} />
+                      </Field>
+                      <Field label="Fraud Threshold" hint="Risk score (0–100) above which callbacks are blocked">
+                        <NumInput value={form.fraudThreshold} onChange={v => set('fraudThreshold', v)} min={0} max={100} step={1} />
                       </Field>
                     </div>
                   </Section>

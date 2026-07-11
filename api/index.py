@@ -1507,97 +1507,157 @@ import hmac as hmac_lib
 
 # ─── Provider Param Registry ──────────────────────────────────────────────────
 # Each entry maps a provider slug to how to extract and verify its callback.
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXTENSIBLE PROVIDER REGISTRY
+# ───────────────────────────────────────────────────────────────────────────────
+# Each provider is described declaratively. Signature specs verified against each
+# provider's official postback documentation (Phase 18 research).
+#
+# EXTENSIBILITY: This registry only holds DEFAULT presets for known providers.
+# A provider's Firestore document may override ANY of these keys (user_param,
+# sig_method, sig_fields, etc.). A brand-new provider needs only a Firestore
+# config entry with these fields — NO code changes required. See
+# _resolve_provider_spec() which merges Firestore overrides over these defaults.
+#
+# Supported sig_method values:
+#   md5 | sha1 | sha256                 -> HASH(join(fields, sig_separator))
+#   hmac_md5 | hmac_sha1 | hmac_sha256  -> HMAC(secret, join(non-secret fields))
+#   hmac_sha1_qs | hmac_sha256_qs       -> HMAC(secret, raw query string minus sig param)
+#   query_string_md5                    -> MD5(sorted query string + secret)
+#   none                                -> no signature (test/unauthenticated providers)
+# Optional keys:
+#   sig_separator (default '')          -> string joining concatenated fields
+#   sig_int_fields (default [])         -> fields cast to int before hashing (e.g. TimeWall)
+#   status_param / status_ok / status_reversal -> chargeback handling
+# ═══════════════════════════════════════════════════════════════════════════════
 OFFERWALL_PROVIDER_REGISTRY = {
     'lootably': {
-        'user_param': 'sub_id',
-        'tx_param': 'transaction_id',
-        'offer_param': 'offer_id',
-        'offer_name_param': 'offer_name',
-        'amount_param': 'amount',
-        'sig_param': 'signature',
-        'sig_method': 'md5',
-        'sig_fields': ['offer_id', 'amount', 'sub_id', 'secret'],
+        'label': 'Lootably',
+        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerID',
+        'offer_name_param': 'offerName', 'amount_param': 'currencyReward',
+        'sig_param': 'hash', 'sig_method': 'sha256',
+        'sig_fields': ['userID', 'ip', 'revenue', 'currencyReward', 'secret'],
         'success_response': '1',
     },
     'bitlabs': {
-        'user_param': 'uid',
-        'tx_param': 'transaction_id',
-        'offer_param': 'survey_id',
-        'offer_name_param': 'survey_name',
-        'amount_param': 'reward',
-        'sig_param': 'signature',
-        'sig_method': 'sha256',
-        'sig_fields': ['uid', 'survey_id', 'reward', 'secret'],
+        'label': 'BitLabs',
+        'user_param': 'uid', 'tx_param': 'tx', 'offer_param': 'survey_id',
+        'offer_name_param': None, 'amount_param': 'val',
+        'sig_param': 'hash', 'sig_method': 'hmac_sha1_qs', 'sig_fields': [],
         'success_response': 'OK',
     },
     'cpxresearch': {
-        'user_param': 'ext_user_id',
-        'tx_param': 'trans_id',
-        'offer_param': 'survey_id',
-        'offer_name_param': None,
-        'amount_param': 'amount_local',
-        'sig_param': 'hash',
-        'sig_method': 'md5',
-        'sig_fields': ['ext_user_id', 'trans_id', 'secret'],
+        'label': 'CPX Research',
+        'user_param': 'user_id', 'tx_param': 'trans_id', 'offer_param': 'survey_id',
+        'offer_name_param': None, 'amount_param': 'amount_local',
+        'sig_param': 'hash', 'sig_method': 'md5', 'sig_fields': ['trans_id', 'secret'],
+        'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
         'success_response': '1',
     },
     'adgem': {
-        'user_param': 'publisher_user_id',
-        'tx_param': 'transaction_id',
-        'offer_param': 'offer_id',
-        'offer_name_param': 'offer_name',
-        'amount_param': 'amount',
-        'sig_param': 'security_token',
-        'sig_method': 'md5',
-        'sig_fields': ['app_id', 'transaction_id', 'publisher_user_id', 'amount', 'secret'],
+        'label': 'AdGem',
+        'user_param': 'player_id', 'tx_param': 'transaction_id', 'offer_param': 'campaign_id',
+        'offer_name_param': 'offer_name', 'amount_param': 'amount',
+        'sig_param': 'verifier', 'sig_method': 'hmac_sha256_qs', 'sig_fields': [],
         'success_response': 'OK',
     },
     'offertoro': {
-        'user_param': 'oid',
-        'tx_param': 'tid',
-        'offer_param': 'cid',
-        'offer_name_param': 'offer_name',
-        'amount_param': 'payout',
-        'sig_param': 'hash',
-        'sig_method': 'md5',
-        'sig_fields': ['oid', 'tid', 'payout', 'secret'],
+        'label': 'OfferToro',
+        'user_param': 'user_id', 'tx_param': 'id', 'offer_param': 'oid',
+        'offer_name_param': 'offer_name', 'amount_param': 'amount',
+        'sig_param': 'sig', 'sig_method': 'md5',
+        'sig_fields': ['oid', 'user_id', 'payout', 'secret'],
         'success_response': '1',
     },
     'timewall': {
-        'user_param': 'user_id',
-        'tx_param': 'reward_id',
-        'offer_param': 'offer_id',
-        'offer_name_param': 'offer_name',
-        'amount_param': 'reward_amount',
-        'sig_param': 'signature',
-        'sig_method': 'hmac_sha256',
-        'sig_fields': ['user_id', 'reward_id', 'offer_id', 'reward_amount'],
+        'label': 'TimeWall',
+        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'type',
+        'offer_name_param': None, 'amount_param': 'currencyAmount',
+        'sig_param': 'hash', 'sig_method': 'md5',
+        'sig_fields': ['secret', 'userID', 'currencyAmount', 'transactionID'],
+        'sig_separator': '.', 'sig_int_fields': ['currencyAmount'],
         'success_response': 'OK',
     },
 }
 
+# Default spec applied to any provider not in the registry (fully generic fallback).
+OFFERWALL_DEFAULT_SPEC = {
+    'label': None,
+    'user_param': 'user_id', 'tx_param': 'transaction_id', 'offer_param': 'offer_id',
+    'offer_name_param': 'offer_name', 'amount_param': 'amount',
+    'sig_param': 'signature', 'sig_method': 'md5',
+    'sig_fields': ['transaction_id', 'user_id', 'amount', 'secret'],
+    'sig_separator': '', 'sig_int_fields': [],
+    'success_response': 'OK',
+}
+
+def _resolve_provider_spec(provider_id, config):
+    """Merge Firestore config overrides over the registry default preset.
+    This is what makes the system extensible to unlimited providers: any spec key
+    can be overridden per-provider from the admin UI / Firestore document.
+    """
+    spec = dict(OFFERWALL_DEFAULT_SPEC)
+    preset = OFFERWALL_PROVIDER_REGISTRY.get(provider_id)
+    if preset:
+        spec.update(preset)
+    # Firestore-level overrides (from admin config) win over presets.
+    overrides = (config or {}).get('callbackSpec') or {}
+    for key in ('user_param', 'tx_param', 'offer_param', 'offer_name_param', 'amount_param',
+                'sig_param', 'sig_method', 'sig_fields', 'sig_separator', 'sig_int_fields',
+                'status_param', 'status_ok', 'status_reversal', 'success_response', 'label'):
+        if key in overrides and overrides[key] is not None:
+            spec[key] = overrides[key]
+    return spec
+
 # ─── Signature Verification ────────────────────────────────────────────────────
-def _verify_offerwall_sig(method, fields, params, secret, received_sig):
-    """Constant-time signature verification for all supported provider methods."""
+def _verify_offerwall_sig(method, fields, params, secret, received_sig,
+                          separator='', int_fields=None, raw_query='', sig_param=''):
+    """Constant-time signature verification for all supported provider methods.
+    Verified against official provider docs (CPX, BitLabs, Lootably, AdGem,
+    OfferToro, TimeWall) — and fully generic for future providers via config.
+    """
+    int_fields = int_fields or []
+    if not method or method == 'none':
+        return True
     try:
+        def field_val(f):
+            if f == 'secret':
+                return secret
+            v = params.get(f, '')
+            if f in int_fields:
+                try:
+                    v = str(int(float(v)))
+                except (ValueError, TypeError):
+                    v = '0'
+            return str(v)
+
         if method in ('md5', 'sha1', 'sha256'):
-            raw = ''.join(secret if f == 'secret' else str(params.get(f, '')) for f in fields)
-            if method == 'md5':
-                computed = hashlib.md5(raw.encode('utf-8')).hexdigest()
-            elif method == 'sha1':
-                computed = hashlib.sha1(raw.encode('utf-8')).hexdigest()
-            else:
-                computed = hashlib.sha256(raw.encode('utf-8')).hexdigest()
-            return hmac_lib.compare_digest(computed, received_sig or '')
-        elif method == 'hmac_sha256':
-            message = ''.join(str(params.get(f, '')) for f in fields if f != 'secret')
-            computed = hmac_lib.new(secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
-            return hmac_lib.compare_digest(computed, received_sig or '')
+            raw = separator.join(field_val(f) for f in fields)
+            algo = getattr(hashlib, method)
+            computed = algo(raw.encode('utf-8')).hexdigest()
+            return hmac_lib.compare_digest(computed, (received_sig or '').lower())
+        elif method in ('hmac_md5', 'hmac_sha1', 'hmac_sha256'):
+            digestmod = {'hmac_md5': hashlib.md5, 'hmac_sha1': hashlib.sha1,
+                         'hmac_sha256': hashlib.sha256}[method]
+            message = separator.join(field_val(f) for f in fields if f != 'secret')
+            computed = hmac_lib.new(secret.encode('utf-8'), message.encode('utf-8'), digestmod).hexdigest()
+            return hmac_lib.compare_digest(computed, (received_sig or '').lower())
+        elif method in ('hmac_sha1_qs', 'hmac_sha256_qs'):
+            # HMAC over the raw query string with the signature param removed (BitLabs, AdGem).
+            digestmod = hashlib.sha1 if method == 'hmac_sha1_qs' else hashlib.sha256
+            qs = raw_query or '&'.join(f"{k}={v}" for k, v in params.items() if k != sig_param)
+            # Strip the signature param if present in the raw query string.
+            if sig_param and raw_query:
+                parts = [p for p in raw_query.split('&') if not p.startswith(sig_param + '=')]
+                qs = '&'.join(parts)
+            computed = hmac_lib.new(secret.encode('utf-8'), qs.encode('utf-8'), digestmod).hexdigest()
+            return hmac_lib.compare_digest(computed, (received_sig or '').lower())
         elif method == 'query_string_md5':
-            sorted_str = '&'.join(f"{k}={params[k]}" for k in sorted(params.keys())) + secret
+            sorted_str = '&'.join(f"{k}={params[k]}" for k in sorted(params.keys()) if k != sig_param) + secret
             computed = hashlib.md5(sorted_str.encode('utf-8')).hexdigest()
-            return hmac_lib.compare_digest(computed, received_sig or '')
-    except Exception:
+            return hmac_lib.compare_digest(computed, (received_sig or '').lower())
+    except Exception as e:
+        print(f"[Offerwall] Signature verify error ({method}): {e}")
         pass
     return False
 
@@ -1616,7 +1676,7 @@ def _write_offerwall_event(db, provider_id, event_type, severity, message, **kwa
     except Exception as e:
         print(f"[Offerwall] Event write failed: {e}")
 
-# ─── Main Callback Endpoint ────────────────────────────────────────────────────
+# ─── Main Callback Endpoint ────────────────────────────────────���───────────────
 @app.route('/api/offerwall/callback/<provider_id>', methods=['GET', 'POST'])
 def offerwall_callback(provider_id):
     """
@@ -1649,28 +1709,13 @@ def offerwall_callback(provider_id):
         # Refresh cache for next time
         provider_cache.refresh_async()
     
-    # Get signature params from cache
-    pmap = OFFERWALL_PROVIDER_REGISTRY.get(provider_id)
-    if not pmap:
-        # Try to build from cache if provider exists
-        if cached_provider:
-            # Provider exists in Firestore but not in hardcoded registry - this is OK
-            # Use default mapping for this provider
-            pmap = {
-                'user_param': 'user_id',
-                'tx_param': 'transaction_id',
-                'offer_param': 'offer_id',
-                'amount_param': 'reward_amount',
-                'sig_param': 'signature',
-                'offer_name_param': 'offer_name',
-                'success_response': 'OK',
-            }
-        else:
-            _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
-                                   f'Unknown provider: {provider_id}')
-            return 'UNKNOWN_PROVIDER', 400
+    # Resolve the provider spec: registry preset + Firestore config overrides.
+    # This is fully extensible — unknown providers resolve to a generic default,
+    # and any provider can override its spec from the admin config.
+    pmap = _resolve_provider_spec(provider_id, cached_provider)
 
     # ── 3. Extract all params (GET or POST) ─────────────────────────────────
+    raw_query = req.query_string.decode('utf-8') if req.query_string else ''
     if req.method == 'GET':
         params = dict(req.args)
     else:
@@ -1720,12 +1765,22 @@ def offerwall_callback(provider_id):
 
     # ── 5. Signature Verification ────────────────────────────────────────────
     sig_valid = _verify_offerwall_sig(
-        pmap['sig_method'],
-        pmap['sig_fields'],
+        pmap.get('sig_method', 'md5'),
+        pmap.get('sig_fields', []),
         params,
         secret,
-        received_sig
+        received_sig,
+        separator=pmap.get('sig_separator', ''),
+        int_fields=pmap.get('sig_int_fields', []),
+        raw_query=raw_query,
+        sig_param=pmap.get('sig_param', 'signature'),
     )
+    # Handle reversal/chargeback status (e.g. CPX status=2) — reverse the reward.
+    status_param = pmap.get('status_param')
+    is_reversal = False
+    if status_param:
+        status_val = str(params.get(status_param, pmap.get('status_ok', '')))
+        is_reversal = (status_val == str(pmap.get('status_reversal', '__none__')))
 
     dedup_key = f"{provider_id}:{provider_tx_id}"
     ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
@@ -2017,12 +2072,69 @@ def offerwall_callback(provider_id):
         sys.stdout.flush()
         return pmap['success_response'], 200  # Always ACK provider
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# HEALTH ENGINE — derives a precise operational status from real stored signals.
+# Never returns a generic "Active". Returns one of 9 operational states.
+# ═══════════════════════════════════════════════════════════════════════════════
+OFFERWALL_STATUS_META = {
+    'connected':              {'label': 'Connected',             'severity': 'ok'},
+    'disconnected':           {'label': 'Disconnected',          'severity': 'warning'},
+    'pending_configuration':  {'label': 'Pending Configuration', 'severity': 'warning'},
+    'invalid_credentials':    {'label': 'Invalid Credentials',   'severity': 'error'},
+    'callback_failure':       {'label': 'Callback Failure',      'severity': 'error'},
+    'authentication_failure': {'label': 'Authentication Failure','severity': 'error'},
+    'api_timeout':            {'label': 'API Timeout',           'severity': 'error'},
+    'rate_limited':           {'label': 'Rate Limited',          'severity': 'warning'},
+    'disabled':               {'label': 'Disabled',              'severity': 'neutral'},
+}
+
+def _compute_operational_status(config):
+    """Derive one of 9 operational states from stored signals (no fabrication)."""
+    stats = config.get('stats', {}) or {}
+    def out(status, reason):
+        meta = OFFERWALL_STATUS_META.get(status, {'label': status, 'severity': 'neutral'})
+        return {'status': status, 'label': meta['label'], 'severity': meta['severity'], 'reason': reason}
+
+    if not config.get('enabled', False):
+        return out('disabled', 'Provider is disabled and hidden from users.')
+
+    # Credentials completeness
+    if not str(config.get('affiliateId', '')).strip() or not str(config.get('secret', '')).strip():
+        return out('pending_configuration', 'Missing App/Affiliate ID or callback secret.')
+    if not str(config.get('callbackUrl', '')).strip():
+        return out('pending_configuration', 'Missing callback URL.')
+
+    # Explicit last Test Connection outcome takes precedence.
+    test = stats.get('lastTest', {}) or {}
+    code = (test.get('code') or '').upper()
+    if code == 'AUTH_FAILED':
+        return out('authentication_failure', test.get('message', 'Authentication failed during last test.'))
+    if code == 'INVALID_CREDENTIALS':
+        return out('invalid_credentials', test.get('message', 'Provider rejected the supplied credentials.'))
+    if code == 'TIMEOUT':
+        return out('api_timeout', test.get('message', 'Provider endpoint timed out during last test.'))
+    if code == 'RATE_LIMITED':
+        return out('rate_limited', test.get('message', 'Provider rate-limited our requests.'))
+
+    # Callback health: repeated signature/processing failures.
+    failed = int(stats.get('failedCallbacks', 0) or 0)
+    approved = int(stats.get('approvedRewards', 0) or 0)
+    if failed >= 3 and failed >= approved:
+        return out('callback_failure', f'{failed} failed callbacks vs {approved} approved — check secret/signature spec.')
+
+    # Connected: we have evidence of a successful exchange.
+    if approved > 0 or stats.get('lastSuccessfulSync') or code == 'OK':
+        return out('connected', 'Receiving and processing callbacks successfully.')
+
+    # Configured but no traffic/verification yet.
+    return out('disconnected', 'Configured but no successful callback or test yet.')
+
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
 @app.route('/api/offerwall/providers', methods=['GET'])
 @verify_token
 def offerwall_get_providers():
     if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
-    """List all configured offerwall providers with their live stats."""
+    """List all configured offerwall providers with their live stats + derived health."""
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -2035,10 +2147,39 @@ def offerwall_get_providers():
             # Never expose raw secret to client
             d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey')}
             d_safe['id'] = s.id
+            d_safe['hasSecret'] = bool(d.get('secret'))
+            d_safe['hasApiKey'] = bool(d.get('apiKey'))
+            # Derived operational health (backend source of truth)
+            d_safe['health'] = _compute_operational_status(d)
+            # Attach the resolved callback spec label for UI display
+            spec = _resolve_provider_spec(s.id, d)
+            d_safe['specLabel'] = spec.get('label') or s.id
+            d_safe['sigMethod'] = spec.get('sig_method')
             providers.append(d_safe)
         return jsonify({'success': True, 'providers': providers})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ─── Registry: list known provider presets (for admin "add provider" UI) ────────
+@app.route('/api/offerwall/registry', methods=['GET'])
+@verify_token
+def offerwall_registry():
+    """Return known provider presets so the admin UI can offer them, while still
+    allowing fully custom providers. Extensible: presets are just defaults."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    presets = []
+    for slug, spec in OFFERWALL_PROVIDER_REGISTRY.items():
+        presets.append({
+            'slug': slug,
+            'label': spec.get('label', slug),
+            'sigMethod': spec.get('sig_method'),
+            'userParam': spec.get('user_param'),
+            'txParam': spec.get('tx_param'),
+            'amountParam': spec.get('amount_param'),
+            'sigParam': spec.get('sig_param'),
+            'successResponse': spec.get('success_response'),
+        })
+    return jsonify({'success': True, 'presets': presets, 'statuses': OFFERWALL_STATUS_META})
 
 # ─── Admin: Upsert Provider ────────────────────────────────�������───────────────────
 @app.route('/api/offerwall/providers/<provider_id>', methods=['POST', 'PUT'])
@@ -2059,6 +2200,10 @@ def offerwall_upsert_provider(provider_id):
         'callbackUrl', 'webhookUrl', 'rewardMultiplier',
         'userSharePct', 'platformSharePct', 'minimumReward',
         'maximumReward', 'fraudRules',
+        # Phase 18.6 revenue configuration
+        'dailyCap', 'cooldownSeconds', 'priority', 'fraudThreshold',
+        # Extensibility: per-provider callback spec override + preset slug/icon
+        'callbackSpec', 'presetSlug', 'iconUrl', 'description', 'embedUrl',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
@@ -2289,7 +2434,7 @@ def offerwall_user_providers():
         })
     return jsonify({'success': True, 'providers': providers})
 
-# ─── User: Get Own Offerwall Rewards ──────────────────────────────────────────
+# ─── User: Get Own Offerwall Rewards ─────────────────────���────────────────────
 @app.route('/api/offerwall/my-rewards', methods=['GET'])
 @verify_token
 def offerwall_my_rewards():

@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ══════════════════════════���════════════════════════════════════════════════════
+# ═══════���══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1568,12 +1568,20 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'success_response': '1',
     },
     'timewall': {
+        # Official TimeWall postback spec (verified against their integration docs):
+        #   hash = sha256( userID . revenue . SecretKey )   (PHP '.' = concat, NO separator)
+        # Params sent: userID, transactionID, revenue, currencyAmount, hash, type,
+        #              withdrawid, reason, offername, offerdetail
+        #   type: "credit" -> pay | "chargeback" -> deduct
+        #         "hold"/"hold_cancelled" (auto-withdraw only) -> DO NOT credit/deduct
         'label': 'TimeWall',
-        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'type',
-        'offer_name_param': None, 'amount_param': 'currencyAmount',
-        'sig_param': 'hash', 'sig_method': 'md5',
-        'sig_fields': ['secret', 'userID', 'currencyAmount', 'transactionID'],
-        'sig_separator': '.', 'sig_int_fields': ['currencyAmount'],
+        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerdetail',
+        'offer_name_param': 'offername', 'amount_param': 'currencyAmount',
+        'sig_param': 'hash', 'sig_method': 'sha256',
+        'sig_fields': ['userID', 'revenue', 'secret'],
+        'sig_separator': '', 'sig_int_fields': [],
+        'status_param': 'type', 'status_ok': 'credit', 'status_reversal': 'chargeback',
+        'status_hold': ['hold', 'hold_cancelled'],
         'success_response': 'OK',
     },
 }
@@ -1602,7 +1610,8 @@ def _resolve_provider_spec(provider_id, config):
     overrides = (config or {}).get('callbackSpec') or {}
     for key in ('user_param', 'tx_param', 'offer_param', 'offer_name_param', 'amount_param',
                 'sig_param', 'sig_method', 'sig_fields', 'sig_separator', 'sig_int_fields',
-                'status_param', 'status_ok', 'status_reversal', 'success_response', 'label'):
+                'status_param', 'status_ok', 'status_reversal', 'status_hold',
+                'success_response', 'label'):
         if key in overrides and overrides[key] is not None:
             spec[key] = overrides[key]
     return spec
@@ -1780,6 +1789,20 @@ def offerwall_callback(provider_id):
         status_val = str(params.get(status_param, pmap.get('status_ok', '')))
         is_reversal = (status_val == str(pmap.get('status_reversal', '__none__')))
 
+        # Lifecycle "hold" states (e.g. TimeWall hold / hold_cancelled on auto-withdraw
+        # placements): acknowledge with 200 but DO NOT credit or deduct. We intentionally
+        # do not write a dedup/reward record so the later "credit" postback (same
+        # transactionID) still processes normally.
+        hold_states = pmap.get('status_hold') or []
+        if isinstance(hold_states, str):
+            hold_states = [hold_states]
+        if status_val in hold_states:
+            _write_offerwall_event(db, provider_id, 'callback_hold', 'info',
+                                   f'Hold status "{status_val}" acknowledged (no credit) for tx {provider_tx_id}',
+                                   userId=user_id,
+                                   metadata={'type': status_val, 'reason': params.get('reason', '')})
+            return pmap['success_response'], 200
+
     dedup_key = f"{provider_id}:{provider_tx_id}"
     ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
     user_agent = req.headers.get('User-Agent', 'unknown')[:500]
@@ -1895,10 +1918,16 @@ def offerwall_callback(provider_id):
         return pmap['success_response'], 200
 
     # ── 9. Points Calculation ─────────────────────�����─────────────────────────
-    total_pts = round(raw_amount * multiplier)
-    total_pts = min(max(total_pts, min_reward), max_reward)
+    # Providers may send NEGATIVE amounts for chargebacks (e.g. TimeWall currencyAmount=-83125).
+    # Clamp on magnitude and re-apply sign via the reversal flag so the min/max bounds
+    # never destroy the true chargeback size.
+    total_pts = min(max(abs(round(raw_amount * multiplier)), min_reward), max_reward)
     user_points = round(total_pts * user_share)
     platform_points = round(total_pts * platform_share)
+
+    # A natively-negative amount is itself a reversal signal (belt & suspenders).
+    if raw_amount < 0:
+        is_reversal = True
 
     # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ──
     reversal_type = 'AWARD'
@@ -1906,7 +1935,7 @@ def offerwall_callback(provider_id):
         user_points = -abs(user_points)
         platform_points = -abs(platform_points)
         reversal_type = 'CHARGEBACK'
-        callback_data['auditTrail'].append(f'REVERSAL DETECTED: charging back {-user_points} points')
+        callback_data['auditTrail'].append(f'REVERSAL DETECTED: charging back {abs(user_points)} points')
 
     if abs(user_points) <= 0:
         callback_data['status'] = 'INVALID_SIGNATURE'

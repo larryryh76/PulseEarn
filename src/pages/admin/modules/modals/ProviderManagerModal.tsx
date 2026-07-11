@@ -419,7 +419,19 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       
       const successMsg = res.message || (isNew ? 'Provider created successfully' : 'Provider updated successfully');
       toast.success(successMsg);
-      
+
+      // Immediately certify the connection using the same local checks the TEST
+      // button runs, so a correctly-configured provider flips to "Connected"
+      // right away instead of lingering on "Disconnected" until manually tested.
+      try {
+        await safeFetch(`/api/offerwall/providers/${targetId}/test`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        /* non-fatal: the per-card TEST button remains available */
+      }
+
       // Small delay to allow Firestore listener to update the provider list
       await new Promise(resolve => setTimeout(resolve, 500));
       onClose();

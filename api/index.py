@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════�����══════════════════���════════════════════════════════════════════════════
+# ═══════�������══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1528,6 +1528,13 @@ import hmac as hmac_lib
 #   sig_int_fields (default [])         -> fields cast to int before hashing (e.g. TimeWall)
 #   status_param / status_ok / status_reversal -> chargeback handling
 # ═══════════════════════════════════════════════════════════════════════════════
+# PulseEarn internal economy rate. MUST stay in sync with src/utils/finance.ts
+# ($1 USD = 1000 PTS). Offerwall rewards are computed from the provider's GROSS USD
+# revenue so the user payout is fully backend-controlled and independent of whatever
+# conversion rate is configured on the provider's own dashboard. The 30/70 user/
+# platform split is then applied on top (see userSharePct / platformSharePct).
+OFFERWALL_POINTS_PER_USD = 1000
+
 OFFERWALL_PROVIDER_REGISTRY = {
     'lootably': {
         'label': 'Lootably',
@@ -1548,6 +1555,7 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'label': 'CPX Research',
         'user_param': 'user_id', 'tx_param': 'trans_id', 'offer_param': 'survey_id',
         'offer_name_param': None, 'amount_param': 'amount_local',
+        'usd_param': 'amount_usd',  # gross USD; reward computed from this, not amount_local
         'sig_param': 'hash', 'sig_method': 'md5', 'sig_fields': ['trans_id', 'secret'],
         'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
         'success_response': '1',
@@ -1577,6 +1585,7 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'label': 'TimeWall',
         'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerdetail',
         'offer_name_param': 'offername', 'amount_param': 'currencyAmount',
+        'usd_param': 'revenue',  # gross USD; reward computed from this, not currencyAmount
         'sig_param': 'hash', 'sig_method': 'sha256',
         'sig_fields': ['userID', 'revenue', 'secret'],
         'sig_separator': '', 'sig_int_fields': [],
@@ -1609,7 +1618,7 @@ def _resolve_provider_spec(provider_id, config):
     # Firestore-level overrides (from admin config) win over presets.
     overrides = (config or {}).get('callbackSpec') or {}
     for key in ('user_param', 'tx_param', 'offer_param', 'offer_name_param', 'amount_param',
-                'sig_param', 'sig_method', 'sig_fields', 'sig_separator', 'sig_int_fields',
+                'usd_param', 'sig_param', 'sig_method', 'sig_fields', 'sig_separator', 'sig_int_fields',
                 'status_param', 'status_ok', 'status_reversal', 'status_hold',
                 'success_response', 'label'):
         if key in overrides and overrides[key] is not None:
@@ -1765,6 +1774,19 @@ def offerwall_callback(provider_id):
     except ValueError:
         raw_amount = 0.0
 
+    # Gross USD revenue (preferred basis for reward computation). When the provider
+    # sends a USD field (e.g. TimeWall 'revenue', CPX 'amount_usd'), we ignore the
+    # provider's own currency conversion and derive points from USD × internal rate,
+    # so the payout is fully backend-controlled. Falls back to the provider currency
+    # amount only when no USD field is configured/present.
+    usd_key = pmap.get('usd_param')
+    usd_amount = None
+    if usd_key and params.get(usd_key) not in (None, ''):
+        try:
+            usd_amount = float(params.get(usd_key))
+        except (ValueError, TypeError):
+            usd_amount = None
+
     if not user_id or not provider_tx_id:
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
                                f'Missing required params: user_id={user_id}, tx_id={provider_tx_id}',
@@ -1819,6 +1841,7 @@ def offerwall_callback(provider_id):
         'offerId': offer_id,
         'offerName': offer_name,
         'rawAmount': raw_amount,
+        'usdRevenue': usd_amount,
         'providerTransactionId': provider_tx_id,
         'dedupKey': dedup_key,
         'signatureValid': sig_valid,
@@ -1919,15 +1942,25 @@ def offerwall_callback(provider_id):
         return pmap['success_response'], 200
 
     # ── 9. Points Calculation ─────────────────────�����─────────────────────────
-    # Providers may send NEGATIVE amounts for chargebacks (e.g. TimeWall currencyAmount=-83125).
+    # Gross points BEFORE the user/platform split. Prefer USD × internal rate so the
+    # payout is independent of the provider dashboard's own conversion rate; otherwise
+    # fall back to the provider currency amount.
+    if usd_amount is not None:
+        gross_pts_raw = usd_amount * OFFERWALL_POINTS_PER_USD * multiplier
+        signed_source = usd_amount
+    else:
+        gross_pts_raw = raw_amount * multiplier
+        signed_source = raw_amount
+
+    # Providers may send NEGATIVE amounts for chargebacks (e.g. TimeWall revenue=-1.35).
     # Clamp on magnitude and re-apply sign via the reversal flag so the min/max bounds
     # never destroy the true chargeback size.
-    total_pts = min(max(abs(round(raw_amount * multiplier)), min_reward), max_reward)
+    total_pts = min(max(abs(round(gross_pts_raw)), min_reward), max_reward)
     user_points = round(total_pts * user_share)
     platform_points = round(total_pts * platform_share)
 
     # A natively-negative amount is itself a reversal signal (belt & suspenders).
-    if raw_amount < 0:
+    if signed_source < 0:
         is_reversal = True
 
     # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ─���
@@ -2694,7 +2727,7 @@ def offerwall_regenerate_secret(provider_id):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 18.7 — PROVIDER FAILOVER (auto-disable unhealthy providers)
-# ══════════════════════════════════════════════════���════════════════════════════
+# ═══════════════��══════════════════════════════════���════════════════════════════
 @app.route('/api/offerwall/failover/scan', methods=['POST'])
 @verify_token
 def offerwall_failover_scan():

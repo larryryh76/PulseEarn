@@ -171,38 +171,11 @@ def calculate_level(xp, base_level_xp=1000):
     return math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
 
 def evaluate_missions(user_id):
-    db = get_db()
-    if not db or not user_id: return
-    try:
-        user_ref = db.collection('users').document(user_id)
-        user_snap = user_ref.get()
-        if not user_snap.exists: return
-        user_data = user_snap.to_dict()
-        definitions = db.collection('system_task_definitions').where('active', '==', True).get()
-        for d_doc in definitions:
-            d = d_doc.to_dict()
-            field = d.get('conditionField')
-            if not field: continue
-            target = d.get('targetValue', 1)
-            ptr = user_data
-            if '.' in field:
-                for p in field.split('.'):
-                    if isinstance(ptr, dict): ptr = ptr.get(p, 0)
-                    else: ptr = 0; break
-                current_value = ptr
-            else: current_value = user_data.get(field, 0)
-            try:
-                progress = min(float(current_value or 0), float(target))
-                is_completed = progress >= float(target)
-            except: progress = 0; is_completed = False
-            ust_id = f"{user_id}_{d_doc.id}"
-            db.collection('user_system_tasks').document(ust_id).set({
-                'userId': user_id, 'systemTaskId': d_doc.id, 'category': d.get('category'),
-                'progress': progress, 'target': target, 'status': 'COMPLETED' if is_completed else 'IN_PROGRESS',
-                'updatedAt': firestore.SERVER_TIMESTAMP
-            }, merge=True)
-    except Exception as e:
-        print(f"ERROR: Mission Evaluation Failed: {str(e)}"); sys.stdout.flush()
+    # DECOMMISSIONED: "system tasks"/missions (e.g. "Network Builder") have been merged
+    # into the standard Task system. This auto-evaluator is intentionally a no-op so no
+    # new user_system_tasks progress is written. Existing definitions/progress can be
+    # purged via the admin endpoint POST /api/admin/missions/purge.
+    return
 
 def is_admin(uid):
     db = get_db()
@@ -1437,6 +1410,31 @@ def _delete_collection_batched(db, coll_ref, batch_size=400, predicate=None):
             break
     return deleted
 
+@app.route('/api/admin/missions/purge', methods=['POST'])
+@verify_token
+def purge_missions():
+    """Admin: Permanently delete decommissioned mission data ONLY.
+    Removes all `system_task_definitions` (e.g. "Network Builder") and every
+    `user_system_tasks` progress doc. Standard tasks/campaigns and offerwall data
+    are untouched. No confirmation body required — this collection is deprecated.
+    """
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        counts = {
+            'system_task_definitions': _delete_collection_batched(db, db.collection('system_task_definitions')),
+            'user_system_tasks': _delete_collection_batched(db, db.collection('user_system_tasks')),
+            'system_claims': _delete_collection_batched(db, db.collection('system_claims')),
+        }
+        return jsonify({"success": True, "deleted": counts,
+                        "message": f"Purged {sum(counts.values())} mission document(s)."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/admin/tasks/wipe-all', methods=['POST'])
 @verify_token
 def wipe_all_tasks():
@@ -1488,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ══════════════════════════��════════════════════════════════════════════════════
+# ══════════════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1896,7 +1894,7 @@ def offerwall_callback(provider_id):
         }, merge=True)
         return pmap['success_response'], 200
 
-    # ── 9. Points Calculation ──────────────────────���─────────────────────────
+    # ── 9. Points Calculation ─────────────────────�����─────────────────────────
     total_pts = round(raw_amount * multiplier)
     total_pts = min(max(total_pts, min_reward), max_reward)
     user_points = round(total_pts * user_share)

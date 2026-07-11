@@ -81,13 +81,56 @@ const TabButton: React.FC<{ label: string; icon: React.ReactNode; active: boolea
   </button>
 );
 
+// ─── Operational Status Badge (9 backend-derived states) ──────────────────────
+const SEVERITY_STYLE: Record<string, string> = {
+  ok: 'bg-success/8 border-success/20 text-success',
+  warning: 'bg-warning/8 border-warning/20 text-warning',
+  error: 'bg-danger/8 border-danger/20 text-danger',
+  neutral: 'bg-surface-bright border-border text-text-tertiary',
+};
+const OperationalBadge: React.FC<{ health?: any }> = ({ health }) => {
+  const h = health || { label: 'Unknown', severity: 'neutral' };
+  return (
+    <span
+      title={h.reason || ''}
+      className={cn('text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border', SEVERITY_STYLE[h.severity] || SEVERITY_STYLE.neutral)}
+    >
+      {h.label}
+    </span>
+  );
+};
+
 // ─── Provider Status Card ─────────────────────────────────────────────────────
 const ProviderStatusCard: React.FC<{
   provider: any;
+  currentUser: any;
   onEdit: () => void;
-}> = ({ provider, onEdit }) => {
+  onChanged: () => void;
+}> = ({ provider, currentUser, onEdit, onChanged }) => {
   const [expanded, setExpanded] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [diagnostics, setDiagnostics] = React.useState<any>(null);
   const stats = provider.stats || {};
+
+  const runTest = async () => {
+    setTesting(true);
+    setDiagnostics(null);
+    try {
+      const idToken = await currentUser?.getIdToken();
+      const res = await safeFetch(`/api/offerwall/providers/${provider.id}/test`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${idToken}` },
+      });
+      setDiagnostics(res);
+      if (res.code === 'OK') toast.success('Connection test passed');
+      else toast.error(res.message || res.code || 'Test failed');
+      onChanged();
+    } catch {
+      toast.error('Test request failed');
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <div className="border border-border bg-surface rounded-2xl overflow-hidden">
@@ -98,29 +141,18 @@ const ProviderStatusCard: React.FC<{
             <Globe size={16} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[13px] font-bold text-text-primary">{provider.name || provider.id}</span>
-              <span className={cn(
-                'text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border',
-                provider.enabled ? 'bg-success/8 border-success/15 text-success' : 'bg-danger/8 border-danger/15 text-danger'
-              )}>
-                {provider.enabled ? 'Active' : 'Disabled'}
-              </span>
+              <OperationalBadge health={provider.health} />
+              {provider.specLabel && (
+                <span className="text-[9px] font-medium text-text-tertiary px-1.5 py-0.5 rounded bg-surface-bright border border-border">
+                  {provider.sigMethod || provider.specLabel}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-3 mt-1">
-              <div className="flex items-center gap-1.5">
-                <StatusDot status={stats.connectionStatus || 'offline'} />
-                <span className="text-[9px] text-text-tertiary uppercase tracking-wide">Connection</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <StatusDot status={stats.apiStatus || 'unknown'} />
-                <span className="text-[9px] text-text-tertiary uppercase tracking-wide">API</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <StatusDot status={stats.callbackStatus || 'unknown'} />
-                <span className="text-[9px] text-text-tertiary uppercase tracking-wide">Callbacks</span>
-              </div>
-            </div>
+            {provider.health?.reason && (
+              <p className="text-[10px] text-text-tertiary mt-1 max-w-md">{provider.health.reason}</p>
+            )}
           </div>
         </div>
 
@@ -130,6 +162,14 @@ const ProviderStatusCard: React.FC<{
             <p className="text-[9px] text-text-tertiary uppercase tracking-wide">Lifetime PTS</p>
           </div>
           <button
+            onClick={e => { e.stopPropagation(); runTest(); }}
+            disabled={testing}
+            className="px-3 py-2 rounded-lg border border-primary/20 bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-widest hover:bg-primary/10 transition-all disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {testing ? <div className="w-3 h-3 border border-primary/40 border-t-primary rounded-full animate-spin" /> : <Activity size={12} />}
+            Test
+          </button>
+          <button
             onClick={e => { e.stopPropagation(); onEdit(); }}
             className="p-2 rounded-lg border border-border text-text-tertiary hover:bg-surface-bright hover:text-primary transition-all"
           >
@@ -138,6 +178,36 @@ const ProviderStatusCard: React.FC<{
           {expanded ? <ChevronDown size={16} className="text-text-tertiary" /> : <ChevronRight size={16} className="text-text-tertiary" />}
         </div>
       </div>
+
+      {/* Diagnostics panel (from Test Connection) */}
+      <AnimatePresence>
+        {diagnostics && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-border"
+          >
+            <div className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                {diagnostics.code === 'OK' ? <CheckCircle2 size={14} className="text-success" /> : <XCircle size={14} className="text-danger" />}
+                <span className={cn('text-[11px] font-bold', diagnostics.code === 'OK' ? 'text-success' : 'text-danger')}>
+                  {diagnostics.code}: {diagnostics.message}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {(diagnostics.checks || []).map((c: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-[10px]">
+                    {c.ok ? <CheckCircle2 size={12} className="text-success mt-0.5 shrink-0" /> : <XCircle size={12} className="text-danger mt-0.5 shrink-0" />}
+                    <span className="font-semibold text-text-primary">{c.name}:</span>
+                    <span className="text-text-tertiary">{c.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Expanded stats */}
       <AnimatePresence>
@@ -606,7 +676,9 @@ const OpsOfferwalls: React.FC = () => {
                     <ProviderStatusCard
                       key={p.id}
                       provider={p}
+                      currentUser={currentUser}
                       onEdit={() => { setSelectedProviderId(p.id); setIsModalOpen(true); }}
+                      onChanged={loadProviders}
                     />
                   ))}
                 </div>

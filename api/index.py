@@ -1827,10 +1827,10 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
         'adgate': 'https://wall.adgatemedia.com/affiliate/{aff}?s1={uid}',
         'ayet': 'https://www.ayetstudios.com/offers/web_ad_gate/{aff}?external_identifier={uid}',
         'wannads': 'https://wall.wannads.com/wall?apiKey={aff}&userId={uid}',
-        'revu': 'https://www.revenueuniverse.com/wall?id={aff}&uid={uid}',
+        'revu': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
         'kiwiwall': 'https://www.kiwiwall.com/wall/{aff}/{uid}',
         'adscend': 'https://adscendmedia.com/adwall/publisher/{aff}/profile/default/user/{uid}',
-        'revenue_universe': 'https://www.revenueuniverse.com/wall?id={aff}&uid={uid}',
+        'revenue_universe': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
         'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
     }
 
@@ -1846,8 +1846,8 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
     if pid in ('pollfish', 'inbrain'):
         return None, False
 
-    # Default fallback template for unknown/future custom providers
-    return f'https://wall.lootably.com/?placementID={aff}&uid={uid}', True
+    # Unknown provider: return None so caller can surface LAUNCH_FAILED error
+    return None, False
 
 
 def _resolve_provider_spec(provider_id, config):

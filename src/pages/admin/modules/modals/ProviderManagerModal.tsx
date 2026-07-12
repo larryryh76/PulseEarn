@@ -71,15 +71,6 @@ const BLANK_FORM: ProviderForm = {
   fraudRules: DEFAULT_FRAUD_RULES,
 };
 
-const KNOWN_PROVIDERS = [
-  { id: 'lootably', name: 'Lootably' },
-  { id: 'bitlabs', name: 'BitLabs' },
-  { id: 'cpxresearch', name: 'CPX Research' },
-  { id: 'adgem', name: 'AdGem' },
-  { id: 'offertoro', name: 'OfferToro' },
-  { id: 'timewall', name: 'TimeWall' },
-];
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -229,10 +220,34 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [useCustomId, setUseCustomId] = useState(false);
+  const [presets, setPresets] = useState<any[]>([]);
+  const [validationReport, setValidationReport] = useState<any | null>(null);
 
   // Derive callback URL from provider id
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const callbackUrl = `${origin}/api/offerwall/callback/${form.id || '[provider-id]'}`;
+
+  // Load registry presets from backend
+  useEffect(() => {
+    const loadRegistry = async () => {
+      if (!currentUser) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await safeFetch('/api/offerwall/registry', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.success && res.presets) {
+          setPresets(res.presets);
+        }
+      } catch (err) {
+        console.error('Failed to load registry presets:', err);
+      }
+    };
+    if (isOpen) {
+      loadRegistry();
+      setValidationReport(null);
+    }
+  }, [isOpen, currentUser]);
 
   // Load existing provider data when editing
   const loadProvider = useCallback(async () => {
@@ -330,11 +345,11 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
 
   // Auto-fill name from known provider
   const handleKnownProvider = (id: string) => {
-    const known = KNOWN_PROVIDERS.find(p => p.id === id);
+    const preset = presets.find(p => p.slug === id);
     setForm(f => ({
       ...f,
-      id,
-      name: known?.name || id,
+      id: id,
+      name: preset?.label || id,
       callbackUrl: `${origin}/api/offerwall/callback/${id}`,
     }));
   };
@@ -398,6 +413,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       });
 
       if (!res.success) {
+        if (res.validation_report) {
+          setValidationReport(res.validation_report);
+        }
         const errorType = res.error || 'UNKNOWN_ERROR';
         const reason = res.reason || res.message || 'An unexpected error occurred';
         
@@ -448,6 +466,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     Math.abs(form.userSharePct + form.platformSharePct - 1.0) > 0.001
       ? `${((form.userSharePct + form.platformSharePct) * 100).toFixed(1)}% / 100%`
       : null;
+
+  const activePreset = presets.find(p => p.slug === form.id);
+  const dynamicFields = activePreset ? activePreset.fields : [];
 
   return (
     <AnimatePresence>
@@ -508,19 +529,19 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                       <>
                         <Field label="Known Provider" hint="Select from the built-in provider list or enter a custom ID below">
                           <div className="grid grid-cols-3 gap-2">
-                            {KNOWN_PROVIDERS.map(p => (
+                            {presets.map(p => (
                               <button
                                 type="button"
-                                key={p.id}
-                                onClick={() => { handleKnownProvider(p.id); setUseCustomId(false); }}
+                                key={p.slug}
+                                onClick={() => { handleKnownProvider(p.slug); setUseCustomId(false); }}
                                 className={cn(
                                   'px-3 py-2 rounded-xl text-[10px] font-bold border transition-all',
-                                  form.id === p.id && !useCustomId
+                                  form.id === p.slug && !useCustomId
                                     ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
                                     : 'border-border text-text-tertiary hover:border-primary/30 hover:text-text-primary'
                                 )}
                               >
-                                {p.name}
+                                {p.label}
                               </button>
                             ))}
                             <button
@@ -572,22 +593,42 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
 
                   {/* Credentials */}
                   <Section icon={<Key size={15} />} title="Credentials" subtitle="API keys and secrets — stored securely, never returned to client">
-                    <Field label="Affiliate ID" hint="Your publisher/affiliate ID with this provider">
-                      <TextInput value={form.affiliateId} onChange={v => set('affiliateId', v)} placeholder="pub_xxxxx" mono />
-                    </Field>
-                    <Field
-                      label={isNew ? 'API Key' : 'API Key (leave blank to keep existing)'}
-                      hint="Used for server-to-server API calls if required by this provider"
-                    >
-                      <TextInput value={form.apiKey} onChange={v => set('apiKey', v)} placeholder={isNew ? 'sk_live_xxxxx' : '••••••••'} type="password" mono />
-                    </Field>
-                    <Field
-                      label={isNew ? 'Callback Secret' : 'Callback Secret (leave blank to keep existing)'}
-                      hint="Used for HMAC/MD5/SHA signature verification on incoming callbacks"
-                      required={isNew}
-                    >
-                      <TextInput value={form.secret} onChange={v => set('secret', v)} placeholder={isNew ? 'your_secret_here' : '••••••••'} type="password" mono />
-                    </Field>
+                    {dynamicFields && dynamicFields.length > 0 ? (
+                      dynamicFields.map((f: any) => {
+                        const isSecret = f.type === 'password' || f.key === 'secret' || f.key === 'apiKey';
+                        const labelText = isNew ? f.label : `${f.label} (leave blank to keep existing)`;
+                        return (
+                          <Field key={f.key} label={labelText} required={f.required} hint={f.placeholder}>
+                            <TextInput
+                              value={form[f.key as keyof ProviderForm] as string || ''}
+                              onChange={v => set(f.key as keyof ProviderForm, v)}
+                              placeholder={f.placeholder}
+                              type={isSecret ? 'password' : 'text'}
+                              mono
+                            />
+                          </Field>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <Field label="Affiliate ID" hint="Your publisher/affiliate ID with this provider">
+                          <TextInput value={form.affiliateId} onChange={v => set('affiliateId', v)} placeholder="pub_xxxxx" mono />
+                        </Field>
+                        <Field
+                          label={isNew ? 'API Key' : 'API Key (leave blank to keep existing)'}
+                          hint="Used for server-to-server API calls if required by this provider"
+                        >
+                          <TextInput value={form.apiKey} onChange={v => set('apiKey', v)} placeholder={isNew ? 'sk_live_xxxxx' : '••••••••'} type="password" mono />
+                        </Field>
+                        <Field
+                          label={isNew ? 'Callback Secret' : 'Callback Secret (leave blank to keep existing)'}
+                          hint="Used for HMAC/MD5/SHA signature verification on incoming callbacks"
+                          required={isNew}
+                        >
+                          <TextInput value={form.secret} onChange={v => set('secret', v)} placeholder={isNew ? 'your_secret_here' : '••••••••'} type="password" mono />
+                        </Field>
+                      </>
+                    )}
                   </Section>
 
                   {/* Endpoints */}
@@ -741,6 +782,32 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                   </Section>
 
                 </div>
+
+                {/* Validation Report */}
+                {validationReport && validationReport.checks && (
+                  <div className="mx-6 mb-4 p-4 bg-surface-bright border border-border rounded-xl space-y-3">
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
+                      Backend Validation Report
+                    </p>
+                    <div className="space-y-2">
+                      {validationReport.checks.map((check: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2.5 text-xs">
+                          {check.status === 'PASS' ? (
+                            <Check className="text-success mt-0.5 shrink-0" size={14} />
+                          ) : (
+                            <X className="text-danger mt-0.5 shrink-0" size={14} />
+                          )}
+                          <div>
+                            <p className={cn('font-semibold text-[11px]', check.status === 'PASS' ? 'text-text-primary' : 'text-danger')}>
+                              {check.name}
+                            </p>
+                            <p className="text-[10px] text-text-tertiary">{check.detail}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Error */}
                 {error && (

@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { safeFetch } from '../utils/api';
 import { cn } from '../utils';
+import toast from 'react-hot-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,10 +171,9 @@ const ProviderCard: React.FC<{
               {/* CTA — opens the offer wall inside the app (in-site) */}
               <button
                 onClick={() => onLaunch(provider)}
-                disabled={!provider.launchUrl}
                 className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary hover:bg-primary-bright disabled:opacity-50 disabled:cursor-not-allowed text-white text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-primary/20"
               >
-                {provider.launchUrl ? `Open ${provider.name} Offers` : 'Unavailable'}
+                Open {provider.name} Offers
                 <ChevronRight size={13} />
               </button>
               <p className="text-[9px] text-text-tertiary text-center">
@@ -250,16 +250,33 @@ const Offerwalls: React.FC = () => {
 
   const userPoints = userData?.points ?? 0;
 
-  // Opens the provider's offers. Embeddable providers show in an in-site iframe
-  // overlay; the rest open the authenticated SSO URL in a new tab (never a login page).
-  const handleLaunch = useCallback((provider: Provider) => {
-    if (!provider.launchUrl) return;
-    if (provider.embeddable) {
-      setActiveProvider(provider);
-    } else {
-      window.open(provider.launchUrl, '_blank', 'noopener,noreferrer');
+  // Opens the provider's offers. Generates the authenticated launcher URL securely on-click.
+  const handleLaunch = useCallback(async (provider: Provider) => {
+    if (!currentUser) {
+      toast.error('Please log in to open offers');
+      return;
     }
-  }, []);
+    const resolveToast = toast.loading(`Generating secure session for ${provider.name}...`);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await safeFetch(`/api/offerwall/providers/${provider.id}/launch`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.success && res.launchUrl) {
+        toast.dismiss(resolveToast);
+        if (res.embeddable) {
+          setActiveProvider({ ...provider, launchUrl: res.launchUrl, embeddable: true });
+        } else {
+          window.open(res.launchUrl, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        toast.error(res.message || 'Failed to generate secure launch URL', { id: resolveToast });
+      }
+    } catch {
+      toast.error('Failed to communicate with authorization server', { id: resolveToast });
+    }
+  }, [currentUser]);
   
   const loadProviders = useCallback(async () => {
     if (!currentUser) return;

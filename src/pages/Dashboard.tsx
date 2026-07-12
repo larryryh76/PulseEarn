@@ -182,7 +182,7 @@ const EarnModuleCard: React.FC<EarnModuleCardProps> = ({ title, slug, reward, ba
   );
 };
 
-// ─── XP Progress Strip ────────────────────────────────────────────────────────
+// ─── XP Progress Strip ─────────────────────────────────────────────────────���──
 const XpProgressBar: React.FC<{ xp: number; level: number }> = ({ xp, level }) => {
   const prog = getXpProgress(xp);
   const tier = getLevelTier(level);
@@ -215,7 +215,12 @@ const XpProgressBar: React.FC<{ xp: number; level: number }> = ({ xp, level }) =
 // ─── Daily Streak Widget ──────────────────────────────────────────────────────
 const StreakWidget: React.FC<{ streak: number; claimed: boolean; timeLeft: string }> = ({ streak, claimed, timeLeft }) => {
   const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const filledDays = Math.min(streak % 7, 7);
+  // Monday-first index of today (JS getDay(): 0=Sun..6=Sat -> Mon-first: 0=Mon..6=Sun).
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  // Fill the last `streak` days ENDING on today, so the highlighted day matches the
+  // real calendar weekday instead of always starting from Monday.
+  const filledCount = Math.min(streak, 7);
+  const isFilled = (i: number) => i <= todayIdx && i > todayIdx - filledCount;
   return (
     <div className={cn(
       'flex flex-col gap-4 p-5 rounded-2xl border transition-all',
@@ -241,9 +246,12 @@ const StreakWidget: React.FC<{ streak: number; claimed: boolean; timeLeft: strin
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
             <div className={cn(
               'w-full h-1.5 rounded-full transition-all',
-              i < filledDays ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.4)]' : 'bg-surface-bright'
+              isFilled(i) ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.4)]' : 'bg-surface-bright'
             )} />
-            <span className="text-[8px] font-bold text-text-tertiary uppercase">{d}</span>
+            <span className={cn(
+              'text-[8px] font-bold uppercase',
+              i === todayIdx ? 'text-orange-500' : 'text-text-tertiary'
+            )}>{d}</span>
           </div>
         ))}
       </div>

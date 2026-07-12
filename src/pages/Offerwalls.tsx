@@ -169,10 +169,11 @@ const ProviderCard: React.FC<{
 
               {/* CTA — opens the offer wall inside the app (in-site) */}
               <button
-                onClick={() => onOpen(provider, offerwallUrl)}
-                className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary hover:bg-primary-bright text-white text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-primary/20"
+                onClick={() => onLaunch(provider)}
+                disabled={!provider.launchUrl}
+                className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary hover:bg-primary-bright disabled:opacity-50 disabled:cursor-not-allowed text-white text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-primary/20"
               >
-                Open {provider.name} Offerwall
+                {provider.launchUrl ? `Open ${provider.name} Offers` : 'Unavailable'}
                 <ChevronRight size={13} />
               </button>
               <p className="text-[9px] text-text-tertiary text-center">
@@ -245,8 +246,20 @@ const Offerwalls: React.FC = () => {
   const [rewardsLoading, setRewardsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tab, setTab] = useState<'earn' | 'history'>('earn');
+  const [activeProvider, setActiveProvider] = useState<Provider | null>(null);
 
   const userPoints = userData?.points ?? 0;
+
+  // Opens the provider's offers. Embeddable providers show in an in-site iframe
+  // overlay; the rest open the authenticated SSO URL in a new tab (never a login page).
+  const handleLaunch = useCallback((provider: Provider) => {
+    if (!provider.launchUrl) return;
+    if (provider.embeddable) {
+      setActiveProvider(provider);
+    } else {
+      window.open(provider.launchUrl, '_blank', 'noopener,noreferrer');
+    }
+  }, []);
   
   const loadProviders = useCallback(async () => {
     if (!currentUser) return;
@@ -401,10 +414,10 @@ const Offerwalls: React.FC = () => {
                   <ProviderCard
                     key={p.id}
                     provider={p}
-                    userId={currentUser?.uid || ''}
                     userRewardCount={rewardCountByProvider[p.id] || 0}
                     expanded={expandedId === p.id}
                     onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                    onLaunch={handleLaunch}
                   />
                 ))
               )}
@@ -456,6 +469,47 @@ const Offerwalls: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* In-site offerwall viewer — offers load directly inside PulseEarn */}
+      <AnimatePresence>
+        {activeProvider && activeProvider.launchUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe size={15} className="text-primary shrink-0" />
+                <span className="text-[13px] font-bold text-text-primary truncate">{activeProvider.name} Offers</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={activeProvider.launchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-text-tertiary hover:text-text-primary hover:bg-surface-bright transition-all text-[10px] font-bold uppercase tracking-widest"
+                >
+                  New Tab <ExternalLink size={12} />
+                </a>
+                <button
+                  onClick={() => setActiveProvider(null)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white hover:bg-primary-bright transition-all text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Close <X size={12} />
+                </button>
+              </div>
+            </div>
+            <iframe
+              title={`${activeProvider.name} Offerwall`}
+              src={activeProvider.launchUrl}
+              className="flex-1 w-full border-0 bg-white"
+              allow="fullscreen; clipboard-write"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

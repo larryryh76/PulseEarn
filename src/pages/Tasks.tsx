@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTasks } from '../hooks/useTasks';
-import { Target, Grid, List, ChevronRight, Zap, Trophy, Users, Gift, Flame, Lock } from 'lucide-react';
+import { Target, Grid, List, ChevronRight, Zap, Trophy, Users, Gift, Flame, Lock, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -9,7 +9,7 @@ import { safeFetch } from '../utils/api';
 import { Task } from '../types';
 
 const Tasks: React.FC = () => {
-  const { tasks, loading } = useTasks();
+  const { tasks, loading, getTaskStatus } = useTasks();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -213,12 +213,20 @@ const Tasks: React.FC = () => {
         }>
           {filteredTasks.map((task) => {
             const TaskIcon = getTaskIcon(task.verificationType);
+            const taskStatus = getTaskStatus(task).status;
+            const isPending = taskStatus === 'pending';
+            const isRejected = taskStatus === 'rejected';
+            const isLocked = isPending; // pending tasks cannot be re-executed
             return (
               <motion.div
                 key={task.id}
-                whileHover={{ y: -4 }}
-                onClick={() => setSelectedTask(task)}
-                className={`group cursor-pointer rounded-2xl border border-border hover:border-primary/50 transition-all overflow-hidden ${
+                whileHover={{ y: isLocked ? 0 : -4 }}
+                onClick={() => { if (!isLocked) setSelectedTask(task); }}
+                className={`group rounded-2xl border transition-all overflow-hidden ${
+                  isLocked
+                    ? 'cursor-not-allowed border-warning/30 opacity-80'
+                    : 'cursor-pointer border-border hover:border-primary/50'
+                } ${
                   viewMode === 'grid'
                     ? 'p-6 bg-surface hover:bg-surface-bright space-y-4'
                     : 'p-4 md:p-6 bg-surface hover:bg-surface-bright flex items-center justify-between'
@@ -249,9 +257,19 @@ const Tasks: React.FC = () => {
                         <p className="text-lg md:text-xl font-black text-primary">+{task.xpReward}</p>
                       </div>
                     </div>
-                    <button className="w-full py-3 rounded-lg bg-primary hover:bg-primary/90 text-background font-black uppercase text-xs md:text-sm transition-all">
-                      Execute
-                    </button>
+                    {isPending ? (
+                      <div className="w-full py-3 rounded-lg bg-warning/15 border border-warning/30 text-warning font-black uppercase text-xs md:text-sm text-center flex items-center justify-center gap-2">
+                        <Clock size={14} /> Pending Review
+                      </div>
+                    ) : isRejected ? (
+                      <button className="w-full py-3 rounded-lg bg-danger/10 border border-danger/30 text-danger hover:bg-danger/20 font-black uppercase text-xs md:text-sm transition-all">
+                        Rejected · Retry
+                      </button>
+                    ) : (
+                      <button className="w-full py-3 rounded-lg bg-primary hover:bg-primary/90 text-background font-black uppercase text-xs md:text-sm transition-all">
+                        Execute
+                      </button>
+                    )}
                   </>
                 )}
 
@@ -279,7 +297,17 @@ const Tasks: React.FC = () => {
                         <p className="text-xs text-text-tertiary font-bold">XP</p>
                         <p className="text-lg md:text-xl font-black text-primary">+{task.xpReward}</p>
                       </div>
-                      <ChevronRight className="text-text-tertiary group-hover:translate-x-1 transition-transform" />
+                      {isPending ? (
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning/15 border border-warning/30 text-warning font-black uppercase text-[10px]">
+                          <Clock size={12} /> Pending
+                        </span>
+                      ) : isRejected ? (
+                        <span className="px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/30 text-danger font-black uppercase text-[10px]">
+                          Rejected
+                        </span>
+                      ) : (
+                        <ChevronRight className="text-text-tertiary group-hover:translate-x-1 transition-transform" />
+                      )}
                     </div>
                   </>
                 )}

@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════�������══════════════════���════════════════════════════════════════════════════
+# ═══════���������══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1605,6 +1605,47 @@ OFFERWALL_DEFAULT_SPEC = {
     'sig_separator': '', 'sig_int_fields': [],
     'success_response': 'OK',
 }
+
+# Per-provider launch-URL builders. These produce the AUTHENTICATED offerwall URL
+# that opens the offers directly (surveys, tasks, etc.) — NOT the provider's public
+# login/marketing page. The user identity is passed via the provider's SSO uid param,
+# so the user is never asked to log in or sign up. Secrets (needed for CPX's secure
+# hash) stay server-side; this is why launch URLs are built here and not on the client.
+#   embeddable=True  -> can be shown inside an in-app <iframe>
+def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
+    aff = str(affiliate_id or '').strip()
+    uid = str(uid or '').strip()
+    if not aff or not uid:
+        return None, False
+    pid = (provider_id or '').lower()
+
+    if pid in ('timewall',):
+        # TimeWall SSO: /users/login?oid=<placement>&uid=<user> auto-authenticates the
+        # user and lands directly on the offers wall (no manual login).
+        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', True
+
+    if pid in ('cpxresearch', 'cpx', 'cpx_research'):
+        # CPX requires a secure hash = md5(ext_user_id + secret). Without it CPX shows an
+        # error page, so we must compute it server-side where the secret lives.
+        secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
+        return (f'https://offers.cpx-research.com/index.php?app_id={aff}'
+                f'&ext_user_id={uid}&secure_hash={secure_hash}'), True
+
+    if pid in ('lootably',):
+        return f'https://wall.lootably.com/?placementID={aff}&uid={uid}', True
+
+    if pid in ('bitlabs',):
+        return f'https://web.bitlabs.ai/?token={aff}&uid={uid}', True
+
+    if pid in ('adgem',):
+        return f'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}', True
+
+    if pid in ('offertoro',):
+        return f'https://www.offertoro.com/ifr/show/{aff}/{uid}/22226', True
+
+    # Unknown provider: no known launch pattern.
+    return None, False
+
 
 def _resolve_provider_spec(provider_id, config):
     """Merge Firestore config overrides over the registry default preset.
@@ -2495,10 +2536,15 @@ def offerwall_user_providers():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
 
+    uid = request.user['uid']
     snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
     providers = []
     for s in snaps:
         d = s.to_dict()
+        # Build the authenticated launch URL server-side (secret never leaves the server).
+        launch_url, embeddable = _build_offerwall_launch_url(
+            s.id, d.get('affiliateId', ''), d.get('secret', ''), uid
+        )
         providers.append({
             'id': s.id,
             'name': d.get('name', s.id),
@@ -2507,6 +2553,8 @@ def offerwall_user_providers():
             'minimumReward': d.get('minimumReward', 1),
             'maximumReward': d.get('maximumReward', 100000),
             'rewardMultiplier': d.get('rewardMultiplier', 1.0),
+            'launchUrl': launch_url,
+            'embeddable': embeddable,
         })
     return jsonify({'success': True, 'providers': providers})
 

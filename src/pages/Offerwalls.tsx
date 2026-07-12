@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Globe, CheckCircle2, Clock, Shield,
   RefreshCw, Zap, Award, ExternalLink,
-  ChevronDown, ChevronRight, AlertCircle
+  ChevronDown, ChevronRight, AlertCircle, X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { safeFetch } from '../utils/api';
@@ -19,6 +19,8 @@ interface Provider {
   minimumReward: number;
   maximumReward: number;
   rewardMultiplier: number;
+  launchUrl: string | null;
+  embeddable: boolean;
 }
 
 interface Reward {
@@ -66,34 +68,18 @@ const PROVIDER_INFO: Record<string, { description: string; category: string; ico
   },
 };
 
-const getOfferwallUrl = (provider: Provider, userId: string): string => {
-  const origin = window.location.origin;
-  const cbUrl = encodeURIComponent(`${origin}/api/offerwall/callback/${provider.id}`);
-  const maps: Record<string, string> = {
-    lootably: `https://wall.lootably.com/?placementID=${provider.affiliateId}&uid=${userId}&callback=${cbUrl}`,
-    bitlabs: `https://offers.bitlabs.io/?token=${provider.affiliateId}&uid=${userId}`,
-    cpxresearch: `https://wall.cpx-research.com/index.php?app_id=${provider.affiliateId}&ext_user_id=${userId}`,
-    adgem: `https://wall.adgem.com/?app_id=${provider.affiliateId}&uid=${userId}`,
-    offertoro: `https://www.offertoro.com/ifr/show/${provider.affiliateId}/${userId}/22226`,
-    timewall: `https://timewall.io/offers?pid=${provider.affiliateId}&uid=${userId}`,
-  };
-  return maps[provider.id] || `#`;
-};
-
 const ProviderCard: React.FC<{
   provider: Provider;
-  userId: string;
   userRewardCount: number;
   expanded: boolean;
   onToggle: () => void;
-}> = ({ provider, userId, userRewardCount, expanded, onToggle }) => {
+  onLaunch: (provider: Provider) => void;
+}> = ({ provider, userRewardCount, expanded, onToggle, onLaunch }) => {
   const info = PROVIDER_INFO[provider.id] || {
     description: `Complete offers and earn up to ${provider.maximumReward.toLocaleString()} PTS per offer.`,
     category: 'Offers',
     icon: provider.name[0]?.toUpperCase() || '?',
   };
-
-  const offerwallUrl = getOfferwallUrl(provider, userId);
 
   return (
     <motion.div
@@ -181,18 +167,16 @@ const ProviderCard: React.FC<{
                 </div>
               </div>
 
-              {/* CTA */}
-              <a
-                href={offerwallUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              {/* CTA — opens the offer wall inside the app (in-site) */}
+              <button
+                onClick={() => onOpen(provider, offerwallUrl)}
                 className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary hover:bg-primary-bright text-white text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-primary/20"
               >
                 Open {provider.name} Offerwall
-                <ExternalLink size={13} />
-              </a>
+                <ChevronRight size={13} />
+              </button>
               <p className="text-[9px] text-text-tertiary text-center">
-                Rewards are automatically credited to your wallet upon verified completion.
+                Surveys and offers open right here inside PulseEarn. Rewards are automatically credited to your wallet upon verified completion.
               </p>
             </div>
           </motion.div>

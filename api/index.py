@@ -1535,12 +1535,166 @@ import hmac as hmac_lib
 # platform split is then applied on top (see userSharePct / platformSharePct).
 OFFERWALL_POINTS_PER_USD = 1000
 
+PROVIDERS_ADAPTERS = {
+    'timewall': {
+        'name': 'TimeWall',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
+            {'key': 'secret', 'label': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'},
+            {'key': 'apiEndpoint', 'label': 'Integration URL', 'required': False, 'type': 'text', 'placeholder': 'https://timewall.io'}
+        ]
+    },
+    'cpxresearch': {
+        'name': 'CPX Research',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
+            {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'Optional API Key if needed'}
+        ]
+    },
+    'lootably': {
+        'name': 'Lootably',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Placement ID / Pub ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Placement ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
+            {'key': 'secret', 'label': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
+        ]
+    },
+    'bitlabs': {
+        'name': 'BitLabs',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
+            {'key': 'secret', 'label': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
+        ]
+    },
+    'adgem': {
+        'name': 'AdGem',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
+            {'key': 'secret', 'label': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
+        ]
+    },
+    'offertoro': {
+        'name': 'OfferToro',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
+            {'key': 'apiKey', 'label': 'App Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
+            {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
+        ]
+    },
+    'adgate': {
+        'name': 'AdGate Media',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
+            {'key': 'secret', 'label': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
+        ]
+    },
+    'ayet': {
+        'name': 'ayeT Studios',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
+            {'key': 'secret', 'label': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
+        ]
+    },
+    'wannads': {
+        'name': 'Wannads',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
+            {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
+        ]
+    },
+    'revu': {
+        'name': 'RevU',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
+            {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
+        ]
+    },
+    'kiwiwall': {
+        'name': 'KiwiWall',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
+            {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
+        ]
+    },
+    'adscend': {
+        'name': 'Adscend Media',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
+            {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
+        ]
+    },
+    'revenue_universe': {
+        'name': 'Revenue Universe',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
+            {'key': 'secret', 'label': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
+        ]
+    },
+    'monlix': {
+        'name': 'Monlix',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
+            {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
+        ]
+    },
+    'pollfish': {
+        'name': 'Pollfish (future)',
+        'isLocked': True,
+        'researchRequired': True,
+        'fields': []
+    },
+    'inbrain': {
+        'name': 'InBrain (future)',
+        'isLocked': True,
+        'researchRequired': True,
+        'fields': []
+    }
+}
+
 OFFERWALL_PROVIDER_REGISTRY = {
+    'timewall': {
+        'label': 'TimeWall',
+        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerdetail',
+        'offer_name_param': 'offername', 'amount_param': 'currencyAmount',
+        'usd_param': 'revenue', 'sig_param': 'hash', 'sig_method': 'sha256',
+        'sig_fields': ['userID', 'revenue', 'secret'],
+        'sig_separator': '', 'sig_int_fields': [],
+        'status_param': 'type', 'status_ok': 'credit', 'status_reversal': 'chargeback',
+        'status_hold': ['hold', 'hold_cancelled'],
+        'success_response': 'OK',
+    },
+    'cpxresearch': {
+        'label': 'CPX Research',
+        'user_param': 'user_id', 'tx_param': 'trans_id', 'offer_param': 'survey_id',
+        'offer_name_param': None, 'amount_param': 'amount_local',
+        'usd_param': 'amount_usd',
+        'sig_param': 'hash', 'sig_method': 'md5', 'sig_fields': ['trans_id', 'secret'],
+        'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
+        'success_response': '1',
+    },
     'lootably': {
         'label': 'Lootably',
         'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerID',
         'offer_name_param': 'offerName', 'amount_param': 'currencyReward',
-        'sig_param': 'hash', 'sig_method': 'sha256',
+        'usd_param': 'revenue', 'sig_param': 'hash', 'sig_method': 'sha256',
         'sig_fields': ['userID', 'ip', 'revenue', 'currencyReward', 'secret'],
         'success_response': '1',
     },
@@ -1550,15 +1704,6 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'offer_name_param': None, 'amount_param': 'val',
         'sig_param': 'hash', 'sig_method': 'hmac_sha1_qs', 'sig_fields': [],
         'success_response': 'OK',
-    },
-    'cpxresearch': {
-        'label': 'CPX Research',
-        'user_param': 'user_id', 'tx_param': 'trans_id', 'offer_param': 'survey_id',
-        'offer_name_param': None, 'amount_param': 'amount_local',
-        'usd_param': 'amount_usd',  # gross USD; reward computed from this, not amount_local
-        'sig_param': 'hash', 'sig_method': 'md5', 'sig_fields': ['trans_id', 'secret'],
-        'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
-        'success_response': '1',
     },
     'adgem': {
         'label': 'AdGem',
@@ -1575,24 +1720,78 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'sig_fields': ['oid', 'user_id', 'payout', 'secret'],
         'success_response': '1',
     },
-    'timewall': {
-        # Official TimeWall postback spec (verified against their integration docs):
-        #   hash = sha256( userID . revenue . SecretKey )   (PHP '.' = concat, NO separator)
-        # Params sent: userID, transactionID, revenue, currencyAmount, hash, type,
-        #              withdrawid, reason, offername, offerdetail
-        #   type: "credit" -> pay | "chargeback" -> deduct
-        #         "hold"/"hold_cancelled" (auto-withdraw only) -> DO NOT credit/deduct
-        'label': 'TimeWall',
-        'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerdetail',
-        'offer_name_param': 'offername', 'amount_param': 'currencyAmount',
-        'usd_param': 'revenue',  # gross USD; reward computed from this, not currencyAmount
-        'sig_param': 'hash', 'sig_method': 'sha256',
-        'sig_fields': ['userID', 'revenue', 'secret'],
-        'sig_separator': '', 'sig_int_fields': [],
-        'status_param': 'type', 'status_ok': 'credit', 'status_reversal': 'chargeback',
-        'status_hold': ['hold', 'hold_cancelled'],
+    'adgate': {
+        'label': 'AdGate Media',
+        'user_param': 'user_id', 'tx_param': 'transaction_id', 'offer_param': 'campaign_id',
+        'offer_name_param': 'campaign_name', 'amount_param': 'points',
+        'usd_param': 'payout', 'sig_param': 'sig', 'sig_method': 'md5',
+        'sig_fields': ['transaction_id', 'user_id', 'points', 'secret'],
         'success_response': 'OK',
     },
+    'ayet': {
+        'label': 'ayeT Studios',
+        'user_param': 'uid', 'tx_param': 'transaction_id', 'offer_param': 'offer_id',
+        'offer_name_param': 'offer_title', 'amount_param': 'currency_amount',
+        'usd_param': 'payout', 'sig_param': 'sig', 'sig_method': 'sha256',
+        'sig_fields': ['transaction_id', 'uid', 'currency_amount', 'secret'],
+        'success_response': 'OK',
+    },
+    'wannads': {
+        'label': 'Wannads',
+        'user_param': 'subId', 'tx_param': 'transactionId', 'offer_param': 'campaignId',
+        'offer_name_param': 'campaignName', 'amount_param': 'points',
+        'usd_param': 'payout', 'sig_param': 'signature', 'sig_method': 'md5',
+        'sig_fields': ['subId', 'transactionId', 'points', 'secret'],
+        'success_response': 'OK',
+    },
+    'revu': {
+        'label': 'RevU',
+        'user_param': 'uid', 'tx_param': 'transaction_id', 'offer_param': 'offer_id',
+        'amount_param': 'points', 'usd_param': 'payout', 'sig_param': 'hash', 'sig_method': 'md5',
+        'sig_fields': ['transaction_id', 'uid', 'points', 'secret'],
+        'success_response': 'OK',
+    },
+    'kiwiwall': {
+        'label': 'KiwiWall',
+        'user_param': 'subId', 'tx_param': 'transactionId', 'offer_param': 'offerId',
+        'amount_param': 'points', 'usd_param': 'payout', 'sig_param': 'sig', 'sig_method': 'md5',
+        'sig_fields': ['subId', 'secret'],
+        'success_response': 'OK',
+    },
+    'adscend': {
+        'label': 'Adscend Media',
+        'user_param': 'sub1', 'tx_param': 'transaction_id', 'offer_param': 'campaign_id',
+        'offer_name_param': 'name', 'amount_param': 'points',
+        'usd_param': 'rate', 'sig_param': 'sig', 'sig_method': 'md5',
+        'sig_fields': ['transaction_id', 'sub1', 'points', 'secret'],
+        'success_response': 'OK',
+    },
+    'revenue_universe': {
+        'label': 'Revenue Universe',
+        'user_param': 'uid', 'tx_param': 'transaction_id', 'offer_param': 'offer_id',
+        'amount_param': 'points', 'usd_param': 'payout', 'sig_param': 'hash', 'sig_method': 'md5',
+        'sig_fields': ['transaction_id', 'uid', 'points', 'secret'],
+        'success_response': 'OK',
+    },
+    'monlix': {
+        'label': 'Monlix',
+        'user_param': 'userId', 'tx_param': 'transactionId', 'offer_param': 'offerId',
+        'amount_param': 'points', 'usd_param': 'payout', 'sig_param': 'signature', 'sig_method': 'sha256',
+        'sig_fields': ['userId', 'transactionId', 'points', 'secret'],
+        'success_response': 'OK',
+    },
+    'pollfish': {
+        'label': 'Pollfish (Locked)',
+        'is_locked': True,
+        'research_required': True,
+        'success_response': 'OK',
+    },
+    'inbrain': {
+        'label': 'InBrain (Locked)',
+        'is_locked': True,
+        'research_required': True,
+        'success_response': 'OK',
+    }
 }
 
 # Default spec applied to any provider not in the registry (fully generic fallback).
@@ -1619,32 +1818,36 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
         return None, False
     pid = (provider_id or '').lower()
 
-    if pid in ('timewall',):
-        # TimeWall SSO: /users/login?oid=<placement>&uid=<user> auto-authenticates the
-        # user and lands directly on the offers wall (no manual login).
-        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', True
+    # Dynamic launch templates defined for ALL live providers:
+    templates = {
+        'timewall': 'https://timewall.io/users/login?oid={aff}&uid={uid}',
+        'lootably': 'https://wall.lootably.com/?placementID={aff}&uid={uid}',
+        'bitlabs': 'https://web.bitlabs.ai/?token={aff}&uid={uid}',
+        'adgem': 'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}',
+        'adgate': 'https://wall.adgatemedia.com/affiliate/{aff}?s1={uid}',
+        'ayet': 'https://www.ayetstudios.com/offers/web_ad_gate/{aff}?external_identifier={uid}',
+        'wannads': 'https://wall.wannads.com/wall?apiKey={aff}&userId={uid}',
+        'revu': 'https://www.revenueuniverse.com/wall?id={aff}&uid={uid}',
+        'kiwiwall': 'https://www.kiwiwall.com/wall/{aff}/{uid}',
+        'adscend': 'https://adscendmedia.com/adwall/publisher/{aff}/profile/default/user/{uid}',
+        'revenue_universe': 'https://www.revenueuniverse.com/wall?id={aff}&uid={uid}',
+        'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
+    }
 
-    if pid in ('cpxresearch', 'cpx', 'cpx_research'):
-        # CPX requires a secure hash = md5(ext_user_id + secret). Without it CPX shows an
-        # error page, so we must compute it server-side where the secret lives.
+    if pid == 'cpxresearch':
         secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
         return (f'https://offers.cpx-research.com/index.php?app_id={aff}'
                 f'&ext_user_id={uid}&secure_hash={secure_hash}'), True
 
-    if pid in ('lootably',):
-        return f'https://wall.lootably.com/?placementID={aff}&uid={uid}', True
+    if pid in templates:
+        return templates[pid].format(aff=aff, uid=uid), True
 
-    if pid in ('bitlabs',):
-        return f'https://web.bitlabs.ai/?token={aff}&uid={uid}', True
+    # Pollfish and InBrain are locked placeholders (prevent redirect)
+    if pid in ('pollfish', 'inbrain'):
+        return None, False
 
-    if pid in ('adgem',):
-        return f'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}', True
-
-    if pid in ('offertoro',):
-        return f'https://www.offertoro.com/ifr/show/{aff}/{uid}/22226', True
-
-    # Unknown provider: no known launch pattern.
-    return None, False
+    # Default fallback template for unknown/future custom providers
+    return f'https://wall.lootably.com/?placementID={aff}&uid={uid}', True
 
 
 def _resolve_provider_spec(provider_id, config):
@@ -2331,24 +2534,127 @@ def offerwall_upsert_provider(provider_id):
     if not payload.get('webhookUrl') and payload.get('callbackUrl'):
         payload['webhookUrl'] = payload['callbackUrl']
 
-    # Validate required fields — webhookUrl is optional (defaults to callbackUrl)
-    required_fields = {'name', 'affiliateId', 'callbackUrl'}
-    missing_fields = {f for f in required_fields if not str(payload.get(f, '')).strip()}
-    if missing_fields:
-        return jsonify({
-            'success': False,
-            'error': 'MISSING_REQUIRED_FIELDS',
-            'reason': f'Missing required fields: {", ".join(sorted(missing_fields))}'
-        }), 400
-
     try:
-        # Ensure payload is JSON-serializable (flatten nested objects if needed)
-        payload['updatedAt'] = firestore.SERVER_TIMESTAMP
-        
         ref = db.collection('offerwall_providers').document(provider_id)
         snap = ref.get()
         is_new = not snap.exists
-        
+
+        # ─── BACKEND VALIDATION PIPELINE ─────────────────────────────────────────
+        validation_checks = []
+        is_valid = True
+
+        def add_check(name, status, detail):
+            nonlocal is_valid
+            if status == 'FAIL':
+                is_valid = False
+            validation_checks.append({'name': name, 'status': status, 'detail': detail})
+
+        name_val = str(payload.get('name', '')).strip()
+        aff_val = str(payload.get('affiliateId', '')).strip()
+        cb_val = str(payload.get('callbackUrl', '')).strip()
+
+        # 1. Missing Fields Check
+        if not name_val or not cb_val:
+            missing_fields = [f for f, v in [('name', name_val), ('callbackUrl', cb_val)] if not v]
+            add_check('Missing Fields', 'FAIL', f"Missing required payload fields: {', '.join(missing_fields)}")
+        else:
+            add_check('Missing Fields', 'PASS', "All required structural fields are present.")
+
+        # 2. Required Credentials Check (depending on dynamic adapter fields)
+        adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
+        if adapter:
+            missing_creds = []
+            for field in adapter.get('fields', []):
+                if field.get('required'):
+                    val = payload.get(field['key'], '')
+                    if is_new or field['key'] not in ('secret', 'apiKey'):
+                        if not str(val).strip():
+                            missing_creds.append(field['label'])
+                    else:
+                        if not str(val).strip():
+                            existing_val = snap.to_dict().get(field['key']) if snap.exists else None
+                            if not existing_val:
+                                missing_creds.append(field['label'])
+            if missing_creds:
+                add_check('Required Credentials', 'FAIL', f"Missing required adapter credentials: {', '.join(missing_creds)}")
+            else:
+                add_check('Required Credentials', 'PASS', f"All required fields for {adapter.get('name')} are satisfied.")
+        else:
+            if is_new and not payload.get('secret'):
+                add_check('Required Credentials', 'FAIL', "Secret Key is required for new custom providers.")
+            else:
+                add_check('Required Credentials', 'PASS', "Custom credentials validation passed.")
+
+        # 3. Callback Endpoint Check
+        if cb_val:
+            if not cb_val.startswith('http://') and not cb_val.startswith('https://'):
+                add_check('Callback Endpoint', 'FAIL', "Callback URL must be a valid HTTP or HTTPS address.")
+            else:
+                add_check('Callback Endpoint', 'PASS', f"Callback URL registered: {cb_val}")
+        else:
+            add_check('Callback Endpoint', 'FAIL', "No callback URL provided.")
+
+        # 4. Webhook Endpoint Check
+        wh_val = str(payload.get('webhookUrl', '')).strip()
+        if wh_val:
+            if not wh_val.startswith('http://') and not wh_val.startswith('https://'):
+                add_check('Webhook Endpoint', 'FAIL', "Webhook URL must be a valid HTTP or HTTPS address.")
+            else:
+                add_check('Webhook Endpoint', 'PASS', f"Webhook URL registered: {wh_val}")
+        else:
+            add_check('Webhook Endpoint', 'PASS', "No optional Webhook URL registered (defaults to callback URL).")
+
+        # 5. Secret Availability Check
+        sec_val = payload.get('secret', '')
+        if is_new and not sec_val:
+            add_check('Secret Availability', 'FAIL', "Callback verification secret key is missing.")
+        elif not is_new and not sec_val:
+            has_stored_secret = bool(snap.to_dict().get('secret')) if snap.exists else False
+            if not has_stored_secret:
+                add_check('Secret Availability', 'FAIL', "Stored callback secret is missing and none was provided.")
+            else:
+                add_check('Secret Availability', 'PASS', "Stored callback verification secret is present.")
+        else:
+            add_check('Secret Availability', 'PASS', "Callback verification secret is present.")
+
+        # 6. Duplicate Provider Check
+        if is_new:
+            existing_doc = db.collection('offerwall_providers').document(provider_id).get()
+            if existing_doc.exists:
+                add_check('Duplicate Provider', 'FAIL', f"A provider with ID '{provider_id}' already exists.")
+            else:
+                add_check('Duplicate Provider', 'PASS', "Provider ID is unique.")
+        else:
+            add_check('Duplicate Provider', 'PASS', "Unique ID check skipped (edit mode).")
+
+        # 7. Duplicate Callback URL Check
+        duplicate_cb_found = False
+        all_providers = db.collection('offerwall_providers').get()
+        for doc in all_providers:
+            if doc.id != provider_id:
+                doc_data = doc.to_dict()
+                if doc_data.get('callbackUrl') == cb_val:
+                    duplicate_cb_found = True
+                    break
+        if duplicate_cb_found:
+            add_check('Duplicate Callback URL', 'FAIL', f"Another provider is already using the callback URL: {cb_val}")
+        else:
+            add_check('Duplicate Callback URL', 'PASS', "Callback URL is unique.")
+
+        # Return structured validation report if validation fails
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'VALIDATION_FAILED',
+                'message': 'Provider validation checks failed.',
+                'validation_report': {
+                    'valid': False,
+                    'checks': validation_checks
+                }
+            }), 400
+
+        # Save provider config
+        payload['updatedAt'] = firestore.SERVER_TIMESTAMP
         if is_new:
             payload['createdAt'] = firestore.SERVER_TIMESTAMP
             payload['stats'] = {
@@ -2394,7 +2700,11 @@ def offerwall_upsert_provider(provider_id):
             'success': True,
             'providerId': provider_id,
             'isNew': is_new,
-            'message': f'Provider {"created" if is_new else "updated"} successfully'
+            'message': f'Provider {"created" if is_new else "updated"} successfully',
+            'validation_report': {
+                'valid': True,
+                'checks': validation_checks
+            }
         })
     
     except Exception as e:
@@ -2557,6 +2867,62 @@ def offerwall_user_providers():
             'embeddable': embeddable,
         })
     return jsonify({'success': True, 'providers': providers})
+
+
+@app.route('/api/offerwall/providers/<provider_id>/launch', methods=['POST', 'GET'])
+@verify_token
+def offerwall_launch_url(provider_id):
+    """
+    Securely generate an authenticated launcher session URL for the current user.
+    Frontend must never hardcode or guess these URLs.
+    """
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+
+    snap = db.collection('offerwall_providers').document(provider_id).get()
+    if not snap.exists:
+        return jsonify({'success': False, 'error': 'PROVIDER_NOT_FOUND', 'message': 'Selected provider does not exist.'}), 404
+
+    cfg = snap.to_dict()
+    if not cfg.get('enabled', False):
+        return jsonify({'success': False, 'error': 'PROVIDER_DISABLED', 'message': 'Selected provider is currently disabled.'}), 400
+
+    # Ensure it's not a locked / research required provider
+    adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
+    if adapter.get('isLocked', False):
+        return jsonify({
+            'success': False,
+            'error': 'RESEARCH_REQUIRED',
+            'message': f'Provider {adapter.get("name", provider_id)} is marked as Research Required and cannot be launched.'
+        }), 400
+
+    launch_url, embeddable = _build_offerwall_launch_url(
+        provider_id, cfg.get('affiliateId', ''), cfg.get('secret', ''), uid
+    )
+
+    if not launch_url:
+        return jsonify({'success': False, 'error': 'LAUNCH_FAILED', 'message': 'Failed to generate authenticated launcher URL.'}), 400
+
+    # Record launch attempt stat
+    try:
+        db.collection('offerwall_providers').document(provider_id).set({
+            'stats.launchAttempts': firestore.Increment(1),
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    except Exception:
+        pass
+
+    return jsonify({
+        'success': True,
+        'providerId': provider_id,
+        'name': cfg.get('name', provider_id),
+        'launchUrl': launch_url,
+        'embeddable': embeddable
+    })
+
 
 # ─── User: Get Own Offerwall Rewards ─────────────────────���────────────────────
 @app.route('/api/offerwall/my-rewards', methods=['GET'])

@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════���������══════════════════���════════════════════════════════════════════════════
+# ═══════�����������══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1817,16 +1817,75 @@ OFFERWALL_DEFAULT_SPEC = {
 # so the user is never asked to log in or sign up. Secrets (needed for CPX's secure
 # hash) stay server-side; this is why launch URLs are built here and not on the client.
 #   embeddable=True  -> can be shown inside an in-app <iframe>
-def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
+
+# Placeholder tokens that a provider's dashboard-issued Integration URL may use to
+# mark where the end-user's unique identifier must be injected. We substitute ALL
+# of these (case-insensitive) with the authenticated Firebase UID. This is what
+# makes launch config-driven: admins paste the exact URL the provider gave them
+# (e.g. TimeWall's "...&userID=USER_ID"), and the backend fills in the real UID.
+_OFFERWALL_UID_PLACEHOLDERS = (
+    '(UNIQUE_USER_ID)', '{UNIQUE_USER_ID}', '[UNIQUE_USER_ID]', 'UNIQUE_USER_ID',
+    '(USER_ID)', '{USER_ID}', '[USER_ID]', '{{USER_ID}}', 'USER_ID',
+    '(USERID)', '{USERID}', '[USERID]', 'USERID',
+    '{uid}', '(uid)', '[uid]', '{userId}', '{user_id}', '{sub_id}', '{subId}',
+)
+_OFFERWALL_AFF_PLACEHOLDERS = (
+    '(PUBLISHER_ID)', '{PUBLISHER_ID}', 'PUBLISHER_ID',
+    '(AFFILIATE_ID)', '{AFFILIATE_ID}', 'AFFILIATE_ID',
+    '(PLACEMENT_ID)', '{PLACEMENT_ID}', 'PLACEMENT_ID',
+    '{aff}', '(aff)', '{appId}', '{app_id}', '{pubId}',
+)
+
+
+def _apply_launch_placeholders(url, aff, uid):
+    """Replace every known UID / affiliate placeholder token in a stored
+    Integration URL with the real values. Case-insensitive matching."""
+    if not url:
+        return url
+    result = url
+    for token in _OFFERWALL_UID_PLACEHOLDERS:
+        # case-insensitive replace
+        idx = result.lower().find(token.lower())
+        while idx != -1:
+            result = result[:idx] + uid + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(uid))
+    for token in _OFFERWALL_AFF_PLACEHOLDERS:
+        idx = result.lower().find(token.lower())
+        while idx != -1:
+            result = result[:idx] + aff + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(aff))
+    return result
+
+
+def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=None):
     aff = str(affiliate_id or '').strip()
     uid = str(uid or '').strip()
-    if not aff or not uid:
+    if not uid:
         return None, False
     pid = (provider_id or '').lower()
+    config = config or {}
 
-    # Dynamic launch templates defined for ALL live providers:
+    # ── PRIORITY 1: config-driven Integration URL ──────────────────────────────
+    # If the admin saved the exact Integration URL issued by the provider's own
+    # dashboard (the correct, non-homepage authenticated offerwall URL), use it
+    # and inject the real UID where the placeholder token sits. This is the
+    # production path and works for ANY provider without code changes.
+    integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
+    if integration_url:
+        has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
+        resolved = _apply_launch_placeholders(integration_url, aff, uid)
+        # Only trust the stored URL if the UID actually got injected (either via a
+        # placeholder token, or because the admin pre-baked a per-user pattern).
+        if has_uid_token or (uid and uid in resolved):
+            embeddable = bool(config.get('embeddable', False))
+            return resolved, embeddable
+
+    # ── PRIORITY 2: built-in per-provider templates (fallback) ─────────────────
+    # Used only when no Integration URL is configured. Requires an affiliate id.
+    if not aff:
+        return None, False
+
     templates = {
-        'timewall': 'https://timewall.io/users/login?oid={aff}&uid={uid}',
         'lootably': 'https://wall.lootably.com/?placementID={aff}&uid={uid}',
         'bitlabs': 'https://web.bitlabs.ai/?token={aff}&uid={uid}',
         'adgem': 'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}',
@@ -1840,6 +1899,13 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
         'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
     }
 
+    # TimeWall removed its login system — /users/login now bounces to the homepage.
+    # The authenticated offerwall is served from the per-placement earn URL. Prefer
+    # the admin-configured Integration URL (Priority 1); this is a best-effort
+    # fallback so a launch never lands on the marketing homepage.
+    if pid == 'timewall':
+        return f'https://timewall.io/earn/{aff}?userID={uid}', True
+
     if pid == 'cpxresearch':
         secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
         return (f'https://offers.cpx-research.com/index.php?app_id={aff}'
@@ -1852,7 +1918,8 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid):
     if pid in ('pollfish', 'inbrain'):
         return None, False
 
-    # Unknown provider: return None so caller can surface LAUNCH_FAILED error
+    # Unknown provider with no Integration URL: return None so caller surfaces
+    # LAUNCH_FAILED instead of redirecting the user to a provider homepage.
     return None, False
 
 
@@ -2218,7 +2285,7 @@ def offerwall_callback(provider_id):
         }, merge=True)
         return pmap['success_response'], 200  # ACK silently
 
-    # ── 7. User Validation ───────────────────────────────────────────────────
+    # ── 7. User Validation ─────────���─────────────────────────────────────────
     user_ref = db.collection('users').document(user_id)
     user_snap = user_ref.get()
     if not user_snap.exists:
@@ -2654,6 +2721,10 @@ def offerwall_upsert_provider(provider_id):
         'dailyCap', 'cooldownSeconds', 'priority', 'fraudThreshold',
         # Extensibility: per-provider callback spec override + preset slug/icon
         'callbackSpec', 'presetSlug', 'iconUrl', 'description', 'embedUrl',
+        # Config-driven launch: the dashboard-issued Integration URL (may contain a
+        # UID placeholder token such as USER_ID / (UNIQUE_USER_ID) / {uid}) plus
+        # whether it can be shown inside an in-app iframe.
+        'integrationUrl', 'embeddable',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
@@ -3008,7 +3079,7 @@ def offerwall_user_providers():
         d = s.to_dict()
         # Build the authenticated launch URL server-side (secret never leaves the server).
         launch_url, embeddable = _build_offerwall_launch_url(
-            s.id, d.get('affiliateId', ''), d.get('secret', ''), uid
+            s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
         )
         providers.append({
             'id': s.id,
@@ -3055,7 +3126,7 @@ def offerwall_launch_url(provider_id):
         }), 400
 
     launch_url, embeddable = _build_offerwall_launch_url(
-        provider_id, cfg.get('affiliateId', ''), cfg.get('secret', ''), uid
+        provider_id, cfg.get('affiliateId', ''), cfg.get('secret', ''), uid, cfg
     )
 
     if not launch_url:

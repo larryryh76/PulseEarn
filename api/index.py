@@ -2021,11 +2021,29 @@ def offerwall_callback(provider_id):
     Accepts GET or POST depending on provider.
     """
     get_deps()
+    from flask import request as req
+
+    # ── 0. Browser / health probe ───────────────────────────────────────────
+    # Opening the callback URL directly in a browser sends a bare GET with no
+    # provider params. Instead of running the full pipeline (and risking a 500),
+    # return a friendly JSON status page describing the endpoint. A real provider
+    # callback always includes query params, so this only affects manual probes.
+    if req.method == 'GET' and not req.query_string:
+        return jsonify({
+            "ok": True,
+            "endpoint": "offerwall_callback",
+            "provider": provider_id,
+            "message": ("This is the PulseEarn offerwall postback endpoint. "
+                        "Providers call it with signed query parameters. "
+                        "Register this exact URL as your postback/callback URL in the "
+                        f"{provider_id} dashboard."),
+            "method": "GET or POST",
+        }), 200
+
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
 
     db = firestore.client()
-    from flask import request as req
 
     # ── 1. Validate provider ────────────────────────────────────────────────
     # ── 2. Load provider config from cache (single source of truth) ──────────

@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════�����������══════════════════���════════════════════════════════════════════════════
+# ═══════�������������══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -1680,7 +1680,9 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'status_param': 'type', 'status_ok': 'credit', 'status_reversal': 'chargeback',
         'status_hold': ['hold', 'hold_cancelled'],
         'success_response': 'OK',
-        'ip_whitelist': ['104.248.51.107', '159.203.119.231'],
+        # Verified from the TimeWall dashboard "Postback Security Options → Server IP
+        # Whitelisting" section. TimeWall only sends postbacks from these IPs.
+        'ip_whitelist': ['18.156.132.55', '51.81.120.73', '142.111.248.18'],
     },
     'cpxresearch': {
         'label': 'CPX Research',
@@ -1899,12 +1901,13 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
         'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
     }
 
-    # TimeWall removed its login system — /users/login now bounces to the homepage.
-    # The authenticated offerwall is served from the per-placement earn URL. Prefer
-    # the admin-configured Integration URL (Priority 1); this is a best-effort
-    # fallback so a launch never lands on the marketing homepage.
+    # TimeWall's authenticated offerwall URL (verified from the TimeWall Placements
+    # dashboard "Direct Link"/iFrame): https://timewall.io/users/login?oid=<placementId>&uid=<UNIQUE_USER_ID>.
+    # The `oid` is the Placement ID (stored as affiliateId) and `uid` receives the
+    # authenticated Firebase UID. Passing the uid this way means the user lands
+    # directly inside their assigned offerwall, never the marketing homepage.
     if pid == 'timewall':
-        return f'https://timewall.io/earn/{aff}?userID={uid}', True
+        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', True
 
     if pid == 'cpxresearch':
         secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
@@ -2347,7 +2350,7 @@ def offerwall_callback(provider_id):
         }, merge=True)
         return pmap['success_response'], 200
 
-    # ── 9. Points Calculation ─────────────────────�����─────────────────────────
+    # ── 9. Points Calculation ─────────────────────������─────────────────────────
     # Gross points BEFORE the user/platform split. Prefer USD × internal rate so the
     # payout is independent of the provider dashboard's own conversion rate; otherwise
     # fall back to the provider currency amount.
@@ -3418,7 +3421,7 @@ def offerwall_replay_callback(callback_id):
     return jsonify({'success': True, 'message': 'Callback re-queued for processing.',
                     'note': 'Dedup guard prevents double-rewarding.', 'event': data})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════���════════════════════════════
 # PHASE 18.8 — WEBHOOK MANAGEMENT (regenerate secret, verify)
 # ═══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/offerwall/providers/<provider_id>/regenerate-secret', methods=['POST'])
@@ -3479,7 +3482,7 @@ def offerwall_failover_scan():
     return jsonify({'success': True, 'disabled': actions, 'count': len(actions),
                     'message': f'{len(actions)} unhealthy provider(s) auto-disabled.' if actions else 'All active providers healthy.'})
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────��─────────────
 get_deps()
 
 # Initialize provider cache on startup

@@ -28,6 +28,7 @@ interface ProviderForm {
   affiliateId: string;
   apiKey: string;
   secret: string;
+  integrationUrl: string;
   callbackUrl: string;
   webhookUrl: string;
   rewardMultiplier: number;
@@ -57,6 +58,7 @@ const BLANK_FORM: ProviderForm = {
   affiliateId: '',
   apiKey: '',
   secret: '',
+  integrationUrl: '',
   callbackUrl: '',
   webhookUrl: '',
   rewardMultiplier: 1.0,
@@ -268,6 +270,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
             affiliateId: found.affiliateId || '',
             apiKey: '',   // never pre-populated for security
             secret: '',   // never pre-populated for security
+            integrationUrl: found.integrationUrl || '',
             callbackUrl: found.callbackUrl || '',
             webhookUrl: found.webhookUrl || '',
             rewardMultiplier: found.rewardMultiplier ?? 1.0,
@@ -386,6 +389,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         name: form.name.trim(),
         enabled: form.enabled,
         affiliateId: form.affiliateId.trim(),
+        integrationUrl: form.integrationUrl.trim(),
         callbackUrl: resolvedCallbackUrl,
         webhookUrl: form.webhookUrl.trim() || resolvedCallbackUrl,
         rewardMultiplier: form.rewardMultiplier,
@@ -638,6 +642,17 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                       <p className="text-[11px] font-mono text-primary break-all">{callbackUrl}</p>
                       <p className="text-[9px] text-text-tertiary">Register this URL in the provider dashboard as your postback/callback endpoint.</p>
                     </div>
+                    <Field
+                      label="Integration / Launch URL"
+                      hint="Paste the exact offerwall URL from the provider dashboard. Use a placeholder where the user ID goes (e.g. USER_ID, (UNIQUE_USER_ID), or {uid}) — the backend injects the authenticated user's UID. Leave blank to use the built-in provider template."
+                    >
+                      <TextInput
+                        value={form.integrationUrl}
+                        onChange={v => set('integrationUrl', v)}
+                        placeholder="https://timewall.io/earn/PLACEMENT?userID=USER_ID"
+                        mono
+                      />
+                    </Field>
                     <Field label="Custom Callback URL" hint="Override the auto-generated URL if you use a custom domain or proxy">
                       <TextInput value={form.callbackUrl} onChange={v => set('callbackUrl', v)} placeholder={callbackUrl} mono />
                     </Field>

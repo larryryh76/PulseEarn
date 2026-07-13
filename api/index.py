@@ -1486,7 +1486,7 @@ def wipe_all_tasks():
         return jsonify({"success": False, "error": "WIPE_FAILED", "reason": str(e),
                         "partialCounts": counts, "trace": traceback.format_exc()}), 500
 
-# ═══════�������������══════════════════���════════════════════════════════════════════════════
+# ═══════���������������══════════════════���════════════════════════════════════════════════════
 # OFFERWALL ENTERPRISE PLATFORM — Phase 17
 # ═══════════════════════════════════════════════════════════════════════════════
 #
@@ -2019,9 +2019,38 @@ def offerwall_callback(provider_id):
     Universal offerwall callback endpoint.
     URL: /api/offerwall/callback/{provider_slug}
     Accepts GET or POST depending on provider.
+
+    Thin wrapper: guarantees the endpoint NEVER returns an opaque 500. Providers
+    (TimeWall, CPX, etc.) expect an HTTP 200 with a success token; a 500 makes
+    them treat the postback as failed and retry-storm. Any unexpected error is
+    logged and swallowed into a 200 ACK so a single bad payload (e.g. someone
+    pasting the URL with literal {userID} placeholders in a browser) can't break
+    the endpoint or leak a stack trace.
     """
-    get_deps()
     from flask import request as req
+    try:
+        return _offerwall_callback_impl(provider_id, req)
+    except Exception as e:
+        import traceback
+        print(f"[v0] offerwall_callback fatal error for provider={provider_id}: {e}\n{traceback.format_exc()}")
+        # If the caller looks like a browser hitting placeholder/dummy params,
+        # give a readable hint instead of a bare token.
+        raw_qs = req.query_string.decode('utf-8', 'ignore') if req.query_string else ''
+        if '{' in raw_qs or '%7B' in raw_qs:
+            return jsonify({
+                "ok": True,
+                "endpoint": "offerwall_callback",
+                "provider": provider_id,
+                "message": ("This looks like a manual test with placeholder values "
+                            "(e.g. {userID}). This is the correct postback URL — register "
+                            f"it in the {provider_id} dashboard and it will receive real "
+                            "signed values from the provider."),
+            }), 200
+        return "OK", 200
+
+
+def _offerwall_callback_impl(provider_id, req):
+    get_deps()
 
     # ── 0. Browser / health probe ───────────────────────────────────────────
     # Opening the callback URL directly in a browser sends a bare GET with no
@@ -3192,7 +3221,7 @@ def offerwall_my_rewards():
     rewards = [{**s.to_dict(), 'id': s.id} for s in snaps]
     return jsonify({'success': True, 'rewards': rewards, 'count': len(rewards)})
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════��══════════════════════
 # PHASE 18.3 — TEST CONNECTION (detailed diagnostics, never generic)
 # ═══════════════════════════════════════════════════════════════════════════════
 @app.route('/api/offerwall/providers/<provider_id>/test', methods=['POST'])

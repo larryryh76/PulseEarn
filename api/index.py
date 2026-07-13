@@ -1906,8 +1906,10 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     # The `oid` is the Placement ID (stored as affiliateId) and `uid` receives the
     # authenticated Firebase UID. Passing the uid this way means the user lands
     # directly inside their assigned offerwall, never the marketing homepage.
+    # Note: embeddable is False here because TimeWall requires third-party cookie/session
+    # support which modern browser privacy settings block inside iframes (causing Session Blocked).
     if pid == 'timewall':
-        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', True
+        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', False
 
     if pid == 'cpxresearch':
         secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()

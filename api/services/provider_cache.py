@@ -105,25 +105,19 @@ class ProviderCache:
             for doc in docs:
                 data = doc.to_dict()
                 if data:
-                    new_cache[doc.id] = {
-                        'id': doc.id,
-                        'name': data.get('name'),
-                        'enabled': data.get('enabled', True),
-                        'affiliateId': data.get('affiliateId'),
-                        'apiKey': data.get('apiKey'),
-                        'secret': data.get('secret'),
-                        'callbackUrl': data.get('callbackUrl'),
-                        'webhookUrl': data.get('webhookUrl'),
-                        'rewardMultiplier': data.get('rewardMultiplier', 1.0),
-                        'userSharePct': data.get('userSharePct', 0.7),
-                        'platformSharePct': data.get('platformSharePct', 0.3),
-                        'minimumReward': data.get('minimumReward', 5),
-                        'maximumReward': data.get('maximumReward', 500),
-                        'fraudRules': data.get('fraudRules', {}),
-                        'stats': data.get('stats', {}),
-                        'createdAt': data.get('createdAt'),
-                        'updatedAt': data.get('updatedAt'),
-                    }
+                    # Keep all fields from the Firestore document to prevent dropping custom configurations
+                    config = dict(data)
+                    config['id'] = doc.id
+                    # Ensure defaults for standard fields if missing
+                    config['enabled'] = data.get('enabled', True)
+                    config['rewardMultiplier'] = data.get('rewardMultiplier', 1.0)
+                    config['userSharePct'] = data.get('userSharePct', 0.7)
+                    config['platformSharePct'] = data.get('platformSharePct', 0.3)
+                    config['minimumReward'] = data.get('minimumReward', 5)
+                    config['maximumReward'] = data.get('maximumReward', 500)
+                    config['fraudRules'] = data.get('fraudRules', {})
+                    config['stats'] = data.get('stats', {})
+                    new_cache[doc.id] = config
             
             self._cache = new_cache
             self._last_refresh = time.time()

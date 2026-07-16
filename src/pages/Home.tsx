@@ -1,10 +1,14 @@
 import React from 'react';
 import Hero from '../components/sections/Hero';
-import Features from '../components/sections/Features';
-import DailyRewardsPreview from '../components/sections/DailyRewardsPreview';
-import PredictionPreview from '../components/sections/PredictionPreview';
-import SignupCTA from '../components/sections/SignupCTA';
+import HowItWorks from '../components/sections/HowItWorks';
+import Marketplace from '../components/sections/Marketplace';
+import WalletRewards from '../components/sections/WalletRewards';
+import Achievements from '../components/sections/Achievements';
+import Community from '../components/sections/Community';
+import TrustSecurity from '../components/sections/TrustSecurity';
 import FAQ from '../components/sections/FAQ';
+import FinalCTA from '../components/sections/FinalCTA';
+import SignupCTA from '../components/sections/SignupCTA';
 import MainLayout from '../components/layout/MainLayout';
 import { useCryptoData } from '../hooks/useCryptoData';
 
@@ -15,10 +19,14 @@ const Home: React.FC = () => {
   return (
     <MainLayout>
       <Hero />
-      <Features />
-      <DailyRewardsPreview />
-      <PredictionPreview />
+      <HowItWorks />
+      <Marketplace />
+      <WalletRewards />
+      <Achievements />
+      <Community />
+      <TrustSecurity />
       <FAQ />
+      <FinalCTA />
       <SignupCTA />
     </MainLayout>
   );

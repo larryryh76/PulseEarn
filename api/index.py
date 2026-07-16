@@ -492,10 +492,14 @@ def execute_transaction():
         return jsonify({"success": False, "error": "MISSING_FIELDS"}), 400
 
     caller_is_admin = is_admin(caller_uid)
+    caller_is_moderator = is_moderator(caller_uid)
     is_self = caller_uid == user_id
 
     if tx_type in ADMIN_TX and tx_type not in USER_SELF_TX:
-        if not caller_is_admin: return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+        if tx_type == 'task_reward':
+            if not (caller_is_moderator or caller_is_admin): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+        else:
+            if not caller_is_admin: return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     elif tx_type in USER_SELF_TX:
         if not is_self and not caller_is_admin: return jsonify({"success": False, "error": "Unauthorized"}), 403
     else:
@@ -615,6 +619,14 @@ def execute_transaction():
                 post_writes.append((db.collection('task_claims').document(tclaim),
                                     {'validationState': 'APPROVED', 'completionState': 'COMPLETED',
                                      'reviewedAt': firestore.SERVER_TIMESTAMP, 'reviewedBy': caller_uid}, True))
+            if ref_task:
+                ut_ref = user_ref.collection('user_tasks').document(ref_task)
+                post_writes.append((ut_ref, {
+                    'taskId': ref_task,
+                    'status': 'completed',
+                    'lastCompleted': firestore.SERVER_TIMESTAMP,
+                    'totalCompletions': firestore.Increment(1)
+                }, True))
             post_writes.append((user_ref, {'stats.tasksCompleted': firestore.Increment(1)}, True))
 
         elif tx_type == 'withdrawal_finalized':

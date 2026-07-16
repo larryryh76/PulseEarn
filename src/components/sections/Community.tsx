@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, MessageSquare, Heart, Share2, TrendingUp, Zap } from 'lucide-react';
+import { Users, Share2, TrendingUp, Zap } from 'lucide-react';
 
 const Community: React.FC = () => {
   const highlights = [

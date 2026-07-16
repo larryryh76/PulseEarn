@@ -257,14 +257,6 @@ const Offerwalls: React.FC = () => {
       return;
     }
     const resolveToast = toast.loading(`Generating secure session for ${provider.name}...`);
-
-    // For non-embeddable providers (e.g. TimeWall): open a blank window synchronously
-    // to preserve user activation, then navigate it once the async token/fetch resolves.
-    let newWindow: Window | null = null;
-    if (!provider.embeddable) {
-      newWindow = window.open('', '_blank', 'noopener,noreferrer');
-    }
-
     try {
       const token = await currentUser.getIdToken();
       const res = await safeFetch(`/api/offerwall/providers/${provider.id}/launch`, {
@@ -276,25 +268,12 @@ const Offerwalls: React.FC = () => {
         if (res.embeddable) {
           setActiveProvider({ ...provider, launchUrl: res.launchUrl, embeddable: true });
         } else {
-          if (newWindow && !newWindow.closed) {
-            newWindow.location.href = res.launchUrl;
-          } else {
-            // Fallback if window was blocked or closed
-            window.open(res.launchUrl, '_blank', 'noopener,noreferrer');
-          }
+          window.open(res.launchUrl, '_blank', 'noopener,noreferrer');
         }
       } else {
-        // Close the blank window if launch failed
-        if (newWindow && !newWindow.closed) {
-          newWindow.close();
-        }
         toast.error(res.message || 'Failed to generate secure launch URL', { id: resolveToast });
       }
     } catch {
-      // Close the blank window if an error occurred
-      if (newWindow && !newWindow.closed) {
-        newWindow.close();
-      }
       toast.error('Failed to communicate with authorization server', { id: resolveToast });
     }
   }, [currentUser]);

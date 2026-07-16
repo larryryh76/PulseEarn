@@ -1,5 +1,3 @@
-import React from 'react';
-import Home from './pages/Home';
 import Hero from './components/sections/Hero';
 import HowItWorks from './components/sections/HowItWorks';
 import Marketplace from './components/sections/Marketplace';

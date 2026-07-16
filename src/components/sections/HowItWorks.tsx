@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, CheckCircle, Wallet, TrendingUp, Trophy, Banknote } from 'lucide-react';
+import { Zap, CheckCircle, Wallet, Trophy } from 'lucide-react';
 
 const HowItWorks: React.FC = () => {
   const steps = [

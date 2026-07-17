@@ -15,7 +15,7 @@ const BottomNav: React.FC = () => {
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Prediction', path: '/predictions', icon: TrendingUp },
-    { name: 'Tasks', path: '/tasks', icon: Shield },
+    { name: 'Marketplace', path: '/marketplace', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Me', path: '/me', icon: User },
   ];
@@ -53,7 +53,7 @@ const BottomNav: React.FC = () => {
                     />
                  )}
                  <link.icon size={22} strokeWidth={isActive ? 2.5 : 2} className="relative z-10" />
-                 {link.path === '/tasks' && totalActionableCount > 0 && (
+                 {link.path === '/marketplace' && totalActionableCount > 0 && (
                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-background shadow-lg z-20">
                       <span className="text-[7px] font-bold text-text-primary">{totalActionableCount}</span>
                    </div>

@@ -6,7 +6,6 @@ import Login from './pages/Login'
 import VerifyEmail from './pages/VerifyEmail'
 import AuthAction from './pages/AuthAction'
 import Dashboard from './pages/Dashboard'
-import Tasks from './pages/Tasks'
 import Predictions from './pages/predictions/Predictions'
 import Referrals from './pages/Referrals'
 import Wallet from './pages/Wallet'
@@ -14,7 +13,7 @@ import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
-import Offerwalls from './pages/Offerwalls'
+import Marketplace from './pages/Marketplace'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
@@ -156,7 +155,8 @@ function App() {
         {/* PERSISTENT APP ARCHITECTURE */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
            <Route path="/dashboard" element={<Dashboard />} />
-           <Route path="/tasks" element={<Tasks />} />
+           <Route path="/marketplace" element={<Marketplace />} />
+           <Route path="/tasks" element={<Marketplace />} />
            <Route path="/predictions" element={<Predictions />} />
            <Route path="/referrals" element={<Referrals />} />
            <Route path="/wallet" element={<Wallet />} />
@@ -164,7 +164,7 @@ function App() {
            <Route path="/notifications" element={<Notifications />} />
            <Route path="/support" element={<SupportCenter />} />
            <Route path="/guide" element={<Guide />} />
-           <Route path="/offerwalls" element={<Offerwalls />} />
+           <Route path="/offerwalls" element={<Marketplace />} />
         </Route>
 
         <Route path="/privacy" element={<PrivacyPolicy />} />

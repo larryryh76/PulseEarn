@@ -18,9 +18,9 @@ const Community: React.FC = () => {
     },
     {
       icon: TrendingUp,
-      stat: 'USDT & Crypto',
-      label: 'Flexible Withdrawals',
-      description: 'Direct payouts to your self-custody wallet of choice',
+      stat: '100%',
+      label: 'Redemption Rate',
+      description: 'All verified rewards are processed with zero delay',
     },
   ];
 
@@ -29,19 +29,22 @@ const Community: React.FC = () => {
       name: 'Alex M.',
       role: 'PulseEarn Member',
       quote: 'Finally a platform that feels transparent. I can see exactly where my earnings come from.',
-      avatar: '👤',
+      initials: 'AM',
+      color: 'from-blue-500/20 to-indigo-500/5 text-blue-400 border-blue-500/30',
     },
     {
       name: 'Sarah K.',
       role: 'Top Earner',
       quote: 'The variety of opportunities keeps me engaged. Earning real money has never been this straightforward.',
-      avatar: '👤',
+      initials: 'SK',
+      color: 'from-purple-500/20 to-pink-500/5 text-purple-400 border-purple-500/30',
     },
     {
       name: 'Jordan T.',
       role: 'Community Builder',
       quote: 'The referral program is amazing. I earned more by inviting friends than any other platform.',
-      avatar: '👤',
+      initials: 'JT',
+      color: 'from-amber-500/20 to-orange-500/5 text-amber-400 border-amber-500/30',
     },
   ];
 
@@ -147,29 +150,32 @@ const Community: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="p-8 rounded-3xl border border-border bg-surface/50 backdrop-blur-sm hover:bg-surface-bright transition-all"
+                className="p-8 rounded-[2rem] border border-border bg-surface/50 backdrop-blur-sm hover:bg-surface-bright hover:border-primary/20 transition-all duration-300 flex flex-col justify-between"
               >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-2xl">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <div className="font-black text-text-primary text-sm uppercase tracking-tight">
-                      {testimonial.name}
+                <div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${testimonial.color} border flex items-center justify-center text-xs font-black tracking-wider`}>
+                      {testimonial.initials}
                     </div>
-                    <div className="text-text-tertiary text-xs font-bold uppercase tracking-widest">
-                      {testimonial.role}
+                    <div>
+                      <div className="font-black text-text-primary text-sm uppercase tracking-tight">
+                        {testimonial.name}
+                      </div>
+                      <div className="text-text-tertiary text-[10px] font-bold uppercase tracking-widest">
+                        {testimonial.role}
+                      </div>
                     </div>
                   </div>
+                  <p className="text-text-secondary text-sm font-medium leading-relaxed italic">
+                    "{testimonial.quote}"
+                  </p>
                 </div>
-                <p className="text-text-secondary font-medium leading-relaxed italic">
-                  "{testimonial.quote}"
-                </p>
-                <div className="flex gap-1 mt-6">
+
+                <div className="flex gap-1 mt-6 pt-6 border-t border-border/40">
                   {[...Array(5)].map((_, j) => (
-                    <div key={j} className="text-primary text-lg">
-                      ⭐
-                    </div>
+                    <span key={j} className="text-amber-500 text-xs">
+                      ★
+                    </span>
                   ))}
                 </div>
               </motion.div>

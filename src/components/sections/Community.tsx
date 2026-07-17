@@ -5,22 +5,22 @@ import { Users, Share2, TrendingUp, Zap } from 'lucide-react';
 const Community: React.FC = () => {
   const highlights = [
     {
-      icon: Users,
-      stat: '120K+',
-      label: 'Active Users',
-      description: 'A thriving global community of earners',
+      icon: Zap,
+      stat: '< 2 Hours',
+      label: 'Average Review Time',
+      description: 'Fast, secure administrative validation of your submissions',
     },
     {
-      icon: Zap,
-      stat: '5M+',
-      label: 'Tasks Completed',
-      description: 'Real activity driving real rewards',
+      icon: Users,
+      stat: '100% Auditable',
+      label: 'System Ledger',
+      description: 'Every point earned is backed by an immutable ledger trail',
     },
     {
       icon: TrendingUp,
-      stat: '$2.5M',
-      label: 'Rewards Distributed',
-      description: 'Verified earnings in user hands',
+      stat: 'USDT & Crypto',
+      label: 'Flexible Withdrawals',
+      description: 'Direct payouts to your self-custody wallet of choice',
     },
   ];
 

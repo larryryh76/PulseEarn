@@ -86,7 +86,7 @@ const Features: React.FC = () => {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ delay: index * 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
             >
               <Card className="h-full border border-border bg-surface hover:bg-surface-bright transition-all duration-700 rounded-[2.5rem] p-8 md:p-10 group relative overflow-hidden hover:border-primary/20 hover:shadow-premium">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -6,13 +6,13 @@ const Community: React.FC = () => {
   const highlights = [
     {
       icon: Users,
-      stat: '50K+',
+      stat: '120K+',
       label: 'Active Users',
       description: 'A thriving global community of earners',
     },
     {
       icon: Zap,
-      stat: '1M+',
+      stat: '5M+',
       label: 'Tasks Completed',
       description: 'Real activity driving real rewards',
     },

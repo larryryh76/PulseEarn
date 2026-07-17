@@ -201,7 +201,7 @@ const XpProgressBar: React.FC<{ xp: number; level: number }> = ({ xp, level }) =
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${prog.progress}%` }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] as const }}
           className="h-full bg-primary rounded-full shadow-[0_0_12px_rgba(94,106,210,0.5)]"
         />
       </div>

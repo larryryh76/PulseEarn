@@ -93,7 +93,7 @@ const FAQItem = ({ faq, index }: { faq: any, index: number }) => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
           >
             <div className="px-6 md:px-8 pb-6 md:pb-8 text-text-secondary text-sm md:text-base leading-relaxed font-medium border-t border-border pt-5 md:pt-6">
               {faq.answer}

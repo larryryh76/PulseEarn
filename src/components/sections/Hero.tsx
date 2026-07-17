@@ -96,7 +96,7 @@ const Hero: React.FC = () => {
             <motion.h1
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] as const }}
               className="text-5xl sm:text-7xl lg:text-8xl font-black leading-[1.05] sm:leading-[1.05] tracking-tight text-text-primary break-words uppercase"
             >
               EARN <br className="hidden sm:block" />
@@ -105,7 +105,7 @@ const Hero: React.FC = () => {
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] as const }}
               className="text-text-secondary text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-medium px-4"
             >
               Discover a transparent reward ecosystem. Earn PTS through verified community activities and market-based forecasting campaigns.
@@ -116,7 +116,7 @@ const Hero: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
             className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-24 relative"
           >
             <button
@@ -138,7 +138,7 @@ const Hero: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 60, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] as const, delay: 0.2 }}
             className="relative w-full max-w-5xl mx-auto group"
           >
              {/* Pulsing Gradient Glow behind mockups */}

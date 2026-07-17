@@ -18,9 +18,9 @@ const Community: React.FC = () => {
     },
     {
       icon: TrendingUp,
-      stat: '$2.5M',
-      label: 'Rewards Distributed',
-      description: 'Verified earnings in user hands',
+      stat: '100%',
+      label: 'Redemption Rate',
+      description: 'All verified rewards are processed with zero delay',
     },
   ];
 

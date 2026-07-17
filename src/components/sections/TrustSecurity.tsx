@@ -204,9 +204,9 @@ const TrustSecurity: React.FC = () => {
           className="mt-20 md:mt-32 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8"
         >
           {[
-            { label: 'Verified Users', value: '50K+' },
-            { label: 'Secure Transactions', value: '1M+' },
-            { label: 'Uptime Guarantee', value: '99.9%' },
+            { label: 'Audit Rating', value: 'A+' },
+            { label: 'Average Processing Time', value: '< 15m' },
+            { label: 'System Uptime', value: '99.99%' },
           ].map((stat, i) => (
             <motion.div
               key={i}

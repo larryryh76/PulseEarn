@@ -49,7 +49,7 @@ const FinalCTA: React.FC = () => {
             transition={{ delay: 0.2 }}
             className="text-lg sm:text-xl text-text-secondary font-medium mb-12 max-w-2xl mx-auto leading-relaxed"
           >
-            Join 50K+ verified earners already making real money through genuine opportunities.
+            Join thousands of verified earners already maximizing their potential through genuine opportunities.
             Sign up in seconds. Start earning today.
           </motion.p>
 

@@ -31,7 +31,7 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Prediction', path: '/predictions', icon: TrendingUp },
-    { name: 'Tasks', path: '/tasks', icon: Shield },
+    { name: 'Marketplace', path: '/marketplace', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },
     { name: 'Me', path: '/me', icon: User },
   ];
@@ -81,7 +81,7 @@ const Navbar: React.FC = () => {
                     >
                       <div className="flex items-center gap-1.5">
                         {link.name}
-                        {link.path === '/tasks' && totalActionableCount > 0 && (
+                        {link.path === '/marketplace' && totalActionableCount > 0 && (
                           <span className="w-4 h-4 bg-danger rounded-full flex items-center justify-center text-[7px] font-bold text-text-primary shadow-[0_0_8px_rgba(239,68,68,0.4)]">
                             {totalActionableCount}
                           </span>

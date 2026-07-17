@@ -150,6 +150,52 @@ const TrustSecurity: React.FC = () => {
           ))}
         </motion.div>
 
+        {/* Platform Verification Ledger */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-20 p-8 md:p-10 rounded-[2.5rem] border border-border bg-surface-bright/40 backdrop-blur-sm hover:border-primary/20 transition-colors duration-300"
+        >
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+              <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/10 px-3 py-1 rounded-md">
+                Live Audit Stream
+              </span>
+              <h3 className="text-xl font-black text-text-primary uppercase tracking-tight mt-3">
+                Decentralized Fraud Verification Ledger
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-tertiary">
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+              Fully Synchronized with Verification Nodes
+            </div>
+          </div>
+
+          <div className="space-y-3 font-mono">
+            {[
+              { id: 'TX-984201', event: 'App Installation Verify', action: 'Fraud Audit Pass', node: 'NODE_04', time: 'Just Now' },
+              { id: 'TX-984196', event: 'USDT Settlement Verification', action: 'Settlement Signed', node: 'NODE_09', time: '2m ago' },
+              { id: 'TX-984191', event: '7-Day Streak Validation', action: 'Multi-device Scan Pass', node: 'NODE_12', time: '5m ago' },
+            ].map((log, index) => (
+              <div key={index} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-surface/60 border border-border/50 text-[11px] hover:bg-surface-bright/80 transition-colors gap-2">
+                <div className="flex items-center gap-4">
+                  <span className="font-bold text-primary">{log.id}</span>
+                  <span className="h-1 w-1 rounded-full bg-border" />
+                  <span className="text-text-secondary">{log.event}</span>
+                </div>
+                <div className="flex items-center gap-4 justify-between md:justify-end">
+                  <span className="px-2 py-0.5 rounded bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider">
+                    {log.action}
+                  </span>
+                  <span className="text-text-tertiary font-bold">{log.node}</span>
+                  <span className="text-text-tertiary/60">{log.time}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
         {/* Trust Stats */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}

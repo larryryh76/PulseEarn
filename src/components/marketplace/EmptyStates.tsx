@@ -66,7 +66,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'flex flex-col items-center justify-center text-center py-16 px-6',
+        'relative flex flex-col items-center justify-center text-center py-16 px-6',
         className
       )}
     >

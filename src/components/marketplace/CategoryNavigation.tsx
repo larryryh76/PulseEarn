@@ -63,15 +63,16 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
   onCategoryChange,
   className,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [isSticky, setIsSticky] = useState(false);
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   // Handle sticky state
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -80,22 +81,22 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
       { threshold: 0 }
     );
 
-    observer.observe(container);
+    observer.observe(sentinel);
     return () => observer.disconnect();
   }, []);
 
   // Update indicator position
   useEffect(() => {
     const button = buttonRefs.current.get(activeCategory);
-    const container = containerRef.current;
-    if (!button || !container) return;
+    const scroller = scrollRef.current;
+    if (!button || !scroller) return;
 
-    const containerRect = container.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
 
     setIndicatorStyle({
       width: buttonRect.width,
-      left: buttonRect.left - containerRect.left + container.scrollLeft,
+      left: buttonRect.left - scrollerRect.left + scroller.scrollLeft,
     });
   }, [activeCategory]);
 
@@ -115,7 +116,7 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
 
   return (
     <div
-      ref={containerRef}
+      ref={sentinelRef}
       className={cn(
         'relative w-full',
         isSticky && 'sticky top-0 z-40',
@@ -132,7 +133,7 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
       )}
 
       {/* Scrollable Container */}
-      <div className="relative overflow-x-auto scrollbar-hide">
+      <div ref={scrollRef} className="relative overflow-x-auto scrollbar-hide">
         <div className="flex items-center gap-1 px-4 py-3 min-w-max">
           {/* Animated Indicator */}
           <motion.div
@@ -144,13 +145,12 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
           />
 
           {categories.map((category) => {
-            const Icon = category.id === 'all' 
-              ? Sparkles 
+            const Icon = category.id === 'all'
+              ? Sparkles
               : CATEGORY_ICONS[category.id] || Sparkles;
             const isActive = activeCategory === category.id;
             const categoryConfig = MARKETPLACE_CATEGORIES.find(c => c.id === category.id);
             const gradient = categoryConfig?.gradient || ['#3B82F6', '#8B5CF6'];
-            const color = categoryConfig?.color || '#3B82F6';
 
             return (
               <button
@@ -200,15 +200,15 @@ export const CategoryNavigation: React.FC<CategoryNavigationProps> = ({
       </div>
 
       {/* Scroll Shadows */}
-      <ScrollShadows containerRef={containerRef} />
+      <ScrollShadows containerRef={scrollRef} />
     </div>
   );
 };
 
 // ─── Scroll Shadows ─────────────────────────────────────────────────────────
 
-const ScrollShadows: React.FC<{ containerRef: React.RefObject<HTMLDivElement> }> = ({ 
-  containerRef 
+const ScrollShadows: React.FC<{ containerRef: React.RefObject<HTMLDivElement | null> }> = ({
+  containerRef
 }) => {
   const [showLeftShadow, setShowLeftShadow] = useState(false);
   const [showRightShadow, setShowRightShadow] = useState(false);

@@ -34,21 +34,26 @@ export type LaunchMethod = 'inline' | 'native' | 'redirect' | 'modal';
  * Determine the best launch method for an opportunity.
  */
 export function determineLaunchMethod(opportunity: MarketplaceOpportunity): LaunchMethod {
+  // Check for inline launch mode first (provider or otherwise)
+  if (opportunity.source === 'provider' && opportunity.metadata.launchMode === 'inline') {
+    return 'inline';
+  }
+
   // If there's an external URL and it's a provider opportunity, use redirect
   if (opportunity.source === 'provider' && opportunity.action.url) {
     return 'redirect';
   }
-  
+
   // If the opportunity has a URL but is internal, use native
   if (opportunity.action.url && opportunity.action.actionType === 'url') {
     return 'native';
   }
-  
+
   // For claims and completes, use inline
   if (opportunity.action.actionType === 'claim' || opportunity.action.actionType === 'complete') {
     return 'inline';
   }
-  
+
   // Default to native
   return 'native';
 }
@@ -104,14 +109,12 @@ export async function generateLaunchUrl(
     }
 
     return { success: false, error: res.error || 'Failed to generate launch URL' };
-  } catch (err) {
-    // Fallback to direct URL if backend fails
-    console.warn('[LaunchEngine] Backend launch failed, using direct URL');
+  } catch (error) {
+    // Backend failure - return error instead of fallback
+    console.warn('[LaunchEngine] Backend launch failed:', error);
     return {
-      success: true,
-      url: opportunity.action.url,
-      trackingId: opportunity.action.trackingId,
-      returnUrl: window.location.origin + '/marketplace',
+      success: false,
+      error: 'Failed to generate secure launch URL. Please try again.',
     };
   }
 }
@@ -150,15 +153,26 @@ async function handleRedirectLaunch(
     return { success: false, error: 'No redirect URL available' };
   }
 
+  // Open blank window synchronously to avoid popup blockers
+  const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+
   // Generate tracking URL
   const result = await generateLaunchUrl(opportunity, userId);
-  
+
   if (!result.success) {
+    // Close the window on failure
+    if (newWindow) {
+      newWindow.close();
+    }
     return result;
   }
 
-  // Open the URL
-  window.open(result.url, '_blank', 'noopener,noreferrer');
+  // Navigate the window to the actual URL
+  if (newWindow && result.url) {
+    newWindow.location.href = result.url;
+  } else {
+    return { success: false, error: 'Failed to open window (popup blocked)' };
+  }
 
   return {
     success: true,
@@ -237,21 +251,25 @@ export function handleProviderReturn(): {
   error?: string;
 } {
   const params = new URLSearchParams(window.location.search);
-  
+
   // Check for provider callback parameters
-  const status = params.get('status') as 'completed' | 'pending' | 'failed' | null;
+  const statusParam = params.get('status');
+  const validStatuses = ['completed', 'pending', 'failed'];
+  const status = statusParam && validStatuses.includes(statusParam)
+    ? (statusParam as 'completed' | 'pending' | 'failed')
+    : undefined;
   const opportunityId = params.get('opportunity_id') || params.get('oid');
   const error = params.get('error');
-  
+
   // Clear URL parameters
   if (window.history.replaceState) {
     const cleanUrl = window.location.pathname;
     window.history.replaceState({}, '', cleanUrl);
   }
-  
+
   return {
     opportunityId: opportunityId || undefined,
-    status: status || undefined,
+    status,
     error: error || undefined,
   };
 }
@@ -272,7 +290,7 @@ export interface OpportunityAction {
  */
 export function getOpportunityActions(opportunity: MarketplaceOpportunity): OpportunityAction[] {
   const actions: OpportunityAction[] = [];
-  
+
   switch (opportunity.status) {
     case 'available':
       actions.push({ type: 'start', label: 'Start' });
@@ -287,11 +305,14 @@ export function getOpportunityActions(opportunity: MarketplaceOpportunity): Oppo
     case 'completed':
       actions.push({ type: 'view', label: 'View' });
       break;
+    case 'rejected':
+      actions.push({ type: 'start', label: 'Retry' });
+      break;
     case 'locked':
       // No actions available
       break;
   }
-  
+
   return actions;
 }
 
@@ -319,5 +340,16 @@ export function getPrimaryCTA(opportunity: MarketplaceOpportunity): {
       return { label: 'Start', action: 'start' };
   }
 }
+
+const LaunchEngine = {
+  determineLaunchMethod,
+  supportsInlineLaunch,
+  generateLaunchUrl,
+  launchOpportunity,
+  trackLaunch,
+  handleProviderReturn,
+  getOpportunityActions,
+  getPrimaryCTA,
+};
 
 export default LaunchEngine;

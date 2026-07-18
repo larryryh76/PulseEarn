@@ -25,20 +25,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp,
-  TrendingDown,
   Activity,
   Target,
   DollarSign,
-  Users,
-  Clock,
   AlertCircle,
   CheckCircle2,
-  BarChart3,
-  Layers,
   RefreshCw,
   ExternalLink,
-  ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
@@ -49,14 +42,20 @@ import { cn } from '../../../utils';
 
 interface MarketplaceStats {
   totalOpportunities: number;
+  totalOpportunitiesChange?: number;
   activeOpportunities: number;
-  completedToday: number;
+  completed: number;
+  completedChange?: number;
+  completedToday?: number;
   pendingApprovals: number;
   totalRevenue: number;
-  revenueToday: number;
-  revenueThisWeek: number;
+  revenue: number;
+  revenueChange?: number;
+  revenueToday?: number;
+  revenueThisWeek?: number;
   averageReward: number;
   completionRate: number;
+  completionRateChange?: number;
   categoryBreakdown: CategoryStats[];
   providerHealth: ProviderHealth[];
   topOpportunities: OpportunityStats[];
@@ -91,7 +90,7 @@ interface ActivityItem {
   id: string;
   type: string;
   description: string;
-  timestamp: Date;
+  timestamp: Date | string;
   points: number;
 }
 
@@ -112,17 +111,25 @@ const OpsMarketplace: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await safeFetch('/api/admin/marketplace/stats', {
+      const res = await safeFetch(`/api/admin/marketplace/stats?timeframe=${timeframe}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
       
       if (res.success) {
-        setStats(res.data);
+        // Convert timestamp strings to Date instances
+        const data = res.data;
+        if (data.recentActivity) {
+          data.recentActivity = data.recentActivity.map((activity: ActivityItem) => ({
+            ...activity,
+            timestamp: typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp,
+          }));
+        }
+        setStats(data);
       } else {
         setError(res.error || 'Failed to load marketplace stats');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to marketplace API');
     } finally {
       setLoading(false);
@@ -189,25 +196,25 @@ const OpsMarketplace: React.FC = () => {
         <StatCard
           title="Total Opportunities"
           value={stats.totalOpportunities.toLocaleString()}
-          change={+12}
+          change={stats.totalOpportunitiesChange}
           icon={<Target className="text-blue-400" />}
         />
         <StatCard
-          title="Completed Today"
-          value={stats.completedToday.toLocaleString()}
-          change={+8}
+          title="Completed"
+          value={stats.completed.toLocaleString()}
+          change={stats.completedChange}
           icon={<CheckCircle2 className="text-emerald-400" />}
         />
         <StatCard
           title="Revenue"
-          value={`$${stats.revenueToday.toLocaleString()}`}
-          change={+15}
+          value={`$${stats.revenue.toLocaleString()}`}
+          change={stats.revenueChange}
           icon={<DollarSign className="text-amber-400" />}
         />
         <StatCard
           title="Completion Rate"
           value={`${(stats.completionRate * 100).toFixed(1)}%`}
-          change={+2}
+          change={stats.completionRateChange}
           icon={<Activity className="text-purple-400" />}
         />
       </div>
@@ -304,7 +311,7 @@ const OpsMarketplace: React.FC = () => {
 interface StatCardProps {
   title: string;
   value: string;
-  change: number;
+  change?: number;
   icon: React.ReactNode;
 }
 
@@ -317,13 +324,15 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => (
       </div>
     </div>
     <p className="text-2xl font-black text-text-primary">{value}</p>
-    <div className={cn(
-      'flex items-center gap-1 mt-2 text-[10px] font-bold',
-      change >= 0 ? 'text-emerald-400' : 'text-danger'
-    )}>
-      {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-      {Math.abs(change)}% vs last period
-    </div>
+    {change !== undefined && (
+      <div className={cn(
+        'flex items-center gap-1 mt-2 text-[10px] font-bold',
+        change >= 0 ? 'text-emerald-400' : 'text-danger'
+      )}>
+        {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+        {Math.abs(change)}% vs last period
+      </div>
+    )}
   </div>
 );
 
@@ -363,26 +372,30 @@ const CategoryRow: React.FC<{ category: CategoryStats }> = ({ category }) => (
   </div>
 );
 
-const ActivityRow: React.FC<{ activity: ActivityItem }> = ({ activity }) => (
-  <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-bright transition-colors">
-    <div className={cn(
-      'w-8 h-8 rounded-lg flex items-center justify-center',
-      activity.points > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-surface-bright text-text-tertiary'
-    )}>
-      {activity.points > 0 ? <DollarSign size={14} /> : <Activity size={14} />}
+const ActivityRow: React.FC<{ activity: ActivityItem }> = ({ activity }) => {
+  const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp;
+
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-bright transition-colors">
+      <div className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center',
+        activity.points > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-surface-bright text-text-tertiary'
+      )}>
+        {activity.points > 0 ? <DollarSign size={14} /> : <Activity size={14} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-text-primary truncate">{activity.description}</p>
+        <p className="text-[10px] text-text-tertiary">{formatTime(timestamp)}</p>
+      </div>
+      <span className={cn(
+        'text-sm font-bold',
+        activity.points > 0 ? 'text-emerald-400' : 'text-text-tertiary'
+      )}>
+        {activity.points > 0 ? '+' : ''}{activity.points}
+      </span>
     </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-text-primary truncate">{activity.description}</p>
-      <p className="text-[10px] text-text-tertiary">{formatTime(activity.timestamp)}</p>
-    </div>
-    <span className={cn(
-      'text-sm font-bold',
-      activity.points > 0 ? 'text-emerald-400' : 'text-text-tertiary'
-    )}>
-      {activity.points > 0 ? '+' : ''}{activity.points}
-    </span>
-  </div>
-);
+  );
+};
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
 

@@ -14,14 +14,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Sparkles, 
-  Clock, 
-  Zap, 
+import {
+  Sparkles,
+  Clock,
+  Zap,
   ChevronRight,
-  ArrowRight,
-  Star,
-  Gift
+  Star
 } from 'lucide-react';
 import { MarketplaceOpportunity } from '../../types/marketplace';
 import { cn } from '../../utils';
@@ -51,21 +49,30 @@ export const MarketplaceHero: React.FC<MarketplaceHeroProps> = ({
   ).slice(0, 5);
   
   // Fallback to highest paying opportunities if no featured
-  const displayOpportunities = featuredOpportunities.length > 0 
-    ? featuredOpportunities 
+  const displayOpportunities = featuredOpportunities.length > 0
+    ? featuredOpportunities
     : opportunities.slice(0, 5);
-  
+
+  // Clamp currentIndex when displayOpportunities changes
+  useEffect(() => {
+    if (displayOpportunities.length === 0) {
+      setCurrentIndex(0);
+    } else if (currentIndex >= displayOpportunities.length) {
+      setCurrentIndex(displayOpportunities.length - 1);
+    }
+  }, [displayOpportunities.length, currentIndex]);
+
   // Auto-rotate through campaigns
   useEffect(() => {
     if (!autoRotate || displayOpportunities.length <= 1) return;
-    
+
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % displayOpportunities.length);
     }, rotationInterval);
-    
+
     return () => clearInterval(interval);
   }, [autoRotate, displayOpportunities.length, rotationInterval]);
-  
+
   const currentOpportunity = displayOpportunities[currentIndex];
   
   if (!currentOpportunity) {

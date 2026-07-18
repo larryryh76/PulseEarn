@@ -46,6 +46,9 @@ export const OpportunityCarousel: React.FC<OpportunityCarouselProps> = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; scrollLeft: number } | null>(null);
   
   const displayOpportunities = opportunities.slice(0, maxItems);
   
@@ -86,6 +89,33 @@ export const OpportunityCarousel: React.FC<OpportunityCarouselProps> = ({
     });
   };
 
+  // Mouse drag handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const container = scrollRef.current;
+    if (!container || e.button !== 0) return;
+
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      scrollLeft: container.scrollLeft,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const container = scrollRef.current;
+    if (!container || !isDragging || !dragStartRef.current) return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    container.scrollLeft = dragStartRef.current.scrollLeft - dx;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   // Get source icon and color
   const sourceConfig = getSourceConfig(source);
 
@@ -124,33 +154,37 @@ export const OpportunityCarousel: React.FC<OpportunityCarouselProps> = ({
         <div className="flex items-center gap-2">
           <motion.button
             initial={{ opacity: 0 }}
-            animate={{ opacity: isHovering && canScrollLeft ? 1 : 0 }}
+            animate={{ opacity: (isHovering || isFocused) && canScrollLeft ? 1 : 0 }}
             onClick={() => scroll('left')}
             disabled={!canScrollLeft}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center',
               'bg-surface border border-border',
               'transition-all duration-200',
-              canScrollLeft 
-                ? 'hover:bg-surface-bright hover:border-primary/30 cursor-pointer' 
+              canScrollLeft
+                ? 'hover:bg-surface-bright hover:border-primary/30 cursor-pointer'
                 : 'opacity-30 cursor-not-allowed'
             )}
             aria-label="Scroll left"
           >
             <ChevronLeft size={16} className="text-text-secondary" />
           </motion.button>
-          
+
           <motion.button
             initial={{ opacity: 0 }}
-            animate={{ opacity: isHovering && canScrollRight ? 1 : 0 }}
+            animate={{ opacity: (isHovering || isFocused) && canScrollRight ? 1 : 0 }}
             onClick={() => scroll('right')}
             disabled={!canScrollRight}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center',
               'bg-surface border border-border',
               'transition-all duration-200',
-              canScrollRight 
-                ? 'hover:bg-surface-bright hover:border-primary/30 cursor-pointer' 
+              canScrollRight
+                ? 'hover:bg-surface-bright hover:border-primary/30 cursor-pointer'
                 : 'opacity-30 cursor-not-allowed'
             )}
             aria-label="Scroll right"
@@ -179,9 +213,14 @@ export const OpportunityCarousel: React.FC<OpportunityCarouselProps> = ({
           className={cn(
             'flex gap-4 overflow-x-auto snap-x snap-mandatory',
             'scrollbar-hide pb-4',
-            'px-4 md:px-0'
+            'px-4 md:px-0',
+            isDragging && 'cursor-grabbing select-none'
           )}
-          style={{ scrollPaddingLeft: '1rem' }}
+          style={{ scrollPaddingLeft: '1rem', cursor: isDragging ? 'grabbing' : 'grab' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           {displayOpportunities.map((opportunity, index) => (
             <motion.div
@@ -195,7 +234,7 @@ export const OpportunityCarousel: React.FC<OpportunityCarouselProps> = ({
                 opportunity={opportunity}
                 variant={layout === 'featured' ? 'featured' : 'default'}
                 onOpen={onOpportunityClick}
-                showProviderBadge={true}
+                showProviderBadge={false}
                 showXP={true}
               />
             </motion.div>
@@ -358,7 +397,7 @@ export const ContinueCarousel: React.FC<ContinueCarouselProps> = ({
               opportunity={opportunity}
               variant="default"
               onOpen={onOpportunityClick}
-              showProviderBadge={true}
+              showProviderBadge={false}
               showXP={true}
             />
           </motion.div>

@@ -34,6 +34,41 @@ import {
 } from '../engines/marketplace/RecommendationEngine';
 import { normalizeProviderOffer } from '../engines/marketplace/OpportunityNormalizer';
 
+// ─── Provider Curated Details ──────────────────────────────────────────────────
+
+const PROVIDER_INFO: Record<string, { description: string; category: OpportunityCategory; icon: string }> = {
+  lootably: {
+    description: 'Complete surveys, watch videos, and install apps to earn points.',
+    category: 'surveys',
+    icon: 'L',
+  },
+  bitlabs: {
+    description: 'Earn from premium survey panels with some of the highest payouts.',
+    category: 'surveys',
+    icon: 'B',
+  },
+  cpxresearch: {
+    description: 'Access thousands of daily surveys from top research companies.',
+    category: 'surveys',
+    icon: 'C',
+  },
+  adgem: {
+    description: 'Install apps, complete in-app actions, and trial offers.',
+    category: 'apps',
+    icon: 'A',
+  },
+  offertoro: {
+    description: 'A wide catalog of offers including gaming, apps, and subscriptions.',
+    category: 'featured',
+    icon: 'O',
+  },
+  timewall: {
+    description: 'Earn by watching videos and completing short time-based offers.',
+    category: 'videos',
+    icon: 'T',
+  },
+};
+
 // ─── Hook Interface ────────────────────────────────────────────────────────────
 
 export interface UseMarketplaceReturn {
@@ -124,7 +159,8 @@ export function useMarketplace(): UseMarketplaceReturn {
     setError(undefined);
 
     try {
-      const res = await safeFetch('/api/offerwall/providers', {
+      // Correct user-facing public endpoint (safeguarded against 403 Forbidden)
+      const res = await safeFetch('/api/offerwall/user-providers', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -132,27 +168,57 @@ export function useMarketplace(): UseMarketplaceReturn {
       });
 
       if (res.success && res.providers) {
-        const providerList: ProviderInventory[] = res.providers.map((p: any) => ({
-          providerId: p.id,
-          providerName: p.name,
-          opportunities: (p.offers || []).map((offer: any) =>
-            normalizeProviderOffer({
-              offerId: offer.id || offer.offerId,
-              providerId: p.id,
-              providerName: p.name,
-              title: offer.title || offer.name,
-              description: offer.description || '',
-              rewardAmount: offer.points || offer.reward || 0,
-              xpReward: offer.xp || 10,
-              estimatedTime: offer.time || offer.estimatedTime,
-              thumbnail: offer.thumbnail || offer.image,
-              category: offer.category,
-              actionUrl: offer.url || offer.actionUrl,
-            })
-          ),
-          lastSyncedAt: new Date(),
-          connectionStatus: p.enabled ? 'connected' : 'offline',
-        }));
+        const providerList: ProviderInventory[] = res.providers.map((p: any) => {
+          const offers = p.offers || [];
+
+          // Evolve to high-level curated portal opportunities if individual offers aren't populated (hosted model)
+          const opportunities = offers.length > 0
+            ? offers.map((offer: any) =>
+                normalizeProviderOffer({
+                  offerId: offer.id || offer.offerId,
+                  providerId: p.id,
+                  providerName: p.name,
+                  title: offer.title || offer.name,
+                  description: offer.description || '',
+                  rewardAmount: offer.points || offer.reward || 0,
+                  xpReward: offer.xp || 10,
+                  estimatedTime: offer.time || offer.estimatedTime,
+                  thumbnail: offer.thumbnail || offer.image,
+                  category: offer.category,
+                  actionUrl: offer.url || offer.actionUrl,
+                })
+              )
+            : [
+                normalizeProviderOffer({
+                  offerId: 'portal',
+                  providerId: p.id,
+                  providerName: p.name,
+                  title: `${p.name} Offers`,
+                  description: PROVIDER_INFO[p.id]?.description || `Complete custom tasks, offers, or surveys with ${p.name}.`,
+                  rewardAmount: p.maximumReward || 5000,
+                  xpReward: 120,
+                  estimatedTime: '5-30 mins',
+                  thumbnail: undefined,
+                  category: PROVIDER_INFO[p.id]?.category || 'featured',
+                  actionUrl: p.launchUrl || undefined,
+                })
+              ];
+
+          // Ensure inline embed support translates to `'embed'` launchMode if the provider is embeddable
+          opportunities.forEach((opp: MarketplaceOpportunity) => {
+            if (p.embeddable) {
+              opp.metadata.launchMode = 'embed';
+            }
+          });
+
+          return {
+            providerId: p.id,
+            providerName: p.name,
+            opportunities,
+            lastSyncedAt: new Date(),
+            connectionStatus: 'connected' as const,
+          };
+        });
 
         setProviders(providerList);
         
@@ -223,11 +289,12 @@ export function useMarketplace(): UseMarketplaceReturn {
         // Non-critical, don't block opening
       }
       
-      // Open the provider URL
-      window.open(opportunity.action.url, '_blank');
+      // Let standard links open in a new tab if NOT embed launchMode
+      if (opportunity.metadata.launchMode !== 'embed') {
+        window.open(opportunity.action.url, '_blank');
+      }
     } else if (opportunity.action.actionType === 'claim') {
       // Handle internal claim flow
-      // This would trigger the claim modal or claim action
       console.log('Claim opportunity:', opportunity.id);
     }
   }, [currentUser]);

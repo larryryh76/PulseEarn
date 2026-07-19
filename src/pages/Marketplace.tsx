@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass,
   Sparkles,
@@ -18,6 +18,9 @@ import {
   WifiOff,
   AlertCircle,
   CheckCircle2,
+  Globe,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMarketplace } from '../hooks/useMarketplace';
@@ -69,6 +72,7 @@ const Marketplace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('reward');
   const [showRefresh, setShowRefresh] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<{ id: string; name: string; launchUrl: string } | null>(null);
 
   // Refetch providers periodically
   useEffect(() => {
@@ -97,10 +101,21 @@ const Marketplace: React.FC = () => {
   // Handle opportunity open
   const handleOpenOpportunity = useCallback((opp: MarketplaceOpportunity) => {
     if (opp.source === 'provider' && opp.action.url) {
-      // Track and open external offer
-      toast.loading('Opening offer...', { id: 'opening-offer' });
-      openOpportunity(opp);
-      setTimeout(() => toast.dismiss('opening-offer'), 1000);
+      // Check for inline embed support
+      if (opp.metadata.launchMode === 'embed') {
+        setActiveProvider({
+          id: opp.providerId || 'custom',
+          name: opp.providerName || 'Provider',
+          launchUrl: opp.action.url,
+        });
+        // Call openOpportunity to track click/launch metrics, without opening a new tab
+        openOpportunity(opp);
+      } else {
+        // Track and open external offer
+        toast.loading('Opening offer...', { id: 'opening-offer' });
+        openOpportunity(opp);
+        setTimeout(() => toast.dismiss('opening-offer'), 1000);
+      }
     } else if (opp.action.actionType === 'claim') {
       // Handle internal claim
       toast(`Starting: ${opp.title}`, { icon: '🚀' });
@@ -399,6 +414,48 @@ const Marketplace: React.FC = () => {
           />
         </motion.div>
       </div>
+
+      {/* Embedded active provider modal/overlay for in-site completions */}
+      <AnimatePresence>
+        {activeProvider && activeProvider.launchUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe size={15} className="text-primary shrink-0" />
+                <span className="text-[13px] font-bold text-text-primary truncate">{activeProvider.name}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={activeProvider.launchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-text-tertiary hover:text-text-primary hover:bg-surface-bright transition-all text-[10px] font-bold uppercase tracking-widest"
+                >
+                  New Tab <ExternalLink size={12} />
+                </a>
+                <button
+                  onClick={() => setActiveProvider(null)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white hover:bg-primary-bright transition-all text-[10px] font-bold uppercase tracking-widest cursor-pointer"
+                >
+                  Close <X size={12} />
+                </button>
+              </div>
+            </div>
+            <iframe
+              title={`${activeProvider.name} Offerwall`}
+              src={activeProvider.launchUrl}
+              className="flex-1 w-full border-0 bg-white"
+              sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+              allow="fullscreen; clipboard-write"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

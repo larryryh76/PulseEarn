@@ -11,14 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-.env
-
-# Python
-__pycache__/
-*.pyc
-
-# Test results
-test-results
 
 # Editor directories and files
 .vscode/*

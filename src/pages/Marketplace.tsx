@@ -450,6 +450,7 @@ const Marketplace: React.FC = () => {
               title={`${activeProvider.name} Offerwall`}
               src={activeProvider.launchUrl}
               className="flex-1 w-full border-0 bg-white"
+              sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin"
               allow="fullscreen; clipboard-write"
             />
           </motion.div>

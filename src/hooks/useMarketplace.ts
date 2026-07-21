@@ -124,10 +124,12 @@ export function useMarketplace(): UseMarketplaceReturn {
     setError(undefined);
 
     try {
-      const res = await safeFetch('/api/offerwall/providers', {
+      const idToken = await currentUser.getIdToken();
+      const res = await safeFetch('/api/offerwall/user-providers', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
       });
 
@@ -151,7 +153,7 @@ export function useMarketplace(): UseMarketplaceReturn {
             })
           ),
           lastSyncedAt: new Date(),
-          connectionStatus: p.enabled ? 'connected' : 'offline',
+          connectionStatus: 'connected',
         }));
 
         setProviders(providerList);

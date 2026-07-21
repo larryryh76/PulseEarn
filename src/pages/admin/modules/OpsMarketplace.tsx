@@ -23,7 +23,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
   Target,
@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { safeFetch } from '../../../utils/api';
 import { cn } from '../../../utils';
+import toast from 'react-hot-toast';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -102,10 +103,45 @@ const OpsMarketplace: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month'>('today');
 
+  // Administrative Wipe & Rebuild State
+  const [showWipeModal, setShowWipeModal] = useState(false);
+  const [wipeConfirmText, setWipeConfirmText] = useState('');
+  const [isWiping, setIsWiping] = useState(false);
+
   // Fetch marketplace stats
   useEffect(() => {
     fetchStats();
   }, [timeframe]);
+
+  const handleWipeAndRebuild = async () => {
+    if (wipeConfirmText !== 'DELETE AND REBUILD TASKS') {
+      toast.error("Please type the confirmation text exactly.");
+      return;
+    }
+    
+    setIsWiping(true);
+    const loadToast = toast.loading("Executing full marketplace database wipe & re-seed...");
+    try {
+      const res = await safeFetch('/api/admin/tasks/wipe-and-rebuild', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'DELETE AND REBUILD TASKS' })
+      });
+      
+      if (res.success) {
+        toast.success(res.message || "Marketplace successfully rebuilt with premium active tasks and providers!", { id: loadToast });
+        setShowWipeModal(false);
+        setWipeConfirmText('');
+        fetchStats();
+      } else {
+        toast.error(res.error || res.reason || "Wipe failed", { id: loadToast });
+      }
+    } catch (err) {
+      toast.error("System connection error during rebuild", { id: loadToast });
+    } finally {
+      setIsWiping(false);
+    }
+  };
 
   const fetchStats = async () => {
     setLoading(true);
@@ -164,7 +200,7 @@ const OpsMarketplace: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Marketplace Operations</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -172,22 +208,33 @@ const OpsMarketplace: React.FC = () => {
           </p>
         </div>
         
-        {/* Timeframe Selector */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface border border-border">
-          {(['today', 'week', 'month'] as const).map(period => (
-            <button
-              key={period}
-              onClick={() => setTimeframe(period)}
-              className={cn(
-                'px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all',
-                timeframe === period
-                  ? 'bg-primary text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-              )}
-            >
-              {period}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Wipe & Rebuild Action */}
+          <button
+            onClick={() => setShowWipeModal(true)}
+            className="px-4.5 py-2.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-black uppercase tracking-wider hover:bg-danger hover:text-white transition-all shadow-md flex items-center gap-1.5"
+          >
+            <RefreshCw size={13} className="animate-spin-slow" />
+            Wipe & Rebuild
+          </button>
+
+          {/* Timeframe Selector */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface border border-border">
+            {(['today', 'week', 'month'] as const).map(period => (
+              <button
+                key={period}
+                onClick={() => setTimeframe(period)}
+                className={cn(
+                  'px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all',
+                  timeframe === period
+                    ? 'bg-primary text-white'
+                    : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                {period}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -302,6 +349,88 @@ const OpsMarketplace: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Wipe & Rebuild Admin Modal */}
+      <AnimatePresence>
+        {showWipeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isWiping && setShowWipeModal(false)}
+              className="absolute inset-0 bg-background/95 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-surface border border-danger/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10"
+            >
+              <div className="p-6 border-b border-border bg-danger/10 flex items-center gap-3">
+                <AlertCircle className="text-danger animate-bounce" size={24} />
+                <div>
+                  <h3 className="text-sm font-black text-danger uppercase tracking-widest">Wipe & Rebuild Database</h3>
+                  <p className="text-[10px] text-text-tertiary mt-0.5">CRITICAL SYSTEM MUTATION ACTION</p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  This action is permanent and will perform the following operations:
+                </p>
+                <ul className="list-disc list-inside text-[11px] text-text-tertiary space-y-1.5 pl-1 font-semibold">
+                  <li>Purge all custom & active <span className="text-white">tasks</span>, campaigns, and missions</li>
+                  <li>Reset all user completion records & <span className="text-white">claims progress</span></li>
+                  <li>Clear and initialize all <span className="text-white">offerwall provider entries</span></li>
+                  <li>Re-seed database with high-fidelity, active premium tasks</li>
+                </ul>
+
+                <div className="pt-2 space-y-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-text-tertiary">
+                    Type confirmation phrase:
+                  </label>
+                  <p className="text-[11px] font-mono text-danger bg-danger/5 px-2.5 py-1.5 rounded border border-danger/10 font-bold select-all">
+                    DELETE AND REBUILD TASKS
+                  </p>
+                  <input
+                    type="text"
+                    value={wipeConfirmText}
+                    onChange={e => setWipeConfirmText(e.target.value)}
+                    disabled={isWiping}
+                    placeholder="Type the exact phrase above..."
+                    className="w-full bg-surface-bright border border-border rounded-xl px-3.5 py-2.5 text-xs focus:border-danger/50 outline-none transition-all text-white font-medium placeholder:text-text-tertiary"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-border bg-surface-bright flex gap-3">
+                <button
+                  disabled={isWiping}
+                  onClick={() => {
+                    setShowWipeModal(false);
+                    setWipeConfirmText('');
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-border hover:border-text-tertiary transition-all font-bold text-[10px] uppercase tracking-wider text-text-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isWiping || wipeConfirmText !== 'DELETE AND REBUILD TASKS'}
+                  onClick={handleWipeAndRebuild}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-danger hover:bg-danger/90 disabled:opacity-30 disabled:hover:bg-danger text-white font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg"
+                >
+                  {isWiping ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Confirm Action'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

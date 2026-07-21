@@ -344,14 +344,16 @@ function sortResults(
 }
 
 function parseTimeToMinutes(time: string): number {
-  if (time.includes('Daily')) return 1;
-  if (time.includes('Ongoing')) return 999;
+  const tLower = time.toLowerCase();
+  if (tLower.includes('daily')) return 1440; // 24 hours in minutes
+  if (tLower.includes('ongoing')) return 999999;
   
   const match = time.match(/(\d+)/);
   if (!match) return 15;
   
   const num = parseInt(match[1], 10);
-  if (time.includes('hour') || time.includes('h')) return num * 60;
+  if (tLower.includes('day') || tLower.includes('d')) return num * 24 * 60;
+  if (tLower.includes('hour') || tLower.includes('h')) return num * 60;
   return num;
 }
 

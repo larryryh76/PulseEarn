@@ -1,6 +1,0 @@
-firebase-admin
-flask
-flask-cors
-requests
-google-cloud-firestore
-google-auth

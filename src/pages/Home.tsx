@@ -7,7 +7,6 @@ import Achievements from '../components/sections/Achievements';
 import Community from '../components/sections/Community';
 import TrustSecurity from '../components/sections/TrustSecurity';
 import FAQ from '../components/sections/FAQ';
-import FinalCTA from '../components/sections/FinalCTA';
 import SignupCTA from '../components/sections/SignupCTA';
 import MainLayout from '../components/layout/MainLayout';
 import { useCryptoData } from '../hooks/useCryptoData';
@@ -26,7 +25,6 @@ const Home: React.FC = () => {
       <Community />
       <TrustSecurity />
       <FAQ />
-      <FinalCTA />
       <SignupCTA />
     </MainLayout>
   );

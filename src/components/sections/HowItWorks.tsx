@@ -62,7 +62,7 @@ const HowItWorks: React.FC = () => {
   };
 
   return (
-    <section className="py-24 md:py-32 relative overflow-hidden bg-background">
+    <section id="features" className="py-24 md:py-32 relative overflow-hidden bg-background">
       {/* Background Elements */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/3 left-0 w-96 h-96 bg-primary/5 blur-[120px] rounded-full" />

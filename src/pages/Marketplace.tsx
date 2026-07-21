@@ -1,12 +1,12 @@
 /**
  * PulseEarn Marketplace
  * 
- * The unified earning ecosystem of PulseEarn.
- * All opportunities (internal and external) presented as one seamless experience.
+ * The premium unified earning ecosystem of PulseEarn.
+ * All opportunities (internal and external) presented as one seamless fintech experience.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass,
   Sparkles,
@@ -18,6 +18,10 @@ import {
   WifiOff,
   AlertCircle,
   CheckCircle2,
+  ShieldCheck,
+  ArrowUpRight,
+  Play,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMarketplace } from '../hooks/useMarketplace';
@@ -31,6 +35,7 @@ import {
   FilterPanel,
   SortDropdown,
   ActiveFilterTags,
+  MarketplaceHero,
 } from '../components/marketplace';
 import {
   MarketplaceOpportunity,
@@ -70,6 +75,10 @@ const Marketplace: React.FC = () => {
   const [sortBy, setSortBy] = useState('reward');
   const [showRefresh, setShowRefresh] = useState(false);
 
+  // Sandboxed embed experience state
+  const [activeEmbedOpportunity, setActiveEmbedOpportunity] = useState<MarketplaceOpportunity | null>(null);
+  const [iframeLoading, setIframeLoading] = useState(true);
+
   // Refetch providers periodically
   useEffect(() => {
     const interval = setInterval(() => {
@@ -97,13 +106,15 @@ const Marketplace: React.FC = () => {
   // Handle opportunity open
   const handleOpenOpportunity = useCallback((opp: MarketplaceOpportunity) => {
     if (opp.source === 'provider' && opp.action.url) {
-      // Track and open external offer
-      toast.loading('Opening offer...', { id: 'opening-offer' });
-      openOpportunity(opp);
-      setTimeout(() => toast.dismiss('opening-offer'), 1000);
+      // Launch inside the premium inside-app Sandbox
+      setActiveEmbedOpportunity(opp);
+      setIframeLoading(true);
+      // Track click in backend, skipping browser redirect popup
+      openOpportunity(opp, true);
     } else if (opp.action.actionType === 'claim') {
       // Handle internal claim
       toast(`Starting: ${opp.title}`, { icon: '🚀' });
+      openOpportunity(opp);
     }
   }, [openOpportunity]);
 
@@ -156,7 +167,7 @@ const Marketplace: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="container mx-auto px-4 py-4 max-w-7xl">
@@ -167,9 +178,9 @@ const Marketplace: React.FC = () => {
                 <Compass size={20} className="text-primary" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-text-primary">Marketplace</h1>
-                <p className="text-[10px] text-text-tertiary">
-                  {opportunities.length} opportunities available
+                <h1 className="text-lg font-black text-text-primary tracking-tight">Marketplace</h1>
+                <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">
+                  {opportunities.length} Premium Nodes Active
                 </p>
               </div>
             </div>
@@ -177,17 +188,17 @@ const Marketplace: React.FC = () => {
             {/* Provider Status */}
             <div className="flex items-center gap-2">
               {connectedProviders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-sm">
                   <Wifi size={10} className="text-emerald-400" />
-                  <span className="text-[9px] font-bold text-emerald-400">
-                    {connectedProviders.length} providers
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">
+                    {connectedProviders.length} connected
                   </span>
                 </div>
               )}
               {offlineProviders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 shadow-sm">
                   <WifiOff size={10} className="text-amber-400" />
-                  <span className="text-[9px] font-bold text-amber-400">
+                  <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider">
                     {offlineProviders.length} offline
                   </span>
                 </div>
@@ -197,7 +208,7 @@ const Marketplace: React.FC = () => {
               <button
                 onClick={handleRefresh}
                 disabled={showRefresh}
-                className="p-2 rounded-lg border border-border bg-surface hover:border-primary/40 transition-all disabled:opacity-50"
+                className="p-2 rounded-xl border border-border bg-surface hover:border-primary/45 hover:shadow-lg transition-all disabled:opacity-50"
               >
                 <RefreshCw size={16} className={cn('text-text-secondary', showRefresh && 'animate-spin')} />
               </button>
@@ -290,16 +301,23 @@ const Marketplace: React.FC = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mb-6 p-4 rounded-xl border border-border bg-surface flex items-center gap-3"
+            className="mb-6 p-4 rounded-xl border border-border bg-surface flex items-center gap-3 shadow-md"
           >
             <RefreshCw size={16} className="text-primary animate-spin" />
-            <p className="text-sm text-text-secondary">Loading external offers...</p>
+            <p className="text-sm text-text-secondary font-medium">Loading premium provider databases...</p>
           </motion.div>
         )}
 
-        {/* Sections View */}
+        {/* Sections View (Includes rotating MarketplaceHero visual anchor) */}
         {viewMode === 'sections' && !searchQuery && selectedCategory === 'all' && (
           <div className="space-y-10">
+            {/* Visual Anchor rotating carousel */}
+            <MarketplaceHero
+              opportunities={opportunities}
+              onStartEarning={handleOpenOpportunity}
+              className="mb-8"
+            />
+
             {sections.map((section, index) => (
               <motion.div
                 key={section.id}
@@ -333,7 +351,7 @@ const Marketplace: React.FC = () => {
                   {selectedCategory === 'all' ? 'All Opportunities' : formatCategory(selectedCategory)}
                 </h2>
                 <p className="text-xs text-text-tertiary mt-0.5">
-                  {getDisplayOpportunities().length} results
+                  {getDisplayOpportunities().length} opportunities located
                 </p>
               </div>
             </div>
@@ -343,8 +361,8 @@ const Marketplace: React.FC = () => {
               <div
                 className={cn(
                   viewMode === 'list'
-                    ? 'space-y-3'
-                    : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+                    ? 'space-y-4'
+                    : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
                 )}
               >
                 {getDisplayOpportunities().map(opp => (
@@ -370,12 +388,12 @@ const Marketplace: React.FC = () => {
           </div>
         )}
 
-        {/* Quick Stats */}
+        {/* Quick Stats Grid */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4"
+          className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4"
         >
           <StatCard
             icon={<Zap className="text-amber-400" />}
@@ -399,6 +417,135 @@ const Marketplace: React.FC = () => {
           />
         </motion.div>
       </div>
+
+      {/* ─── Premium Sandboxed Experience Viewer Overlay (Modal) ─── */}
+      <AnimatePresence>
+        {activeEmbedOpportunity && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-[#07070B]/98 backdrop-blur-xl flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/10 bg-surface/90 backdrop-blur-md">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-primary/20 border border-primary/35 flex items-center justify-center shrink-0 shadow-lg shadow-primary/10">
+                  <Play size={18} className="text-primary fill-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-white truncate max-w-xs md:max-w-md tracking-tight">
+                    {activeEmbedOpportunity.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-text-tertiary">
+                      Verified Sandbox Frame
+                    </span>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-primary-bright">
+                      Powered by {activeEmbedOpportunity.providerName || 'PulseEarn'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Control Bar Actions */}
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                  <ShieldCheck size={12} className="shrink-0" />
+                  <span>Tracking Secure</span>
+                </div>
+
+                {/* Reload button */}
+                <button
+                  onClick={() => {
+                    setIframeLoading(true);
+                    const iframe = document.getElementById('marketplace-embed-iframe') as HTMLIFrameElement;
+                    if (iframe) iframe.src = iframe.src;
+                  }}
+                  className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-white hover:border-white/20"
+                  title="Reload sandbox container"
+                >
+                  <RefreshCw size={14} />
+                </button>
+
+                {/* Direct redirect fallback */}
+                {activeEmbedOpportunity.action.url && /^https?:\/\//i.test(activeEmbedOpportunity.action.url) && (
+                  <a
+                    href={activeEmbedOpportunity.action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-white hover:border-white/20"
+                    title="Open in external browser window"
+                  >
+                    <ArrowUpRight size={14} />
+                  </a>
+                )}
+
+                {/* Secure Close Trigger */}
+                <button
+                  onClick={() => {
+                    setActiveEmbedOpportunity(null);
+                    setIframeLoading(true);
+                  }}
+                  className="flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-black text-[10px] uppercase tracking-wider hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                >
+                  Terminate Sandbox
+                </button>
+              </div>
+            </div>
+
+            {/* Sandbox Notice Banner */}
+            <div className="bg-primary/5 border-b border-primary/20 px-6 py-3 flex items-center justify-between text-[11px] text-text-secondary font-medium">
+              <div className="flex items-center gap-2 min-w-0">
+                <Info size={14} className="text-primary-bright shrink-0" />
+                <span className="truncate">Keep this tab active. We are waiting for completion events from the provider network to credit your balance.</span>
+              </div>
+              <span className="hidden md:inline text-[10px] text-text-tertiary font-black uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                Tracking Secure
+              </span>
+            </div>
+
+            {/* Main Sandbox Frame Container */}
+            <div className="flex-1 relative bg-[#09090D] overflow-hidden">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10 space-y-4">
+                  <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <div className="text-center">
+                    <p className="text-xs font-black text-white uppercase tracking-widest">Bridging Earning Network Sandbox...</p>
+                    <p className="text-[10px] text-text-tertiary mt-1.5 font-bold uppercase tracking-wider">Establishing secure frame tunnel for tracking payload</p>
+                  </div>
+                </div>
+              )}
+
+              {activeEmbedOpportunity.action.url && /^https?:\/\//i.test(activeEmbedOpportunity.action.url) ? (
+                <iframe
+                  id="marketplace-embed-iframe"
+                  src={activeEmbedOpportunity.action.url}
+                  className="w-full h-full border-0"
+                  onLoad={() => setIframeLoading(false)}
+                  sandbox="allow-scripts allow-popups allow-forms"
+                  title={activeEmbedOpportunity.title}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                  <AlertCircle size={48} className="text-amber-500" />
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest">Payload Url Unassigned</h4>
+                    <p className="text-xs text-text-tertiary mt-1">This opportunity is unavailable for embedding.</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveEmbedOpportunity(null)}
+                    className="px-6 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider"
+                  >
+                    Go Back
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -410,14 +557,14 @@ const StatCard: React.FC<{
   label: string;
   value: string;
 }> = ({ icon, label, value }) => (
-  <div className="p-4 rounded-xl border border-border bg-surface">
+  <div className="p-5 rounded-[20px] border border-border bg-surface shadow-sm">
     <div className="flex items-center gap-2 mb-2">
       {icon}
-      <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+      <span className="text-[9px] font-black uppercase tracking-widest text-text-tertiary">
         {label}
       </span>
     </div>
-    <p className="text-lg font-black text-text-primary">{value}</p>
+    <p className="text-lg font-black text-text-primary tracking-tight">{value}</p>
   </div>
 );
 
@@ -427,12 +574,12 @@ const EmptyState: React.FC<{ title: string; description: string }> = ({
   title,
   description,
 }) => (
-  <div className="text-center py-16">
+  <div className="text-center py-20 bg-surface/5 rounded-[24px] border border-dashed border-border">
     <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mx-auto mb-4">
       <Sparkles size={24} className="text-text-tertiary" />
     </div>
-    <h3 className="text-base font-bold text-text-primary mb-1">{title}</h3>
-    <p className="text-sm text-text-tertiary">{description}</p>
+    <h3 className="text-sm font-black text-text-primary uppercase tracking-widest mb-1">{title}</h3>
+    <p className="text-xs text-text-tertiary font-semibold">{description}</p>
   </div>
 );
 

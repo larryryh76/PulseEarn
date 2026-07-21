@@ -6,7 +6,6 @@ import Achievements from './components/sections/Achievements';
 import Community from './components/sections/Community';
 import TrustSecurity from './components/sections/TrustSecurity';
 import FAQ from './components/sections/FAQ';
-import FinalCTA from './components/sections/FinalCTA';
 import SignupCTA from './components/sections/SignupCTA';
 import MainLayout from './components/layout/MainLayout';
 
@@ -47,7 +46,6 @@ const HomePageLayout = () => {
       <Community />
       <TrustSecurity />
       <FAQ />
-      <FinalCTA />
       <SignupCTA />
     </MainLayout>
   );

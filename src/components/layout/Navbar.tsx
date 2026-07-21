@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
 
   const secondaryLinks = [
     { name: 'Support', path: '/support', icon: MessageSquare },
-    { name: 'Policies', path: '/legal/terms', icon: FileText },
+    { name: 'Policies', path: '/terms', icon: FileText },
   ];
 
   const actionableCampaignCount = campaigns.filter(c => {

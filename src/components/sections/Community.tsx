@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, Share2, TrendingUp, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Community: React.FC = () => {
+  const navigate = useNavigate();
   const highlights = [
     {
       icon: Zap,
@@ -196,7 +198,10 @@ const Community: React.FC = () => {
           <p className="text-text-secondary font-medium mb-8 max-w-xl mx-auto">
             Get 10% of your friends' first week earnings. Unlimited referrals, unlimited rewards.
           </p>
-          <button className="px-10 py-4 rounded-2xl bg-primary text-background font-black text-sm uppercase tracking-[0.2em] hover:opacity-90 transition-all inline-flex items-center gap-2">
+          <button
+            onClick={() => navigate('/signup')}
+            className="px-10 py-4 rounded-2xl bg-primary text-background font-black text-sm uppercase tracking-[0.2em] hover:opacity-90 transition-all inline-flex items-center gap-2"
+          >
             <Share2 size={18} />
             Share Your Link
           </button>

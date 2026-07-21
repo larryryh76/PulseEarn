@@ -57,7 +57,7 @@ export interface UseMarketplaceReturn {
   
   // Actions
   refresh: () => Promise<void>;
-  openOpportunity: (opportunity: MarketplaceOpportunity) => void;
+  openOpportunity: (opportunity: MarketplaceOpportunity, skipRedirect?: boolean) => void;
   
   // Filters
   activeFilters: DiscoveryFilters;
@@ -206,7 +206,7 @@ export function useMarketplace(): UseMarketplaceReturn {
     await fetchProviderInventory();
   }, [tasks, campaigns, userTasks, fetchProviderInventory]);
 
-  const openOpportunity = useCallback(async (opportunity: MarketplaceOpportunity) => {
+  const openOpportunity = useCallback(async (opportunity: MarketplaceOpportunity, skipRedirect = false) => {
     if (opportunity.source === 'provider' && opportunity.action.url) {
       // Track the click before opening
       try {
@@ -223,8 +223,10 @@ export function useMarketplace(): UseMarketplaceReturn {
         // Non-critical, don't block opening
       }
       
-      // Open the provider URL
-      window.open(opportunity.action.url, '_blank');
+      if (!skipRedirect && opportunity.action.url && /^https?:\/\//i.test(opportunity.action.url)) {
+        // Open the provider URL
+        window.open(opportunity.action.url, '_blank', 'noopener,noreferrer');
+      }
     } else if (opportunity.action.actionType === 'claim') {
       // Handle internal claim flow
       // This would trigger the claim modal or claim action

@@ -118,7 +118,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   const { opportunity: opp, status: cardStatus } = useOpportunityState(opportunity);
   
   const difficulty = DIFFICULTY_CONFIG[opp.metadata.difficulty];
-  const isLocked = Boolean(opp.metadata.minLevel && opp.status === 'locked');
   
   const handleClick = () => {
     if (onOpen && cardStatus !== 'locked') {
@@ -144,7 +143,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           showXP={showXP}
           onOpen={handleClick}
           onKeyDown={handleKeyDown}
-          isLocked={isLocked}
           className={className}
         />
       );
@@ -159,7 +157,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           showXP={showXP}
           onOpen={handleClick}
           onKeyDown={handleKeyDown}
-          isLocked={isLocked}
           className={className}
         />
       );
@@ -174,7 +171,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           showXP={showXP}
           onOpen={handleClick}
           onKeyDown={handleKeyDown}
-          isLocked={isLocked}
           className={className}
         />
       );
@@ -189,7 +185,6 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           showXP={showXP}
           onOpen={handleClick}
           onKeyDown={handleKeyDown}
-          isLocked={isLocked}
           className={className}
         />
       );
@@ -206,7 +201,6 @@ interface CardProps {
   showXP: boolean;
   onOpen: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
-  isLocked: boolean;
   className?: string;
 }
 
@@ -407,11 +401,11 @@ const DefaultCard: React.FC<CardProps> = ({
 
 const CompactCard: React.FC<CardProps> = ({
   opportunity,
+  status,
   showProviderBadge,
   showXP,
   onOpen,
   onKeyDown,
-  isLocked,
   className,
 }) => {
   return (
@@ -419,19 +413,19 @@ const CompactCard: React.FC<CardProps> = ({
       layout
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={!isLocked ? { y: -4, scale: 1.02 } : {}}
+      whileHover={status !== 'locked' ? { y: -4, scale: 1.02 } : {}}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className={cn(
         'group relative rounded-2xl border border-border bg-surface p-4.5',
         'transition-all duration-300 cursor-pointer shadow-premium hover:shadow-[0_15px_35px_rgba(0,112,255,0.08)]',
-        isLocked
+        status === 'locked'
           ? 'border-border opacity-40 cursor-not-allowed'
           : 'hover:border-primary/40',
         className
       )}
       onClick={onOpen}
       onKeyDown={onKeyDown}
-      tabIndex={isLocked ? -1 : 0}
+      tabIndex={status === 'locked' ? -1 : 0}
       role="button"
     >
       <div className="flex items-start justify-between gap-3">
@@ -476,7 +470,6 @@ const FeaturedCard: React.FC<CardProps> = ({
   showXP,
   onOpen,
   onKeyDown,
-  isLocked,
   className,
 }) => {
   const hasArtwork = opportunity.metadata.artwork || opportunity.metadata.thumbnail;
@@ -486,19 +479,19 @@ const FeaturedCard: React.FC<CardProps> = ({
       layout
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={!isLocked ? { y: -8, scale: 1.015 } : {}}
+      whileHover={status !== 'locked' ? { y: -8, scale: 1.015 } : {}}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'group relative rounded-[28px] border border-white/10 bg-gradient-to-br from-[#12121D] to-[#08080C] overflow-hidden',
         'transition-all duration-400 cursor-pointer shadow-premium hover:shadow-[0_30px_60px_rgba(0,112,255,0.18)]',
-        isLocked
+        status === 'locked'
           ? 'opacity-40 cursor-not-allowed'
           : 'hover:border-primary/40',
         className
       )}
       onClick={onOpen}
       onKeyDown={onKeyDown}
-      tabIndex={isLocked ? -1 : 0}
+      tabIndex={status === 'locked' ? -1 : 0}
       role="button"
     >
       {/* Immersive glowing radial background spotlights */}
@@ -584,7 +577,7 @@ const FeaturedCard: React.FC<CardProps> = ({
             )}
           </div>
 
-          {status === 'available' && !isLocked && (
+          {status === 'available' && (
             <div className="px-5 py-3 rounded-2xl bg-primary hover:bg-primary-bright text-white text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/35">
               <span>Unlock Offer</span> <ArrowUpRight size={13} />
             </div>
@@ -599,10 +592,10 @@ const FeaturedCard: React.FC<CardProps> = ({
 
 const RowCard: React.FC<CardProps> = ({
   opportunity,
+  status,
   showXP,
   onOpen,
   onKeyDown,
-  isLocked,
   className,
 }) => {
   return (
@@ -610,19 +603,19 @@ const RowCard: React.FC<CardProps> = ({
       layout
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      whileHover={!isLocked ? { x: 4, scale: 1.005 } : {}}
+      whileHover={status !== 'locked' ? { x: 4, scale: 1.005 } : {}}
       transition={{ duration: 0.2 }}
       className={cn(
         'group flex items-center justify-between p-4 rounded-2xl border border-border bg-surface',
         'transition-all duration-300 cursor-pointer shadow-premium hover:shadow-[0_10px_25px_rgba(0,112,255,0.06)]',
-        isLocked
+        status === 'locked'
           ? 'border-border opacity-40 cursor-not-allowed'
           : 'hover:border-primary/40',
         className
       )}
       onClick={onOpen}
       onKeyDown={onKeyDown}
-      tabIndex={isLocked ? -1 : 0}
+      tabIndex={status === 'locked' ? -1 : 0}
       role="button"
     >
       <div className="flex items-center gap-4.5 min-w-0">

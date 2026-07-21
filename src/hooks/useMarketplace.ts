@@ -223,9 +223,9 @@ export function useMarketplace(): UseMarketplaceReturn {
         // Non-critical, don't block opening
       }
       
-      if (!skipRedirect) {
+      if (!skipRedirect && opportunity.action.url && /^https?:\/\//i.test(opportunity.action.url)) {
         // Open the provider URL
-        window.open(opportunity.action.url, '_blank');
+        window.open(opportunity.action.url, '_blank', 'noopener,noreferrer');
       }
     } else if (opportunity.action.actionType === 'claim') {
       // Handle internal claim flow

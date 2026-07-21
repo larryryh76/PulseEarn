@@ -470,7 +470,7 @@ const Marketplace: React.FC = () => {
                 </button>
 
                 {/* Direct redirect fallback */}
-                {activeEmbedOpportunity.action.url && (
+                {activeEmbedOpportunity.action.url && /^https?:\/\//i.test(activeEmbedOpportunity.action.url) && (
                   <a
                     href={activeEmbedOpportunity.action.url}
                     target="_blank"
@@ -499,10 +499,10 @@ const Marketplace: React.FC = () => {
             <div className="bg-primary/5 border-b border-primary/20 px-6 py-3 flex items-center justify-between text-[11px] text-text-secondary font-medium">
               <div className="flex items-center gap-2 min-w-0">
                 <Info size={14} className="text-primary-bright shrink-0" />
-                <span className="truncate">Keep this session active. PulseEarn is actively listening to completing logs to post credits instantly.</span>
+                <span className="truncate">Keep this tab active. We are waiting for completion events from the provider network to credit your balance.</span>
               </div>
               <span className="hidden md:inline text-[10px] text-text-tertiary font-black uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                Shield v2.4 Active
+                Tracking Secure
               </span>
             </div>
 
@@ -518,13 +518,13 @@ const Marketplace: React.FC = () => {
                 </div>
               )}
 
-              {activeEmbedOpportunity.action.url ? (
+              {activeEmbedOpportunity.action.url && /^https?:\/\//i.test(activeEmbedOpportunity.action.url) ? (
                 <iframe
                   id="marketplace-embed-iframe"
                   src={activeEmbedOpportunity.action.url}
                   className="w-full h-full border-0"
                   onLoad={() => setIframeLoading(false)}
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  sandbox="allow-scripts allow-popups allow-forms"
                   title={activeEmbedOpportunity.title}
                 />
               ) : (

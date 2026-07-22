@@ -109,12 +109,17 @@ class ProviderCache:
                     config = dict(data)
                     config['id'] = doc.id
                     # Ensure defaults for standard fields if missing
+                    config['name'] = data.get('name') or data.get('label') or doc.id
+                    config['logo'] = data.get('logo') or data.get('logoUrl') or data.get('iconUrl') or ''
+                    config['status'] = data.get('status', 'active')
                     config['enabled'] = data.get('enabled', True)
+                    config['priority'] = data.get('priority', 100)
+                    config['launchMethod'] = data.get('launchMethod', 'redirect')
                     config['rewardMultiplier'] = data.get('rewardMultiplier', 1.0)
-                    config['userSharePct'] = data.get('userSharePct', 0.7)
-                    config['platformSharePct'] = data.get('platformSharePct', 0.3)
-                    config['minimumReward'] = data.get('minimumReward', 5)
-                    config['maximumReward'] = data.get('maximumReward', 500)
+                    config['userSharePct'] = data.get('userSharePct', 0.85)
+                    config['platformSharePct'] = data.get('platformSharePct', 0.15)
+                    config['minimumReward'] = data.get('minimumReward', 1)
+                    config['maximumReward'] = data.get('maximumReward', 100000)
                     config['fraudRules'] = data.get('fraudRules', {})
                     config['stats'] = data.get('stats', {})
                     new_cache[doc.id] = config

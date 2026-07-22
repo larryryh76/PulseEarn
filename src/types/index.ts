@@ -443,7 +443,17 @@ export type OfferwallRewardStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVER
 export interface OfferwallProvider {
   id: string;                    // slug e.g. 'lootably'
   name: string;                  // Display name e.g. 'Lootably'
+  internalName?: string;         // Internal identifier
+  logo?: string;                 // Provider logo image
+  logoUrl?: string;              // Alias for logo URL
+  description?: string;          // Summary of provider offers/capabilities
+  status?: 'active' | 'inactive' | 'maintenance';
   enabled: boolean;
+  priority?: number;             // Sorting priority order
+  launchMethod?: 'iframe' | 'redirect' | 'sdk' | 'api';
+  launchUrl?: string;            // Resolved launch URL
+  integrationUrl?: string;       // Dynamic launch URL template
+  apiEndpoint?: string;          // API endpoint URL
   // Credentials
   affiliateId: string;
   apiKey: string;
@@ -466,12 +476,13 @@ export interface OfferwallProvider {
   };
   // Stats (live aggregates)
   stats?: {
-    connectionStatus: 'connected' | 'degraded' | 'offline';
+    connectionStatus: 'connected' | 'degraded' | 'disconnected' | 'offline';
     apiStatus: 'ok' | 'error' | 'unknown';
     webhookStatus: 'ok' | 'error' | 'unknown';
     callbackStatus: 'ok' | 'error' | 'unknown';
     lastSuccessfulSync: Timestamp | null;
     lastFailedSync: Timestamp | null;
+    lastCallback?: Timestamp | null;
     pendingRewards: number;
     approvedRewards: number;
     rejectedRewards: number;

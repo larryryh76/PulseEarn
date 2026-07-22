@@ -1019,7 +1019,7 @@ const Marketplace: React.FC = () => {
               <div className="p-6 md:p-8 border-b border-border bg-surface-bright/40 flex items-center justify-between">
                 <div>
                   <span className="text-[9px] font-mono font-black text-primary uppercase tracking-widest bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
-                    Contract Terminal Console
+                    Campaign Details & Action
                   </span>
                   <h3 className="text-base font-extrabold text-white uppercase tracking-tight mt-1">{selectedTask.title}</h3>
                 </div>
@@ -1060,14 +1060,14 @@ const Marketplace: React.FC = () => {
                 <div className="space-y-3 bg-surface-bright/30 border border-border p-5 rounded-2xl">
                   <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-white flex items-center gap-2">
                     <CheckCircle2 size={13} className="text-primary-bright" />
-                    Fulfillment checklist
+                    How to complete
                   </h4>
                   <div className="space-y-2.5 pt-1">
                     {[
-                      "Access target campaign location via secure launch endpoints.",
-                      "Fulfill the mission objectives as documented under details.",
-                      "Verify execution is complete prior to executing validator check.",
-                      "Only one verification claim may be issued per IP structure."
+                      "Click Start Earning to open the opportunity or campaign.",
+                      "Follow the step-by-step instructions provided in the description.",
+                      "Complete the required action or survey fully.",
+                      "Return here to claim your Points and XP rewards."
                     ].map((req, idx) => (
                       <div key={idx} className="flex items-start gap-3">
                         <div className="w-4.5 h-4.5 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center text-primary text-[9px] font-mono font-bold mt-0.5 shrink-0">
@@ -1082,12 +1082,12 @@ const Marketplace: React.FC = () => {
                 {/* Rewards split badge row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/15 flex flex-col justify-between">
-                    <p className="text-[8px] font-mono font-bold text-text-tertiary uppercase tracking-widest">Ecosystem balance payout</p>
+                    <p className="text-[8px] font-mono font-bold text-text-tertiary uppercase tracking-widest">Points Reward</p>
                     <p className="text-lg font-mono font-black text-emerald-400 mt-1">+{selectedTask.reward.points.toLocaleString()} PTS</p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-primary/5 border border-primary/15 flex flex-col justify-between">
-                    <p className="text-[8px] font-mono font-bold text-text-tertiary uppercase tracking-widest">Ecosystem account XP</p>
+                    <p className="text-[8px] font-mono font-bold text-text-tertiary uppercase tracking-widest">XP Reward</p>
                     <p className="text-lg font-mono font-black text-primary mt-1">+{selectedTask.reward.xp} XP</p>
                   </div>
                 </div>

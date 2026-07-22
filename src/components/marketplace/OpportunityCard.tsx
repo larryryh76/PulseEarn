@@ -287,7 +287,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             </div>
 
             <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider group-hover:bg-primary-bright transition-all shadow-md">
-              Start Quest <ChevronRight size={13} />
+              Start Earning <ChevronRight size={13} />
             </span>
           </div>
         </div>
@@ -417,16 +417,18 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             )}
             {status === 'available' && (
               <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-wider group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
-                Unlock <ChevronRight size={11} />
+                Start Earning <ChevronRight size={11} />
               </span>
             )}
           </div>
         </div>
 
-        {/* Muted affiliate provider label */}
-        {showProviderBadge && opportunity.providerName && (
-          <p className="text-[7.5px] font-mono font-bold text-text-tertiary/60 uppercase tracking-widest pt-1">
-            via {opportunity.providerName}
+        {/* Source tag */}
+        {showProviderBadge && (
+          <p className="text-[8px] font-mono font-semibold text-text-tertiary/70 uppercase tracking-wider pt-1">
+            {opportunity.source === 'provider' && opportunity.providerName
+              ? `Powered by ${opportunity.providerName}`
+              : 'PulseEarn Native'}
           </p>
         )}
       </div>

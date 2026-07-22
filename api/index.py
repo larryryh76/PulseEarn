@@ -1642,95 +1642,8 @@ def wipe_and_rebuild_tasks():
             
         counts['seeded_tasks'] = seeded_tasks_count
 
-        # 5. Seed default offerwall providers
-        default_providers = [
-            {
-                'name': 'Lootably',
-                'enabled': True,
-                'affiliateId': 'loot_aff_123',
-                'secret': 'loot_secret_xyz',
-                'minimumReward': 100,
-                'maximumReward': 50000,
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.7,
-                'platformSharePct': 0.3,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-            {
-                'name': 'BitLabs',
-                'enabled': True,
-                'affiliateId': 'bit_aff_456',
-                'secret': 'bit_secret_abc',
-                'minimumReward': 50,
-                'maximumReward': 25000,
-                'rewardMultiplier': 1.2,
-                'userSharePct': 0.75,
-                'platformSharePct': 0.25,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-            {
-                'name': 'CPX Research',
-                'enabled': True,
-                'affiliateId': 'cpx_aff_789',
-                'secret': 'cpx_secret_def',
-                'minimumReward': 75,
-                'maximumReward': 15000,
-                'rewardMultiplier': 1.1,
-                'userSharePct': 0.7,
-                'platformSharePct': 0.3,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-            {
-                'name': 'AdGem',
-                'enabled': True,
-                'affiliateId': 'adg_aff_101',
-                'secret': 'adg_secret_ghi',
-                'minimumReward': 200,
-                'maximumReward': 75000,
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.7,
-                'platformSharePct': 0.3,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-            {
-                'name': 'OfferToro',
-                'enabled': True,
-                'affiliateId': 'toro_aff_202',
-                'secret': 'toro_secret_jkl',
-                'minimumReward': 150,
-                'maximumReward': 100000,
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.65,
-                'platformSharePct': 0.35,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-            {
-                'name': 'TimeWall',
-                'enabled': True,
-                'affiliateId': 'time_aff_303',
-                'secret': 'time_secret_mno',
-                'minimumReward': 10,
-                'maximumReward': 5000,
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.8,
-                'platformSharePct': 0.2,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            },
-        ]
-        
-        provider_ids = ['lootably', 'bitlabs', 'cpxresearch', 'adgem', 'offertoro', 'timewall']
-        seeded_providers_count = 0
-        for pid, p_data in zip(provider_ids, default_providers):
-            db.collection('offerwall_providers').document(pid).set(p_data)
-            seeded_providers_count += 1
-            
-        counts['seeded_providers'] = seeded_providers_count
+        # 5. Purge offerwall_providers on reset (Admin will configure real providers)
+        counts['seeded_providers'] = 0
 
         # Audit trail
         db.collection('system_log').add({
@@ -3028,7 +2941,8 @@ def offerwall_upsert_provider(provider_id):
     body = req.get_json(force=True, silent=True) or {}
 
     allowed_fields = {
-        'name', 'enabled', 'affiliateId', 'apiKey', 'secret',
+        'name', 'logo', 'logoUrl', 'status', 'enabled', 'apiEndpoint',
+        'affiliateId', 'apiKey', 'secret',
         'callbackUrl', 'webhookUrl', 'rewardMultiplier',
         'userSharePct', 'platformSharePct', 'minimumReward',
         'maximumReward', 'fraudRules',
@@ -3381,180 +3295,41 @@ def offerwall_analytics():
 @app.route('/api/offerwall/user-providers', methods=['GET'])
 @verify_token
 def offerwall_user_providers():
-    """Return enabled providers for the user-facing offerwalls page (no secrets)."""
+    """Return enabled providers for the user-facing offerwalls/marketplace page (no secrets)."""
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
-
-    MOCK_OFFERS = {
-        'lootably': [
-            {
-                'id': 'loot_1',
-                'title': 'Play Rise of Kingdoms',
-                'description': 'Install Rise of Kingdoms, reach City Hall level 18, and claim your massive reward!',
-                'points': 12500,
-                'xp': 500,
-                'time': '3 days',
-                'category': 'games',
-                'thumbnail': 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=150',
-                'url': 'https://lootably.com/offers/rise-of-kingdoms'
-            },
-            {
-                'id': 'loot_2',
-                'title': 'Complete Consumer Pulse Survey',
-                'description': 'Answer simple questions about your household purchasing habits. High qualification rate.',
-                'points': 1200,
-                'xp': 80,
-                'time': '10 min',
-                'category': 'surveys',
-                'thumbnail': 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=150',
-                'url': 'https://lootably.com/offers/pulse-survey'
-            }
-        ],
-        'bitlabs': [
-            {
-                'id': 'bit_1',
-                'title': 'Finance & Banking Opinion Panel',
-                'description': 'Participate in our financial products panel and earn premium rewards.',
-                'points': 2800,
-                'xp': 120,
-                'time': '15 min',
-                'category': 'surveys',
-                'thumbnail': 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=150',
-                'url': 'https://bitlabs.ai/offers/finance-panel'
-            },
-            {
-                'id': 'bit_2',
-                'title': 'Automotive Preferences Questionnaire',
-                'description': 'Share your thoughts on electric vehicles and future transport technology.',
-                'points': 3500,
-                'xp': 150,
-                'time': '20 min',
-                'category': 'surveys',
-                'thumbnail': 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=150',
-                'url': 'https://bitlabs.ai/offers/automotive'
-            }
-        ],
-        'cpxresearch': [
-            {
-                'id': 'cpx_1',
-                'title': 'Technology Ecosystem Evaluation',
-                'description': 'Evaluate your cloud service preferences for developer and infrastructure tasks.',
-                'points': 1500,
-                'xp': 60,
-                'time': '8 min',
-                'category': 'surveys',
-                'thumbnail': 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=150',
-                'url': 'https://cpxresearch.com/offers/tech-eval'
-            },
-            {
-                'id': 'cpx_2',
-                'title': 'Global Media Consumption Index',
-                'description': 'Complete a 25-minute survey about streaming services and digital media.',
-                'points': 4500,
-                'xp': 200,
-                'time': '25 min',
-                'category': 'surveys',
-                'thumbnail': 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=150',
-                'url': 'https://cpxresearch.com/offers/media-index'
-            }
-        ],
-        'adgem': [
-            {
-                'id': 'adg_1',
-                'title': 'Download RAID: Shadow Legends',
-                'description': 'Summon legendary champions and conquer epic dungeon raids. Open 2 Sacred Shards to earn.',
-                'points': 18500,
-                'xp': 750,
-                'time': '5 days',
-                'category': 'games',
-                'thumbnail': 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=150',
-                'url': 'https://adgem.com/offers/raid'
-            },
-            {
-                'id': 'adg_2',
-                'title': 'Install CleanMyPhone Utility',
-                'description': 'Download and open the cleaner app to optimize your storage space instantly.',
-                'points': 1500,
-                'xp': 50,
-                'time': '5 min',
-                'category': 'apps',
-                'thumbnail': 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=150',
-                'url': 'https://adgem.com/offers/cleaner'
-            }
-        ],
-        'offertoro': [
-            {
-                'id': 'toro_1',
-                'title': 'Sign up for Disney+ Trial',
-                'description': 'Create a new account, start your free trial, and stream your favorite shows.',
-                'points': 6500,
-                'xp': 300,
-                'time': '15 min',
-                'category': 'shopping',
-                'thumbnail': 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=150',
-                'url': 'https://offertoro.com/offers/disney'
-            },
-            {
-                'id': 'toro_2',
-                'title': 'Try SiriusXM Subscription',
-                'description': 'Subscribe to SiriusXM streaming for 1 month (only $1) to receive your reward.',
-                'points': 8000,
-                'xp': 400,
-                'time': '20 min',
-                'category': 'shopping',
-                'thumbnail': 'https://images.unsplash.com/photo-1610116306796-6ebd30d79143?w=150',
-                'url': 'https://offertoro.com/offers/sirius'
-            }
-        ],
-        'timewall': [
-            {
-                'id': 'time_1',
-                'title': 'Watch Ecosystem Walkthrough',
-                'description': 'Watch a 3-minute video guide on how to maximize your daily yield on PulseEarn.',
-                'points': 300,
-                'xp': 20,
-                'time': '3 min',
-                'category': 'videos',
-                'thumbnail': 'https://images.unsplash.com/photo-1461151304267-38535e780c79?w=150',
-                'url': 'https://timewall.org/offers/walkthrough'
-            },
-            {
-                'id': 'time_2',
-                'title': 'Visit Validator Nodes Status Page',
-                'description': 'Click to open the external status portal and browse for at least 60 seconds.',
-                'points': 150,
-                'xp': 10,
-                'time': '1 min',
-                'category': 'daily',
-                'thumbnail': 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=150',
-                'url': 'https://timewall.org/offers/nodes-status'
-            }
-        ]
-    }
 
     uid = request.user['uid']
     snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
     providers = []
     for s in snaps:
         d = s.to_dict()
-        # Build the authenticated launch URL server-side (secret never leaves the server).
         launch_url, embeddable = _build_offerwall_launch_url(
             s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
         )
         providers.append({
             'id': s.id,
             'name': d.get('name', s.id),
+            'logo': d.get('logo') or d.get('logoUrl') or d.get('iconUrl') or '',
+            'status': d.get('status', 'active'),
+            'enabled': d.get('enabled', True),
+            'apiEndpoint': d.get('apiEndpoint') or d.get('integrationUrl') or '',
+            'callbackUrl': d.get('callbackUrl') or '',
+            'rewardMultiplier': float(d.get('rewardMultiplier', 1.0)),
+            'userSharePct': float(d.get('userSharePct', 0.85)),
+            'platformSharePct': float(d.get('platformSharePct', 0.15)),
+            'priority': int(d.get('priority', 100)),
+            'description': d.get('description', ''),
             'affiliateId': d.get('affiliateId', ''),
-            'callbackUrl': d.get('callbackUrl', ''),
             'minimumReward': d.get('minimumReward', 1),
             'maximumReward': d.get('maximumReward', 100000),
-            'rewardMultiplier': d.get('rewardMultiplier', 1.0),
             'launchUrl': launch_url,
             'embeddable': embeddable,
-            'offers': MOCK_OFFERS.get(s.id, [])
+            'offers': []
         })
+    providers.sort(key=lambda p: p.get('priority', 100))
     return jsonify({'success': True, 'providers': providers})
 
 

@@ -426,14 +426,7 @@ export interface WithdrawalRequest {
 
 // ─── Offerwall Types ──────────────────────────────────────────────────────────
 
-export type OfferwallProviderSlug =
-  | 'lootably'
-  | 'bitlabs'
-  | 'cpxresearch'
-  | 'adgem'
-  | 'offertoro'
-  | 'timewall'
-  | string; // extensible
+export type OfferwallProviderSlug = string;
 
 export type OfferwallCallbackStatus =
   | 'PENDING'

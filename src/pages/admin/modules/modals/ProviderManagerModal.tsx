@@ -24,6 +24,10 @@ interface FraudRules {
 interface ProviderForm {
   id: string;
   name: string;
+  logo: string;
+  status: 'active' | 'degraded' | 'maintenance' | 'offline';
+  description: string;
+  apiEndpoint: string;
   enabled: boolean;
   affiliateId: string;
   apiKey: string;
@@ -54,6 +58,10 @@ const DEFAULT_FRAUD_RULES: FraudRules = {
 const BLANK_FORM: ProviderForm = {
   id: '',
   name: '',
+  logo: '',
+  status: 'active',
+  description: '',
+  apiEndpoint: '',
   enabled: true,
   affiliateId: '',
   apiKey: '',
@@ -62,8 +70,8 @@ const BLANK_FORM: ProviderForm = {
   callbackUrl: '',
   webhookUrl: '',
   rewardMultiplier: 1.0,
-  userSharePct: 0.30,
-  platformSharePct: 0.70,
+  userSharePct: 0.85,
+  platformSharePct: 0.15,
   minimumReward: 1,
   maximumReward: 100000,
   dailyCap: 0,
@@ -266,6 +274,10 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
           setForm({
             id: found.id || '',
             name: found.name || '',
+            logo: found.logo || found.logoUrl || '',
+            status: found.status || 'active',
+            description: found.description || '',
+            apiEndpoint: found.apiEndpoint || found.integrationUrl || '',
             enabled: found.enabled ?? true,
             affiliateId: found.affiliateId || '',
             apiKey: '',   // never pre-populated for security
@@ -274,8 +286,8 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
             callbackUrl: found.callbackUrl || '',
             webhookUrl: found.webhookUrl || '',
             rewardMultiplier: found.rewardMultiplier ?? 1.0,
-            userSharePct: found.userSharePct ?? 0.30,
-            platformSharePct: found.platformSharePct ?? 0.70,
+            userSharePct: found.userSharePct ?? 0.85,
+            platformSharePct: found.platformSharePct ?? 0.15,
             minimumReward: found.minimumReward ?? 1,
             maximumReward: found.maximumReward ?? 100000,
             dailyCap: found.dailyCap ?? 0,
@@ -584,14 +596,41 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                     )}
 
                     <Field label="Display Name" required>
-                      <TextInput value={form.name} onChange={v => set('name', v)} placeholder="e.g. Lootably" />
+                      <TextInput value={form.name} onChange={v => set('name', v)} placeholder="e.g. My Provider" />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Logo URL" hint="Direct HTTPS link to provider logo image">
+                        <TextInput value={form.logo} onChange={v => set('logo', v)} placeholder="https://example.com/logo.png" />
+                      </Field>
+
+                      <Field label="Status" hint="Operational status displayed to users">
+                        <select
+                          value={form.status}
+                          onChange={e => set('status', e.target.value as any)}
+                          className="w-full px-4 py-2.5 bg-surface-bright border border-border rounded-xl text-[12px] font-semibold text-text-primary focus:outline-none focus:border-primary transition-all"
+                        >
+                          <option value="active">Active</option>
+                          <option value="degraded">Degraded</option>
+                          <option value="maintenance">Maintenance</option>
+                          <option value="offline">Offline</option>
+                        </select>
+                      </Field>
+                    </div>
+
+                    <Field label="Description" hint="Brief summary of tasks & rewards offered by this provider">
+                      <TextInput value={form.description} onChange={v => set('description', v)} placeholder="e.g. Complete surveys, watch videos, and install apps" />
+                    </Field>
+
+                    <Field label="Priority Order" hint="Lower numbers appear first in Marketplace (1, 2, 3...)">
+                      <NumInput value={form.priority} onChange={v => set('priority', v)} min={1} max={999} step={1} />
                     </Field>
 
                     <Toggle
                       value={form.enabled}
                       onChange={v => set('enabled', v)}
                       label="Provider Enabled"
-                      subtitle="Disabled providers silently acknowledge but ignore all callbacks"
+                      subtitle="Disabled providers will not appear in the Marketplace"
                     />
                   </Section>
 

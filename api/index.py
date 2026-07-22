@@ -13,16 +13,22 @@ def safe_float(v, default=0.0):
     if v is None or v == '':
         return default
     try:
-        return float(v)
-    except (TypeError, ValueError):
+        val = float(v)
+        if math.isnan(val) or math.isinf(val):
+            return default
+        return val
+    except (TypeError, ValueError, OverflowError):
         return default
 
 def safe_int(v, default=0):
     if v is None or v == '':
         return default
     try:
-        return int(float(v))
-    except (TypeError, ValueError):
+        val = float(v)
+        if math.isnan(val) or math.isinf(val):
+            return default
+        return int(val)
+    except (TypeError, ValueError, OverflowError):
         return default
 
 def _validate_launch_url(url):
@@ -30,12 +36,12 @@ def _validate_launch_url(url):
         return None
     try:
         parsed = urllib.parse.urlparse(str(url).strip())
-        if parsed.scheme.lower() in ('http', 'https') and parsed.netloc:
+        if parsed.scheme.lower() in ('http', 'https') and parsed.hostname:
             return str(url).strip()
-        logging.warning(f"[URL Validation] Rejected unsafe or invalid URL scheme/format: {url}")
+        logging.warning(f"[URL Validation] Rejected unsafe or invalid URL scheme/hostname for domain '{parsed.netloc or 'unknown'}'")
         return None
     except Exception as e:
-        logging.warning(f"[URL Validation] Failed to parse URL '{url}': {e}")
+        logging.warning(f"[URL Validation] Failed to parse URL: {e}")
         return None
 
 # Lazy imports for stabilization
@@ -2091,7 +2097,7 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
                 embeddable = bool(config.get('embeddable', False))
                 return valid_url, embeddable
             else:
-                logging.warning(f"[Offerwall Launch] Invalid or unsafe integration URL for '{provider_id}': {resolved}")
+                logging.warning(f"[Offerwall Launch] Invalid or unsafe integration URL for provider '{provider_id}'")
 
     # ── PRIORITY 2: built-in per-provider templates (fallback) ─────────────────
     # Used only when no Integration URL is configured. Requires an affiliate id.

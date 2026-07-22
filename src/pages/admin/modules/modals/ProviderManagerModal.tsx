@@ -403,7 +403,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         logoUrl: form.logo.trim(),
         status: form.status,
         description: form.description.trim(),
-        apiEndpoint: form.apiEndpoint.trim() || form.integrationUrl.trim(),
+        apiEndpoint: form.apiEndpoint.trim(),
         enabled: form.enabled,
         affiliateId: form.affiliateId.trim(),
         integrationUrl: form.integrationUrl.trim(),

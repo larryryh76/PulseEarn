@@ -34,7 +34,7 @@ import {
   OpportunityCategory,
   MARKETPLACE_CATEGORIES,
 } from '../types/marketplace';
-import { cn } from '../utils';
+import { cn, requiresProofText } from '../utils';
 import toast from 'react-hot-toast';
 
 // Sub-components
@@ -57,12 +57,23 @@ const isValidHttpUrl = (url?: string): boolean => {
 const parseDurationMinutes = (timeInput: string | number | undefined): number => {
   if (typeof timeInput === 'number') return timeInput;
   if (!timeInput) return 0;
-  const str = String(timeInput).toLowerCase();
-  const digits = parseFloat(str.replace(/[^0-9.]/g, ''));
-  if (isNaN(digits)) return 0;
-  if (str.includes('hr') || str.includes('hour')) return digits * 60;
-  if (str.includes('day')) return digits * 1440;
-  return digits;
+  const str = String(timeInput).toLowerCase().trim();
+  const matches = str.match(/\d+(?:\.\d+)?/g);
+  if (!matches || matches.length === 0) return 0;
+
+  const nums = matches.map(Number);
+  let baseMinutes = nums[0];
+  if (nums.length >= 2 && str.includes('-')) {
+    baseMinutes = (nums[0] + nums[1]) / 2;
+  }
+
+  if (str.includes('hr') || str.includes('hour')) {
+    return baseMinutes * 60;
+  }
+  if (str.includes('day')) {
+    return baseMinutes * 1440;
+  }
+  return baseMinutes;
 };
 
 export const Marketplace: React.FC = () => {
@@ -118,7 +129,7 @@ export const Marketplace: React.FC = () => {
         return;
       }
       window.open(opp.action.url, '_blank', 'noopener,noreferrer');
-      toast.success('Redirecting to campaign provider...');
+      toast.success('Redirecting to campaign destination...');
     } else {
       toast.error('Campaign link is currently unavailable.');
     }
@@ -128,8 +139,13 @@ export const Marketplace: React.FC = () => {
   const handleSubmitTaskProof = async () => {
     if (!selectedCampaign) return;
 
+    if (selectedCampaign.source !== 'internal') {
+      toast.error('Provider opportunities are verified automatically by the offer provider.');
+      return;
+    }
+
     // Check if task requires proof text
-    const isProofRequired = selectedCampaign.metadata.verificationType === 'proof' || selectedCampaign.metadata.verificationType === 'manual';
+    const isProofRequired = requiresProofText(selectedCampaign.metadata.verificationType);
     if (isProofRequired && !submissionProof.trim()) {
       toast.error('Please enter completion proof (URL, username, or details).');
       return;
@@ -148,7 +164,7 @@ export const Marketplace: React.FC = () => {
         },
         body: JSON.stringify({
           taskId: selectedCampaign.id,
-          proof: submissionProof.trim() || 'DIRECT_CLAIM_ACTION'
+          proof: submissionProof.trim() || 'AUTOMATED_VALIDATION'
         })
       });
 
@@ -166,6 +182,7 @@ export const Marketplace: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   // Categorize opportunities for intelligent recommendation sections
   const categorizedOpportunities = useMemo(() => {
@@ -651,8 +668,8 @@ export const Marketplace: React.FC = () => {
                   </div>
                 )}
 
-                {/* Proof Input for Manual Internal Tasks */}
-                {selectedCampaign.source === 'internal' && (selectedCampaign.metadata.verificationType === 'proof' || selectedCampaign.metadata.verificationType === 'manual') && (
+                {/* Proof Input for Internal Tasks needing proof */}
+                {selectedCampaign.source === 'internal' && requiresProofText(selectedCampaign.metadata.verificationType) && (
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-white block">
                       Verification Proof / Details
@@ -677,15 +694,19 @@ export const Marketplace: React.FC = () => {
                   Close
                 </button>
 
-                {selectedCampaign.source === 'provider' && selectedCampaign.action.url ? (
+                {/* Branch 1: Internal URL opportunity (Visit link) */}
+                {selectedCampaign.source === 'internal' && selectedCampaign.action.url && (
                   <button
                     onClick={() => handleLaunchExternal(selectedCampaign)}
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:bg-primary-bright transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                    className="w-full sm:w-auto px-5 py-3 rounded-xl border border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                   >
-                    <span>Open Campaign</span>
+                    <span>Open Destination</span>
                     <ExternalLink size={14} />
                   </button>
-                ) : (
+                )}
+
+                {/* Branch 2: Internal Claim / Submit Proof */}
+                {selectedCampaign.source === 'internal' && (
                   <button
                     onClick={handleSubmitTaskProof}
                     disabled={isSubmitting}
@@ -696,9 +717,34 @@ export const Marketplace: React.FC = () => {
                     ) : (
                       <>
                         <ShieldCheck size={15} />
-                        <span>{selectedCampaign.metadata.verificationType === 'proof' ? 'Submit Proof' : 'Claim Rewards'}</span>
+                        <span>{requiresProofText(selectedCampaign.metadata.verificationType) ? 'Submit Proof' : 'Claim Rewards'}</span>
                       </>
                     )}
+                  </button>
+                )}
+
+                {/* Branch 3: Provider opportunity with URL */}
+                {selectedCampaign.source === 'provider' && selectedCampaign.action.url && (
+                  <button
+                    onClick={() => handleLaunchExternal(selectedCampaign)}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:bg-primary-bright transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  >
+                    <span>Open Campaign</span>
+                    <ExternalLink size={14} />
+                  </button>
+                )}
+
+                {/* Branch 4: Provider inline / no-URL opportunity */}
+                {selectedCampaign.source === 'provider' && !selectedCampaign.action.url && (
+                  <button
+                    onClick={() => {
+                      openOpportunity(selectedCampaign, true);
+                      toast.success(`Started offer with ${selectedCampaign.providerName || 'provider'}. Rewards credit automatically upon completion.`);
+                    }}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:bg-primary-bright transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  >
+                    <span>Start Provider Offer</span>
+                    <ChevronRight size={14} />
                   </button>
                 )}
               </div>

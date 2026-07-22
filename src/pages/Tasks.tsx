@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { auth } from '../firebase/config';
 import { safeFetch } from '../utils/api';
+import { requiresProofText } from '../utils';
 import { Task } from '../types';
 
 const Tasks: React.FC = () => {
@@ -81,7 +82,7 @@ const Tasks: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!selectedTask) return;
-    if (selectedTask.verificationType !== 'automated' && !proof.trim()) {
+    if (requiresProofText(selectedTask.verificationType) && !proof.trim()) {
       return toast.error("Please provide proof of completion.");
     }
 
@@ -96,7 +97,7 @@ const Tasks: React.FC = () => {
         },
         body: JSON.stringify({ 
           taskId: selectedTask.id, 
-          proof: proof || 'AUTOMATED_VALIDATION' 
+          proof: proof.trim() || 'AUTOMATED_VALIDATION' 
         })
       });
 

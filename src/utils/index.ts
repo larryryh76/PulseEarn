@@ -15,3 +15,8 @@ export function formatCurrency(value: number) {
 export function shortenAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
+
+export function requiresProofText(verificationType?: string): boolean {
+  if (!verificationType) return false;
+  return verificationType !== 'automated';
+}

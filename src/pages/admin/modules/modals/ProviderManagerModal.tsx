@@ -399,6 +399,11 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       const resolvedCallbackUrl = form.callbackUrl.trim() || callbackUrl;
       const payload: Record<string, any> = {
         name: form.name.trim(),
+        logo: form.logo.trim(),
+        logoUrl: form.logo.trim(),
+        status: form.status,
+        description: form.description.trim(),
+        apiEndpoint: form.apiEndpoint.trim() || form.integrationUrl.trim(),
         enabled: form.enabled,
         affiliateId: form.affiliateId.trim(),
         integrationUrl: form.integrationUrl.trim(),
@@ -691,6 +696,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                         placeholder="https://timewall.io/earn/PLACEMENT?userID=USER_ID"
                         mono
                       />
+                    </Field>
+                    <Field label="API Endpoint URL" hint="Direct REST API endpoint for inventory syncing or status checks">
+                      <TextInput value={form.apiEndpoint} onChange={v => set('apiEndpoint', v)} placeholder="https://api.provider.com/v1" mono />
                     </Field>
                     <Field label="Custom Callback URL" hint="Override the auto-generated URL if you use a custom domain or proxy">
                       <TextInput value={form.callbackUrl} onChange={v => set('callbackUrl', v)} placeholder={callbackUrl} mono />

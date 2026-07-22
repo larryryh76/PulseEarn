@@ -102,8 +102,17 @@ export const Marketplace: React.FC = () => {
       }
 
       if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        toast.success(`Opening ${provider.name}...`);
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            toast.error(`Invalid link protocol (${parsed.protocol}) for ${provider.name}.`);
+            return;
+          }
+          window.open(parsed.href, '_blank', 'noopener,noreferrer');
+          toast.success(`Opening ${provider.name}...`);
+        } catch {
+          toast.error(`Invalid launch URL for ${provider.name}.`);
+        }
       } else {
         toast.error(`Unable to launch ${provider.name}. Please check provider configuration.`);
       }

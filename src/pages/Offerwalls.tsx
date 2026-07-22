@@ -245,16 +245,26 @@ const Offerwalls: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.success && res.launchUrl) {
-        toast.dismiss(resolveToast);
-        if (res.embeddable) {
-          setActiveProvider({ ...provider, launchUrl: res.launchUrl, embeddable: true });
-        } else {
-          if (newWindow && !newWindow.closed) {
-            newWindow.location.href = res.launchUrl;
-          } else {
-            // Fallback if window was blocked or closed
-            window.open(res.launchUrl, '_blank', 'noopener,noreferrer');
+        try {
+          const parsed = new URL(res.launchUrl);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            if (newWindow && !newWindow.closed) newWindow.close();
+            toast.error(`Invalid URL protocol (${parsed.protocol}) for ${provider.name}`, { id: resolveToast });
+            return;
           }
+          toast.dismiss(resolveToast);
+          if (res.embeddable) {
+            setActiveProvider({ ...provider, launchUrl: parsed.href, embeddable: true });
+          } else {
+            if (newWindow && !newWindow.closed) {
+              newWindow.location.href = parsed.href;
+            } else {
+              window.open(parsed.href, '_blank', 'noopener,noreferrer');
+            }
+          }
+        } catch {
+          if (newWindow && !newWindow.closed) newWindow.close();
+          toast.error('Invalid launch URL generated', { id: resolveToast });
         }
       } else {
         // Close the blank window if launch failed

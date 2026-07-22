@@ -3,9 +3,40 @@ import sys
 import json
 import html
 import math
+import urllib.parse
+import logging
 import traceback
 from datetime import datetime, timezone, timedelta
 from functools import wraps
+
+def safe_float(v, default=0.0):
+    if v is None or v == '':
+        return default
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+def safe_int(v, default=0):
+    if v is None or v == '':
+        return default
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return default
+
+def _validate_launch_url(url):
+    if not url:
+        return None
+    try:
+        parsed = urllib.parse.urlparse(str(url).strip())
+        if parsed.scheme.lower() in ('http', 'https') and parsed.netloc:
+            return str(url).strip()
+        logging.warning(f"[URL Validation] Rejected unsafe or invalid URL scheme/format: {url}")
+        return None
+    except Exception as e:
+        logging.warning(f"[URL Validation] Failed to parse URL '{url}': {e}")
+        return None
 
 # Lazy imports for stabilization
 requests = None
@@ -2055,8 +2086,12 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
         # Only trust the stored URL if the UID actually got injected (either via a
         # placeholder token, or because the admin pre-baked a per-user pattern).
         if has_uid_token or (uid and uid in resolved):
-            embeddable = bool(config.get('embeddable', False))
-            return resolved, embeddable
+            valid_url = _validate_launch_url(resolved)
+            if valid_url:
+                embeddable = bool(config.get('embeddable', False))
+                return valid_url, embeddable
+            else:
+                logging.warning(f"[Offerwall Launch] Invalid or unsafe integration URL for '{provider_id}': {resolved}")
 
     # ── PRIORITY 2: built-in per-provider templates (fallback) ─────────────────
     # Used only when no Integration URL is configured. Requires an affiliate id.
@@ -2077,23 +2112,17 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
         'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
     }
 
-    # TimeWall's authenticated offerwall URL (verified from the TimeWall Placements
-    # dashboard "Direct Link"/iFrame): https://timewall.io/users/login?oid=<placementId>&uid=<UNIQUE_USER_ID>.
-    # The `oid` is the Placement ID (stored as affiliateId) and `uid` receives the
-    # authenticated Firebase UID. Passing the uid this way means the user lands
-    # directly inside their assigned offerwall, never the marketing homepage.
-    # Note: embeddable is False here because TimeWall requires third-party cookie/session
-    # support which modern browser privacy settings block inside iframes (causing Session Blocked).
     if pid == 'timewall':
-        return f'https://timewall.io/users/login?oid={aff}&uid={uid}', False
+        return _validate_launch_url(f'https://timewall.io/users/login?oid={aff}&uid={uid}'), False
 
     if pid == 'cpxresearch':
         secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
-        return (f'https://offers.cpx-research.com/index.php?app_id={aff}'
-                f'&ext_user_id={uid}&secure_hash={secure_hash}'), True
+        raw_url = (f'https://offers.cpx-research.com/index.php?app_id={aff}'
+                   f'&ext_user_id={uid}&secure_hash={secure_hash}')
+        return _validate_launch_url(raw_url), True
 
     if pid in templates:
-        return templates[pid].format(aff=aff, uid=uid), True
+        return _validate_launch_url(templates[pid].format(aff=aff, uid=uid)), True
 
     # Pollfish and InBrain are locked placeholders (prevent redirect)
     if pid in ('pollfish', 'inbrain'):
@@ -3305,30 +3334,33 @@ def offerwall_user_providers():
     snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
     providers = []
     for s in snaps:
-        d = s.to_dict()
-        launch_url, embeddable = _build_offerwall_launch_url(
-            s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
-        )
-        providers.append({
-            'id': s.id,
-            'name': d.get('name', s.id),
-            'logo': d.get('logo') or d.get('logoUrl') or d.get('iconUrl') or '',
-            'status': d.get('status', 'active'),
-            'enabled': d.get('enabled', True),
-            'apiEndpoint': d.get('apiEndpoint') or d.get('integrationUrl') or '',
-            'callbackUrl': d.get('callbackUrl') or '',
-            'rewardMultiplier': float(d.get('rewardMultiplier', 1.0)),
-            'userSharePct': float(d.get('userSharePct', 0.85)),
-            'platformSharePct': float(d.get('platformSharePct', 0.15)),
-            'priority': int(d.get('priority', 100)),
-            'description': d.get('description', ''),
-            'affiliateId': d.get('affiliateId', ''),
-            'minimumReward': d.get('minimumReward', 1),
-            'maximumReward': d.get('maximumReward', 100000),
-            'launchUrl': launch_url,
-            'embeddable': embeddable,
-            'offers': []
-        })
+        try:
+            d = s.to_dict() or {}
+            launch_url, embeddable = _build_offerwall_launch_url(
+                s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
+            )
+            providers.append({
+                'id': s.id,
+                'name': d.get('name', s.id),
+                'logo': d.get('logo') or d.get('logoUrl') or d.get('iconUrl') or '',
+                'status': d.get('status', 'active'),
+                'enabled': bool(d.get('enabled', True)),
+                'apiEndpoint': d.get('apiEndpoint') or d.get('integrationUrl') or '',
+                'callbackUrl': d.get('callbackUrl') or '',
+                'rewardMultiplier': safe_float(d.get('rewardMultiplier'), 1.0),
+                'userSharePct': safe_float(d.get('userSharePct'), 0.85),
+                'platformSharePct': safe_float(d.get('platformSharePct'), 0.15),
+                'priority': safe_int(d.get('priority'), 100),
+                'description': d.get('description', ''),
+                'affiliateId': d.get('affiliateId', ''),
+                'minimumReward': safe_int(d.get('minimumReward'), 1),
+                'maximumReward': safe_int(d.get('maximumReward'), 100000),
+                'launchUrl': launch_url,
+                'embeddable': bool(embeddable),
+                'offers': []
+            })
+        except Exception as e:
+            logging.error(f"[user-providers] Failed to parse provider document '{s.id}': {e}")
     providers.sort(key=lambda p: p.get('priority', 100))
     return jsonify({'success': True, 'providers': providers})
 

@@ -107,6 +107,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   variant = 'default',
   onOpen,
   showProviderBadge = true,
+  showXP = true,
   className
 }) => {
   const status = opportunity.status;
@@ -121,17 +122,27 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !isLocked && onOpen) {
+      e.preventDefault();
+      onOpen(opportunity);
+    }
+  };
+
   // Modern UI badge style mapping based on opportunity metadata
   const difficulty = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.easy;
 
   if (variant === 'compact') {
     return (
       <motion.div
+        role="button"
+        tabIndex={isLocked ? -1 : 0}
+        onKeyDown={handleKeyDown}
         whileHover={!isLocked ? { y: -3, scale: 1.01 } : {}}
         whileTap={!isLocked ? { scale: 0.98 } : {}}
         onClick={handleCardClick}
         className={cn(
-          "group relative flex flex-col justify-between p-5 rounded-2xl bg-surface border border-border transition-smooth cursor-pointer shadow-subtle hover:border-primary/20",
+          "group relative flex flex-col justify-between p-5 rounded-2xl bg-surface border border-border transition-smooth cursor-pointer shadow-subtle hover:border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40",
           isLocked && "opacity-40 cursor-not-allowed hover:border-border",
           className
         )}
@@ -165,10 +176,13 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   if (variant === 'row') {
     return (
       <motion.div
+        role="button"
+        tabIndex={isLocked ? -1 : 0}
+        onKeyDown={handleKeyDown}
         whileHover={!isLocked ? { x: 3 } : {}}
         onClick={handleCardClick}
         className={cn(
-          "group flex items-center justify-between p-4.5 rounded-2xl bg-surface border border-border hover:border-primary/20 transition-smooth cursor-pointer shadow-subtle",
+          "group flex items-center justify-between p-4.5 rounded-2xl bg-surface border border-border hover:border-primary/20 transition-smooth cursor-pointer shadow-subtle focus:outline-none focus:ring-2 focus:ring-primary/40",
           isLocked && "opacity-40 cursor-not-allowed hover:border-border",
           className
         )}
@@ -197,7 +211,9 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
             <span className="text-sm font-black text-emerald-500 font-mono block">
               +{opportunity.reward.points.toLocaleString()}
             </span>
-            <span className="text-[8px] font-black text-text-tertiary font-mono block uppercase">+{opportunity.reward.xp} XP</span>
+            {showXP && (
+              <span className="text-[8px] font-black text-text-tertiary font-mono block uppercase">+{opportunity.reward.xp} XP</span>
+            )}
           </div>
           <div className="p-1.5 rounded-lg bg-surface-bright border border-border text-text-tertiary group-hover:bg-primary group-hover:text-white transition-all">
             <ChevronRight size={12} />
@@ -207,13 +223,88 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
     );
   }
 
+  if (variant === 'featured') {
+    return (
+      <motion.div
+        role="button"
+        tabIndex={isLocked ? -1 : 0}
+        onKeyDown={handleKeyDown}
+        whileHover={!isLocked ? { y: -5 } : {}}
+        onClick={handleCardClick}
+        className={cn(
+          "group relative flex flex-col justify-between rounded-3xl bg-surface border border-primary/20 overflow-hidden transition-smooth cursor-pointer shadow-premium hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40",
+          isLocked && "opacity-50 cursor-not-allowed hover:border-border",
+          className
+        )}
+      >
+        <div className="relative h-48 w-full bg-surface-bright border-b border-border overflow-hidden flex items-center justify-center">
+          {opportunity.metadata.artwork || opportunity.metadata.thumbnail ? (
+            <img
+              src={opportunity.metadata.artwork || opportunity.metadata.thumbnail}
+              alt={opportunity.title}
+              className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/20 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center border border-border shadow-md">
+                <CategoryIcon category={opportunity.metadata.category} size={28} />
+              </div>
+            </div>
+          )}
+          <div className="absolute top-4 left-4 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-background/80 backdrop-blur-md border border-border/40 text-[10px] font-bold text-text-primary shadow-sm">
+              <CategoryIcon category={opportunity.metadata.category} size={12} />
+              <span>{formatCategory(opportunity.metadata.category)}</span>
+            </div>
+            <span className="px-2.5 py-1 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-md">FEATURED</span>
+          </div>
+        </div>
+
+        <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-extrabold text-text-primary group-hover:text-primary transition-colors tracking-tight leading-snug">
+              {opportunity.title}
+            </h3>
+            <p className="text-xs text-text-secondary leading-relaxed font-medium line-clamp-2">
+              {opportunity.description}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border/50">
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-black text-emerald-400 font-mono">
+                  +{opportunity.reward.points.toLocaleString()}
+                </span>
+                <span className="text-[9px] font-bold text-text-tertiary uppercase font-mono">PTS</span>
+              </div>
+              {showXP && (
+                <span className="text-[9px] text-text-tertiary font-mono block">
+                  +{opportunity.reward.xp} XP
+                </span>
+              )}
+            </div>
+
+            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider group-hover:bg-primary-bright transition-all shadow-md">
+              Start Quest <ChevronRight size={13} />
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   // DEFAULT / STANDARD CARD (Coinbase-style bento grid card)
   return (
     <motion.div
+      role="button"
+      tabIndex={isLocked ? -1 : 0}
+      onKeyDown={handleKeyDown}
       whileHover={!isLocked ? { y: -5 } : {}}
       onClick={handleCardClick}
       className={cn(
-        "group relative flex flex-col justify-between rounded-2xl bg-surface border border-border overflow-hidden transition-smooth cursor-pointer shadow-subtle hover:border-primary/30 hover:shadow-premium",
+        "group relative flex flex-col justify-between rounded-2xl bg-surface border border-border overflow-hidden transition-smooth cursor-pointer shadow-subtle hover:border-primary/30 hover:shadow-premium focus:outline-none focus:ring-2 focus:ring-primary/40",
         isLocked && "opacity-50 cursor-not-allowed hover:border-border hover:shadow-subtle",
         className
       )}
@@ -296,9 +387,11 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
               </span>
               <span className="text-[8px] font-bold text-text-tertiary uppercase font-mono">PTS</span>
             </div>
-            <span className="text-[9px] text-text-tertiary font-mono block">
-              +{opportunity.reward.xp} XP
-            </span>
+            {showXP && (
+              <span className="text-[9px] text-text-tertiary font-mono block">
+                +{opportunity.reward.xp} XP
+              </span>
+            )}
           </div>
 
           <div>

@@ -60,6 +60,29 @@ import toast from 'react-hot-toast';
 import { OpportunityCard, formatEstimatedTime, CategoryIcon, formatCategory } from '../components/marketplace/OpportunityCard';
 import { CategoryNavigation } from '../components/marketplace/CategoryNavigation';
 
+// Utility to validate HTTP/HTTPS scheme for security
+const isValidHttpUrl = (url?: string): boolean => {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+// Utility to parse estimated time into numeric minutes for accurate sorting
+const parseDurationMinutes = (timeInput: string | number | undefined): number => {
+  if (typeof timeInput === 'number') return timeInput;
+  if (!timeInput) return 0;
+  const str = String(timeInput).toLowerCase();
+  const digits = parseFloat(str.replace(/[^0-9.]/g, ''));
+  if (isNaN(digits)) return 0;
+  if (str.includes('hr') || str.includes('hour')) return digits * 60;
+  if (str.includes('day')) return digits * 1440;
+  return digits;
+};
+
 const Marketplace: React.FC = () => {
   const { userData } = useAuth();
   const {
@@ -115,6 +138,10 @@ const Marketplace: React.FC = () => {
   // Launch Opportunity handler (either Drawer or Sandbox Iframe)
   const handleLaunchOpportunity = useCallback((opp: MarketplaceOpportunity) => {
     if (opp.source === 'provider' && opp.action.url) {
+      if (!isValidHttpUrl(opp.action.url)) {
+        toast.error('Provider URL failed security check (invalid scheme).');
+        return;
+      }
       // Open in-app sandbox iframe overlay
       setActiveEmbedOpportunity(opp);
       setIframeLoading(true);
@@ -260,7 +287,7 @@ const Marketplace: React.FC = () => {
         return b.reward.points - a.reward.points;
       }
       if (sortBy === 'time') {
-        return formatEstimatedTime(a.metadata.estimatedTime).localeCompare(formatEstimatedTime(b.metadata.estimatedTime));
+        return parseDurationMinutes(a.metadata.estimatedTime) - parseDurationMinutes(b.metadata.estimatedTime);
       }
       return 0;
     });
@@ -386,8 +413,16 @@ const Marketplace: React.FC = () => {
                 {/* 1. Marketplace Hero: Big editorial spotlight splash */}
                 {spotlightOpportunity && (
                   <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleLaunchOpportunity(spotlightOpportunity);
+                      }
+                    }}
                     onClick={() => handleLaunchOpportunity(spotlightOpportunity)}
-                    className="group relative rounded-3xl overflow-hidden cursor-pointer border border-border hover:border-primary/30 hover:shadow-premium transition-all duration-500 h-[380px] md:h-[420px]"
+                    className="group relative rounded-3xl overflow-hidden cursor-pointer border border-border hover:border-primary/30 hover:shadow-premium transition-all duration-500 h-[380px] md:h-[420px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     {/* Background */}
                     <div className="absolute inset-0 bg-cover bg-center group-hover:scale-101 transition-transform duration-700"
@@ -573,7 +608,7 @@ const Marketplace: React.FC = () => {
                         <GraduationCap className="text-lime-500" size={18} />
                         <div>
                           <h3 className="text-sm font-bold text-white uppercase">Learn & Earn</h3>
-                          <p className="text-[11px] text-text-secondary">Complete quizes and courses to gain rewards</p>
+                          <p className="text-[11px] text-text-secondary">Complete quizzes and courses to gain rewards</p>
                         </div>
                       </div>
                     </div>
@@ -678,7 +713,7 @@ const Marketplace: React.FC = () => {
                       Third-Party Partner Networks
                     </h3>
                     <p className="text-xs text-text-secondary leading-relaxed max-w-xl">
-                      Synchronize withTapjoy, Wannads, or Adjoe networks to browse hundreds of external games, installations, and microtasks.
+                      Synchronize with Tapjoy, Wannads, or Adjoe networks to browse hundreds of external games, installations, and microtasks.
                     </p>
                   </div>
                   <button

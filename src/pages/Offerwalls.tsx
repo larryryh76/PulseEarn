@@ -15,6 +15,9 @@ import toast from 'react-hot-toast';
 interface Provider {
   id: string;
   name: string;
+  logo?: string;
+  status?: string;
+  description?: string;
   affiliateId: string;
   callbackUrl: string;
   minimumReward: number;
@@ -36,39 +39,6 @@ interface Reward {
 
 // ─── Provider Card ────────────────────────────────────────────────────────────
 
-const PROVIDER_INFO: Record<string, { description: string; category: string; icon: string }> = {
-  lootably: {
-    description: 'Complete surveys, watch videos, and install apps to earn points.',
-    category: 'Surveys & Videos',
-    icon: 'L',
-  },
-  bitlabs: {
-    description: 'Earn from premium survey panels with some of the highest payouts.',
-    category: 'Premium Surveys',
-    icon: 'B',
-  },
-  cpxresearch: {
-    description: 'Access thousands of daily surveys from top research companies.',
-    category: 'Market Research',
-    icon: 'C',
-  },
-  adgem: {
-    description: 'Install apps, complete in-app actions, and trial offers.',
-    category: 'App Installs & Trials',
-    icon: 'A',
-  },
-  offertoro: {
-    description: 'A wide catalog of offers including gaming, apps, and subscriptions.',
-    category: 'Multi-category Offers',
-    icon: 'O',
-  },
-  timewall: {
-    description: 'Earn by watching videos and completing short time-based offers.',
-    category: 'Videos & Time Tasks',
-    icon: 'T',
-  },
-};
-
 const ProviderCard: React.FC<{
   provider: Provider;
   userRewardCount: number;
@@ -76,11 +46,8 @@ const ProviderCard: React.FC<{
   onToggle: () => void;
   onLaunch: (provider: Provider) => void;
 }> = ({ provider, userRewardCount, expanded, onToggle, onLaunch }) => {
-  const info = PROVIDER_INFO[provider.id] || {
-    description: `Complete offers and earn up to ${provider.maximumReward.toLocaleString()} PTS per offer.`,
-    category: 'Offers',
-    icon: provider.name[0]?.toUpperCase() || '?',
-  };
+  const description = provider.description || `Complete tasks & earn up to ${provider.maximumReward?.toLocaleString() || 10000} PTS.`;
+  const iconLetter = provider.name ? provider.name[0].toUpperCase() : 'P';
 
   return (
     <motion.div
@@ -94,17 +61,23 @@ const ProviderCard: React.FC<{
       >
         <div className="flex items-center gap-4">
           {/* Icon */}
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <span className="text-lg font-black text-primary">{info.icon}</span>
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+            {provider.logo ? (
+              <img src={provider.logo} alt={provider.name} className="w-8 h-8 object-contain" />
+            ) : (
+              <span className="text-lg font-black text-primary">{iconLetter}</span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-[14px] font-bold text-text-primary">{provider.name}</h3>
-              <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg bg-primary/8 border border-primary/15 text-primary">
-                {info.category}
-              </span>
+              {provider.status && (
+                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg bg-primary/8 border border-primary/15 text-primary">
+                  {provider.status}
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-text-tertiary mt-0.5">{info.description}</p>
+            <p className="text-[11px] text-text-tertiary mt-0.5">{description}</p>
           </div>
         </div>
 

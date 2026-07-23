@@ -111,17 +111,38 @@ class ProviderCache:
                     # Ensure defaults for standard fields if missing
                     config['name'] = data.get('name') or data.get('label') or doc.id
                     config['logo'] = data.get('logo') or data.get('logoUrl') or data.get('iconUrl') or ''
-                    config['status'] = data.get('status', 'active')
-                    config['enabled'] = data.get('enabled', True)
-                    config['priority'] = data.get('priority', 100)
-                    config['launchMethod'] = data.get('launchMethod', 'redirect')
-                    config['rewardMultiplier'] = data.get('rewardMultiplier', 1.0)
-                    config['userSharePct'] = data.get('userSharePct', 0.85)
-                    config['platformSharePct'] = data.get('platformSharePct', 0.15)
-                    config['minimumReward'] = data.get('minimumReward', 1)
-                    config['maximumReward'] = data.get('maximumReward', 100000)
-                    config['fraudRules'] = data.get('fraudRules', {})
-                    config['stats'] = data.get('stats', {})
+                    config['status'] = data.get('status') or 'active'
+                    config['enabled'] = True if data.get('enabled') is None else bool(data.get('enabled'))
+                    config['priority'] = int(data.get('priority')) if data.get('priority') is not None else 100
+                    config['launchMethod'] = data.get('launchMethod') or 'redirect'
+
+                    try:
+                        config['rewardMultiplier'] = float(data.get('rewardMultiplier')) if data.get('rewardMultiplier') is not None else 1.0
+                    except (ValueError, TypeError):
+                        config['rewardMultiplier'] = 1.0
+
+                    try:
+                        config['userSharePct'] = float(data.get('userSharePct')) if data.get('userSharePct') is not None else 0.85
+                    except (ValueError, TypeError):
+                        config['userSharePct'] = 0.85
+
+                    try:
+                        config['platformSharePct'] = float(data.get('platformSharePct')) if data.get('platformSharePct') is not None else 0.15
+                    except (ValueError, TypeError):
+                        config['platformSharePct'] = 0.15
+
+                    try:
+                        config['minimumReward'] = float(data.get('minimumReward')) if data.get('minimumReward') is not None else 1.0
+                    except (ValueError, TypeError):
+                        config['minimumReward'] = 1.0
+
+                    try:
+                        config['maximumReward'] = float(data.get('maximumReward')) if data.get('maximumReward') is not None else 100000.0
+                    except (ValueError, TypeError):
+                        config['maximumReward'] = 100000.0
+
+                    config['fraudRules'] = data.get('fraudRules') if isinstance(data.get('fraudRules'), dict) else {}
+                    config['stats'] = data.get('stats') if isinstance(data.get('stats'), dict) else {}
                     new_cache[doc.id] = config
             
             self._cache = new_cache
@@ -167,7 +188,10 @@ class ProviderCache:
             # Check critical fields match
             critical_fields = ['secret', 'affiliateId', 'enabled']
             for field in critical_fields:
-                if firestore_data.get(field) != cached_data.get(field):
+                fs_val = firestore_data.get(field)
+                if field == 'enabled' and fs_val is None:
+                    fs_val = True
+                if fs_val != cached_data.get(field):
                     print(f"[ProviderCache] WARNING: Provider {provider_id} field {field} mismatch")
                     return False
             

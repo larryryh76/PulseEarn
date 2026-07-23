@@ -60,7 +60,7 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
 
     metadata: {
       category,
-      difficulty: (campaign?.difficulty as OpportunityDifficulty) || estimateDifficulty(task.rewardAmount, task.xpReward),
+      difficulty: sanitizeDifficulty(campaign?.difficulty, estimateDifficulty(task.rewardAmount, task.xpReward)),
       estimatedTime: task.estimatedTime || campaign?.estimatedCompletion || estimateTime(task.type),
       verificationType: mapVerificationType(task.verificationType),
       launchMode,
@@ -72,9 +72,9 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
     },
 
     engagement: {
-      completionRate: task.conversionRate || (campaign?.analytics?.completionRate) || 0,
+      completionRate: task.conversionRate ?? campaign?.analytics?.completionRate ?? 0,
       averageReward: task.rewardAmount,
-      totalCompletions: task.totalClaims || (campaign?.analytics?.completions) || 0,
+      totalCompletions: task.totalClaims ?? campaign?.analytics?.completions ?? 0,
       trending: Boolean(campaign?.featured),
       isNew: isNewTask(task.createdAt || campaign?.createdAt),
       expiringSoon: isExpiringSoon(task.endDate || campaign?.endDate),
@@ -122,7 +122,7 @@ export function normalizeCampaign(campaign: Campaign, userTask?: UserTask): Mark
 
     metadata: {
       category,
-      difficulty: (campaign.difficulty as OpportunityDifficulty) || 'medium',
+      difficulty: sanitizeDifficulty(campaign.difficulty, 'medium'),
       estimatedTime: campaign.estimatedCompletion || '10 min',
       verificationType: 'automated',
       launchMode: campaign.sponsorWebsite ? 'redirect' : 'inline',
@@ -436,8 +436,17 @@ function getActionType(task: Task, launchMode: LaunchMode) {
 
 // ─── Utility Helpers ──────────────────────────────────────────────────────────
 
+const ALLOWED_DIFFICULTIES: OpportunityDifficulty[] = ['easy', 'medium', 'hard', 'elite'];
+
+function sanitizeDifficulty(val: any, fallback: OpportunityDifficulty = 'medium'): OpportunityDifficulty {
+  if (typeof val === 'string' && (ALLOWED_DIFFICULTIES as string[]).includes(val.toLowerCase())) {
+    return val.toLowerCase() as OpportunityDifficulty;
+  }
+  return fallback;
+}
+
 function parseTimestamp(ts: any): Date | undefined {
-  if (!ts) return undefined;
+  if (!ts && ts !== 0) return undefined;
   if (typeof ts.toDate === 'function') return ts.toDate();
   if (ts instanceof Date) return ts;
   if (typeof ts === 'number') return new Date(ts);
@@ -445,7 +454,7 @@ function parseTimestamp(ts: any): Date | undefined {
     const parsed = new Date(ts);
     return isNaN(parsed.getTime()) ? undefined : parsed;
   }
-  if (ts?.seconds) return new Date(ts.seconds * 1000);
+  if (typeof ts?.seconds === 'number') return new Date(ts.seconds * 1000);
   return undefined;
 }
 
@@ -483,10 +492,10 @@ export function normalizeTaskBatch(
       return normalizeTask({ task, campaign, userTask });
     });
 
-  // Include standalone active campaigns that do not have subtasks explicitly linked
-  const tasksCampaignIds = new Set(tasks.map(t => t.campaignId).filter(Boolean));
+  // Include standalone active campaigns that do not have active subtasks explicitly linked
+  const activeTasksCampaignIds = new Set(tasks.filter(t => t.active).map(t => t.campaignId).filter(Boolean));
   const standaloneCampaignOpportunities = campaigns
-    .filter(c => c.active && (c.status === 'ACTIVE' || c.status === 'PUBLISHED') && !tasksCampaignIds.has(c.id))
+    .filter(c => c.active && (c.status === 'ACTIVE' || c.status === 'PUBLISHED') && !activeTasksCampaignIds.has(c.id))
     .map(campaign => normalizeCampaign(campaign, userTasks[campaign.id]));
 
   return [...taskOpportunities, ...standaloneCampaignOpportunities];

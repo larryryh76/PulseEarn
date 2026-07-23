@@ -24,48 +24,56 @@ export type TicketCategory =
 
 export interface Task {
   id: string;
-  providerId: string;
-  providerName: string;
+  providerId?: string;
+  providerName?: string;
   campaignId: string | null;
-  category: TaskCategory;
+  category?: TaskCategory;
   type: TaskType;
   title: string;
   subtitle?: string;
   description: string;
-  instructions: string;
+  instructions?: string;
   proofRequirements?: string;
-  platform: SocialPlatform;
-  actionUrl: string | null;
+  proofLabel?: string;
+  proofPlaceholder?: string;
+  platform?: SocialPlatform;
+  actionUrl?: string | null;
+  url?: string | null;
   active: boolean;
   rewardAmount: number;
   xpReward: number;
   budget?: number;
   bonusReward?: number;
   referralBonus?: number;
-  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED' | 'DRAFT';
-  visibility: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
+  status?: 'ACTIVE' | 'INACTIVE' | 'EXPIRED' | 'PAUSED' | 'DRAFT';
+  visibility?: 'PUBLIC' | 'TIER_RESTRICTED' | 'HIDDEN';
   verificationType: VerificationType;
-  cooldownPeriod: number; // in hours
-  maxClaims: number | null; // null for unlimited
+  cooldownPeriod?: number; // in hours
+  cooldownHours?: number; // alias
+  maxClaims?: number | null; // null for unlimited
+  maxCompletions?: number | null; // alias
   dailyLimit?: number;
   perUserLimit?: number;
-  provider: 'internal' | 'offerwall_x' | 'survey_y' | string;
-  totalClaims: number;
+  provider?: 'internal' | 'offerwall_x' | 'survey_y' | string;
+  totalClaims?: number;
   totalDistributed?: number;
   completionCount?: number;
   conversionRate?: number;
   targetTiers?: string[];
-  startDate: Timestamp | null;
-  endDate: Timestamp | null;
-  expirationDate: Timestamp | null;
-  campaignArtwork: string | null;
-  tags: string[];
-  minLevel: number;
-  regionRestrictions: string[];
-  estimatedTime: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  fraudProtection: {
+  startDate?: Timestamp | null;
+  endDate?: Timestamp | null;
+  expirationDate?: Timestamp | null;
+  campaignArtwork?: string | null;
+  tags?: string[];
+  minLevel?: number;
+  regionRestrictions?: string[];
+  estimatedTime?: string;
+  difficulty?: TaskDifficulty;
+  rarity?: TaskRarity;
+  priority?: number;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  fraudProtection?: {
     duplicatePrevention: boolean;
     abuseDetection: boolean;
     multiAccountDetection: boolean;

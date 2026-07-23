@@ -1336,24 +1336,173 @@ def create_task():
         return jsonify({"success": False, "error": "INVALID_REWARD"}), 400
     try:
         task_ref = db.collection('tasks').document()
-        task_ref.set({
+        cooldown = int(data.get('cooldownHours') or data.get('cooldownPeriod') or 0)
+        max_claims = data.get('maxCompletions') if data.get('maxCompletions') is not None else data.get('maxClaims')
+        url_val = data.get('url') or data.get('actionUrl') or None
+        
+        doc_payload = {
             'title': title,
             'description': (data.get('description') or '').strip(),
+            'instructions': (data.get('instructions') or data.get('description') or '').strip(),
             'type': data.get('type', 'manual'),
+            'category': data.get('category', 'CUSTOM'),
+            'campaignId': data.get('campaignId') or None,
+            'providerId': data.get('providerId') or None,
+            'provider': data.get('provider', 'internal'),
             'rewardAmount': int(reward),
             'xpReward': int(data.get('xpReward') or 0),
             'proofLabel': data.get('proofLabel') or 'Proof',
             'proofPlaceholder': data.get('proofPlaceholder') or 'Paste your proof link here',
-            'maxCompletions': data.get('maxCompletions'),  # None = unlimited
-            'cooldownHours': int(data.get('cooldownHours') or 0),
-            'url': data.get('url') or None,
-            'active': True,
+            'proofRequirements': data.get('proofRequirements') or data.get('proofLabel') or None,
+            'maxCompletions': max_claims,
+            'maxClaims': max_claims,
+            'cooldownHours': cooldown,
+            'cooldownPeriod': cooldown,
+            'url': url_val,
+            'actionUrl': url_val,
+            'active': data.get('active', True),
+            'status': 'ACTIVE' if data.get('active', True) else 'INACTIVE',
+            'visibility': data.get('visibility', 'PUBLIC'),
+            'verificationType': data.get('verificationType') or ('automated' if data.get('type') == 'automated' else 'manual'),
+            'priority': int(data.get('priority') or 100),
+            'difficulty': data.get('difficulty') or 'medium',
+            'tags': data.get('tags') if isinstance(data.get('tags'), list) else [],
             'completionCount': 0,
+            'totalClaims': 0,
             'createdBy': uid,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
-        })
+        }
+        task_ref.set(doc_payload)
         return jsonify({"success": True, "taskId": task_ref.id})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/tasks/<task_id>/update', methods=['POST'])
+@verify_token
+def update_task(task_id):
+    """Admin/Moderator: Update an existing task definition."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    data = request.json or {}
+    try:
+        task_ref = db.collection('tasks').document(task_id)
+        existing = task_ref.get()
+        if not existing.exists:
+            return jsonify({"success": False, "error": "TASK_NOT_FOUND"}), 404
+
+        update_payload = {'updatedAt': firestore.SERVER_TIMESTAMP}
+        
+        if 'title' in data and data['title'].strip():
+            update_payload['title'] = data['title'].strip()
+        if 'description' in data:
+            update_payload['description'] = data['description'].strip()
+            update_payload['instructions'] = data['description'].strip()
+        if 'type' in data:
+            update_payload['type'] = data['type']
+        if 'category' in data:
+            update_payload['category'] = data['category']
+        if 'campaignId' in data:
+            update_payload['campaignId'] = data['campaignId'] or None
+        if 'providerId' in data:
+            update_payload['providerId'] = data['providerId'] or None
+        if 'rewardAmount' in data and data['rewardAmount'] is not None:
+            update_payload['rewardAmount'] = int(data['rewardAmount'])
+        if 'xpReward' in data and data['xpReward'] is not None:
+            update_payload['xpReward'] = int(data['xpReward'])
+        if 'proofLabel' in data:
+            update_payload['proofLabel'] = data['proofLabel']
+            update_payload['proofRequirements'] = data['proofLabel']
+        if 'proofPlaceholder' in data:
+            update_payload['proofPlaceholder'] = data['proofPlaceholder']
+        if 'cooldownHours' in data or 'cooldownPeriod' in data:
+            cd = int(data.get('cooldownHours') or data.get('cooldownPeriod') or 0)
+            update_payload['cooldownHours'] = cd
+            update_payload['cooldownPeriod'] = cd
+        if 'maxCompletions' in data or 'maxClaims' in data:
+            mc = data.get('maxCompletions') if 'maxCompletions' in data else data.get('maxClaims')
+            update_payload['maxCompletions'] = mc
+            update_payload['maxClaims'] = mc
+        if 'url' in data or 'actionUrl' in data:
+            u_val = data.get('url') or data.get('actionUrl') or None
+            update_payload['url'] = u_val
+            update_payload['actionUrl'] = u_val
+        if 'verificationType' in data:
+            update_payload['verificationType'] = data['verificationType']
+        if 'visibility' in data:
+            update_payload['visibility'] = data['visibility']
+        if 'status' in data:
+            update_payload['status'] = data['status']
+            if data['status'] == 'ACTIVE':
+                update_payload['active'] = True
+            elif data['status'] in ('INACTIVE', 'PAUSED', 'EXPIRED', 'DRAFT'):
+                update_payload['active'] = False
+        if 'active' in data:
+            update_payload['active'] = bool(data['active'])
+            update_payload['status'] = 'ACTIVE' if data['active'] else 'INACTIVE'
+        if 'priority' in data and data['priority'] is not None:
+            update_payload['priority'] = int(data['priority'])
+        if 'difficulty' in data:
+            update_payload['difficulty'] = data['difficulty']
+        if 'tags' in data and isinstance(data['tags'], list):
+            update_payload['tags'] = data['tags']
+
+        task_ref.update(update_payload)
+        
+        # System Audit Log
+        db.collection('system_log').add({
+            'action': 'task_updated',
+            'taskId': task_id,
+            'adminId': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": task_id})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/tasks/<task_id>/duplicate', methods=['POST'])
+@verify_token
+def duplicate_task(task_id):
+    """Admin/Moderator: Duplicate an existing task."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        task_ref = db.collection('tasks').document(task_id)
+        existing = task_ref.get()
+        if not existing.exists:
+            return jsonify({"success": False, "error": "TASK_NOT_FOUND"}), 404
+
+        data = existing.to_dict() or {}
+        new_ref = db.collection('tasks').document()
+        
+        cloned = dict(data)
+        cloned['title'] = f"{data.get('title', 'Task')} (Copy)"
+        cloned['completionCount'] = 0
+        cloned['totalClaims'] = 0
+        cloned['createdBy'] = request.user['uid']
+        cloned['createdAt'] = firestore.SERVER_TIMESTAMP
+        cloned['updatedAt'] = firestore.SERVER_TIMESTAMP
+        cloned['active'] = True
+        cloned['status'] = 'ACTIVE'
+
+        new_ref.set(cloned)
+
+        db.collection('system_log').add({
+            'action': 'task_duplicated',
+            'originalTaskId': task_id,
+            'newTaskId': new_ref.id,
+            'adminId': request.user['uid'],
+            'timestamp': firestore.SERVER_TIMESTAMP,
+        })
+        return jsonify({"success": True, "taskId": new_ref.id})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

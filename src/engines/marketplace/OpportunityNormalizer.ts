@@ -32,7 +32,7 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
   const nextAvailableAt = getNextAvailableTime(task, userTask);
 
   // Map task category to marketplace category
-  const category = mapTaskCategoryToMarketplace(task.category, task.type, task.platform);
+  const category = mapTaskCategoryToMarketplace(task.category || 'CUSTOM', task.type, task.platform);
 
   // Build reward object
   const reward = {
@@ -53,14 +53,14 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
 
     title: task.title,
     description: task.description,
-    instructions: task.instructions,
-    requirements: task.proofRequirements,
+    instructions: task.instructions || task.description,
+    requirements: task.proofRequirements || task.proofLabel || task.proofPlaceholder || undefined,
 
     reward,
 
     metadata: {
       category,
-      difficulty: sanitizeDifficulty(campaign?.difficulty, estimateDifficulty(task.rewardAmount, task.xpReward)),
+      difficulty: sanitizeDifficulty(task.difficulty || campaign?.difficulty, estimateDifficulty(task.rewardAmount, task.xpReward)),
       estimatedTime: task.estimatedTime || campaign?.estimatedCompletion || estimateTime(task.type),
       verificationType: mapVerificationType(task.verificationType),
       launchMode,
@@ -68,13 +68,13 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
       thumbnail: task.campaignArtwork || campaign?.thumbnailUrl || campaign?.bannerUrl || undefined,
       tags: task.tags?.length ? task.tags : (campaign?.tags || []),
       regionRestrictions: task.regionRestrictions?.length ? task.regionRestrictions : undefined,
-      minLevel: task.minLevel > 1 ? task.minLevel : undefined,
+      minLevel: (task.minLevel && task.minLevel > 1) ? task.minLevel : undefined,
     },
 
     engagement: {
       completionRate: task.conversionRate ?? campaign?.analytics?.completionRate ?? 0,
       averageReward: task.rewardAmount,
-      totalCompletions: task.totalClaims ?? campaign?.analytics?.completions ?? 0,
+      totalCompletions: task.totalClaims ?? task.completionCount ?? campaign?.analytics?.completions ?? 0,
       trending: Boolean(campaign?.featured),
       isNew: isNewTask(task.createdAt || campaign?.createdAt),
       expiringSoon: isExpiringSoon(task.endDate || campaign?.endDate),
@@ -84,7 +84,7 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
     nextAvailableAt,
 
     action: {
-      url: task.actionUrl || campaign?.sponsorWebsite || undefined,
+      url: task.actionUrl || task.url || campaign?.sponsorWebsite || undefined,
       actionType: getActionType(task, launchMode),
       trackingId: task.id,
     },
@@ -244,9 +244,11 @@ export function normalizeProviderOffer(
 function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   if (!userTask) return 'available';
 
+  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+
   switch (userTask.status) {
     case 'completed':
-      if (task.cooldownPeriod === 0) return 'completed';
+      if (cooldownHours === 0) return 'completed';
       return 'available'; // Cooldown elapsed
     case 'pending':
       return 'pending';
@@ -265,7 +267,8 @@ function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined
   const lastCompleted = userTask.lastCompleted?.toDate();
   if (!lastCompleted) return undefined;
 
-  const cooldownMs = task.cooldownPeriod * 60 * 60 * 1000;
+  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+  const cooldownMs = cooldownHours * 60 * 60 * 1000;
   return new Date(lastCompleted.getTime() + cooldownMs);
 }
 
@@ -274,7 +277,7 @@ function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined
 function mapTaskCategoryToMarketplace(
   category: TaskCategory,
   type: TaskType,
-  platform: SocialPlatform
+  platform?: SocialPlatform
 ): OpportunityCategory {
   // Map by category first
   switch (category) {

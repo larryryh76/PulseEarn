@@ -17,8 +17,11 @@ import {
 } from '../../types/marketplace';
 import {
   normalizeTaskBatch,
+  normalizeCampaign,
   mergeOpportunities,
 } from './OpportunityNormalizer';
+
+export { normalizeCampaign };
 import { Task, Campaign, UserTask } from '../../types';
 
 // ─── Engine State ─────────────────────────────────────────────────────────────

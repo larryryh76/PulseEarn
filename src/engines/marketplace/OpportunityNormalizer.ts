@@ -25,7 +25,7 @@ interface NormalizedTaskInput {
 }
 
 export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunity {
-  const { task, userTask } = input;
+  const { task, campaign, userTask } = input;
 
   // Determine status based on user task state
   const status = getTaskStatus(task, userTask);
@@ -43,11 +43,13 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
   // Determine launch mode
   const launchMode = determineLaunchMode(task);
 
+  const providerId = campaign?.providerId || (campaign?.provider !== 'internal' ? campaign?.provider : undefined);
+
   return {
     id: task.id,
     source: 'internal',
-    providerId: undefined,
-    providerName: undefined,
+    providerId,
+    providerName: campaign?.sponsorName || (providerId ? providerId.toUpperCase() : undefined),
 
     title: task.title,
     description: task.description,
@@ -58,38 +60,97 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
 
     metadata: {
       category,
-      difficulty: estimateDifficulty(task.rewardAmount, task.xpReward),
-      estimatedTime: task.estimatedTime || estimateTime(task.type),
+      difficulty: sanitizeDifficulty(campaign?.difficulty, estimateDifficulty(task.rewardAmount, task.xpReward)),
+      estimatedTime: task.estimatedTime || campaign?.estimatedCompletion || estimateTime(task.type),
       verificationType: mapVerificationType(task.verificationType),
       launchMode,
-      artwork: task.campaignArtwork || undefined,
-      thumbnail: task.campaignArtwork || undefined,
-      tags: task.tags || [],
+      artwork: task.campaignArtwork || campaign?.bannerUrl || campaign?.thumbnailUrl || undefined,
+      thumbnail: task.campaignArtwork || campaign?.thumbnailUrl || campaign?.bannerUrl || undefined,
+      tags: task.tags?.length ? task.tags : (campaign?.tags || []),
       regionRestrictions: task.regionRestrictions?.length ? task.regionRestrictions : undefined,
       minLevel: task.minLevel > 1 ? task.minLevel : undefined,
     },
 
     engagement: {
-      completionRate: task.conversionRate || 0,
+      completionRate: task.conversionRate ?? campaign?.analytics?.completionRate ?? 0,
       averageReward: task.rewardAmount,
-      totalCompletions: task.totalClaims || 0,
-      trending: false,
-      isNew: isNewTask(task.createdAt),
-      expiringSoon: isExpiringSoon(task.endDate),
+      totalCompletions: task.totalClaims ?? campaign?.analytics?.completions ?? 0,
+      trending: Boolean(campaign?.featured),
+      isNew: isNewTask(task.createdAt || campaign?.createdAt),
+      expiringSoon: isExpiringSoon(task.endDate || campaign?.endDate),
     },
 
     status,
     nextAvailableAt,
 
     action: {
-      url: task.actionUrl || undefined,
+      url: task.actionUrl || campaign?.sponsorWebsite || undefined,
       actionType: getActionType(task, launchMode),
       trackingId: task.id,
     },
 
-    createdAt: task.createdAt?.toDate(),
-    updatedAt: task.updatedAt?.toDate(),
-    expiresAt: task.endDate?.toDate() || task.expirationDate?.toDate(),
+    createdAt: parseTimestamp(task.createdAt),
+    updatedAt: parseTimestamp(task.updatedAt),
+    expiresAt: parseTimestamp(task.endDate) || parseTimestamp(task.expirationDate),
+  };
+}
+
+export function normalizeCampaign(campaign: Campaign, userTask?: UserTask): MarketplaceOpportunity {
+  const isAvailable = campaign.active && (campaign.status === 'ACTIVE' || campaign.status === 'PUBLISHED');
+  const status: OpportunityStatus = !isAvailable ? 'locked' : (userTask?.status === 'completed' ? 'completed' : 'available');
+
+  const category = mapTaskCategoryToMarketplace(campaign.category, campaign.type, 'CUSTOM' as SocialPlatform);
+  const reward = {
+    points: campaign.pointsReward || (campaign.totalPrizePool > 0 ? Math.floor(campaign.totalPrizePool / Math.max(1, campaign.participantsCount || 1)) : 100),
+    xp: campaign.xpReward || 50,
+  };
+
+  const providerId = campaign.providerId || (campaign.provider !== 'internal' ? campaign.provider : undefined);
+
+  return {
+    id: campaign.id,
+    source: 'internal',
+    providerId,
+    providerName: campaign.sponsorName || (providerId ? providerId.toUpperCase() : 'PulseEarn'),
+
+    title: campaign.name,
+    description: campaign.description,
+    instructions: campaign.description,
+    requirements: undefined,
+
+    reward,
+
+    metadata: {
+      category,
+      difficulty: sanitizeDifficulty(campaign.difficulty, 'medium'),
+      estimatedTime: campaign.estimatedCompletion || '10 min',
+      verificationType: 'automated',
+      launchMode: campaign.sponsorWebsite ? 'redirect' : 'inline',
+      artwork: campaign.bannerUrl || campaign.thumbnailUrl || campaign.artworkUrl,
+      thumbnail: campaign.thumbnailUrl || campaign.bannerUrl || campaign.artworkUrl,
+      tags: campaign.tags || [],
+    },
+
+    engagement: {
+      completionRate: campaign.analytics?.completionRate || 0,
+      averageReward: reward.points,
+      totalCompletions: campaign.participantsCount || 0,
+      trending: Boolean(campaign.featured),
+      isNew: isNewTask(campaign.createdAt),
+      expiringSoon: isExpiringSoon(campaign.endDate),
+    },
+
+    status,
+
+    action: {
+      url: campaign.sponsorWebsite || undefined,
+      actionType: campaign.sponsorWebsite ? 'url' : 'claim',
+      trackingId: campaign.id,
+    },
+
+    createdAt: parseTimestamp(campaign.createdAt),
+    updatedAt: parseTimestamp(campaign.updatedAt),
+    expiresAt: parseTimestamp(campaign.endDate),
   };
 }
 
@@ -375,17 +436,39 @@ function getActionType(task: Task, launchMode: LaunchMode) {
 
 // ─── Utility Helpers ──────────────────────────────────────────────────────────
 
+const ALLOWED_DIFFICULTIES: OpportunityDifficulty[] = ['easy', 'medium', 'hard', 'elite'];
+
+function sanitizeDifficulty(val: any, fallback: OpportunityDifficulty = 'medium'): OpportunityDifficulty {
+  if (typeof val === 'string' && (ALLOWED_DIFFICULTIES as string[]).includes(val.toLowerCase())) {
+    return val.toLowerCase() as OpportunityDifficulty;
+  }
+  return fallback;
+}
+
+function parseTimestamp(ts: any): Date | undefined {
+  if (!ts && ts !== 0) return undefined;
+  if (typeof ts.toDate === 'function') return ts.toDate();
+  if (ts instanceof Date) return ts;
+  if (typeof ts === 'number') return new Date(ts);
+  if (typeof ts === 'string') {
+    const parsed = new Date(ts);
+    return isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  if (typeof ts?.seconds === 'number') return new Date(ts.seconds * 1000);
+  return undefined;
+}
+
 function isNewTask(createdAt: any): boolean {
-  if (!createdAt) return false;
-  const created = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+  const created = parseTimestamp(createdAt);
+  if (!created) return false;
   const threeDaysAgo = new Date();
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
   return created > threeDaysAgo;
 }
 
 function isExpiringSoon(endDate: any): boolean {
-  if (!endDate) return false;
-  const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
+  const end = parseTimestamp(endDate);
+  if (!end) return false;
   const threeDaysFromNow = new Date();
   threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
   return end < threeDaysFromNow && end > new Date();
@@ -400,7 +483,7 @@ export function normalizeTaskBatch(
 ): MarketplaceOpportunity[] {
   const campaignMap = new Map(campaigns.map(c => [c.id, c]));
 
-  return tasks
+  const taskOpportunities = tasks
     .filter(t => t.active)
     .map(task => {
       const campaign = task.campaignId ? campaignMap.get(task.campaignId) : undefined;
@@ -408,6 +491,14 @@ export function normalizeTaskBatch(
 
       return normalizeTask({ task, campaign, userTask });
     });
+
+  // Include standalone active campaigns that do not have active subtasks explicitly linked
+  const activeTasksCampaignIds = new Set(tasks.filter(t => t.active).map(t => t.campaignId).filter(Boolean));
+  const standaloneCampaignOpportunities = campaigns
+    .filter(c => c.active && (c.status === 'ACTIVE' || c.status === 'PUBLISHED') && !activeTasksCampaignIds.has(c.id))
+    .map(campaign => normalizeCampaign(campaign, userTasks[campaign.id]));
+
+  return [...taskOpportunities, ...standaloneCampaignOpportunities];
 }
 
 // ─── Merge Internal + Provider ─────────────────────────────────────────────────

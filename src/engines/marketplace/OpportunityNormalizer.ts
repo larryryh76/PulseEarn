@@ -420,7 +420,7 @@ function mapVerificationType(type: string): VerificationType {
 // ─── Launch Mode ──────────────────────────────────────────────────────────────
 
 function determineLaunchMode(task: Task): LaunchMode {
-  if (task.actionUrl) {
+  if (task.actionUrl || task.url) {
     // If it's a deep link or app install, use redirect
     if (task.type === 'app_install' || task.type === 'website') {
       return 'redirect';
@@ -431,7 +431,7 @@ function determineLaunchMode(task: Task): LaunchMode {
 }
 
 function getActionType(task: Task, launchMode: LaunchMode) {
-  if (launchMode === 'redirect' && task.actionUrl) {
+  if (launchMode === 'redirect' && (task.actionUrl || task.url)) {
     return 'url';
   }
   return 'claim';

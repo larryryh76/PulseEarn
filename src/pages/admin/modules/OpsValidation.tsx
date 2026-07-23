@@ -15,7 +15,6 @@ import {
   doc,
   writeBatch,
   getDoc,
-  setDoc,
   serverTimestamp,
   orderBy,
   startAfter,
@@ -25,6 +24,7 @@ import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import { VerificationEngine } from '../../../engines/system/VerificationEngine';
 import DataTable from '../../../components/admin/common/DataTable';
 
 const OpsValidation: React.FC = () => {
@@ -80,12 +80,24 @@ const OpsValidation: React.FC = () => {
   const handleReview = async (claimId: string, status: SubtaskStatus) => {
     const loadingToast = toast.loading('Updating validation status...');
     try {
-      const claimRef = doc(db, 'task_claims', claimId);
-
       let rejectionReason = '';
       if (status === 'REJECTED') {
         rejectionReason = window.prompt('Please enter a rejection reason:') || 'Submission did not meet requirements';
       }
+
+      const action = status === 'APPROVED' ? 'APPROVE' : 'REJECT';
+      const reviewRes = await VerificationEngine.reviewClaim(claimId, action, rejectionReason);
+
+      if (reviewRes.success) {
+        toast.dismiss(loadingToast);
+        toast.success(`Claim ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`);
+        fetchClaims(); // Refresh
+        return;
+      }
+
+      // Fallback for offline/client direct batch mode if API endpoint is unreachable
+      console.warn("[OpsValidation] API review failed, falling back to direct engine write:", reviewRes.error);
+      const claimRef = doc(db, 'task_claims', claimId);
 
       if (status === 'APPROVED') {
         const claimSnap = await getDoc(claimRef);
@@ -115,19 +127,6 @@ const OpsValidation: React.FC = () => {
           }
         });
 
-        if (rewardResult.success) {
-          const notifRef = doc(collection(db, 'users', claimData.userId, 'notifications'));
-          await setDoc(notifRef, {
-            type: 'task_approved',
-            title: 'Task Approved!',
-            description: `Your submission for "${taskData.title}" was approved. +${taskData.rewardAmount} PTS awarded.`,
-            taskId: claimData.taskId,
-            taskTitle: taskData.title,
-            timestamp: serverTimestamp(),
-            read: false
-          });
-        }
-
         if (!rewardResult.success) {
           toast.dismiss(loadingToast);
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
@@ -150,18 +149,6 @@ const OpsValidation: React.FC = () => {
         batch.update(userTaskRef, {
           status: 'available',
           updatedAt: serverTimestamp()
-        });
-
-        const notifRef = doc(collection(db, 'users', claimData.userId, 'notifications'));
-        batch.set(notifRef, {
-          type: 'task_rejected',
-          title: 'Task Submission Rejected',
-          description: `Your submission for "${claimData.metadata?.taskTitle || 'Task'}" was rejected. Reason: ${rejectionReason}`,
-          taskId: claimData.taskId,
-          taskTitle: claimData.metadata?.taskTitle || 'Unknown Task',
-          reason: rejectionReason,
-          timestamp: serverTimestamp(),
-          read: false
         });
 
         await batch.commit();

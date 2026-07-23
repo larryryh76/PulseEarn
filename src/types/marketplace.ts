@@ -27,9 +27,16 @@ export type OpportunityDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 
 export type OpportunityStatus =
   | 'available'
-  | 'completed'
+  | 'started'
+  | 'submitted'
   | 'pending'
+  | 'awaiting_verification'
+  | 'verified'
+  | 'completed'
+  | 'claimed'
   | 'rejected'
+  | 'expired'
+  | 'cancelled'
   | 'cooldown'
   | 'locked';
 
@@ -39,12 +46,17 @@ export type VerificationType =
   | 'automated'
   | 'manual'
   | 'proof'
+  | 'screenshot'
   | 'timer'
   | 'activity'
+  | 'wallet_activity'
   | 'link'
   | 'api'
   | 'referral'
-  | 'prediction';
+  | 'prediction'
+  | 'external_callback'
+  | 'offerwall'
+  | 'admin_approval';
 
 export type LaunchMode = 'redirect' | 'embed' | 'inline';
 

@@ -337,7 +337,7 @@ def health_check():
 @require_db
 def submit_task():
     db = get_db()
-    data, user_id = request.json, request.user['uid']
+    data, user_id = request.json or {}, request.user['uid']
     task_id = data.get('taskId')
     proof = (data.get('proof') or '').strip()
     if not task_id: return jsonify({"success": False, "error": "MISSING_TASK_ID"}), 400
@@ -355,48 +355,96 @@ def submit_task():
         t_data = t_snap.to_dict()
         u_data = u_snap.to_dict()
 
-        # Task must be active (support both boolean 'active' and 'status' schemas).
+        # 1. User Account Integrity & Fraud Guard
+        if u_data.get('banned') or u_data.get('status') in ('SUSPENDED', 'BANNED', 'FROZEN'):
+            raise Exception("ACCOUNT_SUSPENDED")
+
+        fraud_flags = u_data.get('fraudFlags') or []
+        risk_score = float(u_data.get('riskScore') or 0)
+        is_flagged = bool(fraud_flags or risk_score >= 80)
+
+        # 2. Task Active Status Check
         if t_data.get('active') is False or (t_data.get('status') and t_data.get('status') != 'ACTIVE'):
             raise Exception("TASK_INACTIVE")
 
-        # SEC: server-authoritative idempotency + cooldown guard (prevents reward farming / replay).
-        cooldown_hours = float(t_data.get('cooldownPeriod') or 0)
+        # 3. Expiration Check
         now = datetime.now(timezone.utc)
+        end_date = t_data.get('endDate') or t_data.get('expirationDate')
+        if end_date and isinstance(end_date, datetime) and end_date < now:
+            raise Exception("TASK_EXPIRED")
+
+        # 4. Max Claims / Completions Limit Check
+        max_claims = t_data.get('maxCompletions') if t_data.get('maxCompletions') is not None else t_data.get('maxClaims')
+        if max_claims is not None and float(max_claims) > 0:
+            total_claims = float(t_data.get('totalClaims') or t_data.get('completionCount') or 0)
+            if total_claims >= float(max_claims):
+                raise Exception("TASK_CAP_REACHED")
+
+        # 5. Cooldown Guard & Idempotency
+        cooldown_hours = float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours') or 0)
         if ut_snap.exists:
             ut = ut_snap.to_dict()
             st = ut.get('status')
-            if st == 'pending':
+            if st in ('pending', 'awaiting_verification'):
                 raise Exception("ALREADY_PENDING")
-            if cooldown_hours <= 0 and st == 'completed':
+            if cooldown_hours <= 0 and st in ('completed', 'claimed', 'verified'):
                 raise Exception("ALREADY_COMPLETED")
-            if cooldown_hours > 0:
+            if cooldown_hours > 0 and st == 'on_cooldown':
                 last = ut.get('lastCompleted')
                 if isinstance(last, datetime) and (now - last).total_seconds() < cooldown_hours * 3600:
                     raise Exception("ON_COOLDOWN")
 
-        is_auto = t_data.get('verificationType') == 'automated'
+        # 6. Verification Type & Proof Enforcement
+        v_type = (t_data.get('verificationType') or 'manual').lower()
+        requires_proof = v_type in ('manual', 'proof', 'screenshot', 'admin_approval')
+        if requires_proof and not proof:
+            raise Exception("PROOF_REQUIRED")
+
+        is_auto = (v_type in ('automated', 'instant', 'timer', 'activity', 'link', 'api') or t_data.get('type') in ('automated', 'website')) and not is_flagged
         claim_id = f"claim_{user_id}_{task_id}_{int(now.timestamp())}"
+
         transaction.set(db.collection('task_claims').document(claim_id), {
-            'id': claim_id, 'userId': user_id, 'taskId': task_id,
+            'id': claim_id,
+            'userId': user_id,
+            'taskId': task_id,
+            'providerId': t_data.get('providerId') or t_data.get('provider') or 'internal',
+            'campaignId': t_data.get('campaignId') or None,
+            'verificationType': v_type,
             'validationState': 'APPROVED' if is_auto else 'PENDING',
-            'completionState': 'COMPLETED' if is_auto else 'IN_PROGRESS',
+            'completionState': 'COMPLETED' if is_auto else 'AWAITING_VERIFICATION',
+            'status': 'APPROVED' if is_auto else 'PENDING',
             'submittedProof': proof or None,
+            'rewardAmount': t_data.get('rewardAmount', 0),
+            'xpReward': t_data.get('xpReward', 0),
             'createdAt': firestore.SERVER_TIMESTAMP,
-            'metadata': {'taskTitle': t_data.get('title'), 'username': u_data.get('username')}
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+            'resolvedAt': firestore.SERVER_TIMESTAMP if is_auto else None,
+            'reviewedBy': 'AUTOMATED_ENGINE' if is_auto else None,
+            'metadata': {
+                'taskTitle': t_data.get('title'),
+                'username': u_data.get('username'),
+                'verificationType': v_type,
+                'isFlagged': is_flagged
+            }
         })
+
         if is_auto:
             pts, xp = t_data.get('rewardAmount', 0), t_data.get('xpReward', 0)
             transaction.update(user_ref, {'points': firestore.Increment(pts), 'xp': firestore.Increment(xp), 'stats.tasksCompleted': firestore.Increment(1)})
             transaction.set(db.collection('system_config').document('global_metrics'), {'totalPTSLiability': firestore.Increment(pts)}, merge=True)
-            transaction.set(ut_ref, {'taskId': task_id, 'status': 'completed',
-                                     'lastCompleted': firestore.SERVER_TIMESTAMP,
-                                     'totalCompletions': firestore.Increment(1)}, merge=True)
-            transaction.set(task_ref, {'totalClaims': firestore.Increment(1),
-                                       'completionCount': firestore.Increment(1)}, merge=True)
-            # Ledger + activity + notification for instant/automated tasks (manual tasks are
-            # recorded later via /api/execute-transaction). Written atomically so an
-            # auto-approved task reward is consistent across Wallet, activity feed, and
-            # Notifications the instant it is granted.
+            transaction.set(ut_ref, {
+                'taskId': task_id,
+                'status': 'completed',
+                'verificationState': 'VERIFIED',
+                'lastCompleted': firestore.SERVER_TIMESTAMP,
+                'totalCompletions': firestore.Increment(1),
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            transaction.set(task_ref, {
+                'totalClaims': firestore.Increment(1),
+                'completionCount': firestore.Increment(1)
+            }, merge=True)
+
             task_title = t_data.get('title') or 'Task'
             cur_points = float(u_data.get('points', 0) or 0)
             post_ledger(transaction, user_ref, user_id,
@@ -407,8 +455,13 @@ def submit_task():
                         metadata={'taskId': task_id, 'taskName': task_title, 'xpEarned': xp,
                                   'verificationStatus': 'automated'})
         else:
-            transaction.set(ut_ref, {'taskId': task_id, 'status': 'pending',
-                                     'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            transaction.set(ut_ref, {
+                'taskId': task_id,
+                'status': 'pending',
+                'verificationState': 'AWAITING_VERIFICATION',
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+
         return {"success": True, "claimId": claim_id, "automated": is_auto}
 
     try:
@@ -416,6 +469,169 @@ def submit_task():
         evaluate_missions(user_id)
         return jsonify(res)
     except Exception as e: return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/admin/claims/review', methods=['POST'])
+@verify_token
+@require_db
+def review_claim():
+    db = get_db()
+    data, admin_id = request.json or {}, request.user['uid']
+    claim_id = data.get('claimId')
+    action = (data.get('action') or '').upper()
+    rejection_reason = (data.get('rejectionReason') or '').strip()
+
+    if not claim_id or action not in ('APPROVE', 'REJECT'):
+        return jsonify({"success": False, "error": "INVALID_PARAMS"}), 400
+
+    user_doc = db.collection('users').document(admin_id).get()
+    u_role = user_doc.to_dict().get('role') if user_doc.exists else None
+    if u_role not in ('admin', 'moderator'):
+        return jsonify({"success": False, "error": "FORBIDDEN_NOT_ADMIN"}), 403
+
+    @firestore.transactional
+    def process_review(transaction):
+        claim_ref = db.collection('task_claims').document(claim_id)
+        claim_snap = claim_ref.get(transaction=transaction)
+        if not claim_snap.exists:
+            raise Exception("CLAIM_NOT_FOUND")
+        c_data = claim_snap.to_dict()
+
+        if c_data.get('validationState') in ('APPROVED', 'REJECTED') and c_data.get('resolvedAt'):
+            raise Exception("CLAIM_ALREADY_RESOLVED")
+
+        user_id = c_data.get('userId')
+        task_id = c_data.get('taskId')
+
+        user_ref = db.collection('users').document(user_id)
+        task_ref = db.collection('tasks').document(task_id)
+        ut_ref = user_ref.collection('user_tasks').document(task_id)
+
+        u_snap = user_ref.get(transaction=transaction)
+        t_snap = task_ref.get(transaction=transaction)
+        if not u_snap.exists or not t_snap.exists:
+            raise Exception("USER_OR_TASK_NOT_FOUND")
+
+        u_data = u_snap.to_dict()
+        t_data = t_snap.to_dict()
+
+        if action == 'APPROVE':
+            pts = float(t_data.get('rewardAmount', 0) or 0)
+            xp = float(t_data.get('xpReward', 0) or 0)
+
+            transaction.update(user_ref, {
+                'points': firestore.Increment(pts),
+                'xp': firestore.Increment(xp),
+                'stats.tasksCompleted': firestore.Increment(1)
+            })
+            transaction.set(db.collection('system_config').document('global_metrics'), {
+                'totalPTSLiability': firestore.Increment(pts)
+            }, merge=True)
+
+            transaction.update(claim_ref, {
+                'validationState': 'APPROVED',
+                'completionState': 'COMPLETED',
+                'status': 'APPROVED',
+                'resolvedAt': firestore.SERVER_TIMESTAMP,
+                'reviewedBy': admin_id,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+
+            transaction.set(ut_ref, {
+                'taskId': task_id,
+                'status': 'completed',
+                'verificationState': 'VERIFIED',
+                'lastCompleted': firestore.SERVER_TIMESTAMP,
+                'totalCompletions': firestore.Increment(1),
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+
+            transaction.set(task_ref, {
+                'totalClaims': firestore.Increment(1),
+                'completionCount': firestore.Increment(1)
+            }, merge=True)
+
+            task_title = t_data.get('title') or 'Task'
+            cur_points = float(u_data.get('points', 0) or 0)
+            post_ledger(
+                transaction, user_ref, user_id,
+                tx_type='task_reward', amount=pts, xp=xp,
+                source='Task Verification Desk', description=f"Verified: {task_title}",
+                claim_id=f"val_{claim_id}", reference_id=task_id,
+                balance_after=cur_points + pts,
+                metadata={
+                    'taskId': task_id,
+                    'taskName': task_title,
+                    'verifiedBy': admin_id,
+                    'claimId': claim_id
+                }
+            )
+        else:
+            reason = rejection_reason or "Submission did not meet requirements"
+            transaction.update(claim_ref, {
+                'validationState': 'REJECTED',
+                'completionState': 'FAILED',
+                'status': 'REJECTED',
+                'rejectionReason': reason,
+                'resolvedAt': firestore.SERVER_TIMESTAMP,
+                'reviewedBy': admin_id,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+
+            transaction.set(ut_ref, {
+                'taskId': task_id,
+                'status': 'available',
+                'verificationState': 'REJECTED',
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+
+            notif_ref = user_ref.collection('notifications').document()
+            task_title = c_data.get('metadata', {}).get('taskTitle') or t_data.get('title') or 'Task'
+            transaction.set(notif_ref, {
+                'title': 'Task Submission Rejected',
+                'description': f"Your submission for '{task_title}' was rejected. Reason: {reason}",
+                'type': 'moderation_notice',
+                'read': False,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'metadata': {'taskId': task_id, 'claimId': claim_id, 'reason': reason}
+            })
+
+        return {"success": True, "claimId": claim_id, "status": action}
+
+    try:
+        res = process_review(db.transaction())
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route('/api/admin/claims/stats', methods=['GET'])
+@verify_token
+@require_db
+def get_claims_stats():
+    db = get_db()
+    admin_id = request.user['uid']
+    user_doc = db.collection('users').document(admin_id).get()
+    u_role = user_doc.to_dict().get('role') if user_doc.exists else None
+    if u_role not in ('admin', 'moderator'):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    try:
+        pending = len(db.collection('task_claims').where('validationState', '==', 'PENDING').get())
+        approved = len(db.collection('task_claims').where('validationState', '==', 'APPROVED').get())
+        rejected = len(db.collection('task_claims').where('validationState', '==', 'REJECTED').get())
+        total = pending + approved + rejected
+
+        return jsonify({
+            "success": True,
+            "stats": {
+                "pendingCount": pending,
+                "approvedCount": approved,
+                "rejectedCount": rejected,
+                "totalSubmissions": total,
+                "fraudBlockedCount": 0
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # Authorization matrix for execute-transaction. User-claimable reward types may be
 # initiated by the account owner; everything that grants/adjusts balance arbitrarily

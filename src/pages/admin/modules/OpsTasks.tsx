@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Target, Zap, Plus, Archive, RotateCcw, X, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { Target, Zap, Plus, Archive, RotateCcw, X, CheckCircle, Trash2, AlertTriangle, Edit3, Copy } from 'lucide-react';
 import { db, auth } from '../../../firebase/config';
 import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import DataTable from '../../../components/admin/common/DataTable';
@@ -9,6 +9,221 @@ import toast from 'react-hot-toast';
 import { cn } from '../../../utils';
 
 const TASK_TYPES = ['manual', 'automated', 'referral', 'campaign', 'welcome', 'level', 'mission'] as const;
+
+const EditTaskModal: React.FC<{ task: Task; onClose: () => void }> = ({ task, onClose }) => {
+  const [form, setForm] = React.useState({
+    title: task.title || '',
+    description: task.description || '',
+    type: (task.type || 'manual') as typeof TASK_TYPES[number],
+    rewardAmount: String(task.rewardAmount || 0),
+    xpReward: String(task.xpReward || 0),
+    proofLabel: task.proofLabel || task.proofRequirements || '',
+    proofPlaceholder: task.proofPlaceholder || '',
+    maxCompletions: task.maxCompletions !== undefined && task.maxCompletions !== null ? String(task.maxCompletions) : '',
+    cooldownHours: String(task.cooldownHours ?? task.cooldownPeriod ?? 0),
+    url: task.url || task.actionUrl || '',
+  });
+  const [saving, setSaving] = React.useState(false);
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.rewardAmount) return toast.error('Title and reward are required.');
+    setSaving(true);
+    const load = toast.loading('Saving changes...');
+    try {
+      const idToken = await auth.currentUser?.getIdToken(true);
+      const res = await safeFetch(`/api/admin/tasks/${task.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          type: form.type,
+          rewardAmount: Number(form.rewardAmount),
+          xpReward: Number(form.xpReward) || 0,
+          proofLabel: form.proofLabel.trim() || 'Proof',
+          proofPlaceholder: form.proofPlaceholder.trim() || 'Paste your proof link here',
+          maxCompletions: form.maxCompletions ? Number(form.maxCompletions) : null,
+          cooldownHours: Number(form.cooldownHours) || 0,
+          url: form.url.trim() || null,
+        }),
+      });
+      if (res.success) {
+        toast.success('Task updated successfully.');
+        onClose();
+      } else {
+        toast.error(res.error || res.message || 'Update failed.');
+      }
+    } catch (err) {
+      toast.error('Network error.');
+    } finally {
+      setSaving(false);
+      toast.dismiss(load);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl bg-[#12121A] border border-[#1E1E2E] rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-[#1E1E2E]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Edit3 size={16} className="text-primary" />
+            </div>
+            <h2 className="text-sm font-black uppercase tracking-widest text-white">Edit Objective</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+            <X size={18} className="text-white/40" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="md:col-span-2 space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Title *</label>
+              <input
+                value={form.title}
+                onChange={e => set('title', e.target.value)}
+                placeholder="e.g. Follow our page on X"
+                required
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="md:col-span-2 space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="Describe what users need to do..."
+                rows={3}
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Type *</label>
+              <select
+                value={form.type}
+                onChange={e => set('type', e.target.value)}
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white focus:border-primary/50 outline-none transition-colors"
+              >
+                {TASK_TYPES.map(t => (
+                  <option key={t} value={t} className="bg-[#12121A]">{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Task URL (optional)</label>
+              <input
+                value={form.url}
+                onChange={e => set('url', e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Reward (PTS) *</label>
+              <input
+                type="number"
+                value={form.rewardAmount}
+                onChange={e => set('rewardAmount', e.target.value)}
+                placeholder="e.g. 100"
+                required
+                min="1"
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">XP Reward</label>
+              <input
+                type="number"
+                value={form.xpReward}
+                onChange={e => set('xpReward', e.target.value)}
+                placeholder="e.g. 50"
+                min="0"
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Max Completions (blank = unlimited)</label>
+              <input
+                type="number"
+                value={form.maxCompletions}
+                onChange={e => set('maxCompletions', e.target.value)}
+                placeholder="Unlimited"
+                min="1"
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Cooldown (hours, 0 = one-time)</label>
+              <input
+                type="number"
+                value={form.cooldownHours}
+                onChange={e => set('cooldownHours', e.target.value)}
+                placeholder="0"
+                min="0"
+                className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+              />
+            </div>
+
+            {form.type === 'manual' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Proof Field Label</label>
+                  <input
+                    value={form.proofLabel}
+                    onChange={e => set('proofLabel', e.target.value)}
+                    placeholder="e.g. Screenshot URL"
+                    className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Proof Field Placeholder</label>
+                  <input
+                    value={form.proofPlaceholder}
+                    onChange={e => set('proofPlaceholder', e.target.value)}
+                    placeholder="e.g. Paste your screenshot link"
+                    className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:border-primary/50 outline-none transition-colors"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-[#1E1E2E] text-white/60 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <><CheckCircle size={14} /> Update Task</>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [form, setForm] = React.useState({
@@ -333,7 +548,30 @@ const OpsTasks: React.FC = () => {
     });
   }, []);
 
+  const [editingTask, setEditingTask] = React.useState<Task | null>(null);
   const [purging, setPurging] = React.useState(false);
+
+  const handleDuplicate = async (taskId: string) => {
+    setActioningId(taskId);
+    const load = toast.loading('Duplicating task...');
+    try {
+      const idToken = await auth.currentUser?.getIdToken(true);
+      const res = await safeFetch(`/api/admin/tasks/${taskId}/duplicate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (res.success) {
+        toast.success('Task duplicated successfully.');
+      } else {
+        toast.error(res.error || 'Duplicate failed.');
+      }
+    } catch {
+      toast.error('Network error during duplicate.');
+    } finally {
+      setActioningId(null);
+      toast.dismiss(load);
+    }
+  };
   const handlePurgeMissions = async () => {
     if (!window.confirm('Permanently delete all legacy missions ("Network Builder" etc.) and their progress? Standard tasks and offerwall are not affected.')) return;
     setPurging(true);
@@ -524,11 +762,27 @@ const OpsTasks: React.FC = () => {
               header: 'Action',
               accessor: (task: Task) => (
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={e => { e.stopPropagation(); setEditingTask(task); }}
+                    title="Edit task"
+                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                  >
+                    <Edit3 size={12} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDuplicate(task.id); }}
+                    disabled={actioningId === task.id}
+                    title="Duplicate task"
+                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                  >
+                    <Copy size={12} />
+                  </button>
                   {tab === 'active' ? (
                     <button
                       onClick={e => { e.stopPropagation(); handleArchive(task.id); }}
                       disabled={actioningId === task.id}
-                      className="px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      className="px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-40 transition-colors flex items-center gap-1.5"
                     >
                       {actioningId === task.id ? <div className="w-3 h-3 border border-amber-400/50 border-t-amber-400 rounded-full animate-spin" /> : <Archive size={12} />}
                       Archive
@@ -537,7 +791,7 @@ const OpsTasks: React.FC = () => {
                     <button
                       onClick={e => { e.stopPropagation(); handleRestore(task.id); }}
                       disabled={actioningId === task.id}
-                      className="px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      className="px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 disabled:opacity-40 transition-colors flex items-center gap-1.5"
                     >
                       {actioningId === task.id ? <div className="w-3 h-3 border border-green-400/50 border-t-green-400 rounded-full animate-spin" /> : <RotateCcw size={12} />}
                       Restore
@@ -562,6 +816,10 @@ const OpsTasks: React.FC = () => {
           searchPlaceholder="Search tasks..."
         />
       </div>
+
+      {editingTask && (
+        <EditTaskModal task={editingTask} onClose={() => setEditingTask(null)} />
+      )}
     </>
   );
 };

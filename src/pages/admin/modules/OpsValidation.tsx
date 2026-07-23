@@ -131,6 +131,24 @@ const OpsValidation: React.FC = () => {
           toast.dismiss(loadingToast);
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
+
+        const batch = writeBatch(db);
+        batch.update(claimRef, {
+          validationState: 'APPROVED',
+          completionState: 'COMPLETED',
+          status: 'APPROVED',
+          resolvedAt: serverTimestamp(),
+          reviewedBy: 'ADMIN_HUB'
+        });
+        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
+        batch.set(userTaskRef, {
+          taskId: claimData.taskId,
+          userId: claimData.userId,
+          status: 'completed',
+          lastCompleted: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        await batch.commit();
       } else {
         const claimSnap = await getDoc(claimRef);
         const claimData = claimSnap.data();

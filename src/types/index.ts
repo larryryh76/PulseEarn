@@ -160,7 +160,9 @@ export interface TaskProvider {
 export interface UserTask {
   taskId: string;
   lastCompleted: Timestamp | null;
-  status: 'available' | 'pending' | 'completed' | 'on_cooldown' | 'rejected';
+  completedAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
+  status: 'available' | 'pending' | 'completed' | 'on_cooldown' | 'rejected' | string;
   subtaskId?: string;
   totalCompletions: number;
 }

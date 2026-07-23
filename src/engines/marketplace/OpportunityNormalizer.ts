@@ -241,6 +241,21 @@ export function normalizeProviderOffer(
 
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
+function parseTimestampDate(val: any): Date | undefined {
+  if (!val) return undefined;
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val instanceof Date) return val;
+  if (typeof val === 'number') return new Date(val);
+  if (typeof val === 'string') {
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  if (typeof val === 'object' && val.seconds !== undefined) {
+    return new Date(val.seconds * 1000);
+  }
+  return undefined;
+}
+
 function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   if (!userTask) return 'available';
 
@@ -250,9 +265,31 @@ function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   switch (statusStr) {
     case 'completed':
     case 'claimed':
-    case 'verified':
-      if (cooldownHours === 0) return 'completed';
-      return 'available'; // Cooldown elapsed
+    case 'verified': {
+      if (cooldownHours <= 0) return 'completed';
+      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+      if (last) {
+        const elapsedMs = Date.now() - last.getTime();
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        if (elapsedMs < cooldownMs) {
+          return 'cooldown';
+        }
+      }
+      return 'available';
+    }
+    case 'on_cooldown':
+    case 'cooldown': {
+      if (cooldownHours <= 0) return 'completed';
+      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+      if (last) {
+        const elapsedMs = Date.now() - last.getTime();
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        if (elapsedMs < cooldownMs) {
+          return 'cooldown';
+        }
+      }
+      return 'available';
+    }
     case 'started':
     case 'in_progress':
       return 'started';
@@ -263,9 +300,6 @@ function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
       return 'pending';
     case 'rejected':
       return 'rejected';
-    case 'on_cooldown':
-    case 'cooldown':
-      return 'cooldown';
     case 'expired':
       return 'expired';
     case 'cancelled':
@@ -276,14 +310,19 @@ function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
 }
 
 function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined {
-  if (!userTask || userTask.status !== 'on_cooldown') return undefined;
-  
-  const lastCompleted = userTask.lastCompleted?.toDate();
-  if (!lastCompleted) return undefined;
-
+  if (!userTask) return undefined;
   const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+  if (cooldownHours <= 0) return undefined;
+
+  const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+  if (!last) return undefined;
+
   const cooldownMs = cooldownHours * 60 * 60 * 1000;
-  return new Date(lastCompleted.getTime() + cooldownMs);
+  const nextTime = new Date(last.getTime() + cooldownMs);
+  if (nextTime.getTime() > Date.now()) {
+    return nextTime;
+  }
+  return undefined;
 }
 
 // ─── Category Mapping ─────────────────────────────────────────────────────────

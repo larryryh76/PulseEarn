@@ -360,7 +360,7 @@ def submit_task():
             raise Exception("ACCOUNT_SUSPENDED")
 
         fraud_flags = u_data.get('fraudFlags') or []
-        risk_score = float(u_data.get('riskScore') or 0)
+        risk_score = safe_float(u_data.get('riskScore'), 0.0)
         is_flagged = bool(fraud_flags or risk_score >= 80)
 
         # 2. Task Active Status Check
@@ -374,14 +374,17 @@ def submit_task():
             raise Exception("TASK_EXPIRED")
 
         # 4. Max Claims / Completions Limit Check
-        max_claims = t_data.get('maxCompletions') if t_data.get('maxCompletions') is not None else t_data.get('maxClaims')
-        if max_claims is not None and float(max_claims) > 0:
-            total_claims = float(t_data.get('totalClaims') or t_data.get('completionCount') or 0)
-            if total_claims >= float(max_claims):
-                raise Exception("TASK_CAP_REACHED")
+        max_claims_raw = t_data.get('maxCompletions') if t_data.get('maxCompletions') is not None else t_data.get('maxClaims')
+        if max_claims_raw is not None:
+            max_claims = safe_float(max_claims_raw, -1.0)
+            if max_claims > 0:
+                total_claims_raw = t_data.get('totalClaims') if t_data.get('totalClaims') is not None else t_data.get('completionCount')
+                total_claims = safe_float(total_claims_raw, 0.0)
+                if total_claims >= max_claims:
+                    raise Exception("TASK_CAP_REACHED")
 
         # 5. Cooldown Guard & Idempotency
-        cooldown_hours = float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours') or 0)
+        cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
         if ut_snap.exists:
             ut = ut_snap.to_dict()
             st = ut.get('status')
@@ -389,10 +392,23 @@ def submit_task():
                 raise Exception("ALREADY_PENDING")
             if cooldown_hours <= 0 and st in ('completed', 'claimed', 'verified'):
                 raise Exception("ALREADY_COMPLETED")
-            if cooldown_hours > 0 and st == 'on_cooldown':
-                last = ut.get('lastCompleted')
-                if isinstance(last, datetime) and (now - last).total_seconds() < cooldown_hours * 3600:
-                    raise Exception("ON_COOLDOWN")
+            if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'on_cooldown', 'cooldown'):
+                last = ut.get('lastCompleted') or ut.get('completedAt') or ut.get('updatedAt')
+                last_dt = None
+                if isinstance(last, datetime):
+                    last_dt = last
+                elif isinstance(last, (int, float)):
+                    last_dt = datetime.fromtimestamp(last, tz=timezone.utc)
+                elif isinstance(last, str):
+                    try:
+                        last_dt = datetime.fromisoformat(last.replace('Z', '+00:00'))
+                    except Exception:
+                        pass
+                if last_dt:
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                    if (now - last_dt).total_seconds() < cooldown_hours * 3600:
+                        raise Exception("ON_COOLDOWN")
 
         # 6. Verification Type & Proof Enforcement
         v_type = (t_data.get('verificationType') or 'manual').lower()
@@ -400,7 +416,8 @@ def submit_task():
         if requires_proof and not proof:
             raise Exception("PROOF_REQUIRED")
 
-        is_auto = (v_type in ('automated', 'instant', 'timer', 'activity', 'link', 'api') or t_data.get('type') in ('automated', 'website')) and not is_flagged
+        # Auto-approve only if verificationType is an explicitly automated mechanism and proof is not required
+        is_auto = (v_type in ('automated', 'instant', 'timer', 'activity', 'link', 'api')) and not requires_proof and not is_flagged
         claim_id = f"claim_{user_id}_{task_id}_{int(now.timestamp())}"
 
         transaction.set(db.collection('task_claims').document(claim_id), {
@@ -615,9 +632,14 @@ def get_claims_stats():
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
     try:
-        pending = len(db.collection('task_claims').where('validationState', '==', 'PENDING').get())
-        approved = len(db.collection('task_claims').where('validationState', '==', 'APPROVED').get())
-        rejected = len(db.collection('task_claims').where('validationState', '==', 'REJECTED').get())
+        try:
+            pending = db.collection('task_claims').where('validationState', '==', 'PENDING').count().get()[0][0].value
+            approved = db.collection('task_claims').where('validationState', '==', 'APPROVED').count().get()[0][0].value
+            rejected = db.collection('task_claims').where('validationState', '==', 'REJECTED').count().get()[0][0].value
+        except Exception:
+            pending = len(db.collection('task_claims').where('validationState', '==', 'PENDING').get())
+            approved = len(db.collection('task_claims').where('validationState', '==', 'APPROVED').get())
+            rejected = len(db.collection('task_claims').where('validationState', '==', 'REJECTED').get())
         total = pending + approved + rejected
 
         return jsonify({

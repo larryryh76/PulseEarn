@@ -111,7 +111,7 @@ export class VerificationEngine {
         },
         body: JSON.stringify({
           taskId,
-          proof: (proof || '').trim() || 'AUTOMATED_VALIDATION'
+          proof: proof ? proof.trim() : undefined
         })
       });
 

@@ -648,18 +648,24 @@ export type TransactionType =
   | 'daily_reward'
   | 'task_reward'
   | 'referral_bonus'
+  | 'referral_reward'
   | 'prediction_reward'
   | 'prediction_stake'
   | 'admin_adjustment'
+  | 'manual_adjustment'
   | 'prediction_entry'
   | 'AI_SYSTEM_CORRECTION'
   | 'withdrawal_debit'
+  | 'withdrawal_debit_reversal'
+  | 'refund'
+  | 'rollback'
   | 'referral_reversal'
   | 'penalty'
   | 'welcome_bonus'
   | 'withdrawal_finalized'
   | 'mission_reward'
-  | 'offerwall_reward';
+  | 'offerwall_reward'
+  | 'cashback_reward';
 
 export type SystemTaskTrigger =
   | 'referral_completed'

@@ -45,9 +45,11 @@ class AdminLogger {
     }
   }
 
-  private async persistCriticalLog(_entry: LogEntry) {
+  private async persistCriticalLog(entry: LogEntry) {
     try {
-      // Logic for critical log persistence
+      if (entry.level === 'FATAL' || entry.level === 'ERROR') {
+        console.warn(`[CriticalLog][${entry.level}][${entry.module}]`, entry.message);
+      }
     } catch (err) {
       console.error("Failed to persist critical log", err);
     }

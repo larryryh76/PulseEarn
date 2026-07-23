@@ -141,6 +141,57 @@ export class PointTransactionEngine {
     }
   }
 
+  /**
+   * Reverses a previous transaction idempotently via server-authoritative rollback.
+   */
+  static async rollback(userId: string, originalTxId: string, reason: string): Promise<PointTransactionResult> {
+    const claimId = `rb_${userId}_${originalTxId}`;
+    return this.execute({
+      userId,
+      amount: 0,
+      type: 'rollback',
+      source: 'System Rollback',
+      claimId,
+      referenceId: originalTxId,
+      description: `Rollback: ${reason}`,
+      metadata: { originalTxId, reason }
+    });
+  }
+
+  /**
+   * Issues a refund (e.g. for a rejected or reversed withdrawal).
+   */
+  static async refund(userId: string, amount: number, referenceId: string, reason: string): Promise<PointTransactionResult> {
+    const claimId = `ref_${userId}_${Date.now()}`;
+    return this.execute({
+      userId,
+      amount,
+      type: 'refund',
+      source: 'System Refund',
+      claimId,
+      referenceId,
+      description: `Refund: ${reason}`,
+      metadata: { withdrawalId: referenceId, reason }
+    });
+  }
+
+  /**
+   * Executes an administrative balance adjustment.
+   */
+  static async adjust(userId: string, amount: number, xpReward: number = 0, reason: string = 'Manual Adjustment'): Promise<PointTransactionResult> {
+    const claimId = `adj_${userId}_${Date.now()}`;
+    return this.execute({
+      userId,
+      amount,
+      xpReward,
+      type: 'manual_adjustment',
+      source: 'Admin Adjustment',
+      claimId,
+      description: reason,
+      metadata: { reason }
+    });
+  }
+
   private static async triggerSideEffects(res: any) {
     const { userId, newLevel, oldLevel } = res;
 

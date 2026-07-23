@@ -657,11 +657,20 @@ def get_claims_stats():
 
 # Authorization matrix for execute-transaction. User-claimable reward types may be
 # initiated by the account owner; everything that grants/adjusts balance arbitrarily
+# Authorization matrix for execute-transaction. User-claimable reward types may be
+# initiated by the account owner; everything that grants/adjusts balance arbitrarily
 # is restricted to admins. Reward *amounts* for user-claimable types are ALWAYS read
 # from server config so a crafted client cannot inflate its own payout.
-USER_SELF_TX = {'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward'}
-ADMIN_TX = {'admin_adjustment', 'task_reward', 'withdrawal_finalized', 'withdrawal_debit_reversal',
-            'penalty', 'referral_reversal', 'referral_bonus', 'AI_SYSTEM_CORRECTION'}
+USER_SELF_TX = {
+    'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward',
+    'offerwall_reward', 'cashback_reward'
+}
+ADMIN_TX = {
+    'admin_adjustment', 'manual_adjustment', 'task_reward', 'withdrawal_finalized',
+    'withdrawal_debit_reversal', 'refund', 'rollback', 'penalty',
+    'referral_reversal', 'referral_bonus', 'referral_reward', 'prediction_reward',
+    'offerwall_reward', 'cashback_reward', 'AI_SYSTEM_CORRECTION'
+}
 
 # Fallback human-readable labels for the activity timeline, used when the client did not
 # supply a source/description. Keeps the activity feed readable for every transaction type.
@@ -671,13 +680,21 @@ ACTIVITY_LABELS = {
     'task_reward': 'Task Reward',
     'mission_reward': 'Mission Reward',
     'referral_bonus': 'Referral Reward',
+    'referral_reward': 'Referral Reward',
     'referral_reversal': 'Referral Reversal',
     'admin_adjustment': 'Account Adjustment',
+    'manual_adjustment': 'Manual Adjustment',
     'penalty': 'Account Penalty',
     'AI_SYSTEM_CORRECTION': 'System Correction',
     'withdrawal_debit': 'Withdrawal Requested',
     'withdrawal_debit_reversal': 'Withdrawal Refunded',
+    'refund': 'Account Refund',
+    'rollback': 'Transaction Rollback',
     'withdrawal_finalized': 'Withdrawal Completed',
+    'offerwall_reward': 'Offerwall Reward',
+    'cashback_reward': 'Cashback Reward',
+    'prediction_reward': 'Forecast Settlement',
+    'prediction_stake': 'Forecast Stake',
 }
 
 # Notification presentation per transaction type: (Notification['type'], title).
@@ -691,15 +708,21 @@ NOTIFICATION_META = {
     'task_reward': ('reward_claimed', 'Task Reward Earned'),
     'mission_reward': ('reward_claimed', 'Mission Reward Earned'),
     'referral_bonus': ('referral_joined', 'Referral Reward Earned'),
+    'referral_reward': ('referral_joined', 'Referral Reward Earned'),
     'referral_reversal': ('system', 'Referral Reversed'),
     'admin_adjustment': ('system', 'Account Adjustment'),
+    'manual_adjustment': ('system', 'Manual Account Adjustment'),
     'penalty': ('moderation_notice', 'Account Penalty Applied'),
     'AI_SYSTEM_CORRECTION': ('system', 'System Correction'),
     'withdrawal_debit': ('payout_processed', 'Withdrawal Requested'),
     'withdrawal_debit_reversal': ('payout_processed', 'Withdrawal Refunded'),
+    'refund': ('reward_claimed', 'Account Refund Issued'),
+    'rollback': ('system', 'Transaction Rolled Back'),
     'withdrawal_finalized': ('payout_processed', 'Withdrawal Completed'),
     'prediction_stake': ('prediction_result', 'Forecast Placed'),
     'prediction_reward': ('prediction_result', 'Forecast Settled'),
+    'offerwall_reward': ('reward_claimed', 'Offerwall Reward Earned'),
+    'cashback_reward': ('reward_claimed', 'Cashback Reward Earned'),
 }
 
 def post_ledger(transaction, user_ref, user_id, *, tx_type, amount, xp, source,
@@ -904,6 +927,66 @@ def execute_transaction():
                 }, True))
             post_writes.append((user_ref, {'stats.tasksCompleted': firestore.Increment(1)}, True))
 
+        elif tx_type in ('referral_bonus', 'referral_reward'):
+            ref_id = data.get('referenceId') or (data.get('metadata') or {}).get('referralDocId')
+            if ref_id:
+                ref_doc = db.collection('referrals').document(ref_id)
+                post_writes.append((ref_doc, {
+                    'status': 'QUALIFIED',
+                    'rewarded': True,
+                    'updatedAt': firestore.SERVER_TIMESTAMP
+                }, True))
+            points_delta = float(data.get('amount') if data.get('amount') is not None else rewards.get('referralBonusPoints', 50))
+            xp_delta = float(data.get('xpReward') if data.get('xpReward') is not None else rewards.get('referralBonusXP', 100))
+            post_writes.append((user_ref, {'stats.referralsCount': firestore.Increment(1)}, True))
+
+        elif tx_type in ('withdrawal_debit_reversal', 'refund'):
+            wd_id = (data.get('metadata') or {}).get('withdrawalId') or data.get('referenceId')
+            amt = abs(float(data.get('amount', 0) or 0))
+            if wd_id:
+                wd_ref = db.collection('withdrawals').document(wd_id)
+                wd_snap = wd_ref.get(transaction=transaction)
+                if wd_snap.exists:
+                    wd_data = wd_snap.to_dict() or {}
+                    if amt == 0:
+                        amt = abs(float(wd_data.get('amountPoints', 0) or 0))
+                    post_writes.append((wd_ref, {
+                        'status': 'REJECTED',
+                        'refundedAt': firestore.SERVER_TIMESTAMP,
+                        'refundReason': (data.get('metadata') or {}).get('reason') or 'Withdrawal reversed'
+                    }, True))
+            if amt <= 0:
+                amt = abs(float(data.get('amount', 0) or 0))
+            points_delta = amt
+            xp_delta = 0.0
+
+        elif tx_type == 'rollback':
+            orig_tx_id = (data.get('metadata') or {}).get('originalTxId') or data.get('referenceId')
+            if not orig_tx_id:
+                raise Exception("MISSING_ORIGINAL_TRANSACTION_ID")
+            orig_snap = user_ref.collection('transactions').document(orig_tx_id).get(transaction=transaction)
+            if not orig_snap.exists:
+                raise Exception("ORIGINAL_TRANSACTION_NOT_FOUND")
+            orig = orig_snap.to_dict() or {}
+            orig_amt = float(orig.get('amount', 0) or 0)
+            orig_xp = float(orig.get('xp', 0) or 0)
+            points_delta = -orig_amt
+            xp_delta = -orig_xp
+            post_writes.append((user_ref.collection('transactions').document(orig_tx_id), {
+                'status': 'REVERSED',
+                'reversedAt': firestore.SERVER_TIMESTAMP
+            }, True))
+
+        elif tx_type == 'penalty':
+            amt = abs(float(data.get('amount', 0) or 0))
+            xp_amt = abs(float(data.get('xpReward', 0) or 0))
+            points_delta = -amt
+            xp_delta = -xp_amt
+
+        elif tx_type in ('offerwall_reward', 'cashback_reward'):
+            points_delta = float(data.get('amount', 0) or 0)
+            xp_delta = float(data.get('xpReward', 0) or 0)
+
         elif tx_type == 'withdrawal_finalized':
             wd_id = (data.get('metadata') or {}).get('withdrawalId') or data.get('referenceId')
             if not wd_id: raise Exception("MISSING_WITHDRAWAL_ID")
@@ -911,7 +994,7 @@ def execute_transaction():
             wd_snap = wd_ref.get(transaction=transaction)
             if not wd_snap.exists: raise Exception("WITHDRAWAL_NOT_FOUND")
             if not wd_snap.to_dict().get('debited'): raise Exception("WITHDRAWAL_NOT_DEBITED")
-            post_writes.append((wd_ref, {'payoutFinalizedAt': firestore.SERVER_TIMESTAMP}, True))
+            post_writes.append((wd_ref, {'payoutFinalizedAt': firestore.SERVER_TIMESTAMP, 'status': 'PAID'}, True))
             # No balance change: points were already debited at request time.
 
         else:  # admin adjustments / reversals / penalties / bonuses (admin authority already enforced)

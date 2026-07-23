@@ -245,17 +245,31 @@ function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   if (!userTask) return 'available';
 
   const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+  const statusStr = (userTask.status || '').toLowerCase();
 
-  switch (userTask.status) {
+  switch (statusStr) {
     case 'completed':
+    case 'claimed':
+    case 'verified':
       if (cooldownHours === 0) return 'completed';
       return 'available'; // Cooldown elapsed
+    case 'started':
+    case 'in_progress':
+      return 'started';
+    case 'submitted':
+      return 'submitted';
     case 'pending':
+    case 'awaiting_verification':
       return 'pending';
     case 'rejected':
       return 'rejected';
     case 'on_cooldown':
+    case 'cooldown':
       return 'cooldown';
+    case 'expired':
+      return 'expired';
+    case 'cancelled':
+      return 'cancelled';
     default:
       return 'available';
   }
@@ -402,16 +416,24 @@ function estimateTimeFromReward(amount: number): string {
 // ─── Verification Type Mapping ────────────────────────────────────────────────
 
 function mapVerificationType(type: string): VerificationType {
-  switch (type) {
-    case 'automated': return 'automated';
+  if (!type) return 'automated';
+  const norm = type.toLowerCase();
+  switch (norm) {
+    case 'automated':
+    case 'instant': return 'automated';
     case 'manual': return 'manual';
     case 'proof': return 'proof';
+    case 'screenshot': return 'screenshot';
     case 'timer': return 'timer';
     case 'activity': return 'activity';
+    case 'wallet_activity': return 'wallet_activity';
     case 'link': return 'link';
     case 'api': return 'api';
     case 'referral': return 'referral';
     case 'prediction': return 'prediction';
+    case 'external_callback': return 'external_callback';
+    case 'offerwall': return 'offerwall';
+    case 'admin_approval': return 'admin_approval';
     default:
       return 'automated';
   }
@@ -420,7 +442,7 @@ function mapVerificationType(type: string): VerificationType {
 // ─── Launch Mode ──────────────────────────────────────────────────────────────
 
 function determineLaunchMode(task: Task): LaunchMode {
-  if (task.actionUrl) {
+  if (task.actionUrl || task.url) {
     // If it's a deep link or app install, use redirect
     if (task.type === 'app_install' || task.type === 'website') {
       return 'redirect';
@@ -431,7 +453,7 @@ function determineLaunchMode(task: Task): LaunchMode {
 }
 
 function getActionType(task: Task, launchMode: LaunchMode) {
-  if (launchMode === 'redirect' && task.actionUrl) {
+  if (launchMode === 'redirect' && (task.actionUrl || task.url)) {
     return 'url';
   }
   return 'claim';

@@ -18,5 +18,6 @@ export function shortenAddress(address: string) {
 
 export function requiresProofText(verificationType?: string): boolean {
   if (!verificationType) return false;
-  return verificationType !== 'automated';
+  const norm = verificationType.toLowerCase();
+  return ['manual', 'proof', 'screenshot', 'admin_approval'].includes(norm);
 }

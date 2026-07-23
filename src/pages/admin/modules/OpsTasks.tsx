@@ -29,7 +29,14 @@ const EditTaskModal: React.FC<{ task: Task; onClose: () => void }> = ({ task, on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.rewardAmount) return toast.error('Title and reward are required.');
+    const rewardVal = Number(form.rewardAmount);
+    const xpVal = Number(form.xpReward) || 0;
+    if (!form.title.trim() || isNaN(rewardVal) || rewardVal < 1) {
+      return toast.error('Title and a reward of at least 1 PTS are required.');
+    }
+    if (xpVal < 0) {
+      return toast.error('XP reward cannot be negative.');
+    }
     setSaving(true);
     const load = toast.loading('Saving changes...');
     try {

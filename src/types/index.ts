@@ -3,8 +3,48 @@ import { Timestamp } from 'firebase/firestore';
 export type TaskType = 'daily' | 'once' | 'timer' | 'referral' | 'social' | 'prediction' | 'premium' | 'streak' | 'chain' | 'engagement' | 'education' | 'event' | 'telegram' | 'twitter' | 'tiktok' | 'youtube' | 'discord' | 'website' | 'app_install';
 export type TaskDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type TaskRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
-export type VerificationType = 'automated' | 'manual' | 'proof' | 'timer' | 'activity' | 'link' | 'api' | 'referral' | 'prediction';
-export type SubtaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+export type VerificationType =
+  | 'automated'
+  | 'manual'
+  | 'proof'
+  | 'screenshot'
+  | 'timer'
+  | 'activity'
+  | 'wallet_activity'
+  | 'link'
+  | 'api'
+  | 'referral'
+  | 'prediction'
+  | 'external_callback'
+  | 'offerwall'
+  | 'admin_approval';
+
+export type SubtaskStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'FLAGGED'
+  | 'AVAILABLE'
+  | 'STARTED'
+  | 'SUBMITTED'
+  | 'AWAITING_VERIFICATION'
+  | 'VERIFIED'
+  | 'COMPLETED'
+  | 'CLAIMED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export type VerificationStatus =
+  | 'AVAILABLE'
+  | 'STARTED'
+  | 'SUBMITTED'
+  | 'AWAITING_VERIFICATION'
+  | 'VERIFIED'
+  | 'COMPLETED'
+  | 'CLAIMED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 export type TaskCategory = 'SOCIAL' | 'REFERRAL' | 'EDUCATION' | 'PREDICTION' | 'COMMUNITY' | 'EVENTS' | 'SPONSORED' | 'CUSTOM';
 export type SocialPlatform = 'TELEGRAM' | 'TWITTER' | 'TIKTOK' | 'YOUTUBE' | 'DISCORD' | 'WEBSITE' | 'APP_STORE' | 'NONE';
 

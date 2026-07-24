@@ -29,13 +29,16 @@ const EditTaskModal: React.FC<{ task: Task; onClose: () => void }> = ({ task, on
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rewardVal = Number(form.rewardAmount);
-    const xpVal = Number(form.xpReward) || 0;
-    if (!form.title.trim() || isNaN(rewardVal) || rewardVal < 1) {
-      return toast.error('Title and a reward of at least 1 PTS are required.');
+    if (!form.title.trim()) {
+      return toast.error('Task title is required.');
     }
-    if (xpVal < 0) {
-      return toast.error('XP reward cannot be negative.');
+    const rewardVal = Number(form.rewardAmount);
+    if (!Number.isFinite(rewardVal) || rewardVal < 1) {
+      return toast.error('Reward amount must be a valid number of at least 1 PTS.');
+    }
+    const xpVal = form.xpReward.trim() ? Number(form.xpReward) : 0;
+    if (!Number.isFinite(xpVal) || xpVal < 0) {
+      return toast.error('XP reward must be a valid non-negative number.');
     }
     setSaving(true);
     const load = toast.loading('Saving changes...');
@@ -48,8 +51,8 @@ const EditTaskModal: React.FC<{ task: Task; onClose: () => void }> = ({ task, on
           title: form.title.trim(),
           description: form.description.trim(),
           type: form.type,
-          rewardAmount: Number(form.rewardAmount),
-          xpReward: Number(form.xpReward) || 0,
+          rewardAmount: rewardVal,
+          xpReward: xpVal,
           proofLabel: form.proofLabel.trim() || 'Proof',
           proofPlaceholder: form.proofPlaceholder.trim() || 'Paste your proof link here',
           maxCompletions: form.maxCompletions ? Number(form.maxCompletions) : null,
@@ -251,7 +254,17 @@ const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.rewardAmount) return toast.error('Title and reward are required.');
+    if (!form.title.trim()) {
+      return toast.error('Task title is required.');
+    }
+    const rewardVal = Number(form.rewardAmount);
+    if (!Number.isFinite(rewardVal) || rewardVal < 1) {
+      return toast.error('Reward amount must be a valid number of at least 1 PTS.');
+    }
+    const xpVal = form.xpReward.trim() ? Number(form.xpReward) : 0;
+    if (!Number.isFinite(xpVal) || xpVal < 0) {
+      return toast.error('XP reward must be a valid non-negative number.');
+    }
     setSaving(true);
     const load = toast.loading('Creating task...');
     try {
@@ -263,8 +276,8 @@ const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           title: form.title.trim(),
           description: form.description.trim(),
           type: form.type,
-          rewardAmount: Number(form.rewardAmount),
-          xpReward: Number(form.xpReward) || 0,
+          rewardAmount: rewardVal,
+          xpReward: xpVal,
           proofLabel: form.proofLabel.trim() || 'Proof',
           proofPlaceholder: form.proofPlaceholder.trim() || 'Paste your proof link here',
           maxCompletions: form.maxCompletions ? Number(form.maxCompletions) : null,

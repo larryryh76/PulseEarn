@@ -3,11 +3,26 @@ import sys
 import json
 import html
 import math
+import time
 import urllib.parse
 import logging
 import traceback
 from datetime import datetime, timezone, timedelta
 from functools import wraps
+
+def compute_account_age_days(created_at):
+    if not created_at:
+        return 0
+    try:
+        if hasattr(created_at, 'timestamp'):
+            c_time = created_at.timestamp()
+        elif isinstance(created_at, (int, float)):
+            c_time = float(created_at)
+        else:
+            c_time = time.time()
+        return max(0, int((time.time() - c_time) / 86400))
+    except Exception:
+        return 0
 
 def safe_float(v, default=0.0):
     if v is None or v == '':
@@ -4290,14 +4305,7 @@ def get_user_progression():
     calculated_lvl = calculate_level(xp)
 
     # Compute account age in days
-    created_at = u_data.get('createdAt')
-    account_age_days = 0
-    if created_at:
-        try:
-            c_time = created_at.timestamp() if hasattr(created_at, 'timestamp') else time.time()
-            account_age_days = max(0, int((time.time() - c_time) / 86400))
-        except Exception:
-            account_age_days = 0
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
 
     stats = u_data.get('stats') or {}
     trust_signals = {
@@ -4379,18 +4387,15 @@ def handle_marketplace_profile():
         completions = safe_int(stats.get('tasksCompleted', 0))
         total_earnings = safe_float(stats.get('totalEarnings', 0))
         level = safe_int(u_data.get('level', 1))
-
-        created_at = u_data.get('createdAt')
-        account_age_days = 0
-        if created_at and hasattr(created_at, 'timestamp'):
-            account_age_days = max(0, int((time.time() - created_at.timestamp()) / 86400))
+        account_age_days = compute_account_age_days(u_data.get('createdAt'))
+        risk_level = u_data.get('riskLevel') or 'LOW'
 
         # Derive Archetype
         if completions >= 25 or total_earnings >= 10000:
             archetype = 'power_earner'
         elif level >= 10:
             archetype = 'high_xp'
-        elif u_data.get('riskLevel') == 'LOW' and u_data.get('emailVerified') and account_age_days >= 7:
+        elif risk_level == 'LOW' and u_data.get('emailVerified') and account_age_days >= 7:
             archetype = 'high_trust'
         elif account_age_days <= 3 or completions <= 3:
             archetype = 'new'
@@ -4408,7 +4413,7 @@ def handle_marketplace_profile():
             "completedCampaigns": prof_data.get("completedCampaigns") or [],
             "trustSignals": {
                 "emailVerified": bool(u_data.get('emailVerified')),
-                "riskLevel": u_data.get('riskLevel') or "LOW",
+                "riskLevel": risk_level,
                 "accountAgeDays": account_age_days,
                 "tasksCompleted": completions,
                 "totalEarnings": total_earnings
@@ -4452,11 +4457,7 @@ def evaluate_marketplace_eligibility():
     user_risk = u_data.get('riskLevel') or 'LOW'
     user_email_verified = bool(u_data.get('emailVerified'))
     stats = u_data.get('stats') or {}
-
-    created_at = u_data.get('createdAt')
-    account_age_days = 0
-    if created_at and hasattr(created_at, 'timestamp'):
-        account_age_days = max(0, int((time.time() - created_at.timestamp()) / 86400))
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
 
     user_region = body.get('region') or 'GLOBAL'
     task_id = body.get('taskId') or body.get('opportunityId')
@@ -4518,14 +4519,14 @@ def audit_global_progression():
     if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
 
-    users_snap = db.collection('users').get()
+    users_stream = db.collection('users').stream()
     levels_adjusted = 0
     scanned_count = 0
 
     batch = db.batch()
     batch_count = 0
 
-    for u_doc in users_snap:
+    for u_doc in users_stream:
         scanned_count += 1
         u_data = u_doc.to_dict() or {}
         xp = safe_float(u_data.get('xp', 0))
@@ -4581,11 +4582,8 @@ def simulate_user_eligibility():
     user_risk = u_data.get('riskLevel') or 'LOW'
     user_email_verified = bool(u_data.get('emailVerified'))
     stats = u_data.get('stats') or {}
-
-    created_at = u_data.get('createdAt')
-    account_age_days = 0
-    if created_at and hasattr(created_at, 'timestamp'):
-        account_age_days = max(0, int((time.time() - created_at.timestamp()) / 86400))
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
+    user_region = body.get('region') or 'GLOBAL'
 
     # Fetch active tasks
     tasks_snap = db.collection('tasks').where('active', '==', True).limit(20).get()
@@ -4596,13 +4594,24 @@ def simulate_user_eligibility():
         min_level = safe_int(t_data.get('minLevel', 1))
         min_xp = safe_float(t_data.get('minXp', 0))
         min_age = safe_int(t_data.get('minAccountAgeDays', 0))
+        min_tasks = safe_int(t_data.get('minTasksCompleted', 0))
+        min_refs = safe_int(t_data.get('minReferrals', 0))
+        req_email = bool(t_data.get('requiresEmailVerification'))
+        regions = t_data.get('regionRestrictions') or []
 
         reqs = [
             {"label": f"Minimum Experience Level (LVL {min_level}+)", "met": user_lvl >= min_level, "current": user_lvl, "target": min_level},
             {"label": f"Minimum XP ({min_xp})", "met": user_xp >= min_xp, "current": user_xp, "target": min_xp},
             {"label": f"Account Seniority ({min_age} Days)", "met": account_age_days >= min_age, "current": account_age_days, "target": min_age},
+            {"label": f"Tasks Completed ({min_tasks}+)", "met": safe_int(stats.get('tasksCompleted', 0)) >= min_tasks, "current": safe_int(stats.get('tasksCompleted', 0)), "target": min_tasks},
+            {"label": f"Referrals ({min_refs}+)", "met": safe_int(stats.get('referralsCount', 0)) >= min_refs, "current": safe_int(stats.get('referralsCount', 0)), "target": min_refs},
+            {"label": "Verified Email Address", "met": (not req_email) or user_email_verified, "current": "Verified" if user_email_verified else "Unverified", "target": "Verified"},
             {"label": "Account Integrity Standard", "met": user_risk != 'HIGH', "current": user_risk, "target": "STABLE"},
         ]
+
+        if regions and 'GLOBAL' not in regions and 'ALL' not in regions:
+            in_region = user_region in regions
+            reqs.append({"label": f"Geographic Region ({', '.join(regions)})", "met": in_region, "current": user_region, "target": ", ".join(regions)})
 
         eligible = all(r["met"] for r in reqs)
         simulations.append({

@@ -38,6 +38,7 @@ import {
 import { safeFetch } from '../../../utils/api';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
+import { auth } from '../../../firebase/config';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -144,17 +145,31 @@ const OpsMarketplace: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
 
+  const getAdminHeaders = async () => {
+    const token = await auth.currentUser?.getIdToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
   const handleRunAudit = async () => {
     setIsAuditing(true);
     const loadToast = toast.loading("Running global progression audit & sync...");
     try {
-      const res = await safeFetch('/api/admin/progression/audit', { method: 'POST' });
+      const headers = await getAdminHeaders();
+      const res = await safeFetch('/api/admin/progression/audit', {
+        method: 'POST',
+        headers
+      });
       if (res.success) {
         toast.success(res.message || "Global progression audit completed successfully", { id: loadToast });
       } else {
         toast.error(res.error || "Audit failed", { id: loadToast });
       }
     } catch (err) {
+      console.error('[OpsMarketplace] Audit error:', err);
       toast.error("Audit error", { id: loadToast });
     } finally {
       setIsAuditing(false);
@@ -169,9 +184,10 @@ const OpsMarketplace: React.FC = () => {
     setIsSimulating(true);
     const loadToast = toast.loading(`Simulating marketplace eligibility for ${simUserId}...`);
     try {
+      const headers = await getAdminHeaders();
       const res = await safeFetch('/api/admin/progression/simulate-eligibility', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId: simUserId.trim() })
       });
       if (res.success) {
@@ -181,6 +197,7 @@ const OpsMarketplace: React.FC = () => {
         toast.error(res.error || "Simulation failed", { id: loadToast });
       }
     } catch (err) {
+      console.error('[OpsMarketplace] Simulation error:', err);
       toast.error("Simulation error", { id: loadToast });
     } finally {
       setIsSimulating(false);

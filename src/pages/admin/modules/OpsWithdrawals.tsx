@@ -164,6 +164,7 @@ const OpsWithdrawals: React.FC = () => {
       toast.success(`Withdrawal ${status.toLowerCase()}`);
       fetchWithdrawals(); // Refresh
     } catch (err) {
+      console.error('[OpsWithdrawals] Update error:', err);
       toast.dismiss(loadingToast);
       toast.error("Failed to update withdrawal status");
     }

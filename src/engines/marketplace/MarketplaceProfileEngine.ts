@@ -30,32 +30,27 @@ export class MarketplaceProfileEngine {
     const totalEarnings = trustSignals.totalEarnings;
     const level = userData.level || 1;
 
-    // 1. Inactive check (if user hasn't completed tasks in 14+ days and was previously active)
-    if (completions > 5 && accountAge > 20) {
-      // Could be inactive or returning, default to returning if currently active
-      return 'returning';
-    }
-
-    // 2. Power Earner: High volume of completions and high total earnings
+    // 1. Power Earner: High volume of completions and high total earnings
     if (completions >= 25 || totalEarnings >= 10000) {
       return 'power_earner';
     }
 
-    // 3. High XP / High Level: Level 10+
+    // 2. High XP / High Level: Level 10+
     if (level >= 10) {
       return 'high_xp';
     }
 
-    // 4. High Trust: LOW risk, email verified, account age >= 7 days
+    // 3. High Trust: LOW risk, email verified, account age >= 7 days
     if (trustSignals.riskLevel === 'LOW' && trustSignals.emailVerified && accountAge >= 7) {
       return 'high_trust';
     }
 
-    // 5. New User: Account age <= 3 days or under 3 completions
+    // 4. New User: Account age <= 3 days or under 3 completions
     if (accountAge <= 3 || completions <= 3) {
       return 'new';
     }
 
+    // 5. Returning / Established User
     return 'returning';
   }
 

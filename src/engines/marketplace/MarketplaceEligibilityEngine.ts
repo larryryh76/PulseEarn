@@ -36,27 +36,30 @@ export class MarketplaceEligibilityEngine {
       };
     }
 
+    const criteria: OpportunityEligibilityCriteria = opportunity.eligibility || {
+      minLevel: opportunity.metadata.minLevel || 1,
+      regionRestrictions: opportunity.metadata.regionRestrictions,
+    };
+
     if (!userData) {
+      const minLevel = criteria.minLevel || opportunity.metadata.minLevel || 1;
+      const isRestricted = minLevel > 1 || Boolean(criteria.minXp) || Boolean(criteria.minAccountAgeDays) || Boolean(criteria.minTasksCompleted) || Boolean(criteria.minReferrals) || Boolean(criteria.requiresEmailVerification);
+
       return {
-        eligible: false,
-        visibility: 'locked',
-        priorityScore: 0,
-        reasons: ['Authentication required'],
+        eligible: !isRestricted,
+        visibility: 'visible',
+        priorityScore: !isRestricted ? 10 : 0,
+        reasons: isRestricted ? ['Authentication required for restricted tasks'] : [],
         requirements: [
           {
             label: 'Account Login Required',
-            met: false,
+            met: !isRestricted,
             current: 'Guest',
             target: 'Authenticated User',
           },
         ],
       };
     }
-
-    const criteria: OpportunityEligibilityCriteria = opportunity.eligibility || {
-      minLevel: opportunity.metadata.minLevel || 1,
-      regionRestrictions: opportunity.metadata.regionRestrictions,
-    };
 
     const requirements: OpportunityEligibilityResult['requirements'] = [];
     const reasons: string[] = [];
@@ -141,16 +144,23 @@ export class MarketplaceEligibilityEngine {
 
     // 7. Account Trust / Integrity Check
     if (criteria.requiredTrustLevel) {
-      const riskLevel = userData.riskLevel || 'LOW';
-      const isHighRisk = riskLevel === 'HIGH';
-      const trustMet = !isHighRisk;
+      const riskLevel = (userData.riskLevel || 'LOW').toUpperCase();
+      const required = criteria.requiredTrustLevel.toUpperCase();
+      let trustMet = true;
+      if (required === 'STABLE' || required === 'HIGH' || required === 'HIGH_INTEGRITY') {
+        trustMet = riskLevel === 'LOW';
+      } else if (required === 'MEDIUM') {
+        trustMet = riskLevel === 'LOW' || riskLevel === 'MEDIUM';
+      } else {
+        trustMet = riskLevel !== 'HIGH';
+      }
       requirements.push({
         label: 'Account Integrity Standard',
         met: trustMet,
         current: riskLevel,
-        target: 'STABLE',
+        target: required,
       });
-      if (!trustMet) reasons.push('Account integrity flag present');
+      if (!trustMet) reasons.push(`Account integrity requirement (${required}) not met`);
     }
 
     // 8. Region Restrictions Check
@@ -168,14 +178,16 @@ export class MarketplaceEligibilityEngine {
 
     // 9. Previous Completion / Cooldown
     if (userTask) {
-      if (userTask.status === 'completed' && criteria.maxUserCompletions === 1) {
+      const completionsCount = (userTask as any).totalCompletions ?? (userTask as any).claimsCount ?? (userTask.status === 'completed' ? 1 : 0);
+      const maxCompletions = criteria.maxUserCompletions;
+      if (maxCompletions && completionsCount >= maxCompletions) {
         requirements.push({
-          label: 'One-time Completion',
+          label: maxCompletions === 1 ? 'One-time Completion' : `Maximum User Completions (${maxCompletions})`,
           met: false,
-          current: 'Completed',
-          target: 'Available',
+          current: `${completionsCount} Completed`,
+          target: `${maxCompletions} Allowed`,
         });
-        reasons.push('Already completed');
+        reasons.push('Maximum user completions reached');
       } else if (userTask.status === 'on_cooldown' || userTask.status === 'cooldown') {
         requirements.push({
           label: 'Cooldown Expiration',

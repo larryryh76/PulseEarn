@@ -96,13 +96,16 @@ export function evaluateUserOpportunities(
   userTasks: Record<string, UserTask> = {},
   profile?: MarketplaceUserProfile
 ): MarketplaceOpportunity[] {
+  const userRegion = (userData as any)?.region || (userData as any)?.country || (profile as any)?.location?.country || 'GLOBAL';
+
   return opportunities.map(opp => {
     const uTask = userTasks[opp.id];
     const eligibilityResult = MarketplaceEligibilityEngine.evaluate(
       opp,
       userData,
       uTask,
-      profile
+      profile,
+      userRegion
     );
 
     return {

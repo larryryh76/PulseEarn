@@ -219,7 +219,15 @@ export type SectionSource =
   | 'expiring_soon'
   | 'new_today'
   | 'highest_paying'
-  | 'fastest';
+  | 'fastest'
+  | 'daily'
+  | 'seasonal'
+  | 'referrals'
+  | 'learn'
+  | 'offerwall_providers'
+  | 'predictions'
+  | 'community'
+  | 'limited_campaigns';
 
 export interface RecommendationSection {
   id: string;
@@ -239,6 +247,19 @@ export interface RecommendationSection {
   maxItems?: number;
 }
 
+// ─── Admin Marketplace Composition Config ─────────────────────────────────────
+
+export interface MarketplaceAdminConfig {
+  featuredCampaignIds?: string[];
+  hiddenCampaignIds?: string[];
+  prioritizedCampaigns?: Record<string, number>; // taskId/campaignId -> bonus score
+  disabledCategories?: OpportunityCategory[];
+  enabledCategories?: OpportunityCategory[];
+  sectionOrder?: (SectionSource | string)[];
+  sectionTitles?: Record<string, { title?: string; subtitle?: string }>;
+  updatedAt?: Date | string;
+}
+
 // ─── Discovery & Search ──────────────────────────────────────────────────────
 
 export interface DiscoveryFilters {
@@ -251,12 +272,14 @@ export interface DiscoveryFilters {
   sources?: OpportunitySource[];
   providers?: string[];
   status?: OpportunityStatus[];
+  featuredOnly?: boolean;
+  recommendedOnly?: boolean;
 }
 
 export interface SearchOptions {
   query: string;
   filters?: DiscoveryFilters;
-  sortBy?: 'reward' | 'time' | 'difficulty' | 'popularity' | 'newest';
+  sortBy?: 'reward' | 'time' | 'difficulty' | 'popularity' | 'newest' | 'recommendation_score' | 'recommended' | 'expiring_soon';
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;

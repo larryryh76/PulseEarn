@@ -4365,6 +4365,224 @@ def recalculate_user_progression():
         "updated": current_lvl != correct_lvl
     })
 
+def parse_time_to_minutes_backend(val):
+    """Safely parse estimated time string into minutes for sorting."""
+    if not val or not isinstance(val, str):
+        return 15
+    val_lower = val.lower().strip()
+    digits = ''.join(c for c in val_lower if c.isdigit())
+    if not digits:
+        return 15
+    num = int(digits)
+    if 'hour' in val_lower or 'hr' in val_lower:
+        return num * 60
+    elif 'day' in val_lower:
+        return num * 1440
+    return num
+
+@app.route('/api/marketplace/config', methods=['GET'])
+def get_marketplace_config():
+    """Returns active marketplace dynamic composition settings."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        cfg_doc = db.collection('marketplace_config').document('settings').get()
+        data = cfg_doc.to_dict() if cfg_doc.exists else {}
+        config = {
+            "featuredCampaignIds": data.get("featuredCampaignIds") or [],
+            "hiddenCampaignIds": data.get("hiddenCampaignIds") or [],
+            "prioritizedCampaigns": data.get("prioritizedCampaigns") or {},
+            "disabledCategories": data.get("disabledCategories") or [],
+            "enabledCategories": data.get("enabledCategories") or [],
+            "sectionOrder": data.get("sectionOrder") or [
+                "featured", "personalized", "continue", "daily", "seasonal",
+                "new_today", "trending", "highest_paying", "fastest", "expiring_soon",
+                "referrals", "learn", "offerwall_providers", "predictions", "community"
+            ],
+            "sectionTitles": data.get("sectionTitles") or {},
+            "updatedAt": data.get("updatedAt").isoformat() if data.get("updatedAt") and hasattr(data.get("updatedAt"), "isoformat") else None
+        }
+        return jsonify({"success": True, "config": config})
+    except Exception as e:
+        logging.error(f"[MarketplaceConfig] Error fetching config: {e}")
+        return jsonify({"success": False, "error": "CONFIG_FETCH_FAILED", "message": str(e)}), 500
+
+@app.route('/api/admin/marketplace/config', methods=['GET', 'POST', 'PUT'])
+@verify_token
+def handle_admin_marketplace_config():
+    """Admin endpoint to fetch or update marketplace composition controls."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid):
+        return jsonify({"error": "UNAUTHORIZED", "message": "Admin privileges required"}), 403
+
+    db = firestore.client()
+    cfg_ref = db.collection('marketplace_config').document('settings')
+
+    if request.method == 'GET':
+        cfg_doc = cfg_ref.get()
+        data = cfg_doc.to_dict() if cfg_doc.exists else {}
+        return jsonify({"success": True, "config": data})
+
+    # POST/PUT: Update config with type validation
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "INVALID_PAYLOAD", "message": "JSON object expected"}), 400
+
+    updates = {
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+        "updatedBy": uid
+    }
+    if "featuredCampaignIds" in payload and isinstance(payload["featuredCampaignIds"], list):
+        updates["featuredCampaignIds"] = [str(x) for x in payload["featuredCampaignIds"]]
+    if "hiddenCampaignIds" in payload and isinstance(payload["hiddenCampaignIds"], list):
+        updates["hiddenCampaignIds"] = [str(x) for x in payload["hiddenCampaignIds"]]
+    if "prioritizedCampaigns" in payload and isinstance(payload["prioritizedCampaigns"], dict):
+        updates["prioritizedCampaigns"] = {str(k): safe_int(v, 0) for k, v in payload["prioritizedCampaigns"].items()}
+    if "disabledCategories" in payload and isinstance(payload["disabledCategories"], list):
+        updates["disabledCategories"] = [str(x) for x in payload["disabledCategories"]]
+    if "enabledCategories" in payload and isinstance(payload["enabledCategories"], list):
+        updates["enabledCategories"] = [str(x) for x in payload["enabledCategories"]]
+    if "sectionOrder" in payload and isinstance(payload["sectionOrder"], list):
+        updates["sectionOrder"] = [str(x) for x in payload["sectionOrder"]]
+    if "sectionTitles" in payload and isinstance(payload["sectionTitles"], dict):
+        updates["sectionTitles"] = payload["sectionTitles"]
+
+    cfg_ref.set(updates, merge=True)
+    return jsonify({"success": True, "message": "Marketplace composition configuration updated successfully"})
+
+@app.route('/api/marketplace/search', methods=['GET', 'POST'])
+def search_marketplace_opportunities():
+    """Backend-aware discovery & search engine endpoint operating on normalized opportunities."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    params = request.json if request.method == 'POST' else request.args.to_dict()
+    q = (params.get('q') or params.get('query') or '').strip().lower()
+    category = params.get('category')
+    provider = params.get('provider')
+    difficulty = params.get('difficulty')
+    min_reward = safe_float(params.get('minReward'), 0)
+    max_reward = safe_float(params.get('maxReward'), 0)
+    sort_by = params.get('sortBy') or 'recommended'
+    limit_val = safe_int(params.get('limit'), 50)
+    offset_val = safe_int(params.get('offset'), 0)
+
+    # Fetch admin marketplace configuration to honor hidden/disabled/enabled filters & priority boosts
+    cfg_doc = db.collection('marketplace_config').document('settings').get()
+    cfg_data = cfg_doc.to_dict() if cfg_doc.exists else {}
+    hidden_ids = set(cfg_data.get('hiddenCampaignIds') or [])
+    disabled_cats = set([c.lower() for c in (cfg_data.get('disabledCategories') or [])])
+    enabled_cats = set([c.lower() for c in (cfg_data.get('enabledCategories') or [])])
+    prioritized_map = cfg_data.get('prioritizedCampaigns') or {}
+
+    # Fetch active tasks from Firestore using indexed query where available (bounded reads)
+    query_ref = db.collection('tasks').where('active', '==', True)
+    if category and category != 'all':
+        query_ref = query_ref.where('category', '==', category.upper())
+
+    # Limit maximum Firestore scan to 500 documents for safety
+    tasks_snap = query_ref.limit(500).stream()
+    results = []
+
+    for doc in tasks_snap:
+        # Exclude hidden campaign IDs
+        if doc.id in hidden_ids:
+            continue
+
+        data = doc.to_dict() or {}
+        task_cat = data.get('category', 'CUSTOM').lower()
+
+        # Exclude disabled categories
+        if task_cat in disabled_cats or data.get('category', '').upper() in disabled_cats:
+            continue
+
+        # Restrict to enabled categories if explicitly specified
+        if enabled_cats and (task_cat not in enabled_cats and data.get('category', '').upper() not in enabled_cats):
+            continue
+
+        task_title = data.get('title', '')
+        task_desc = data.get('description', '')
+        task_provider = data.get('providerName', 'Internal')
+        tags = data.get('tags') or []
+        reward = safe_float(data.get('rewardAmount', 0))
+        task_diff = (data.get('difficulty') or 'easy').lower()
+        est_time = data.get('estimatedTime') or '5 min'
+
+        # Text search matching
+        if q:
+            match = (
+                q in task_title.lower() or
+                q in task_desc.lower() or
+                q in task_provider.lower() or
+                any(q in str(t).lower() for t in tags) or
+                q == str(int(reward)) or
+                q in task_diff or
+                q in est_time.lower()
+            )
+            if not match:
+                continue
+
+        if provider and provider.lower() not in task_provider.lower():
+            continue
+
+        if difficulty and task_diff != difficulty.lower():
+            continue
+
+        if min_reward > 0 and reward < min_reward:
+            continue
+
+        if max_reward > 0 and reward > max_reward:
+            continue
+
+        created_at_val = data.get('createdAt')
+        created_ts = 0
+        if created_at_val and hasattr(created_at_val, 'timestamp'):
+            created_ts = created_at_val.timestamp()
+
+        bonus_score = safe_int(prioritized_map.get(doc.id, 0))
+        priority_score = safe_int(data.get('priorityScore', 50)) + bonus_score
+
+        results.append({
+            "id": doc.id,
+            "title": task_title,
+            "description": task_desc,
+            "category": task_cat,
+            "rewardAmount": reward,
+            "xpReward": safe_int(data.get('xpReward', 10)),
+            "difficulty": task_diff,
+            "estimatedTime": est_time,
+            "providerName": task_provider,
+            "tags": tags,
+            "active": True,
+            "createdAtTs": created_ts,
+            "priorityScore": priority_score
+        })
+
+    # Centralized sorting
+    if sort_by == 'reward':
+        results.sort(key=lambda x: x['rewardAmount'], reverse=True)
+    elif sort_by == 'time':
+        results.sort(key=lambda x: parse_time_to_minutes_backend(x['estimatedTime']))
+    elif sort_by == 'newest':
+        results.sort(key=lambda x: x['createdAtTs'], reverse=True)
+    elif sort_by in ('recommended', 'recommendation_score'):
+        results.sort(key=lambda x: x['priorityScore'], reverse=True)
+    else:
+        results.sort(key=lambda x: x['priorityScore'], reverse=True)
+
+    paginated = results[offset_val : offset_val + limit_val]
+    return jsonify({
+        "success": True,
+        "total": len(results),
+        "offset": offset_val,
+        "limit": limit_val,
+        "results": paginated
+    })
+
 @app.route('/api/marketplace/profile', methods=['GET', 'POST', 'PUT'])
 @verify_token
 def handle_marketplace_profile():

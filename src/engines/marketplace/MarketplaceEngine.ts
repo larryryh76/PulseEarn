@@ -15,6 +15,7 @@ import {
   SectionSource,
   SectionLayout,
   MarketplaceUserProfile,
+  MarketplaceAdminConfig,
 } from '../../types/marketplace';
 import {
   normalizeTaskBatch,
@@ -22,6 +23,7 @@ import {
   mergeOpportunities,
 } from './OpportunityNormalizer';
 import { MarketplaceEligibilityEngine } from './MarketplaceEligibilityEngine';
+import { generateAllSections } from './RecommendationEngine';
 
 export { normalizeCampaign };
 import { Task, Campaign, UserTask, UserData } from '../../types';
@@ -31,6 +33,7 @@ import { Task, Campaign, UserTask, UserData } from '../../types';
 interface EngineState {
   opportunities: MarketplaceOpportunity[];
   providers: Map<string, ProviderInventory>;
+  adminConfig: MarketplaceAdminConfig;
   lastRefresh: Date;
   isInitialized: boolean;
 }
@@ -38,9 +41,30 @@ interface EngineState {
 const state: EngineState = {
   opportunities: [],
   providers: new Map(),
+  adminConfig: {
+    featuredCampaignIds: [],
+    hiddenCampaignIds: [],
+    prioritizedCampaigns: {},
+    disabledCategories: [],
+    enabledCategories: [],
+    sectionOrder: [],
+  },
   lastRefresh: new Date(0),
   isInitialized: false,
 };
+
+// ─── Admin Composition Configuration ──────────────────────────────────────────
+
+export function setAdminConfig(config: MarketplaceAdminConfig): void {
+  state.adminConfig = {
+    ...state.adminConfig,
+    ...config,
+  };
+}
+
+export function getAdminConfig(): MarketplaceAdminConfig {
+  return state.adminConfig;
+}
 
 // ─── Initialization ─────────────────────────────────────────────────────────────
 
@@ -286,28 +310,71 @@ export function getExpiringSoon(): MarketplaceOpportunity[] {
 // ─── Search & Discovery ───────────────────────────────────────────────────────
 
 /**
- * Search opportunities with filters.
+ * Search opportunities with comprehensive filters operating on normalized opportunities.
  */
 export function search(options: SearchOptions): MarketplaceOpportunity[] {
   let results = [...state.opportunities];
 
-  // Filter by query
-  if (options.query) {
-    const query = options.query.toLowerCase();
-    results = results.filter(
-      o =>
-        o.title.toLowerCase().includes(query) ||
-        o.description.toLowerCase().includes(query) ||
-        o.metadata.tags.some(t => t.toLowerCase().includes(query))
-    );
+  // Filter out hidden campaign IDs & disabled categories from Admin Config
+  if (state.adminConfig.hiddenCampaignIds?.length) {
+    const hidden = new Set(state.adminConfig.hiddenCampaignIds);
+    results = results.filter(o => !hidden.has(o.id));
+  }
+  if (state.adminConfig.disabledCategories?.length) {
+    const disabled = new Set(state.adminConfig.disabledCategories);
+    results = results.filter(o => !disabled.has(o.metadata.category));
+  }
+  if (state.adminConfig.enabledCategories?.length) {
+    const enabled = new Set(state.adminConfig.enabledCategories);
+    results = results.filter(o => enabled.has(o.metadata.category));
   }
 
-  // Apply filters
+  // Search by text query across all fields
+  if (options.query) {
+    const query = options.query.trim().toLowerCase();
+    results = results.filter(o => {
+      const titleMatch = o.title.toLowerCase().includes(query);
+      const descMatch = o.description.toLowerCase().includes(query);
+      const instMatch = o.instructions?.toLowerCase().includes(query);
+      const reqMatch = o.requirements?.toLowerCase().includes(query);
+      const catMatch = o.metadata.category.toLowerCase().includes(query);
+      const providerMatch = (o.providerName || o.providerId || '').toLowerCase().includes(query);
+      const tagMatch = o.metadata.tags.some(t => t.toLowerCase().includes(query));
+      const diffMatch = o.metadata.difficulty.toLowerCase().includes(query);
+      const estMatch = o.metadata.estimatedTime.toLowerCase().includes(query);
+      const rewardMatch = query === String(o.reward.points) || query === String(o.reward.xp);
+
+      return titleMatch || descMatch || instMatch || reqMatch || catMatch || providerMatch || tagMatch || diffMatch || estMatch || rewardMatch;
+    });
+  }
+
+  // Apply structured filters
   if (options.filters) {
-    const { categories, difficulty, minReward, maxReward, sources, status } = options.filters;
+    const {
+      categories,
+      difficulty,
+      minReward,
+      maxReward,
+      maxTime,
+      verificationTypes,
+      sources,
+      providers,
+      status,
+      featuredOnly,
+      recommendedOnly,
+    } = options.filters;
 
     if (categories?.length) {
       results = results.filter(o => categories.includes(o.metadata.category));
+    }
+
+    if (providers?.length) {
+      results = results.filter(o =>
+        providers.some(p =>
+          p.toLowerCase() === o.providerId?.toLowerCase() ||
+          p.toLowerCase() === o.providerName?.toLowerCase()
+        )
+      );
     }
 
     if (difficulty?.length) {
@@ -322,12 +389,32 @@ export function search(options: SearchOptions): MarketplaceOpportunity[] {
       results = results.filter(o => o.reward.points <= maxReward);
     }
 
+    if (maxTime !== undefined) {
+      const maxMinutes = parseTimeToMinutes(maxTime);
+      results = results.filter(o => parseTimeToMinutes(o.metadata.estimatedTime) <= maxMinutes);
+    }
+
+    if (verificationTypes?.length) {
+      results = results.filter(o => verificationTypes.includes(o.metadata.verificationType));
+    }
+
     if (sources?.length) {
       results = results.filter(o => sources.includes(o.source));
     }
 
     if (status?.length) {
       results = results.filter(o => status.includes(o.status));
+    }
+
+    if (featuredOnly) {
+      const featuredSet = new Set(state.adminConfig.featuredCampaignIds || []);
+      results = results.filter(
+        o => o.metadata.category === 'featured' || featuredSet.has(o.id) || o.engagement.trending
+      );
+    }
+
+    if (recommendedOnly) {
+      results = results.filter(o => (o.computedEligibility?.priorityScore || 0) >= 60);
     }
   }
 
@@ -352,7 +439,7 @@ function sortResults(
   switch (sortBy) {
     case 'reward':
       return opportunities.sort(
-        (a, b) => multiplier * (b.reward.points - a.reward.points)
+        (a, b) => multiplier * (a.reward.points - b.reward.points)
       );
     case 'time':
       return opportunities.sort((a, b) => {
@@ -360,22 +447,36 @@ function sortResults(
         const timeB = parseTimeToMinutes(b.metadata.estimatedTime);
         return multiplier * (timeA - timeB);
       });
-    case 'difficulty':
+    case 'difficulty': {
       const diffOrder = ['easy', 'medium', 'hard', 'elite'];
       return opportunities.sort((a, b) => {
         const idxA = diffOrder.indexOf(a.metadata.difficulty);
         const idxB = diffOrder.indexOf(b.metadata.difficulty);
         return multiplier * (idxA - idxB);
       });
+    }
     case 'popularity':
       return opportunities.sort((a, b) =>
-        multiplier * (b.engagement.totalCompletions - a.engagement.totalCompletions)
+        multiplier * (a.engagement.totalCompletions - b.engagement.totalCompletions)
       );
     case 'newest':
       return opportunities.sort((a, b) => {
-        const dateA = a.createdAt?.getTime() || 0;
-        const dateB = b.createdAt?.getTime() || 0;
-        return multiplier * (dateB - dateA);
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return multiplier * (dateA - dateB);
+      });
+    case 'expiring_soon':
+      return opportunities.sort((a, b) => {
+        const dateA = a.expiresAt ? new Date(a.expiresAt).getTime() : 9999999999999;
+        const dateB = b.expiresAt ? new Date(b.expiresAt).getTime() : 9999999999999;
+        return multiplier * (dateA - dateB);
+      });
+    case 'recommendation_score':
+    case 'recommended':
+      return opportunities.sort((a, b) => {
+        const scoreA = a.computedEligibility?.priorityScore || 50;
+        const scoreB = b.computedEligibility?.priorityScore || 50;
+        return multiplier * (scoreA - scoreB);
       });
     default:
       return opportunities;
@@ -396,95 +497,19 @@ function parseTimeToMinutes(time: string): number {
   return num;
 }
 
-// ─── Section Generation ────────────────────────────────────────────────────────
+// ─── Dynamic Marketplace Composition Pipeline ─────────────────────────────────
 
 /**
- * Generate default recommendation sections.
+ * Generate default dynamic recommendation sections utilizing RecommendationEngine.
  */
 export function generateDefaultSections(): RecommendationSection[] {
-  const featured = getFeatured();
-  const trending = getTrending();
-  const highestPaying = getHighestPaying(8);
-  const fastest = getFastestRewards(8);
-  const newOpps = getNew();
-  const expiringSoon = getExpiringSoon();
-
-  const sections: RecommendationSection[] = [];
-
-  // Featured Hero
-  if (featured.length > 0) {
-    sections.push({
-      id: 'featured-hero',
-      title: 'Featured Opportunities',
-      subtitle: 'Hand-picked by the PulseEarn team',
-      layout: 'featured',
-      source: 'featured',
-      opportunities: featured.slice(0, 4),
-    });
-  }
-
-  // Highest Paying Today
-  if (highestPaying.length > 0) {
-    sections.push({
-      id: 'highest-paying',
-      title: 'Highest Paying Today',
-      subtitle: 'Maximize your earnings',
-      layout: 'slider',
-      source: 'highest_paying',
-      opportunities: highestPaying,
-      viewAllUrl: '/marketplace?sort=reward',
-    });
-  }
-
-  // Fastest Rewards
-  if (fastest.length > 0) {
-    sections.push({
-      id: 'fastest-rewards',
-      title: 'Quick Wins',
-      subtitle: 'Earn points in minutes',
-      layout: 'slider',
-      source: 'fastest',
-      opportunities: fastest,
-    });
-  }
-
-  // Trending Now
-  if (trending.length > 0) {
-    sections.push({
-      id: 'trending',
-      title: 'Trending Now',
-      subtitle: 'Popular with the community',
-      layout: 'slider',
-      source: 'trending',
-      opportunities: trending,
-    });
-  }
-
-  // New Today
-  if (newOpps.length > 0) {
-    sections.push({
-      id: 'new-today',
-      title: 'New Opportunities',
-      subtitle: 'Just added to the marketplace',
-      layout: 'slider',
-      source: 'new_today',
-      opportunities: newOpps,
-    });
-  }
-
-  // Expiring Soon
-  if (expiringSoon.length > 0) {
-    sections.push({
-      id: 'expiring-soon',
-      title: 'Ending Soon',
-      subtitle: 'Limited time to complete',
-      layout: 'slider',
-      source: 'expiring_soon',
-      opportunities: expiringSoon,
-    });
-  }
-
-  return sections;
+  return generateAllSections(
+    state.opportunities,
+    null,
+    [],
+    [],
+    state.adminConfig
+  );
 }
 
 /**

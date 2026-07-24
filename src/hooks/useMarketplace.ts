@@ -28,6 +28,8 @@ import {
   getFeatured,
   getTrending,
   resetMarketplace,
+  setAdminConfig,
+  getAdminConfig,
 } from '../engines/marketplace/MarketplaceEngine';
 import {
   generateAllSections,
@@ -91,6 +93,32 @@ export function useMarketplace(): UseMarketplaceReturn {
   // Derived opportunities
   const [allOpportunities, setAllOpportunities] = useState<MarketplaceOpportunity[]>([]);
   
+  // Fetch Marketplace Composition Config on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadConfig() {
+      try {
+        const res = await safeFetch('/api/marketplace/config');
+        if (res.success && res.config && isMounted) {
+          setAdminConfig(res.config);
+          // Regenerate sections with new admin config
+          const generatedSections = generateAllSections(
+            getAllOpportunities(),
+            userData,
+            activities,
+            taskHistory,
+            res.config
+          );
+          setSections(generatedSections);
+        }
+      } catch (err) {
+        console.warn('[useMarketplace] Could not load marketplace config:', err);
+      }
+    }
+    loadConfig();
+    return () => { isMounted = false; };
+  }, []);
+
   // Initialize marketplace with tasks
   useEffect(() => {
     if (tasksLoading || !currentUser) return;
@@ -98,12 +126,13 @@ export function useMarketplace(): UseMarketplaceReturn {
     initializeMarketplace(tasks, campaigns, userTasks);
     setAllOpportunities(getAllOpportunities());
     
-    // Generate sections with user profile
+    // Generate sections with user profile and admin config
     const generatedSections = generateAllSections(
       getAllOpportunities(),
       userData,
       activities,
-      taskHistory
+      taskHistory,
+      getAdminConfig()
     );
     setSections(generatedSections);
   }, [tasks, campaigns, userTasks, currentUser, tasksLoading]);
@@ -169,7 +198,8 @@ export function useMarketplace(): UseMarketplaceReturn {
           getAllOpportunities(),
           userData,
           activities,
-          taskHistory
+          taskHistory,
+          getAdminConfig()
         );
         setSections(generatedSections);
       }

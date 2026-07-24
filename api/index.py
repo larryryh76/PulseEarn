@@ -4365,6 +4365,170 @@ def recalculate_user_progression():
         "updated": current_lvl != correct_lvl
     })
 
+@app.route('/api/marketplace/config', methods=['GET'])
+def get_marketplace_config():
+    """Returns active marketplace dynamic composition settings."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    try:
+        cfg_doc = db.collection('marketplace_config').document('settings').get()
+        data = cfg_doc.to_dict() if cfg_doc.exists else {}
+        config = {
+            "featuredCampaignIds": data.get("featuredCampaignIds") or [],
+            "hiddenCampaignIds": data.get("hiddenCampaignIds") or [],
+            "prioritizedCampaigns": data.get("prioritizedCampaigns") or {},
+            "disabledCategories": data.get("disabledCategories") or [],
+            "enabledCategories": data.get("enabledCategories") or [],
+            "sectionOrder": data.get("sectionOrder") or [
+                "featured", "personalized", "continue", "daily", "seasonal",
+                "new_today", "trending", "highest_paying", "fastest", "expiring_soon",
+                "referrals", "learn", "offerwall_providers", "predictions", "community"
+            ],
+            "sectionTitles": data.get("sectionTitles") or {},
+            "updatedAt": data.get("updatedAt").isoformat() if data.get("updatedAt") and hasattr(data.get("updatedAt"), "isoformat") else None
+        }
+        return jsonify({"success": True, "config": config})
+    except Exception as e:
+        logging.error(f"[MarketplaceConfig] Error fetching config: {e}")
+        return jsonify({"success": True, "config": {
+            "featuredCampaignIds": [],
+            "hiddenCampaignIds": [],
+            "prioritizedCampaigns": {},
+            "disabledCategories": [],
+            "enabledCategories": [],
+            "sectionOrder": [
+                "featured", "personalized", "continue", "daily", "seasonal",
+                "new_today", "trending", "highest_paying", "fastest", "expiring_soon",
+                "referrals", "learn", "offerwall_providers", "predictions", "community"
+            ],
+            "sectionTitles": {}
+        }})
+
+@app.route('/api/admin/marketplace/config', methods=['GET', 'POST', 'PUT'])
+@verify_token
+def handle_admin_marketplace_config():
+    """Admin endpoint to fetch or update marketplace composition controls."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid):
+        return jsonify({"error": "UNAUTHORIZED", "message": "Admin privileges required"}), 403
+
+    db = firestore.client()
+    cfg_ref = db.collection('marketplace_config').document('settings')
+
+    if request.method == 'GET':
+        cfg_doc = cfg_ref.get()
+        data = cfg_doc.to_dict() if cfg_doc.exists else {}
+        return jsonify({"success": True, "config": data})
+
+    # POST/PUT: Update config
+    payload = request.json or {}
+    updates = {
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+        "updatedBy": uid
+    }
+    for field in ["featuredCampaignIds", "hiddenCampaignIds", "prioritizedCampaigns", "disabledCategories", "enabledCategories", "sectionOrder", "sectionTitles"]:
+        if field in payload:
+            updates[field] = payload[field]
+
+    cfg_ref.set(updates, merge=True)
+    return jsonify({"success": True, "message": "Marketplace composition configuration updated successfully"})
+
+@app.route('/api/marketplace/search', methods=['GET', 'POST'])
+def search_marketplace_opportunities():
+    """Backend-aware discovery & search engine endpoint operating on normalized opportunities."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    params = request.json if request.method == 'POST' else request.args.to_dict()
+    q = (params.get('q') or params.get('query') or '').strip().lower()
+    category = params.get('category')
+    provider = params.get('provider')
+    difficulty = params.get('difficulty')
+    min_reward = safe_float(params.get('minReward'), 0)
+    max_reward = safe_float(params.get('maxReward'), 0)
+    sort_by = params.get('sortBy') or 'recommended'
+    limit_val = safe_int(params.get('limit'), 50)
+    offset_val = safe_int(params.get('offset'), 0)
+
+    # Fetch active tasks from Firestore using indexed query where available
+    query_ref = db.collection('tasks').where('active', '==', True)
+    if category and category != 'all':
+        query_ref = query_ref.where('category', '==', category.upper())
+
+    tasks_snap = query_ref.stream()
+    results = []
+
+    for doc in tasks_snap:
+        data = doc.to_dict() or {}
+        task_title = data.get('title', '')
+        task_desc = data.get('description', '')
+        task_provider = data.get('providerName', 'Internal')
+        tags = data.get('tags') or []
+        reward = safe_float(data.get('rewardAmount', 0))
+        task_diff = (data.get('difficulty') or 'easy').lower()
+        est_time = data.get('estimatedTime') or '5 min'
+
+        # Text search matching
+        if q:
+            match = (
+                q in task_title.lower() or
+                q in task_desc.lower() or
+                q in task_provider.lower() or
+                any(q in str(t).lower() for t in tags) or
+                q == str(int(reward)) or
+                q in task_diff or
+                q in est_time.lower()
+            )
+            if not match:
+                continue
+
+        if provider and provider.lower() not in task_provider.lower():
+            continue
+
+        if difficulty and task_diff != difficulty.lower():
+            continue
+
+        if min_reward > 0 and reward < min_reward:
+            continue
+
+        if max_reward > 0 and reward > max_reward:
+            continue
+
+        results.append({
+            "id": doc.id,
+            "title": task_title,
+            "description": task_desc,
+            "category": data.get('category', 'CUSTOM').lower(),
+            "rewardAmount": reward,
+            "xpReward": safe_int(data.get('xpReward', 10)),
+            "difficulty": task_diff,
+            "estimatedTime": est_time,
+            "providerName": task_provider,
+            "tags": tags,
+            "active": True
+        })
+
+    # Centralized sorting
+    if sort_by == 'reward':
+        results.sort(key=lambda x: x['rewardAmount'], reverse=True)
+    elif sort_by == 'time':
+        results.sort(key=lambda x: safe_int(''.join(filter(str.isdigit, x['estimatedTime'])) or '15'))
+    elif sort_by == 'newest':
+        results.sort(key=lambda x: x['id'], reverse=True)
+
+    paginated = results[offset_val : offset_val + limit_val]
+    return jsonify({
+        "success": True,
+        "total": len(results),
+        "offset": offset_val,
+        "limit": limit_val,
+        "results": paginated
+    })
+
 @app.route('/api/marketplace/profile', methods=['GET', 'POST', 'PUT'])
 @verify_token
 def handle_marketplace_profile():

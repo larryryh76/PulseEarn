@@ -12,6 +12,7 @@ import {
   SectionSource,
   SectionLayout,
   OpportunityCategory,
+  MarketplaceAdminConfig,
 } from '../../types/marketplace';
 import { UserData, Activity, TaskHistory } from '../../types';
 
@@ -377,83 +378,332 @@ export function generateExpiringSoonSection(
 }
 
 /**
- * Generate "New Surveys" section.
+ * Generate "Daily Opportunities" section.
  */
-export function generateNewSurveysSection(
+export function generateDailySection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 8
+): RecommendationSection | null {
+  const daily = allOpportunities
+    .filter(o => o.status === 'available' && (o.metadata.category === 'daily' || o.id.includes('daily')))
+    .slice(0, limit);
+
+  if (daily.length === 0) return null;
+
+  return {
+    id: 'daily',
+    title: 'Daily Opportunities',
+    subtitle: 'Earn consistently every 24 hours',
+    layout: 'slider',
+    source: 'daily',
+    category: 'daily',
+    opportunities: daily,
+  };
+}
+
+/**
+ * Generate "Limited-Time Campaigns" section.
+ */
+export function generateLimitedCampaignsSection(
   allOpportunities: MarketplaceOpportunity[],
   limit: number = 6
 ): RecommendationSection | null {
-  const surveys = allOpportunities
-    .filter(o => o.status === 'available' && o.metadata.category === 'surveys' && o.engagement.isNew)
+  const campaigns = allOpportunities
+    .filter(o => o.status === 'available' && (o.metadata.category === 'seasonal' || o.engagement.expiringSoon || o.eligibility?.maxCampaignClaims))
     .slice(0, limit);
 
-  if (surveys.length === 0) return null;
+  if (campaigns.length === 0) return null;
 
   return {
-    id: 'new-surveys',
-    title: 'New Surveys',
-    subtitle: 'Fresh opportunities added',
-    layout: surveys.length > 3 ? 'slider' : 'grid',
+    id: 'limited-campaigns',
+    title: 'Limited-Time Campaigns',
+    subtitle: 'Exclusive rewards before capacity runs out',
+    layout: 'hero',
+    source: 'limited_campaigns',
+    category: 'seasonal',
+    opportunities: campaigns,
+  };
+}
+
+/**
+ * Generate "New Opportunities" section.
+ */
+export function generateNewOpportunitiesSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 8
+): RecommendationSection | null {
+  const newOpps = allOpportunities
+    .filter(o => o.status === 'available' && o.engagement.isNew)
+    .slice(0, limit);
+
+  if (newOpps.length === 0) return null;
+
+  return {
+    id: 'new-today',
+    title: 'New Opportunities',
+    subtitle: 'Freshly added earning tasks',
+    layout: 'grid',
     source: 'new_today',
-    opportunities: surveys,
+    opportunities: newOpps,
+  };
+}
+
+/**
+ * Generate "Trending Opportunities" section.
+ */
+export function generateTrendingSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 8
+): RecommendationSection | null {
+  const trending = allOpportunities
+    .filter(o => o.status === 'available' && o.engagement.trending)
+    .slice(0, limit);
+
+  if (trending.length === 0) return null;
+
+  return {
+    id: 'trending',
+    title: 'Trending Opportunities',
+    subtitle: 'Highest activity right now',
+    layout: 'slider',
+    source: 'trending',
+    opportunities: trending,
+  };
+}
+
+/**
+ * Generate "Referral Opportunities" section.
+ */
+export function generateReferralsSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 6
+): RecommendationSection | null {
+  const refs = allOpportunities
+    .filter(o => o.status === 'available' && (o.metadata.category === 'referrals' || o.metadata.verificationType === 'referral'))
+    .slice(0, limit);
+
+  if (refs.length === 0) return null;
+
+  return {
+    id: 'referrals',
+    title: 'Referral Opportunities',
+    subtitle: 'Invite friends and scale passive earnings',
+    layout: 'grid',
+    source: 'referrals',
+    category: 'referrals',
+    opportunities: refs,
+  };
+}
+
+/**
+ * Generate "Learn & Earn" section.
+ */
+export function generateLearnSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 6
+): RecommendationSection | null {
+  const learn = allOpportunities
+    .filter(o => o.status === 'available' && o.metadata.category === 'learn')
+    .slice(0, limit);
+
+  if (learn.length === 0) return null;
+
+  return {
+    id: 'learn',
+    title: 'Learn & Earn',
+    subtitle: 'Expand knowledge and claim instant rewards',
+    layout: 'slider',
+    source: 'learn',
+    category: 'learn',
+    opportunities: learn,
+  };
+}
+
+/**
+ * Generate "Offerwalls" section.
+ */
+export function generateOfferwallsSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 8
+): RecommendationSection | null {
+  const offerwalls = allOpportunities
+    .filter(o => o.source === 'provider' || o.metadata.verificationType === 'offerwall')
+    .slice(0, limit);
+
+  if (offerwalls.length === 0) return null;
+
+  return {
+    id: 'offerwall-providers',
+    title: 'Partner Offerwalls',
+    subtitle: 'Discover high-volume provider tasks',
+    layout: 'grid',
+    source: 'offerwall_providers',
+    opportunities: offerwalls,
+  };
+}
+
+/**
+ * Generate "Predictions" section.
+ */
+export function generatePredictionsSection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 6
+): RecommendationSection | null {
+  const pred = allOpportunities
+    .filter(o => o.status === 'available' && (o.metadata.category === 'predictions' || o.metadata.verificationType === 'prediction'))
+    .slice(0, limit);
+
+  if (pred.length === 0) return null;
+
+  return {
+    id: 'predictions',
+    title: 'Predictions',
+    subtitle: 'Forecast market outcomes and claim prizes',
+    layout: 'slider',
+    source: 'predictions',
+    category: 'predictions',
+    opportunities: pred,
+  };
+}
+
+/**
+ * Generate "Community Campaigns" section.
+ */
+export function generateCommunitySection(
+  allOpportunities: MarketplaceOpportunity[],
+  limit: number = 6
+): RecommendationSection | null {
+  const community = allOpportunities
+    .filter(o => o.status === 'available' && o.metadata.category === 'community')
+    .slice(0, limit);
+
+  if (community.length === 0) return null;
+
+  return {
+    id: 'community',
+    title: 'Community Campaigns',
+    subtitle: 'Engage with the ecosystem',
+    layout: 'grid',
+    source: 'community',
+    category: 'community',
+    opportunities: community,
   };
 }
 
 // ─── Complete Section Assembly ─────────────────────────────────────────────────
 
 /**
- * Generate all personalized sections for a user.
+ * Generate all personalized dynamic sections for a user, respecting Admin controls.
  */
 export function generateAllSections(
   allOpportunities: MarketplaceOpportunity[],
   userData: UserData | null,
   activities: Activity[],
-  history: TaskHistory[]
+  history: TaskHistory[],
+  adminConfig?: MarketplaceAdminConfig
 ): RecommendationSection[] {
-  const profile = buildUserProfile(userData, activities, history);
-  const sections: RecommendationSection[] = [];
+  // 1. Filter opportunities based on Admin hidden list & disabled categories
+  const hiddenIds = new Set(adminConfig?.hiddenCampaignIds || []);
+  const disabledCats = new Set(adminConfig?.disabledCategories || []);
+  const featuredIds = new Set(adminConfig?.featuredCampaignIds || []);
+  const priorityMap = adminConfig?.prioritizedCampaigns || {};
 
-  // 1. Featured Hero
-  const featured = generateFeaturedSection(allOpportunities, 4);
-  if (featured) sections.push(featured);
+  let activeOpportunities = allOpportunities.filter(o => {
+    if (hiddenIds.has(o.id)) return false;
+    if (disabledCats.has(o.metadata.category)) return false;
+    return true;
+  });
 
-  // 2. Continue Where You Left Off (if applicable)
-  const continueSection = generateContinueSection(allOpportunities, 3);
-  if (continueSection) sections.push(continueSection);
+  // 2. Apply admin priority boosts & featured markings
+  if (featuredIds.size > 0 || Object.keys(priorityMap).length > 0) {
+    activeOpportunities = activeOpportunities.map(o => {
+      const bonusPriority = priorityMap[o.id] || 0;
+      const isFeatured = featuredIds.has(o.id);
+      if (bonusPriority === 0 && !isFeatured) return o;
 
-  // 3. Almost Complete (if applicable)
-  const almostComplete = generateAlmostCompleteSection(allOpportunities, 6);
-  if (almostComplete) sections.push(almostComplete);
-
-  // 4. Recommended For You
-  const recommended = generateRecommendedSection(allOpportunities, profile, 8);
-  sections.push(recommended);
-
-  // 5. Highest Paying
-  sections.push(generateHighestPayingSection(allOpportunities, 8));
-
-  // 6. Quick Wins
-  sections.push(generateQuickWinsSection(allOpportunities, 8));
-
-  // 7. Trending Games (if user engages with games)
-  const gamesCount = profile.completedCategories.get('games') || 0;
-  if (gamesCount > 0) {
-    const trendingGames = generateTrendingGamesSection(allOpportunities, 6);
-    if (trendingGames) sections.push(trendingGames);
+      const currentScore = o.computedEligibility?.priorityScore || 50;
+      return {
+        ...o,
+        engagement: {
+          ...o.engagement,
+          trending: isFeatured || o.engagement.trending,
+        },
+        computedEligibility: o.computedEligibility
+          ? {
+              ...o.computedEligibility,
+              priorityScore: currentScore + bonusPriority + (isFeatured ? 50 : 0),
+            }
+          : undefined,
+      };
+    });
   }
 
-  // 8. Category Sections
-  const popularCategories: OpportunityCategory[] = ['daily', 'surveys', 'apps'];
-  const categorySections = generateCategorySections(allOpportunities, popularCategories, 6);
-  sections.push(...categorySections);
+  const profile = buildUserProfile(userData, activities, history);
 
-  // 9. Expiring Soon (if any)
-  const expiringSoon = generateExpiringSoonSection(allOpportunities, 6);
-  if (expiringSoon) sections.push(expiringSoon);
+  // 3. Section Map of Generators
+  const sectionMap: Record<string, () => RecommendationSection | null> = {
+    featured: () => generateFeaturedSection(activeOpportunities, 4),
+    personalized: () => generateRecommendedSection(activeOpportunities, profile, 8),
+    continue: () => generateContinueSection(activeOpportunities, 3),
+    daily: () => generateDailySection(activeOpportunities, 8),
+    seasonal: () => generateLimitedCampaignsSection(activeOpportunities, 6),
+    limited_campaigns: () => generateLimitedCampaignsSection(activeOpportunities, 6),
+    new_today: () => generateNewOpportunitiesSection(activeOpportunities, 8),
+    trending: () => generateTrendingSection(activeOpportunities, 8),
+    highest_paying: () => generateHighestPayingSection(activeOpportunities, 8),
+    fastest: () => generateQuickWinsSection(activeOpportunities, 8),
+    expiring_soon: () => generateExpiringSoonSection(activeOpportunities, 6),
+    referrals: () => generateReferralsSection(activeOpportunities, 6),
+    learn: () => generateLearnSection(activeOpportunities, 6),
+    offerwall_providers: () => generateOfferwallsSection(activeOpportunities, 8),
+    predictions: () => generatePredictionsSection(activeOpportunities, 6),
+    community: () => generateCommunitySection(activeOpportunities, 6),
+  };
 
-  // 10. New Surveys (if any)
-  const newSurveys = generateNewSurveysSection(allOpportunities, 6);
-  if (newSurveys) sections.push(newSurveys);
+  // 4. Determine Section Order (Use admin sectionOrder if provided, else standard order)
+  const defaultOrder = [
+    'featured',
+    'personalized',
+    'continue',
+    'daily',
+    'seasonal',
+    'new_today',
+    'trending',
+    'highest_paying',
+    'fastest',
+    'expiring_soon',
+    'referrals',
+    'learn',
+    'offerwall_providers',
+    'predictions',
+    'community',
+  ];
+
+  const order = adminConfig?.sectionOrder && adminConfig.sectionOrder.length > 0
+    ? adminConfig.sectionOrder
+    : defaultOrder;
+
+  const sections: RecommendationSection[] = [];
+  const processedKeys = new Set<string>();
+
+  for (const key of order) {
+    if (processedKeys.has(key)) continue;
+    processedKeys.add(key);
+
+    const generator = sectionMap[key];
+    if (generator) {
+      const section = generator();
+      if (section && section.opportunities.length > 0) {
+        // Apply admin section title/subtitle overrides if specified
+        if (adminConfig?.sectionTitles && adminConfig.sectionTitles[key]) {
+          const override = adminConfig.sectionTitles[key];
+          if (override.title) section.title = override.title;
+          if (override.subtitle) section.subtitle = override.subtitle;
+        }
+        sections.push(section);
+      }
+    }
+  }
 
   return sections;
 }

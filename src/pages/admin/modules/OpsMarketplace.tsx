@@ -145,6 +145,76 @@ const OpsMarketplace: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
 
+  // Phase 8: Marketplace Composition & Discovery Config State
+  const [featuredInput, setFeaturedInput] = useState('');
+  const [hiddenInput, setHiddenInput] = useState('');
+  const [disabledCategories, setDisabledCategories] = useState<string[]>([]);
+  const [prioritizedInput, setPrioritizedInput] = useState('');
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  const fetchAdminConfig = async () => {
+    try {
+      const headers = await getAdminHeaders();
+      const res = await safeFetch('/api/admin/marketplace/config', { headers });
+      if (res.success && res.config) {
+        const cfg = res.config;
+        setFeaturedInput((cfg.featuredCampaignIds || []).join(', '));
+        setHiddenInput((cfg.hiddenCampaignIds || []).join(', '));
+        setDisabledCategories(cfg.disabledCategories || []);
+        if (cfg.prioritizedCampaigns) {
+          setPrioritizedInput(JSON.stringify(cfg.prioritizedCampaigns, null, 2));
+        }
+      }
+    } catch (err) {
+      console.warn('[OpsMarketplace] Could not load admin config:', err);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    const loadToast = toast.loading("Saving Marketplace Composition Rules...");
+    try {
+      const featuredCampaignIds = featuredInput.split(',').map(s => s.trim()).filter(Boolean);
+      const hiddenCampaignIds = hiddenInput.split(',').map(s => s.trim()).filter(Boolean);
+      let prioritizedCampaigns = {};
+      if (prioritizedInput.trim()) {
+        try {
+          prioritizedCampaigns = JSON.parse(prioritizedInput);
+        } catch {
+          toast.error("Prioritized campaigns must be valid JSON format e.g. {\"task_id\": 20}", { id: loadToast });
+          setSavingConfig(false);
+          return;
+        }
+      }
+
+      const headers = await getAdminHeaders();
+      const res = await safeFetch('/api/admin/marketplace/config', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          featuredCampaignIds,
+          hiddenCampaignIds,
+          disabledCategories,
+          prioritizedCampaigns,
+        })
+      });
+
+      if (res.success) {
+        toast.success("Marketplace Composition Rules updated live!", { id: loadToast });
+      } else {
+        toast.error(res.error || "Failed to update config", { id: loadToast });
+      }
+    } catch (err) {
+      toast.error("Error saving marketplace configuration", { id: loadToast });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminConfig();
+  }, []);
+
   const getAdminHeaders = async () => {
     const token = await auth.currentUser?.getIdToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -486,6 +556,112 @@ const OpsMarketplace: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Phase 8: Marketplace Composition & Controls Panel */}
+      <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
+              <Target size={18} className="text-primary" />
+              Marketplace Composition & Discovery Controls
+            </h2>
+            <p className="text-xs text-text-tertiary">
+              Feature, hide, prioritize, or disable categories dynamically without changing frontend code.
+            </p>
+          </div>
+          <button
+            onClick={handleSaveConfig}
+            disabled={savingConfig}
+            className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-bright disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+          >
+            {savingConfig ? (
+              <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            ) : (
+              <CheckCircle2 size={14} />
+            )}
+            Save Composition Rules
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block mb-1">
+              Featured Campaign IDs (Comma separated)
+            </label>
+            <input
+              type="text"
+              value={featuredInput}
+              onChange={e => setFeaturedInput(e.target.value)}
+              placeholder="task_101, campaign_daily_bonus, ..."
+              className="w-full bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs text-text-primary font-mono focus:border-primary outline-none"
+            />
+            <p className="text-[10px] text-text-tertiary mt-1">Campaigns explicitly pinned to Featured Hero and dynamic sections.</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block mb-1">
+              Hidden Campaign IDs (Comma separated)
+            </label>
+            <input
+              type="text"
+              value={hiddenInput}
+              onChange={e => setHiddenInput(e.target.value)}
+              placeholder="task_expired, bad_campaign_id, ..."
+              className="w-full bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs text-text-primary font-mono focus:border-primary outline-none"
+            />
+            <p className="text-[10px] text-text-tertiary mt-1">Hidden from discovery and dynamic section composition instantly.</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block mb-2">
+            Category Status Controls (Select categories to DISABLE)
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            {[
+              'featured', 'daily', 'surveys', 'games', 'apps', 'shopping',
+              'cashback', 'videos', 'learn', 'community', 'referrals',
+              'predictions', 'seasonal', 'sponsored'
+            ].map(cat => {
+              const isDisabled = disabledCategories.includes(cat);
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    if (isDisabled) {
+                      setDisabledCategories(disabledCategories.filter(c => c !== cat));
+                    } else {
+                      setDisabledCategories([...disabledCategories, cat]);
+                    }
+                  }}
+                  className={cn(
+                    "px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all border text-center",
+                    isDisabled
+                      ? "bg-danger/10 border-danger/30 text-danger line-through"
+                      : "bg-surface-bright border-border text-text-secondary hover:border-primary/40"
+                  )}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block mb-1">
+            Prioritized Campaigns JSON (Task ID -&gt; Score Boost)
+          </label>
+          <textarea
+            rows={2}
+            value={prioritizedInput}
+            onChange={e => setPrioritizedInput(e.target.value)}
+            placeholder='{ "task_survey_01": 25, "campaign_crypto_learn": 50 }'
+            className="w-full bg-surface-bright border border-border rounded-xl p-2 text-xs text-text-primary font-mono focus:border-primary outline-none"
+          />
+        </div>
       </div>
 
       {/* Top Opportunities */}

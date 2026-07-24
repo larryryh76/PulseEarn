@@ -247,6 +247,104 @@ export interface RecommendationSection {
   maxItems?: number;
 }
 
+// ─── Operational Intelligence Types (Phase 9) ─────────────────────────────────
+
+export interface ProviderHealthMetrics {
+  providerId: string;
+  providerName: string;
+  connectionStatus: 'connected' | 'degraded' | 'offline' | 'disabled';
+  uptimePercentage: number;
+  apiAvailability: number;
+  callbackSuccessCount: number;
+  callbackFailureCount: number;
+  callbackSuccessRate: number;
+  averageCallbackLatencyMs: number;
+  syncFailuresCount: number;
+  lastSyncAt: string | null;
+  autoDisabledReason?: string;
+}
+
+export interface CampaignHealthMetrics {
+  totalCampaigns: number;
+  activeCampaigns: number;
+  inactiveCampaigns: number;
+  scheduledCampaigns: number;
+  expiredCampaigns: number;
+  overallCompletionRate: number;
+  overallAbandonmentRate: number;
+  totalClaims: number;
+  uniqueParticipants: number;
+  avgClaimsPerCampaign: number;
+}
+
+export interface OpportunityQualityMetrics {
+  totalOpportunities: number;
+  visibleCount: number;
+  lockedCount: number;
+  hiddenCount: number;
+  averageCompletionRate: number;
+  averageVerificationRate: number;
+  averageRejectionRate: number;
+  averageCompletionTimeMinutes: number;
+  rewardEfficiency: number; // points per minute
+}
+
+export interface EconomyMarketplaceImpact {
+  totalPointsIssued: number;
+  pendingLiabilitiesPoints: number;
+  providerRevenueUsd: number;
+  platformRevenueUsd: number;
+  outstandingRewardsCount: number;
+  averageRewardPoints: number;
+  rewardDistributionByCategory: Record<string, number>;
+}
+
+export interface MarketplaceUserBehavior {
+  activeEarners24h: number;
+  returningEarners7d: number;
+  avgOpportunitiesViewedPerUser: number;
+  avgOpportunitiesCompletedPerUser: number;
+  avgRewardEarnedPerUser: number;
+  topPreferredCategory: string;
+  topPreferredProvider: string;
+}
+
+export interface MarketplaceIntegrityIssue {
+  type:
+    | 'stale_opportunity'
+    | 'expired_active_task'
+    | 'broken_campaign_ref'
+    | 'provider_inconsistency'
+    | 'reward_inconsistency'
+    | 'duplicate_opportunity'
+    | 'invalid_eligibility'
+    | 'sync_failure';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  entityId: string;
+  entityTitle?: string;
+  description: string;
+  autoFixable: boolean;
+  detectedAt: string;
+}
+
+export interface MarketplaceOperationalOverview {
+  generatedAt: string;
+  healthScore: number; // 0 - 100
+  providers: ProviderHealthMetrics[];
+  campaigns: CampaignHealthMetrics;
+  opportunities: OpportunityQualityMetrics;
+  economy: EconomyMarketplaceImpact;
+  userBehavior: MarketplaceUserBehavior;
+  integrityIssues: MarketplaceIntegrityIssue[];
+  activeAlerts: {
+    id: string;
+    severity: 'info' | 'warning' | 'error' | 'critical';
+    source: string;
+    message: string;
+    timestamp: string;
+  }[];
+}
+
 // ─── Admin Marketplace Composition Config ─────────────────────────────────────
 
 export interface MarketplaceAdminConfig {

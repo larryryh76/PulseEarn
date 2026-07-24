@@ -662,8 +662,7 @@ def get_claims_stats():
 # is restricted to admins. Reward *amounts* for user-claimable types are ALWAYS read
 # from server config so a crafted client cannot inflate its own payout.
 USER_SELF_TX = {
-    'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward',
-    'offerwall_reward', 'cashback_reward'
+    'daily_reward', 'welcome_bonus', 'withdrawal_debit', 'mission_reward'
 }
 ADMIN_TX = {
     'admin_adjustment', 'manual_adjustment', 'task_reward', 'withdrawal_finalized',
@@ -948,6 +947,9 @@ def execute_transaction():
                 wd_snap = wd_ref.get(transaction=transaction)
                 if wd_snap.exists:
                     wd_data = wd_snap.to_dict() or {}
+                    cur_status = wd_data.get('status')
+                    if cur_status in ('REJECTED', 'CANCELLED', 'PAID'):
+                        raise Exception(f"WITHDRAWAL_ALREADY_{cur_status}")
                     if amt == 0:
                         amt = abs(float(wd_data.get('amountPoints', 0) or 0))
                     post_writes.append((wd_ref, {
@@ -968,6 +970,8 @@ def execute_transaction():
             if not orig_snap.exists:
                 raise Exception("ORIGINAL_TRANSACTION_NOT_FOUND")
             orig = orig_snap.to_dict() or {}
+            if orig.get('status') == 'REVERSED':
+                raise Exception("TRANSACTION_ALREADY_REVERSED")
             orig_amt = float(orig.get('amount', 0) or 0)
             orig_xp = float(orig.get('xp', 0) or 0)
             points_delta = -orig_amt
@@ -993,7 +997,11 @@ def execute_transaction():
             wd_ref = db.collection('withdrawals').document(wd_id)
             wd_snap = wd_ref.get(transaction=transaction)
             if not wd_snap.exists: raise Exception("WITHDRAWAL_NOT_FOUND")
-            if not wd_snap.to_dict().get('debited'): raise Exception("WITHDRAWAL_NOT_DEBITED")
+            wd_data = wd_snap.to_dict() or {}
+            if not wd_data.get('debited'): raise Exception("WITHDRAWAL_NOT_DEBITED")
+            cur_status = wd_data.get('status')
+            if cur_status in ('PAID', 'REJECTED', 'CANCELLED'):
+                raise Exception(f"WITHDRAWAL_ALREADY_{cur_status}")
             post_writes.append((wd_ref, {'payoutFinalizedAt': firestore.SERVER_TIMESTAMP, 'status': 'PAID'}, True))
             # No balance change: points were already debited at request time.
 

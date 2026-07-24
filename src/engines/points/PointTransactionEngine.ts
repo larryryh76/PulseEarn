@@ -162,7 +162,7 @@ export class PointTransactionEngine {
    * Issues a refund (e.g. for a rejected or reversed withdrawal).
    */
   static async refund(userId: string, amount: number, referenceId: string, reason: string): Promise<PointTransactionResult> {
-    const claimId = `ref_${userId}_${Date.now()}`;
+    const claimId = referenceId ? `ref_${userId}_${referenceId}` : `ref_${userId}_${Date.now()}`;
     return this.execute({
       userId,
       amount,
@@ -178,8 +178,8 @@ export class PointTransactionEngine {
   /**
    * Executes an administrative balance adjustment.
    */
-  static async adjust(userId: string, amount: number, xpReward: number = 0, reason: string = 'Manual Adjustment'): Promise<PointTransactionResult> {
-    const claimId = `adj_${userId}_${Date.now()}`;
+  static async adjust(userId: string, amount: number, xpReward: number = 0, reason: string = 'Manual Adjustment', customClaimId?: string): Promise<PointTransactionResult> {
+    const claimId = customClaimId || `adj_${userId}_${Date.now()}`;
     return this.execute({
       userId,
       amount,

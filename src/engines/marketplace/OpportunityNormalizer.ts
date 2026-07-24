@@ -311,6 +311,10 @@ function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
 
 function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined {
   if (!userTask) return undefined;
+  const status = userTask.status;
+  if (status !== 'completed' && status !== 'on_cooldown' && status !== 'cooldown') {
+    return undefined;
+  }
   const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
   if (cooldownHours <= 0) return undefined;
 

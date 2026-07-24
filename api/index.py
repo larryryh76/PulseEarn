@@ -4871,6 +4871,20 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
     now_iso = now_dt.isoformat() + "Z"
     now_ts = now_dt.timestamp()
 
+    tf = str(timeframe or 'today').lower()
+    cutoff_24h = now_ts - 86400
+    cutoff_7d = now_ts - (7 * 86400)
+    cutoff_30d = now_ts - (30 * 86400)
+
+    if tf in ('week', '7d'):
+        window_cutoff = cutoff_7d
+    elif tf in ('month', '30d'):
+        window_cutoff = cutoff_30d
+    elif tf == 'all':
+        window_cutoff = 0
+    else:
+        window_cutoff = cutoff_24h
+
     # 1. PROVIDER MONITORING
     provider_snaps = db.collection('offerwall_providers').get()
     provider_metrics = []
@@ -4892,14 +4906,22 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         avg_latency = safe_float(stats.get('avgLatencyMs', 120.0))
         health_info = _compute_operational_status(p_data)
         
+        status_raw = health_info.get('status', 'offline')
+        if status_raw == 'waiting_first_callback':
+            conn_status = 'degraded'
+        elif status_raw in ('invalid_credentials', 'callback_failure'):
+            conn_status = 'offline'
+        else:
+            conn_status = status_raw
+
         last_sync = p_data.get('updatedAt')
         last_sync_str = last_sync.isoformat() if hasattr(last_sync, 'isoformat') else None
 
         provider_metrics.append({
             "providerId": p_id,
             "providerName": p_name,
-            "connectionStatus": health_info['status'],
-            "uptimePercentage": 99.9 if health_info['status'] == 'connected' else (80.0 if health_info['status'] == 'degraded' else 0.0),
+            "connectionStatus": conn_status,
+            "uptimePercentage": 99.9 if conn_status == 'connected' else (80.0 if conn_status == 'degraded' else 0.0),
             "apiAvailability": 99.8 if is_enabled else 0.0,
             "callbackSuccessCount": approved_cb,
             "callbackFailureCount": failed_cb,
@@ -4921,7 +4943,9 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
     locked_count = 0
     hidden_count = 0
 
+    category_task_counts = {}
     category_reward_dist = {}
+    provider_opp_counts = {}
     integrity_issues = []
 
     # Get admin marketplace config for hidden/disabled filter
@@ -4942,8 +4966,12 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         cat = str(t_data.get('category', 'custom')).lower()
         reward = safe_float(t_data.get('rewardAmount', 0))
 
+        category_task_counts[cat] = category_task_counts.get(cat, 0) + 1
         category_reward_dist[cat] = round(category_reward_dist.get(cat, 0.0) + reward, 2)
         total_points_offered += reward
+
+        provider_name = t_data.get('providerName', 'Internal')
+        provider_opp_counts[provider_name] = provider_opp_counts.get(provider_name, 0) + 1
 
         # Integrity Check: Expired tasks marked active
         expires_at = t_data.get('expiresAt') or t_data.get('endsAt')
@@ -4993,12 +5021,11 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
                 "severity": "medium",
                 "entityId": t_id,
                 "entityTitle": title,
-                "description": f"Task '{title}' has invalid reward points ({reward}).",
-                "autoFixable": True,
+                "description": f"Task '{title}' has invalid reward points ({reward}). Requires manual review.",
+                "autoFixable": False,
                 "detectedAt": now_iso
             })
 
-        provider_name = t_data.get('providerName')
         if provider_name and provider_name.lower() != 'internal':
             p_match = next((p for p in provider_metrics if p['providerName'].lower() == provider_name.lower()), None)
             if p_match and p_match['connectionStatus'] == 'disabled' and is_active:
@@ -5017,9 +5044,36 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         est_min = parse_time_to_minutes_backend(t_data.get('estimatedTime'))
         completion_times.append(est_min)
 
-    # 3. ECONOMY MONITORING
-    rewards_snap = db.collection('offerwall_rewards').limit(300).get()
-    total_rewards_issued_pts = sum([safe_float(r.to_dict().get('points', 0)) for r in rewards_snap])
+    # 3. ECONOMY & USER BEHAVIOR MONITORING (WINDOWED BY TIMEFRAME)
+    rewards_snap = db.collection('offerwall_rewards').limit(500).get()
+    windowed_rewards = []
+    active_earners_24h_set = set()
+    returning_earners_7d_set = set()
+
+    for r_doc in rewards_snap:
+        r_data = r_doc.to_dict() or {}
+        r_ts = 0
+        created_at = r_data.get('createdAt') or r_data.get('timestamp')
+        if created_at:
+            if hasattr(created_at, 'timestamp'):
+                r_ts = created_at.timestamp()
+            elif isinstance(created_at, str):
+                try:
+                    r_ts = datetime.fromisoformat(created_at.replace('Z', '')).timestamp()
+                except Exception:
+                    pass
+
+        uid = r_data.get('userId')
+        if uid:
+            if r_ts >= cutoff_24h or cutoff_24h <= 0:
+                active_earners_24h_set.add(uid)
+            if r_ts >= cutoff_7d or cutoff_7d <= 0:
+                returning_earners_7d_set.add(uid)
+
+        if r_ts >= window_cutoff or window_cutoff == 0:
+            windowed_rewards.append(r_data)
+
+    total_rewards_issued_pts = sum([safe_float(r.get('points', 0)) for r in windowed_rewards])
     avg_reward_pts = round(total_points_offered / max(1, total_opps), 2)
     avg_completion_time = round(sum(completion_times) / max(1, len(completion_times)), 1)
     reward_efficiency = round(avg_reward_pts / max(1, avg_completion_time), 2)
@@ -5028,9 +5082,8 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
     provider_revenue_usd = round(total_rewards_issued_pts * 0.001, 2)
     platform_revenue_usd = round(provider_revenue_usd * 0.30, 2)
 
-    # 4. USER BEHAVIOR & ENGAGEMENT
-    active_earners_24h = len(set([r.to_dict().get('userId') for r in rewards_snap if r.to_dict().get('userId')])) or 1
-    returning_earners_7d = max(1, int(active_earners_24h * 0.65))
+    active_earners_24h = len(active_earners_24h_set) or 1
+    returning_earners_7d = len(returning_earners_7d_set) or max(1, int(active_earners_24h * 0.65))
 
     # 5. HEALTH SCORE & ALERTS
     issue_penalty = len(integrity_issues) * 5
@@ -5089,7 +5142,7 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
             "pendingLiabilitiesPoints": pending_liabilities,
             "providerRevenueUsd": provider_revenue_usd,
             "platformRevenueUsd": platform_revenue_usd,
-            "outstandingRewardsCount": len(rewards_snap),
+            "outstandingRewardsCount": len(windowed_rewards),
             "averageRewardPoints": avg_reward_pts,
             "rewardDistributionByCategory": category_reward_dist
         },
@@ -5103,7 +5156,9 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
             "topPreferredProvider": provider_metrics[0]['providerName'] if provider_metrics else "Internal"
         },
         "integrityIssues": integrity_issues,
-        "activeAlerts": alerts
+        "activeAlerts": alerts,
+        "_categoryTaskCounts": category_task_counts,
+        "_providerOppCounts": provider_opp_counts
     }
 
     try:
@@ -5115,31 +5170,39 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
 
 
 @app.route('/api/admin/marketplace/stats', methods=['GET'])
+@verify_token
 def get_admin_marketplace_stats():
     """Admin endpoint returning operational marketplace statistics."""
     get_deps()
     if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid):
+        return jsonify({"error": "UNAUTHORIZED"}), 403
+
     try:
         timeframe = request.args.get('timeframe', 'today')
         intel = calculate_marketplace_operational_intelligence(timeframe)
 
+        category_counts = intel.get('_categoryTaskCounts', {})
         category_breakdown = []
         for cat, pts in intel['economy']['rewardDistributionByCategory'].items():
             category_breakdown.append({
                 "id": cat,
                 "label": cat.capitalize(),
-                "count": 5,
+                "count": category_counts.get(cat, 1),
                 "revenue": pts,
                 "completionRate": 85.0
             })
 
+        provider_counts = intel.get('_providerOppCounts', {})
         provider_health = []
         for p in intel['providers']:
+            p_name = p['providerName']
             provider_health.append({
                 "id": p['providerId'],
-                "name": p['providerName'],
-                "status": p['connectionStatus'] if p['connectionStatus'] in ('connected', 'degraded', 'offline') else 'offline',
-                "opportunities": 10,
+                "name": p_name,
+                "status": p['connectionStatus'] if p['connectionStatus'] in ('connected', 'degraded', 'offline', 'disabled') else 'offline',
+                "opportunities": provider_counts.get(p_name, provider_counts.get(p_name.lower(), 0)),
                 "revenue": p['callbackSuccessCount'] * 10
             })
 
@@ -5213,13 +5276,13 @@ def run_marketplace_integrity_audit():
 
     db = firestore.client()
     body = request.get_json(silent=True) or {}
-    auto_repair = body.get('autoRepair', True)
+    auto_repair = body.get('autoRepair', False)
 
     now_dt = datetime.utcnow()
     now_iso = now_dt.isoformat() + "Z"
     now_ts = now_dt.timestamp()
 
-    tasks_snap = db.collection('tasks').get()
+    tasks_snap = db.collection('tasks').limit(500).get()
     scanned_count = len(tasks_snap)
     repaired_count = 0
     issues_found = []
@@ -5267,15 +5330,11 @@ def run_marketplace_integrity_audit():
                 "severity": "medium",
                 "entityId": t_id,
                 "entityTitle": title,
-                "description": f"Task '{title}' had invalid reward ({reward}). Restoring baseline.",
-                "autoFixable": True,
+                "description": f"Task '{title}' has invalid reward ({reward}). Requires manual review.",
+                "autoFixable": False,
                 "detectedAt": now_iso
             }
             issues_found.append(issue)
-            if auto_repair:
-                batch.update(t_doc.reference, {"rewardAmount": 50, "updatedAt": firestore.SERVER_TIMESTAMP})
-                batch_count += 1
-                repaired_count += 1
 
         if batch_count >= 400:
             batch.commit()

@@ -252,7 +252,14 @@ export interface RecommendationSection {
 export interface ProviderHealthMetrics {
   providerId: string;
   providerName: string;
-  connectionStatus: 'connected' | 'degraded' | 'offline' | 'disabled';
+  connectionStatus:
+    | 'connected'
+    | 'degraded'
+    | 'offline'
+    | 'disabled'
+    | 'callback_failure'
+    | 'invalid_credentials'
+    | 'waiting_first_callback';
   uptimePercentage: number;
   apiAvailability: number;
   callbackSuccessCount: number;

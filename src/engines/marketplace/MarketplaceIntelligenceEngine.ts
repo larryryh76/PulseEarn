@@ -49,8 +49,9 @@ export class MarketplaceIntelligenceEngine {
         return { success: true, data: res.data };
       }
       return { success: false, error: res.error || 'Failed to fetch operational overview' };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Network error fetching operational overview' };
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Network error fetching operational overview';
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -81,8 +82,9 @@ export class MarketplaceIntelligenceEngine {
         return { success: true, report: res.report };
       }
       return { success: false, error: res.error || 'Integrity audit failed' };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Network error executing integrity audit' };
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Network error executing integrity audit';
+      return { success: false, error: errorMsg };
     }
   }
 

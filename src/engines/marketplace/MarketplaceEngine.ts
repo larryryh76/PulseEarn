@@ -14,15 +14,17 @@ import {
   ProviderInventory,
   SectionSource,
   SectionLayout,
+  MarketplaceUserProfile,
 } from '../../types/marketplace';
 import {
   normalizeTaskBatch,
   normalizeCampaign,
   mergeOpportunities,
 } from './OpportunityNormalizer';
+import { MarketplaceEligibilityEngine } from './MarketplaceEligibilityEngine';
 
 export { normalizeCampaign };
-import { Task, Campaign, UserTask } from '../../types';
+import { Task, Campaign, UserTask, UserData } from '../../types';
 
 // ─── Engine State ─────────────────────────────────────────────────────────────
 
@@ -63,24 +65,55 @@ export function initializeMarketplace(
 }
 
 /**
- * Update user-specific data (task progress, completion status).
+ * Update user-specific data (task progress, completion status, eligibility).
  * Called when user context changes or real-time updates arrive.
  */
 export function updateUserContext(
   tasks: Task[],
   campaigns: Campaign[],
-  userTasks: Record<string, UserTask>
+  userTasks: Record<string, UserTask>,
+  userData: UserData | null = null,
+  profile?: MarketplaceUserProfile
 ): void {
-  if (!state.isInitialized) {
-    initializeMarketplace(tasks, campaigns, userTasks);
-    return;
-  }
-
   const normalized = normalizeTaskBatch(tasks, campaigns, userTasks);
   const providerOpportunities = Array.from(state.providers.values())
     .flatMap(p => p.opportunities);
   
-  state.opportunities = mergeOpportunities(normalized, providerOpportunities);
+  const merged = mergeOpportunities(normalized, providerOpportunities);
+
+  // Evaluate eligibility for all opportunities if userData is present
+  state.opportunities = evaluateUserOpportunities(merged, userData, userTasks, profile);
+  state.lastRefresh = new Date();
+  state.isInitialized = true;
+}
+
+/**
+ * Evaluates intelligence & eligibility for a set of opportunities.
+ */
+export function evaluateUserOpportunities(
+  opportunities: MarketplaceOpportunity[],
+  userData: UserData | null,
+  userTasks: Record<string, UserTask> = {},
+  profile?: MarketplaceUserProfile
+): MarketplaceOpportunity[] {
+  return opportunities.map(opp => {
+    const uTask = userTasks[opp.id];
+    const eligibilityResult = MarketplaceEligibilityEngine.evaluate(
+      opp,
+      userData,
+      uTask,
+      profile
+    );
+
+    return {
+      ...opp,
+      computedEligibility: eligibilityResult,
+      // If locked or hidden by eligibility rules, set status accordingly
+      status: eligibilityResult.visibility === 'hidden'
+        ? 'expired'
+        : (eligibilityResult.visibility === 'locked' && opp.status === 'available' ? 'locked' : opp.status),
+    };
+  }).filter(opp => opp.computedEligibility?.visibility !== 'hidden');
 }
 
 // ─── Provider Management ──────────────────────────────────────────────────────

@@ -71,6 +71,21 @@ export function normalizeTask(input: NormalizedTaskInput): MarketplaceOpportunit
       minLevel: (task.minLevel && task.minLevel > 1) ? task.minLevel : undefined,
     },
 
+    eligibility: {
+      minLevel: (task.minLevel && task.minLevel > 1) ? task.minLevel : 1,
+      minXp: (task as any).minXp || 0,
+      minAccountAgeDays: (task as any).minAccountAgeDays || 0,
+      minTasksCompleted: (task as any).minTasksCompleted || 0,
+      minReferrals: (task as any).minReferrals || 0,
+      regionRestrictions: task.regionRestrictions?.length ? task.regionRestrictions : undefined,
+      requiresEmailVerification: (task as any).requiresEmailVerification || false,
+      cooldownPeriodHours: task.cooldownPeriod || (task as any).cooldownHours || 0,
+      maxUserCompletions: (task as any).maxClaimsPerUser || ((task as any).isRepeatable ? undefined : 1),
+      maxCampaignClaims: (campaign as any)?.maxCompletions || task.maxClaims,
+      currentCampaignClaims: campaign?.analytics?.completions || task.totalClaims,
+      requiredTrustLevel: (task as any).minTrustLevel || 'LOW',
+    },
+
     engagement: {
       completionRate: task.conversionRate ?? campaign?.analytics?.completionRate ?? 0,
       averageReward: task.rewardAmount,

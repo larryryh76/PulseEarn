@@ -324,6 +324,10 @@ export function search(options: SearchOptions): MarketplaceOpportunity[] {
     const disabled = new Set(state.adminConfig.disabledCategories);
     results = results.filter(o => !disabled.has(o.metadata.category));
   }
+  if (state.adminConfig.enabledCategories?.length) {
+    const enabled = new Set(state.adminConfig.enabledCategories);
+    results = results.filter(o => enabled.has(o.metadata.category));
+  }
 
   // Search by text query across all fields
   if (options.query) {
@@ -435,7 +439,7 @@ function sortResults(
   switch (sortBy) {
     case 'reward':
       return opportunities.sort(
-        (a, b) => multiplier * (b.reward.points - a.reward.points)
+        (a, b) => multiplier * (a.reward.points - b.reward.points)
       );
     case 'time':
       return opportunities.sort((a, b) => {
@@ -453,13 +457,13 @@ function sortResults(
     }
     case 'popularity':
       return opportunities.sort((a, b) =>
-        multiplier * (b.engagement.totalCompletions - a.engagement.totalCompletions)
+        multiplier * (a.engagement.totalCompletions - b.engagement.totalCompletions)
       );
     case 'newest':
       return opportunities.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return multiplier * (dateB - dateA);
+        return multiplier * (dateA - dateB);
       });
     case 'expiring_soon':
       return opportunities.sort((a, b) => {
@@ -472,7 +476,7 @@ function sortResults(
       return opportunities.sort((a, b) => {
         const scoreA = a.computedEligibility?.priorityScore || 50;
         const scoreB = b.computedEligibility?.priorityScore || 50;
-        return multiplier * (scoreB - scoreA);
+        return multiplier * (scoreA - scoreB);
       });
     default:
       return opportunities;

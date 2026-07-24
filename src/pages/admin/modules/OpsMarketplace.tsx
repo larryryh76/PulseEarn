@@ -205,6 +205,7 @@ const OpsMarketplace: React.FC = () => {
         toast.error(res.error || "Failed to update config", { id: loadToast });
       }
     } catch (err) {
+      console.error("[OpsMarketplace] Error saving marketplace configuration:", err);
       toast.error("Error saving marketplace configuration", { id: loadToast });
     } finally {
       setSavingConfig(false);

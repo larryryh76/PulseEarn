@@ -406,7 +406,10 @@ export function generateDailySection(
  */
 export function generateLimitedCampaignsSection(
   allOpportunities: MarketplaceOpportunity[],
-  limit: number = 6
+  limit: number = 6,
+  sectionId: string = 'limited-campaigns',
+  title: string = 'Limited-Time Campaigns',
+  source: SectionSource = 'limited_campaigns'
 ): RecommendationSection | null {
   const campaigns = allOpportunities
     .filter(o => o.status === 'available' && (o.metadata.category === 'seasonal' || o.engagement.expiringSoon || o.eligibility?.maxCampaignClaims))
@@ -415,11 +418,11 @@ export function generateLimitedCampaignsSection(
   if (campaigns.length === 0) return null;
 
   return {
-    id: 'limited-campaigns',
-    title: 'Limited-Time Campaigns',
+    id: sectionId,
+    title,
     subtitle: 'Exclusive rewards before capacity runs out',
     layout: 'hero',
-    source: 'limited_campaigns',
+    source,
     category: 'seasonal',
     opportunities: campaigns,
   };
@@ -527,7 +530,7 @@ export function generateOfferwallsSection(
   limit: number = 8
 ): RecommendationSection | null {
   const offerwalls = allOpportunities
-    .filter(o => o.source === 'provider' || o.metadata.verificationType === 'offerwall')
+    .filter(o => o.status === 'available' && (o.source === 'provider' || o.metadata.verificationType === 'offerwall'))
     .slice(0, limit);
 
   if (offerwalls.length === 0) return null;
@@ -602,15 +605,17 @@ export function generateAllSections(
   history: TaskHistory[],
   adminConfig?: MarketplaceAdminConfig
 ): RecommendationSection[] {
-  // 1. Filter opportunities based on Admin hidden list & disabled categories
+  // 1. Filter opportunities based on Admin hidden list, disabled categories, & enabled categories
   const hiddenIds = new Set(adminConfig?.hiddenCampaignIds || []);
   const disabledCats = new Set(adminConfig?.disabledCategories || []);
+  const enabledCats = adminConfig?.enabledCategories?.length ? new Set(adminConfig.enabledCategories) : null;
   const featuredIds = new Set(adminConfig?.featuredCampaignIds || []);
   const priorityMap = adminConfig?.prioritizedCampaigns || {};
 
   let activeOpportunities = allOpportunities.filter(o => {
     if (hiddenIds.has(o.id)) return false;
     if (disabledCats.has(o.metadata.category)) return false;
+    if (enabledCats && !enabledCats.has(o.metadata.category)) return false;
     return true;
   });
 
@@ -646,8 +651,8 @@ export function generateAllSections(
     personalized: () => generateRecommendedSection(activeOpportunities, profile, 8),
     continue: () => generateContinueSection(activeOpportunities, 3),
     daily: () => generateDailySection(activeOpportunities, 8),
-    seasonal: () => generateLimitedCampaignsSection(activeOpportunities, 6),
-    limited_campaigns: () => generateLimitedCampaignsSection(activeOpportunities, 6),
+    seasonal: () => generateLimitedCampaignsSection(activeOpportunities, 6, 'seasonal', 'Seasonal Campaigns', 'seasonal'),
+    limited_campaigns: () => generateLimitedCampaignsSection(activeOpportunities, 6, 'limited-campaigns', 'Limited-Time Campaigns', 'limited_campaigns'),
     new_today: () => generateNewOpportunitiesSection(activeOpportunities, 8),
     trending: () => generateTrendingSection(activeOpportunities, 8),
     highest_paying: () => generateHighestPayingSection(activeOpportunities, 8),
@@ -685,6 +690,7 @@ export function generateAllSections(
 
   const sections: RecommendationSection[] = [];
   const processedKeys = new Set<string>();
+  const processedSectionIds = new Set<string>();
 
   for (const key of order) {
     if (processedKeys.has(key)) continue;
@@ -693,7 +699,8 @@ export function generateAllSections(
     const generator = sectionMap[key];
     if (generator) {
       const section = generator();
-      if (section && section.opportunities.length > 0) {
+      if (section && section.opportunities.length > 0 && !processedSectionIds.has(section.id)) {
+        processedSectionIds.add(section.id);
         // Apply admin section title/subtitle overrides if specified
         if (adminConfig?.sectionTitles && adminConfig.sectionTitles[key]) {
           const override = adminConfig.sectionTitles[key];

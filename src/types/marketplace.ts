@@ -255,7 +255,7 @@ export interface MarketplaceAdminConfig {
   prioritizedCampaigns?: Record<string, number>; // taskId/campaignId -> bonus score
   disabledCategories?: OpportunityCategory[];
   enabledCategories?: OpportunityCategory[];
-  sectionOrder?: string[];
+  sectionOrder?: (SectionSource | string)[];
   sectionTitles?: Record<string, { title?: string; subtitle?: string }>;
   updatedAt?: Date | string;
 }

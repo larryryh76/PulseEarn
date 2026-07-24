@@ -117,7 +117,7 @@ export function useMarketplace(): UseMarketplaceReturn {
     }
     loadConfig();
     return () => { isMounted = false; };
-  }, [userData, activities, taskHistory]);
+  }, []);
 
   // Initialize marketplace with tasks
   useEffect(() => {

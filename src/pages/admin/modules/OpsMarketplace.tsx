@@ -38,6 +38,7 @@ import {
 import { safeFetch } from '../../../utils/api';
 import { cn } from '../../../utils';
 import toast from 'react-hot-toast';
+import { auth } from '../../../firebase/config';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,36 @@ interface ActivityItem {
   points: number;
 }
 
+interface SimulationRequirement {
+  label: string;
+  met: boolean;
+  current: string | number | boolean;
+  target: string | number | boolean;
+}
+
+interface SimulationItem {
+  taskId: string;
+  title: string;
+  rewardAmount: number;
+  category: string;
+  eligible: boolean;
+  requirements: SimulationRequirement[];
+}
+
+interface SimulationData {
+  success: boolean;
+  targetUser?: {
+    userId: string;
+    username: string;
+    level: number;
+    xp: number;
+    accountAgeDays: number;
+    riskLevel: string;
+    emailVerified: boolean;
+  };
+  simulations?: SimulationItem[];
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OpsMarketplace: React.FC = () => {
@@ -107,6 +138,71 @@ const OpsMarketplace: React.FC = () => {
   const [showWipeModal, setShowWipeModal] = useState(false);
   const [wipeConfirmText, setWipeConfirmText] = useState('');
   const [isWiping, setIsWiping] = useState(false);
+
+  // Phase 7: Simulation & Progression Audit State
+  const [simUserId, setSimUserId] = useState('');
+  const [simData, setSimData] = useState<SimulationData | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
+
+  const getAdminHeaders = async () => {
+    const token = await auth.currentUser?.getIdToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const handleRunAudit = async () => {
+    setIsAuditing(true);
+    const loadToast = toast.loading("Running global progression audit & sync...");
+    try {
+      const headers = await getAdminHeaders();
+      const res = await safeFetch('/api/admin/progression/audit', {
+        method: 'POST',
+        headers
+      });
+      if (res.success) {
+        toast.success(res.message || "Global progression audit completed successfully", { id: loadToast });
+      } else {
+        toast.error(res.error || "Audit failed", { id: loadToast });
+      }
+    } catch (err) {
+      console.error('[OpsMarketplace] Audit error:', err);
+      toast.error("Audit error", { id: loadToast });
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const handleSimulateEligibility = async () => {
+    if (!simUserId.trim()) {
+      toast.error("Please enter a Target User ID");
+      return;
+    }
+    setIsSimulating(true);
+    const loadToast = toast.loading(`Simulating marketplace eligibility for ${simUserId}...`);
+    try {
+      const headers = await getAdminHeaders();
+      const res = await safeFetch('/api/admin/progression/simulate-eligibility', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId: simUserId.trim() })
+      });
+      if (res.success) {
+        setSimData(res);
+        toast.success(`Simulation complete for user ${res.targetUser?.username || simUserId}`, { id: loadToast });
+      } else {
+        toast.error(res.error || "Simulation failed", { id: loadToast });
+      }
+    } catch (err) {
+      console.error('[OpsMarketplace] Simulation error:', err);
+      toast.error("Simulation error", { id: loadToast });
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   // Fetch marketplace stats
   useEffect(() => {
@@ -297,6 +393,99 @@ const OpsMarketplace: React.FC = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Phase 7: Progression & Marketplace Eligibility Simulation Panel */}
+      <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
+              <Target size={18} className="text-primary" />
+              Progression Intelligence & Eligibility Simulator
+            </h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Simulate backend eligibility criteria evaluation and trigger global user progression audits
+            </p>
+          </div>
+
+          <button
+            onClick={handleRunAudit}
+            disabled={isAuditing}
+            className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <RefreshCw size={13} className={cn(isAuditing && "animate-spin")} />
+            Global Progression Audit
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <input
+            type="text"
+            value={simUserId}
+            onChange={(e) => setSimUserId(e.target.value)}
+            placeholder="Enter User UID (e.g. user_123 or Firebase UID)"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-surface-bright border border-border text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-primary transition-colors"
+          />
+          <button
+            onClick={handleSimulateEligibility}
+            disabled={isSimulating || !simUserId.trim()}
+            className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-bold uppercase tracking-wider hover:bg-primary-bright disabled:opacity-50 transition-all shadow-md flex items-center justify-center gap-2"
+          >
+            {isSimulating ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            Simulate Eligibility
+          </button>
+        </div>
+
+        {simData && (
+          <div className="mt-4 p-4 rounded-xl bg-surface-bright border border-border space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <p className="text-sm font-bold text-text-primary">
+                  Target User: {simData.targetUser?.username} <span className="text-xs text-text-tertiary">({simData.targetUser?.userId})</span>
+                </p>
+                <div className="flex items-center gap-3 mt-1 text-xs text-text-secondary">
+                  <span>Level {simData.targetUser?.level}</span>
+                  <span>•</span>
+                  <span>{simData.targetUser?.xp} XP</span>
+                  <span>•</span>
+                  <span>Account Age: {simData.targetUser?.accountAgeDays} days</span>
+                  <span>•</span>
+                  <span className="capitalize">Risk: {simData.targetUser?.riskLevel}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {simData.simulations?.map((sim: SimulationItem) => (
+                <div key={sim.taskId} className="p-3 rounded-lg bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-text-primary">{sim.title}</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider",
+                        sim.eligible ? "bg-emerald-500/10 text-emerald-400" : "bg-danger/10 text-danger"
+                      )}>
+                        {sim.eligible ? "Eligible" : "Locked"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-tertiary mt-1">
+                      Reward: {sim.rewardAmount} PTS • Category: {sim.category}
+                    </p>
+                  </div>
+
+                  <div className="text-xs space-y-1 sm:text-right">
+                    {sim.requirements?.map((req: SimulationRequirement, idx: number) => (
+                      <div key={idx} className={cn("flex items-center gap-1.5 sm:justify-end", req.met ? "text-emerald-400" : "text-danger")}>
+                        {req.met ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                        <span>{req.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Opportunities */}

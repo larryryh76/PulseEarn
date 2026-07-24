@@ -81,6 +81,73 @@ export interface EngagementMetrics {
   almostComplete?: boolean;
 }
 
+// ─── Eligibility & Progression Types ─────────────────────────────────────────
+
+export interface OpportunityEligibilityCriteria {
+  minLevel?: number;
+  minXp?: number;
+  minAccountAgeDays?: number;
+  minReferrals?: number;
+  minTasksCompleted?: number;
+  regionRestrictions?: string[];
+  providerAvailabilityRequired?: boolean;
+  requiresEmailVerification?: boolean;
+  maxUserCompletions?: number;
+  cooldownPeriodHours?: number;
+  maxCampaignClaims?: number;
+  currentCampaignClaims?: number;
+  requiredTrustLevel?: 'LOW' | 'MEDIUM' | 'STABLE';
+}
+
+export interface OpportunityEligibilityResult {
+  eligible: boolean;
+  visibility: 'visible' | 'hidden' | 'locked';
+  priorityScore: number;
+  reasons: string[];
+  requirements: {
+    label: string;
+    met: boolean;
+    current: string | number | boolean;
+    target: string | number | boolean;
+  }[];
+}
+
+export type UserArchetype =
+  | 'new'
+  | 'returning'
+  | 'high_xp'
+  | 'high_trust'
+  | 'inactive'
+  | 'power_earner';
+
+export interface TrustSignals {
+  emailVerified: boolean;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  accountAgeDays: number;
+  tasksCompleted: number;
+  totalEarnings: number;
+  predictionsCount: number;
+  referralsCount: number;
+  offerwallCompletedCount: number;
+}
+
+export interface MarketplaceUserProfile {
+  userId: string;
+  archetype: UserArchetype;
+  preferredCategories: Record<string, number>;
+  favouriteProviders: string[];
+  completionRate: number;
+  averageSessionLength: number;
+  averageReward: number;
+  successRate: number;
+  activeCampaigns: string[];
+  completedCampaigns: string[];
+  hiddenOpportunities: string[];
+  savedOpportunities: string[];
+  trustSignals: TrustSignals;
+  updatedAt?: Date;
+}
+
 // ─── Opportunity Interface ────────────────────────────────────────────────────
 
 export interface MarketplaceOpportunity {
@@ -112,6 +179,10 @@ export interface MarketplaceOpportunity {
     regionRestrictions?: string[];
     minLevel?: number;
   };
+
+  // Explicit Eligibility Rules
+  eligibility?: OpportunityEligibilityCriteria;
+  computedEligibility?: OpportunityEligibilityResult;
   
   // Engagement
   engagement: EngagementMetrics;

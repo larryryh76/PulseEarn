@@ -102,7 +102,7 @@ function calculatePersonalizationScore(
   opp: MarketplaceOpportunity,
   profile: UserProfile
 ): number {
-  let score = 0;
+  let score = opp.computedEligibility?.priorityScore || 0;
 
   // Category affinity (user has completed this category before)
   const categoryCompletions = profile.completedCategories.get(opp.metadata.category) || 0;

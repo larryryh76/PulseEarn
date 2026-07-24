@@ -3,11 +3,26 @@ import sys
 import json
 import html
 import math
+import time
 import urllib.parse
 import logging
 import traceback
 from datetime import datetime, timezone, timedelta
 from functools import wraps
+
+def compute_account_age_days(created_at):
+    if not created_at:
+        return 0
+    try:
+        if hasattr(created_at, 'timestamp'):
+            c_time = created_at.timestamp()
+        elif isinstance(created_at, (int, float)):
+            c_time = float(created_at)
+        else:
+            c_time = time.time()
+        return max(0, int((time.time() - c_time) / 86400))
+    except Exception:
+        return 0
 
 def safe_float(v, default=0.0):
     if v is None or v == '':
@@ -4266,6 +4281,361 @@ def offerwall_failover_scan():
     except Exception: pass
     return jsonify({'success': True, 'disabled': actions, 'count': len(actions),
                     'message': f'{len(actions)} unhealthy provider(s) auto-disabled.' if actions else 'All active providers healthy.'})
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PHASE 7 — USER PROGRESSION & MARKETPLACE INTELLIGENCE ENDPOINTS
+# ═════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/user/progression', methods=['GET'])
+@verify_token
+def get_user_progression():
+    """Returns detailed progression stats, level tier, and trust signals for the current user."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+
+    user_doc = db.collection('users').document(uid).get()
+    if not user_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    u_data = user_doc.to_dict() or {}
+    xp = safe_float(u_data.get('xp', 0))
+    current_lvl = safe_int(u_data.get('level', 1))
+    calculated_lvl = calculate_level(xp)
+
+    # Compute account age in days
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
+
+    stats = u_data.get('stats') or {}
+    trust_signals = {
+        "emailVerified": bool(u_data.get('emailVerified')),
+        "riskLevel": u_data.get('riskLevel') or "LOW",
+        "accountAgeDays": account_age_days,
+        "tasksCompleted": safe_int(stats.get('tasksCompleted', 0)),
+        "totalEarnings": safe_float(stats.get('totalEarnings', u_data.get('points', 0))),
+        "predictionsCount": safe_int(stats.get('predictionsCount', 0)),
+        "referralsCount": safe_int(stats.get('referralsCount', 0)),
+    }
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "userId": uid,
+            "xp": xp,
+            "level": current_lvl,
+            "calculatedLevel": calculated_lvl,
+            "streak": safe_int(u_data.get('streak', 0)),
+            "points": safe_float(u_data.get('points', 0)),
+            "trustSignals": trust_signals,
+            "isLevelSynced": current_lvl == calculated_lvl,
+        }
+    })
+
+@app.route('/api/user/progression/recalculate', methods=['POST'])
+@verify_token
+def recalculate_user_progression():
+    """Recalculates level based on user total XP and updates Firestore if mismatched."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+
+    user_ref = db.collection('users').document(uid)
+    user_doc = user_ref.get()
+    if not user_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    u_data = user_doc.to_dict() or {}
+    xp = safe_float(u_data.get('xp', 0))
+    current_lvl = safe_int(u_data.get('level', 1))
+    correct_lvl = calculate_level(xp)
+
+    if current_lvl != correct_lvl:
+        user_ref.update({
+            "level": correct_lvl,
+            "updatedAt": firestore.SERVER_TIMESTAMP
+        })
+
+    return jsonify({
+        "success": True,
+        "previousLevel": current_lvl,
+        "newLevel": correct_lvl,
+        "xp": xp,
+        "updated": current_lvl != correct_lvl
+    })
+
+@app.route('/api/marketplace/profile', methods=['GET', 'POST', 'PUT'])
+@verify_token
+def handle_marketplace_profile():
+    """Get or update marketplace-specific user profile and intelligence preferences."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+    prof_ref = db.collection('user_marketplace_profiles').document(uid)
+
+    if request.method == 'GET':
+        user_doc = db.collection('users').document(uid).get()
+        u_data = user_doc.to_dict() or {} if user_doc.exists else {}
+
+        # Fetch saved profile doc
+        prof_doc = prof_ref.get()
+        prof_data = prof_doc.to_dict() if prof_doc.exists else {}
+
+        stats = u_data.get('stats') or {}
+        completions = safe_int(stats.get('tasksCompleted', 0))
+        total_earnings = safe_float(stats.get('totalEarnings', 0))
+        level = safe_int(u_data.get('level', 1))
+        account_age_days = compute_account_age_days(u_data.get('createdAt'))
+        risk_level = u_data.get('riskLevel') or 'LOW'
+
+        # Derive Archetype
+        if completions >= 25 or total_earnings >= 10000:
+            archetype = 'power_earner'
+        elif level >= 10:
+            archetype = 'high_xp'
+        elif risk_level == 'LOW' and u_data.get('emailVerified') and account_age_days >= 7:
+            archetype = 'high_trust'
+        elif account_age_days <= 3 or completions <= 3:
+            archetype = 'new'
+        else:
+            archetype = 'returning'
+
+        profile = {
+            "userId": uid,
+            "archetype": archetype,
+            "preferredCategories": prof_data.get("preferredCategories") or {},
+            "favouriteProviders": prof_data.get("favouriteProviders") or [],
+            "savedOpportunities": prof_data.get("savedOpportunities") or [],
+            "hiddenOpportunities": prof_data.get("hiddenOpportunities") or [],
+            "activeCampaigns": prof_data.get("activeCampaigns") or [],
+            "completedCampaigns": prof_data.get("completedCampaigns") or [],
+            "trustSignals": {
+                "emailVerified": bool(u_data.get('emailVerified')),
+                "riskLevel": risk_level,
+                "accountAgeDays": account_age_days,
+                "tasksCompleted": completions,
+                "totalEarnings": total_earnings
+            }
+        }
+        return jsonify({"success": True, "data": profile})
+
+    # POST/PUT: Update preferences
+    payload = request.json or {}
+    updates = {"updatedAt": firestore.SERVER_TIMESTAMP}
+
+    for key in ["savedOpportunities", "hiddenOpportunities", "favouriteProviders", "preferredCategories"]:
+        if key in payload:
+            updates[key] = payload[key]
+
+    prof_ref.set(updates, merge=True)
+    return jsonify({"success": True, "message": "Marketplace profile updated"})
+
+@app.route('/api/marketplace/eligibility', methods=['POST'])
+@verify_token
+def evaluate_marketplace_eligibility():
+    """Evaluates marketplace eligibility rules for a specific task/opportunity or array of tasks."""
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    body = request.json or {}
+    target_uid = body.get('userId') or request.user['uid']
+
+    # Authorization check if querying another user
+    if target_uid != request.user['uid'] and not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    user_doc = db.collection('users').document(target_uid).get()
+    if not user_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    u_data = user_doc.to_dict() or {}
+    user_lvl = safe_int(u_data.get('level', 1))
+    user_xp = safe_float(u_data.get('xp', 0))
+    user_risk = u_data.get('riskLevel') or 'LOW'
+    user_email_verified = bool(u_data.get('emailVerified'))
+    stats = u_data.get('stats') or {}
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
+
+    user_region = body.get('region') or 'GLOBAL'
+    task_id = body.get('taskId') or body.get('opportunityId')
+
+    # If specific taskId provided, evaluate that task
+    if task_id:
+        task_doc = db.collection('tasks').document(task_id).get()
+        if not task_doc.exists:
+            return jsonify({"success": False, "error": "TASK_NOT_FOUND"}), 404
+
+        t_data = task_doc.to_dict() or {}
+        min_level = safe_int(t_data.get('minLevel', 1))
+        min_xp = safe_float(t_data.get('minXp', 0))
+        min_age = safe_int(t_data.get('minAccountAgeDays', 0))
+        min_tasks = safe_int(t_data.get('minTasksCompleted', 0))
+        min_refs = safe_int(t_data.get('minReferrals', 0))
+        req_email = bool(t_data.get('requiresEmailVerification'))
+        regions = t_data.get('regionRestrictions') or []
+
+        requirements = [
+            {"label": f"Minimum Experience Level (LVL {min_level}+)", "met": user_lvl >= min_level, "current": user_lvl, "target": min_level},
+            {"label": f"Minimum XP ({min_xp})", "met": user_xp >= min_xp, "current": user_xp, "target": min_xp},
+            {"label": f"Account Seniority ({min_age} Days)", "met": account_age_days >= min_age, "current": account_age_days, "target": min_age},
+            {"label": f"Tasks Completed ({min_tasks}+)", "met": safe_int(stats.get('tasksCompleted', 0)) >= min_tasks, "current": safe_int(stats.get('tasksCompleted', 0)), "target": min_tasks},
+            {"label": f"Referrals ({min_refs}+)", "met": safe_int(stats.get('referralsCount', 0)) >= min_refs, "current": safe_int(stats.get('referralsCount', 0)), "target": min_refs},
+            {"label": "Verified Email Address", "met": (not req_email) or user_email_verified, "current": "Verified" if user_email_verified else "Unverified", "target": "Verified"},
+            {"label": "Account Integrity Standard", "met": user_risk != 'HIGH', "current": user_risk, "target": "STABLE"},
+        ]
+
+        if regions and 'GLOBAL' not in regions and 'ALL' not in regions:
+            in_region = user_region in regions
+            requirements.append({"label": f"Geographic Region ({', '.join(regions)})", "met": in_region, "current": user_region, "target": ", ".join(regions)})
+
+        eligible = all(r["met"] for r in requirements)
+        reasons = [r["label"] for r in requirements if not r["met"]]
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "taskId": task_id,
+                "userId": target_uid,
+                "eligible": eligible,
+                "visibility": "visible" if eligible else "locked",
+                "reasons": reasons,
+                "requirements": requirements
+            }
+        })
+
+    return jsonify({"success": True, "message": "Evaluated general progression state", "userLevel": user_lvl, "accountAgeDays": account_age_days})
+
+@app.route('/api/admin/progression/audit', methods=['POST'])
+@verify_token
+def audit_global_progression():
+    """Admin endpoint to scan user progression documents, fix level mismatches, and reconcile stats."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    users_stream = db.collection('users').stream()
+    levels_adjusted = 0
+    scanned_count = 0
+
+    batch = db.batch()
+    batch_count = 0
+
+    for u_doc in users_stream:
+        scanned_count += 1
+        u_data = u_doc.to_dict() or {}
+        xp = safe_float(u_data.get('xp', 0))
+        curr_lvl = safe_int(u_data.get('level', 1))
+        correct_lvl = calculate_level(xp)
+
+        if curr_lvl != correct_lvl:
+            batch.update(u_doc.reference, {
+                "level": correct_lvl,
+                "updatedAt": firestore.SERVER_TIMESTAMP
+            })
+            batch_count += 1
+            levels_adjusted += 1
+
+        if batch_count >= 400:
+            batch.commit()
+            batch = db.batch()
+            batch_count = 0
+
+    if batch_count > 0:
+        batch.commit()
+
+    return jsonify({
+        "success": True,
+        "scannedUsers": scanned_count,
+        "levelsAdjusted": levels_adjusted,
+        "message": f"Global progression audit complete. {levels_adjusted} levels adjusted across {scanned_count} users."
+    })
+
+@app.route('/api/admin/progression/simulate-eligibility', methods=['POST'])
+@verify_token
+def simulate_user_eligibility():
+    """Admin tool allowing admins to test/simulate marketplace eligibility for any target user."""
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    get_deps()
+    if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    body = request.json or {}
+    target_uid = body.get('userId')
+    if not target_uid:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+
+    user_doc = db.collection('users').document(target_uid).get()
+    if not user_doc.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+
+    u_data = user_doc.to_dict() or {}
+    user_lvl = safe_int(u_data.get('level', 1))
+    user_xp = safe_float(u_data.get('xp', 0))
+    user_risk = u_data.get('riskLevel') or 'LOW'
+    user_email_verified = bool(u_data.get('emailVerified'))
+    stats = u_data.get('stats') or {}
+    account_age_days = compute_account_age_days(u_data.get('createdAt'))
+    user_region = body.get('region') or 'GLOBAL'
+
+    # Fetch active tasks
+    tasks_snap = db.collection('tasks').where('active', '==', True).limit(20).get()
+    simulations = []
+
+    for t_doc in tasks_snap:
+        t_data = t_doc.to_dict() or {}
+        min_level = safe_int(t_data.get('minLevel', 1))
+        min_xp = safe_float(t_data.get('minXp', 0))
+        min_age = safe_int(t_data.get('minAccountAgeDays', 0))
+        min_tasks = safe_int(t_data.get('minTasksCompleted', 0))
+        min_refs = safe_int(t_data.get('minReferrals', 0))
+        req_email = bool(t_data.get('requiresEmailVerification'))
+        regions = t_data.get('regionRestrictions') or []
+
+        reqs = [
+            {"label": f"Minimum Experience Level (LVL {min_level}+)", "met": user_lvl >= min_level, "current": user_lvl, "target": min_level},
+            {"label": f"Minimum XP ({min_xp})", "met": user_xp >= min_xp, "current": user_xp, "target": min_xp},
+            {"label": f"Account Seniority ({min_age} Days)", "met": account_age_days >= min_age, "current": account_age_days, "target": min_age},
+            {"label": f"Tasks Completed ({min_tasks}+)", "met": safe_int(stats.get('tasksCompleted', 0)) >= min_tasks, "current": safe_int(stats.get('tasksCompleted', 0)), "target": min_tasks},
+            {"label": f"Referrals ({min_refs}+)", "met": safe_int(stats.get('referralsCount', 0)) >= min_refs, "current": safe_int(stats.get('referralsCount', 0)), "target": min_refs},
+            {"label": "Verified Email Address", "met": (not req_email) or user_email_verified, "current": "Verified" if user_email_verified else "Unverified", "target": "Verified"},
+            {"label": "Account Integrity Standard", "met": user_risk != 'HIGH', "current": user_risk, "target": "STABLE"},
+        ]
+
+        if regions and 'GLOBAL' not in regions and 'ALL' not in regions:
+            in_region = user_region in regions
+            reqs.append({"label": f"Geographic Region ({', '.join(regions)})", "met": in_region, "current": user_region, "target": ", ".join(regions)})
+
+        eligible = all(r["met"] for r in reqs)
+        simulations.append({
+            "taskId": t_doc.id,
+            "title": t_data.get('title', 'Untitled Task'),
+            "rewardAmount": safe_float(t_data.get('rewardAmount', 0)),
+            "category": t_data.get('category', 'CUSTOM'),
+            "eligible": eligible,
+            "requirements": reqs
+        })
+
+    return jsonify({
+        "success": True,
+        "targetUser": {
+            "userId": target_uid,
+            "username": u_data.get('username', 'Anonymous'),
+            "level": user_lvl,
+            "xp": user_xp,
+            "accountAgeDays": account_age_days,
+            "riskLevel": user_risk,
+            "emailVerified": user_email_verified
+        },
+        "simulations": simulations
+    })
 
 # ───────────────────────────────────────────────────────────────��─────────────
 get_deps()

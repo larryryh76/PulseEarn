@@ -84,6 +84,7 @@ const OpsXP: React.FC = () => {
       });
       toast.success("Economy configuration updated");
     } catch (err) {
+      console.error('[OpsXP] Update error:', err);
       toast.error("Configuration sync failed");
     } finally {
       setIsUpdating(false);

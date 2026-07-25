@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Store, ShieldCheck,
-  RefreshCw, AlertCircle, ArrowUpRight, Lock
+  RefreshCw, AlertCircle, ArrowUpRight, Lock, Sparkles, Compass, Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 
-// ─── Provider Interface (Source of Truth: Firestore Backend) ─────────────────
+// ─── Provider Interface (Earning Channel) ────────────────────────────────────
 
 export interface Provider {
   id: string;
@@ -32,11 +33,46 @@ export interface Provider {
 }
 
 export const Marketplace: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
+  const { userTasks, tasks } = useTaskContext();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Progression Tier Strategy ──────────────────────────────────────────────
+  const progressionTier = useMemo(() => {
+    const level = userData?.level || 1;
+    const completedCount = userData?.stats?.tasksCompleted || 0;
+    if (level >= 10 || completedCount >= 25) {
+      return { name: 'Pro Earner', level, badge: 'Elite Tier', color: 'text-primary bg-primary/10 border-primary/20' };
+    }
+    if (level >= 3 || completedCount >= 5) {
+      return { name: 'Verified Earner', level, badge: 'Tier 2', color: 'text-success bg-success/10 border-success/20' };
+    }
+    return { name: 'Starter Earner', level, badge: 'Tier 1', color: 'text-text-secondary bg-surface-bright border-border' };
+  }, [userData]);
+
+  // ─── Active Continuity Journey ──────────────────────────────────────────────
+  const activeTasks = useMemo(() => {
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+    const result = [];
+
+    for (const ut of Object.values(userTasks)) {
+      if (ut.status === 'in_progress' || ut.status === 'pending') {
+        const matchingTask = taskMap.get(ut.taskId);
+        result.push({
+          id: ut.taskId,
+          title: matchingTask?.title || 'Active Opportunity',
+          reward: matchingTask?.rewardAmount ?? 100,
+          status: ut.status,
+        });
+        if (result.length >= 3) break;
+      }
+    }
+
+    return result;
+  }, [userTasks, tasks]);
 
   // ─── Fetch Enabled Providers from Backend (Firestore Source of Truth) ──────
   const fetchProviders = useCallback(async () => {
@@ -131,18 +167,19 @@ export const Marketplace: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary">
-              PulseEarn
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary flex items-center gap-1">
+              <Sparkles size={11} />
+              PulseEarn Ecosystem
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md bg-surface-bright border border-border text-text-tertiary">
-              Dynamic Architecture
+            <span className={cn('text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border', progressionTier.color)}>
+              {progressionTier.name} ({progressionTier.badge})
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
             Marketplace
           </h1>
           <p className="text-xs text-text-tertiary mt-1">
-            Provider-driven opportunity catalog synchronized live from backend configuration.
+            Discover verified earning opportunities and tailored channels in one unified digital ecosystem.
           </p>
         </div>
 
@@ -152,9 +189,33 @@ export const Marketplace: React.FC = () => {
           className="self-start md:self-auto flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary transition-all disabled:opacity-50"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
-          <span>Refresh Providers</span>
+          <span>Refresh Opportunities</span>
         </button>
       </div>
+
+      {/* ─── Continuity & Journey Banner ──────────────────────────────────── */}
+      {activeTasks.length > 0 && (
+        <div className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+              <Compass size={15} />
+              <span>Continue Your Earning Journey</span>
+            </div>
+            <span className="text-[10px] font-mono text-text-tertiary">{activeTasks.length} active</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {activeTasks.map(t => (
+              <div key={t.id} className="p-3 rounded-xl bg-surface border border-border flex items-center justify-between">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-bold text-text-primary truncate">{t.title}</p>
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider">{t.status.replace('_', ' ')}</p>
+                </div>
+                <span className="text-xs font-bold text-success shrink-0">+{t.reward} PTS</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── Loading State ────────────────────────────────────────────────── */}
       {loading && (
@@ -183,7 +244,7 @@ export const Marketplace: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Empty State (No Enabled Providers in Firestore) ──────────────── */}
+      {/* ─── Empty State ──────────────────────────────────────────────────── */}
       {!loading && !error && providers.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -196,29 +257,30 @@ export const Marketplace: React.FC = () => {
 
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-text-primary">
-              No providers are currently available.
+              No active earning channels currently available.
             </h2>
             <p className="text-xs text-text-tertiary leading-relaxed max-w-md mx-auto">
-              Marketplace providers are dynamically configured in the Admin Panel. Once an administrator enables a provider in Firestore, it will automatically appear here.
+              Earning channels and opportunity gateways are refreshed continuously. Please check back shortly for new opportunities.
             </p>
           </div>
 
-          <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-mono text-text-tertiary">
+          <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-text-tertiary">
             <ShieldCheck size={14} className="text-primary" />
-            <span>Source of Truth: Firestore / Admin Provider Engine</span>
+            <span>Verified & Protected by PulseEarn</span>
           </div>
         </motion.div>
       )}
 
-      {/* ─── Provider Grid (Dynamic Generation) ───────────────────────────── */}
+      {/* ─── Provider Grid ────────────────────────────────────────────────── */}
       {!loading && !error && providers.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-              Configured Providers ({providers.length})
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+              <Zap size={14} className="text-primary" />
+              Active Earning Channels ({providers.length})
             </span>
-            <span className="text-[11px] font-mono text-text-tertiary">
-              Live Verified Sync
+            <span className="text-[11px] text-text-tertiary">
+              Live Verified Opportunities
             </span>
           </div>
 

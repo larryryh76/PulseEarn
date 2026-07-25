@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Zap, Compass, Filter, Search, RefreshCw,
   ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Store
+  X, Layers, Activity, Info, Store, Lock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
@@ -84,16 +84,27 @@ export function getCanonicalStatus(status: string | undefined): {
         isActionable: false,
       };
     case 'rejected':
-    case 'cancelled':
       return {
         label: 'Rejected',
         badgeClass: 'bg-danger/10 border-danger/20 text-danger',
         isActionable: true,
       };
+    case 'cancelled':
+      return {
+        label: 'Cancelled',
+        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
+        isActionable: false,
+      };
     case 'expired':
-    case 'cooldown':
       return {
         label: 'Expired',
+        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
+        isActionable: false,
+      };
+    case 'cooldown':
+    case 'on_cooldown':
+      return {
+        label: 'On Cooldown',
         badgeClass: 'bg-surface-bright border-border text-text-tertiary',
         isActionable: false,
       };
@@ -271,14 +282,33 @@ export const Marketplace: React.FC = () => {
         toast.error(`Partner channel for ${opp.title} is currently unavailable.`);
       }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
-      toast.success(`Processing claim request for ${opp.title}...`);
+      toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
     } else {
       toast.error(`Unable to launch ${opp.title}. No valid target configured.`);
     }
   };
 
+  // ─── Filter Reset Callback ──────────────────────────────────────────────────
+  const handleResetFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSelectedDifficulty('all');
+    setMinRewardFilter(0);
+    setSortBy('recommended');
+  }, []);
+
   // ─── Dynamic Marketplace Engine State & Search Derived Results ──────────────
   const { opportunities: engineOpportunities } = getMarketplaceState();
+
+  const providerOppCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    engineOpportunities.forEach(o => {
+      if (o.providerId) {
+        counts.set(o.providerId, (counts.get(o.providerId) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [engineOpportunities]);
 
   const searchResults = useMemo(() => {
     return search({
@@ -298,15 +328,18 @@ export const Marketplace: React.FC = () => {
   }, [engineOpportunities, userData, activities, taskHistory, engineVersion]);
 
   // ─── Active Continuity Journey ───────────────────────────────────────────────
-  const activeTasks = useMemo(() => {
+  const activeTaskSummary = useMemo(() => {
     const taskMap = new Map(tasks.map(t => [t.id, t]));
-    const result = [];
+    const activeList = [];
 
     for (const ut of Object.values(userTasks)) {
       if (ut.status === 'in_progress' || ut.status === 'pending' || ut.status === 'pending_review' || ut.status === 'submitted') {
         const matchingTask = taskMap.get(ut.taskId);
         const statusMeta = getCanonicalStatus(ut.status);
-        const matchingOpp = engineOpportunities.find(o => o.id === ut.taskId) || ({
+        const targetUrl = (matchingTask as any)?.link || '';
+        const hasUrl = typeof targetUrl === 'string' && targetUrl.startsWith('http');
+
+        const matchingOpp: MarketplaceOpportunity = engineOpportunities.find(o => o.id === ut.taskId) || {
           id: ut.taskId,
           title: matchingTask?.title || 'Active Opportunity',
           description: matchingTask?.description || '',
@@ -318,14 +351,19 @@ export const Marketplace: React.FC = () => {
             difficulty: 'medium' as OpportunityDifficulty,
             estimatedTime: '2 mins',
             verificationType: 'manual',
+            launchMode: 'inline',
+            tags: ['active'],
           },
           instructions: matchingTask?.instructions || 'Complete the task instructions.',
-          action: { actionType: 'redirect', url: (matchingTask as any)?.link || '' },
+          action: {
+            actionType: hasUrl ? 'url' : 'complete',
+            url: hasUrl ? targetUrl : undefined,
+          },
           status: 'started',
           engagement: { completionRate: 0.9, averageReward: matchingTask?.rewardAmount ?? 0, totalCompletions: 10, trending: false, isNew: false },
-        } as unknown as MarketplaceOpportunity);
+        };
 
-        result.push({
+        activeList.push({
           id: ut.taskId,
           title: matchingTask?.title || 'Active Opportunity',
           reward: matchingTask?.rewardAmount ?? 0,
@@ -334,11 +372,13 @@ export const Marketplace: React.FC = () => {
           statusBadgeClass: statusMeta.badgeClass,
           opportunity: matchingOpp,
         });
-        if (result.length >= 3) break;
       }
     }
 
-    return result;
+    return {
+      items: activeList.slice(0, 3),
+      totalCount: activeList.length,
+    };
   }, [userTasks, tasks, engineOpportunities]);
 
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedDifficulty !== 'all' || minRewardFilter > 0;
@@ -382,21 +422,29 @@ export const Marketplace: React.FC = () => {
       )}
 
       {/* ─── SECTION 1: Continue Where You Left Off ──────────────────────────── */}
-      {activeTasks.length > 0 && (
+      {activeTaskSummary.totalCount > 0 && (
         <section className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
               <Compass size={15} />
               <span>Continue Where You Left Off</span>
             </div>
-            <span className="text-[10px] font-mono text-text-tertiary">{activeTasks.length} active</span>
+            <span className="text-[10px] font-mono text-text-tertiary">{activeTaskSummary.totalCount} active</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {activeTasks.map(t => (
+            {activeTaskSummary.items.map(t => (
               <div
                 key={t.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedOpportunity(t.opportunity)}
-                className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between shadow-xs transition-all group"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedOpportunity(t.opportunity);
+                  }
+                }}
+                className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between shadow-xs transition-all group focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <div className="min-w-0 pr-2">
                   <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors truncate">{t.title}</p>
@@ -476,13 +524,7 @@ export const Marketplace: React.FC = () => {
 
             {hasActiveFilters && (
               <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('all');
-                  setSelectedDifficulty('all');
-                  setMinRewardFilter(0);
-                  setSortBy('recommended');
-                }}
+                onClick={handleResetFilters}
                 className="px-2.5 py-2 text-[11px] font-semibold text-danger hover:underline shrink-0"
               >
                 Reset
@@ -537,11 +579,7 @@ export const Marketplace: React.FC = () => {
               <p className="text-xs font-semibold text-text-primary">No earning opportunities are available right now.</p>
               <p className="text-[11px] text-text-tertiary">Try resetting your search query or selecting a broader category.</p>
               <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('all');
-                  setSelectedDifficulty('all');
-                }}
+                onClick={handleResetFilters}
                 className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all"
               >
                 Reset Filters
@@ -631,7 +669,7 @@ export const Marketplace: React.FC = () => {
             {providers.map(provider => {
               const initial = provider.name ? provider.name[0].toUpperCase() : 'P';
               const isOffline = provider.status === 'offline' || provider.status === 'maintenance';
-              const oppCount = engineOpportunities.filter(o => o.providerId === provider.id).length || 12;
+              const oppCount = providerOppCounts.get(provider.id) || 0;
 
               return (
                 <div
@@ -649,12 +687,12 @@ export const Marketplace: React.FC = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-xs font-bold text-text-primary truncate">{provider.name}</h3>
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 bg-success/10 border border-success/20 text-success rounded">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-success/10 border border-success/20 text-success rounded">
                           Verified
                         </span>
                       </div>
                       <p className="text-[10px] text-text-tertiary font-mono mt-0.5">
-                        {oppCount}+ Available Opportunities
+                        {oppCount > 0 ? `${oppCount} Available ${oppCount === 1 ? 'Opportunity' : 'Opportunities'}` : 'Partner Gateway Active'}
                       </p>
                     </div>
                   </div>
@@ -972,6 +1010,14 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
             >
               <Clock size={16} />
               <span>Under Verification</span>
+            </button>
+          ) : !canonicalStatus.isActionable ? (
+            <button
+              disabled
+              className="w-full py-3 px-4 rounded-xl bg-surface-bright border border-border text-text-tertiary text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <Lock size={16} />
+              <span>{canonicalStatus.label}</span>
             </button>
           ) : (
             <button

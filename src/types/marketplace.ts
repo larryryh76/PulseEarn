@@ -28,17 +28,20 @@ export type OpportunityDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 export type OpportunityStatus =
   | 'available'
   | 'started'
+  | 'in_progress'
   | 'submitted'
   | 'pending'
   | 'awaiting_verification'
   | 'verified'
+  | 'reward_issued'
   | 'completed'
   | 'claimed'
   | 'rejected'
   | 'expired'
   | 'cancelled'
   | 'cooldown'
-  | 'locked';
+  | 'locked'
+  | 'archived';
 
 export type OpportunitySource = 'internal' | 'provider';
 

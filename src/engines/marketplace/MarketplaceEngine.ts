@@ -18,10 +18,10 @@ import {
   MarketplaceAdminConfig,
 } from '../../types/marketplace';
 import {
-  normalizeTaskBatch,
   normalizeCampaign,
   mergeOpportunities,
 } from './OpportunityNormalizer';
+import { aggregateOpportunities } from './OpportunityAggregator';
 import { MarketplaceEligibilityEngine } from './MarketplaceEligibilityEngine';
 import { generateAllSections } from './RecommendationEngine';
 
@@ -77,13 +77,13 @@ export function initializeMarketplace(
   campaigns: Campaign[],
   userTasks: Record<string, UserTask>
 ): void {
-  const normalized = normalizeTaskBatch(tasks, campaigns, userTasks);
-  
-  // Merge with existing provider opportunities
-  const providerOpportunities = Array.from(state.providers.values())
-    .flatMap(p => p.opportunities);
-  
-  state.opportunities = mergeOpportunities(normalized, providerOpportunities);
+  const providerInventories = Array.from(state.providers.values());
+  state.opportunities = aggregateOpportunities({
+    tasks,
+    campaigns,
+    userTasks,
+    providerInventories,
+  });
   state.lastRefresh = new Date();
   state.isInitialized = true;
 }
@@ -99,11 +99,13 @@ export function updateUserContext(
   userData: UserData | null = null,
   profile?: MarketplaceUserProfile
 ): void {
-  const normalized = normalizeTaskBatch(tasks, campaigns, userTasks);
-  const providerOpportunities = Array.from(state.providers.values())
-    .flatMap(p => p.opportunities);
-  
-  const merged = mergeOpportunities(normalized, providerOpportunities);
+  const providerInventories = Array.from(state.providers.values());
+  const merged = aggregateOpportunities({
+    tasks,
+    campaigns,
+    userTasks,
+    providerInventories,
+  });
 
   // Evaluate eligibility for all opportunities if userData is present
   state.opportunities = evaluateUserOpportunities(merged, userData, userTasks, profile);

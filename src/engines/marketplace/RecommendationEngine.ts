@@ -158,10 +158,17 @@ function calculatePersonalizationScore(
  */
 export function generateContinueSection(
   allOpportunities: MarketplaceOpportunity[],
-  pendingCount: number = 3
+  pendingCount: number = 6
 ): RecommendationSection | null {
   const continueOpps = allOpportunities
-    .filter(o => o.status === 'pending' || o.status === 'cooldown')
+    .filter(o => 
+      o.status === 'started' || 
+      o.status === 'in_progress' || 
+      o.status === 'pending' || 
+      o.status === 'submitted' || 
+      o.status === 'awaiting_verification' || 
+      o.status === 'cooldown'
+    )
     .slice(0, pendingCount);
 
   if (continueOpps.length === 0) return null;

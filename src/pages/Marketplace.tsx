@@ -124,7 +124,7 @@ export const Marketplace: React.FC = () => {
             providerName: p.name,
             opportunities: existingOpps,
             lastSyncedAt: new Date(),
-            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' ? 'offline' : 'connected',
+            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' || p.status === 'maintenance' ? 'offline' : 'connected',
           });
         });
         setEngineVersion(v => v + 1);
@@ -215,10 +215,12 @@ export const Marketplace: React.FC = () => {
       if (match) {
         handleLaunchProvider(match);
       } else {
-        toast.success(`Initiating opportunity: ${opp.title}`);
+        toast.error(`Provider channel for ${opp.title} is currently unavailable.`);
       }
+    } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
+      toast.success(`Processing claim request for ${opp.title}...`);
     } else {
-      toast.success(`Opening opportunity: ${opp.title}`);
+      toast.error(`Unable to launch ${opp.title}. No valid action target configured.`);
     }
   };
 
@@ -253,9 +255,9 @@ export const Marketplace: React.FC = () => {
         result.push({
           id: ut.taskId,
           title: matchingTask?.title || 'Active Opportunity',
-          reward: matchingTask?.rewardAmount ?? 100,
+          reward: matchingTask?.rewardAmount ?? 0,
           status: ut.status,
-          xp: matchingTask?.xpReward ?? 25,
+          xp: matchingTask?.xpReward ?? 0,
         });
         if (result.length >= 3) break;
       }
@@ -775,8 +777,26 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const matchingProvider = providers.find(p => p.id === opportunity.providerId);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  const providerStatus = matchingProvider?.status || 'active';
+  const isChannelHealthy = providerStatus === 'active' && opportunity.status === 'available';
+
   return (
-    <div className="fixed inset-0 z-[200] flex justify-end">
+    <div className="fixed inset-0 z-[200] flex justify-end" role="dialog" aria-modal="true" aria-label={opportunity.title}>
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -805,7 +825,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
               <h2 className="text-sm font-bold text-text-primary uppercase tracking-tight">{opportunity.title}</h2>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-surface-bright rounded-xl text-text-tertiary transition-colors">
+          <button onClick={onClose} aria-label="Close details" className="p-2 hover:bg-surface-bright rounded-xl text-text-tertiary transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -875,7 +895,10 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
               Sponsor / Campaign: <span className="text-text-primary font-bold">{opportunity.providerName || 'PulseEarn Campaign'}</span>
             </p>
             <p className="text-[11px] text-text-tertiary leading-relaxed">
-              Completions logged: {opportunity.engagement.totalCompletions || 0} claims. Verified by automated callback validation.
+              Completions logged: {opportunity.engagement.totalCompletions || 0} claims.{' '}
+              {opportunity.metadata.verificationType === 'automated' || opportunity.metadata.verificationType === 'api' || opportunity.metadata.verificationType === 'external_callback'
+                ? 'Verified by automated callback validation.'
+                : `Verification type: ${opportunity.metadata.verificationType}.`}
             </p>
           </section>
 
@@ -895,9 +918,24 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-text-tertiary">Integrity Status:</span>
-              <span className="font-bold text-success flex items-center gap-1">
+              <span className={cn(
+                'font-bold flex items-center gap-1',
+                isChannelHealthy
+                  ? 'text-success'
+                  : providerStatus === 'degraded'
+                  ? 'text-warning'
+                  : 'text-danger'
+              )}>
                 <CheckCircle2 size={12} />
-                <span>Verified & Active</span>
+                <span>
+                  {isChannelHealthy
+                    ? 'Verified & Active'
+                    : providerStatus === 'degraded'
+                    ? 'Degraded Gateway Performance'
+                    : providerStatus === 'maintenance' || providerStatus === 'offline'
+                    ? 'Gateway Maintenance'
+                    : 'Suspended / Unavailable'}
+                </span>
               </span>
             </div>
           </section>

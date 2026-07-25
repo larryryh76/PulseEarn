@@ -216,6 +216,12 @@ export const Marketplace: React.FC = () => {
       return;
     }
 
+    // Pre-open window synchronously to preserve user gesture when fetching launch URL asynchronously
+    let targetWindow: Window | null = null;
+    if (!provider.launchUrl && currentUser) {
+      targetWindow = window.open('about:blank', '_blank');
+    }
+
     try {
       let url = provider.launchUrl;
 
@@ -238,18 +244,27 @@ export const Marketplace: React.FC = () => {
         try {
           const parsed = new URL(url);
           if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            if (targetWindow) targetWindow.close();
             toast.error(`Invalid link protocol (${parsed.protocol}) for this opportunity.`);
             return;
           }
-          window.open(parsed.href, '_blank', 'noopener,noreferrer');
+
+          if (targetWindow) {
+            targetWindow.location.href = parsed.href;
+          } else {
+            window.open(parsed.href, '_blank', 'noopener,noreferrer');
+          }
           toast.success(`Launching opportunity...`);
         } catch {
+          if (targetWindow) targetWindow.close();
           toast.error(`Invalid launch URL for this opportunity.`);
         }
       } else {
+        if (targetWindow) targetWindow.close();
         toast.error(`Unable to launch opportunity. Please try again later.`);
       }
     } catch (err) {
+      if (targetWindow) targetWindow.close();
       console.error('[Marketplace] Launch error:', err);
       toast.error(`Failed to launch opportunity channel.`);
     }

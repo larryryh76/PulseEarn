@@ -61,6 +61,7 @@ export const Marketplace: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [engineVersion, setEngineVersion] = useState<number>(0);
 
   // ─── Filter & Search State ──────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -90,6 +91,7 @@ export const Marketplace: React.FC = () => {
     if (tasks.length > 0 || campaigns.length > 0) {
       initializeMarketplace(tasks, campaigns, userTasks);
       updateUserContext(tasks, campaigns, userTasks, userData);
+      setEngineVersion(v => v + 1);
     }
   }, [tasks, campaigns, userTasks, userData]);
 
@@ -112,16 +114,20 @@ export const Marketplace: React.FC = () => {
       if (res.success && Array.isArray(res.providers)) {
         setProviders(res.providers);
 
-        // Feed provider inventory into Marketplace Engine
+        // Feed provider inventory into Marketplace Engine while preserving existing opportunities
+        const currentEngineState = getMarketplaceState();
         res.providers.forEach((p: Provider) => {
+          const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
+          const existingOpps = match?.opportunities || [];
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,
-            opportunities: [],
+            opportunities: existingOpps,
             lastSyncedAt: new Date(),
             connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' ? 'offline' : 'connected',
           });
         });
+        setEngineVersion(v => v + 1);
       } else {
         setProviders([]);
       }
@@ -195,6 +201,10 @@ export const Marketplace: React.FC = () => {
     if (opp.action.url) {
       try {
         const parsed = new URL(opp.action.url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          toast.error(`Invalid link protocol (${parsed.protocol}) for this opportunity.`);
+          return;
+        }
         window.open(parsed.href, '_blank', 'noopener,noreferrer');
         toast.success(`Launching ${opp.title}...`);
       } catch {
@@ -226,11 +236,11 @@ export const Marketplace: React.FC = () => {
       sortBy: sortBy === 'recommended' ? 'recommendation_score' : sortBy,
       limit: 100,
     });
-  }, [searchQuery, selectedCategory, selectedDifficulty, minRewardFilter, sortBy, engineOpportunities]);
+  }, [searchQuery, selectedCategory, selectedDifficulty, minRewardFilter, sortBy, engineOpportunities, engineVersion]);
 
   const dynamicSections = useMemo(() => {
     return generateAllSections(engineOpportunities, userData, activities, taskHistory);
-  }, [engineOpportunities, userData, activities, taskHistory]);
+  }, [engineOpportunities, userData, activities, taskHistory, engineVersion]);
 
   // ─── Active Continuity Journey (Level 1 Progress) ───────────────────────────
   const activeTasks = useMemo(() => {
@@ -245,7 +255,7 @@ export const Marketplace: React.FC = () => {
           title: matchingTask?.title || 'Active Opportunity',
           reward: matchingTask?.rewardAmount ?? 100,
           status: ut.status,
-          xp: matchingTask?.xpReward || 25,
+          xp: matchingTask?.xpReward ?? 25,
         });
         if (result.length >= 3) break;
       }

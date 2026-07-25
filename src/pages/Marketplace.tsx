@@ -269,35 +269,36 @@ export const Marketplace: React.FC = () => {
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedDifficulty !== 'all' || minRewardFilter > 0;
 
   return (
-    <div className="min-h-screen bg-background text-text-primary px-4 py-8 md:px-8 max-w-7xl mx-auto space-y-10">
+    <div className="min-h-screen bg-background text-text-primary px-4 pt-24 pb-16 md:px-8 max-w-7xl mx-auto space-y-8">
       
-      {/* ─── Marketplace Header ───────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary flex items-center gap-1">
+      {/* ─── Marketplace Header (Integrated Shell View) ────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-border pb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary flex items-center gap-1 font-mono">
               <Sparkles size={11} />
               PulseEarn Ecosystem
             </span>
-            <span className={cn('text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border', progressionTier.color)}>
+            <span className={cn('text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border font-mono', progressionTier.color)}>
               {progressionTier.name} ({progressionTier.badge})
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary tracking-tight">
             Marketplace
           </h1>
-          <p className="text-xs text-text-tertiary mt-1">
-            Discover verified earning opportunities and tailored channels organized by yield, speed, and preference.
+          <p className="text-xs md:text-sm text-text-secondary font-medium leading-relaxed max-w-2xl">
+            Discover verified earning opportunities and partner channels organized by yield, speed, and trust.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={fetchProviders}
             disabled={loading}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary transition-all disabled:opacity-50 shadow-sm"
+            aria-label="Refresh opportunities"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 shadow-xs"
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
+            <RefreshCw size={13} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
             <span>Refresh Opportunities</span>
           </button>
         </div>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Zap, Compass, Filter, Search, RefreshCw,
   ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Store, Lock
+  X, Layers, Activity, Info, Lock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
@@ -123,7 +123,6 @@ export const Marketplace: React.FC = () => {
 
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<number>(0);
 
@@ -213,11 +212,15 @@ export const Marketplace: React.FC = () => {
   // ─── Launch Partner Channel ─────────────────────────────────────────────────
   const handleLaunchProvider = async (provider: Provider) => {
     if (provider.status === 'offline' || provider.status === 'maintenance') {
-      toast.error(`${provider.name} is currently undergoing maintenance.`);
+      toast.error(`Partner channel for this opportunity is currently undergoing maintenance.`);
       return;
     }
 
-    setLaunchingId(provider.id);
+    // Pre-open window synchronously to preserve user gesture when fetching launch URL asynchronously
+    let targetWindow: Window | null = null;
+    if (!provider.launchUrl && currentUser) {
+      targetWindow = window.open('about:blank', '_blank');
+    }
 
     try {
       let url = provider.launchUrl;
@@ -241,22 +244,29 @@ export const Marketplace: React.FC = () => {
         try {
           const parsed = new URL(url);
           if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            toast.error(`Invalid link protocol (${parsed.protocol}) for ${provider.name}.`);
+            if (targetWindow) targetWindow.close();
+            toast.error(`Invalid link protocol (${parsed.protocol}) for this opportunity.`);
             return;
           }
-          window.open(parsed.href, '_blank', 'noopener,noreferrer');
-          toast.success(`Opening ${provider.name}...`);
+
+          if (targetWindow) {
+            targetWindow.location.href = parsed.href;
+          } else {
+            window.open(parsed.href, '_blank', 'noopener,noreferrer');
+          }
+          toast.success(`Launching opportunity...`);
         } catch {
-          toast.error(`Invalid launch URL for ${provider.name}.`);
+          if (targetWindow) targetWindow.close();
+          toast.error(`Invalid launch URL for this opportunity.`);
         }
       } else {
-        toast.error(`Unable to launch ${provider.name}. Please try again later.`);
+        if (targetWindow) targetWindow.close();
+        toast.error(`Unable to launch opportunity. Please try again later.`);
       }
     } catch (err) {
+      if (targetWindow) targetWindow.close();
       console.error('[Marketplace] Launch error:', err);
-      toast.error(`Failed to launch ${provider.name}.`);
-    } finally {
-      setLaunchingId(null);
+      toast.error(`Failed to launch opportunity channel.`);
     }
   };
 
@@ -299,16 +309,6 @@ export const Marketplace: React.FC = () => {
 
   // ─── Dynamic Marketplace Engine State & Search Derived Results ──────────────
   const { opportunities: engineOpportunities } = getMarketplaceState();
-
-  const providerOppCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    engineOpportunities.forEach(o => {
-      if (o.providerId) {
-        counts.set(o.providerId, (counts.get(o.providerId) || 0) + 1);
-      }
-    });
-    return counts;
-  }, [engineOpportunities]);
 
   const searchResults = useMemo(() => {
     return search({
@@ -638,86 +638,7 @@ export const Marketplace: React.FC = () => {
         </div>
       )}
 
-      {/* ─── SECTION 5: Ecosystem Partners (Background Infrastructure) ──────── */}
-      <section className="space-y-4 pt-4 border-t border-border">
-        <div>
-          <h2 className="text-sm md:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
-            <Zap size={16} className="text-primary" />
-            <span>Ecosystem Partners</span>
-          </h2>
-          <p className="text-[11px] text-text-tertiary mt-0.5">
-            Verified partners supplying opportunities to the PulseEarn ecosystem.
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="p-4 rounded-2xl border border-border bg-surface animate-pulse space-y-3">
-                <div className="h-8 bg-surface-bright rounded-xl w-1/2" />
-                <div className="h-4 bg-surface-bright rounded w-3/4" />
-              </div>
-            ))}
-          </div>
-        ) : providers.length === 0 ? (
-          <div className="p-6 rounded-2xl border border-border bg-surface text-center space-y-2">
-            <Store size={24} className="text-text-tertiary mx-auto" />
-            <p className="text-xs font-semibold text-text-primary">All partner integrations active in background.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {providers.map(provider => {
-              const initial = provider.name ? provider.name[0].toUpperCase() : 'P';
-              const isOffline = provider.status === 'offline' || provider.status === 'maintenance';
-              const oppCount = providerOppCounts.get(provider.id) || 0;
-
-              return (
-                <div
-                  key={provider.id}
-                  className="p-4 rounded-2xl border border-border bg-surface flex items-center justify-between gap-3 shadow-xs"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                      {provider.logo ? (
-                        <img src={provider.logo} alt={provider.name} className="w-5 h-5 object-contain" />
-                      ) : (
-                        <span className="text-xs font-black text-primary">{initial}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="text-xs font-bold text-text-primary truncate">{provider.name}</h3>
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-success/10 border border-success/20 text-success rounded">
-                          Verified
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-text-tertiary font-mono mt-0.5">
-                        {oppCount > 0 ? `${oppCount} Available ${oppCount === 1 ? 'Opportunity' : 'Opportunities'}` : 'Partner Gateway Active'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleLaunchProvider(provider)}
-                    disabled={launchingId === provider.id || isOffline}
-                    className={cn(
-                      'px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1',
-                      isOffline
-                        ? 'bg-surface-bright border border-border text-text-tertiary cursor-not-allowed'
-                        : 'bg-surface-bright hover:bg-primary hover:text-white border border-border text-text-secondary'
-                    )}
-                  >
-                    <span>{isOffline ? 'Maintenance' : 'Explore'}</span>
-                    {!isOffline && <ArrowUpRight size={12} />}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* ─── SECTION 6: Recently Verified Activity ──────────────────────────── */}
+      {/* ─── SECTION 5: Recently Verified Activity ──────────────────────────── */}
       {unifiedHistory.length > 0 && (
         <section className="space-y-3 pt-4 border-t border-border">
           <div className="flex items-center justify-between">
@@ -943,10 +864,15 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
 
           {/* Key Overview Metrics */}
           <section className="space-y-3 p-4 rounded-2xl bg-surface-bright/40 border border-border">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-              <Layers size={12} />
-              <span>Overview & Specs</span>
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+                <Layers size={12} />
+                <span>Overview & Specs</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-success/10 border border-success/20 text-success font-mono">
+                {opportunity.source === 'provider' ? 'Powered by trusted partner' : 'Verified by PulseEarn'}
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2.5 rounded-xl bg-surface border border-border">

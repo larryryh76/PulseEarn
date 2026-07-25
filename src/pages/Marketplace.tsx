@@ -55,18 +55,23 @@ export const Marketplace: React.FC = () => {
 
   // ─── Active Continuity Journey ──────────────────────────────────────────────
   const activeTasks = useMemo(() => {
-    return Object.values(userTasks)
-      .filter(ut => ut.status === 'in_progress' || ut.status === 'pending')
-      .map(ut => {
-        const matchingTask = tasks.find(t => t.id === ut.taskId);
-        return {
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
+    const result = [];
+
+    for (const ut of Object.values(userTasks)) {
+      if (ut.status === 'in_progress' || ut.status === 'pending') {
+        const matchingTask = taskMap.get(ut.taskId);
+        result.push({
           id: ut.taskId,
           title: matchingTask?.title || 'Active Opportunity',
-          reward: matchingTask?.rewardAmount || 100,
+          reward: matchingTask?.rewardAmount ?? 100,
           status: ut.status,
-        };
-      })
-      .slice(0, 3);
+        });
+        if (result.length >= 3) break;
+      }
+    }
+
+    return result;
   }, [userTasks, tasks]);
 
   // ─── Fetch Enabled Providers from Backend (Firestore Source of Truth) ──────
@@ -196,7 +201,7 @@ export const Marketplace: React.FC = () => {
               <Compass size={15} />
               <span>Continue Your Earning Journey</span>
             </div>
-            <span className="text-[10px] font-mono text-text-tertiary">{activeTasks.length} in progress</span>
+            <span className="text-[10px] font-mono text-text-tertiary">{activeTasks.length} active</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {activeTasks.map(t => (

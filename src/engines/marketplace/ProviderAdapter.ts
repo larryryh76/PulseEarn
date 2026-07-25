@@ -20,7 +20,7 @@ export interface ProviderAdapter {
   executionType: ProviderExecutionType;
 
   /** Initialize the provider SDK or configuration */
-  initialize(config?: Record<string, any>): Promise<boolean>;
+  initialize(config?: Record<string, unknown>): Promise<boolean>;
 
   /** Authenticate the user session with the provider */
   authenticate(userId: string): Promise<boolean>;
@@ -32,7 +32,7 @@ export interface ProviderAdapter {
   buildLaunch(opportunity: MarketplaceOpportunity, userId: string): Promise<LaunchResult>;
 
   /** Verify incoming webhook / postback callback signatures */
-  verifyCallback(payload: Record<string, any>, signature: string): Promise<boolean>;
+  verifyCallback(payload: Record<string, unknown>, signature: string): Promise<boolean>;
 
   /** Normalize raw provider reward into standard points & XP */
   normalizeReward(rawAmount: number): { points: number; xp: number };
@@ -41,7 +41,7 @@ export interface ProviderAdapter {
   normalizeStatus(rawStatus: string): OpportunityStatus;
 
   /** Report task completion or proof submission */
-  reportCompletion(opportunityId: string, userId: string, proof?: any): Promise<boolean>;
+  reportCompletion(opportunityId: string, userId: string, proof?: unknown): Promise<boolean>;
 }
 
 // ─── Base Adapter Class ──────────────────────────────────────────────────────
@@ -53,13 +53,16 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 
   protected initialized: boolean = false;
 
-  async initialize(_config?: Record<string, any>): Promise<boolean> {
+  async initialize(_config?: Record<string, unknown>): Promise<boolean> {
     this.initialized = true;
     return true;
   }
 
   async authenticate(userId: string): Promise<boolean> {
-    return Boolean(userId);
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      return false;
+    }
+    return true;
   }
 
   abstract fetchOpportunities(_userId?: string): Promise<MarketplaceOpportunity[]>;
@@ -75,8 +78,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     return { success: false, error: 'Launch URL not configured for opportunity' };
   }
 
-  async verifyCallback(payload: Record<string, any>, signature: string): Promise<boolean> {
-    return Boolean(payload && signature);
+  async verifyCallback(payload: Record<string, unknown>, signature: string): Promise<boolean> {
+    if (!payload || !signature || typeof signature !== 'string' || signature.trim() === '') {
+      return false;
+    }
+    // Fail-closed default; concrete provider adapters must validate signatures against credentials
+    return false;
   }
 
   normalizeReward(rawAmount: number): { points: number; xp: number } {
@@ -86,33 +93,51 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
   }
 
   normalizeStatus(rawStatus: string): OpportunityStatus {
-    const status = (rawStatus || '').toLowerCase();
+    const status = (rawStatus || '').toLowerCase().trim();
+
+    // 1. Preserve canonical lifecycle statuses directly
+    const validStatuses: Set<string> = new Set([
+      'available',
+      'started',
+      'in_progress',
+      'submitted',
+      'pending',
+      'awaiting_verification',
+      'verified',
+      'reward_issued',
+      'completed',
+      'claimed',
+      'rejected',
+      'cancelled',
+      'cooldown',
+      'locked',
+      'archived',
+    ]);
+
+    if (validStatuses.has(status)) {
+      return status as OpportunityStatus;
+    }
+
+    // 2. Map provider-specific raw status aliases
     switch (status) {
-      case 'available':
       case 'active':
       case 'open':
+      case 'unlocked':
         return 'available';
-      case 'started':
       case 'initiated':
         return 'started';
-      case 'in_progress':
       case 'progressing':
+      case 'ongoing':
         return 'in_progress';
-      case 'pending':
       case 'review':
       case 'awaiting':
+      case 'under_review':
         return 'pending';
-      case 'verified':
       case 'approved':
         return 'verified';
-      case 'reward_issued':
       case 'credited':
       case 'paid':
         return 'reward_issued';
-      case 'completed':
-      case 'claimed':
-        return 'completed';
-      case 'archived':
       case 'expired':
         return 'archived';
       default:
@@ -120,8 +145,9 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     }
   }
 
-  async reportCompletion(_opportunityId: string, _userId: string, _proof?: any): Promise<boolean> {
-    return true;
+  async reportCompletion(_opportunityId: string, _userId: string, _proof?: unknown): Promise<boolean> {
+    // Fail-closed default; must be implemented by concrete adapters requiring verification
+    return false;
   }
 }
 
@@ -213,7 +239,7 @@ class ProviderAdapterRegistryClass {
   }
 
   get(providerId: string): ProviderAdapter | undefined {
-    return this.adapters.get(providerId) || this.adapters.get('internal');
+    return this.adapters.get(providerId);
   }
 
   getAll(): ProviderAdapter[] {

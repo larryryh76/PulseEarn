@@ -656,7 +656,7 @@ export function generateAllSections(
   const sectionMap: Record<string, () => RecommendationSection | null> = {
     featured: () => generateFeaturedSection(activeOpportunities, 4),
     personalized: () => generateRecommendedSection(activeOpportunities, profile, 8),
-    continue: () => generateContinueSection(activeOpportunities, 3),
+    continue: () => generateContinueSection(activeOpportunities, 6),
     daily: () => generateDailySection(activeOpportunities, 8),
     seasonal: () => generateLimitedCampaignsSection(activeOpportunities, 6, 'seasonal', 'Seasonal Campaigns', 'seasonal'),
     limited_campaigns: () => generateLimitedCampaignsSection(activeOpportunities, 6, 'limited-campaigns', 'Limited-Time Campaigns', 'limited_campaigns'),

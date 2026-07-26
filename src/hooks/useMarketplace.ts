@@ -35,6 +35,7 @@ import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 import { normalizeProviderOffer } from '../engines/marketplace/OpportunityNormalizer';
+import { validateExternalUrl } from '../utils/security';
 
 // ─── Hook Interface ────────────────────────────────────────────────────────────
 
@@ -141,9 +142,9 @@ export function useMarketplace(): UseMarketplaceReturn {
   useEffect(() => {
     if (!currentUser) return;
     
-    updateUserContext(tasks, campaigns, userTasks);
+    updateUserContext(tasks, campaigns, userTasks, userData);
     setAllOpportunities(getAllOpportunities());
-  }, [userTasks, tasksLoading]);
+  }, [userTasks, tasksLoading, userData]);
 
   // Fetch provider inventory
   const fetchProviderInventory = useCallback(async () => {
@@ -234,9 +235,9 @@ export function useMarketplace(): UseMarketplaceReturn {
 
   // Actions
   const refresh = useCallback(async () => {
-    updateUserContext(tasks, campaigns, userTasks);
+    updateUserContext(tasks, campaigns, userTasks, userData);
     await fetchProviderInventory();
-  }, [tasks, campaigns, userTasks, fetchProviderInventory]);
+  }, [tasks, campaigns, userTasks, userData, fetchProviderInventory]);
 
   const openOpportunity = useCallback(async (opportunity: MarketplaceOpportunity, skipRedirect = false) => {
     if (opportunity.source === 'provider' && opportunity.action.url) {
@@ -255,13 +256,14 @@ export function useMarketplace(): UseMarketplaceReturn {
         // Non-critical, don't block opening
       }
       
-      if (!skipRedirect && opportunity.action.url && /^https?:\/\//i.test(opportunity.action.url)) {
-        // Open the provider URL
-        window.open(opportunity.action.url, '_blank', 'noopener,noreferrer');
+      if (!skipRedirect && opportunity.action.url) {
+        const val = validateExternalUrl(opportunity.action.url);
+        if (val.valid && val.url) {
+          window.open(val.url, '_blank', 'noopener,noreferrer');
+        }
       }
     } else if (opportunity.action.actionType === 'claim') {
       // Handle internal claim flow
-      // This would trigger the claim modal or claim action
       console.log('Claim opportunity:', opportunity.id);
     }
   }, [currentUser]);

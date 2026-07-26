@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { safeFetch } from '../utils/api';
+import { validateExternalUrl } from '../utils/security';
 import { cn } from '../utils';
 import toast from 'react-hot-toast';
 
@@ -245,26 +246,21 @@ const Offerwalls: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.success && res.launchUrl) {
-        try {
-          const parsed = new URL(res.launchUrl);
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            if (newWindow && !newWindow.closed) newWindow.close();
-            toast.error(`Invalid URL protocol (${parsed.protocol}) for ${provider.name}`, { id: resolveToast });
-            return;
-          }
-          toast.dismiss(resolveToast);
-          if (res.embeddable) {
-            setActiveProvider({ ...provider, launchUrl: parsed.href, embeddable: true });
-          } else {
-            if (newWindow && !newWindow.closed) {
-              newWindow.location.href = parsed.href;
-            } else {
-              window.open(parsed.href, '_blank', 'noopener,noreferrer');
-            }
-          }
-        } catch {
+        const val = validateExternalUrl(res.launchUrl);
+        if (!val.valid || !val.url) {
           if (newWindow && !newWindow.closed) newWindow.close();
-          toast.error('Invalid launch URL generated', { id: resolveToast });
+          toast.error(val.error || `Invalid URL for ${provider.name}`, { id: resolveToast });
+          return;
+        }
+        toast.dismiss(resolveToast);
+        if (res.embeddable) {
+          setActiveProvider({ ...provider, launchUrl: val.url, embeddable: true });
+        } else {
+          if (newWindow && !newWindow.closed) {
+            newWindow.location.href = val.url;
+          } else {
+            window.open(val.url, '_blank', 'noopener,noreferrer');
+          }
         }
       } else {
         // Close the blank window if launch failed

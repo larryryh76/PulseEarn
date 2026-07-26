@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, TaskClaim } from '../types';
 import { cn } from '../utils';
+import { validateExternalUrl } from '../utils/security';
 import Button from './ui/Button';
 
 interface TaskDetailDrawerProps {
@@ -113,20 +114,24 @@ const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                       "{task.instructions || 'Follow the steps below to complete this task and earn your reward.'}"
                    </p>
 
-                   {task.actionUrl && !isCompleted && !isPending && (
-                      <a
-                        href={task.actionUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between bg-primary text-text-primary p-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/10 group"
-                      >
-                         <div className="flex items-center gap-3">
-                            <ExternalLink size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-[0.1em] italic">Open Task URL</span>
-                         </div>
-                         <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                      </a>
-                   )}
+                   {task.actionUrl && !isCompleted && !isPending && (() => {
+                      const val = validateExternalUrl(task.actionUrl);
+                      if (!val.valid || !val.url) return null;
+                      return (
+                        <a
+                          href={val.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between bg-primary text-text-primary p-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/10 group"
+                        >
+                           <div className="flex items-center gap-3">
+                              <ExternalLink size={16} />
+                              <span className="text-[10px] font-black uppercase tracking-[0.1em] italic">Open Task URL</span>
+                           </div>
+                           <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                        </a>
+                      );
+                   })()}
                 </div>
               </section>
 

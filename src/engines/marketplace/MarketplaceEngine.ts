@@ -164,7 +164,7 @@ export function updateProviderInventory(inventory: ProviderInventory): void {
  */
 function getAllProviderOpportunities(): MarketplaceOpportunity[] {
   return Array.from(state.providers.values())
-    .filter(p => p.connectionStatus === 'connected')
+    .filter(p => p.connectionStatus !== 'offline')
     .flatMap(p => p.opportunities);
 }
 

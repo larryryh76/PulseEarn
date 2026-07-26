@@ -21,3 +21,6 @@ export function requiresProofText(verificationType?: string): boolean {
   const norm = verificationType.toLowerCase();
   return ['manual', 'proof', 'screenshot', 'admin_approval'].includes(norm);
 }
+
+export { validateExternalUrl, type UrlValidationResult } from './security';
+

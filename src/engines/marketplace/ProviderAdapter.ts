@@ -408,13 +408,17 @@ class ProviderAdapterRegistryClass {
   /**
    * Update provider health metrics and recalculate tier dynamically.
    * Called when provider inventory is synchronized or health data arrives.
+   * Merges incoming metrics with existing data to preserve known fields.
    */
   updateHealthMetrics(providerId: string, metrics: Partial<ProviderHealthMetrics>): void {
     const key = providerId.toLowerCase();
-    this.healthMetrics.set(key, metrics);
+    // Merge new metrics with existing ones to avoid data loss on partial updates
+    const existing = this.healthMetrics.get(key) || {};
+    const merged = { ...existing, ...metrics };
+    this.healthMetrics.set(key, merged);
     
-    // Recalculate tier based on new metrics
-    const newTier = calculateProviderTier(metrics);
+    // Recalculate tier based on complete merged metrics
+    const newTier = calculateProviderTier(merged);
     this.tiers.set(key, newTier);
   }
 

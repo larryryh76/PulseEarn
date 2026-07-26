@@ -31,7 +31,7 @@ import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 
-import { launchOpportunity, trackLaunch } from '../engines/marketplace/LaunchEngine';
+
 
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
 export function getCanonicalStatus(status: string | undefined): {
@@ -187,33 +187,14 @@ export const Marketplace: React.FC = () => {
 
 
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
-  const handleOpportunityAction = async (opp: MarketplaceOpportunity) => {
-    if (!currentUser) {
-      toast.error('Please sign in to launch opportunities.');
-      return;
-    }
-
-    try {
-      // Delegate all launch logic to LaunchEngine - handles URL validation, provider capabilities, etc.
-      const result = await launchOpportunity(opp, currentUser.uid);
-      
-      if (!result.success) {
-        toast.error(result.error || `Unable to launch ${opp.title}.`);
-        return;
-      }
-
-      // Track the launch event
-      await trackLaunch(opp, currentUser.uid, result.trackingId);
-
-      // Provide user feedback based on launch type
-      if (result.url) {
-        toast.success(`Launching ${opp.title}...`);
-      } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
-        toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
-      }
-    } catch (err) {
-      console.error('[Marketplace] Launch error:', err);
-      toast.error(`Failed to launch ${opp.title}. Please try again.`);
+  const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
+    if (opp.action.url) {
+      window.open(opp.action.url, '_blank', 'noopener,noreferrer');
+      toast.success(`Launching ${opp.title}...`);
+    } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
+      toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
+    } else {
+      toast.error(`Unable to launch ${opp.title}. No valid target configured.`);
     }
   };
 

@@ -10,11 +10,17 @@
  * - Return URL handling
  * - Callback flow coordination
  * 
- * Users interact with Opportunities, never Providers directly.
+ * Capability-Driven & Security Enforced:
+ * - Uses validateExternalUrl() to reject invalid protocols (javascript:, data:, blob:)
+ * - Derives launch method from provider capabilities rather than provider name
  */
 
 import { MarketplaceOpportunity } from '../../types/marketplace';
 import { safeFetch } from '../../utils/api';
+import { validateExternalUrl, UrlValidationResult } from '../../utils/security';
+import { ProviderAdapterRegistry } from './ProviderAdapter';
+
+export { validateExternalUrl, type UrlValidationResult };
 
 // ─── Launch Result ─────────────────────────────────────────────────────────
 
@@ -31,22 +37,33 @@ export interface LaunchResult {
 export type LaunchMethod = 'inline' | 'native' | 'redirect' | 'modal';
 
 /**
- * Determine the best launch method for an opportunity.
+ * Determine the best launch method for an opportunity based on capabilities.
  */
 export function determineLaunchMethod(opportunity: MarketplaceOpportunity): LaunchMethod {
-  // Check for inline launch mode first (provider or otherwise)
-  if (opportunity.source === 'provider' && opportunity.metadata.launchMode === 'inline') {
+  if (opportunity.source === 'provider' && opportunity.providerId) {
+    const adapter = ProviderAdapterRegistry.get(opportunity.providerId);
+    const caps = adapter.getCapabilities();
+
+    if (opportunity.metadata.launchMode === 'inline' && caps.supportsEmbeddedOffers) {
+      return 'inline';
+    }
+
+    if (opportunity.action.url) {
+      return 'redirect';
+    }
+  }
+
+  // Check for inline launch mode
+  if (opportunity.metadata.launchMode === 'inline') {
     return 'inline';
   }
 
-  // If there's an external URL and it's a provider opportunity, use redirect
-  if (opportunity.source === 'provider' && opportunity.action.url) {
-    return 'redirect';
-  }
-
-  // If the opportunity has a URL but is internal, use native
-  if (opportunity.action.url && opportunity.action.actionType === 'url') {
-    return 'native';
+  // If there's an external URL, use redirect
+  if (opportunity.action.url) {
+    const val = validateExternalUrl(opportunity.action.url);
+    if (val.valid) {
+      return 'redirect';
+    }
   }
 
   // For claims and completes, use inline
@@ -59,12 +76,12 @@ export function determineLaunchMethod(opportunity: MarketplaceOpportunity): Laun
 }
 
 /**
- * Check if opportunity supports inline/embedded launch.
+ * Check if opportunity supports inline/embedded launch based on provider capabilities.
  */
 export function supportsInlineLaunch(opportunity: MarketplaceOpportunity): boolean {
-  // Tier A providers with API inventory can support inline
-  if (opportunity.source === 'provider') {
-    return opportunity.metadata.launchMode === 'inline';
+  if (opportunity.source === 'provider' && opportunity.providerId) {
+    const adapter = ProviderAdapterRegistry.get(opportunity.providerId);
+    return adapter.getCapabilities().supportsEmbeddedOffers || opportunity.metadata.launchMode === 'inline';
   }
   
   // Internal opportunities can always use inline
@@ -85,8 +102,13 @@ export async function generateLaunchUrl(
     return { success: false, error: 'No launch URL available' };
   }
 
+  const urlValidation = validateExternalUrl(opportunity.action.url);
+  if (!urlValidation.valid || !urlValidation.url) {
+    return { success: false, error: urlValidation.error || 'Security validation failed for launch URL' };
+  }
+
   try {
-    // Call the backend to generate a signed launch URL with tracking
+    // Call backend to generate signed launch URL with tracking
     const res = await safeFetch('/api/marketplace/launch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,22 +121,30 @@ export async function generateLaunchUrl(
       }),
     });
 
-    if (res.success) {
-      return {
-        success: true,
-        url: res.url,
-        trackingId: res.trackingId,
-        returnUrl: res.returnUrl,
-      };
+    if (res.success && res.url) {
+      const serverValidation = validateExternalUrl(res.url);
+      if (serverValidation.valid && serverValidation.url) {
+        return {
+          success: true,
+          url: serverValidation.url,
+          trackingId: res.trackingId,
+          returnUrl: res.returnUrl,
+        };
+      }
     }
 
-    return { success: false, error: res.error || 'Failed to generate launch URL' };
-  } catch (error) {
-    // Backend failure - return error instead of fallback
-    console.warn('[LaunchEngine] Backend launch failed:', error);
+    // If server return URL is missing or fallback is needed, use validated client URL
     return {
-      success: false,
-      error: 'Failed to generate secure launch URL. Please try again.',
+      success: true,
+      url: urlValidation.url,
+      trackingId: opportunity.action.trackingId || opportunity.id,
+    };
+  } catch (error) {
+    console.warn('[LaunchEngine] Backend launch request failed, falling back to client launch URL:', error);
+    return {
+      success: true,
+      url: urlValidation.url,
+      trackingId: opportunity.action.trackingId || opportunity.id,
     };
   }
 }
@@ -153,30 +183,38 @@ async function handleRedirectLaunch(
     return { success: false, error: 'No redirect URL available' };
   }
 
-  // Open blank window synchronously to avoid popup blockers
+  const initialVal = validateExternalUrl(opportunity.action.url);
+  if (!initialVal.valid) {
+    return { success: false, error: initialVal.error || 'Invalid redirect URL protocol' };
+  }
+
+  // Open blank window synchronously to preserve user gesture
   const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
 
   // Generate tracking URL
   const result = await generateLaunchUrl(opportunity, userId);
 
-  if (!result.success) {
-    // Close the window on failure
-    if (newWindow) {
-      newWindow.close();
-    }
+  if (!result.success || !result.url) {
+    if (newWindow) newWindow.close();
     return result;
   }
 
-  // Navigate the window to the actual URL
-  if (newWindow && result.url) {
-    newWindow.location.href = result.url;
+  const finalVal = validateExternalUrl(result.url);
+  if (!finalVal.valid || !finalVal.url) {
+    if (newWindow) newWindow.close();
+    return { success: false, error: finalVal.error || 'Invalid generated launch URL' };
+  }
+
+  // Navigate window to validated URL
+  if (newWindow) {
+    newWindow.location.href = finalVal.url;
   } else {
-    return { success: false, error: 'Failed to open window (popup blocked)' };
+    window.open(finalVal.url, '_blank', 'noopener,noreferrer');
   }
 
   return {
     success: true,
-    url: result.url,
+    url: finalVal.url,
     trackingId: result.trackingId,
   };
 }
@@ -189,12 +227,16 @@ function handleNativeLaunch(opportunity: MarketplaceOpportunity): LaunchResult {
     return { success: false, error: 'No action URL available' };
   }
 
-  // Open native URL
-  window.location.href = opportunity.action.url;
+  const val = validateExternalUrl(opportunity.action.url);
+  if (!val.valid || !val.url) {
+    return { success: false, error: val.error || 'Invalid action URL' };
+  }
+
+  window.location.href = val.url;
 
   return {
     success: true,
-    url: opportunity.action.url,
+    url: val.url,
     trackingId: opportunity.action.trackingId,
   };
 }
@@ -203,8 +245,6 @@ function handleNativeLaunch(opportunity: MarketplaceOpportunity): LaunchResult {
  * Handle inline launches (claims, internal completions).
  */
 function handleInlineLaunch(opportunity: MarketplaceOpportunity): LaunchResult {
-  // For inline opportunities, we trigger the claim flow
-  // This is handled by the calling component
   return {
     success: true,
     trackingId: opportunity.action.trackingId,
@@ -234,7 +274,6 @@ export async function trackLaunch(
       }),
     });
   } catch (err) {
-    // Non-critical, don't throw
     console.warn('[LaunchEngine] Tracking failed:', err);
   }
 }
@@ -252,7 +291,6 @@ export function handleProviderReturn(): {
 } {
   const params = new URLSearchParams(window.location.search);
 
-  // Check for provider callback parameters
   const statusParam = params.get('status');
   const validStatuses = ['completed', 'pending', 'failed'];
   const status = statusParam && validStatuses.includes(statusParam)
@@ -261,7 +299,6 @@ export function handleProviderReturn(): {
   const opportunityId = params.get('opportunity_id') || params.get('oid');
   const error = params.get('error');
 
-  // Clear URL parameters
   if (window.history.replaceState) {
     const cleanUrl = window.location.pathname;
     window.history.replaceState({}, '', cleanUrl);
@@ -276,18 +313,12 @@ export function handleProviderReturn(): {
 
 // ─── Opportunity Actions ───────────────────────────────────────────────
 
-/**
- * Actions that can be taken on an opportunity.
- */
 export interface OpportunityAction {
   type: 'claim' | 'start' | 'continue' | 'complete' | 'view';
   label: string;
   icon?: string;
 }
 
-/**
- * Get available actions for an opportunity.
- */
 export function getOpportunityActions(opportunity: MarketplaceOpportunity): OpportunityAction[] {
   const actions: OpportunityAction[] = [];
 
@@ -297,28 +328,28 @@ export function getOpportunityActions(opportunity: MarketplaceOpportunity): Oppo
       actions.push({ type: 'view', label: 'View Details' });
       break;
     case 'pending':
+    case 'in_progress':
+    case 'started':
       actions.push({ type: 'continue', label: 'Continue' });
       break;
     case 'cooldown':
       actions.push({ type: 'view', label: 'View' });
       break;
     case 'completed':
+    case 'verified':
+    case 'reward_issued':
       actions.push({ type: 'view', label: 'View' });
       break;
     case 'rejected':
       actions.push({ type: 'start', label: 'Retry' });
       break;
     case 'locked':
-      // No actions available
       break;
   }
 
   return actions;
 }
 
-/**
- * Get the primary CTA for an opportunity.
- */
 export function getPrimaryCTA(opportunity: MarketplaceOpportunity): {
   label: string;
   action: 'claim' | 'start' | 'continue' | 'pending' | 'completed' | 'locked';
@@ -326,11 +357,15 @@ export function getPrimaryCTA(opportunity: MarketplaceOpportunity): {
   switch (opportunity.status) {
     case 'available':
       return { label: 'Start', action: 'start' };
+    case 'started':
+    case 'in_progress':
     case 'pending':
       return { label: 'Continue', action: 'continue' };
     case 'cooldown':
       return { label: 'On Cooldown', action: 'pending' };
     case 'completed':
+    case 'verified':
+    case 'reward_issued':
       return { label: 'Completed', action: 'completed' };
     case 'rejected':
       return { label: 'Retry', action: 'start' };

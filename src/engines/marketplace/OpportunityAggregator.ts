@@ -13,6 +13,7 @@ import { Task, Campaign, UserTask } from '../../types';
 import { MarketplaceOpportunity, ProviderInventory } from '../../types/marketplace';
 import { normalizeTaskBatch, mergeOpportunities } from './OpportunityNormalizer';
 import { ProviderAdapterRegistry } from './ProviderAdapter';
+import { validateExternalUrl } from '../../utils/security';
 
 export interface RawAggregationSource {
   tasks: Task[];
@@ -23,6 +24,12 @@ export interface RawAggregationSource {
 
 /**
  * Aggregates all raw internal and provider sources into a single set of normalized MarketplaceOpportunity items.
+ *
+ * Guarantees:
+ * - Dynamic Provider Resolution: Uses ProviderAdapterRegistry.resolve to resolve adapters on the fly.
+ * - Never Silently Discards: Process all non-offline provider inventories.
+ * - URL Security: Ensures action URLs pass validateExternalUrl security checks.
+ * - Canonical Status Pipeline: Normalizes provider status into canonical statuses via ProviderAdapter.
  */
 export function aggregateOpportunities(source: RawAggregationSource): MarketplaceOpportunity[] {
   const { tasks, campaigns, userTasks, providerInventories } = source;
@@ -34,15 +41,25 @@ export function aggregateOpportunities(source: RawAggregationSource): Marketplac
   const providerOpportunities: MarketplaceOpportunity[] = [];
 
   for (const inv of providerInventories) {
-    if (inv.connectionStatus !== 'connected') continue;
+    // Skip only explicitly offline providers
+    if (inv.connectionStatus === 'offline') continue;
 
-    const adapter = ProviderAdapterRegistry.get(inv.providerId);
-    if (!adapter) continue;
+    // Resolve adapter dynamically (falls back to GenericProviderAdapter if not registered)
+    const adapter = ProviderAdapterRegistry.resolve(inv.providerId, inv.providerName);
 
     for (const opp of inv.opportunities) {
       // Ensure reward & status pass through provider adapter normalization
       const normalizedReward = adapter.normalizeReward(opp.reward.points);
       const normalizedStatus = adapter.normalizeStatus(opp.status);
+
+      // Validate action URL if present
+      let validatedUrl = opp.action.url;
+      if (validatedUrl) {
+        const val = validateExternalUrl(validatedUrl);
+        if (!val.valid) {
+          validatedUrl = undefined;
+        }
+      }
 
       providerOpportunities.push({
         ...opp,
@@ -52,6 +69,10 @@ export function aggregateOpportunities(source: RawAggregationSource): Marketplac
           xp: normalizedReward.xp || opp.reward.xp,
         },
         status: normalizedStatus,
+        action: {
+          ...opp.action,
+          url: validatedUrl,
+        },
       });
     }
   }

@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
+import { validateExternalUrl } from '../utils/security';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 
@@ -241,24 +242,19 @@ export const Marketplace: React.FC = () => {
       }
 
       if (url) {
-        try {
-          const parsed = new URL(url);
-          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            if (targetWindow) targetWindow.close();
-            toast.error(`Invalid link protocol (${parsed.protocol}) for this opportunity.`);
-            return;
-          }
-
-          if (targetWindow) {
-            targetWindow.location.href = parsed.href;
-          } else {
-            window.open(parsed.href, '_blank', 'noopener,noreferrer');
-          }
-          toast.success(`Launching opportunity...`);
-        } catch {
+        const val = validateExternalUrl(url);
+        if (!val.valid || !val.url) {
           if (targetWindow) targetWindow.close();
-          toast.error(`Invalid launch URL for this opportunity.`);
+          toast.error(val.error || `Invalid launch URL for this opportunity.`);
+          return;
         }
+
+        if (targetWindow) {
+          targetWindow.location.href = val.url;
+        } else {
+          window.open(val.url, '_blank', 'noopener,noreferrer');
+        }
+        toast.success(`Launching opportunity...`);
       } else {
         if (targetWindow) targetWindow.close();
         toast.error(`Unable to launch opportunity. Please try again later.`);
@@ -273,17 +269,13 @@ export const Marketplace: React.FC = () => {
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.action.url) {
-      try {
-        const parsed = new URL(opp.action.url);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          toast.error(`Invalid link protocol (${parsed.protocol}) for this opportunity.`);
-          return;
-        }
-        window.open(parsed.href, '_blank', 'noopener,noreferrer');
-        toast.success(`Launching ${opp.title}...`);
-      } catch {
-        toast.error('Invalid action URL for this opportunity.');
+      const val = validateExternalUrl(opp.action.url);
+      if (!val.valid || !val.url) {
+        toast.error(val.error || 'Invalid action URL for this opportunity.');
+        return;
       }
+      window.open(val.url, '_blank', 'noopener,noreferrer');
+      toast.success(`Launching ${opp.title}...`);
     } else if (opp.providerId) {
       const match = providers.find(p => p.id === opp.providerId);
       if (match) {

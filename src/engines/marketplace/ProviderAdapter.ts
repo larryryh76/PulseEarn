@@ -1,23 +1,119 @@
 /**
  * ProviderAdapter
  * ─────────────────────────────────────────────────────────────────────────────
- * Standard provider contract for PulseEarn Marketplace.
- * Abstracts provider-specific execution logic across:
- * - Type A: API Providers (BitLabs, CPX Research, AdGem)
- * - Type B: Hosted Offerwalls (TimeWall, Lootably, OfferToro)
- * - Type C: Embedded Providers (Pollfish, PeanutLabs)
- * - Type D: Internal Opportunities (Daily Rewards, Referrals, Community, Education, Predictions)
+ * Provider-Agnostic Abstraction Layer for PulseEarn Marketplace.
+ *
+ * All external providers (and internal task channels) conform to this contract.
+ *
+ * Key Principles:
+ * - Completely Provider-Agnostic: No provider requires hardcoded frontend or engine checks.
+ * - Dynamic Resolution: ProviderAdapterRegistry resolves any Firestore provider to a specialized adapter
+ *   or automatically falls back to GenericProviderAdapter. Never discards inventory.
+ * - Capability-Driven: Execution mode (redirect, iframe, API, embedded) is derived from capabilities, NOT provider name.
+ * - Dynamic Tiering: Tier (A/B/C/D) is calculated dynamically from metrics (availability, latency, success rate).
+ * - Shared URL Security: Uses validateExternalUrl() to reject dangerous schemes (javascript:, data:, blob:).
+ * - Canonical Status Mapping: Normalizes raw provider status strings into standard OpportunityStatus lifecycle states.
  */
 
-import { MarketplaceOpportunity, OpportunityStatus } from '../../types/marketplace';
+import { MarketplaceOpportunity, OpportunityStatus, ProviderHealthMetrics } from '../../types/marketplace';
 import { LaunchResult } from './LaunchEngine';
+import { validateExternalUrl } from '../../utils/security';
 
 export type ProviderExecutionType = 'API' | 'Hosted' | 'Embedded' | 'Internal';
+
+export type ProviderTier = 'TIER_A' | 'TIER_B' | 'TIER_C' | 'TIER_D';
+
+// ─── Provider Capabilities Interface ──────────────────────────────────────────
+
+export interface ProviderCapabilities {
+  supportsIframe: boolean;
+  supportsRedirect: boolean;
+  supportsApiLaunch: boolean;
+  supportsCallbacks: boolean;
+  supportsWebhooks: boolean;
+  supportsRealtime: boolean;
+  supportsManualVerification: boolean;
+  supportsEmbeddedOffers: boolean;
+}
+
+export function getDefaultCapabilities(type: ProviderExecutionType): ProviderCapabilities {
+  switch (type) {
+    case 'API':
+      return {
+        supportsIframe: false,
+        supportsRedirect: true,
+        supportsApiLaunch: true,
+        supportsCallbacks: true,
+        supportsWebhooks: true,
+        supportsRealtime: false,
+        supportsManualVerification: false,
+        supportsEmbeddedOffers: true,
+      };
+    case 'Embedded':
+      return {
+        supportsIframe: true,
+        supportsRedirect: true,
+        supportsApiLaunch: false,
+        supportsCallbacks: true,
+        supportsWebhooks: true,
+        supportsRealtime: false,
+        supportsManualVerification: false,
+        supportsEmbeddedOffers: true,
+      };
+    case 'Internal':
+      return {
+        supportsIframe: false,
+        supportsRedirect: false,
+        supportsApiLaunch: true,
+        supportsCallbacks: false,
+        supportsWebhooks: false,
+        supportsRealtime: true,
+        supportsManualVerification: true,
+        supportsEmbeddedOffers: true,
+      };
+    case 'Hosted':
+    default:
+      return {
+        supportsIframe: false,
+        supportsRedirect: true,
+        supportsApiLaunch: false,
+        supportsCallbacks: true,
+        supportsWebhooks: true,
+        supportsRealtime: false,
+        supportsManualVerification: false,
+        supportsEmbeddedOffers: false,
+      };
+  }
+}
+
+// ─── Dynamic Tier Calculation ──────────────────────────────────────────────────
+
+export function calculateProviderTier(metrics?: Partial<ProviderHealthMetrics>): ProviderTier {
+  if (!metrics) return 'TIER_B';
+
+  const availability = metrics.apiAvailability ?? (metrics.uptimePercentage ?? 95);
+  const successRate = metrics.callbackSuccessRate ?? 95;
+  const latency = metrics.averageCallbackLatencyMs ?? 500;
+
+  if (availability >= 98 && successRate >= 98 && latency < 800) {
+    return 'TIER_A';
+  }
+  if (availability >= 90 && successRate >= 90 && latency < 2000) {
+    return 'TIER_B';
+  }
+  if (availability >= 75 && successRate >= 75) {
+    return 'TIER_C';
+  }
+  return 'TIER_D';
+}
+
+// ─── Provider Adapter Contract ───────────────────────────────────────────────
 
 export interface ProviderAdapter {
   id: string;
   name: string;
   executionType: ProviderExecutionType;
+  capabilities: ProviderCapabilities;
 
   /** Initialize the provider SDK or configuration */
   initialize(config?: Record<string, unknown>): Promise<boolean>;
@@ -28,7 +124,7 @@ export interface ProviderAdapter {
   /** Fetch active inventory normalized into MarketplaceOpportunity objects */
   fetchOpportunities(userId?: string): Promise<MarketplaceOpportunity[]>;
 
-  /** Build a secure launch result (URL or inline payload) */
+  /** Build a secure launch result (URL or inline payload) using validateExternalUrl */
   buildLaunch(opportunity: MarketplaceOpportunity, userId: string): Promise<LaunchResult>;
 
   /** Verify incoming webhook / postback callback signatures */
@@ -42,6 +138,9 @@ export interface ProviderAdapter {
 
   /** Report task completion or proof submission */
   reportCompletion(opportunityId: string, userId: string, proof?: unknown): Promise<boolean>;
+
+  /** Return capabilities */
+  getCapabilities(): ProviderCapabilities;
 }
 
 // ─── Base Adapter Class ──────────────────────────────────────────────────────
@@ -50,8 +149,20 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
   abstract id: string;
   abstract name: string;
   abstract executionType: ProviderExecutionType;
+  protected capabilitiesOverride?: Partial<ProviderCapabilities>;
 
   protected initialized: boolean = false;
+
+  get capabilities(): ProviderCapabilities {
+    return {
+      ...getDefaultCapabilities(this.executionType),
+      ...(this.capabilitiesOverride || {}),
+    };
+  }
+
+  getCapabilities(): ProviderCapabilities {
+    return this.capabilities;
+  }
 
   async initialize(_config?: Record<string, unknown>): Promise<boolean> {
     this.initialized = true;
@@ -69,10 +180,17 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
 
   async buildLaunch(opportunity: MarketplaceOpportunity, _userId: string): Promise<LaunchResult> {
     if (opportunity.action?.url) {
+      const validation = validateExternalUrl(opportunity.action.url);
+      if (validation.valid && validation.url) {
+        return {
+          success: true,
+          url: validation.url,
+          trackingId: opportunity.action.trackingId || opportunity.id,
+        };
+      }
       return {
-        success: true,
-        url: opportunity.action.url,
-        trackingId: opportunity.action.trackingId || opportunity.id,
+        success: false,
+        error: validation.error || 'Launch URL failed security validation',
       };
     }
     return { success: false, error: 'Launch URL not configured for opportunity' };
@@ -82,7 +200,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     if (!payload || !signature || typeof signature !== 'string' || signature.trim() === '') {
       return false;
     }
-    // Fail-closed default; concrete provider adapters must validate signatures against credentials
+    // Fail-closed default; concrete provider adapters validate signatures against secrets
     return false;
   }
 
@@ -95,7 +213,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
   normalizeStatus(rawStatus: string): OpportunityStatus {
     const status = (rawStatus || '').toLowerCase().trim();
 
-    // 1. Preserve canonical lifecycle statuses directly
+    // 1. Canonical lifecycle statuses
     const validStatuses: Set<string> = new Set([
       'available',
       'started',
@@ -118,94 +236,129 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
       return status as OpportunityStatus;
     }
 
-    // 2. Map provider-specific raw status aliases
+    // 2. Map provider-specific raw status aliases to canonical statuses
     switch (status) {
       case 'active':
       case 'open':
       case 'unlocked':
+      case 'ready':
         return 'available';
       case 'initiated':
+      case 'launched':
         return 'started';
       case 'progressing':
       case 'ongoing':
+      case 'doing':
         return 'in_progress';
       case 'review':
       case 'awaiting':
       case 'under_review':
+      case 'pending_review':
         return 'pending';
       case 'approved':
+      case 'validated':
         return 'verified';
       case 'credited':
       case 'paid':
+      case 'rewarded':
         return 'reward_issued';
+      case 'done':
+      case 'finished':
+      case 'success':
+        return 'completed';
       case 'expired':
+      case 'terminated':
         return 'archived';
+      case 'denied':
+      case 'failed':
+        return 'rejected';
       default:
         return 'available';
     }
   }
 
   async reportCompletion(_opportunityId: string, _userId: string, _proof?: unknown): Promise<boolean> {
-    // Fail-closed default; must be implemented by concrete adapters requiring verification
     return false;
   }
 }
 
-// ─── Type A: API Provider Adapter ──────────────────────────────────────────────
+// ─── Generic Provider Adapter (Automatic Fallback) ───────────────────────────
+
+export class GenericProviderAdapter extends BaseProviderAdapter {
+  id: string;
+  name: string;
+  executionType: ProviderExecutionType;
+
+  constructor(
+    id: string,
+    name?: string,
+    executionType: ProviderExecutionType = 'Hosted',
+    customCapabilities?: Partial<ProviderCapabilities>
+  ) {
+    super();
+    this.id = id;
+    this.name = name || id.charAt(0).toUpperCase() + id.slice(1);
+    this.executionType = executionType;
+    this.capabilitiesOverride = customCapabilities;
+  }
+
+  async fetchOpportunities(_userId?: string): Promise<MarketplaceOpportunity[]> {
+    return [];
+  }
+}
+
+// ─── Specialized Provider Adapters ───────────────────────────────────────────
 
 export class ApiProviderAdapter extends BaseProviderAdapter {
   id: string;
   name: string;
   executionType: ProviderExecutionType = 'API';
 
-  constructor(id: string, name: string) {
+  constructor(id: string, name: string, capabilities?: Partial<ProviderCapabilities>) {
     super();
     this.id = id;
     this.name = name;
+    this.capabilitiesOverride = capabilities;
   }
 
   async fetchOpportunities(_userId?: string): Promise<MarketplaceOpportunity[]> {
     return [];
   }
 }
-
-// ─── Type B: Hosted Offerwall Adapter ──────────────────────────────────────────
 
 export class HostedOfferwallAdapter extends BaseProviderAdapter {
   id: string;
   name: string;
   executionType: ProviderExecutionType = 'Hosted';
 
-  constructor(id: string, name: string) {
+  constructor(id: string, name: string, capabilities?: Partial<ProviderCapabilities>) {
     super();
     this.id = id;
     this.name = name;
+    this.capabilitiesOverride = capabilities;
   }
 
   async fetchOpportunities(_userId?: string): Promise<MarketplaceOpportunity[]> {
     return [];
   }
 }
-
-// ─── Type C: Embedded Provider Adapter ────────────────────────────────────────
 
 export class EmbeddedProviderAdapter extends BaseProviderAdapter {
   id: string;
   name: string;
   executionType: ProviderExecutionType = 'Embedded';
 
-  constructor(id: string, name: string) {
+  constructor(id: string, name: string, capabilities?: Partial<ProviderCapabilities>) {
     super();
     this.id = id;
     this.name = name;
+    this.capabilitiesOverride = capabilities;
   }
 
   async fetchOpportunities(_userId?: string): Promise<MarketplaceOpportunity[]> {
     return [];
   }
 }
-
-// ─── Type D: Internal Opportunity Adapter ─────────────────────────────────────
 
 export class InternalOpportunityAdapter extends BaseProviderAdapter {
   id: string = 'internal';
@@ -217,13 +370,13 @@ export class InternalOpportunityAdapter extends BaseProviderAdapter {
   }
 }
 
-// ─── Adapter Registry ─────────────────────────────────────────────────────────
+// ─── Dynamic Adapter Registry ────────────────────────────────────────────────
 
 class ProviderAdapterRegistryClass {
   private adapters = new Map<string, ProviderAdapter>();
 
   constructor() {
-    // Register standard adapters
+    // Register standard default adapters for pre-known providers
     this.register(new ApiProviderAdapter('bitlabs', 'BitLabs'));
     this.register(new ApiProviderAdapter('cpxresearch', 'CPX Research'));
     this.register(new ApiProviderAdapter('adgem', 'AdGem'));
@@ -234,12 +387,52 @@ class ProviderAdapterRegistryClass {
     this.register(new InternalOpportunityAdapter());
   }
 
+  /**
+   * Explicitly register a provider adapter.
+   */
   register(adapter: ProviderAdapter): void {
-    this.adapters.set(adapter.id, adapter);
+    this.adapters.set(adapter.id.toLowerCase(), adapter);
   }
 
-  get(providerId: string): ProviderAdapter | undefined {
-    return this.adapters.get(providerId);
+  /**
+   * Get an adapter for a provider ID.
+   * If an adapter is registered, returns it.
+   * If NOT registered, dynamically instantiates a GenericProviderAdapter so inventory is NEVER discarded.
+   */
+  get(providerId?: string): ProviderAdapter {
+    if (!providerId) {
+      return this.resolve('generic', 'Generic Provider');
+    }
+    const key = providerId.toLowerCase();
+    const existing = this.adapters.get(key);
+    if (existing) {
+      return existing;
+    }
+    return this.resolve(providerId);
+  }
+
+  /**
+   * Dynamic resolution method that instantiates fallback GenericProviderAdapter if necessary.
+   */
+  resolve(
+    providerId: string,
+    name?: string,
+    executionType: ProviderExecutionType = 'Hosted',
+    capabilities?: Partial<ProviderCapabilities>
+  ): ProviderAdapter {
+    const key = providerId.toLowerCase();
+    const existing = this.adapters.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    console.warn(
+      `[ProviderAdapterRegistry] No specialized adapter registered for provider "${providerId}". Dynamically resolving fallback GenericProviderAdapter.`
+    );
+
+    const fallbackAdapter = new GenericProviderAdapter(providerId, name || providerId, executionType, capabilities);
+    this.adapters.set(key, fallbackAdapter);
+    return fallbackAdapter;
   }
 
   getAll(): ProviderAdapter[] {

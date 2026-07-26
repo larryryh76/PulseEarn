@@ -8,7 +8,6 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
-import { validateExternalUrl } from '../utils/security';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 
@@ -32,27 +31,13 @@ import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 
-import LaunchEngine, { launchOpportunity, trackLaunch } from '../engines/marketplace/LaunchEngine';
+import { launchOpportunity, trackLaunch } from '../engines/marketplace/LaunchEngine';
 
 // ─── Provider Interface ───────────────────────────────────────────────────────
-export interface Provider {
+interface Provider {
   id: string;
   name: string;
-  logo?: string;
   status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
-  enabled?: boolean;
-  apiEndpoint?: string;
-  callbackUrl?: string;
-  rewardMultiplier?: number;
-  userSharePct?: number;
-  platformSharePct?: number;
-  priority?: number;
-  description?: string;
-  affiliateId?: string;
-  minimumReward?: number;
-  maximumReward?: number;
-  launchUrl?: string | null;
-  embeddable?: boolean;
 }
 
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
@@ -124,7 +109,6 @@ export const Marketplace: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { userTasks, tasks, campaigns, activities, taskHistory, unifiedHistory } = useTaskContext();
 
-  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<number>(0);
@@ -178,8 +162,6 @@ export const Marketplace: React.FC = () => {
       });
 
       if (res.success && Array.isArray(res.providers)) {
-        setProviders(res.providers);
-
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
         res.providers.forEach((p: Provider) => {
@@ -194,13 +176,10 @@ export const Marketplace: React.FC = () => {
           });
         });
         setEngineVersion(v => v + 1);
-      } else {
-        setProviders([]);
       }
     } catch (err) {
       console.error('[Marketplace] Failed to fetch providers:', err);
       setError('Unable to load Marketplace providers at this time.');
-      setProviders([]);
     } finally {
       setLoading(false);
     }

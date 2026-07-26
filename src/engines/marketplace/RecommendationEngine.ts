@@ -99,11 +99,46 @@ export function getPersonalizedOpportunities(
     .map(s => s.opportunity);
 }
 
+// ─── Opportunity Quality Score ───────────────────────────────────────────────
+
+/**
+ * Calculates internal Opportunity Quality Score (0-100) for ranking and curation.
+ * Note: Numerical score is used internally for ranking and NEVER displayed directly to users.
+ */
+export function calculateOpportunityQualityScore(opp: MarketplaceOpportunity): number {
+  let score = 50;
+
+  // Reward efficiency (points per minute)
+  const minutes = Math.max(1, parseTimeToMinutes(opp.metadata.estimatedTime));
+  const pointsPerMin = opp.reward.points / minutes;
+  if (pointsPerMin >= 20) score += 20;
+  else if (pointsPerMin >= 10) score += 15;
+  else if (pointsPerMin >= 5) score += 10;
+
+  // Verification reliability
+  if (opp.metadata.verificationType === 'automated' || opp.metadata.verificationType === 'api') {
+    score += 15; // Instant verification bonus
+  }
+
+  // Completion rate & engagement volume
+  if (opp.engagement.completionRate >= 0.8) score += 10;
+  if (opp.engagement.totalCompletions > 25) score += 5;
+
+  // Freshness & Trending
+  if (opp.engagement.trending) score += 10;
+  if (opp.engagement.isNew) score += 5;
+
+  // Penalty for near expiration
+  if (opp.engagement.expiringSoon) score -= 5;
+
+  return Math.min(100, Math.max(0, score));
+}
+
 function calculatePersonalizationScore(
   opp: MarketplaceOpportunity,
   profile: UserProfile
 ): number {
-  let score = opp.computedEligibility?.priorityScore || 0;
+  let score = opp.computedEligibility?.priorityScore || calculateOpportunityQualityScore(opp);
 
   // Category affinity (user has completed this category before)
   const categoryCompletions = profile.completedCategories.get(opp.metadata.category) || 0;
@@ -123,7 +158,7 @@ function calculatePersonalizationScore(
 
   // Reward range (not too easy, not too hard for their level)
   const expectedReward = profile.averageSessionReward * 1.5;
-  const rewardRatio = opp.reward.points / expectedReward;
+  const rewardRatio = opp.reward.points / (expectedReward || 50);
   if (rewardRatio >= 0.5 && rewardRatio <= 2.0) {
     score += 10;
   }
@@ -276,8 +311,8 @@ export function generateFeaturedSection(
 
   return {
     id: 'featured',
-    title: 'Featured',
-    subtitle: 'Hand-picked opportunities',
+    title: 'Featured Opportunities',
+    subtitle: 'Hand-picked high-impact offers',
     layout: 'hero',
     source: 'featured',
     opportunities: featured,
@@ -298,8 +333,8 @@ export function generateHighestPayingSection(
 
   return {
     id: 'highest-paying',
-    title: 'Highest Paying',
-    subtitle: 'Maximize your earnings',
+    title: 'High Value Opportunities',
+    subtitle: 'Maximum payout potential',
     layout: 'slider',
     source: 'highest_paying',
     opportunities: highest,
@@ -325,8 +360,8 @@ export function generateQuickWinsSection(
 
   return {
     id: 'quick-wins',
-    title: 'Quick Wins',
-    subtitle: 'Earn points in minutes',
+    title: 'Quick Rewards',
+    subtitle: 'Earn points in under 5 minutes',
     layout: 'slider',
     source: 'fastest',
     opportunities: quick,
@@ -450,8 +485,8 @@ export function generateNewOpportunitiesSection(
 
   return {
     id: 'new-today',
-    title: 'New Opportunities',
-    subtitle: 'Freshly added earning tasks',
+    title: 'Recently Added',
+    subtitle: 'Freshly listed earning tasks',
     layout: 'grid',
     source: 'new_today',
     opportunities: newOpps,

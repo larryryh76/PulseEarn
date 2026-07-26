@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Zap, Compass, Filter, Search, RefreshCw,
   ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Lock
+  X, Layers, Activity, Info, Lock, ShieldCheck, Globe, Award
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
@@ -421,249 +421,263 @@ export const Marketplace: React.FC = () => {
         </div>
       )}
 
-      {/* ─── SECTION 1: Continue Where You Left Off ──────────────────────────── */}
-      {activeTaskSummary.totalCount > 0 && (
-        <section className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-              <Compass size={15} />
-              <span>Continue Where You Left Off</span>
-            </div>
-            <span className="text-[10px] font-mono text-text-tertiary">{activeTaskSummary.totalCount} active</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {activeTaskSummary.items.map(t => (
-              <div
-                key={t.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedOpportunity(t.opportunity)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedOpportunity(t.opportunity);
-                  }
-                }}
-                className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between shadow-xs transition-all group focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <div className="min-w-0 pr-2">
-                  <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors truncate">{t.title}</p>
-                  <span className={cn('inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 font-mono', t.statusBadgeClass)}>
-                    {t.statusLabel}
-                  </span>
+      {/* ─── Skeleton Loading State ─────────────────────────────────────────── */}
+      {loading && engineOpportunities.length === 0 ? (
+        <MarketplaceSkeleton />
+      ) : (
+        <>
+          {/* ─── SECTION 1: Continue Where You Left Off ──────────────────────────── */}
+          {activeTaskSummary.totalCount > 0 && (
+            <section className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                  <Compass size={15} />
+                  <span>Continue Where You Left Off</span>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-bold text-success block">+{t.reward} PTS</span>
-                  {t.xp > 0 && <span className="text-[9px] text-primary font-mono block">+{t.xp} XP</span>}
-                </div>
+                <span className="text-[10px] font-mono text-text-tertiary">{activeTaskSummary.totalCount} active</span>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ─── SECTION 2: Discovery, Search & Category Toolbar ───────────────── */}
-      <section className="space-y-4">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3.5 rounded-2xl border border-border shadow-xs">
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search opportunities by title, category, reward..."
-              className="w-full bg-surface-bright/60 border border-border rounded-xl pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* Filters & Sorting Controls */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 md:pt-0">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value as any)}
-              className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all"
-            >
-              <option value="all">All Categories</option>
-              {MARKETPLACE_CATEGORIES.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
-
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value as any)}
-              className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all"
-            >
-              <option value="all">All Difficulties</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-              <option value="elite">Elite</option>
-            </select>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all"
-            >
-              <option value="recommended">Best Match</option>
-              <option value="reward">Highest Reward</option>
-              <option value="time">Fastest Time</option>
-              <option value="difficulty">Difficulty</option>
-              <option value="newest">Newest</option>
-            </select>
-
-            {hasActiveFilters && (
-              <button
-                onClick={handleResetFilters}
-                className="px-2.5 py-2 text-[11px] font-semibold text-danger hover:underline shrink-0"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Category Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={cn(
-              'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border',
-              selectedCategory === 'all'
-                ? 'bg-primary text-white border-primary shadow-xs'
-                : 'bg-surface border-border text-text-secondary hover:border-border-bright'
-            )}
-          >
-            All Opportunities
-          </button>
-          {MARKETPLACE_CATEGORIES.slice(0, 8).map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5',
-                selectedCategory === cat.id
-                  ? 'bg-primary text-white border-primary shadow-xs'
-                  : 'bg-surface border-border text-text-secondary hover:border-border-bright'
-              )}
-            >
-              <span>{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── SECTION 3: Filtered Search Results (When Filters Active) ────────── */}
-      {hasActiveFilters && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-              <Filter size={14} className="text-primary" />
-              <span>Matching Opportunities ({searchResults.length})</span>
-            </h2>
-          </div>
-
-          {searchResults.length === 0 ? (
-            <div className="p-8 rounded-2xl border border-border bg-surface text-center space-y-3">
-              <Info size={28} className="text-text-tertiary mx-auto" />
-              <p className="text-xs font-semibold text-text-primary">No earning opportunities are available right now.</p>
-              <p className="text-[11px] text-text-tertiary">Try resetting your search query or selecting a broader category.</p>
-              <button
-                onClick={handleResetFilters}
-                className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all"
-              >
-                Reset Filters
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {searchResults.map(opp => (
-                <OpportunityCard
-                  key={opp.id}
-                  opportunity={opp}
-                  userTask={userTasks[opp.id]}
-                  onSelect={() => setSelectedOpportunity(opp)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ─── SECTION 4: Dynamic Recommendation Sections ──────────────────────── */}
-      {!hasActiveFilters && dynamicSections.length > 0 && (
-        <div className="space-y-10">
-          {dynamicSections.map(section => (
-            <section key={section.id} className="space-y-4">
-              <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                <div>
-                  <h2 className="text-sm md:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
-                    {section.id === 'featured' && <Sparkles size={16} className="text-primary" />}
-                    {section.id === 'personalized-for-you' && <Flame size={16} className="text-warning" />}
-                    {section.id === 'daily' && <Clock size={16} className="text-success" />}
-                    {section.id === 'highest-paying' && <Trophy size={16} className="text-primary" />}
-                    <span>{section.title}</span>
-                  </h2>
-                  {section.subtitle && (
-                    <p className="text-[11px] text-text-tertiary mt-0.5">{section.subtitle}</p>
-                  )}
-                </div>
-                <span className="text-[10px] font-mono text-text-tertiary uppercase">
-                  {section.opportunities.length} Items
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {section.opportunities.map(opp => (
-                  <OpportunityCard
-                    key={opp.id}
-                    opportunity={opp}
-                    userTask={userTasks[opp.id]}
-                    onSelect={() => setSelectedOpportunity(opp)}
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {activeTaskSummary.items.map(t => (
+                  <div
+                    key={t.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedOpportunity(t.opportunity)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedOpportunity(t.opportunity);
+                      }
+                    }}
+                    className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between shadow-xs transition-all group focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors truncate">{t.title}</p>
+                      <span className={cn('inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 font-mono', t.statusBadgeClass)}>
+                        {t.statusLabel}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-bold text-success block">+{t.reward} PTS</span>
+                      {t.xp > 0 && <span className="text-[9px] text-primary font-mono block">+{t.xp} XP</span>}
+                    </div>
+                  </div>
                 ))}
               </div>
             </section>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* ─── SECTION 5: Recently Verified Activity ──────────────────────────── */}
-      {unifiedHistory.length > 0 && (
-        <section className="space-y-3 pt-4 border-t border-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-              <Activity size={14} className="text-success" />
-              <span>Recently Verified Activity</span>
-            </h2>
-            <span className="text-[10px] font-mono text-text-tertiary">Ecosystem Ledger</span>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
-            {unifiedHistory.slice(0, 4).map((item, idx) => (
-              <div key={item.id || idx} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-xs">
-                <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                  <CheckCircle2 size={14} className="text-success shrink-0" />
-                  <span className="font-semibold text-text-primary truncate">{item.taskTitle || 'Completed Opportunity'}</span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 text-right font-mono">
-                  {item.rewardAmount > 0 && <span className="text-success font-bold">+{item.rewardAmount} PTS</span>}
-                  {item.xpReward > 0 && <span className="text-primary font-bold">+{item.xpReward} XP</span>}
-                </div>
+          {/* ─── SECTION 2: Discovery, Search & Category Toolbar ───────────────── */}
+          <section className="space-y-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3.5 rounded-2xl border border-border shadow-xs">
+              {/* Search Input */}
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search opportunities by title, category, reward..."
+                  className="w-full bg-surface-bright/60 border border-border rounded-xl pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary min-h-[44px]"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search query"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary p-1"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        </section>
+
+              {/* Filters & Sorting Controls */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 md:pt-0">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value as any)}
+                  aria-label="Filter by Category"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="all">All Categories</option>
+                  {MARKETPLACE_CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedDifficulty}
+                  onChange={(e) => setSelectedDifficulty(e.target.value as any)}
+                  aria-label="Filter by Difficulty"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="all">All Difficulties</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                  <option value="elite">Elite</option>
+                </select>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  aria-label="Sort opportunities"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="recommended">Best Match</option>
+                  <option value="reward">Highest Reward</option>
+                  <option value="time">Fastest Time</option>
+                  <option value="difficulty">Difficulty</option>
+                  <option value="newest">Newest</option>
+                </select>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-3 py-2 text-[11px] font-semibold text-danger hover:underline shrink-0 min-h-[44px]"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Category Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border min-h-[44px]',
+                  selectedCategory === 'all'
+                    ? 'bg-primary text-white border-primary shadow-xs'
+                    : 'bg-surface border-border text-text-secondary hover:border-border-bright'
+                )}
+              >
+                All Opportunities
+              </button>
+              {MARKETPLACE_CATEGORIES.slice(0, 8).map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 min-h-[44px]',
+                    selectedCategory === cat.id
+                      ? 'bg-primary text-white border-primary shadow-xs'
+                      : 'bg-surface border-border text-text-secondary hover:border-border-bright'
+                  )}
+                >
+                  <span>{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* ─── SECTION 3: Filtered Search Results (When Filters Active) ────────── */}
+          {hasActiveFilters && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+                  <Filter size={14} className="text-primary" />
+                  <span>Matching Opportunities ({searchResults.length})</span>
+                </h2>
+              </div>
+
+              {searchResults.length === 0 ? (
+                <div className="p-8 rounded-2xl border border-border bg-surface text-center space-y-3">
+                  <Info size={28} className="text-text-tertiary mx-auto" />
+                  <p className="text-xs font-semibold text-text-primary">No earning opportunities match your selected filters.</p>
+                  <p className="text-[11px] text-text-tertiary">Try resetting your filters or clearing search text.</p>
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all min-h-[44px]"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {searchResults.map(opp => (
+                    <OpportunityCard
+                      key={opp.id}
+                      opportunity={opp}
+                      userTask={userTasks[opp.id]}
+                      onSelect={() => setSelectedOpportunity(opp)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ─── SECTION 4: Dynamic Recommendation Sections ──────────────────────── */}
+          {!hasActiveFilters && dynamicSections.length > 0 && (
+            <div className="space-y-10">
+              {dynamicSections.map(section => (
+                <section key={section.id} className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                    <div>
+                      <h2 className="text-sm md:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
+                        {section.id === 'featured' && <Sparkles size={16} className="text-primary" />}
+                        {section.id === 'personalized-for-you' && <Flame size={16} className="text-warning" />}
+                        {section.id === 'daily' && <Clock size={16} className="text-success" />}
+                        {section.id === 'highest-paying' && <Trophy size={16} className="text-primary" />}
+                        <span>{section.title}</span>
+                      </h2>
+                      {section.subtitle && (
+                        <p className="text-[11px] text-text-tertiary mt-0.5">{section.subtitle}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono text-text-tertiary uppercase">
+                      {section.opportunities.length} Items
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {section.opportunities.map(opp => (
+                      <OpportunityCard
+                        key={opp.id}
+                        opportunity={opp}
+                        userTask={userTasks[opp.id]}
+                        onSelect={() => setSelectedOpportunity(opp)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {/* ─── SECTION 5: Recently Verified Activity ──────────────────────────── */}
+          {unifiedHistory.length > 0 && (
+            <section className="space-y-3 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity size={14} className="text-success" />
+                  <span>Recently Verified Activity</span>
+                </h2>
+                <span className="text-[10px] font-mono text-text-tertiary">Ecosystem Ledger</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
+                {unifiedHistory.slice(0, 4).map((item, idx) => (
+                  <div key={item.id || idx} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <CheckCircle2 size={14} className="text-success shrink-0" />
+                      <span className="font-semibold text-text-primary truncate">{item.taskTitle || 'Completed Opportunity'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 text-right font-mono">
+                      {item.rewardAmount > 0 && <span className="text-success font-bold">+{item.rewardAmount} PTS</span>}
+                      {item.xpReward > 0 && <span className="text-primary font-bold">+{item.xpReward} XP</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ─── SECTION 6: Marketplace Ecosystem Footer ────────────────────────── */}
+          <MarketplaceFooter totalOpportunities={engineOpportunities.length} />
+        </>
       )}
 
       {/* ─── Opportunity Detail Drawer ──────────────────────────────────────── */}
@@ -960,6 +974,96 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
         </div>
       </motion.div>
     </div>
+  );
+};
+
+// ─── Marketplace Skeleton Loader Component ───────────────────────────────────
+
+const MarketplaceSkeleton: React.FC = () => {
+  return (
+    <div className="space-y-8 animate-pulse">
+      {/* Search Toolbar Skeleton */}
+      <div className="h-14 rounded-2xl bg-surface border border-border/60 p-3 flex items-center justify-between gap-4">
+        <div className="h-8 bg-surface-bright rounded-xl flex-1 max-w-md" />
+        <div className="flex gap-2">
+          <div className="h-8 w-28 bg-surface-bright rounded-xl" />
+          <div className="h-8 w-28 bg-surface-bright rounded-xl" />
+        </div>
+      </div>
+
+      {/* Grid Cards Skeleton */}
+      <div className="space-y-4">
+        <div className="h-6 w-48 bg-surface-bright rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="p-5 rounded-2xl border border-border bg-surface space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="h-4 w-20 bg-surface-bright rounded" />
+                <div className="h-4 w-16 bg-surface-bright rounded" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-5 w-3/4 bg-surface-bright rounded" />
+                <div className="h-3 w-full bg-surface-bright rounded" />
+                <div className="h-3 w-2/3 bg-surface-bright rounded" />
+              </div>
+              <div className="pt-3 border-t border-border flex justify-between items-center">
+                <div className="h-5 w-24 bg-surface-bright rounded" />
+                <div className="h-8 w-24 bg-surface-bright rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Marketplace Ecosystem Footer Component ──────────────────────────────────
+
+interface MarketplaceFooterProps {
+  totalOpportunities: number;
+}
+
+const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities }) => {
+  return (
+    <footer className="mt-12 pt-8 border-t border-border space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wider">
+            <Globe size={15} />
+            <span>Provider Network</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">12 Integrated Networks</p>
+          <p className="text-[11px] text-text-tertiary">Real-time inventory orchestration with ProviderAdapter sync</p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-success text-xs font-bold uppercase tracking-wider">
+            <ShieldCheck size={15} />
+            <span>Verification & Payouts</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">Automated Proof Auditing</p>
+          <p className="text-[11px] text-text-tertiary">Anti-fraud checks with instant PTS ledger crediting</p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-wider">
+            <Award size={15} />
+            <span>Ecosystem Scale</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">{totalOpportunities} Active Opportunities</p>
+          <p className="text-[11px] text-text-tertiary">Personalized recommendation engine active</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-text-tertiary gap-2 pt-2 border-t border-border/50 font-mono">
+        <span>PulseEarn Marketplace Engine • Phase 15 Enterprise Ecosystem</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+          All Provider Systems Operational
+        </span>
+      </div>
+    </footer>
   );
 };
 

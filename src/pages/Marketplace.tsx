@@ -33,13 +33,6 @@ import {
 
 import { launchOpportunity, trackLaunch } from '../engines/marketplace/LaunchEngine';
 
-// ─── Provider Interface ───────────────────────────────────────────────────────
-interface Provider {
-  id: string;
-  name: string;
-  status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
-}
-
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
 export function getCanonicalStatus(status: string | undefined): {
   label: string;
@@ -164,7 +157,7 @@ export const Marketplace: React.FC = () => {
       if (res.success && Array.isArray(res.providers)) {
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: Provider) => {
+        res.providers.forEach((p: { id: string; name: string; status?: string }) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           const existingOpps = match?.opportunities || [];
           updateProviderInventory({

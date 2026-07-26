@@ -138,7 +138,7 @@ function calculatePersonalizationScore(
   opp: MarketplaceOpportunity,
   profile: UserProfile
 ): number {
-  let score = opp.computedEligibility?.priorityScore || calculateOpportunityQualityScore(opp);
+  let score = opp.computedEligibility?.priorityScore ?? calculateOpportunityQualityScore(opp);
 
   // Category affinity (user has completed this category before)
   const categoryCompletions = profile.completedCategories.get(opp.metadata.category) || 0;
@@ -361,7 +361,7 @@ export function generateQuickWinsSection(
   return {
     id: 'quick-wins',
     title: 'Quick Rewards',
-    subtitle: 'Earn points in under 5 minutes',
+    subtitle: 'Earn points with short completion times',
     layout: 'slider',
     source: 'fastest',
     opportunities: quick,

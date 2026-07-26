@@ -495,7 +495,7 @@ export const Marketplace: React.FC = () => {
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 md:pt-0">
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value as any)}
+                  onChange={(e) => setSelectedCategory(e.target.value as OpportunityCategory | 'all')}
                   aria-label="Filter by Category"
                   className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
                 >
@@ -507,7 +507,7 @@ export const Marketplace: React.FC = () => {
 
                 <select
                   value={selectedDifficulty}
-                  onChange={(e) => setSelectedDifficulty(e.target.value as any)}
+                  onChange={(e) => setSelectedDifficulty(e.target.value as OpportunityDifficulty | 'all')}
                   aria-label="Filter by Difficulty"
                   className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
                 >
@@ -520,7 +520,7 @@ export const Marketplace: React.FC = () => {
 
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as 'recommended' | 'reward' | 'time' | 'difficulty' | 'newest')}
                   aria-label="Sort opportunities"
                   className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
                 >
@@ -676,7 +676,7 @@ export const Marketplace: React.FC = () => {
           )}
 
           {/* ─── SECTION 6: Marketplace Ecosystem Footer ────────────────────────── */}
-          <MarketplaceFooter totalOpportunities={engineOpportunities.length} />
+          <MarketplaceFooter totalOpportunities={engineOpportunities.length} providers={providers} />
         </>
       )}
 
@@ -1022,9 +1022,23 @@ const MarketplaceSkeleton: React.FC = () => {
 
 interface MarketplaceFooterProps {
   totalOpportunities: number;
+  providers?: Provider[];
 }
 
-const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities }) => {
+const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities, providers = [] }) => {
+  const activeProvidersCount = useMemo(() => {
+    if (!providers || providers.length === 0) return 0;
+    return providers.filter(p => p.status === 'active' || p.status === 'degraded' || !p.status).length;
+  }, [providers]);
+
+  const providerSystemStatus = useMemo(() => {
+    if (!providers || providers.length === 0) return 'Provider Network Active';
+    const hasDegraded = providers.some(p => p.status === 'degraded');
+    const hasOffline = providers.some(p => p.status === 'offline' || p.status === 'maintenance');
+    if (hasOffline || hasDegraded) return 'Provider Network Operational (Degraded Sync)';
+    return 'All Provider Systems Operational';
+  }, [providers]);
+
   return (
     <footer className="mt-12 pt-8 border-t border-border space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1033,7 +1047,9 @@ const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunitie
             <Globe size={15} />
             <span>Provider Network</span>
           </div>
-          <p className="text-xs text-text-primary font-bold">12 Integrated Networks</p>
+          <p className="text-xs text-text-primary font-bold">
+            {activeProvidersCount > 0 ? `${activeProvidersCount} Integrated Networks` : 'Multi-Network Orchestration'}
+          </p>
           <p className="text-[11px] text-text-tertiary">Real-time inventory orchestration with ProviderAdapter sync</p>
         </div>
 
@@ -1060,7 +1076,7 @@ const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunitie
         <span>PulseEarn Marketplace Engine • Phase 15 Enterprise Ecosystem</span>
         <span className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          All Provider Systems Operational
+          {providerSystemStatus}
         </span>
       </div>
     </footer>

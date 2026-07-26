@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Zap, Compass, Filter, Search, RefreshCw,
   ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Lock, ShieldCheck, Globe, Award
+  X, Layers, Activity, Info, Lock
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
-import { validateExternalUrl } from '../utils/security';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
 
@@ -32,26 +31,7 @@ import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 
-// ─── Provider Interface ───────────────────────────────────────────────────────
-export interface Provider {
-  id: string;
-  name: string;
-  logo?: string;
-  status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
-  enabled?: boolean;
-  apiEndpoint?: string;
-  callbackUrl?: string;
-  rewardMultiplier?: number;
-  userSharePct?: number;
-  platformSharePct?: number;
-  priority?: number;
-  description?: string;
-  affiliateId?: string;
-  minimumReward?: number;
-  maximumReward?: number;
-  launchUrl?: string | null;
-  embeddable?: boolean;
-}
+
 
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
 export function getCanonicalStatus(status: string | undefined): {
@@ -122,7 +102,6 @@ export const Marketplace: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { userTasks, tasks, campaigns, activities, taskHistory, unifiedHistory } = useTaskContext();
 
-  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<number>(0);
@@ -176,11 +155,9 @@ export const Marketplace: React.FC = () => {
       });
 
       if (res.success && Array.isArray(res.providers)) {
-        setProviders(res.providers);
-
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: Provider) => {
+        res.providers.forEach((p: { id: string; name: string; status?: string }) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           const existingOpps = match?.opportunities || [];
           updateProviderInventory({
@@ -192,13 +169,10 @@ export const Marketplace: React.FC = () => {
           });
         });
         setEngineVersion(v => v + 1);
-      } else {
-        setProviders([]);
       }
     } catch (err) {
       console.error('[Marketplace] Failed to fetch providers:', err);
       setError('Unable to load Marketplace providers at this time.');
-      setProviders([]);
     } finally {
       setLoading(false);
     }
@@ -210,79 +184,13 @@ export const Marketplace: React.FC = () => {
     }
   }, [currentUser, fetchProviders]);
 
-  // ─── Launch Partner Channel ─────────────────────────────────────────────────
-  const handleLaunchProvider = async (provider: Provider) => {
-    if (provider.status === 'offline' || provider.status === 'maintenance') {
-      toast.error(`Partner channel for this opportunity is currently undergoing maintenance.`);
-      return;
-    }
 
-    // Pre-open window synchronously to preserve user gesture when fetching launch URL asynchronously
-    let targetWindow: Window | null = null;
-    if (!provider.launchUrl && currentUser) {
-      targetWindow = window.open('about:blank', '_blank');
-    }
-
-    try {
-      let url = provider.launchUrl;
-
-      if (!url && currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const res = await safeFetch(`/api/offerwall/providers/${provider.id}/launch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
-          },
-        });
-
-        if (res.success && res.launchUrl) {
-          url = res.launchUrl;
-        }
-      }
-
-      if (url) {
-        const val = validateExternalUrl(url);
-        if (!val.valid || !val.url) {
-          if (targetWindow) targetWindow.close();
-          toast.error(val.error || `Invalid launch URL for this opportunity.`);
-          return;
-        }
-
-        if (targetWindow) {
-          targetWindow.location.href = val.url;
-        } else {
-          window.open(val.url, '_blank', 'noopener,noreferrer');
-        }
-        toast.success(`Launching opportunity...`);
-      } else {
-        if (targetWindow) targetWindow.close();
-        toast.error(`Unable to launch opportunity. Please try again later.`);
-      }
-    } catch (err) {
-      if (targetWindow) targetWindow.close();
-      console.error('[Marketplace] Launch error:', err);
-      toast.error(`Failed to launch opportunity channel.`);
-    }
-  };
 
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.action.url) {
-      const val = validateExternalUrl(opp.action.url);
-      if (!val.valid || !val.url) {
-        toast.error(val.error || 'Invalid action URL for this opportunity.');
-        return;
-      }
-      window.open(val.url, '_blank', 'noopener,noreferrer');
+      window.open(opp.action.url, '_blank', 'noopener,noreferrer');
       toast.success(`Launching ${opp.title}...`);
-    } else if (opp.providerId) {
-      const match = providers.find(p => p.id === opp.providerId);
-      if (match) {
-        handleLaunchProvider(match);
-      } else {
-        toast.error(`Partner channel for ${opp.title} is currently unavailable.`);
-      }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
       toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
     } else {
@@ -667,8 +575,7 @@ export const Marketplace: React.FC = () => {
             </section>
           )}
 
-          {/* ─── SECTION 6: Marketplace Ecosystem Footer ────────────────────────── */}
-          <MarketplaceFooter totalOpportunities={engineOpportunities.length} providers={providers} />
+
         </>
       )}
 
@@ -1009,71 +916,5 @@ const MarketplaceSkeleton: React.FC = () => {
     </div>
   );
 };
-
-// ─── Marketplace Ecosystem Footer Component ──────────────────────────────────
-
-interface MarketplaceFooterProps {
-  totalOpportunities: number;
-  providers?: Provider[];
-}
-
-const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities, providers = [] }) => {
-  const activeProvidersCount = useMemo(() => {
-    if (!providers || providers.length === 0) return 0;
-    return providers.filter(p => p.status === 'active' || p.status === 'degraded' || !p.status).length;
-  }, [providers]);
-
-  const providerSystemStatus = useMemo(() => {
-    if (!providers || providers.length === 0) return 'Provider Network Active';
-    const hasDegraded = providers.some(p => p.status === 'degraded');
-    const hasOffline = providers.some(p => p.status === 'offline' || p.status === 'maintenance');
-    if (hasOffline || hasDegraded) return 'Provider Network Operational (Degraded Sync)';
-    return 'All Provider Systems Operational';
-  }, [providers]);
-
-  return (
-    <footer className="mt-12 pt-8 border-t border-border space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wider">
-            <Globe size={15} />
-            <span>Provider Network</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">
-            {activeProvidersCount > 0 ? `${activeProvidersCount} Integrated Networks` : 'Multi-Network Orchestration'}
-          </p>
-          <p className="text-[11px] text-text-tertiary">Real-time inventory orchestration with ProviderAdapter sync</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-success text-xs font-bold uppercase tracking-wider">
-            <ShieldCheck size={15} />
-            <span>Verification & Payouts</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">Automated Proof Auditing</p>
-          <p className="text-[11px] text-text-tertiary">Anti-fraud checks with instant PTS ledger crediting</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-wider">
-            <Award size={15} />
-            <span>Ecosystem Scale</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">{totalOpportunities} Active Opportunities</p>
-          <p className="text-[11px] text-text-tertiary">Personalized recommendation engine active</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-text-tertiary gap-2 pt-2 border-t border-border/50 font-mono">
-        <span>PulseEarn Marketplace Engine • Phase 15 Enterprise Ecosystem</span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          {providerSystemStatus}
-        </span>
-      </div>
-    </footer>
-  );
-};
-
 
 export default Marketplace;

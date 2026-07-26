@@ -370,10 +370,19 @@ export class InternalOpportunityAdapter extends BaseProviderAdapter {
   }
 }
 
+// ─── Provider Adapter with Tiering Metadata ──────────────────────────────────
+
+export interface ProviderAdapterWithTier extends ProviderAdapter {
+  tier?: ProviderTier;
+  healthMetrics?: Partial<ProviderHealthMetrics>;
+}
+
 // ─── Dynamic Adapter Registry ────────────────────────────────────────────────
 
 class ProviderAdapterRegistryClass {
   private adapters = new Map<string, ProviderAdapter>();
+  private tiers = new Map<string, ProviderTier>();
+  private healthMetrics = new Map<string, Partial<ProviderHealthMetrics>>();
 
   constructor() {
     // Register standard default adapters for pre-known providers
@@ -392,6 +401,25 @@ class ProviderAdapterRegistryClass {
    */
   register(adapter: ProviderAdapter): void {
     this.adapters.set(adapter.id.toLowerCase(), adapter);
+    // Initialize with default tier
+    this.tiers.set(adapter.id.toLowerCase(), 'TIER_B');
+  }
+
+  /**
+   * Update provider health metrics and recalculate tier dynamically.
+   * Called when provider inventory is synchronized or health data arrives.
+   * Merges incoming metrics with existing data to preserve known fields.
+   */
+  updateHealthMetrics(providerId: string, metrics: Partial<ProviderHealthMetrics>): void {
+    const key = providerId.toLowerCase();
+    // Merge new metrics with existing ones to avoid data loss on partial updates
+    const existing = this.healthMetrics.get(key) || {};
+    const merged = { ...existing, ...metrics };
+    this.healthMetrics.set(key, merged);
+    
+    // Recalculate tier based on complete merged metrics
+    const newTier = calculateProviderTier(merged);
+    this.tiers.set(key, newTier);
   }
 
   /**
@@ -409,6 +437,23 @@ class ProviderAdapterRegistryClass {
       return existing;
     }
     return this.resolve(providerId);
+  }
+
+  /**
+   * Get the currently calculated tier for a provider.
+   * Returns TIER_B by default if tier hasn't been explicitly set.
+   */
+  getTier(providerId: string): ProviderTier {
+    const key = providerId.toLowerCase();
+    return this.tiers.get(key) || 'TIER_B';
+  }
+
+  /**
+   * Get the health metrics for a provider.
+   */
+  getHealthMetrics(providerId: string): Partial<ProviderHealthMetrics> | undefined {
+    const key = providerId.toLowerCase();
+    return this.healthMetrics.get(key);
   }
 
   /**
@@ -432,11 +477,25 @@ class ProviderAdapterRegistryClass {
 
     const fallbackAdapter = new GenericProviderAdapter(providerId, name || providerId, executionType, capabilities);
     this.adapters.set(key, fallbackAdapter);
+    // Initialize with default tier
+    this.tiers.set(key, 'TIER_B');
     return fallbackAdapter;
   }
 
   getAll(): ProviderAdapter[] {
     return Array.from(this.adapters.values());
+  }
+
+  /**
+   * Get all providers with their tiers and health metrics.
+   * Used for operational dashboards and health reporting.
+   */
+  getAllWithMetrics(): Array<{ adapter: ProviderAdapter; tier: ProviderTier; health?: Partial<ProviderHealthMetrics> }> {
+    return this.getAll().map(adapter => ({
+      adapter,
+      tier: this.getTier(adapter.id),
+      health: this.getHealthMetrics(adapter.id),
+    }));
   }
 }
 

@@ -15,6 +15,7 @@ import {
   LaunchMode,
 } from '../../types/marketplace';
 import { Task, UserTask, Campaign, TaskCategory, TaskType, SocialPlatform } from '../../types';
+import { evaluateTaskStatus } from '../../utils';
 
 // ─── Internal Task → Opportunity ───────────────────────────────────────────────
 
@@ -256,92 +257,16 @@ export function normalizeProviderOffer(
 
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
-function parseTimestampDate(val: any): Date | undefined {
-  if (!val) return undefined;
-  if (typeof val.toDate === 'function') return val.toDate();
-  if (val instanceof Date) return val;
-  if (typeof val === 'number') return new Date(val);
-  if (typeof val === 'string') {
-    const parsed = new Date(val);
-    if (!isNaN(parsed.getTime())) return parsed;
-  }
-  if (typeof val === 'object' && val.seconds !== undefined) {
-    return new Date(val.seconds * 1000);
-  }
-  return undefined;
-}
-
 function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   if (!userTask) return 'available';
-
-  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
-  const statusStr = (userTask.status || '').toLowerCase();
-
-  switch (statusStr) {
-    case 'completed':
-    case 'claimed':
-    case 'verified': {
-      if (cooldownHours <= 0) return 'completed';
-      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
-      if (last) {
-        const elapsedMs = Date.now() - last.getTime();
-        const cooldownMs = cooldownHours * 60 * 60 * 1000;
-        if (elapsedMs < cooldownMs) {
-          return 'cooldown';
-        }
-      }
-      return 'available';
-    }
-    case 'on_cooldown':
-    case 'cooldown': {
-      if (cooldownHours <= 0) return 'completed';
-      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
-      if (last) {
-        const elapsedMs = Date.now() - last.getTime();
-        const cooldownMs = cooldownHours * 60 * 60 * 1000;
-        if (elapsedMs < cooldownMs) {
-          return 'cooldown';
-        }
-      }
-      return 'available';
-    }
-    case 'started':
-    case 'in_progress':
-      return 'started';
-    case 'submitted':
-      return 'submitted';
-    case 'pending':
-    case 'awaiting_verification':
-      return 'pending';
-    case 'rejected':
-      return 'rejected';
-    case 'expired':
-      return 'expired';
-    case 'cancelled':
-      return 'cancelled';
-    default:
-      return 'available';
-  }
+  const res = evaluateTaskStatus(task, userTask);
+  return res.status as OpportunityStatus;
 }
 
 function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined {
   if (!userTask) return undefined;
-  const status = userTask.status;
-  if (status !== 'completed' && status !== 'on_cooldown' && status !== 'cooldown') {
-    return undefined;
-  }
-  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
-  if (cooldownHours <= 0) return undefined;
-
-  const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
-  if (!last) return undefined;
-
-  const cooldownMs = cooldownHours * 60 * 60 * 1000;
-  const nextTime = new Date(last.getTime() + cooldownMs);
-  if (nextTime.getTime() > Date.now()) {
-    return nextTime;
-  }
-  return undefined;
+  const res = evaluateTaskStatus(task, userTask);
+  return res.nextAvailable;
 }
 
 // ─── Category Mapping ─────────────────────────────────────────────────────────

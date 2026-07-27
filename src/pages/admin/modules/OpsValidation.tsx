@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
 import { VerificationEngine } from '../../../engines/system/VerificationEngine';
 import DataTable from '../../../components/admin/common/DataTable';
+import { evaluateTaskStatus } from '../../../utils';
 
 const OpsValidation: React.FC = () => {
   const [claims, setClaims] = React.useState<any[]>([]);
@@ -98,17 +99,20 @@ const OpsValidation: React.FC = () => {
       // Fallback for offline/client direct batch mode if API endpoint is unreachable
       console.warn("[OpsValidation] API review failed, falling back to direct engine write:", reviewRes.error);
       const claimRef = doc(db, 'task_claims', claimId);
+      const claimSnap = await getDoc(claimRef);
+      if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
+      const claimData = claimSnap.data();
+
+      const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
+      const userTaskSnap = await getDoc(userTaskRef);
+      const userTaskData = userTaskSnap.exists() ? userTaskSnap.data() : null;
+
+      const taskRef = doc(db, 'tasks', claimData.taskId);
+      const taskSnap = await getDoc(taskRef);
+      if (!taskSnap.exists()) throw new Error("TASK_NOT_FOUND");
+      const taskData = taskSnap.data();
 
       if (status === 'APPROVED') {
-        const claimSnap = await getDoc(claimRef);
-        if (!claimSnap.exists()) throw new Error("CLAIM_NOT_FOUND");
-        const claimData = claimSnap.data();
-
-        const taskRef = doc(db, 'tasks', claimData.taskId);
-        const taskSnap = await getDoc(taskRef);
-        if (!taskSnap.exists()) throw new Error("TASK_NOT_FOUND");
-        const taskData = taskSnap.data();
-
         const rewardResult = await PointTransactionEngine.execute({
           userId: claimData.userId,
           amount: taskData.rewardAmount || 0,
@@ -132,6 +136,7 @@ const OpsValidation: React.FC = () => {
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
 
+        const totalCompletions = (userTaskData?.totalCompletions || 0) + 1;
         const batch = writeBatch(db);
         batch.update(claimRef, {
           validationState: 'APPROVED',
@@ -140,31 +145,20 @@ const OpsValidation: React.FC = () => {
           resolvedAt: serverTimestamp(),
           reviewedBy: 'ADMIN_HUB'
         });
-        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
         batch.set(userTaskRef, {
           taskId: claimData.taskId,
           userId: claimData.userId,
           status: 'completed',
+          verificationState: 'VERIFIED',
           lastCompleted: serverTimestamp(),
+          totalCompletions,
           updatedAt: serverTimestamp()
         }, { merge: true });
         await batch.commit();
       } else {
-        const claimSnap = await getDoc(claimRef);
-        const claimData = claimSnap.data();
-        if (!claimData) throw new Error("CLAIM_DATA_NOT_FOUND");
-
-        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
-        const userTaskSnap = await getDoc(userTaskRef);
-        const userTaskData = userTaskSnap.data();
-        const hasCompletions = userTaskData && (userTaskData.totalCompletions > 0);
-
-        const taskRef = doc(db, 'tasks', claimData.taskId);
-        const taskSnap = await getDoc(taskRef);
-        const taskData = taskSnap.exists() ? taskSnap.data() : null;
-        const cooldownHours = taskData ? (taskData.cooldownPeriod ?? taskData.cooldownHours ?? 0) : 0;
-
-        const statusToSet = (cooldownHours <= 0 && hasCompletions) ? 'completed' : 'available';
+        const tempUt = { ...(userTaskData || {}), status: 'rejected' };
+        const res = evaluateTaskStatus(taskData, tempUt);
+        const statusToSet = res.status;
 
         const batch = writeBatch(db);
 

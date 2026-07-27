@@ -80,10 +80,41 @@ export class StatisticsEngine {
     let referralCount = 0;
     let predictionsCount = 0;
 
-    const dailyTxDates: Date[] = [];
+    const dailyTxDates: string[] = [];
 
-    // Iterate through transaction ledger
-    for (const tx of transactions) {
+    // Sort transactions chronologically to ensure calculations are completely accurate
+    const getMillis = (val: any) => {
+      if (!val) return 0;
+      if (typeof val.toMillis === 'function') return val.toMillis();
+      if (val instanceof Date) return val.getTime();
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') return new Date(val).getTime();
+      if (val.seconds !== undefined) return val.seconds * 1000;
+      return 0;
+    };
+
+    const sortedTxs = [...transactions].sort((a, b) => {
+      return getMillis((a as any).timestamp || (a as any).createdAt) - getMillis((b as any).timestamp || (b as any).createdAt);
+    });
+
+    const getUtcDateString = (dateVal: any): string => {
+      if (!dateVal) return '';
+      let d: Date;
+      if (typeof dateVal.toDate === 'function') d = dateVal.toDate();
+      else if (dateVal instanceof Date) d = dateVal;
+      else if (typeof dateVal === 'number') d = new Date(dateVal);
+      else if (typeof dateVal === 'string') d = new Date(dateVal);
+      else if (dateVal.seconds !== undefined) d = new Date(dateVal.seconds * 1000);
+      else return '';
+
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Iterate through sorted transaction ledger
+    for (const tx of sortedTxs) {
       const amount = tx.amount || 0;
       const xp = (tx as any).xp !== undefined ? (tx as any).xp : (tx.xpAwarded || 0);
 
@@ -125,17 +156,14 @@ export class StatisticsEngine {
         case 'prediction_reward':
           predictionRewards += amount;
           break;
-        case 'daily_reward':
+        case 'daily_reward': {
           dailyBonuses += amount;
-          const d = (tx as any).timestamp || (tx as any).createdAt || (tx as any).processedAt;
-          if (d) {
-            if (typeof d.toDate === 'function') dailyTxDates.push(d.toDate());
-            else if (d instanceof Date) dailyTxDates.push(d);
-            else if (typeof d === 'number') dailyTxDates.push(new Date(d));
-            else if (typeof d === 'string') dailyTxDates.push(new Date(d));
-            else if (d.seconds !== undefined) dailyTxDates.push(new Date(d.seconds * 1000));
+          const dStr = getUtcDateString((tx as any).timestamp || (tx as any).createdAt || (tx as any).processedAt);
+          if (dStr) {
+            dailyTxDates.push(dStr);
           }
           break;
+        }
       }
     }
 
@@ -148,9 +176,8 @@ export class StatisticsEngine {
     const xpNeededForNext = nextLevelXP - currentLevelThreshold;
     const xpProgress = xpNeededForNext > 0 ? Math.min(Math.floor((xpInLevel / xpNeededForNext) * 100), 100) : 100;
 
-    // Calculate streaks from daily reward transactions
-    dailyTxDates.sort((a, b) => a.getTime() - b.getTime());
-    const uniqueDays = Array.from(new Set(dailyTxDates.map(d => d.toISOString().split('T')[0])));
+    // Calculate streaks from daily reward transactions (fully UTC consistent)
+    const uniqueDays = Array.from(new Set(dailyTxDates));
 
     let currentStreak = 0;
     let longestStreak = 0;
@@ -160,10 +187,12 @@ export class StatisticsEngine {
       longestStreak = 1;
 
       for (let i = 1; i < uniqueDays.length; i++) {
-        const prev = new Date(uniqueDays[i - 1]);
-        const curr = new Date(uniqueDays[i]);
-        const diffTime = Math.abs(curr.getTime() - prev.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const prevParts = uniqueDays[i - 1].split('-').map(Number);
+        const currParts = uniqueDays[i].split('-').map(Number);
+
+        const prevDate = Date.UTC(prevParts[0], prevParts[1] - 1, prevParts[2]);
+        const currDate = Date.UTC(currParts[0], currParts[1] - 1, currParts[2]);
+        const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
           tempStreak++;
@@ -173,15 +202,28 @@ export class StatisticsEngine {
         }
       }
 
-      const lastDay = new Date(uniqueDays[uniqueDays.length - 1]);
-      const today = new Date();
-      const diffTime = Math.abs(today.getTime() - lastDay.getTime());
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const lastParts = uniqueDays[uniqueDays.length - 1].split('-').map(Number);
+      const lastDateUtc = Date.UTC(lastParts[0], lastParts[1] - 1, lastParts[2]);
+
+      const now = new Date();
+      const nowDateUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const diffDays = Math.round((nowDateUtc - lastDateUtc) / (1000 * 60 * 60 * 24));
 
       if (diffDays <= 1) {
         currentStreak = tempStreak;
       } else {
         currentStreak = 0;
+      }
+    }
+
+    const latestTx = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1] : null;
+    let lastActivityAtDate = new Date();
+    if (latestTx) {
+      const tsVal = (latestTx as any).timestamp || (latestTx as any).createdAt || (latestTx as any).processedAt;
+      if (tsVal) {
+        if (typeof tsVal.toDate === 'function') lastActivityAtDate = tsVal.toDate();
+        else if (tsVal instanceof Date) lastActivityAtDate = tsVal;
+        else lastActivityAtDate = new Date(getMillis(tsVal));
       }
     }
 
@@ -208,9 +250,7 @@ export class StatisticsEngine {
       referralsCount: referralCount,
       predictionsCount,
       achievementsUnlocked: 0,
-      lastActivityAt: transactions.length > 0 
-        ? (transactions[transactions.length - 1].createdAt || new Date())
-        : new Date(),
+      lastActivityAt: lastActivityAtDate,
       totalSessions: 0,
       averageSessionDuration: 0,
       accountStatus: 'active',
@@ -241,14 +281,7 @@ export class StatisticsEngine {
 
   /**
    * Subscribe to statistics updates.
-   * Every page that displays stats should subscribe here.
-   * Returns unsubscribe function.
-   * 
-   * Usage:
-   * const unsubscribe = Statistics.subscribe(userId, (stats) => {
-   *   setDashboardStats(stats);
-   *   setMarketplaceStats(stats);
-   * });
+   * Uses ref-counting of active subscribers to manage Firestore listener lifecycle perfectly (prevents leaks).
    */
   subscribe(userId: string, callback: (stats: UserStatistics) => void): () => void {
     if (!this.listeners.has(userId)) {
@@ -257,9 +290,27 @@ export class StatisticsEngine {
     
     this.listeners.get(userId)!.add(callback);
     
-    // Return unsubscribe function
+    // Automatically initialize listener if this is the first subscriber
+    // We import 'db' directly from config or use a global resolver
+    import('../../firebase/config').then(({ db }) => {
+      this.initializeForUser(userId, db);
+    });
+
+    const currentCached = this.userStats.get(userId);
+    if (currentCached) {
+      callback(currentCached);
+    }
+
+    // Return unsubscribe function with clean reference counting
     return () => {
-      this.listeners.get(userId)?.delete(callback);
+      const pageListeners = this.listeners.get(userId);
+      if (pageListeners) {
+        pageListeners.delete(callback);
+        if (pageListeners.size === 0) {
+          // No active subscribers remain for this user -> stop Firestore listener and release cache
+          this.cleanup(userId);
+        }
+      }
     };
   }
 

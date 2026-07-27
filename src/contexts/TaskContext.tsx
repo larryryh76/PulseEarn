@@ -10,6 +10,7 @@ import {
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { Task, UserTask, Activity, Campaign, TaskClaim, PredictionRecord, TaskHistory } from '../types';
+import { evaluateTaskStatus } from '../utils';
 
 export interface TaskContextType {
   tasks: Task[];
@@ -141,31 +142,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getTaskStatus = (task: Task) => {
     const userTask = userTasks[task.id];
-    if (!userTask) return { status: 'available' as const };
-
-    const statusStr = (userTask.status || '').toLowerCase();
-
-    if (statusStr === 'pending' || statusStr === 'awaiting_verification') return { status: 'pending' as const };
-    if (statusStr === 'rejected') return { status: 'rejected' as const };
-
-    const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
-
-    if (statusStr === 'completed' || statusStr === 'claimed' || statusStr === 'verified' || statusStr === 'on_cooldown' || statusStr === 'cooldown') {
-      if (cooldownHours <= 0) return { status: 'completed' as const };
-
-      const last = userTask.lastCompleted?.toDate() || (userTask as any).completedAt?.toDate() || (userTask as any).updatedAt?.toDate() || new Date(0);
-      const cooldownMs = cooldownHours * 60 * 60 * 1000;
-      const now = new Date();
-
-      if (now.getTime() - last.getTime() < cooldownMs) {
-        return {
-          status: 'cooldown' as const,
-          nextAvailable: new Date(last.getTime() + cooldownMs)
-        };
-      }
-    }
-
-    return { status: 'available' as const };
+    const res = evaluateTaskStatus(task, userTask);
+    return {
+      status: res.status as 'available' | 'pending' | 'completed' | 'cooldown' | 'rejected',
+      nextAvailable: res.nextAvailable
+    };
   };
 
   const submitTask = async (_taskId: string, _proofData?: string) => {

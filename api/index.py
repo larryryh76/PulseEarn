@@ -222,6 +222,70 @@ def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp: return 1
     return math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
 
+def evaluate_task_status(t_data, ut_data):
+    """
+    Unified task completion and eligibility predicate (single source of truth).
+    Respects perUserLimit, maxCompletions, cooldownPeriod, verification state, and completion history.
+    """
+    if not ut_data:
+        return {"status": "available", "can_submit": True}
+
+    st = (ut_data.get('status') or '').lower()
+
+    # 1. Pending checks
+    if st in ('pending', 'awaiting_verification', 'submitted'):
+        return {"status": "pending", "can_submit": False, "reason": "ALREADY_PENDING"}
+
+    # 2. Resolve completions limit
+    cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
+
+    max_completions = t_data.get('perUserLimit')
+    if max_completions is None:
+        max_completions = t_data.get('maxCompletions')
+    if max_completions is None:
+        max_completions = t_data.get('maxClaims')
+    if max_completions is None:
+        max_completions = 999999 if cooldown_hours > 0 else 1
+
+    max_completions = safe_int(max_completions, 1)
+    total_completions = safe_int(ut_data.get('totalCompletions', 0), 0)
+
+    if max_completions > 0 and total_completions >= max_completions:
+        return {"status": "completed", "can_submit": False, "reason": "ALREADY_COMPLETED"}
+
+    # 3. Cooldown checks
+    if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'cooldown', 'on_cooldown'):
+        last = ut_data.get('lastCompleted') or ut_data.get('completedAt') or ut_data.get('updatedAt')
+        last_dt = None
+        if isinstance(last, datetime):
+            last_dt = last
+        elif isinstance(last, (int, float)):
+            last_dt = datetime.fromtimestamp(last, tz=timezone.utc)
+        elif isinstance(last, str):
+            try:
+                last_dt = datetime.fromisoformat(last.replace('Z', '+00:00'))
+            except Exception:
+                pass
+
+        if last_dt:
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            elapsed_seconds = (now - last_dt).total_seconds()
+            if elapsed_seconds < cooldown_hours * 3600:
+                return {
+                    "status": "cooldown",
+                    "can_submit": False,
+                    "reason": "ON_COOLDOWN",
+                    "next_available": last_dt + timedelta(hours=cooldown_hours)
+                }
+
+    # 4. Rejected checks
+    if st == 'rejected':
+        return {"status": "rejected", "can_submit": True}
+
+    return {"status": "available", "can_submit": True}
+
 def evaluate_missions(user_id):
     # DECOMMISSIONED: "system tasks"/missions (e.g. "Network Builder") have been merged
     # into the standard Task system. This auto-evaluator is intentionally a no-op so no
@@ -398,33 +462,10 @@ def submit_task():
                 if total_claims >= max_claims:
                     raise Exception("TASK_CAP_REACHED")
 
-        # 5. Cooldown Guard & Idempotency
-        cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
-        if ut_snap.exists:
-            ut = ut_snap.to_dict()
-            st = ut.get('status')
-            has_completions = int(ut.get('totalCompletions', 0) or 0) > 0
-            if st in ('pending', 'awaiting_verification'):
-                raise Exception("ALREADY_PENDING")
-            if cooldown_hours <= 0 and (st in ('completed', 'claimed', 'verified') or has_completions):
-                raise Exception("ALREADY_COMPLETED")
-            if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'on_cooldown', 'cooldown'):
-                last = ut.get('lastCompleted') or ut.get('completedAt') or ut.get('updatedAt')
-                last_dt = None
-                if isinstance(last, datetime):
-                    last_dt = last
-                elif isinstance(last, (int, float)):
-                    last_dt = datetime.fromtimestamp(last, tz=timezone.utc)
-                elif isinstance(last, str):
-                    try:
-                        last_dt = datetime.fromisoformat(last.replace('Z', '+00:00'))
-                    except Exception:
-                        pass
-                if last_dt:
-                    if last_dt.tzinfo is None:
-                        last_dt = last_dt.replace(tzinfo=timezone.utc)
-                    if (now - last_dt).total_seconds() < cooldown_hours * 3600:
-                        raise Exception("ON_COOLDOWN")
+        # 5. Cooldown Guard & Idempotency (using unified evaluate_task_status)
+        status_info = evaluate_task_status(t_data, ut_snap.to_dict() if ut_snap.exists else None)
+        if not status_info["can_submit"]:
+            raise Exception(status_info["reason"])
 
         # 6. Verification Type & Proof Enforcement
         v_type = (t_data.get('verificationType') or 'manual').lower()
@@ -548,12 +589,6 @@ def review_claim():
         u_data = u_snap.to_dict()
         t_data = t_snap.to_dict()
 
-        has_previous_completion = False
-        if ut_snap.exists:
-            ut_data = ut_snap.to_dict()
-            if int(ut_data.get('totalCompletions', 0) or 0) > 0:
-                has_previous_completion = True
-
         if action == 'APPROVE':
             pts = float(t_data.get('rewardAmount', 0) or 0)
             xp = float(t_data.get('xpReward', 0) or 0)
@@ -617,13 +652,12 @@ def review_claim():
                 'updatedAt': firestore.SERVER_TIMESTAMP
             })
 
-            cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
-            if cooldown_hours <= 0 and has_previous_completion:
-                status_to_set = 'completed'
-                v_state_to_set = 'VERIFIED'
-            else:
-                status_to_set = 'available'
-                v_state_to_set = 'REJECTED'
+            # Evaluate new status using the unified helper
+            temp_ut = dict(ut_snap.to_dict() or {})
+            temp_ut['status'] = 'rejected'
+            res = evaluate_task_status(t_data, temp_ut)
+            status_to_set = res['status']
+            v_state_to_set = 'VERIFIED' if status_to_set == 'completed' else 'REJECTED'
 
             transaction.set(ut_ref, {
                 'taskId': task_id,
@@ -2874,6 +2908,11 @@ def _offerwall_callback_impl(provider_id, req):
                                'Provider is disabled, callback ignored')
         return pmap['success_response'], 200  # Silently ack disabled providers
 
+    if config.get('status') == 'maintenance':
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
+                               'Provider is under maintenance, callback ignored')
+        return pmap['success_response'], 200  # Silently ack maintenance providers
+
     secret = config.get('secret', '')
     multiplier = float(config.get('rewardMultiplier', 1.0))
     # Business rule: user receives 30% of the awarded points, platform keeps 70%.
@@ -3935,6 +3974,9 @@ def offerwall_launch_url(provider_id):
     cfg = snap.to_dict()
     if not cfg.get('enabled', False):
         return jsonify({'success': False, 'error': 'PROVIDER_DISABLED', 'message': 'Selected provider is currently disabled.'}), 400
+
+    if cfg.get('status') == 'maintenance':
+        return jsonify({'success': False, 'error': 'PROVIDER_MAINTENANCE', 'message': 'Selected provider is currently under maintenance.'}), 400
 
     # Ensure it's not a locked / research required provider
     adapter = PROVIDERS_ADAPTERS.get(provider_id, {})

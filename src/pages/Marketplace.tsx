@@ -230,6 +230,10 @@ export const Marketplace: React.FC = () => {
 
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
+    if (opp.status === 'maintenance') {
+      toast.error('This provider is currently under maintenance.');
+      return;
+    }
     if (opp.action.url) {
       const val = validateExternalUrl(opp.action.url);
       if (val.valid && val.url) {

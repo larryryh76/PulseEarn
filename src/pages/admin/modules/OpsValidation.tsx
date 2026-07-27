@@ -154,6 +154,18 @@ const OpsValidation: React.FC = () => {
         const claimData = claimSnap.data();
         if (!claimData) throw new Error("CLAIM_DATA_NOT_FOUND");
 
+        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
+        const userTaskSnap = await getDoc(userTaskRef);
+        const userTaskData = userTaskSnap.data();
+        const hasCompletions = userTaskData && (userTaskData.totalCompletions > 0);
+
+        const taskRef = doc(db, 'tasks', claimData.taskId);
+        const taskSnap = await getDoc(taskRef);
+        const taskData = taskSnap.exists() ? taskSnap.data() : null;
+        const cooldownHours = taskData ? (taskData.cooldownPeriod ?? taskData.cooldownHours ?? 0) : 0;
+
+        const statusToSet = (cooldownHours <= 0 && hasCompletions) ? 'completed' : 'available';
+
         const batch = writeBatch(db);
 
         batch.update(claimRef, {
@@ -163,9 +175,8 @@ const OpsValidation: React.FC = () => {
           rejectionReason
         });
 
-        const userTaskRef = doc(db, 'users', claimData.userId, 'user_tasks', claimData.taskId);
         batch.update(userTaskRef, {
-          status: 'available',
+          status: statusToSet,
           updatedAt: serverTimestamp()
         });
 

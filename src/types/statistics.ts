@@ -40,6 +40,8 @@ export interface UserStatistics {
   currentStreak: number;
   longestStreak: number;
   achievementsUnlocked: number;
+  referralsCount?: number;
+  predictionsCount?: number;
   
   // Engagement
   lastActivityAt: Date;

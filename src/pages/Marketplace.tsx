@@ -158,14 +158,48 @@ export const Marketplace: React.FC = () => {
       if (res.success && Array.isArray(res.providers)) {
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: { id: string; name: string; status?: string; description?: string; maximumReward?: number; launchUrl?: string | null }) => {
+        res.providers.forEach((p: any) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           let existingOpps = match?.opportunities || [];
 
-          // Capability-driven fallback: If a provider is active but has zero static opportunities,
-          // dynamically generate a channel opportunity using the consolidated, single-source-of-truth generator!
-          if (existingOpps.length === 0 && p.launchUrl) {
+          if (p.status === 'maintenance') {
+            // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.
+            existingOpps = [{
+              id: `provider_${p.id}_maintenance`,
+              source: 'provider',
+              providerId: p.id,
+              providerName: p.name,
+              title: `${p.name} Under Maintenance`,
+              description: `The ${p.name} portal is currently undergoing scheduled maintenance. Please check back later.`,
+              instructions: `Under Maintenance. No actions available.`,
+              reward: { points: 0, xp: 0 },
+              metadata: {
+                category: 'featured',
+                difficulty: 'medium',
+                estimatedTime: 'Unknown',
+                verificationType: 'automated',
+                launchMode: 'inline',
+                artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                tags: ['maintenance', p.id],
+              },
+              engagement: {
+                completionRate: 0,
+                averageReward: 0,
+                totalCompletions: 0,
+                trending: false,
+                isNew: false,
+              },
+              status: 'maintenance',
+              action: {
+                actionType: 'claim',
+              }
+            }];
+          } else if (existingOpps.length === 0 && p.launchUrl) {
+            // Tier 2: Launch provider. If inventory is unavailable but launch URL exists, display ONE launch card.
             existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+          } else {
+            // Tier 1: Native inventory providers. Display real offers only. (Which is already in existingOpps!)
           }
 
           updateProviderInventory({
@@ -173,7 +207,7 @@ export const Marketplace: React.FC = () => {
             providerName: p.name,
             opportunities: existingOpps,
             lastSyncedAt: new Date(),
-            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' || p.status === 'maintenance' ? 'offline' : 'connected',
+            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' ? 'offline' : p.status === 'maintenance' ? 'maintenance' : 'connected',
           });
         });
         setEngineVersion(v => v + 1);

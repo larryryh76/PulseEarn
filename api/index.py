@@ -403,9 +403,10 @@ def submit_task():
         if ut_snap.exists:
             ut = ut_snap.to_dict()
             st = ut.get('status')
+            has_completions = int(ut.get('totalCompletions', 0) or 0) > 0
             if st in ('pending', 'awaiting_verification'):
                 raise Exception("ALREADY_PENDING")
-            if cooldown_hours <= 0 and st in ('completed', 'claimed', 'verified'):
+            if cooldown_hours <= 0 and (st in ('completed', 'claimed', 'verified') or has_completions):
                 raise Exception("ALREADY_COMPLETED")
             if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'on_cooldown', 'cooldown'):
                 last = ut.get('lastCompleted') or ut.get('completedAt') or ut.get('updatedAt')
@@ -540,11 +541,18 @@ def review_claim():
 
         u_snap = user_ref.get(transaction=transaction)
         t_snap = task_ref.get(transaction=transaction)
+        ut_snap = ut_ref.get(transaction=transaction)
         if not u_snap.exists or not t_snap.exists:
             raise Exception("USER_OR_TASK_NOT_FOUND")
 
         u_data = u_snap.to_dict()
         t_data = t_snap.to_dict()
+
+        has_previous_completion = False
+        if ut_snap.exists:
+            ut_data = ut_snap.to_dict()
+            if int(ut_data.get('totalCompletions', 0) or 0) > 0:
+                has_previous_completion = True
 
         if action == 'APPROVE':
             pts = float(t_data.get('rewardAmount', 0) or 0)
@@ -609,10 +617,18 @@ def review_claim():
                 'updatedAt': firestore.SERVER_TIMESTAMP
             })
 
+            cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
+            if cooldown_hours <= 0 and has_previous_completion:
+                status_to_set = 'completed'
+                v_state_to_set = 'VERIFIED'
+            else:
+                status_to_set = 'available'
+                v_state_to_set = 'REJECTED'
+
             transaction.set(ut_ref, {
                 'taskId': task_id,
-                'status': 'available',
-                'verificationState': 'REJECTED',
+                'status': status_to_set,
+                'verificationState': v_state_to_set,
                 'updatedAt': firestore.SERVER_TIMESTAMP
             }, merge=True)
 
@@ -3890,6 +3906,7 @@ def offerwall_user_providers():
                 'maximumReward': safe_int(d.get('maximumReward'), 100000),
                 'launchUrl': launch_url,
                 'embeddable': bool(embeddable),
+                'stats': d.get('stats') or {},
                 'offers': []
             })
         except Exception as e:

@@ -624,10 +624,26 @@ export function generateSyntheticProviderOpportunity(p: {
   name: string;
   description?: string;
   maximumReward?: number;
+  minimumReward?: number;
+  userSharePct?: number;
   launchUrl: string;
   logo?: string;
   logoUrl?: string;
+  stats?: any;
 }): MarketplaceOpportunity {
+  const stats = p.stats || {};
+  const approved = Number(stats.approvedRewards || 0);
+  const failed = Number(stats.failedCallbacks || 0);
+  const total = approved + failed;
+  const completionRate = total > 0 ? (approved / total) : 0;
+
+  const lifetimeRevenue = Number(stats.lifetimeRevenue || 0);
+  const userSharePct = Number(p.userSharePct || 0.85);
+  const userLifetimeRevenue = lifetimeRevenue * userSharePct;
+  const averageReward = approved > 0 ? Math.round(userLifetimeRevenue / approved) : Number(p.minimumReward || 100);
+
+  const isTrending = approved > 5 || (stats.revenueToday && stats.revenueToday > 0) ? true : false;
+
   return {
     id: `provider_${p.id}_channel`,
     source: 'provider',
@@ -637,7 +653,7 @@ export function generateSyntheticProviderOpportunity(p: {
     description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
     instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
     reward: {
-      points: p.maximumReward || 5000,
+      points: Number(p.maximumReward || 10000),
       xp: 50,
     },
     metadata: {
@@ -651,10 +667,10 @@ export function generateSyntheticProviderOpportunity(p: {
       tags: ['offerwall', p.id],
     },
     engagement: {
-      completionRate: 0.95,
-      averageReward: p.maximumReward || 5000,
-      totalCompletions: 120,
-      trending: true,
+      completionRate,
+      averageReward,
+      totalCompletions: approved,
+      trending: isTrending,
       isNew: false,
     },
     status: 'available',

@@ -116,17 +116,23 @@ export class MarketplaceProfileEngine {
     });
 
     const completionCount = trustSignals.tasksCompleted;
-    const avgReward = completionCount > 0 ? trustSignals.totalEarnings / completionCount : 150;
+    const avgReward = completionCount > 0 ? trustSignals.totalEarnings / completionCount : 0;
+
+    const completedHistory = history.filter(h => h.status === 'COMPLETED' || (h as any).status === 'VERIFIED').length;
+    const rejectedHistory = history.filter(h => h.status === 'REJECTED' || (h as any).status === 'FAILED').length;
+    const totalHistory = completedHistory + rejectedHistory;
+    const successRate = totalHistory > 0 ? (completedHistory / totalHistory) : (completionCount > 0 ? 1.0 : 0);
+    const completionRate = totalHistory > 0 ? (completedHistory / totalHistory) : (completionCount > 0 ? 1.0 : 0);
 
     return {
       userId,
       archetype,
       preferredCategories,
       favouriteProviders,
-      completionRate: completionCount > 0 ? 0.92 : 0,
-      averageSessionLength: 12, // minutes
+      completionRate,
+      averageSessionLength: 0, // No fabrication
       averageReward: Math.round(avgReward),
-      successRate: 0.95,
+      successRate,
       activeCampaigns: [],
       completedCampaigns: [],
       hiddenOpportunities: existingHidden,

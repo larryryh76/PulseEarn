@@ -41,7 +41,8 @@ export type OpportunityStatus =
   | 'cancelled'
   | 'cooldown'
   | 'locked'
-  | 'archived';
+  | 'archived'
+  | 'maintenance';
 
 export type OpportunitySource = 'internal' | 'provider';
 
@@ -400,7 +401,7 @@ export interface ProviderInventory {
   providerName: string;
   opportunities: MarketplaceOpportunity[];
   lastSyncedAt: Date;
-  connectionStatus: 'connected' | 'degraded' | 'offline';
+  connectionStatus: 'connected' | 'degraded' | 'offline' | 'maintenance';
   errorMessage?: string;
 }
 

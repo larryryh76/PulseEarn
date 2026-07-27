@@ -27,12 +27,24 @@ import { db } from '../firebase/config';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getXpProgress, getLevelTier } from '../utils/progression';
+import { Statistics } from '../engines/statistics/StatisticsEngine';
 
 const Profile: React.FC = () => {
   const { userData, logout, currentUser, updateUserEmail, updateUserPassword, reauthenticate } = useAuth();
   const { transactions, loading: txLoading } = useTransactions(10);
   const [hasCopied, setHasCopied] = useState(false);
   const [rewardAmount, setRewardAmount] = useState(50);
+  const [liveStats, setLiveStats] = useState<any>(null);
+
+  // Subscribe to real-time authoritative Statistics ledger calculations
+  useEffect(() => {
+    if (!currentUser) return;
+    Statistics.initializeForUser(currentUser.uid, db);
+    const unsubscribe = Statistics.subscribe(currentUser.uid, (stats) => {
+      setLiveStats(stats);
+    });
+    return unsubscribe;
+  }, [currentUser]);
 
   const [emailForm, setEmailForm] = useState({ email: currentUser?.email || '', currentPassword: '' });
   const [passForm, setPassForm] = useState({ currentPassword: '', new: '', confirm: '' });
@@ -132,7 +144,9 @@ const Profile: React.FC = () => {
      navigate('/');
   };
 
-  const xpStats = getXpProgress(userData?.xp || 0);
+  const userXp = liveStats ? liveStats.totalXP : (userData?.xp || 0);
+  const userLevel = liveStats ? liveStats.currentLevel : (userData?.level || 1);
+  const xpStats = getXpProgress(userXp);
   const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
 
   if (txLoading && !userData) return (
@@ -174,7 +188,7 @@ const Profile: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8 md:gap-12 text-center lg:text-left">
             <div className="relative group">
                <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-               <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userData?.level || 1).glow)}>
+               <div className={cn("w-36 h-36 rounded-[3rem] bg-surface-bright p-1 border border-border relative z-10", getLevelTier(userLevel).glow)}>
                  <div className="w-full h-full rounded-[2.9rem] overflow-hidden border border-border group/avatar relative">
                    <img
                      src={userData?.avatarUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${userData?.uid}`}
@@ -182,7 +196,7 @@ const Profile: React.FC = () => {
                      className="w-full h-full object-cover grayscale-[0.2] group-hover/avatar:grayscale-0 transition-all duration-700"
                    />
                  </div>
-                 <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userData?.level || 1).color)}>
+                 <div className={cn("absolute -bottom-2 -right-2 w-12 h-12 rounded-2xl bg-surface border border-border-bright flex items-center justify-center shadow-2xl", getLevelTier(userLevel).color)}>
                    <Award size={24} />
                  </div>
                </div>
@@ -192,12 +206,12 @@ const Profile: React.FC = () => {
               <div className="space-y-2">
                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
                    <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-text-primary">{userData?.username}</h1>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2", getLevelTier(userLevel).color, "bg-surface-bright")}>
                       <TrendingUp size={12} />
-                      LVL {userData?.level || 1}
+                      LVL {userLevel}
                    </div>
-                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userData?.level || 1).color, "bg-surface-bright")}>
-                      {getLevelTier(userData?.level || 1).title}
+                   <div className={cn("badge-system h-8 px-4 flex items-center gap-2 font-black uppercase tracking-widest", getLevelTier(userLevel).color, "bg-surface-bright")}>
+                      {getLevelTier(userLevel).title}
                    </div>
                  </div>
                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 text-text-tertiary">
@@ -207,7 +221,7 @@ const Profile: React.FC = () => {
                    </div>
                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                      <Zap size={14} className="text-primary" />
-                     {(userData?.xp || 0)?.toLocaleString()} <span className="text-text-tertiary">XP Earned</span>
+                     {userXp.toLocaleString()} <span className="text-text-tertiary">XP Earned</span>
                    </div>
                  </div>
               </div>
@@ -216,7 +230,7 @@ const Profile: React.FC = () => {
               <div className="max-w-md mx-auto lg:mx-0 p-6 bg-surface-bright border border-border rounded-2xl">
                 <div className="flex justify-between text-[9px] font-bold uppercase tracking-[0.2em] mb-3 text-text-tertiary">
                   <span>Progress to Level {xpStats.level + 1}</span>
-                  <span className={cn("font-black", getLevelTier(userData?.level || 1).color)}>{Math.floor(xpStats.progress)}%</span>
+                  <span className={cn("font-black", getLevelTier(userLevel).color)}>{Math.floor(xpStats.progress)}%</span>
                 </div>
                 <div className="h-3 bg-surface-bright rounded-full overflow-hidden p-0.5 border border-border-bright">
                   <motion.div
@@ -224,7 +238,7 @@ const Profile: React.FC = () => {
                     animate={{ width: `${xpStats.progress}%` }}
                     className={cn(
                       "h-full transition-all duration-1000 rounded-full relative",
-                      getLevelTier(userData?.level || 1).color.replace('text-', 'bg-'),
+                      getLevelTier(userLevel).color.replace('text-', 'bg-'),
                       "shadow-[0_0_20px_rgba(94,106,210,0.8)]"
                     )}
                   >
@@ -300,12 +314,12 @@ const Profile: React.FC = () => {
                     </div>
                     <Card variant="compact" className="grid grid-cols-2 gap-4 bg-surface-bright/50">
                       <div className="p-4 rounded-xl bg-background/40 border border-border">
-                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-1">Total Wins</p>
-                         <p className="text-xl font-mono font-bold text-text-primary">{userData?.stats?.totalWins || 0}</p>
+                         <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-1">Predictions</p>
+                         <p className="text-xl font-mono font-bold text-text-primary">{liveStats ? liveStats.predictionsCount : (userData?.stats?.predictionsCount || 0)}</p>
                       </div>
                       <div className="p-4 rounded-xl bg-background/40 border border-border">
                          <p className="text-[9px] font-black text-text-tertiary uppercase tracking-widest mb-1">Streak</p>
-                         <p className="text-xl font-mono font-bold text-warning">{userData?.streak || 0} D</p>
+                         <p className="text-xl font-mono font-bold text-warning">{liveStats ? liveStats.currentStreak : (userData?.streak || 0)} D</p>
                       </div>
                     </Card>
                   </section>
@@ -347,11 +361,11 @@ const Profile: React.FC = () => {
                     <div className="grid grid-cols-2 gap-12 pt-12 border-t border-border-bright">
                       <div className="space-y-2">
                         <p className="data-label">Total Referrals</p>
-                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{userData?.stats?.referralsCount ?? 0}</p>
+                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{liveStats ? liveStats.referralsCount : (userData?.stats?.referralsCount ?? 0)}</p>
                       </div>
                       <div className="space-y-2">
                         <p className="data-label">Total Earned</p>
-                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{((userData?.stats?.referralsCount ?? 0) * rewardAmount)?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
+                          <p className="text-4xl font-bold text-text-primary tracking-tighter">{(liveStats ? liveStats.referralRewards : ((userData?.stats?.referralsCount ?? 0) * rewardAmount))?.toLocaleString()} <span className="text-xs text-primary font-mono ml-1 uppercase">PTS</span></p>
                       </div>
                     </div>
                   </div>

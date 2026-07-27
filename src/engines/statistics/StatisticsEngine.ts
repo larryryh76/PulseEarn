@@ -17,6 +17,7 @@ import type {
   UserStatistics,
   PointTransaction,
 } from '../../types/statistics';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export class StatisticsEngine {
   private userStats = new Map<string, UserStatistics>();
@@ -36,19 +37,24 @@ export class StatisticsEngine {
 
     // Create real-time listener on PointTransactionEngine ledger
     // Backend ledger schema: users/{uid}/transactions with status 'COMPLETED'
-    const unsubscribe = db
-      .collection('users')
-      .doc(userId)
-      .collection('transactions')
-      .where('status', '==', 'COMPLETED')
-      .onSnapshot((snapshot: any) => {
-        const transactions = snapshot.docs.map((doc: any) => doc.data() as PointTransaction);
-        const stats = this.calculateFromLedger(userId, transactions);
-        this.userStats.set(userId, stats);
-        
-        // Notify ALL listeners (Dashboard, Marketplace, Profile, etc.)
-        this.notifyListeners(userId, stats);
+    const q = query(
+      collection(db, 'users', userId, 'transactions'),
+      where('status', '==', 'COMPLETED')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const transactions = snapshot.docs.map((doc: any) => {
+        const d = doc.data();
+        return { id: doc.id, ...d } as any;
       });
+      const stats = this.calculateFromLedger(userId, transactions);
+      this.userStats.set(userId, stats);
+
+      // Notify ALL listeners (Dashboard, Marketplace, Profile, etc.)
+      this.notifyListeners(userId, stats);
+    }, (error) => {
+      console.error("[StatisticsEngine] Ledger snapshot error:", error);
+    });
 
     this.unsubscribers.set(userId, unsubscribe);
   }
@@ -71,6 +77,10 @@ export class StatisticsEngine {
     let predictionRewards = 0;
     let dailyBonuses = 0;
     let seasonalRewards = 0;
+    let referralCount = 0;
+    let predictionsCount = 0;
+
+    const dailyTxDates: Date[] = [];
 
     // Iterate through transaction ledger
     for (const tx of transactions) {
@@ -84,7 +94,12 @@ export class StatisticsEngine {
       totalXP += xp;
 
       // Count completions by canonical backend transaction types
-      switch (tx.type as string) {
+      const txType = tx.type as string;
+      if (txType === 'prediction_stake' || txType === 'prediction_entry') {
+        predictionsCount++;
+      }
+
+      switch (txType) {
         case 'task_reward':
           tasksCompleted++;
           opportunitiesCompleted++;
@@ -105,12 +120,21 @@ export class StatisticsEngine {
         case 'referral_bonus_received':
         case 'referral_bonus_earned':
           referralRewards += amount;
+          referralCount++;
           break;
         case 'prediction_reward':
           predictionRewards += amount;
           break;
         case 'daily_reward':
           dailyBonuses += amount;
+          const d = (tx as any).timestamp || (tx as any).createdAt || (tx as any).processedAt;
+          if (d) {
+            if (typeof d.toDate === 'function') dailyTxDates.push(d.toDate());
+            else if (d instanceof Date) dailyTxDates.push(d);
+            else if (typeof d === 'number') dailyTxDates.push(new Date(d));
+            else if (typeof d === 'string') dailyTxDates.push(new Date(d));
+            else if (d.seconds !== undefined) dailyTxDates.push(new Date(d.seconds * 1000));
+          }
           break;
       }
     }
@@ -123,6 +147,43 @@ export class StatisticsEngine {
     const xpInLevel = totalXP - currentLevelThreshold;
     const xpNeededForNext = nextLevelXP - currentLevelThreshold;
     const xpProgress = xpNeededForNext > 0 ? Math.min(Math.floor((xpInLevel / xpNeededForNext) * 100), 100) : 100;
+
+    // Calculate streaks from daily reward transactions
+    dailyTxDates.sort((a, b) => a.getTime() - b.getTime());
+    const uniqueDays = Array.from(new Set(dailyTxDates.map(d => d.toISOString().split('T')[0])));
+
+    let currentStreak = 0;
+    let longestStreak = 0;
+
+    if (uniqueDays.length > 0) {
+      let tempStreak = 1;
+      longestStreak = 1;
+
+      for (let i = 1; i < uniqueDays.length; i++) {
+        const prev = new Date(uniqueDays[i - 1]);
+        const curr = new Date(uniqueDays[i]);
+        const diffTime = Math.abs(curr.getTime() - prev.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          tempStreak++;
+          longestStreak = Math.max(longestStreak, tempStreak);
+        } else if (diffDays > 1) {
+          tempStreak = 1;
+        }
+      }
+
+      const lastDay = new Date(uniqueDays[uniqueDays.length - 1]);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - lastDay.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 1) {
+        currentStreak = tempStreak;
+      } else {
+        currentStreak = 0;
+      }
+    }
 
     return {
       userId,
@@ -142,14 +203,16 @@ export class StatisticsEngine {
       predictionRewards,
       dailyBonuses,
       seasonalRewards,
-      currentStreak: 0, // TODO: Calculate from activity
-      longestStreak: 0, // TODO: Calculate from history
-      achievementsUnlocked: 0, // TODO: Query achievements collection
+      currentStreak,
+      longestStreak,
+      referralsCount: referralCount,
+      predictionsCount,
+      achievementsUnlocked: 0,
       lastActivityAt: transactions.length > 0 
-        ? transactions[transactions.length - 1].createdAt 
+        ? (transactions[transactions.length - 1].createdAt || new Date())
         : new Date(),
-      totalSessions: 0, // TODO: Query sessions collection
-      averageSessionDuration: 0, // TODO: Calculate from sessions
+      totalSessions: 0,
+      averageSessionDuration: 0,
       accountStatus: 'active',
       lastUpdated: new Date(),
     };

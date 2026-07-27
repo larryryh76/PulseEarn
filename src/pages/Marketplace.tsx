@@ -10,6 +10,7 @@ import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
+import { validateExternalUrl } from '../utils/security';
 
 import {
   MarketplaceOpportunity,
@@ -26,6 +27,8 @@ import {
   search,
   getMarketplaceState,
 } from '../engines/marketplace/MarketplaceEngine';
+
+import { generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
 
 import {
   generateAllSections,
@@ -160,47 +163,9 @@ export const Marketplace: React.FC = () => {
           let existingOpps = match?.opportunities || [];
 
           // Capability-driven fallback: If a provider is active but has zero static opportunities,
-          // dynamically generate a channel opportunity using its self-described metadata, name,
-          // description, maximumReward, and launch link. This guarantees it is never silently hidden!
+          // dynamically generate a channel opportunity using the consolidated, single-source-of-truth generator!
           if (existingOpps.length === 0 && p.launchUrl) {
-            existingOpps = [
-              {
-                id: `provider_${p.id}_channel`,
-                source: 'provider',
-                providerId: p.id,
-                providerName: p.name,
-                title: `${p.name} Offerwall`,
-                description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
-                instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
-                reward: {
-                  points: p.maximumReward || 5000,
-                  xp: 50,
-                },
-                metadata: {
-                  category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
-                  difficulty: 'medium',
-                  estimatedTime: 'Ongoing',
-                  verificationType: 'automated',
-                  launchMode: 'redirect',
-                  artwork: (p as any).logo || (p as any).logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-                  thumbnail: (p as any).logo || (p as any).logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-                  tags: ['offerwall', p.id],
-                },
-                engagement: {
-                  completionRate: 0.95,
-                  averageReward: p.maximumReward || 5000,
-                  totalCompletions: 120,
-                  trending: true,
-                  isNew: false,
-                },
-                status: 'available',
-                action: {
-                  url: p.launchUrl,
-                  actionType: 'url',
-                  trackingId: p.id,
-                },
-              }
-            ];
+            existingOpps = [generateSyntheticProviderOpportunity(p as any)];
           }
 
           updateProviderInventory({
@@ -232,8 +197,13 @@ export const Marketplace: React.FC = () => {
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.action.url) {
-      window.open(opp.action.url, '_blank', 'noopener,noreferrer');
-      toast.success(`Launching ${opp.title}...`);
+      const val = validateExternalUrl(opp.action.url);
+      if (val.valid && val.url) {
+        window.open(val.url, '_blank', 'noopener,noreferrer');
+        toast.success(`Launching ${opp.title}...`);
+      } else {
+        toast.error(val.error || `Unable to launch ${opp.title}. URL failed security check.`);
+      }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
       toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
     } else {

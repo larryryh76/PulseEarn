@@ -34,7 +34,7 @@ import {
 import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
-import { normalizeProviderOffer } from '../engines/marketplace/OpportunityNormalizer';
+import { normalizeProviderOffer, generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
 import { validateExternalUrl } from '../utils/security';
 
 // ─── Hook Interface ────────────────────────────────────────────────────────────
@@ -166,24 +166,12 @@ export function useMarketplace(): UseMarketplaceReturn {
       if (res.success && res.providers) {
         const providerList: ProviderInventory[] = res.providers.map((p: any) => {
           let offers = p.offers || [];
-          if (offers.length === 0 && p.launchUrl) {
-            offers = [{
-              id: `${p.id}_channel`,
-              title: `${p.name} Offerwall`,
-              description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
-              points: p.maximumReward || 5000,
-              xp: 50,
-              time: 'Ongoing',
-              thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-              category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
-              url: p.launchUrl,
-            }];
-          }
+          let opportunities: MarketplaceOpportunity[] = [];
 
-          return {
-            providerId: p.id,
-            providerName: p.name,
-            opportunities: offers.map((offer: any) =>
+          if (offers.length === 0 && p.launchUrl) {
+            opportunities = [generateSyntheticProviderOpportunity(p)];
+          } else {
+            opportunities = offers.map((offer: any) =>
               normalizeProviderOffer({
                 offerId: offer.id || offer.offerId,
                 providerId: p.id,
@@ -197,7 +185,13 @@ export function useMarketplace(): UseMarketplaceReturn {
                 category: offer.category,
                 actionUrl: offer.url || offer.actionUrl,
               })
-            ),
+            );
+          }
+
+          return {
+            providerId: p.id,
+            providerName: p.name,
+            opportunities,
             lastSyncedAt: new Date(),
             connectionStatus: 'connected',
           };

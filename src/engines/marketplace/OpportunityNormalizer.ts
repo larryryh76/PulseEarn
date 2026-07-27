@@ -613,3 +613,55 @@ export function mergeOpportunities(
     return 0;
   });
 }
+
+/**
+ * Consolidated capability-driven fallback generator for enabled/connected providers
+ * that have empty static opportunities. Ensures providers are never silently hidden
+ * and can be securely launched directly from the Marketplace.
+ */
+export function generateSyntheticProviderOpportunity(p: {
+  id: string;
+  name: string;
+  description?: string;
+  maximumReward?: number;
+  launchUrl: string;
+  logo?: string;
+  logoUrl?: string;
+}): MarketplaceOpportunity {
+  return {
+    id: `provider_${p.id}_channel`,
+    source: 'provider',
+    providerId: p.id,
+    providerName: p.name,
+    title: `${p.name} Offerwall`,
+    description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
+    instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
+    reward: {
+      points: p.maximumReward || 5000,
+      xp: 50,
+    },
+    metadata: {
+      category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
+      difficulty: 'medium',
+      estimatedTime: 'Ongoing',
+      verificationType: 'automated',
+      launchMode: 'redirect',
+      artwork: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+      thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+      tags: ['offerwall', p.id],
+    },
+    engagement: {
+      completionRate: 0.95,
+      averageReward: p.maximumReward || 5000,
+      totalCompletions: 120,
+      trending: true,
+      isNew: false,
+    },
+    status: 'available',
+    action: {
+      url: p.launchUrl,
+      actionType: 'url',
+      trackingId: p.id,
+    },
+  };
+}

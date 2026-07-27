@@ -18,7 +18,8 @@ import {
   serverTimestamp,
   orderBy,
   startAfter,
-  getDocs
+  getDocs,
+  increment
 } from 'firebase/firestore';
 import { SubtaskStatus } from '../../../types';
 import { cn } from '../../../utils';
@@ -136,7 +137,6 @@ const OpsValidation: React.FC = () => {
           return toast.error(`Failed to grant reward: ${rewardResult.error}`);
         }
 
-        const totalCompletions = (userTaskData?.totalCompletions || 0) + 1;
         const batch = writeBatch(db);
         batch.update(claimRef, {
           validationState: 'APPROVED',
@@ -151,7 +151,7 @@ const OpsValidation: React.FC = () => {
           status: 'completed',
           verificationState: 'VERIFIED',
           lastCompleted: serverTimestamp(),
-          totalCompletions,
+          totalCompletions: increment(1),
           updatedAt: serverTimestamp()
         }, { merge: true });
         await batch.commit();

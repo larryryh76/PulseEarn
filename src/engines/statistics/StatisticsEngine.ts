@@ -18,6 +18,7 @@ import type {
   PointTransaction,
 } from '../../types/statistics';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { resolveTimestamp } from '../../utils';
 
 export class StatisticsEngine {
   private userStats = new Map<string, UserStatistics>();
@@ -30,6 +31,10 @@ export class StatisticsEngine {
    * This ensures all pages see the same data immediately.
    */
   initializeForUser(userId: string, db: any): void {
+    const pageListeners = this.listeners.get(userId);
+    if (!pageListeners || pageListeners.size === 0) {
+      return;
+    }
     if (this.unsubscribers.has(userId)) {
       // Already listening
       return;
@@ -82,30 +87,16 @@ export class StatisticsEngine {
 
     const dailyTxDates: string[] = [];
 
-    // Sort transactions chronologically to ensure calculations are completely accurate
-    const getMillis = (val: any) => {
-      if (!val) return 0;
-      if (typeof val.toMillis === 'function') return val.toMillis();
-      if (val instanceof Date) return val.getTime();
-      if (typeof val === 'number') return val;
-      if (typeof val === 'string') return new Date(val).getTime();
-      if (val.seconds !== undefined) return val.seconds * 1000;
-      return 0;
-    };
-
+    // Sort transactions chronologically to ensure calculations are completely accurate using unified resolver
     const sortedTxs = [...transactions].sort((a, b) => {
-      return getMillis((a as any).timestamp || (a as any).createdAt) - getMillis((b as any).timestamp || (b as any).createdAt);
+      const timeA = resolveTimestamp(a)?.getTime() || 0;
+      const timeB = resolveTimestamp(b)?.getTime() || 0;
+      return timeA - timeB;
     });
 
     const getUtcDateString = (dateVal: any): string => {
-      if (!dateVal) return '';
-      let d: Date;
-      if (typeof dateVal.toDate === 'function') d = dateVal.toDate();
-      else if (dateVal instanceof Date) d = dateVal;
-      else if (typeof dateVal === 'number') d = new Date(dateVal);
-      else if (typeof dateVal === 'string') d = new Date(dateVal);
-      else if (dateVal.seconds !== undefined) d = new Date(dateVal.seconds * 1000);
-      else return '';
+      const d = resolveTimestamp(dateVal);
+      if (!d) return '';
 
       const yyyy = d.getUTCFullYear();
       const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -217,15 +208,7 @@ export class StatisticsEngine {
     }
 
     const latestTx = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1] : null;
-    let lastActivityAtDate = new Date();
-    if (latestTx) {
-      const tsVal = (latestTx as any).timestamp || (latestTx as any).createdAt || (latestTx as any).processedAt;
-      if (tsVal) {
-        if (typeof tsVal.toDate === 'function') lastActivityAtDate = tsVal.toDate();
-        else if (tsVal instanceof Date) lastActivityAtDate = tsVal;
-        else lastActivityAtDate = new Date(getMillis(tsVal));
-      }
-    }
+    const lastActivityAtDate = latestTx ? (resolveTimestamp(latestTx) || new Date()) : new Date();
 
     return {
       userId,
@@ -290,10 +273,13 @@ export class StatisticsEngine {
     
     this.listeners.get(userId)!.add(callback);
     
-    // Automatically initialize listener if this is the first subscriber
+    // Automatically initialize listener if this is the first subscriber, verifying subscribers still exist
     // We import 'db' directly from config or use a global resolver
     import('../../firebase/config').then(({ db }) => {
-      this.initializeForUser(userId, db);
+      const pageListeners = this.listeners.get(userId);
+      if (pageListeners && pageListeners.size > 0) {
+        this.initializeForUser(userId, db);
+      }
     });
 
     const currentCached = this.userStats.get(userId);

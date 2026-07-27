@@ -18,6 +18,7 @@ import type {
   PointTransaction,
 } from '../../types/statistics';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { resolveTimestamp } from '../../utils';
 
 export class StatisticsEngine {
   private userStats = new Map<string, UserStatistics>();
@@ -30,6 +31,10 @@ export class StatisticsEngine {
    * This ensures all pages see the same data immediately.
    */
   initializeForUser(userId: string, db: any): void {
+    const pageListeners = this.listeners.get(userId);
+    if (!pageListeners || pageListeners.size === 0) {
+      return;
+    }
     if (this.unsubscribers.has(userId)) {
       // Already listening
       return;
@@ -80,10 +85,27 @@ export class StatisticsEngine {
     let referralCount = 0;
     let predictionsCount = 0;
 
-    const dailyTxDates: Date[] = [];
+    const dailyTxDates: string[] = [];
 
-    // Iterate through transaction ledger
-    for (const tx of transactions) {
+    // Sort transactions chronologically to ensure calculations are completely accurate using unified resolver
+    const sortedTxs = [...transactions].sort((a, b) => {
+      const timeA = resolveTimestamp(a)?.getTime() || 0;
+      const timeB = resolveTimestamp(b)?.getTime() || 0;
+      return timeA - timeB;
+    });
+
+    const getUtcDateString = (dateVal: any): string => {
+      const d = resolveTimestamp(dateVal);
+      if (!d) return '';
+
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Iterate through sorted transaction ledger
+    for (const tx of sortedTxs) {
       const amount = tx.amount || 0;
       const xp = (tx as any).xp !== undefined ? (tx as any).xp : (tx.xpAwarded || 0);
 
@@ -125,17 +147,14 @@ export class StatisticsEngine {
         case 'prediction_reward':
           predictionRewards += amount;
           break;
-        case 'daily_reward':
+        case 'daily_reward': {
           dailyBonuses += amount;
-          const d = (tx as any).timestamp || (tx as any).createdAt || (tx as any).processedAt;
-          if (d) {
-            if (typeof d.toDate === 'function') dailyTxDates.push(d.toDate());
-            else if (d instanceof Date) dailyTxDates.push(d);
-            else if (typeof d === 'number') dailyTxDates.push(new Date(d));
-            else if (typeof d === 'string') dailyTxDates.push(new Date(d));
-            else if (d.seconds !== undefined) dailyTxDates.push(new Date(d.seconds * 1000));
+          const dStr = getUtcDateString((tx as any).timestamp || (tx as any).createdAt || (tx as any).processedAt);
+          if (dStr) {
+            dailyTxDates.push(dStr);
           }
           break;
+        }
       }
     }
 
@@ -148,9 +167,8 @@ export class StatisticsEngine {
     const xpNeededForNext = nextLevelXP - currentLevelThreshold;
     const xpProgress = xpNeededForNext > 0 ? Math.min(Math.floor((xpInLevel / xpNeededForNext) * 100), 100) : 100;
 
-    // Calculate streaks from daily reward transactions
-    dailyTxDates.sort((a, b) => a.getTime() - b.getTime());
-    const uniqueDays = Array.from(new Set(dailyTxDates.map(d => d.toISOString().split('T')[0])));
+    // Calculate streaks from daily reward transactions (fully UTC consistent)
+    const uniqueDays = Array.from(new Set(dailyTxDates));
 
     let currentStreak = 0;
     let longestStreak = 0;
@@ -160,10 +178,12 @@ export class StatisticsEngine {
       longestStreak = 1;
 
       for (let i = 1; i < uniqueDays.length; i++) {
-        const prev = new Date(uniqueDays[i - 1]);
-        const curr = new Date(uniqueDays[i]);
-        const diffTime = Math.abs(curr.getTime() - prev.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const prevParts = uniqueDays[i - 1].split('-').map(Number);
+        const currParts = uniqueDays[i].split('-').map(Number);
+
+        const prevDate = Date.UTC(prevParts[0], prevParts[1] - 1, prevParts[2]);
+        const currDate = Date.UTC(currParts[0], currParts[1] - 1, currParts[2]);
+        const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
           tempStreak++;
@@ -173,10 +193,12 @@ export class StatisticsEngine {
         }
       }
 
-      const lastDay = new Date(uniqueDays[uniqueDays.length - 1]);
-      const today = new Date();
-      const diffTime = Math.abs(today.getTime() - lastDay.getTime());
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const lastParts = uniqueDays[uniqueDays.length - 1].split('-').map(Number);
+      const lastDateUtc = Date.UTC(lastParts[0], lastParts[1] - 1, lastParts[2]);
+
+      const now = new Date();
+      const nowDateUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const diffDays = Math.round((nowDateUtc - lastDateUtc) / (1000 * 60 * 60 * 24));
 
       if (diffDays <= 1) {
         currentStreak = tempStreak;
@@ -184,6 +206,9 @@ export class StatisticsEngine {
         currentStreak = 0;
       }
     }
+
+    const latestTx = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1] : null;
+    const lastActivityAtDate = latestTx ? (resolveTimestamp(latestTx) || new Date()) : new Date();
 
     return {
       userId,
@@ -208,9 +233,7 @@ export class StatisticsEngine {
       referralsCount: referralCount,
       predictionsCount,
       achievementsUnlocked: 0,
-      lastActivityAt: transactions.length > 0 
-        ? (transactions[transactions.length - 1].createdAt || new Date())
-        : new Date(),
+      lastActivityAt: lastActivityAtDate,
       totalSessions: 0,
       averageSessionDuration: 0,
       accountStatus: 'active',
@@ -241,14 +264,7 @@ export class StatisticsEngine {
 
   /**
    * Subscribe to statistics updates.
-   * Every page that displays stats should subscribe here.
-   * Returns unsubscribe function.
-   * 
-   * Usage:
-   * const unsubscribe = Statistics.subscribe(userId, (stats) => {
-   *   setDashboardStats(stats);
-   *   setMarketplaceStats(stats);
-   * });
+   * Uses ref-counting of active subscribers to manage Firestore listener lifecycle perfectly (prevents leaks).
    */
   subscribe(userId: string, callback: (stats: UserStatistics) => void): () => void {
     if (!this.listeners.has(userId)) {
@@ -257,9 +273,30 @@ export class StatisticsEngine {
     
     this.listeners.get(userId)!.add(callback);
     
-    // Return unsubscribe function
+    // Automatically initialize listener if this is the first subscriber, verifying subscribers still exist
+    // We import 'db' directly from config or use a global resolver
+    import('../../firebase/config').then(({ db }) => {
+      const pageListeners = this.listeners.get(userId);
+      if (pageListeners && pageListeners.size > 0) {
+        this.initializeForUser(userId, db);
+      }
+    });
+
+    const currentCached = this.userStats.get(userId);
+    if (currentCached) {
+      callback(currentCached);
+    }
+
+    // Return unsubscribe function with clean reference counting
     return () => {
-      this.listeners.get(userId)?.delete(callback);
+      const pageListeners = this.listeners.get(userId);
+      if (pageListeners) {
+        pageListeners.delete(callback);
+        if (pageListeners.size === 0) {
+          // No active subscribers remain for this user -> stop Firestore listener and release cache
+          this.cleanup(userId);
+        }
+      }
     };
   }
 

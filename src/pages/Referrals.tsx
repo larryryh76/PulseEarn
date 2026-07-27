@@ -98,8 +98,8 @@ const Referrals: React.FC = () => {
     }
   };
 
-  // Calculate stats
-  const qualified = referrals.filter(r => r.status === 'QUALIFIED').length;
+  // Calculate stats using the authoritative backend statistics (Single Source of Truth)
+  const qualified = userData?.stats?.referralsCount || 0;
   const pending = referrals.filter(r => r.status === 'REGISTERED').length;
   const totalEarned = qualified * (config?.rewards?.referralBonusPointsReferrer || 50);
 

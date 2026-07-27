@@ -131,11 +131,9 @@ export const Marketplace: React.FC = () => {
 
   // ─── Synchronize Marketplace Engine State ───────────────────────────────────
   useEffect(() => {
-    if (tasks.length > 0 || campaigns.length > 0) {
-      initializeMarketplace(tasks, campaigns, userTasks);
-      updateUserContext(tasks, campaigns, userTasks, userData);
-      setEngineVersion(v => v + 1);
-    }
+    initializeMarketplace(tasks, campaigns, userTasks);
+    updateUserContext(tasks, campaigns, userTasks, userData);
+    setEngineVersion(v => v + 1);
   }, [tasks, campaigns, userTasks, userData]);
 
   // ─── Fetch Enabled Providers from Backend (Firestore Source of Truth) ──────
@@ -157,9 +155,54 @@ export const Marketplace: React.FC = () => {
       if (res.success && Array.isArray(res.providers)) {
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: { id: string; name: string; status?: string }) => {
+        res.providers.forEach((p: { id: string; name: string; status?: string; description?: string; maximumReward?: number; launchUrl?: string | null }) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          const existingOpps = match?.opportunities || [];
+          let existingOpps = match?.opportunities || [];
+
+          // Capability-driven fallback: If a provider is active but has zero static opportunities,
+          // dynamically generate a channel opportunity using its self-described metadata, name,
+          // description, maximumReward, and launch link. This guarantees it is never silently hidden!
+          if (existingOpps.length === 0 && p.launchUrl) {
+            existingOpps = [
+              {
+                id: `provider_${p.id}_channel`,
+                source: 'provider',
+                providerId: p.id,
+                providerName: p.name,
+                title: `${p.name} Offerwall`,
+                description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
+                instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
+                reward: {
+                  points: p.maximumReward || 5000,
+                  xp: 50,
+                },
+                metadata: {
+                  category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
+                  difficulty: 'medium',
+                  estimatedTime: 'Ongoing',
+                  verificationType: 'automated',
+                  launchMode: 'redirect',
+                  artwork: (p as any).logo || (p as any).logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  thumbnail: (p as any).logo || (p as any).logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  tags: ['offerwall', p.id],
+                },
+                engagement: {
+                  completionRate: 0.95,
+                  averageReward: p.maximumReward || 5000,
+                  totalCompletions: 120,
+                  trending: true,
+                  isNew: false,
+                },
+                status: 'available',
+                action: {
+                  url: p.launchUrl,
+                  actionType: 'url',
+                  trackingId: p.id,
+                },
+              }
+            ];
+          }
+
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,

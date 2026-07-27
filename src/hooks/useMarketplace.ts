@@ -164,27 +164,44 @@ export function useMarketplace(): UseMarketplaceReturn {
       });
 
       if (res.success && res.providers) {
-        const providerList: ProviderInventory[] = res.providers.map((p: any) => ({
-          providerId: p.id,
-          providerName: p.name,
-          opportunities: (p.offers || []).map((offer: any) =>
-            normalizeProviderOffer({
-              offerId: offer.id || offer.offerId,
-              providerId: p.id,
-              providerName: p.name,
-              title: offer.title || offer.name,
-              description: offer.description || '',
-              rewardAmount: offer.points || offer.reward || 0,
-              xpReward: offer.xp || 10,
-              estimatedTime: offer.time || offer.estimatedTime,
-              thumbnail: offer.thumbnail || offer.image,
-              category: offer.category,
-              actionUrl: offer.url || offer.actionUrl,
-            })
-          ),
-          lastSyncedAt: new Date(),
-          connectionStatus: 'connected',
-        }));
+        const providerList: ProviderInventory[] = res.providers.map((p: any) => {
+          let offers = p.offers || [];
+          if (offers.length === 0 && p.launchUrl) {
+            offers = [{
+              id: `${p.id}_channel`,
+              title: `${p.name} Offerwall`,
+              description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
+              points: p.maximumReward || 5000,
+              xp: 50,
+              time: 'Ongoing',
+              thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+              category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
+              url: p.launchUrl,
+            }];
+          }
+
+          return {
+            providerId: p.id,
+            providerName: p.name,
+            opportunities: offers.map((offer: any) =>
+              normalizeProviderOffer({
+                offerId: offer.id || offer.offerId,
+                providerId: p.id,
+                providerName: p.name,
+                title: offer.title || offer.name,
+                description: offer.description || '',
+                rewardAmount: offer.points || offer.reward || 0,
+                xpReward: offer.xp || 10,
+                estimatedTime: offer.time || offer.estimatedTime,
+                thumbnail: offer.thumbnail || offer.image,
+                category: offer.category,
+                actionUrl: offer.url || offer.actionUrl,
+              })
+            ),
+            lastSyncedAt: new Date(),
+            connectionStatus: 'connected',
+          };
+        });
 
         setProviders(providerList);
         

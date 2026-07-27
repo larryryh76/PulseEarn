@@ -87,25 +87,44 @@ export class ProviderInventorySyncEngine {
 
       const itemsSynced = inventory.length;
 
-      // Step 2: Store raw inventory
-      await this.storeRawInventory(providerId, inventory);
+      // Step 2: Store raw inventory with error tracking
+      try {
+        await this.storeRawInventory(providerId, inventory);
+      } catch (err: any) {
+        errors.push(`Failed to store raw inventory: ${err.message}`);
+      }
 
       // Step 3: Generate campaigns from inventory
-      const campaigns = await this.generateCampaigns(providerId, inventory);
-      await this.storeCampaigns(campaigns);
+      let campaigns: any[] = [];
+      try {
+        campaigns = await this.generateCampaigns(providerId, inventory);
+        await this.storeCampaigns(campaigns);
+      } catch (err: any) {
+        errors.push(`Failed to generate/store campaigns: ${err.message}`);
+      }
       const campaignsGenerated = campaigns.length;
 
       // Step 4: Generate opportunities from campaigns
-      const opportunities = await this.generateOpportunities(campaigns);
-      await this.storeOpportunities(opportunities);
+      let opportunities: any[] = [];
+      try {
+        opportunities = await this.generateOpportunities(campaigns);
+        await this.storeOpportunities(opportunities);
+      } catch (err: any) {
+        errors.push(`Failed to generate/store opportunities: ${err.message}`);
+      }
       const opportunitiesGenerated = opportunities.length;
 
-      // Step 5: Notify marketplace refresh
-      await this.notifyMarketplaceRefresh();
+      // Step 5: Notify marketplace refresh - critical for visibility
+      try {
+        await this.notifyMarketplaceRefresh();
+      } catch (err: any) {
+        errors.push(`Failed to notify marketplace refresh: ${err.message}`);
+      }
 
-      // Success only if no errors occurred
+      // Success ONLY if entire pipeline succeeded (including storage & notification)
+      // Not just fetch - must have durable effects before reporting success
       return {
-        success: errors.length === 0,
+        success: errors.length === 0 && itemsSynced > 0 && campaignsGenerated > 0 && opportunitiesGenerated > 0,
         providerId,
         timestamp: new Date(),
         itemsSynced,

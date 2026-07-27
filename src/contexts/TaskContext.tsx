@@ -5,9 +5,7 @@ import {
   where,
   limit,
   collection,
-  getDocs,
-  orderBy,
-  QueryDocumentSnapshot
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -97,55 +95,47 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("[TaskContext] Activities Listener Error:", error);
     }));
 
-    // SCALABILITY OPTIMIZATION: Non-critical historical data fetched via getDocs once on session start
-    // Critical state (active tasks/campaigns/progress) remains real-time.
-    let isCancelled = false;
-    const fetchHistoricalData = async () => {
-      const requestUserId = currentUser.uid;
+    // Establish real-time listeners for all historical collections to guarantee perfect synchronization
+    // of pending/completed state transitions without requiring manual refreshes.
+    const claimsQuery = query(
+      collection(db, 'task_claims'),
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    unsubscribes.push(onSnapshot(claimsQuery, (snapshot) => {
+      setSubtasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskClaim)));
+    }, (error) => {
+      console.error("[TaskContext] Task Claims Listener Error:", error);
+    }));
 
-      // NOTE: activities are handled by a dedicated real-time listener above; they are
-      // intentionally not re-fetched here to avoid a stale one-time snapshot overwriting it.
-      const results = await Promise.allSettled([
-        getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
-        getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
-        getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
-      ]);
+    const historyQuery = query(
+      collection(db, 'users', currentUser.uid, 'task_history'),
+      orderBy('resolvedAt', 'desc'),
+      limit(20)
+    );
+    unsubscribes.push(onSnapshot(historyQuery, (snapshot) => {
+      setTaskHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskHistory)));
+    }, (error) => {
+      console.error("[TaskContext] Task History Listener Error:", error);
+    }));
 
-      if (isCancelled || currentUser.uid !== requestUserId) return;
+    const predictionsQuery = query(
+      collection(db, 'user_predictions'),
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    unsubscribes.push(onSnapshot(predictionsQuery, (snapshot) => {
+      setPredictions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PredictionRecord)));
+    }, (error) => {
+      console.error("[TaskContext] Predictions Listener Error:", error);
+    }));
 
-      if (results[0].status === 'fulfilled') {
-        setSubtasks(results[0].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
-      } else {
-        console.error("[TaskContext] Task Claims Fetch Error:", results[0].reason);
-      }
-
-      if (results[1].status === 'fulfilled') {
-        setTaskHistory(results[1].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
-      } else {
-        console.error("[TaskContext] Task History Fetch Error:", results[1].reason);
-      }
-
-      if (results[2].status === 'fulfilled') {
-        setPredictions(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
-      } else {
-        console.error("[TaskContext] Predictions Fetch Error:", results[2].reason);
-      }
-    };
-
-    fetchHistoricalData();
-
-    // Mark loading as complete once historical data is fetched
-    setTimeout(() => setLoading(false), 100);
-
-    // Safety timeout: If loading is still true after 15 seconds, force it to false
-    const loadTimeout = setTimeout(() => {
-        setLoading(false);
-    }, 15000);
+    setLoading(false);
 
     return () => {
-      isCancelled = true;
       unsubscribes.forEach(unsub => unsub());
-      clearTimeout(loadTimeout);
     };
   }, [currentUser]);
 
@@ -153,22 +143,26 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userTask = userTasks[task.id];
     if (!userTask) return { status: 'available' as const };
 
-    if (userTask.status === 'pending') return { status: 'pending' as const };
-    if (userTask.status === 'rejected') return { status: 'rejected' as const };
+    const statusStr = (userTask.status || '').toLowerCase();
 
-    const lastCompleted = userTask.lastCompleted?.toDate() || new Date(0);
-    const cooldownHours = task.cooldownPeriod || 0;
+    if (statusStr === 'pending' || statusStr === 'awaiting_verification') return { status: 'pending' as const };
+    if (statusStr === 'rejected') return { status: 'rejected' as const };
 
-    if (cooldownHours === 0 && userTask.status === 'completed') return { status: 'completed' as const };
+    const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
 
-    const cooldownMs = cooldownHours * 60 * 60 * 1000;
-    const now = new Date();
+    if (statusStr === 'completed' || statusStr === 'claimed' || statusStr === 'verified' || statusStr === 'on_cooldown' || statusStr === 'cooldown') {
+      if (cooldownHours <= 0) return { status: 'completed' as const };
 
-    if (now.getTime() - lastCompleted.getTime() < cooldownMs) {
-      return {
-        status: 'cooldown' as const,
-        nextAvailable: new Date(lastCompleted.getTime() + cooldownMs)
-      };
+      const last = userTask.lastCompleted?.toDate() || (userTask as any).completedAt?.toDate() || (userTask as any).updatedAt?.toDate() || new Date(0);
+      const cooldownMs = cooldownHours * 60 * 60 * 1000;
+      const now = new Date();
+
+      if (now.getTime() - last.getTime() < cooldownMs) {
+        return {
+          status: 'cooldown' as const,
+          nextAvailable: new Date(last.getTime() + cooldownMs)
+        };
+      }
     }
 
     return { status: 'available' as const };
@@ -198,7 +192,33 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   });
 
+  const realTimeHistory = Object.values(userTasks)
+    .filter(ut => (ut.status === 'completed' || ut.status === 'on_cooldown' || ut.status === 'cooldown') &&
+                  !taskHistory.find(h => h.taskId === ut.taskId))
+    .map(ut => {
+      const task = tasks.find(t => t.id === ut.taskId);
+      return {
+        id: `rt_${ut.taskId}`,
+        taskTitle: task?.title || 'Completed Opportunity',
+        rewardAmount: task?.rewardAmount || 0,
+        xpReward: task?.xpReward || 0,
+        resolvedAt: ut.lastCompleted || ut.completedAt || ut.updatedAt || null,
+        type: 'REALTIME'
+      };
+    });
+
+  const getMillis = (val: any) => {
+    if (!val) return 0;
+    if (typeof val.toMillis === 'function') return val.toMillis();
+    if (val instanceof Date) return val.getTime();
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return new Date(val).getTime();
+    if (val.seconds !== undefined) return val.seconds * 1000;
+    return 0;
+  };
+
   const unifiedHistory = [
+    ...realTimeHistory,
     ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
     ...subtasks.filter(s =>
        s.validationState === 'APPROVED' &&
@@ -213,8 +233,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
        type: 'LEGACY_CLAIM'
     }))
   ].sort((a, b) => {
-    const timeA = a.resolvedAt?.toMillis?.() || 0;
-    const timeB = b.resolvedAt?.toMillis?.() || 0;
+    const timeA = getMillis(a.resolvedAt);
+    const timeB = getMillis(b.resolvedAt);
     return timeB - timeA;
   });
 

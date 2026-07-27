@@ -18,6 +18,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ReferralRecord } from '../types';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
+import { Statistics } from '../engines/statistics/StatisticsEngine';
 
 const Referrals: React.FC = () => {
   const { currentUser, userData } = useAuth();
@@ -25,6 +26,7 @@ const Referrals: React.FC = () => {
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>(null);
+  const [liveStats, setLiveStats] = useState<any>(null);
   
   // Determine if page is unlocked (user completed at least 1 task)
   const tasksCompleted = userData?.stats?.tasksCompleted || 0;
@@ -37,6 +39,16 @@ const Referrals: React.FC = () => {
     };
     loadConfig();
   }, []);
+
+  // Subscribe to real-time authoritative Statistics ledger calculations
+  useEffect(() => {
+    if (!currentUser) return;
+    Statistics.initializeForUser(currentUser.uid, db);
+    const unsubscribe = Statistics.subscribe(currentUser.uid, (stats) => {
+      setLiveStats(stats);
+    });
+    return unsubscribe;
+  }, [currentUser]);
 
   // Only load referrals if unlocked
   useEffect(() => {
@@ -98,10 +110,10 @@ const Referrals: React.FC = () => {
     }
   };
 
-  // Calculate stats
-  const qualified = referrals.filter(r => r.status === 'QUALIFIED').length;
+  // Calculate stats using the authoritative backend statistics (Single Source of Truth)
+  const qualified = userData?.stats?.referralsCount || 0;
   const pending = referrals.filter(r => r.status === 'REGISTERED').length;
-  const totalEarned = qualified * (config?.rewards?.referralBonusPointsReferrer || 50);
+  const totalEarned = liveStats ? liveStats.referralRewards : (qualified * (config?.rewards?.referralBonusPointsReferrer || 50));
 
   // Render locked state
   if (!isUnlocked) {

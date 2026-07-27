@@ -74,46 +74,55 @@ export class StatisticsEngine {
 
     // Iterate through transaction ledger
     for (const tx of transactions) {
-      totalPointsEarned += tx.amount || 0;
-      currentPoints += tx.amount || 0;
-      totalXP += tx.xpAwarded || 0;
+      const amount = tx.amount || 0;
+      const xp = (tx as any).xp !== undefined ? (tx as any).xp : (tx.xpAwarded || 0);
 
-      // Count completions by type
-      switch (tx.type) {
-        case 'task_completion':
+      if (amount > 0) {
+        totalPointsEarned += amount;
+      }
+      currentPoints += amount;
+      totalXP += xp;
+
+      // Count completions by canonical backend transaction types
+      switch (tx.type as string) {
+        case 'task_reward':
           tasksCompleted++;
-          break;
-        case 'opportunity_completion':
           opportunitiesCompleted++;
           break;
-        case 'survey_completion':
-          surveysCompleted++;
+        case 'offerwall_reward':
+          opportunitiesCompleted++;
+          // Categorize if possible or generic
+          if (tx.source?.toLowerCase().includes('survey')) {
+            surveysCompleted++;
+          } else if (tx.source?.toLowerCase().includes('game')) {
+            gamesCompleted++;
+          } else {
+            installsCompleted++;
+          }
           break;
-        case 'game_completion':
-          gamesCompleted++;
-          break;
-        case 'install_completion':
-          installsCompleted++;
-          break;
+        case 'referral_bonus':
         case 'referral_reward':
-          referralRewards += tx.amount;
+        case 'referral_bonus_received':
+        case 'referral_bonus_earned':
+          referralRewards += amount;
           break;
         case 'prediction_reward':
-          predictionRewards += tx.amount;
+          predictionRewards += amount;
           break;
-        case 'daily_bonus':
-          dailyBonuses += tx.amount;
-          break;
-        case 'seasonal_reward':
-          seasonalRewards += tx.amount;
+        case 'daily_reward':
+          dailyBonuses += amount;
           break;
       }
     }
 
-    // Calculate level from XP (example: 100 XP per level)
-    const currentLevel = Math.floor(totalXP / 100) + 1;
-    const nextLevelXP = currentLevel * 100;
-    const xpProgress = ((totalXP % 100) / 100) * 100;
+    // Calculate level from XP using authoritative exponential progression model
+    const baseLevelXp = 1000;
+    const currentLevel = totalXP < baseLevelXp ? 1 : Math.floor(Math.log(totalXP / baseLevelXp) / Math.log(3)) + 2;
+    const currentLevelThreshold = currentLevel <= 1 ? 0 : baseLevelXp * Math.pow(3, currentLevel - 2);
+    const nextLevelXP = baseLevelXp * Math.pow(3, currentLevel - 1);
+    const xpInLevel = totalXP - currentLevelThreshold;
+    const xpNeededForNext = nextLevelXP - currentLevelThreshold;
+    const xpProgress = xpNeededForNext > 0 ? Math.min(Math.floor((xpInLevel / xpNeededForNext) * 100), 100) : 100;
 
     return {
       userId,

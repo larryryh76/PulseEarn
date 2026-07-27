@@ -10,6 +10,7 @@ import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
+import { validateExternalUrl } from '../utils/security';
 
 import {
   MarketplaceOpportunity,
@@ -26,6 +27,8 @@ import {
   search,
   getMarketplaceState,
 } from '../engines/marketplace/MarketplaceEngine';
+
+import { generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
 
 import {
   generateAllSections,
@@ -131,11 +134,9 @@ export const Marketplace: React.FC = () => {
 
   // ─── Synchronize Marketplace Engine State ───────────────────────────────────
   useEffect(() => {
-    if (tasks.length > 0 || campaigns.length > 0) {
-      initializeMarketplace(tasks, campaigns, userTasks);
-      updateUserContext(tasks, campaigns, userTasks, userData);
-      setEngineVersion(v => v + 1);
-    }
+    initializeMarketplace(tasks, campaigns, userTasks);
+    updateUserContext(tasks, campaigns, userTasks, userData);
+    setEngineVersion(v => v + 1);
   }, [tasks, campaigns, userTasks, userData]);
 
   // ─── Fetch Enabled Providers from Backend (Firestore Source of Truth) ──────
@@ -157,9 +158,16 @@ export const Marketplace: React.FC = () => {
       if (res.success && Array.isArray(res.providers)) {
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: { id: string; name: string; status?: string }) => {
+        res.providers.forEach((p: { id: string; name: string; status?: string; description?: string; maximumReward?: number; launchUrl?: string | null }) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          const existingOpps = match?.opportunities || [];
+          let existingOpps = match?.opportunities || [];
+
+          // Capability-driven fallback: If a provider is active but has zero static opportunities,
+          // dynamically generate a channel opportunity using the consolidated, single-source-of-truth generator!
+          if (existingOpps.length === 0 && p.launchUrl) {
+            existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+          }
+
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,
@@ -189,8 +197,13 @@ export const Marketplace: React.FC = () => {
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.action.url) {
-      window.open(opp.action.url, '_blank', 'noopener,noreferrer');
-      toast.success(`Launching ${opp.title}...`);
+      const val = validateExternalUrl(opp.action.url);
+      if (val.valid && val.url) {
+        window.open(val.url, '_blank', 'noopener,noreferrer');
+        toast.success(`Launching ${opp.title}...`);
+      } else {
+        toast.error(val.error || `Unable to launch ${opp.title}. URL failed security check.`);
+      }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
       toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
     } else {

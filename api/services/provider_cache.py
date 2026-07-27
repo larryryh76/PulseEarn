@@ -137,7 +137,10 @@ class ProviderCache:
                         config['minimumReward'] = 1.0
 
                     try:
-                        config['maximumReward'] = float(data.get('maximumReward')) if data.get('maximumReward') is not None else 100000.0
+                        max_r = float(data.get('maximumReward')) if data.get('maximumReward') is not None else 100000.0
+                        if max_r >= 1000001.0:
+                            max_r = 100000.0
+                        config['maximumReward'] = max_r
                     except (ValueError, TypeError):
                         config['maximumReward'] = 100000.0
 

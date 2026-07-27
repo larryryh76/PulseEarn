@@ -2039,6 +2039,31 @@ def enable_task(task_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+def _propagate_task_deletion(db, task_id):
+    # 1. Delete associated user_tasks across all users
+    try:
+        ut_docs = db.collection_group('user_tasks').where('taskId', '==', task_id).stream()
+        for doc in ut_docs:
+            doc.reference.delete()
+    except Exception as e:
+        print(f"[Propagate Deletion] Error deleting user_tasks for {task_id}: {e}")
+
+    # 2. Delete associated task_claims
+    try:
+        claim_docs = db.collection('task_claims').where('taskId', '==', task_id).stream()
+        for doc in claim_docs:
+            doc.reference.delete()
+    except Exception as e:
+        print(f"[Propagate Deletion] Error deleting task_claims for {task_id}: {e}")
+
+    # 3. Delete associated task_history records
+    try:
+        history_docs = db.collection_group('task_history').where('taskId', '==', task_id).stream()
+        for doc in history_docs:
+            doc.reference.delete()
+    except Exception as e:
+        print(f"[Propagate Deletion] Error deleting task_history for {task_id}: {e}")
+
 @app.route('/api/admin/tasks/<task_id>/delete', methods=['POST'])
 @verify_token
 def delete_task(task_id):
@@ -2051,6 +2076,7 @@ def delete_task(task_id):
     db = firestore.client()
     try:
         db.collection('tasks').document(task_id).delete()
+        _propagate_task_deletion(db, task_id)
         db.collection('system_log').add({
             'action': 'task_deleted',
             'taskId': task_id,
@@ -2212,6 +2238,7 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Click the link, click Follow on @PulseEarn, and submit your X username as proof.',
                 'proofRequirements': 'Your X handle (@username)',
                 'type': 'manual', # manual allows submitting proof!
+                'category': 'SOCIAL',
                 'rewardAmount': 250,
                 'xpReward': 25,
                 'proofLabel': 'X Handle',
@@ -2230,6 +2257,7 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Click the link, click Join Channel, and enter your Telegram username for verification.',
                 'proofRequirements': 'Your Telegram username',
                 'type': 'manual',
+                'category': 'SOCIAL',
                 'rewardAmount': 300,
                 'xpReward': 30,
                 'proofLabel': 'Telegram Username',
@@ -2248,6 +2276,7 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Provide a summary of the features you have tested, any bugs encountered, and your suggestions.',
                 'proofRequirements': 'A minimum 30-word detailed review',
                 'type': 'manual',
+                'category': 'CUSTOM',
                 'rewardAmount': 1500,
                 'xpReward': 150,
                 'proofLabel': 'Beta Review Summary',
@@ -2266,6 +2295,7 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Simply click the button below to claim. Resets every 24 hours.',
                 'proofRequirements': 'Automatic verification',
                 'type': 'automated',
+                'category': 'DAILY',
                 'rewardAmount': 100,
                 'xpReward': 10,
                 'proofLabel': 'Proof',
@@ -2284,6 +2314,7 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Post your unique referral link to help grow our ecosystem, and paste the post link as proof.',
                 'proofRequirements': 'Valid social post URL containing your referral ID',
                 'type': 'manual',
+                'category': 'REFERRAL',
                 'rewardAmount': 500,
                 'xpReward': 50,
                 'proofLabel': 'Social Post Link',
@@ -4003,6 +4034,9 @@ def offerwall_user_providers():
             launch_url, embeddable = _build_offerwall_launch_url(
                 s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
             )
+            max_reward = safe_int(d.get('maximumReward'), 100000)
+            if max_reward >= 1000001:
+                max_reward = 100000
             providers.append({
                 'id': s.id,
                 'name': d.get('name', s.id),
@@ -4018,7 +4052,7 @@ def offerwall_user_providers():
                 'description': d.get('description', ''),
                 'affiliateId': d.get('affiliateId', ''),
                 'minimumReward': safe_int(d.get('minimumReward'), 1),
-                'maximumReward': safe_int(d.get('maximumReward'), 100000),
+                'maximumReward': max_reward,
                 'launchUrl': launch_url,
                 'embeddable': bool(embeddable),
                 'stats': d.get('stats') or {},
@@ -4588,6 +4622,54 @@ def handle_admin_marketplace_config():
     cfg_ref.set(updates, merge=True)
     return jsonify({"success": True, "message": "Marketplace composition configuration updated successfully"})
 
+def map_db_category_to_marketplace(category, task_type, platform):
+    category = (category or 'CUSTOM').upper()
+    task_type = (task_type or '').lower()
+    platform = (platform or '').upper()
+
+    if category == 'SOCIAL':
+        if platform in ('YOUTUBE', 'TIKTOK'):
+            return 'videos'
+        return 'community'
+    elif category == 'PREDICTION':
+        return 'predictions'
+    elif category == 'REFERRAL':
+        return 'referrals'
+    elif category == 'EDUCATION':
+        return 'learn'
+    elif category == 'EVENTS':
+        return 'seasonal'
+    elif category == 'SPONSORED':
+        return 'sponsored'
+    elif category == 'CUSTOM':
+        return 'featured'
+
+    # Map by type
+    if task_type in ('daily', 'streak'):
+        return 'daily'
+    elif task_type == 'once':
+        return 'featured'
+    elif task_type == 'timer':
+        return 'videos'
+    elif task_type in ('social', 'engagement', 'telegram', 'twitter', 'tiktok', 'youtube', 'discord'):
+        return 'community'
+    elif task_type == 'referral':
+        return 'referrals'
+    elif task_type == 'prediction':
+        return 'predictions'
+    elif task_type == 'education':
+        return 'learn'
+    elif task_type == 'event':
+        return 'seasonal'
+    elif task_type in ('website', 'app_install'):
+        return 'apps'
+    elif task_type == 'premium':
+        return 'featured'
+    elif task_type == 'chain':
+        return 'seasonal'
+
+    return 'featured'
+
 @app.route('/api/marketplace/search', methods=['GET', 'POST'])
 def search_marketplace_opportunities():
     """Backend-aware discovery & search engine endpoint operating on normalized opportunities."""
@@ -4614,10 +4696,8 @@ def search_marketplace_opportunities():
     enabled_cats = set([c.lower() for c in (cfg_data.get('enabledCategories') or [])])
     prioritized_map = cfg_data.get('prioritizedCampaigns') or {}
 
-    # Fetch active tasks from Firestore using indexed query where available (bounded reads)
+    # Fetch active tasks from Firestore (no category filter in query to support perfect 1:1 mapping on the fly)
     query_ref = db.collection('tasks').where('active', '==', True)
-    if category and category != 'all':
-        query_ref = query_ref.where('category', '==', category.upper())
 
     # Limit maximum Firestore scan to 500 documents for safety
     tasks_snap = query_ref.limit(500).stream()
@@ -4629,7 +4709,11 @@ def search_marketplace_opportunities():
             continue
 
         data = doc.to_dict() or {}
-        task_cat = data.get('category', 'CUSTOM').lower()
+        task_cat = map_db_category_to_marketplace(data.get('category'), data.get('type'), data.get('platform'))
+
+        # Category filter matching
+        if category and category != 'all' and task_cat != category.lower():
+            continue
 
         # Exclude disabled categories
         if task_cat in disabled_cats or data.get('category', '').upper() in disabled_cats:

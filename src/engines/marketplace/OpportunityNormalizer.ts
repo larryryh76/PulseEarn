@@ -210,6 +210,7 @@ export function normalizeProviderOffer(
   // Map provider category to marketplace category
   const marketplaceCategory = mapProviderCategoryToMarketplace(category || '');
 
+  const points = rewardAmount >= 1000001 ? 100000 : rewardAmount;
   return {
     id: `provider_${providerId}_${offerId}`,
     source: 'provider',
@@ -222,7 +223,7 @@ export function normalizeProviderOffer(
     requirements: '',
 
     reward: {
-      points: rewardAmount,
+      points,
       xp: xpReward,
     },
 
@@ -569,6 +570,10 @@ export function generateSyntheticProviderOpportunity(p: {
 
   const isTrending = approved > 5 || (stats.revenueToday && stats.revenueToday > 0) ? true : false;
 
+  let maxPoints = Number(p.maximumReward || 10000);
+  if (maxPoints >= 1000001) {
+    maxPoints = 100000;
+  }
   return {
     id: `provider_${p.id}_channel`,
     source: 'provider',
@@ -578,7 +583,7 @@ export function generateSyntheticProviderOpportunity(p: {
     description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
     instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
     reward: {
-      points: Number(p.maximumReward || 10000),
+      points: maxPoints,
       xp: 50,
     },
     metadata: {

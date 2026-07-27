@@ -286,6 +286,7 @@ export const Marketplace: React.FC = () => {
     for (const ut of Object.values(userTasks)) {
       if (ut.status === 'in_progress' || ut.status === 'pending' || ut.status === 'pending_review' || ut.status === 'submitted') {
         const matchingTask = taskMap.get(ut.taskId);
+        if (!matchingTask) continue;
         const statusMeta = getCanonicalStatus(ut.status);
         const targetUrl = (matchingTask as any)?.link || '';
         const hasUrl = typeof targetUrl === 'string' && targetUrl.startsWith('http');

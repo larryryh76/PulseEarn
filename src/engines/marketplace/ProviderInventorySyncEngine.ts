@@ -32,7 +32,10 @@ export class ProviderInventorySyncEngine {
    * The pipeline is ALWAYS the same, but inventory source varies.
    */
   async syncProviderInventory(providerId: string): Promise<SyncResult> {
-    if (this.syncInProgress.get(providerId)) {
+    // Normalize provider ID to lowercase for consistent lookups
+    const normalizedId = providerId.toLowerCase();
+    
+    if (this.syncInProgress.get(normalizedId)) {
       return {
         success: false,
         providerId,
@@ -44,7 +47,7 @@ export class ProviderInventorySyncEngine {
       };
     }
 
-    this.syncInProgress.set(providerId, true);
+    this.syncInProgress.set(normalizedId, true);
     const errors: string[] = [];
 
     try {
@@ -69,6 +72,19 @@ export class ProviderInventorySyncEngine {
         errors.push(`Failed to fetch inventory: ${err.message}`);
       }
 
+      // If inventory fetch failed, return failure (don't proceed with empty inventory)
+      if (inventory.length === 0 && errors.length > 0) {
+        return {
+          success: false,
+          providerId,
+          timestamp: new Date(),
+          itemsSynced: 0,
+          campaignsGenerated: 0,
+          opportunitiesGenerated: 0,
+          errors,
+        };
+      }
+
       const itemsSynced = inventory.length;
 
       // Step 2: Store raw inventory
@@ -87,8 +103,9 @@ export class ProviderInventorySyncEngine {
       // Step 5: Notify marketplace refresh
       await this.notifyMarketplaceRefresh();
 
+      // Success only if no errors occurred
       return {
-        success: true,
+        success: errors.length === 0,
         providerId,
         timestamp: new Date(),
         itemsSynced,
@@ -108,7 +125,7 @@ export class ProviderInventorySyncEngine {
         errors,
       };
     } finally {
-      this.syncInProgress.set(providerId, false);
+      this.syncInProgress.set(normalizedId, false);
     }
   }
 
@@ -144,25 +161,24 @@ export class ProviderInventorySyncEngine {
 
   /**
    * Fetch inventory via API (if provider supports it).
+   * SECURITY: Never include provider secrets in client code.
+   * Call backend endpoint that handles authentication securely.
    */
   private async fetchFromAPI(provider: ProviderMetadata): Promise<any[]> {
     if (!provider.capabilities.supportsInventoryAPI) {
       throw new Error('Provider does not support inventory API');
     }
 
-    if (!provider.configuration.apiEndpoint) {
-      throw new Error('No API endpoint configured');
-    }
-
-    const response = await fetch(provider.configuration.apiEndpoint, {
+    // Call secure backend endpoint - backend has access to secrets
+    const response = await fetch(`/api/providers/${provider.id}/inventory`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${provider.configuration.apiKey || ''}`,
-        ...provider.configuration.customHeaders,
+        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      throw new Error(`Inventory fetch failed: ${response.statusText}`);
     }
 
     return response.json();

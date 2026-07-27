@@ -140,18 +140,24 @@ export class ProviderClassificationEngine {
    */
   calculateCapabilityScore(capabilities: ProviderCapabilities): number {
     let score = 0;
+    let featureCount = 0;
     
-    // Each integration method = +7 points (max 49)
-    if (capabilities.supportsInventoryAPI) score += 7;
-    if (capabilities.supportsCallback) score += 7;
-    if (capabilities.supportsWebhook) score += 7;
-    if (capabilities.supportsNativeCampaigns) score += 7;
-    if (capabilities.supportsManualCampaigns) score += 7;
-    if (capabilities.supportsEmbeddedExperience) score += 7;
-    if (capabilities.supportsExternalLaunch) score += 7;
+    // Each integration method = +10 points (max 70)
+    if (capabilities.supportsInventoryAPI) { score += 10; featureCount++; }
+    if (capabilities.supportsCallback) { score += 10; featureCount++; }
+    if (capabilities.supportsWebhook) { score += 10; featureCount++; }
+    if (capabilities.supportsNativeCampaigns) { score += 10; featureCount++; }
+    if (capabilities.supportsManualCampaigns) { score += 10; featureCount++; }
+    if (capabilities.supportsEmbeddedExperience) { score += 10; featureCount++; }
+    if (capabilities.supportsExternalLaunch) { score += 10; featureCount++; }
     
-    // Verification methods diversity = +10 points
-    score += capabilities.verificationMethods.length * 2;
+    // Verification methods diversity = +5 points per method (max 20)
+    score += capabilities.verificationMethods.length * 5;
+    
+    // Full-featured bonus: if has 6+ features, add 10 point bonus
+    if (featureCount >= 6) {
+      score += 10;
+    }
     
     // Health multiplier
     if (capabilities.healthStatus === 'healthy') {
@@ -239,6 +245,9 @@ export class ProviderClassificationEngine {
     }
   ): ProviderMetadata[] {
     let providers = ProviderDiscovery.getHealthyProviders();
+    
+    // Filter out inactive providers (administrative disable)
+    providers = providers.filter(p => p.status === 'active');
     
     // Filter by verification method
     if (requirements.verificationMethod) {

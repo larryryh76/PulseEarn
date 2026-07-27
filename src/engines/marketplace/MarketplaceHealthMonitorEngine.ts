@@ -117,6 +117,7 @@ export class MarketplaceHealthMonitorEngine {
       healthyProviders.length,
       degraded,
       offline,
+      maintenance,
       syncMetrics.successRate,
       queueMetrics.verificationQueueLength
     );
@@ -236,6 +237,7 @@ export class MarketplaceHealthMonitorEngine {
     healthyProviders: number,
     degraded: number,
     offline: number,
+    maintenance: number,
     syncSuccessRate: number,
     verificationQueueLength: number
   ): 'healthy' | 'degraded' | 'critical' {
@@ -243,8 +245,10 @@ export class MarketplaceHealthMonitorEngine {
     if (totalProviders === 0 || healthyProviders === 0) {
       return 'critical';
     }
-    if (offline + degraded > totalProviders * 0.5) {
-      // More than 50% unavailable
+    // Include maintenance in unavailable count (both are non-viable)
+    const unavailable = offline + degraded + maintenance;
+    if (unavailable > totalProviders * 0.5) {
+      // More than 50% unavailable or in maintenance
       return 'critical';
     }
     if (syncSuccessRate < 50) {

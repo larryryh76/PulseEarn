@@ -151,7 +151,7 @@ export class DynamicRecommendationsEngine {
     let score = 50; // Base score
 
     // Level match (±20 points)
-    const levelDiff = Math.abs(opportunity.level || 1 - userLevel);
+    const levelDiff = Math.abs((opportunity.level || 1) - userLevel);
     if (levelDiff === 0) {
       score += 20;
     } else if (levelDiff === 1) {
@@ -243,7 +243,7 @@ export class DynamicRecommendationsEngine {
    */
   private shouldSkipProvider(
     provider: ProviderMetadata,
-    _context: RecommendationContext
+    context: RecommendationContext
   ): boolean {
     // Skip inactive providers
     if (provider.status !== 'active') return true;
@@ -257,8 +257,13 @@ export class DynamicRecommendationsEngine {
     // Skip if no opportunities
     if (provider.capabilities.opportunityCount === 0) return true;
 
-    // Skip if user is on fraud cooldown for this provider
-    // In real app: check fraud_cooldowns collection
+    // Skip if user has high fraud risk or is on cooldown
+    if (context.fraudRiskScore !== undefined && context.fraudRiskScore > 75) {
+      return true; // Too risky
+    }
+    if (context.cooldownTtl && context.cooldownTtl > Date.now()) {
+      return true; // User is on active cooldown
+    }
 
     return false;
   }

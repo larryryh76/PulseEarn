@@ -35,10 +35,12 @@ export class StatisticsEngine {
     }
 
     // Create real-time listener on PointTransactionEngine ledger
+    // Backend ledger schema: users/{uid}/transactions with status 'COMPLETED'
     const unsubscribe = db
-      .collection('point_transactions')
-      .where('userId', '==', userId)
-      .where('status', '==', 'completed')
+      .collection('users')
+      .doc(userId)
+      .collection('transactions')
+      .where('status', '==', 'COMPLETED')
       .onSnapshot((snapshot: any) => {
         const transactions = snapshot.docs.map((doc: any) => doc.data() as PointTransaction);
         const stats = this.calculateFromLedger(userId, transactions);

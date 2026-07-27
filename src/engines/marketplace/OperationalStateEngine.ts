@@ -190,13 +190,13 @@ export class OperationalStateEngine {
     const { state, details } = status;
 
     const descriptions: Record<MarketplaceOperationalState, string> = {
-      'loading': 'We\'re setting up the marketplace. Please wait.',
+      'loading': "We're setting up the marketplace. Please wait.",
       'syncing': `Currently syncing inventory from ${details.providersHealthy} connected providers. New opportunities will appear as they arrive.`,
-      'healthy': `Everything\'s working great! ${details.activeOpportunities} opportunities available from ${details.providersHealthy} providers.`,
-      'degraded': `${details.providersOffline} providers are temporarily offline. ${details.activeOpportunities} opportunities are still available. We\'re working to restore full service.`,
+      'healthy': `Everything's working great! ${details.activeOpportunities} opportunities available from ${details.providersHealthy} providers.`,
+      'degraded': `${details.providersOffline} providers are temporarily offline. ${details.activeOpportunities} opportunities are still available. We're working to restore full service.`,
       'empty_awaiting': 'Marketplace is loading opportunities from providers. This typically takes a few seconds.',
       'empty_unavailable': 'No providers are currently available. The marketplace will resume when providers come back online.',
-      'maintenance': 'Marketplace is under maintenance. We\'ll be back online shortly.',
+      'maintenance': "Marketplace is under maintenance. We'll be back online shortly.",
     };
 
     let desc = descriptions[state];

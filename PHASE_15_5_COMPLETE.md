@@ -1,8 +1,16 @@
 # PHASE 15.5 — MARKETPLACE ENGINE CONSISTENCY & PROVIDER ORCHESTRATION REBUILD
 
-## STATUS: COMPLETE ✓
+## STATUS: ARCHITECTURE & SCAFFOLDING COMPLETE ✓ | DATA INTEGRATION IN PROGRESS
 
-All 7 core engine systems have been built and deployed. The Marketplace is now a provider-driven orchestration engine with zero hardcoded logic, perfect synchronization, and operational intelligence.
+All 8 core engine systems have been architected and scaffolded with production-ready structure. The Marketplace is ready to become a provider-driven orchestration engine with zero hardcoded logic, real-time synchronization, and operational intelligence.
+
+**Current Status:**
+- ✓ Architecture designed and implemented
+- ✓ Type definitions complete
+- ✓ Engine scaffolding complete with stub data methods
+- ⏳ Backend data integration required (see "Next Steps")
+- ⏳ Firebase collections and listeners not yet connected
+- ⏳ Page integrations pending (PHASE 8-11)
 
 ---
 
@@ -296,6 +304,46 @@ Provider → Inventory → Campaign → Opportunity → Marketplace
 - `src/engines/synchronization/SynchronizationEngine.ts` (265 lines)
 
 **Total: 2,688 lines of production-ready code**
+
+---
+
+## DATA INTEGRATION REQUIREMENTS
+
+Before these engines become fully operational, the following data sources must be connected:
+
+### ProviderInventorySyncEngine
+- [ ] Wire `/api/providers/{id}/inventory` backend endpoint (replaces client-side API key usage)
+- [ ] Connect webhook payload queries from `provider_webhooks` collection
+- [ ] Connect manual campaign queries from `manual_campaigns` collection
+- [ ] Implement `storeRawInventory()`, `storeCampaigns()`, `storeOpportunities()` to Firebase
+
+### StatisticsEngine
+- [ ] Connect to `users/{uid}/transactions` Firestore collection (status='COMPLETED')
+- [ ] Verify PointTransactionEngine ledger schema matches expected format
+- [ ] Test Firestore listeners are firing on transaction updates
+- [ ] Verify `calculateFromLedger()` correctly sums all transaction types
+
+### OperationalStateEngine
+- [ ] Query `campaigns` collection for `activeCampaigns` count
+- [ ] Query `marketplace_opportunities` for `activeOpportunities` count
+- [ ] Query `provider_raw_inventory` for `totalInventoryItems` count
+- [ ] Connect `getLastSuccessfulSync()`, `getFailedSyncCount()`, `getPendingVerificationCount()`, `getCallbackQueueDepth()`
+
+### MarketplaceHealthMonitorEngine
+- [ ] Implement `getSyncHealthMetrics()` - query sync_results collection
+- [ ] Implement `getQueueHealthMetrics()` - query verification_queue and callback_queue collections
+- [ ] Implement `getProviderSyncStats()` - per-provider sync tracking
+- [ ] Implement `getLastSuccessfulSync()`, `getLastFailedSync()`, `getFailedSyncsInLast24h()`
+
+### DynamicRecommendationsEngine
+- [ ] Implement `getProviderOpportunities()` - query marketplace_opportunities
+- [ ] Implement `getProviderOpportunityCount()` - use actual count instead of stub returning 0
+
+### SynchronizationEngine
+- [ ] Wire Firestore listeners for `marketplace_opportunities` (completion)
+- [ ] Wire Firestore listeners for `campaigns` (deletion)
+- [ ] Wire Firestore listeners for `marketplace_providers` (status changes)
+- [ ] Implement cascade delete logic in backend
 
 ---
 

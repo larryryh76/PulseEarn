@@ -168,7 +168,7 @@ export const Marketplace: React.FC = () => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           let existingOpps = match?.opportunities || [];
 
-          const EMBEDDED_PROVIDERS = ['cpxresearch', 'bitlabs', 'adgem', 'lootably', 'offertoro'];
+          const mode = (p.displayMode || 'Hosted').toLowerCase();
           if (p.status === 'maintenance') {
             // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.
             existingOpps = [{
@@ -202,14 +202,82 @@ export const Marketplace: React.FC = () => {
                 actionType: 'claim',
               }
             }];
-          } else if (EMBEDDED_PROVIDERS.includes(p.id.toLowerCase())) {
-            // Tier 3: Native Embedded Inventory Providers
-            existingOpps = generateEmbeddedOffersForProvider(p as any);
-          } else if (existingOpps.length === 0 && p.launchUrl) {
-            // Tier 2: Launch provider. If inventory is unavailable but launch URL exists, display ONE launch card.
-            existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+          } else if (mode === 'embedded') {
+            if (!p.launchUrl) {
+              // Part 11: Embedded provider missing launch URL -> display "Provider unavailable"
+              existingOpps = [{
+                id: `provider_${p.id}_unavailable`,
+                source: 'provider',
+                providerId: p.id,
+                providerName: p.name,
+                title: `${p.name} Unavailable`,
+                description: `${p.name} is currently unavailable.`,
+                instructions: 'This service is temporarily unavailable.',
+                reward: { points: 0, xp: 0 },
+                metadata: {
+                  category: 'featured',
+                  difficulty: 'medium',
+                  estimatedTime: 'Unknown',
+                  verificationType: 'automated',
+                  launchMode: 'inline',
+                  artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  tags: ['unavailable', p.id],
+                },
+                engagement: {
+                  completionRate: 0,
+                  averageReward: 0,
+                  totalCompletions: 0,
+                  trending: false,
+                  isNew: false,
+                },
+                status: 'locked',
+                action: {
+                  actionType: 'claim',
+                }
+              }];
+            } else {
+              // Render native individual offers
+              existingOpps = generateEmbeddedOffersForProvider(p as any);
+            }
           } else {
-            // Tier 1: Native inventory providers. Display real offers only. (Which is already in existingOpps!)
+            // Hosted / Hybrid - Render provider launch cards, not fabricated individual offers.
+            if (p.launchUrl) {
+              existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+            } else {
+              // Provider unavailable
+              existingOpps = [{
+                id: `provider_${p.id}_unavailable`,
+                source: 'provider',
+                providerId: p.id,
+                providerName: p.name,
+                title: `${p.name} Unavailable`,
+                description: `${p.name} is currently unavailable.`,
+                instructions: 'This service is temporarily unavailable.',
+                reward: { points: 0, xp: 0 },
+                metadata: {
+                  category: 'featured',
+                  difficulty: 'medium',
+                  estimatedTime: 'Unknown',
+                  verificationType: 'automated',
+                  launchMode: 'inline',
+                  artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  tags: ['unavailable', p.id],
+                },
+                engagement: {
+                  completionRate: 0,
+                  averageReward: 0,
+                  totalCompletions: 0,
+                  trending: false,
+                  isNew: false,
+                },
+                status: 'locked',
+                action: {
+                  actionType: 'claim',
+                }
+              }];
+            }
           }
 
           updateProviderInventory({
@@ -289,7 +357,14 @@ export const Marketplace: React.FC = () => {
     // Post-filter advanced fields
     if (selectedDevice !== 'all') {
       results = results.filter(opp => {
+        // Internal tasks are compatible with all devices by default if they lack device metadata
+        if (opp.source === 'internal') {
+          return true;
+        }
         const devices = (opp.metadata as any).devices || [];
+        if (devices.length === 0) {
+          return true;
+        }
         return devices.includes(selectedDevice) || devices.includes('All');
       });
     }
@@ -756,11 +831,28 @@ interface OpportunityCardProps {
   viewMode?: 'grid' | 'list';
 }
 
+export function resolveOpportunityArtwork(opportunity: MarketplaceOpportunity): string {
+  // 1. Provider-supplied campaign artwork
+  if (opportunity.metadata?.artwork) {
+    return opportunity.metadata.artwork;
+  }
+  // 2. Provider-supplied thumbnail
+  if (opportunity.metadata?.thumbnail) {
+    return opportunity.metadata.thumbnail;
+  }
+  // 3. Provider logo
+  if (opportunity.providerId) {
+    return `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.providerId.toLowerCase()}`;
+  }
+  // 4. PulseEarn branded fallback
+  return 'https://api.dicebear.com/7.x/shapes/svg?seed=pulseearn_premium_fallback';
+}
+
 export const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask, onSelect, viewMode = 'grid' }) => {
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const canonicalStatus = userTask ? getCanonicalStatus(userTask.status) : null;
 
-  const artworkUrl = opportunity.metadata.artwork || opportunity.metadata.thumbnail || `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`;
+  const artworkUrl = resolveOpportunityArtwork(opportunity);
 
   // Extract custom embedded metadata
   const offerType = (opportunity.metadata as any).offerType || 'Task';
@@ -785,7 +877,13 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, u
               src={artworkUrl}
               alt=""
               className="w-full h-full object-cover"
-              onError={(e) => { (e.target as any).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`; }}
+              onError={(e) => {
+                const target = e.target as any;
+                if (!target.dataset.fallbackApplied) {
+                  target.dataset.fallbackApplied = "true";
+                  target.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${opportunity.id}`;
+                }
+              }}
             />
             {isSponsored && (
               <span className="absolute top-0.5 left-0.5 text-[7px] font-black tracking-widest px-1 py-0.5 rounded bg-amber-500 text-black uppercase">
@@ -862,7 +960,13 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, u
           src={artworkUrl}
           alt=""
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => { (e.target as any).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`; }}
+          onError={(e) => {
+            const target = e.target as any;
+            if (!target.dataset.fallbackApplied) {
+              target.dataset.fallbackApplied = "true";
+              target.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${opportunity.id}`;
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
 

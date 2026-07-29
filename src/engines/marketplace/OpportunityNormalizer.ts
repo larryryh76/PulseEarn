@@ -513,9 +513,9 @@ export function generateEmbeddedOffersForProvider(p: {
         limitedTime: t.limitedTime,
       },
       engagement: {
-        completionRate: 0.92,
+        completionRate: 0,
         averageReward: t.points,
-        totalCompletions: 1420 + index * 57,
+        totalCompletions: 0,
         trending: !!t.featured || !!t.sponsored,
         isNew: !!t.isNew,
         expiringSoon: !!t.limitedTime,

@@ -4037,12 +4037,19 @@ def offerwall_user_providers():
             max_reward = safe_int(d.get('maximumReward'), 100000)
             if max_reward >= 1000001:
                 max_reward = 100000
+            display_mode = d.get('displayMode') or d.get('executionType')
+            if not display_mode:
+                if s.id.lower() in ('cpxresearch', 'bitlabs', 'adgem', 'lootably', 'offertoro'):
+                    display_mode = 'Embedded'
+                else:
+                    display_mode = 'Hosted'
             providers.append({
                 'id': s.id,
                 'name': d.get('name', s.id),
                 'logo': d.get('logo') or d.get('logoUrl') or d.get('iconUrl') or '',
                 'status': d.get('status', 'active'),
                 'enabled': bool(d.get('enabled', True)),
+                'displayMode': display_mode,
                 'apiEndpoint': d.get('apiEndpoint') or d.get('integrationUrl') or '',
                 'callbackUrl': d.get('callbackUrl') or '',
                 'rewardMultiplier': safe_float(d.get('rewardMultiplier'), 1.0),
@@ -4087,6 +4094,29 @@ def generate_jwt(payload, secret, algorithm='HS256'):
     return f"{signing_input}.{signature_b64}"
 
 
+def _validate_provider_operational_state(provider_id, config):
+    """
+    Validates provider operational state.
+    Returns (True, None) if operational, or (False, error_response) if blocked.
+    """
+    # Enabled/Disabled check (default enabled unless explicitly set false)
+    if config.get('enabled') is False:
+        return False, {"success": False, "error": "PROVIDER_DISABLED", "message": "Selected provider is currently disabled."}
+
+    status = str(config.get('status') or 'active').lower().strip()
+
+    if status == 'disabled' or status == 'suspended':
+        return False, {"success": False, "error": "PROVIDER_DISABLED", "message": "Selected provider is currently disabled or suspended."}
+
+    if status == 'maintenance':
+        return False, {"success": False, "error": "PROVIDER_MAINTENANCE", "message": "Selected provider is currently under maintenance."}
+
+    if status == 'locked':
+        return False, {"success": False, "error": "PROVIDER_LOCKED", "message": "Access denied. Selected provider is locked."}
+
+    return True, None
+
+
 def _generate_generic_provider_launch(provider_id, config, user_id, email, return_url=None, offer_id=None):
     import hmac
     hmac_lib = hmac
@@ -4125,6 +4155,16 @@ def _generate_generic_provider_launch(provider_id, config, user_id, email, retur
     # Check authentication strategy / type
     auth_type = (config.get('authType') or config.get('authStrategy') or 'uid_placeholder').lower()
 
+    # Secret verification for cryptographic signing strategies (Fail Closed)
+    crypto_strategies = ('jwt', 'signed_token', 'hmac', 'session_token')
+    if auth_type in crypto_strategies:
+        if not secret:
+            return {
+                "success": False,
+                "error": "PROVIDER_CONFIGURATION_ERROR",
+                "message": f"Provider cryptographic launch strategy '{auth_type}' requires a configured secret."
+            }, False
+
     # 1. Handle SDK launch strategy
     if auth_type == 'sdk_launch':
         return {
@@ -4141,6 +4181,14 @@ def _generate_generic_provider_launch(provider_id, config, user_id, email, retur
 
     # 2. Handle POST launch strategy
     if auth_type == 'post_launch':
+        validated_post_url = _validate_launch_url(integration_url)
+        if not validated_post_url:
+            return {
+                "success": False,
+                "error": "INVALID_LAUNCH_URL",
+                "message": "Launch URL failed security validation."
+            }, False
+
         # Generate post parameters
         fields = {
             "user_id": user_id,
@@ -4158,7 +4206,7 @@ def _generate_generic_provider_launch(provider_id, config, user_id, email, retur
         return {
             "success": True,
             "method": "POST",
-            "url": integration_url,
+            "url": validated_post_url,
             "fields": fields
         }, False
 
@@ -4263,8 +4311,16 @@ def marketplace_launch():
     opportunity_id = data.get('opportunityId')
     provider_id = data.get('providerId')
     offer_id = data.get('offerId')
-    user_id = data.get('userId') or request.user['uid']
     return_url = data.get('returnUrl')
+
+    # Security Fix: Force session-based user ID resolution (derive from verified token)
+    caller_uid = request.user['uid']
+    # Check if the caller is an admin to allow impersonation (Super Admin troubleshooting/debug)
+    is_caller_admin = is_admin(caller_uid)
+    if is_caller_admin and data.get('userId'):
+        user_id = str(data.get('userId')).strip()
+    else:
+        user_id = caller_uid
 
     if not user_id:
         return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
@@ -4305,6 +4361,11 @@ def marketplace_launch():
             if k not in config or not config[k]:
                 config[k] = v
 
+    # Part 2 State Enforcement: Run validation layer on the resolved provider configuration
+    is_operational, error_resp = _validate_provider_operational_state(resolved_provider_id, config)
+    if not is_operational:
+        return jsonify(error_resp), 400
+
     # Build launch payload dynamically
     launch_payload, _ = _generate_generic_provider_launch(
         resolved_provider_id, config, user_id, email, return_url, offer_id
@@ -4312,6 +4373,10 @@ def marketplace_launch():
 
     if not launch_payload:
         return jsonify({"success": False, "error": "LAUNCH_FAILED", "message": "Failed to generate authenticated launcher URL."}), 400
+
+    # If launch_payload returned an error within itself (e.g. PROVIDER_CONFIGURATION_ERROR)
+    if isinstance(launch_payload, dict) and launch_payload.get('success') is False:
+        return jsonify(launch_payload), 400
 
     # Increment launch attempt stats for provider
     try:

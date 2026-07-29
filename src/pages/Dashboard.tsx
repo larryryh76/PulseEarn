@@ -401,8 +401,9 @@ const Dashboard: React.FC = () => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           let existingOpps = match?.opportunities || [];
 
-          const EMBEDDED_PROVIDERS = ['cpxresearch', 'bitlabs', 'adgem', 'lootably', 'offertoro'];
+          const mode = (p.displayMode || 'Hosted').toLowerCase();
           if (p.status === 'maintenance') {
+            // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.
             existingOpps = [{
               id: `provider_${p.id}_maintenance`,
               source: 'provider',
@@ -434,10 +435,82 @@ const Dashboard: React.FC = () => {
                 actionType: 'claim',
               }
             }];
-          } else if (EMBEDDED_PROVIDERS.includes(p.id.toLowerCase())) {
-            existingOpps = generateEmbeddedOffersForProvider(p as any);
-          } else if (existingOpps.length === 0 && p.launchUrl) {
-            existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+          } else if (mode === 'embedded') {
+            if (!p.launchUrl) {
+              // Part 11: Embedded provider missing launch URL -> display "Provider unavailable"
+              existingOpps = [{
+                id: `provider_${p.id}_unavailable`,
+                source: 'provider',
+                providerId: p.id,
+                providerName: p.name,
+                title: `${p.name} Unavailable`,
+                description: `${p.name} is currently unavailable.`,
+                instructions: 'This service is temporarily unavailable.',
+                reward: { points: 0, xp: 0 },
+                metadata: {
+                  category: 'featured',
+                  difficulty: 'medium',
+                  estimatedTime: 'Unknown',
+                  verificationType: 'automated',
+                  launchMode: 'inline',
+                  artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  tags: ['unavailable', p.id],
+                },
+                engagement: {
+                  completionRate: 0,
+                  averageReward: 0,
+                  totalCompletions: 0,
+                  trending: false,
+                  isNew: false,
+                },
+                status: 'locked',
+                action: {
+                  actionType: 'claim',
+                }
+              }];
+            } else {
+              // Render native individual offers
+              existingOpps = generateEmbeddedOffersForProvider(p as any);
+            }
+          } else {
+            // Hosted / Hybrid - Render provider launch cards, not fabricated individual offers.
+            if (p.launchUrl) {
+              existingOpps = [generateSyntheticProviderOpportunity(p as any)];
+            } else {
+              // Provider unavailable
+              existingOpps = [{
+                id: `provider_${p.id}_unavailable`,
+                source: 'provider',
+                providerId: p.id,
+                providerName: p.name,
+                title: `${p.name} Unavailable`,
+                description: `${p.name} is currently unavailable.`,
+                instructions: 'This service is temporarily unavailable.',
+                reward: { points: 0, xp: 0 },
+                metadata: {
+                  category: 'featured',
+                  difficulty: 'medium',
+                  estimatedTime: 'Unknown',
+                  verificationType: 'automated',
+                  launchMode: 'inline',
+                  artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+                  tags: ['unavailable', p.id],
+                },
+                engagement: {
+                  completionRate: 0,
+                  averageReward: 0,
+                  totalCompletions: 0,
+                  trending: false,
+                  isNew: false,
+                },
+                status: 'locked',
+                action: {
+                  actionType: 'claim',
+                }
+              }];
+            }
           }
 
           updateProviderInventory({
@@ -491,6 +564,20 @@ const Dashboard: React.FC = () => {
         return [];
     }
   }, [activeTab, dynamicSections]);
+
+  const tabCounts = useMemo(() => {
+    return {
+      continue: (dynamicSections.find(s => s.id === 'continue')?.opportunities || []).length,
+      recommended: (dynamicSections.find(s => s.id === 'recommended-for-you')?.opportunities || []).length,
+      featured: (dynamicSections.find(s => s.id === 'featured')?.opportunities || []).length,
+      daily: (dynamicSections.find(s => s.id === 'daily')?.opportunities || []).length,
+      trending: (dynamicSections.find(s => s.id === 'trending')?.opportunities || []).length,
+      new_today: (dynamicSections.find(s => s.id === 'new-today')?.opportunities || []).length,
+      offerwalls: (dynamicSections.find(s => s.id === 'offerwall-providers')?.opportunities || []).length,
+      limited: (dynamicSections.find(s => s.id === 'seasonal' || s.id === 'limited-campaigns' || s.id === 'expiring-soon')?.opportunities || []).length,
+      quick: (dynamicSections.find(s => s.id === 'quick-wins')?.opportunities || []).length,
+    };
+  }, [dynamicSections]);
 
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.status === 'maintenance') {
@@ -720,13 +807,19 @@ const Dashboard: React.FC = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0 min-h-[36px]',
+                      'px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0 min-h-[36px] flex items-center gap-2',
                       activeTab === tab.id
                         ? 'bg-primary text-white border-primary shadow-xs'
                         : 'bg-surface-bright border-transparent text-text-secondary hover:border-border-bright'
                     )}
                   >
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    <span className={cn(
+                      'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-surface border border-border text-text-tertiary'
+                    )}>
+                      {tabCounts[tab.id as keyof typeof tabCounts] || 0}
+                    </span>
                   </button>
                 ))}
               </div>

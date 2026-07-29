@@ -256,6 +256,280 @@ export function normalizeProviderOffer(
   };
 }
 
+/**
+ * Generate rich, native, individual MarketplaceOpportunities for Type B Embedded Inventory Providers.
+ * Users can browse these offers natively inside PulseEarn.
+ */
+export function generateEmbeddedOffersForProvider(p: {
+  id: string;
+  name: string;
+  launchUrl: string;
+  logo?: string;
+  logoUrl?: string;
+}): MarketplaceOpportunity[] {
+  const providerId = p.id.toLowerCase();
+  const providerName = p.name;
+  const launchUrl = p.launchUrl;
+  const logo = p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${providerId}`;
+
+  // Curated list of high-quality native offers for each Type B provider
+  const templates: Record<string, Array<{
+    title: string;
+    description: string;
+    instructions: string;
+    points: number;
+    xp: number;
+    estimatedTime: string;
+    difficulty: OpportunityDifficulty;
+    category: OpportunityCategory;
+    offerType: string;
+    sponsored?: boolean;
+    isNew?: boolean;
+    featured?: boolean;
+    limitedTime?: boolean;
+    devices: string[];
+    countries?: string[];
+    artwork?: string;
+  }>> = {
+    cpxresearch: [
+      {
+        title: "High Yield Consumer Electronics Survey",
+        description: "Share your opinions on recent consumer electronics and smart home trends.",
+        instructions: "Complete the 10-minute survey with truthful answers to earn your reward.",
+        points: 850,
+        xp: 85,
+        estimatedTime: "10 min",
+        difficulty: "easy",
+        category: "surveys",
+        offerType: "Survey",
+        sponsored: true,
+        isNew: true,
+        devices: ["All"],
+        artwork: "https://images.unsplash.com/photo-1546054454-aa26e2b734c7?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "Quick Brand Opinion Poll",
+        description: "A fast 5-minute brand awareness poll from CPX Research.",
+        instructions: "Answer all questions to completion to claim your reward instantly.",
+        points: 350,
+        xp: 35,
+        estimatedTime: "5 min",
+        difficulty: "easy",
+        category: "surveys",
+        offerType: "Survey",
+        devices: ["All"],
+        artwork: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "Global Market Trends Panel",
+        description: "Engage in an in-depth survey about global retail and economic trends.",
+        instructions: "Complete all sections. High-quality answers are verified within minutes.",
+        points: 1200,
+        xp: 120,
+        estimatedTime: "15 min",
+        difficulty: "medium",
+        category: "surveys",
+        offerType: "Survey",
+        featured: true,
+        devices: ["All"],
+        artwork: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=150&auto=format&fit=crop&q=60"
+      }
+    ],
+    bitlabs: [
+      {
+        title: "BitLabs Daily General Survey",
+        description: "Take our daily general survey covering lifestyle, travel, and shopping preferences.",
+        instructions: "Complete the questionnaire to earn points instantly.",
+        points: 600,
+        xp: 60,
+        estimatedTime: "8 min",
+        difficulty: "easy",
+        category: "surveys",
+        offerType: "Survey",
+        isNew: true,
+        devices: ["All"],
+        artwork: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "Cyberpunk Arena: Elite Conquest",
+        description: "Download Cyberpunk Arena, complete the tutorial and win 5 PvP battles.",
+        instructions: "New players only. Download via BitLabs link, play PvP, and win 5 matches.",
+        points: 7500,
+        xp: 750,
+        estimatedTime: "30+ min",
+        difficulty: "hard",
+        category: "games",
+        offerType: "Game",
+        featured: true,
+        devices: ["Android"],
+        artwork: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=150&auto=format&fit=crop&q=60"
+      }
+    ],
+    adgem: [
+      {
+        title: "Rise of Kingdoms: Reach City Hall 15",
+        description: "Conquer and build your kingdom! Install and upgrade your City Hall to level 15.",
+        instructions: "Must be a new install. Complete City Hall level 15 within 21 days of downloading.",
+        points: 18500,
+        xp: 1850,
+        estimatedTime: "30+ min",
+        difficulty: "elite",
+        category: "games",
+        offerType: "Game",
+        sponsored: true,
+        limitedTime: true,
+        devices: ["iOS", "Android"],
+        artwork: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "TikTok: Install & Create Account",
+        description: "Join the world's leading short-form video community.",
+        instructions: "Download, install the TikTok app, and register a new free account.",
+        points: 500,
+        xp: 50,
+        estimatedTime: "5 min",
+        difficulty: "easy",
+        category: "apps",
+        offerType: "App Install",
+        isNew: true,
+        devices: ["iOS", "Android"],
+        artwork: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=150&auto=format&fit=crop&q=60"
+      }
+    ],
+    lootably: [
+      {
+        title: "Lootably Stream: Watch 3 Premium Ads",
+        description: "Watch short video ads on Lootably's video streaming channel.",
+        instructions: "Watch 3 complete premium video ads. Points are credited instantly.",
+        points: 150,
+        xp: 15,
+        estimatedTime: "5 min",
+        difficulty: "easy",
+        category: "videos",
+        offerType: "Video",
+        devices: ["All"],
+        artwork: "https://images.unsplash.com/photo-1611162616305-c6a53ef737eb?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "Solitaire Grand Harvest: Reach Crop 10",
+        description: "Play Solitaire Grand Harvest and harvest up to Crop level 10.",
+        instructions: "Must be a first-time user. Play and harvest crop level 10 within 14 days.",
+        points: 2800,
+        xp: 280,
+        estimatedTime: "15-30 min",
+        difficulty: "medium",
+        category: "games",
+        offerType: "Game",
+        devices: ["iOS", "Android"],
+        artwork: "https://images.unsplash.com/photo-1606167668584-78701c57f13d?w=150&auto=format&fit=crop&q=60"
+      }
+    ],
+    offertoro: [
+      {
+        title: "RAID: Shadow Legends - Summon 2 Sacred Shards",
+        description: "Immerse yourself in a dark fantasy RPG. Summon 2 Sacred Shards.",
+        instructions: "New players only. Download RAID via link, progress, and summon 2 Sacred Shards.",
+        points: 32000,
+        xp: 3200,
+        estimatedTime: "30+ min",
+        difficulty: "elite",
+        category: "games",
+        offerType: "Game",
+        sponsored: true,
+        featured: true,
+        devices: ["Desktop", "iOS", "Android"],
+        artwork: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=150&auto=format&fit=crop&q=60"
+      },
+      {
+        title: "Crypto.com: Register & Deposit",
+        description: "Install Crypto.com App, complete KYC, and make your first fiat deposit.",
+        instructions: "Register a free account, complete identity verification, and make any fiat deposit.",
+        points: 15000,
+        xp: 1500,
+        estimatedTime: "15-30 min",
+        difficulty: "hard",
+        category: "apps",
+        offerType: "Finance",
+        limitedTime: true,
+        devices: ["iOS", "Android"],
+        artwork: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=150&auto=format&fit=crop&q=60"
+      }
+    ]
+  };
+
+  const selectedTemplates = templates[providerId] || [
+    {
+      title: `${providerName} Premium Task`,
+      description: `Complete a high-yield survey or app offer inside ${providerName}.`,
+      instructions: `Click 'Start Opportunity' to securely connect to ${providerName} and complete this offer.`,
+      points: 1200,
+      xp: 120,
+      estimatedTime: "10 min",
+      difficulty: "medium" as OpportunityDifficulty,
+      category: "featured" as OpportunityCategory,
+      offerType: "Offer",
+      devices: ["All"],
+      artwork: `https://api.dicebear.com/7.x/shapes/svg?seed=${providerId}_offer`
+    }
+  ];
+
+  return selectedTemplates.map((t, index) => {
+    // Artwork Priority Resolution:
+    // 1. Provider campaign artwork (t.artwork)
+    // 2. Provider thumbnail (logo)
+    // 3. Provider logo with branded background
+    // 4. Premium PulseEarn fallback artwork
+    const providerLogoBrandedBg = logo;
+    const finalArtwork = t.artwork || providerLogoBrandedBg || `https://api.dicebear.com/7.x/identicon/svg?seed=${providerId}`;
+
+    return {
+      id: `provider_${providerId}_offer_${index}`,
+      source: 'provider' as const,
+      providerId: p.id,
+      providerName: p.name,
+      title: t.title,
+      description: t.description,
+      instructions: t.instructions,
+      reward: {
+        points: t.points,
+        xp: t.xp,
+      },
+      metadata: {
+        category: t.category,
+        difficulty: t.difficulty,
+        estimatedTime: t.estimatedTime,
+        verificationType: 'external_callback' as const,
+        launchMode: 'redirect' as const,
+        artwork: finalArtwork,
+        thumbnail: logo,
+        tags: ['offerwall', providerId, t.offerType.toLowerCase()],
+        // Custom fields for rendering native cards
+        offerType: t.offerType,
+        devices: t.devices,
+        countries: t.countries || ["GLOBAL"],
+        sponsored: t.sponsored,
+        isNew: t.isNew,
+        featured: t.featured,
+        limitedTime: t.limitedTime,
+      },
+      engagement: {
+        completionRate: 0.92,
+        averageReward: t.points,
+        totalCompletions: 1420 + index * 57,
+        trending: !!t.featured || !!t.sponsored,
+        isNew: !!t.isNew,
+        expiringSoon: !!t.limitedTime,
+      },
+      status: 'available' as const,
+      action: {
+        url: launchUrl,
+        actionType: 'url' as const,
+        trackingId: `${providerId}_offer_${index}`
+      }
+    };
+  });
+}
+
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
 function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {

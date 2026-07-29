@@ -4064,6 +4064,267 @@ def offerwall_user_providers():
     return jsonify({'success': True, 'providers': providers})
 
 
+def generate_jwt(payload, secret, algorithm='HS256'):
+    import base64
+    import hmac
+    import hashlib
+    import json
+    header = {"alg": algorithm, "typ": "JWT"}
+    header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().replace('=', '')
+    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().replace('=', '')
+    signing_input = f"{header_b64}.{payload_b64}"
+
+    if algorithm == 'HS256':
+        signature = hmac.new(secret.encode(), signing_input.encode(), hashlib.sha256).digest()
+    elif algorithm == 'HS384':
+        signature = hmac.new(secret.encode(), signing_input.encode(), hashlib.sha384).digest()
+    elif algorithm == 'HS512':
+        signature = hmac.new(secret.encode(), signing_input.encode(), hashlib.sha512).digest()
+    else:
+        signature = hmac.new(secret.encode(), signing_input.encode(), hashlib.sha256).digest()
+
+    signature_b64 = base64.urlsafe_b64encode(signature).decode().replace('=', '')
+    return f"{signing_input}.{signature_b64}"
+
+
+def _generate_generic_provider_launch(provider_id, config, user_id, email, return_url=None, offer_id=None):
+    import hmac
+    hmac_lib = hmac
+    # Determine integration URL
+    integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
+    if not integration_url:
+        # Fallback to templates if any, or default template
+        templates = {
+            'lootably': 'https://wall.lootably.com/?placementID={aff}&uid={uid}',
+            'bitlabs': 'https://web.bitlabs.ai/?token={aff}&uid={uid}',
+            'adgem': 'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}',
+            'adgate': 'https://wall.adgatemedia.com/affiliate/{aff}?s1={uid}',
+            'ayet': 'https://www.ayetstudios.com/offers/web_ad_gate/{aff}?external_identifier={uid}',
+            'wannads': 'https://wall.wannads.com/wall?apiKey={aff}&userId={uid}',
+            'revu': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
+            'kiwiwall': 'https://www.kiwiwall.com/wall/{aff}/{uid}',
+            'adscend': 'https://adscendmedia.com/adwall/publisher/{aff}/profile/default/user/{uid}',
+            'revenue_universe': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
+            'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
+        }
+        pid = provider_id.lower()
+        if pid in templates:
+            integration_url = templates[pid]
+        elif pid == 'timewall':
+            integration_url = 'https://timewall.io/users/login?oid={aff}&uid={uid}'
+        elif pid == 'cpxresearch':
+            integration_url = 'https://offers.cpx-research.com/index.php?app_id={aff}&ext_user_id={uid}'
+        else:
+            integration_url = 'https://wall.generic-provider.com/?app_id={aff}&user_id={uid}'
+
+    # Resolve credentials
+    aff = str(config.get('affiliateId') or config.get('appId') or '').strip()
+    secret = str(config.get('secret') or '').strip()
+    api_key = str(config.get('apiKey') or '').strip()
+
+    # Check authentication strategy / type
+    auth_type = (config.get('authType') or config.get('authStrategy') or 'uid_placeholder').lower()
+
+    # 1. Handle SDK launch strategy
+    if auth_type == 'sdk_launch':
+        return {
+            "success": True,
+            "method": "SDK",
+            "provider": provider_id,
+            "config": {
+                "appId": aff,
+                "apiKey": api_key,
+                "userId": user_id,
+                "email": email
+            }
+        }, False
+
+    # 2. Handle POST launch strategy
+    if auth_type == 'post_launch':
+        # Generate post parameters
+        fields = {
+            "user_id": user_id,
+            "email": email,
+            "app_id": aff,
+        }
+        if secret:
+            # Generate a signed signature parameter
+            fields["signature"] = hmac_lib.new(secret.encode('utf-8'), f"{user_id}:{email}".encode('utf-8'), hashlib.sha256).hexdigest()
+        if offer_id:
+            fields["offer_id"] = offer_id
+        if return_url:
+            fields["return_url"] = return_url
+
+        return {
+            "success": True,
+            "method": "POST",
+            "url": integration_url,
+            "fields": fields
+        }, False
+
+    # Standard URL-based launch paths
+    # Replace any placeholders
+    resolved_url = integration_url
+
+    # Replacements for common macros / tokens
+    resolved_url = _apply_launch_placeholders(resolved_url, aff, user_id)
+    resolved_url = resolved_url.replace('{email}', urllib.parse.quote(email))
+    resolved_url = resolved_url.replace('[EMAIL]', urllib.parse.quote(email))
+    if offer_id:
+        resolved_url = resolved_url.replace('{offer_id}', offer_id)
+        resolved_url = resolved_url.replace('[OFFER_ID]', offer_id)
+
+    # Append/Modify based on auth strategy
+    parsed = urllib.parse.urlparse(resolved_url)
+    query_params = urllib.parse.parse_qs(parsed.query)
+
+    # Handle specific strategies
+    if auth_type == 'player_id':
+        query_params['player_id'] = [user_id]
+    elif auth_type == 'external_user_id':
+        query_params['external_user_id'] = [user_id]
+        query_params['ext_user_id'] = [user_id]
+    elif auth_type == 'signed_token':
+        # Generate signature
+        sig_input = f"{user_id}:{secret}"
+        signature = hmac.new(secret.encode('utf-8'), sig_input.encode('utf-8'), hashlib.sha256).hexdigest()
+        query_params['signature'] = [signature]
+        query_params['token'] = [signature]
+    elif auth_type == 'jwt':
+        # Generate dynamic JWT token
+        payload = {
+            "uid": user_id,
+            "email": email,
+            "exp": int(time.time()) + 3600
+        }
+        jwt_token = generate_jwt(payload, secret)
+        query_params['token'] = [jwt_token]
+        query_params['jwt'] = [jwt_token]
+    elif auth_type == 'session_token':
+        # Generate a secure hashed session token
+        session_token = hashlib.sha256(f"session:{user_id}:{time.time()}:{secret}".encode('utf-8')).hexdigest()
+        query_params['session_token'] = [session_token]
+    elif auth_type == 'query_param':
+        # Append credentials
+        if aff:
+            query_params['app_id'] = [aff]
+        if api_key:
+            query_params['api_key'] = [api_key]
+        query_params['user_id'] = [user_id]
+
+    # Build query string
+    # Flatten single items
+    flattened_params = {}
+    for k, v in query_params.items():
+        flattened_params[k] = v[0] if isinstance(v, list) else str(v)
+
+    query_str = urllib.parse.urlencode(flattened_params)
+    final_url = urllib.parse.urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        query_str,
+        parsed.fragment
+    ))
+
+    # Special built-in checks
+    if provider_id.lower() == 'cpxresearch':
+        secure_hash = hashlib.md5(f'{user_id}{secret or ""}'.encode()).hexdigest()
+        final_url = f'https://offers.cpx-research.com/index.php?app_id={aff}&ext_user_id={user_id}&secure_hash={secure_hash}'
+        if offer_id:
+            final_url += f'&survey_id={offer_id}'
+
+    # Validate final URL
+    validated = _validate_launch_url(final_url)
+    if not validated:
+        return None, False
+
+    embeddable = bool(config.get('embeddable', False)) or auth_type in ('uid_placeholder', 'player_id', 'external_user_id')
+    return {
+        "success": True,
+        "method": "GET",
+        "url": validated,
+        "embeddable": embeddable
+    }, embeddable
+
+
+@app.route('/api/marketplace/launch', methods=['POST'])
+@verify_token
+@require_db
+def marketplace_launch():
+    """
+    Unified, enterprise-grade Provider Launch Engine endpoint.
+    Determines provider configuration, replaces macros, handles auth strategy,
+    and returns final redirect URL or POST instructions to the client.
+    """
+    db = get_db()
+    data = request.json or {}
+    opportunity_id = data.get('opportunityId')
+    provider_id = data.get('providerId')
+    offer_id = data.get('offerId')
+    user_id = data.get('userId') or request.user['uid']
+    return_url = data.get('returnUrl')
+
+    if not user_id:
+        return jsonify({"success": False, "error": "MISSING_USER_ID"}), 400
+
+    # Fetch user data for metadata macros (such as email)
+    user_ref = db.collection('users').document(user_id)
+    user_snap = user_ref.get()
+    if not user_snap.exists:
+        return jsonify({"success": False, "error": "USER_NOT_FOUND"}), 404
+    u_data = user_snap.to_dict() or {}
+    email = u_data.get('email', '')
+
+    # Fetch provider configuration
+    config = {}
+    resolved_provider_id = provider_id
+
+    # If opportunityId is given, load opportunity to resolve provider
+    if opportunity_id:
+        opp_snap = db.collection('tasks').document(opportunity_id).get()
+        if opp_snap.exists:
+            opp_data = opp_snap.to_dict() or {}
+            resolved_provider_id = opp_data.get('providerId') or opp_data.get('provider')
+            # If the task has a specific action URL, use it as template
+            if opp_data.get('url') or opp_data.get('actionUrl'):
+                config['launchUrlTemplate'] = opp_data.get('url') or opp_data.get('actionUrl')
+            if opp_data.get('embeddable') is not None:
+                config['embeddable'] = opp_data.get('embeddable')
+
+    if not resolved_provider_id:
+        resolved_provider_id = 'generic'
+
+    # Fetch provider details if configured in Firestore
+    prov_snap = db.collection('offerwall_providers').document(resolved_provider_id.lower()).get()
+    if prov_snap.exists:
+        prov_data = prov_snap.to_dict() or {}
+        # Merge provider config
+        for k, v in prov_data.items():
+            if k not in config or not config[k]:
+                config[k] = v
+
+    # Build launch payload dynamically
+    launch_payload, _ = _generate_generic_provider_launch(
+        resolved_provider_id, config, user_id, email, return_url, offer_id
+    )
+
+    if not launch_payload:
+        return jsonify({"success": False, "error": "LAUNCH_FAILED", "message": "Failed to generate authenticated launcher URL."}), 400
+
+    # Increment launch attempt stats for provider
+    try:
+        db.collection('offerwall_providers').document(resolved_provider_id.lower()).set({
+            'stats.launchAttempts': firestore.Increment(1),
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    except Exception:
+        pass
+
+    return jsonify(launch_payload)
+
+
 @app.route('/api/offerwall/providers/<provider_id>/launch', methods=['POST', 'GET'])
 @verify_token
 def offerwall_launch_url(provider_id):

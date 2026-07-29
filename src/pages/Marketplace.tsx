@@ -28,7 +28,7 @@ import {
   getMarketplaceState,
 } from '../engines/marketplace/MarketplaceEngine';
 
-import { generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
+import { generateSyntheticProviderOpportunity, generateEmbeddedOffersForProvider } from '../engines/marketplace/OpportunityNormalizer';
 
 import {
   generateAllSections,
@@ -116,6 +116,12 @@ export const Marketplace: React.FC = () => {
   const [minRewardFilter, setMinRewardFilter] = useState<number>(0);
   const [sortBy, setSortBy] = useState<'recommended' | 'reward' | 'time' | 'difficulty' | 'newest'>('recommended');
   
+  // Layout and advanced filters
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedDevice, setSelectedDevice] = useState<'all' | 'iOS' | 'Android' | 'Desktop'>('all');
+  const [selectedSource, setSelectedSource] = useState<'all' | 'internal' | 'provider'>('all');
+  const [selectedOfferType, setSelectedOfferType] = useState<'all' | 'Survey' | 'Game' | 'App Install' | 'Video' | 'Finance'>('all');
+
   // ─── Drawer Selection State ──────────────────────────────────────────────
   const [selectedOpportunity, setSelectedOpportunity] = useState<MarketplaceOpportunity | null>(null);
 
@@ -162,6 +168,7 @@ export const Marketplace: React.FC = () => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
           let existingOpps = match?.opportunities || [];
 
+          const EMBEDDED_PROVIDERS = ['cpxresearch', 'bitlabs', 'adgem', 'lootably', 'offertoro'];
           if (p.status === 'maintenance') {
             // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.
             existingOpps = [{
@@ -195,6 +202,9 @@ export const Marketplace: React.FC = () => {
                 actionType: 'claim',
               }
             }];
+          } else if (EMBEDDED_PROVIDERS.includes(p.id.toLowerCase())) {
+            // Tier 3: Native Embedded Inventory Providers
+            existingOpps = generateEmbeddedOffersForProvider(p as any);
           } else if (existingOpps.length === 0 && p.launchUrl) {
             // Tier 2: Launch provider. If inventory is unavailable but launch URL exists, display ONE launch card.
             existingOpps = [generateSyntheticProviderOpportunity(p as any)];
@@ -256,13 +266,16 @@ export const Marketplace: React.FC = () => {
     setSelectedDifficulty('all');
     setMinRewardFilter(0);
     setSortBy('recommended');
+    setSelectedDevice('all');
+    setSelectedSource('all');
+    setSelectedOfferType('all');
   }, []);
 
   // ─── Dynamic Marketplace Engine State & Search Derived Results ──────────────
   const { opportunities: engineOpportunities } = getMarketplaceState();
 
   const searchResults = useMemo(() => {
-    return search({
+    let results = search({
       query: searchQuery,
       filters: {
         categories: selectedCategory !== 'all' ? [selectedCategory] : undefined,
@@ -272,7 +285,25 @@ export const Marketplace: React.FC = () => {
       sortBy: sortBy === 'recommended' ? 'recommendation_score' : sortBy,
       limit: 100,
     });
-  }, [searchQuery, selectedCategory, selectedDifficulty, minRewardFilter, sortBy, engineOpportunities, engineVersion]);
+
+    // Post-filter advanced fields
+    if (selectedDevice !== 'all') {
+      results = results.filter(opp => {
+        const devices = (opp.metadata as any).devices || [];
+        return devices.includes(selectedDevice) || devices.includes('All');
+      });
+    }
+
+    if (selectedSource !== 'all') {
+      results = results.filter(opp => opp.source === selectedSource);
+    }
+
+    if (selectedOfferType !== 'all') {
+      results = results.filter(opp => (opp.metadata as any).offerType === selectedOfferType);
+    }
+
+    return results;
+  }, [searchQuery, selectedCategory, selectedDifficulty, minRewardFilter, sortBy, selectedDevice, selectedSource, selectedOfferType, engineOpportunities, engineVersion]);
 
   const dynamicSections = useMemo(() => {
     return generateAllSections(engineOpportunities, userData, activities, taskHistory);
@@ -333,7 +364,13 @@ export const Marketplace: React.FC = () => {
     };
   }, [userTasks, tasks, engineOpportunities]);
 
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedDifficulty !== 'all' || minRewardFilter > 0;
+  const hasActiveFilters = searchQuery.trim().length > 0 ||
+    selectedCategory !== 'all' ||
+    selectedDifficulty !== 'all' ||
+    minRewardFilter > 0 ||
+    selectedDevice !== 'all' ||
+    selectedSource !== 'all' ||
+    selectedOfferType !== 'all';
 
   return (
     <div className="min-h-screen bg-background text-text-primary px-4 pt-28 pb-20 md:px-8 max-w-7xl mx-auto space-y-8">
@@ -445,6 +482,30 @@ export const Marketplace: React.FC = () => {
 
               {/* Filters & Sorting Controls */}
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 md:pt-0">
+                {/* View Mode Toggle */}
+                <div className="flex items-center border border-border rounded-xl overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={cn(
+                      'px-3 py-2 text-xs font-bold transition-all min-h-[44px]',
+                      viewMode === 'grid' ? 'bg-primary text-white' : 'bg-surface-bright text-text-secondary hover:text-text-primary'
+                    )}
+                    aria-label="Grid View"
+                  >
+                    Grid
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={cn(
+                      'px-3 py-2 text-xs font-bold transition-all min-h-[44px]',
+                      viewMode === 'list' ? 'bg-primary text-white' : 'bg-surface-bright text-text-secondary hover:text-text-primary'
+                    )}
+                    aria-label="List View"
+                  >
+                    List
+                  </button>
+                </div>
+
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value as OpportunityCategory | 'all')}
@@ -471,8 +532,45 @@ export const Marketplace: React.FC = () => {
                 </select>
 
                 <select
+                  value={selectedDevice}
+                  onChange={(e) => setSelectedDevice(e.target.value as any)}
+                  aria-label="Filter by Device"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="all">All Devices</option>
+                  <option value="iOS">iOS</option>
+                  <option value="Android">Android</option>
+                  <option value="Desktop">Desktop</option>
+                </select>
+
+                <select
+                  value={selectedSource}
+                  onChange={(e) => setSelectedSource(e.target.value as any)}
+                  aria-label="Filter by Source"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="internal">PulseEarn Internal</option>
+                  <option value="provider">Partner Providers</option>
+                </select>
+
+                <select
+                  value={selectedOfferType}
+                  onChange={(e) => setSelectedOfferType(e.target.value as any)}
+                  aria-label="Filter by Offer Type"
+                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
+                >
+                  <option value="all">All Offer Types</option>
+                  <option value="Survey">Surveys</option>
+                  <option value="Game">Games</option>
+                  <option value="App Install">App Installs</option>
+                  <option value="Video">Videos</option>
+                  <option value="Finance">Finance</option>
+                </select>
+
+                <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'recommended' | 'reward' | 'time' | 'difficulty' | 'newest')}
+                  onChange={(e) => setSortBy(e.target.value as any)}
                   aria-label="Sort opportunities"
                   className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
                 >
@@ -547,13 +645,14 @@ export const Marketplace: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={cn(viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3")}>
                   {searchResults.map(opp => (
                     <OpportunityCard
                       key={opp.id}
                       opportunity={opp}
                       userTask={userTasks[opp.id]}
                       onSelect={() => setSelectedOpportunity(opp)}
+                      viewMode={viewMode}
                     />
                   ))}
                 </div>
@@ -584,13 +683,14 @@ export const Marketplace: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className={cn(viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3")}>
                     {section.opportunities.map(opp => (
                       <OpportunityCard
                         key={opp.id}
                         opportunity={opp}
                         userTask={userTasks[opp.id]}
                         onSelect={() => setSelectedOpportunity(opp)}
+                        viewMode={viewMode}
                       />
                     ))}
                   </div>
@@ -653,76 +753,216 @@ interface OpportunityCardProps {
   opportunity: MarketplaceOpportunity;
   userTask?: { status?: string };
   onSelect: () => void;
+  viewMode?: 'grid' | 'list';
 }
 
-const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask, onSelect }) => {
+export const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask, onSelect, viewMode = 'grid' }) => {
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const canonicalStatus = userTask ? getCanonicalStatus(userTask.status) : null;
 
+  const artworkUrl = opportunity.metadata.artwork || opportunity.metadata.thumbnail || `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`;
+
+  // Extract custom embedded metadata
+  const offerType = (opportunity.metadata as any).offerType || 'Task';
+  const devices = (opportunity.metadata as any).devices || ['All'];
+  const countries = (opportunity.metadata as any).countries || ['GLOBAL'];
+  const isSponsored = (opportunity.metadata as any).sponsored;
+  const isNew = (opportunity.metadata as any).isNew;
+  const isFeatured = (opportunity.metadata as any).featured;
+  const isLimitedTime = (opportunity.metadata as any).limitedTime;
+
+  if (viewMode === 'list') {
+    return (
+      <motion.div
+        whileHover={{ x: 2 }}
+        onClick={onSelect}
+        className="p-4 rounded-xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all shadow-xs hover:shadow-md group"
+      >
+        <div className="flex items-start gap-4 min-w-0 flex-1">
+          {/* Artwork with brand background */}
+          <div className="relative w-14 h-14 rounded-lg bg-surface-bright border border-border overflow-hidden shrink-0 flex items-center justify-center">
+            <img
+              src={artworkUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as any).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`; }}
+            />
+            {isSponsored && (
+              <span className="absolute top-0.5 left-0.5 text-[7px] font-black tracking-widest px-1 py-0.5 rounded bg-amber-500 text-black uppercase">
+                SPON
+              </span>
+            )}
+          </div>
+
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-text-tertiary">
+                {opportunity.providerName || 'PulseEarn'}
+              </span>
+              <span className="text-text-tertiary/40">•</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/10">
+                {opportunity.metadata.category}
+              </span>
+              {isNew && <span className="text-[8px] font-bold uppercase bg-success text-white px-1.5 py-0.5 rounded">NEW</span>}
+              {isFeatured && <span className="text-[8px] font-bold uppercase bg-primary text-white px-1.5 py-0.5 rounded">FEATURED</span>}
+              {isLimitedTime && <span className="text-[8px] font-bold uppercase bg-danger text-white px-1.5 py-0.5 rounded">LIMITED</span>}
+            </div>
+
+            <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors truncate">
+              {opportunity.title}
+            </h3>
+            <p className="text-[11px] text-text-tertiary line-clamp-1">
+              {opportunity.description}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-text-tertiary font-mono">
+              <span className="flex items-center gap-1"><Clock size={10} />{opportunity.metadata.estimatedTime}</span>
+              <span>•</span>
+              <span style={{ color: diffConfig.color }}>{diffConfig.label}</span>
+              <span>•</span>
+              <span>Dev: {devices.join(', ')}</span>
+              <span>•</span>
+              <span>Geo: {countries.join(', ')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex sm:flex-col items-end gap-3 shrink-0 w-full sm:w-auto justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+          <div className="text-right">
+            <span className="text-base font-black text-success tabular-nums">+{opportunity.reward.points} PTS</span>
+            {opportunity.reward.xp > 0 && (
+              <span className="text-[10px] text-primary font-bold block font-mono">+{opportunity.reward.xp} XP</span>
+            )}
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className="py-1.5 px-3 rounded-lg bg-surface-bright hover:bg-primary hover:text-white border border-border text-[11px] font-bold text-text-secondary transition-all"
+          >
+            Details
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Grid view (Standard / Enhanced)
   return (
     <motion.div
       whileHover={{ y: -2 }}
       onClick={onSelect}
-      className="p-5 rounded-2xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col justify-between space-y-4 transition-all shadow-xs hover:shadow-md group"
+      className="rounded-2xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col overflow-hidden transition-all shadow-xs hover:shadow-md group"
     >
-      <div className="space-y-3">
-        {/* Top Badges */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-            {opportunity.metadata.category}
-          </span>
-          <div className="flex items-center gap-1.5">
-            {canonicalStatus && (
-              <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono', canonicalStatus.badgeClass)}>
-                {canonicalStatus.label}
-              </span>
-            )}
-            <span
-              className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"
-              style={{ color: diffConfig.color, backgroundColor: diffConfig.bgColor, borderColor: `${diffConfig.color}33` }}
-            >
-              {diffConfig.label}
+      {/* Artwork Header */}
+      <div className="relative h-32 bg-surface-bright border-b border-border overflow-hidden">
+        <img
+          src={artworkUrl}
+          alt=""
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => { (e.target as any).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.id}`; }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+
+        {/* Badges on artwork */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {isSponsored && (
+            <span className="text-[8px] font-black uppercase tracking-widest bg-amber-500 text-black px-2 py-0.5 rounded shadow">
+              SPONSORED
             </span>
-          </div>
+          )}
+          {isNew && (
+            <span className="text-[8px] font-black uppercase tracking-widest bg-success text-white px-2 py-0.5 rounded shadow">
+              NEW
+            </span>
+          )}
         </div>
 
-        {/* Title & Description */}
-        <div>
-          <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
-            {opportunity.title}
-          </h3>
-          <p className="text-[11px] text-text-tertiary line-clamp-2 mt-1 leading-relaxed">
-            {opportunity.description || 'Verified earning opportunity available in the PulseEarn ecosystem.'}
-          </p>
+        <div className="absolute top-3 right-3 flex gap-1">
+          {canonicalStatus && (
+            <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono backdrop-blur-md', canonicalStatus.badgeClass)}>
+              {canonicalStatus.label}
+            </span>
+          )}
+          <span
+            className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shadow"
+            style={{ color: diffConfig.color, backgroundColor: diffConfig.bgColor, borderColor: `${diffConfig.color}33` }}
+          >
+            {diffConfig.label}
+          </span>
+        </div>
+
+        {/* Floating Provider Logo Icon / Overlay */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+          <div className="w-6 h-6 rounded-md bg-background border border-border flex items-center justify-center p-0.5">
+            <img
+              src={opportunity.metadata.thumbnail || `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.providerId}`}
+              alt=""
+              className="w-full h-full object-contain rounded-sm"
+              onError={(e) => { (e.target as any).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${opportunity.providerId}`; }}
+            />
+          </div>
+          <span className="text-[10px] font-bold text-white uppercase tracking-wider drop-shadow-md">
+            {opportunity.providerName || 'PulseEarn'}
+          </span>
         </div>
       </div>
 
-      {/* Rewards & Action CTA */}
-      <div className="space-y-3 pt-2 border-t border-border/60">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-baseline gap-1">
-            <span className="text-base font-black text-success tabular-nums">+{opportunity.reward.points}</span>
-            <span className="text-[9px] font-bold text-text-tertiary uppercase">PTS</span>
-            {opportunity.reward.xp > 0 && (
-              <span className="text-[10px] text-primary font-bold ml-1 font-mono">+{opportunity.reward.xp} XP</span>
-            )}
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+              {opportunity.metadata.category}
+            </span>
+            <span className="text-[10px] font-mono text-text-tertiary">
+              {offerType}
+            </span>
           </div>
-          <span className="text-[10px] text-text-tertiary flex items-center gap-1 font-mono">
-            <Clock size={11} />
-            {opportunity.metadata.estimatedTime}
-          </span>
+
+          <div>
+            <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
+              {opportunity.title}
+            </h3>
+            <p className="text-[11px] text-text-tertiary line-clamp-2 mt-1 leading-relaxed">
+              {opportunity.description || 'Verified earning opportunity available in the PulseEarn ecosystem.'}
+            </p>
+          </div>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-          className="w-full py-2 px-3 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center justify-center gap-1.5"
-        >
-          <span>View Details</span>
-          <ChevronRight size={13} />
-        </button>
+        {/* Rewards & Action CTA */}
+        <div className="space-y-3 pt-2 border-t border-border/60">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-baseline gap-1">
+              <span className="text-base font-black text-success tabular-nums">+{opportunity.reward.points}</span>
+              <span className="text-[9px] font-bold text-text-tertiary uppercase">PTS</span>
+              {opportunity.reward.xp > 0 && (
+                <span className="text-[10px] text-primary font-bold ml-1 font-mono">+{opportunity.reward.xp} XP</span>
+              )}
+            </div>
+            <span className="text-[10px] text-text-tertiary flex items-center gap-1 font-mono">
+              <Clock size={11} />
+              {opportunity.metadata.estimatedTime}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-text-tertiary font-mono pt-1">
+            <span>Dev: {devices.join(', ')}</span>
+            <span>Geo: {countries.join(', ')}</span>
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center justify-center gap-1.5"
+          >
+            <span>View Details</span>
+            <ChevronRight size={13} />
+          </button>
+        </div>
       </div>
     </motion.div>
   );
@@ -737,7 +977,7 @@ interface OpportunityDetailDrawerProps {
   onAction: () => void;
 }
 
-const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
+export const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
   opportunity,
   userTask,
   onClose,

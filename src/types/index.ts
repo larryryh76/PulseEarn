@@ -430,6 +430,7 @@ export interface TaskHistory {
   id: string;
   userId: string;
   taskId: string;
+  taskType?: string;
   campaignId: string | null;
   campaignName: string;
   taskTitle: string;

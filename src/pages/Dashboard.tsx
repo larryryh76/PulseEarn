@@ -382,7 +382,10 @@ const Dashboard: React.FC = () => {
   };
 
   const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
-  const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
+  const pendingSubtasks = useMemo(() => {
+    const activeTaskIds = new Set(tasks.map(t => t.id));
+    return subtasks.filter(s => s.validationState === 'PENDING' && activeTaskIds.has(s.taskId));
+  }, [subtasks, tasks]);
 
   // SYNC VERIFICATION (Phase 18): Ensure all surfaces stay in sync
   useEffect(() => {

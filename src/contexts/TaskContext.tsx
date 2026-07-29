@@ -173,8 +173,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   });
 
+  const activeTaskIds = new Set(tasks.map(t => t.id));
+
   const realTimeHistory = Object.values(userTasks)
-    .filter(ut => (ut.status === 'completed' || ut.status === 'on_cooldown' || ut.status === 'cooldown') &&
+    .filter(ut => activeTaskIds.has(ut.taskId) && (ut.status === 'completed' || ut.status === 'on_cooldown' || ut.status === 'cooldown') &&
                   !taskHistory.find(h => h.taskId === ut.taskId))
     .map(ut => {
       const task = tasks.find(t => t.id === ut.taskId);
@@ -200,8 +202,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const unifiedHistory = [
     ...realTimeHistory,
-    ...taskHistory.map(h => ({ ...h, type: 'HISTORY' })),
+    ...taskHistory.filter(h => h.taskType === 'offerwall' || activeTaskIds.has(h.taskId)).map(h => ({ ...h, type: 'HISTORY' })),
     ...subtasks.filter(s =>
+       activeTaskIds.has(s.taskId) &&
        s.validationState === 'APPROVED' &&
        !taskHistory.find(h => h.claimId === s.id) &&
        !taskHistory.find(h => h.taskId === s.taskId)

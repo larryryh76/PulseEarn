@@ -2413,7 +2413,11 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
             {'key': 'secret', 'label': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'},
             {'key': 'apiEndpoint', 'label': 'Integration URL', 'required': False, 'type': 'text', 'placeholder': 'https://timewall.io'}
-        ]
+        ],
+        'identityFields': {
+            'placementId': {'name': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
+            'secret': {'name': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'}
+        }
     },
     'cpxresearch': {
         'name': 'CPX Research',
@@ -2422,7 +2426,12 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
             {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'},
             {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'Optional API Key if needed'}
-        ]
+        ],
+        'identityFields': {
+            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'CPX API Key'},
+            'secret': {'name': 'Hash Key / Secret', 'required': False, 'type': 'password', 'placeholder': 'MD5 Hash Key'}
+        }
     },
     'lootably': {
         'name': 'Lootably',
@@ -2431,7 +2440,12 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Placement ID / Pub ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Placement ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
             {'key': 'secret', 'label': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
-        ]
+        ],
+        'identityFields': {
+            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Publisher ID'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
+            'secret': {'name': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
+        }
     },
     'bitlabs': {
         'name': 'BitLabs',
@@ -2439,7 +2453,12 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
             {'key': 'secret', 'label': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
-        ]
+        ],
+        'identityFields': {
+            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App ID'},
+            'token': {'name': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
+            'secret': {'name': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
+        }
     },
     'adgem': {
         'name': 'AdGem',
@@ -2447,7 +2466,11 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
             {'key': 'secret', 'label': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
-        ]
+        ],
+        'identityFields': {
+            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
+            'secret': {'name': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
+        }
     },
     'offertoro': {
         'name': 'OfferToro',
@@ -2456,7 +2479,12 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
             {'key': 'apiKey', 'label': 'App Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
-        ]
+        ],
+        'identityFields': {
+            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
+            'appId': {'name': 'App ID / Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
+        }
     },
     'adgate': {
         'name': 'AdGate Media',
@@ -2465,7 +2493,12 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
             {'key': 'secret', 'label': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
-        ]
+        ],
+        'identityFields': {
+            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
+            'secret': {'name': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
+        }
     },
     'ayet': {
         'name': 'ayeT Studios',
@@ -2474,7 +2507,12 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
             {'key': 'secret', 'label': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
-        ]
+        ],
+        'identityFields': {
+            'adgateId': {'name': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
+            'secret': {'name': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
+        }
     },
     'wannads': {
         'name': 'Wannads',
@@ -2482,7 +2520,12 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
-        ]
+        ],
+        'identityFields': {
+            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Wannads Publisher ID'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
+        }
     },
     'revu': {
         'name': 'RevU',
@@ -2490,7 +2533,11 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
             {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
-        ]
+        ],
+        'identityFields': {
+            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
+            'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
+        }
     },
     'kiwiwall': {
         'name': 'KiwiWall',
@@ -2498,7 +2545,11 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
-        ]
+        ],
+        'identityFields': {
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
+        }
     },
     'adscend': {
         'name': 'Adscend Media',
@@ -2506,7 +2557,11 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
-        ]
+        ],
+        'identityFields': {
+            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
+        }
     },
     'revenue_universe': {
         'name': 'Revenue Universe',
@@ -2514,7 +2569,11 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
             {'key': 'secret', 'label': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
-        ]
+        ],
+        'identityFields': {
+            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
+            'secret': {'name': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
+        }
     },
     'monlix': {
         'name': 'Monlix',
@@ -2523,19 +2582,26 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
-        ]
+        ],
+        'identityFields': {
+            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
+            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
+        }
     },
     'pollfish': {
         'name': 'Pollfish (future)',
         'isLocked': True,
         'researchRequired': True,
-        'fields': []
+        'fields': [],
+        'identityFields': {}
     },
     'inbrain': {
         'name': 'InBrain (future)',
         'isLocked': True,
         'researchRequired': True,
-        'fields': []
+        'fields': [],
+        'identityFields': {}
     }
 }
 
@@ -2709,33 +2775,111 @@ _OFFERWALL_AFF_PLACEHOLDERS = (
 )
 
 
-def _apply_launch_placeholders(url, aff, uid):
-    """Replace every known UID / affiliate placeholder token in a stored
-    Integration URL with the real values. Case-insensitive matching."""
+def _apply_launch_placeholders(url, aff, uid, identity_fields=None, config=None):
+    """Replace every known UID / affiliate / generic identity placeholder token in a stored
+    Integration URL with the real values. Case-insensitive matching with boundary safety."""
     if not url:
         return url
+    import re
     result = url
     for token in _OFFERWALL_UID_PLACEHOLDERS:
-        # case-insensitive replace
-        idx = result.lower().find(token.lower())
-        while idx != -1:
-            result = result[:idx] + uid + result[idx + len(token):]
-            idx = result.lower().find(token.lower(), idx + len(uid))
+        if token.startswith('{') or token.startswith('[') or token.startswith('('):
+            pattern = re.escape(token)
+        else:
+            pattern = r'\b' + re.escape(token) + r'\b(?!=)'
+        result = re.sub(pattern, uid, result, flags=re.IGNORECASE)
+
+    # Sub any dynamic identity fields
+    identity_fields = identity_fields or {}
+    for field_key, field_data in identity_fields.items():
+        val = str(field_data.get('value', '')).strip()
+        if not val:
+            continue
+
+        # Build standard variations of the field key
+        placeholders = [
+            f"{{{field_key}}}",
+            f"[{field_key}]",
+            f"({field_key})",
+            field_key.upper(),
+            # Support snake_case version of key in curly braces/brackets
+            f"{{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}}",
+            f"[{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}]",
+            # Support upper case with underscore
+            "".join(["_" + c.lower() if c.isupper() else c for c in field_key]).lstrip("_").upper(),
+        ]
+
+        # Add a custom check for standard dynamic names
+        if field_key == 'publisherId':
+            placeholders.extend(['PUBLISHER_ID', '{publisher_id}', '[publisher_id]'])
+        elif field_key == 'appId' or field_key == 'applicationId':
+            placeholders.extend(['APP_ID', 'APPLICATION_ID', '{app_id}', '[app_id]'])
+        elif field_key == 'siteId':
+            placeholders.extend(['SITE_ID', '{site_id}', '[site_id]'])
+        elif field_key == 'propertyId':
+            placeholders.extend(['PROPERTY_ID', '{property_id}', '[property_id]'])
+        elif field_key == 'placementId':
+            placeholders.extend(['PLACEMENT_ID', '{placement_id}', '[placement_id]'])
+        elif field_key == 'zoneId':
+            placeholders.extend(['ZONE_ID', '{zone_id}', '[zone_id]'])
+        elif field_key == 'appToken':
+            placeholders.extend(['APP_TOKEN', '{app_token}', '[app_token]'])
+        elif field_key == 'clientId':
+            placeholders.extend(['CLIENT_ID', '{client_id}', '[client_id]'])
+        elif field_key == 'apiKey':
+            placeholders.extend(['API_KEY', '{api_key}', '[api_key]'])
+        elif field_key == 'secret':
+            placeholders.extend(['SECRET', '{secret}', '[secret]'])
+
+        for token in placeholders:
+            if token.startswith('{') or token.startswith('[') or token.startswith('('):
+                pattern = re.escape(token)
+            else:
+                pattern = r'\b' + re.escape(token) + r'\b(?!=)'
+            result = re.sub(pattern, val, result, flags=re.IGNORECASE)
+
+    # Traditional Affiliate ID replacement
     for token in _OFFERWALL_AFF_PLACEHOLDERS:
-        idx = result.lower().find(token.lower())
-        while idx != -1:
-            result = result[:idx] + aff + result[idx + len(token):]
-            idx = result.lower().find(token.lower(), idx + len(aff))
+        if token.startswith('{') or token.startswith('[') or token.startswith('('):
+            pattern = re.escape(token)
+        else:
+            pattern = r'\b' + re.escape(token) + r'\b(?!=)'
+        result = re.sub(pattern, aff, result, flags=re.IGNORECASE)
+
     return result
 
 
 def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=None):
-    aff = str(affiliate_id or '').strip()
     uid = str(uid or '').strip()
     if not uid:
         return None, False
     pid = (provider_id or '').lower()
     config = config or {}
+
+    identity_fields = config.get('identity', {})
+
+    # Resolve secret and apiKey from identity fields if available
+    resolved_secret = ''
+    if 'secret' in identity_fields:
+        resolved_secret = str(identity_fields['secret'].get('value', '')).strip()
+    if not resolved_secret:
+        resolved_secret = str(secret or config.get('secret', '')).strip()
+
+    resolved_api_key = ''
+    if 'apiKey' in identity_fields:
+        resolved_api_key = str(identity_fields['apiKey'].get('value', '')).strip()
+    if not resolved_api_key:
+        resolved_api_key = str(config.get('apiKey', '')).strip()
+
+    # Find the generic affiliate/app identifier from identity
+    aff = ''
+    for key in ['publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
+        if key in identity_fields:
+            aff = str(identity_fields[key].get('value', '')).strip()
+            if aff:
+                break
+    if not aff:
+        aff = str(affiliate_id or config.get('affiliateId', '')).strip()
 
     # ── PRIORITY 1: config-driven Integration URL ──────────────────────────────
     # If the admin saved the exact Integration URL issued by the provider's own
@@ -2745,7 +2889,7 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
     if integration_url:
         has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
-        resolved = _apply_launch_placeholders(integration_url, aff, uid)
+        resolved = _apply_launch_placeholders(integration_url, aff, uid, identity_fields, config)
         # Only trust the stored URL if the UID actually got injected (either via a
         # placeholder token, or because the admin pre-baked a per-user pattern).
         if has_uid_token or (uid and uid in resolved):
@@ -2779,7 +2923,7 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
         return _validate_launch_url(f'https://timewall.io/users/login?oid={aff}&uid={uid}'), False
 
     if pid == 'cpxresearch':
-        secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
+        secure_hash = hashlib.md5(f'{uid}{resolved_secret}'.encode()).hexdigest()
         raw_url = (f'https://offers.cpx-research.com/index.php?app_id={aff}'
                    f'&ext_user_id={uid}&secure_hash={secure_hash}')
         return _validate_launch_url(raw_url), True
@@ -2988,7 +3132,14 @@ def _offerwall_callback_impl(provider_id, req):
                                'Provider is disabled, callback ignored')
         return pmap['success_response'], 200  # Silently ack disabled providers
 
-    secret = config.get('secret', '')
+    # Resolve secret from identity fields if available, falling back to top level
+    identity_fields = config.get('identity', {})
+    secret = ''
+    if 'secret' in identity_fields:
+        secret = str(identity_fields['secret'].get('value', '')).strip()
+    if not secret:
+        secret = str(config.get('secret', '')).strip()
+
     multiplier = float(config.get('rewardMultiplier', 1.0))
     # Business rule: user receives 30% of the awarded points, platform keeps 70%.
     user_share = float(config.get('userSharePct', 0.30))
@@ -3640,6 +3791,7 @@ def offerwall_registry():
             'sigParam': spec.get('sig_param'),
             'successResponse': spec.get('success_response'),
             'fields': adapter.get('fields', []),
+            'identityFields': adapter.get('identityFields', {}),
             'isLocked': adapter.get('isLocked', False),
             'researchRequired': adapter.get('researchRequired', False),
         })
@@ -4164,9 +4316,30 @@ def offerwall_test_connection(provider_id):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
 
     # 1. Credential presence
-    has_aff = bool(str(cfg.get('affiliateId', '')).strip())
-    has_secret = bool(str(cfg.get('secret', '')).strip())
-    has_api = bool(str(cfg.get('apiKey', '')).strip())
+    identity_fields = cfg.get('identity', {})
+
+    # Resolve values dynamically from identity, fallback to old top-level keys
+    has_secret = False
+    if 'secret' in identity_fields:
+        has_secret = bool(str(identity_fields['secret'].get('value', '')).strip())
+    if not has_secret:
+        has_secret = bool(str(cfg.get('secret', '')).strip())
+
+    has_api = False
+    if 'apiKey' in identity_fields:
+        has_api = bool(str(identity_fields['apiKey'].get('value', '')).strip())
+    if not has_api:
+        has_api = bool(str(cfg.get('apiKey', '')).strip())
+
+    has_aff = False
+    for key in ['publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'token', 'affiliateId']:
+        if key in identity_fields:
+            has_aff = bool(str(identity_fields[key].get('value', '')).strip())
+            if has_aff:
+                break
+    if not has_aff:
+        has_aff = bool(str(cfg.get('affiliateId', '')).strip())
+
     check('API Key / App ID', has_aff, 'App/Affiliate ID present.' if has_aff else 'Missing App/Affiliate ID.')
     check('Callback Secret', has_secret, 'Secret present.' if has_secret else 'Missing callback secret.')
     check('Callback URL', bool(cfg.get('callbackUrl')), cfg.get('callbackUrl') or 'Missing callback URL.')
@@ -4227,7 +4400,14 @@ def offerwall_generate_payload(provider_id):
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
     cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-    secret = str(cfg.get('secret', 'TEST_SECRET'))
+
+    identity_fields = cfg.get('identity', {})
+    secret = ''
+    if 'secret' in identity_fields:
+        secret = str(identity_fields['secret'].get('value', '')).strip()
+    if not secret:
+        secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
+
     test_uid = request.user['uid']
     import time as _t
     params = {
@@ -4287,7 +4467,14 @@ def offerwall_callback_test(provider_id):
     spec = _resolve_provider_spec(provider_id, cfg)
     body = request.json or {}
     params = {k: str(v) for k, v in (body.get('params') or {}).items()}
-    secret = str(cfg.get('secret', ''))
+
+    identity_fields = cfg.get('identity', {})
+    secret = ''
+    if 'secret' in identity_fields:
+        secret = str(identity_fields['secret'].get('value', '')).strip()
+    if not secret:
+        secret = str(cfg.get('secret', '')).strip()
+
     received = params.get(spec.get('sig_param', 'signature'), '')
     raw_query = body.get('query', '')
     valid = _verify_offerwall_sig(
@@ -4310,7 +4497,13 @@ def offerwall_simulate_reward(provider_id):
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
     cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-    secret = str(cfg.get('secret', 'TEST_SECRET'))
+
+    identity_fields = cfg.get('identity', {})
+    secret = ''
+    if 'secret' in identity_fields:
+        secret = str(identity_fields['secret'].get('value', '')).strip()
+    if not secret:
+        secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
 
     body = request.json or {}
     test_uid = body.get('userId') or request.user['uid']

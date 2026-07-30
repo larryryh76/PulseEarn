@@ -68,6 +68,7 @@ export interface ProviderConfiguration {
   callbackUrl?: string;
   apiKey?: string;
   authToken?: string;
+  identity?: Record<string, { fieldName: string; value: string; required: boolean }>;
   rewardMultiplier?: number;
   userSharePct?: number;
   platformSharePct?: number;

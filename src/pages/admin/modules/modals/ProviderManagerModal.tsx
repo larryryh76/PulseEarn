@@ -21,6 +21,26 @@ interface FraudRules {
   blockDuplicateIp: boolean;
 }
 
+interface IdentityFieldState {
+  fieldName: string;
+  value: string;
+  required: boolean;
+}
+
+const STANDARD_IDENTITY_FIELDS = [
+  { key: 'publisherId', name: 'Publisher ID' },
+  { key: 'affiliateId', name: 'Affiliate ID' },
+  { key: 'appId', name: 'Application ID' },
+  { key: 'siteId', name: 'Site ID' },
+  { key: 'propertyId', name: 'Property ID' },
+  { key: 'placementId', name: 'Placement ID' },
+  { key: 'zoneId', name: 'Zone ID' },
+  { key: 'appToken', name: 'App Token' },
+  { key: 'clientId', name: 'Client ID' },
+  { key: 'apiKey', name: 'API Key' },
+  { key: 'secret', name: 'Secret' }
+];
+
 interface ProviderForm {
   id: string;
   name: string;
@@ -32,6 +52,7 @@ interface ProviderForm {
   affiliateId: string;
   apiKey: string;
   secret: string;
+  identity: Record<string, IdentityFieldState>;
   integrationUrl: string;
   callbackUrl: string;
   webhookUrl: string;
@@ -66,6 +87,7 @@ const BLANK_FORM: ProviderForm = {
   affiliateId: '',
   apiKey: '',
   secret: '',
+  identity: {},
   integrationUrl: '',
   callbackUrl: '',
   webhookUrl: '',
@@ -248,6 +270,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         });
         if (res.success && res.presets) {
           setPresets(res.presets);
+          if (!isNew && providerId) {
+            loadProvider(res.presets);
+          }
         }
       } catch (err) {
         console.error('Failed to load registry presets:', err);
@@ -257,20 +282,51 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       loadRegistry();
       setValidationReport(null);
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, isNew, providerId]);
 
   // Load existing provider data when editing
-  const loadProvider = useCallback(async () => {
+  const loadProvider = useCallback(async (loadedPresets?: any[]) => {
     if (!providerId || !currentUser) return;
     setLoading(true);
     try {
       const token = await currentUser.getIdToken();
+
+      // Load presets if not passed or empty
+      let activePresets = loadedPresets || presets;
+      if (activePresets.length === 0) {
+        const regRes = await safeFetch('/api/offerwall/registry', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (regRes.success && regRes.presets) {
+          activePresets = regRes.presets;
+          setPresets(regRes.presets);
+        }
+      }
+
       const res = await safeFetch('/api/offerwall/providers', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.success) {
         const found = (res.providers || []).find((p: any) => p.id === providerId);
         if (found) {
+          // Resolve identity fields dynamically from presets if not saved yet
+          const preset = activePresets.find(p => p.slug === found.id);
+          const initialIdentity: Record<string, { fieldName: string; value: string; required: boolean }> = found.identity || {};
+          if (Object.keys(initialIdentity).length === 0 && preset && preset.identityFields) {
+            Object.entries(preset.identityFields).forEach(([key, field]: [string, any]) => {
+              let val = '';
+              if (key === 'apiKey') val = found.apiKey || '';
+              else if (key === 'secret') val = found.secret || '';
+              else val = found.affiliateId || '';
+
+              initialIdentity[key] = {
+                fieldName: field.name || field.label || key,
+                value: val,
+                required: !!field.required
+              };
+            });
+          }
+
           setForm({
             id: found.id || '',
             name: found.name || '',
@@ -282,6 +338,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
             affiliateId: found.affiliateId || '',
             apiKey: '',   // never pre-populated for security
             secret: '',   // never pre-populated for security
+            identity: initialIdentity,
             integrationUrl: found.integrationUrl || '',
             callbackUrl: found.callbackUrl || '',
             webhookUrl: found.webhookUrl || '',
@@ -303,7 +360,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     } finally {
       setLoading(false);
     }
-  }, [providerId, currentUser]);
+  }, [providerId, currentUser, presets]);
 
   useEffect(() => {
     if (isOpen) {
@@ -361,20 +418,41 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   // Auto-fill name from known provider
   const handleKnownProvider = (id: string) => {
     const preset = presets.find(p => p.slug === id);
+    const presetIdentity: Record<string, IdentityFieldState> = {};
+    if (preset && preset.identityFields) {
+      Object.entries(preset.identityFields).forEach(([key, f]: [string, any]) => {
+        presetIdentity[key] = {
+          fieldName: f.name || f.label || key,
+          value: '',
+          required: !!f.required
+        };
+      });
+    }
     setForm(f => ({
       ...f,
       id: id,
       name: preset?.label || id,
       callbackUrl: `${origin}/api/offerwall/callback/${id}`,
+      identity: presetIdentity
     }));
   };
 
   const validate = (): string | null => {
     if (!form.id.trim()) return 'Provider ID is required';
     if (!form.name.trim()) return 'Provider name is required';
-    if (!form.affiliateId.trim()) return 'Affiliate ID is required';
     if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
     
+    // Validate generic identity fields
+    for (const [key, field] of Object.entries(form.identity || {})) {
+      if (field.required && !field.value?.trim()) {
+        // If editing and the field is a password/secret/api_key, we can allow keeping existing,
+        // but for new providers, we require it.
+        if (isNew || (key !== 'secret' && key !== 'apiKey' && key !== 'token')) {
+          return `${field.fieldName} is required`;
+        }
+      }
+    }
+
     const sum = form.userSharePct + form.platformSharePct;
     if (Math.abs(sum - 1.0) > 0.001) return `User + Platform share must equal 100% (currently ${(sum * 100).toFixed(1)}%)`;
     if (form.minimumReward < 0) return 'Minimum reward cannot be negative';
@@ -395,6 +473,29 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     try {
       const token = await currentUser.getIdToken();
 
+      // Build identity payload
+      const payloadIdentity = { ...form.identity };
+
+      // Auto-populate legacy fields from dynamic identity to maintain 100% database compatibility
+      let payloadAffiliateId = form.affiliateId.trim();
+      const legacyAffKeys = ['publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'token', 'affiliateId'];
+      for (const key of legacyAffKeys) {
+        if (form.identity[key]?.value) {
+          payloadAffiliateId = form.identity[key].value.trim();
+          break;
+        }
+      }
+
+      let payloadSecret = form.secret.trim();
+      if (form.identity['secret']?.value) {
+        payloadSecret = form.identity['secret'].value.trim();
+      }
+
+      let payloadApiKey = form.apiKey.trim();
+      if (form.identity['apiKey']?.value) {
+        payloadApiKey = form.identity['apiKey'].value.trim();
+      }
+
       // Build payload — only include secret/apiKey if non-empty (edit mode blanks them for security)
       const resolvedCallbackUrl = form.callbackUrl.trim() || callbackUrl;
       const payload: Record<string, any> = {
@@ -405,7 +506,8 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         description: form.description.trim(),
         apiEndpoint: form.apiEndpoint.trim(),
         enabled: form.enabled,
-        affiliateId: form.affiliateId.trim(),
+        affiliateId: payloadAffiliateId,
+        identity: payloadIdentity, // Send our generic identity map!
         integrationUrl: form.integrationUrl.trim(),
         callbackUrl: resolvedCallbackUrl,
         webhookUrl: form.webhookUrl.trim() || resolvedCallbackUrl,
@@ -420,8 +522,8 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         fraudThreshold: form.fraudThreshold,
         fraudRules: form.fraudRules,
       };
-      if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
-      if (form.secret.trim()) payload.secret = form.secret.trim();
+      if (payloadApiKey) payload.apiKey = payloadApiKey;
+      if (payloadSecret) payload.secret = payloadSecret;
 
       const targetId = form.id.trim().toLowerCase().replace(/\s+/g, '_');
       const res = await safeFetch(`/api/offerwall/providers/${targetId}`, {
@@ -489,7 +591,6 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       : null;
 
   const activePreset = presets.find(p => p.slug === form.id);
-  const dynamicFields = activePreset ? activePreset.fields : [];
 
   return (
     <AnimatePresence>
@@ -639,44 +740,70 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                     />
                   </Section>
 
-                  {/* Credentials */}
-                  <Section icon={<Key size={15} />} title="Credentials" subtitle="API keys and secrets — stored securely, never returned to client">
-                    {dynamicFields && dynamicFields.length > 0 ? (
-                      dynamicFields.map((f: any) => {
-                        const isSecret = f.type === 'password' || f.key === 'secret' || f.key === 'apiKey';
-                        const labelText = isNew ? f.label : `${f.label} (leave blank to keep existing)`;
+                  {/* Provider Identity */}
+                  <Section icon={<Key size={15} />} title="Provider Identity" subtitle="Configure provider-specific identity credentials & signature parameters">
+                    <div className="space-y-4">
+                      {Object.entries(form.identity || {}).map(([key, field]) => {
+                        const isSecret = key === 'secret' || key === 'apiKey' || key === 'appToken' || key === 'token';
+                        const labelText = isNew ? field.fieldName : `${field.fieldName} (leave blank to keep existing)`;
                         return (
-                          <Field key={f.key} label={labelText} required={f.required} hint={f.placeholder}>
+                          <Field key={key} label={labelText} required={field.required}>
                             <TextInput
-                              value={form[f.key as keyof ProviderForm] as string || ''}
-                              onChange={v => set(f.key as keyof ProviderForm, v)}
-                              placeholder={f.placeholder}
+                              value={field.value}
+                              onChange={(v) => {
+                                setForm(f => ({
+                                  ...f,
+                                  identity: {
+                                    ...f.identity,
+                                    [key]: {
+                                      ...f.identity[key],
+                                      value: v
+                                    }
+                                  }
+                                }));
+                              }}
+                              placeholder={`Enter ${field.fieldName}`}
                               type={isSecret ? 'password' : 'text'}
                               mono
                             />
                           </Field>
                         );
-                      })
-                    ) : (
-                      <>
-                        <Field label="Affiliate ID" hint="Your publisher/affiliate ID with this provider">
-                          <TextInput value={form.affiliateId} onChange={v => set('affiliateId', v)} placeholder="pub_xxxxx" mono />
-                        </Field>
-                        <Field
-                          label={isNew ? 'API Key' : 'API Key (leave blank to keep existing)'}
-                          hint="Used for server-to-server API calls if required by this provider"
-                        >
-                          <TextInput value={form.apiKey} onChange={v => set('apiKey', v)} placeholder={isNew ? 'sk_live_xxxxx' : '••••••••'} type="password" mono />
-                        </Field>
-                        <Field
-                          label={isNew ? 'Callback Secret' : 'Callback Secret (leave blank to keep existing)'}
-                          hint="Used for HMAC/MD5/SHA signature verification on incoming callbacks"
-                          required={isNew}
-                        >
-                          <TextInput value={form.secret} onChange={v => set('secret', v)} placeholder={isNew ? 'your_secret_here' : '••••••••'} type="password" mono />
-                        </Field>
-                      </>
-                    )}
+                      })}
+
+                      {/* Dropdown to add custom identity fields if Custom provider is chosen */}
+                      {(useCustomId || !activePreset) && (
+                        <div className="pt-2">
+                          <label className="text-[10px] font-bold uppercase tracking-[0.25em] text-text-tertiary block mb-1.5">Add Identity Parameter</label>
+                          <select
+                            onChange={(e) => {
+                              const selectedKey = e.target.value;
+                              if (!selectedKey) return;
+                              const stdField = STANDARD_IDENTITY_FIELDS.find(f => f.key === selectedKey);
+                              if (stdField) {
+                                setForm(f => ({
+                                  ...f,
+                                  identity: {
+                                    ...f.identity,
+                                    [selectedKey]: {
+                                      fieldName: stdField.name,
+                                      value: '',
+                                      required: true
+                                    }
+                                  }
+                                }));
+                              }
+                              e.target.value = '';
+                            }}
+                            className="w-full bg-surface-bright border border-border-bright rounded-xl px-4 py-2.5 text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+                          >
+                            <option value="">+ Configure New Identity Field...</option>
+                            {STANDARD_IDENTITY_FIELDS.filter(f => !form.identity?.[f.key]).map(f => (
+                              <option key={f.key} value={f.key}>{f.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </Section>
 
                   {/* Endpoints */}

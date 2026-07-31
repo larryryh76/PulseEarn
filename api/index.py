@@ -2858,6 +2858,25 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
 
     identity_fields = config.get('identity', {})
 
+    # Strict dynamic validation of required identity fields from provider adapter before generating launch URLs
+    adapter = PROVIDERS_ADAPTERS.get(pid, {})
+    if adapter:
+        identity_fields_spec = adapter.get('identityFields', {})
+        for field_key, field_spec in identity_fields_spec.items():
+            if field_spec.get('required'):
+                val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
+                if not val:
+                    # check legacy fallback keys
+                    if field_key == 'secret':
+                        val = str(secret or config.get('secret', '')).strip()
+                    elif field_key == 'apiKey':
+                        val = str(config.get('apiKey', '')).strip()
+                    else:
+                        val = str(affiliate_id or config.get('affiliateId', '')).strip()
+                if not val:
+                    logging.error(f"[Offerwall Launch] Pre-Launch Verification Failed: Missing required identity field '{field_key}' for provider '{provider_id}'")
+                    return None, False
+
     # Resolve secret and apiKey from identity fields if available
     resolved_secret = ''
     if 'secret' in identity_fields:
@@ -3726,7 +3745,7 @@ OFFERWALL_STATUS_META = {
     'connected':              {'label': 'Connected',             'severity': 'ok'},
     'waiting_first_callback': {'label': 'Waiting For First Callback', 'severity': 'warning'},
     'callback_failure':       {'label': 'Callback Failure',      'severity': 'error'},
-    'invalid_credentials':    {'label': 'Invalid Credentials',   'severity': 'error'},
+    'invalid_credentials':    {'label': 'Configuration Incomplete',   'severity': 'error'},
     'disabled':               {'label': 'Disabled',              'severity': 'neutral'},
 }
 
@@ -3740,9 +3759,27 @@ def _compute_operational_status(config):
     if not config.get('enabled', False):
         return out('disabled', 'Provider is disabled.')
 
-    # Credentials completeness
-    if not str(config.get('affiliateId', '')).strip() or not str(config.get('secret', '')).strip():
-        return out('invalid_credentials', 'Missing required credentials.')
+    # Credentials & Identity dynamic completeness verification from provider adapters
+    pid = str(config.get('id', '')).lower()
+    adapter = PROVIDERS_ADAPTERS.get(pid, {})
+    if adapter:
+        identity_fields = config.get('identity', {})
+        for field_key, field_spec in adapter.get('identityFields', {}).items():
+            if field_spec.get('required'):
+                val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
+                if not val:
+                    # check legacy fallback keys
+                    if field_key == 'secret':
+                        val = str(config.get('secret', '')).strip()
+                    elif field_key == 'apiKey':
+                        val = str(config.get('apiKey', '')).strip()
+                    else:
+                        val = str(config.get('affiliateId', '')).strip()
+                    if not val:
+                        return out('invalid_credentials', f"Configuration Incomplete: Missing {field_spec.get('name', field_key)}.")
+    else:
+        if not str(config.get('affiliateId', '')).strip() or not str(config.get('secret', '')).strip():
+            return out('invalid_credentials', 'Missing required credentials.')
 
     # Explicit last Test Connection outcome takes precedence.
     test = stats.get('lastTest', {}) or {}
@@ -4356,7 +4393,7 @@ def offerwall_launch_url(provider_id):
     )
 
     if not launch_url:
-        return jsonify({'success': False, 'error': 'LAUNCH_FAILED', 'message': 'Failed to generate authenticated launcher URL.'}), 400
+        return jsonify({'success': False, 'error': 'LAUNCH_FAILED', 'message': 'Provider configuration is incomplete. Please contact support.'}), 400
 
     # Record launch attempt stat
     try:

@@ -2429,8 +2429,8 @@ PROVIDERS_ADAPTERS = {
         ],
         'identityFields': {
             'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'CPX API Key'},
-            'secret': {'name': 'Hash Key / Secret', 'required': False, 'type': 'password', 'placeholder': 'MD5 Hash Key'}
+            'apiKey': {'name': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'CPX API Key'},
+            'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'}
         }
     },
     'lootably': {
@@ -2873,7 +2873,7 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
 
     # Find the generic affiliate/app identifier from identity
     aff = ''
-    for key in ['publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
+    for key in ['apiKey', 'token', 'publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
         if key in identity_fields:
             aff = str(identity_fields[key].get('value', '')).strip()
             if aff:
@@ -3818,7 +3818,7 @@ def offerwall_upsert_provider(provider_id):
 
     allowed_fields = {
         'name', 'logo', 'logoUrl', 'status', 'enabled', 'apiEndpoint',
-        'affiliateId', 'apiKey', 'secret',
+        'affiliateId', 'apiKey', 'secret', 'identity',
         'callbackUrl', 'webhookUrl', 'rewardMultiplier',
         'userSharePct', 'platformSharePct', 'minimumReward',
         'maximumReward', 'fraudRules',
@@ -4167,6 +4167,16 @@ def offerwall_analytics():
         } for p in providers],
     })
 
+def _is_provider_gated(cfg):
+    """Check if a provider is gated due to status or disabled configuration."""
+    status = str(cfg.get('status', 'active')).lower()
+    enabled = bool(cfg.get('enabled', False))
+    # State check: locked, archived, disabled, maintenance, inactive, offline
+    if not enabled or status in ('inactive', 'maintenance', 'locked', 'archived', 'disabled', 'offline'):
+        return True, status
+    return False, status
+
+
 # ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
 @app.route('/api/offerwall/user-providers', methods=['GET'])
 @verify_token
@@ -4183,9 +4193,13 @@ def offerwall_user_providers():
     for s in snaps:
         try:
             d = s.to_dict() or {}
-            launch_url, embeddable = _build_offerwall_launch_url(
-                s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
-            )
+            gated, p_status = _is_provider_gated(d)
+            if gated:
+                launch_url, embeddable = None, False
+            else:
+                launch_url, embeddable = _build_offerwall_launch_url(
+                    s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
+                )
             max_reward = safe_int(d.get('maximumReward'), 100000)
             if max_reward >= 1000001:
                 max_reward = 100000
@@ -4234,11 +4248,13 @@ def offerwall_launch_url(provider_id):
         return jsonify({'success': False, 'error': 'PROVIDER_NOT_FOUND', 'message': 'Selected provider does not exist.'}), 404
 
     cfg = snap.to_dict()
-    if not cfg.get('enabled', False):
-        return jsonify({'success': False, 'error': 'PROVIDER_DISABLED', 'message': 'Selected provider is currently disabled.'}), 400
-
-    if cfg.get('status') == 'maintenance':
-        return jsonify({'success': False, 'error': 'PROVIDER_MAINTENANCE', 'message': 'Selected provider is currently under maintenance.'}), 400
+    gated, status = _is_provider_gated(cfg)
+    if gated:
+        return jsonify({
+            'success': False,
+            'error': 'PROVIDER_GATED',
+            'message': f'Selected provider is currently {status or "disabled"} and cannot be launched.'
+        }), 400
 
     # Ensure it's not a locked / research required provider
     adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
@@ -4506,7 +4522,13 @@ def offerwall_simulate_reward(provider_id):
         secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
 
     body = request.json or {}
-    test_uid = body.get('userId') or request.user['uid']
+    test_uid = request.user['uid']
+    if body.get('userId'):
+        if is_admin(request.user['uid']):
+            test_uid = body.get('userId')
+        else:
+            return jsonify({"success": False, "error": "FORBIDDEN", "message": "Acting on behalf of another user is restricted to super admins."}), 403
+
     amount = str(body.get('amount') or 100)
 
     import time as _t

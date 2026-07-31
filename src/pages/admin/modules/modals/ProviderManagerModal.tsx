@@ -255,6 +255,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   const [useCustomId, setUseCustomId] = useState(false);
   const [presets, setPresets] = useState<any[]>([]);
   const [validationReport, setValidationReport] = useState<any | null>(null);
+  const [replacingFields, setReplacingFields] = useState<Record<string, boolean>>({});
 
   // Derive callback URL from provider id
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -289,6 +290,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   const loadProvider = useCallback(async (loadedPresets?: any[]) => {
     if (!providerId || !currentUser) return;
     setLoading(true);
+    setReplacingFields({});
     try {
       const token = await currentUser.getIdToken();
 
@@ -377,6 +379,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   useEffect(() => {
     if (isOpen) {
       setError(null);
+      setReplacingFields({});
       if (isNew) {
         setForm({ ...BLANK_FORM });
         setUseCustomId(false);
@@ -455,10 +458,10 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
     
     // Validate generic identity fields
-    for (const field of Object.values(form.identity || {})) {
-      // If the field is required, it must have a non-empty value OR already have a stored value
-      const fieldHasVal = field.value?.trim() || field.hasValue;
-      if (field.required && !fieldHasVal) {
+    for (const [key, field] of Object.entries(form.identity || {})) {
+      const isFieldReplacing = replacingFields[key];
+      const needsNewValue = isNew || !field.hasValue || isFieldReplacing;
+      if (field.required && needsNewValue && !field.value?.trim()) {
         return `${field.fieldName} is required`;
       }
     }
@@ -755,27 +758,87 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                     <div className="space-y-4">
                       {Object.entries(form.identity || {}).map(([key, field]) => {
                         const isSecret = key === 'secret' || key === 'apiKey' || key === 'appToken' || key === 'token';
-                        const labelText = isNew ? field.fieldName : `${field.fieldName} (leave blank to keep existing)`;
+
+                        // Stripe/Vercel-style: If editing and existing value exists, and they aren't replacing it:
+                        // Show "🔒 [FieldName]: Stored Securely" mode with "Replace" button
+                        if (!isNew && field.hasValue && !replacingFields[key]) {
+                          return (
+                            <div key={key} className="flex items-center justify-between p-3.5 bg-surface-bright border border-border rounded-xl">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">{field.fieldName}</span>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="text-xs font-semibold text-text-primary">🔒 Stored Securely</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-success bg-success/5 border border-success/15 px-1.5 py-0.5 rounded">Preserved</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplacingFields(prev => ({ ...prev, [key]: true }));
+                                  setForm(f => ({
+                                    ...f,
+                                    identity: {
+                                      ...f.identity,
+                                      [key]: {
+                                        ...f.identity[key],
+                                        value: ''
+                                      }
+                                    }
+                                  }));
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg border border-primary/20 bg-primary/5 text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-primary/10 transition-all"
+                              >
+                                Replace
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        // Otherwise show active input field
+                        const labelText = field.fieldName;
                         return (
                           <Field key={key} label={labelText} required={field.required}>
-                            <TextInput
-                              value={field.value}
-                              onChange={(v) => {
-                                setForm(f => ({
-                                  ...f,
-                                  identity: {
-                                    ...f.identity,
-                                    [key]: {
-                                      ...f.identity[key],
-                                      value: v
+                            <div className="space-y-1.5">
+                              <TextInput
+                                value={field.value}
+                                onChange={(v) => {
+                                  setForm(f => ({
+                                    ...f,
+                                    identity: {
+                                      ...f.identity,
+                                      [key]: {
+                                        ...f.identity[key],
+                                        value: v
+                                      }
                                     }
-                                  }
-                                }));
-                              }}
-                              placeholder={isNew ? `Enter ${field.fieldName}` : (field.hasValue ? (isSecret ? "••••••••" : "Configured") : `Enter ${field.fieldName}`)}
-                              type={isSecret ? 'password' : 'text'}
-                              mono
-                            />
+                                  }));
+                                }}
+                                placeholder={`Enter ${field.fieldName}`}
+                                type={isSecret ? 'password' : 'text'}
+                                mono
+                              />
+                              {!isNew && field.hasValue && replacingFields[key] && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplacingFields(prev => ({ ...prev, [key]: false }));
+                                    setForm(f => ({
+                                      ...f,
+                                      identity: {
+                                        ...f.identity,
+                                        [key]: {
+                                          ...f.identity[key],
+                                          value: ''
+                                        }
+                                      }
+                                    }));
+                                  }}
+                                  className="text-[9px] font-bold uppercase tracking-wider text-text-tertiary hover:text-text-primary transition-colors cursor-pointer pl-1 mt-1 block"
+                                >
+                                  Cancel Replace (Keep Existing Value)
+                                </button>
+                              )}
+                            </div>
                           </Field>
                         );
                       })}

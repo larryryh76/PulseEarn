@@ -7,7 +7,7 @@ import pytest
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.dirname(__file__))
 
-from index import _apply_launch_placeholders, _build_offerwall_launch_url
+from index import _apply_launch_placeholders, _build_offerwall_launch_url, _is_provider_gated
 
 def test_apply_launch_placeholders_generic():
     # Test substitution of standard UID
@@ -40,3 +40,27 @@ def test_build_offerwall_launch_url_dynamic():
     expected_hash = hashlib.md5("user456cpx_secret_abc".encode()).hexdigest()
     assert "secure_hash=" + expected_hash in url
     assert "app_id=cpx_app_123" in url
+
+def test_is_provider_gated():
+    # Test enabled active provider
+    cfg_active = {"enabled": True, "status": "active"}
+    gated, status = _is_provider_gated(cfg_active)
+    assert gated is False
+    assert status == "active"
+
+    # Test maintenance provider
+    cfg_maint = {"enabled": True, "status": "maintenance"}
+    gated, status = _is_provider_gated(cfg_maint)
+    assert gated is True
+    assert status == "maintenance"
+
+    # Test locked provider
+    cfg_locked = {"enabled": True, "status": "locked"}
+    gated, status = _is_provider_gated(cfg_locked)
+    assert gated is True
+    assert status == "locked"
+
+    # Test disabled provider
+    cfg_disabled = {"enabled": False, "status": "active"}
+    gated, status = _is_provider_gated(cfg_disabled)
+    assert gated is True

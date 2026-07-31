@@ -502,6 +502,7 @@ export interface OfferwallProviderIdentityField {
   fieldName: string;  // e.g. "Publisher ID"
   value: string;      // e.g. "123456"
   required: boolean;  // e.g. true
+  hasValue?: boolean; // metadata showing if value exists on server
 }
 
 export type OfferwallProviderIdentity = Record<string, OfferwallProviderIdentityField>;

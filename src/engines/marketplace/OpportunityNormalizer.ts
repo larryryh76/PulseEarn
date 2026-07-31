@@ -590,7 +590,7 @@ export function generateSyntheticProviderOpportunity(p: {
         trending: false,
         isNew: false,
       },
-      status: 'rejected',
+      status: 'configuration_required',
       action: {
         actionType: 'claim',
       },

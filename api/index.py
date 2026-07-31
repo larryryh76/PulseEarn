@@ -2871,13 +2871,38 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     if not resolved_api_key:
         resolved_api_key = str(config.get('apiKey', '')).strip()
 
+    # Provider-specific identity resolution mapping
+    provider_aff_key_map = {
+        'timewall': 'placementId',
+        'cpxresearch': 'appId',
+        'lootably': 'publisherId',
+        'bitlabs': 'token',
+        'adgem': 'appId',
+        'offertoro': 'publisherId',
+        'adgate': 'wallId',
+        'ayet': 'adgateId',
+        'wannads': 'apiKey',
+        'revu': 'wallId',
+        'kiwiwall': 'apiKey',
+        'adscend': 'publisherId',
+        'revenue_universe': 'wallId',
+        'monlix': 'appId'
+    }
+
     # Find the generic affiliate/app identifier from identity
     aff = ''
-    for key in ['apiKey', 'token', 'publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
-        if key in identity_fields:
-            aff = str(identity_fields[key].get('value', '')).strip()
-            if aff:
-                break
+    specific_key = provider_aff_key_map.get(pid)
+    if specific_key and specific_key in identity_fields:
+        aff = str(identity_fields[specific_key].get('value', '')).strip()
+
+    if not aff:
+        # Fallback to the generic search order to avoid any regressions for custom providers
+        for key in ['apiKey', 'token', 'publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
+            if key in identity_fields:
+                aff = str(identity_fields[key].get('value', '')).strip()
+                if aff:
+                    break
+
     if not aff:
         aff = str(affiliate_id or config.get('affiliateId', '')).strip()
 
@@ -3760,6 +3785,22 @@ def offerwall_get_providers():
             d_safe['id'] = s.id
             d_safe['hasSecret'] = bool(d.get('secret'))
             d_safe['hasApiKey'] = bool(d.get('apiKey'))
+
+            # Redact sensitive identity values in the identity dict
+            if 'identity' in d:
+                redacted_identity = {}
+                for key, field in d['identity'].items():
+                    if isinstance(field, dict):
+                        field_safe = {k: v for k, v in field.items() if k != 'value'}
+                        field_safe['hasValue'] = bool(str(field.get('value', '')).strip())
+                        redacted_identity[key] = field_safe
+                    else:
+                        redacted_identity[key] = {
+                            'fieldName': key,
+                            'required': False,
+                            'hasValue': bool(str(field).strip())
+                        }
+                d_safe['identity'] = redacted_identity
             # Derived operational health (backend source of truth)
             d_safe['health'] = _compute_operational_status(d)
             # Attach the resolved callback spec label for UI display
@@ -3854,6 +3895,51 @@ def offerwall_upsert_provider(provider_id):
             if status == 'FAIL':
                 is_valid = False
             validation_checks.append({'name': name, 'status': status, 'detail': detail})
+
+        # Validate structured identity configuration
+        identity_payload = payload.get('identity', {})
+        structure_valid = True
+        structure_error_detail = ""
+
+        if 'identity' in payload:
+            if not isinstance(identity_payload, dict):
+                structure_valid = False
+                structure_error_detail = "Identity payload must be a key-value object (dict)."
+            else:
+                for key, field_data in identity_payload.items():
+                    if not isinstance(field_data, dict):
+                        structure_valid = False
+                        structure_error_detail = f"Identity key '{key}' must be mapped to a structured object, not a flat value."
+                        break
+                    # We expect 'required', 'fieldName' (or 'type')
+                    if 'fieldName' not in field_data and 'type' not in field_data:
+                        field_data['fieldName'] = key
+                    if 'required' not in field_data:
+                        field_data['required'] = False
+                    if 'value' not in field_data:
+                        field_data['value'] = ""
+
+        if not structure_valid:
+            add_check('Identity Structure', 'FAIL', structure_error_detail)
+        else:
+            add_check('Identity Structure', 'PASS', "Identity structure matches expected format {value, required, fieldName}.")
+
+        # Auto-merge and preserve existing identity values when editing if left blank
+        if structure_valid and 'identity' in payload:
+            existing_identity = {} if is_new else snap.to_dict().get('identity', {})
+            resolved_identity = {}
+            for key, field_data in identity_payload.items():
+                val = str(field_data.get('value', '')).strip()
+                # If empty and editing, preserve the existing value
+                if not val and not is_new and key in existing_identity:
+                    val = str(existing_identity[key].get('value', '')).strip()
+
+                resolved_identity[key] = {
+                    'fieldName': field_data.get('fieldName', key),
+                    'value': val,
+                    'required': bool(field_data.get('required', False))
+                }
+            payload['identity'] = resolved_identity
 
         name_val = str(payload.get('name', '')).strip()
         aff_val = str(payload.get('affiliateId', '')).strip()
@@ -4099,21 +4185,21 @@ def offerwall_analytics():
     provider_snaps = db.collection('offerwall_providers').get()
     providers = [{**s.to_dict(), 'id': s.id} for s in provider_snaps]
 
-    # Aggregate totals
-    gross = sum(p.get('stats', {}).get('lifetimeRevenue', 0) for p in providers)
+    # Aggregate totals with safe numeric parsing
+    gross = sum(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) for p in providers)
     user_rewards = sum(
-        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.30)))
+        round(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) * safe_float(p.get('userSharePct', 0.30), 0.30))
         for p in providers
     )
     platform_rev = gross - user_rewards
-    revenue_today = sum(p.get('stats', {}).get('revenueToday', 0) for p in providers)
-    revenue_week = sum(p.get('stats', {}).get('revenueThisWeek', 0) for p in providers)
-    revenue_month = sum(p.get('stats', {}).get('revenueThisMonth', 0) for p in providers)
-    fraud_total = sum(p.get('stats', {}).get('fraudAlerts', 0) for p in providers)
-    duplicates_total = sum(p.get('stats', {}).get('duplicateCallbackAttempts', 0) for p in providers)
-    approved_total = sum(p.get('stats', {}).get('approvedRewards', 0) for p in providers)
-    rejected_total = sum(p.get('stats', {}).get('rejectedRewards', 0) for p in providers)
-    pending_liabilities = sum(p.get('stats', {}).get('outstandingUserLiability', 0) for p in providers)
+    revenue_today = sum(safe_float(p.get('stats', {}).get('revenueToday', 0), 0.0) for p in providers)
+    revenue_week = sum(safe_float(p.get('stats', {}).get('revenueThisWeek', 0), 0.0) for p in providers)
+    revenue_month = sum(safe_float(p.get('stats', {}).get('revenueThisMonth', 0), 0.0) for p in providers)
+    fraud_total = sum(safe_int(p.get('stats', {}).get('fraudAlerts', 0), 0) for p in providers)
+    duplicates_total = sum(safe_int(p.get('stats', {}).get('duplicateCallbackAttempts', 0), 0) for p in providers)
+    approved_total = sum(safe_int(p.get('stats', {}).get('approvedRewards', 0), 0) for p in providers)
+    rejected_total = sum(safe_int(p.get('stats', {}).get('rejectedRewards', 0), 0) for p in providers)
+    pending_liabilities = sum(safe_float(p.get('stats', {}).get('outstandingUserLiability', 0), 0.0) for p in providers)
 
     # Ingest actual unique active users & average reward directly from the DB
     try:
@@ -4505,7 +4591,6 @@ def offerwall_callback_test(provider_id):
 @verify_token
 def offerwall_simulate_reward(provider_id):
     """Simulate a real callback postback to trigger points credit, ledger updates, etc."""
-    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
@@ -4522,12 +4607,23 @@ def offerwall_simulate_reward(provider_id):
         secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
 
     body = request.json or {}
-    test_uid = request.user['uid']
+    current_uid = request.user['uid']
+    test_uid = current_uid
+
     if body.get('userId'):
-        if is_admin(request.user['uid']):
-            test_uid = body.get('userId')
+        target_uid = str(body.get('userId')).strip()
+        if target_uid != current_uid:
+            # Attempting to act on behalf of another user (impersonate)
+            if is_admin(current_uid):
+                test_uid = target_uid
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "FORBIDDEN",
+                    "message": "Acting on behalf of another user is restricted to admins."
+                }), 403
         else:
-            return jsonify({"success": False, "error": "FORBIDDEN", "message": "Acting on behalf of another user is restricted to super admins."}), 403
+            test_uid = current_uid
 
     amount = str(body.get('amount') or 100)
 

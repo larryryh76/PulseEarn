@@ -25,6 +25,7 @@ interface IdentityFieldState {
   fieldName: string;
   value: string;
   required: boolean;
+  hasValue?: boolean;
 }
 
 const STANDARD_IDENTITY_FIELDS = [
@@ -311,8 +312,18 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         if (found) {
           // Resolve identity fields dynamically from presets if not saved yet
           const preset = activePresets.find(p => p.slug === found.id);
-          const initialIdentity: Record<string, { fieldName: string; value: string; required: boolean }> = found.identity || {};
-          if (Object.keys(initialIdentity).length === 0 && preset && preset.identityFields) {
+          const initialIdentity: Record<string, { fieldName: string; value: string; required: boolean; hasValue?: boolean }> = {};
+
+          if (found.identity && Object.keys(found.identity).length > 0) {
+            Object.entries(found.identity).forEach(([key, field]: [string, any]) => {
+              initialIdentity[key] = {
+                fieldName: field.fieldName || key,
+                value: '', // Keep value as empty so it is masked/redacted in UI
+                required: !!field.required,
+                hasValue: field.hasValue ?? true
+              };
+            });
+          } else if (preset && preset.identityFields) {
             Object.entries(preset.identityFields).forEach(([key, field]: [string, any]) => {
               let val = '';
               if (key === 'apiKey') val = found.apiKey || '';
@@ -321,8 +332,9 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
 
               initialIdentity[key] = {
                 fieldName: field.name || field.label || key,
-                value: val,
-                required: !!field.required
+                value: '', // Redact raw credentials on load
+                required: !!field.required,
+                hasValue: !!val
               };
             });
           }
@@ -443,13 +455,11 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
     if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
     
     // Validate generic identity fields
-    for (const [key, field] of Object.entries(form.identity || {})) {
-      if (field.required && !field.value?.trim()) {
-        // If editing and the field is a password/secret/api_key, we can allow keeping existing,
-        // but for new providers, we require it.
-        if (isNew || (key !== 'secret' && key !== 'apiKey' && key !== 'token')) {
-          return `${field.fieldName} is required`;
-        }
+    for (const field of Object.values(form.identity || {})) {
+      // If the field is required, it must have a non-empty value OR already have a stored value
+      const fieldHasVal = field.value?.trim() || field.hasValue;
+      if (field.required && !fieldHasVal) {
+        return `${field.fieldName} is required`;
       }
     }
 
@@ -762,7 +772,7 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
                                   }
                                 }));
                               }}
-                              placeholder={`Enter ${field.fieldName}`}
+                              placeholder={isNew ? `Enter ${field.fieldName}` : (field.hasValue ? (isSecret ? "••••••••" : "Configured") : `Enter ${field.fieldName}`)}
                               type={isSecret ? 'password' : 'text'}
                               mono
                             />

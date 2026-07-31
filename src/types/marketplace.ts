@@ -42,7 +42,9 @@ export type OpportunityStatus =
   | 'cooldown'
   | 'locked'
   | 'archived'
-  | 'maintenance';
+  | 'maintenance'
+  | 'unavailable'
+  | 'configuration_required';
 
 export type OpportunitySource = 'internal' | 'provider';
 

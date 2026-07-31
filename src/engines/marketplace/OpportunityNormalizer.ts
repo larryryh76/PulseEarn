@@ -559,16 +559,48 @@ export function generateSyntheticProviderOpportunity(p: {
 }): MarketplaceOpportunity {
   const stats = p.stats || {};
   const approved = Number(stats.approvedRewards || 0);
-  const failed = Number(stats.failedCallbacks || 0);
-  const total = approved + failed;
-  const completionRate = total > 0 ? (approved / total) : 0;
 
-  const lifetimeRevenue = Number(stats.lifetimeRevenue || 0);
-  const userSharePct = Number(p.userSharePct || 0.85);
-  const userLifetimeRevenue = lifetimeRevenue * userSharePct;
-  const averageReward = approved > 0 ? Math.round(userLifetimeRevenue / approved) : Number(p.minimumReward || 100);
+  if (!p.launchUrl) {
+    return {
+      id: `provider_${p.id}_channel`,
+      source: 'provider',
+      providerId: p.id,
+      providerName: p.name,
+      title: `${p.name} (Incomplete)`,
+      description: `Provider configuration incomplete.`,
+      instructions: `This provider is currently unavailable because its credentials or identity fields are incomplete. Please contact the administrator.`,
+      reward: {
+        points: 0,
+        xp: 0,
+      },
+      metadata: {
+        category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
+        difficulty: 'medium',
+        estimatedTime: 'Unknown',
+        verificationType: 'automated',
+        launchMode: 'inline',
+        artwork: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+        thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
+        tags: ['offerwall', p.id],
+      },
+      engagement: {
+        completionRate: 0,
+        averageReward: 0,
+        totalCompletions: 0,
+        trending: false,
+        isNew: false,
+      },
+      status: 'configuration_required',
+      action: {
+        actionType: 'claim',
+      },
+    };
+  }
 
-  const isTrending = approved > 5 || (stats.revenueToday && stats.revenueToday > 0) ? true : false;
+  // No fabricated statistics unless we have actual approved counts
+  const totalCompletions = approved;
+  const completionRate = approved > 0 ? 1.0 : 0.0;
+  const averageReward = approved > 0 ? Number(p.minimumReward || 100) : 0;
 
   let maxPoints = Number(p.maximumReward || 10000);
   if (maxPoints >= 1000001) {
@@ -599,8 +631,8 @@ export function generateSyntheticProviderOpportunity(p: {
     engagement: {
       completionRate,
       averageReward,
-      totalCompletions: approved,
-      trending: isTrending,
+      totalCompletions,
+      trending: approved > 5,
       isNew: false,
     },
     status: 'available',

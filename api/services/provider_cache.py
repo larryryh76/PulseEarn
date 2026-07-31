@@ -189,7 +189,7 @@ class ProviderCache:
                 return False
             
             # Check critical fields match
-            critical_fields = ['secret', 'affiliateId', 'enabled']
+            critical_fields = ['secret', 'affiliateId', 'enabled', 'identity']
             for field in critical_fields:
                 fs_val = firestore_data.get(field)
                 if field == 'enabled' and fs_val is None:

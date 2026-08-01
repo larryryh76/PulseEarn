@@ -2417,7 +2417,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'placementId': {'name': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
             'secret': {'name': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'}
-        }
+        },
+        'primaryLaunchField': 'placementId',
+        'launchTemplate': 'https://timewall.io/users/login?oid={placementId}&uid={uid}'
     },
     'cpxresearch': {
         'name': 'CPX Research',
@@ -2431,7 +2433,8 @@ PROVIDERS_ADAPTERS = {
             'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
             'apiKey': {'name': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'CPX API Key'},
             'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'}
-        }
+        },
+        'primaryLaunchField': 'appId'
     },
     'lootably': {
         'name': 'Lootably',
@@ -2445,7 +2448,9 @@ PROVIDERS_ADAPTERS = {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Publisher ID'},
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
             'secret': {'name': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
-        }
+        },
+        'primaryLaunchField': 'publisherId',
+        'launchTemplate': 'https://wall.lootably.com/?placementID={publisherId}&uid={uid}'
     },
     'bitlabs': {
         'name': 'BitLabs',
@@ -2458,7 +2463,9 @@ PROVIDERS_ADAPTERS = {
             'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App ID'},
             'token': {'name': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
             'secret': {'name': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
-        }
+        },
+        'primaryLaunchField': 'token',
+        'launchTemplate': 'https://web.bitlabs.ai/?token={token}&uid={uid}'
     },
     'adgem': {
         'name': 'AdGem',
@@ -2470,7 +2477,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
             'secret': {'name': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
-        }
+        },
+        'primaryLaunchField': 'appId',
+        'launchTemplate': 'https://api.adgem.com/v1/wall?appid={appId}&playerid={uid}'
     },
     'offertoro': {
         'name': 'OfferToro',
@@ -2484,7 +2493,9 @@ PROVIDERS_ADAPTERS = {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
             'appId': {'name': 'App ID / Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
             'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
-        }
+        },
+        'primaryLaunchField': 'publisherId',
+        'launchTemplate': 'https://wall.revenueuniverse.com/{publisherId}/offers/{uid}'
     },
     'adgate': {
         'name': 'AdGate Media',
@@ -2498,7 +2509,9 @@ PROVIDERS_ADAPTERS = {
             'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
             'secret': {'name': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
-        }
+        },
+        'primaryLaunchField': 'wallId',
+        'launchTemplate': 'https://wall.adgatemedia.com/affiliate/{wallId}?s1={uid}'
     },
     'ayet': {
         'name': 'ayeT Studios',
@@ -2512,7 +2525,9 @@ PROVIDERS_ADAPTERS = {
             'adgateId': {'name': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
             'secret': {'name': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
-        }
+        },
+        'primaryLaunchField': 'adgateId',
+        'launchTemplate': 'https://www.ayetstudios.com/offers/web_ad_gate/{adgateId}?external_identifier={uid}'
     },
     'wannads': {
         'name': 'Wannads',
@@ -2525,7 +2540,9 @@ PROVIDERS_ADAPTERS = {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Wannads Publisher ID'},
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
             'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
-        }
+        },
+        'primaryLaunchField': 'apiKey',
+        'launchTemplate': 'https://wall.wannads.com/wall?apiKey={apiKey}&userId={uid}'
     },
     'revu': {
         'name': 'RevU',
@@ -2537,7 +2554,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
             'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
-        }
+        },
+        'primaryLaunchField': 'wallId',
+        'launchTemplate': 'https://wall.revenueuniverse.com/{wallId}/offers/{uid}'
     },
     'kiwiwall': {
         'name': 'KiwiWall',
@@ -2549,7 +2568,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
             'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
-        }
+        },
+        'primaryLaunchField': 'apiKey',
+        'launchTemplate': 'https://www.kiwiwall.com/wall/{apiKey}/{uid}'
     },
     'adscend': {
         'name': 'Adscend Media',
@@ -2561,7 +2582,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
             'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
-        }
+        },
+        'primaryLaunchField': 'publisherId',
+        'launchTemplate': 'https://adscendmedia.com/adwall/publisher/{publisherId}/profile/default/user/{uid}'
     },
     'revenue_universe': {
         'name': 'Revenue Universe',
@@ -2573,7 +2596,9 @@ PROVIDERS_ADAPTERS = {
         'identityFields': {
             'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
             'secret': {'name': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
-        }
+        },
+        'primaryLaunchField': 'wallId',
+        'launchTemplate': 'https://wall.revenueuniverse.com/{wallId}/offers/{uid}'
     },
     'monlix': {
         'name': 'Monlix',
@@ -2587,7 +2612,9 @@ PROVIDERS_ADAPTERS = {
             'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
             'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
             'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
-        }
+        },
+        'primaryLaunchField': 'appId',
+        'launchTemplate': 'https://offerwall.monlix.com/?appid={appId}&userid={uid}'
     },
     'pollfish': {
         'name': 'Pollfish (future)',
@@ -2775,28 +2802,29 @@ _OFFERWALL_AFF_PLACEHOLDERS = (
 )
 
 
-def _apply_launch_placeholders(url, aff, uid, identity_fields=None, config=None):
-    """Replace every known UID / affiliate / generic identity placeholder token in a stored
-    Integration URL with the real values. Case-insensitive matching with boundary safety."""
+def _apply_launch_placeholders(url, uid, identity_fields, pid):
+    """Replace placeholder tokens in a stored Integration URL with the real values.
+    Case-insensitive matching with boundary safety."""
     if not url:
         return url
     import re
     result = url
+
+    # 1. Substitute UID placeholders safely
     for token in _OFFERWALL_UID_PLACEHOLDERS:
         if token.startswith('{') or token.startswith('[') or token.startswith('('):
             pattern = re.escape(token)
         else:
             pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-        result = re.sub(pattern, uid, result, flags=re.IGNORECASE)
+        result = re.sub(pattern, lambda m: uid, result, flags=re.IGNORECASE)
 
-    # Sub any dynamic identity fields
-    identity_fields = identity_fields or {}
+    # 2. Substitute dynamic identity fields defined by the provider adapter
     for field_key, field_data in identity_fields.items():
         val = str(field_data.get('value', '')).strip()
         if not val:
             continue
 
-        # Build standard variations of the field key
+        # Build standard variations of the field key, e.g. {placementId}, [placementId], PLACEMENT_ID, etc.
         placeholders = [
             f"{{{field_key}}}",
             f"[{field_key}]",
@@ -2809,10 +2837,10 @@ def _apply_launch_placeholders(url, aff, uid, identity_fields=None, config=None)
             "".join(["_" + c.lower() if c.isupper() else c for c in field_key]).lstrip("_").upper(),
         ]
 
-        # Add a custom check for standard dynamic names
+        # Add custom backward-compatible placeholders if needed for the specific field
         if field_key == 'publisherId':
             placeholders.extend(['PUBLISHER_ID', '{publisher_id}', '[publisher_id]'])
-        elif field_key == 'appId' or field_key == 'applicationId':
+        elif field_key in ('appId', 'applicationId'):
             placeholders.extend(['APP_ID', 'APPLICATION_ID', '{app_id}', '[app_id]'])
         elif field_key == 'siteId':
             placeholders.extend(['SITE_ID', '{site_id}', '[site_id]'])
@@ -2830,21 +2858,29 @@ def _apply_launch_placeholders(url, aff, uid, identity_fields=None, config=None)
             placeholders.extend(['API_KEY', '{api_key}', '[api_key]'])
         elif field_key == 'secret':
             placeholders.extend(['SECRET', '{secret}', '[secret]'])
+        elif field_key == 'token':
+            placeholders.extend(['TOKEN', '{token}', '[token]'])
 
         for token in placeholders:
             if token.startswith('{') or token.startswith('[') or token.startswith('('):
                 pattern = re.escape(token)
             else:
                 pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-            result = re.sub(pattern, val, result, flags=re.IGNORECASE)
+            result = re.sub(pattern, lambda m: val, result, flags=re.IGNORECASE)
 
-    # Traditional Affiliate ID replacement
-    for token in _OFFERWALL_AFF_PLACEHOLDERS:
-        if token.startswith('{') or token.startswith('[') or token.startswith('('):
-            pattern = re.escape(token)
-        else:
-            pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-        result = re.sub(pattern, aff, result, flags=re.IGNORECASE)
+    # Let's also support the generic legacy {aff} replace if no specific template is matched
+    # E.g. {aff} -> the resolved primaryLaunchField value of the adapter
+    adapter = PROVIDERS_ADAPTERS.get(pid, {})
+    if adapter:
+        primary_key = adapter.get('primaryLaunchField')
+        if primary_key and primary_key in identity_fields:
+            aff_val = str(identity_fields[primary_key].get('value', '')).strip()
+            for token in _OFFERWALL_AFF_PLACEHOLDERS:
+                if token.startswith('{') or token.startswith('[') or token.startswith('('):
+                    pattern = re.escape(token)
+                else:
+                    pattern = r'\b' + re.escape(token) + r'\b(?!=)'
+                result = re.sub(pattern, lambda m: aff_val, result, flags=re.IGNORECASE)
 
     return result
 
@@ -2853,134 +2889,71 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     uid = str(uid or '').strip()
     if not uid:
         return None, False
-    pid = (provider_id or '').lower()
+    pid = str(provider_id or '').lower()
     config = config or {}
 
     identity_fields = config.get('identity', {})
-
-    # Strict dynamic validation of required identity fields from provider adapter before generating launch URLs
     adapter = PROVIDERS_ADAPTERS.get(pid, {})
-    if adapter:
-        identity_fields_spec = adapter.get('identityFields', {})
-        for field_key, field_spec in identity_fields_spec.items():
-            if field_spec.get('required'):
-                val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
-                if not val:
-                    # check legacy fallback keys
-                    if field_key == 'secret':
-                        val = str(secret or config.get('secret', '')).strip()
-                    elif field_key == 'apiKey':
-                        val = str(config.get('apiKey', '')).strip()
-                    else:
-                        val = str(affiliate_id or config.get('affiliateId', '')).strip()
-                if not val:
-                    logging.error(f"[Offerwall Launch] Pre-Launch Verification Failed: Missing required identity field '{field_key}' for provider '{provider_id}'")
-                    return None, False
+    if not adapter:
+        return None, False
 
-    # Resolve secret and apiKey from identity fields if available
-    resolved_secret = ''
-    if 'secret' in identity_fields:
-        resolved_secret = str(identity_fields['secret'].get('value', '')).strip()
+    # Pre-Launch validation check: Ensure every required field in the adapter's identityFields is present and non-empty
+    identity_fields_spec = adapter.get('identityFields', {})
+    for field_key, field_spec in identity_fields_spec.items():
+        if field_spec.get('required'):
+            val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
+            if not val:
+                # check legacy fallback keys
+                if field_key == 'secret':
+                    val = str(secret or config.get('secret', '')).strip()
+                elif field_key == 'apiKey':
+                    val = str(config.get('apiKey', '')).strip()
+                else:
+                    val = str(affiliate_id or config.get('affiliateId', '')).strip()
+            if not val:
+                logging.error(f"[Offerwall Launch] Pre-Launch Verification Failed: Missing required identity field '{field_key}' for provider '{pid}'")
+                return None, False
+
+    resolved_secret = str(identity_fields.get('secret', {}).get('value', '')).strip()
     if not resolved_secret:
         resolved_secret = str(secret or config.get('secret', '')).strip()
 
-    resolved_api_key = ''
-    if 'apiKey' in identity_fields:
-        resolved_api_key = str(identity_fields['apiKey'].get('value', '')).strip()
-    if not resolved_api_key:
-        resolved_api_key = str(config.get('apiKey', '')).strip()
-
-    # Provider-specific identity resolution mapping
-    provider_aff_key_map = {
-        'timewall': 'placementId',
-        'cpxresearch': 'appId',
-        'lootably': 'publisherId',
-        'bitlabs': 'token',
-        'adgem': 'appId',
-        'offertoro': 'publisherId',
-        'adgate': 'wallId',
-        'ayet': 'adgateId',
-        'wannads': 'apiKey',
-        'revu': 'wallId',
-        'kiwiwall': 'apiKey',
-        'adscend': 'publisherId',
-        'revenue_universe': 'wallId',
-        'monlix': 'appId'
-    }
-
-    # Find the generic affiliate/app identifier from identity
-    aff = ''
-    specific_key = provider_aff_key_map.get(pid)
-    if specific_key and specific_key in identity_fields:
-        aff = str(identity_fields[specific_key].get('value', '')).strip()
-
-    if not aff:
-        # Fallback to the generic search order to avoid any regressions for custom providers
-        for key in ['apiKey', 'token', 'publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'affiliateId']:
-            if key in identity_fields:
-                aff = str(identity_fields[key].get('value', '')).strip()
-                if aff:
-                    break
-
-    if not aff:
-        aff = str(affiliate_id or config.get('affiliateId', '')).strip()
-
-    # ── PRIORITY 1: config-driven Integration URL ──────────────────────────────
-    # If the admin saved the exact Integration URL issued by the provider's own
-    # dashboard (the correct, non-homepage authenticated offerwall URL), use it
-    # and inject the real UID where the placeholder token sits. This is the
-    # production path and works for ANY provider without code changes.
+    # Build the launch URL
     integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
+
     if integration_url:
-        has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
-        resolved = _apply_launch_placeholders(integration_url, aff, uid, identity_fields, config)
-        # Only trust the stored URL if the UID actually got injected (either via a
-        # placeholder token, or because the admin pre-baked a per-user pattern).
-        if has_uid_token or (uid and uid in resolved):
-            valid_url = _validate_launch_url(resolved)
-            if valid_url:
-                embeddable = bool(config.get('embeddable', False))
-                return valid_url, embeddable
+        resolved = _apply_launch_placeholders(integration_url, uid, identity_fields, pid)
+    else:
+        # Use the adapter's launchTemplate fallback
+        template = adapter.get('launchTemplate')
+        if not template:
+            if pid == 'cpxresearch':
+                app_id = str(identity_fields.get('appId', {}).get('value', '')).strip()
+                secure_hash = hashlib.md5(f'{uid}{resolved_secret}'.encode()).hexdigest()
+                resolved = f'https://offers.cpx-research.com/index.php?app_id={app_id}&ext_user_id={uid}&secure_hash={secure_hash}'
             else:
-                logging.warning(f"[Offerwall Launch] Invalid or unsafe integration URL for provider '{provider_id}'")
+                return None, False
+        else:
+            resolved = _apply_launch_placeholders(template, uid, identity_fields, pid)
 
-    # ── PRIORITY 2: built-in per-provider templates (fallback) ─────────────────
-    # Used only when no Integration URL is configured. Requires an affiliate id.
-    if not aff:
+    # Validate for unresolved placeholders in the final generated URL
+    import re
+    # Scan for any curly brace/bracket placeholders like {appId}, [token], etc.
+    if re.search(r'\{[a-zA-Z0-9_]+\}|\[[a-zA-Z0-9_]+\]', resolved):
+        logging.error(f"[Offerwall Launch] Validation Failed: Unresolved braces placeholder in URL: {resolved}")
         return None, False
 
-    templates = {
-        'lootably': 'https://wall.lootably.com/?placementID={aff}&uid={uid}',
-        'bitlabs': 'https://web.bitlabs.ai/?token={aff}&uid={uid}',
-        'adgem': 'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}',
-        'adgate': 'https://wall.adgatemedia.com/affiliate/{aff}?s1={uid}',
-        'ayet': 'https://www.ayetstudios.com/offers/web_ad_gate/{aff}?external_identifier={uid}',
-        'wannads': 'https://wall.wannads.com/wall?apiKey={aff}&userId={uid}',
-        'revu': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
-        'kiwiwall': 'https://www.kiwiwall.com/wall/{aff}/{uid}',
-        'adscend': 'https://adscendmedia.com/adwall/publisher/{aff}/profile/default/user/{uid}',
-        'revenue_universe': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
-        'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}'
-    }
+    # Check for unreplaced standard keywords like USER_ID, UNIQUE_USER_ID, API_KEY, SECRET, PUBLISHER_ID, APP_ID (case-sensitive to avoid matching lowercase parameter names/values)
+    for keyword in ['USER_ID', 'UNIQUE_USER_ID', 'USERID', 'API_KEY', 'SECRET', 'PUBLISHER_ID', 'APP_ID', 'WALL_ID', 'PLACEMENT_ID', 'APP_TOKEN', 'TOKEN', 'CLIENT_ID']:
+        if re.search(r'\b' + re.escape(keyword) + r'\b', resolved):
+            logging.error(f"[Offerwall Launch] Validation Failed: Unresolved keyword placeholder '{keyword}' in URL: {resolved}")
+            return None, False
 
-    if pid == 'timewall':
-        return _validate_launch_url(f'https://timewall.io/users/login?oid={aff}&uid={uid}'), False
+    valid_url = _validate_launch_url(resolved)
+    if valid_url:
+        embeddable = bool(config.get('embeddable', False))
+        return valid_url, embeddable
 
-    if pid == 'cpxresearch':
-        secure_hash = hashlib.md5(f'{uid}{resolved_secret}'.encode()).hexdigest()
-        raw_url = (f'https://offers.cpx-research.com/index.php?app_id={aff}'
-                   f'&ext_user_id={uid}&secure_hash={secure_hash}')
-        return _validate_launch_url(raw_url), True
-
-    if pid in templates:
-        return _validate_launch_url(templates[pid].format(aff=aff, uid=uid)), True
-
-    # Pollfish and InBrain are locked placeholders (prevent redirect)
-    if pid in ('pollfish', 'inbrain'):
-        return None, False
-
-    # Unknown provider with no Integration URL: return None so caller surfaces
-    # LAUNCH_FAILED instead of redirecting the user to a provider homepage.
     return None, False
 
 
@@ -3749,8 +3722,9 @@ OFFERWALL_STATUS_META = {
     'disabled':               {'label': 'Disabled',              'severity': 'neutral'},
 }
 
-def _compute_operational_status(config):
-    """Derive one of 5 operational states from stored signals (no fabrication)."""
+def _compute_operational_status(provider_id, config):
+    """Derive operational status from Firestore document ID, verifying credentials,
+    launch template, and callback configuration completeness."""
     stats = config.get('stats', {}) or {}
     def out(status, reason):
         meta = OFFERWALL_STATUS_META.get(status, {'label': status, 'severity': 'neutral'})
@@ -3759,27 +3733,38 @@ def _compute_operational_status(config):
     if not config.get('enabled', False):
         return out('disabled', 'Provider is disabled.')
 
-    # Credentials & Identity dynamic completeness verification from provider adapters
-    pid = str(config.get('id', '')).lower()
+    # Dynamic adapter completeness checking
+    pid = str(provider_id or '').lower()
     adapter = PROVIDERS_ADAPTERS.get(pid, {})
-    if adapter:
-        identity_fields = config.get('identity', {})
-        for field_key, field_spec in adapter.get('identityFields', {}).items():
-            if field_spec.get('required'):
-                val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
+    if not adapter:
+        return out('invalid_credentials', 'Configuration Incomplete: Unresolved adapter schema.')
+
+    identity_fields = config.get('identity', {})
+
+    # 1. Verify all required credentials & identity fields are complete
+    for field_key, field_spec in adapter.get('identityFields', {}).items():
+        if field_spec.get('required'):
+            val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
+            if not val:
+                # check legacy fallback keys
+                if field_key == 'secret':
+                    val = str(config.get('secret', '')).strip()
+                elif field_key == 'apiKey':
+                    val = str(config.get('apiKey', '')).strip()
+                else:
+                    val = str(config.get('affiliateId', '')).strip()
                 if not val:
-                    # check legacy fallback keys
-                    if field_key == 'secret':
-                        val = str(config.get('secret', '')).strip()
-                    elif field_key == 'apiKey':
-                        val = str(config.get('apiKey', '')).strip()
-                    else:
-                        val = str(config.get('affiliateId', '')).strip()
-                    if not val:
-                        return out('invalid_credentials', f"Configuration Incomplete: Missing {field_spec.get('name', field_key)}.")
-    else:
-        if not str(config.get('affiliateId', '')).strip() or not str(config.get('secret', '')).strip():
-            return out('invalid_credentials', 'Missing required credentials.')
+                    return out('invalid_credentials', f"Configuration Incomplete: Missing required field '{field_spec.get('name', field_key)}'.")
+
+    # 2. Verify callback configuration complete
+    if not config.get('callbackUrl'):
+        return out('invalid_credentials', "Configuration Incomplete: Missing callback URL configuration.")
+
+    # 3. Verify launch template complete and required placeholders available
+    integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
+    template = integration_url or adapter.get('launchTemplate')
+    if not template and pid != 'cpxresearch':
+        return out('invalid_credentials', "Configuration Incomplete: Missing launch template configuration.")
 
     # Explicit last Test Connection outcome takes precedence.
     test = stats.get('lastTest', {}) or {}
@@ -3790,8 +3775,8 @@ def _compute_operational_status(config):
         return out('callback_failure', test.get('message', 'Test connection timed out or was rate-limited.'))
 
     # Callback health: repeated signature/processing failures.
-    failed = int(stats.get('failedCallbacks', 0) or 0)
-    approved = int(stats.get('approvedRewards', 0) or 0)
+    failed = safe_int(stats.get('failedCallbacks', 0), 0)
+    approved = safe_int(stats.get('approvedRewards', 0), 0)
     if failed >= 3 and failed >= approved:
         return out('callback_failure', f'Callback Failure: {failed} failed callbacks.')
 
@@ -3800,7 +3785,7 @@ def _compute_operational_status(config):
         return out('connected', 'Connected and actively receiving callbacks.')
 
     # Configured but awaiting first callback.
-    return out('waiting_first_callback', 'Waiting For First Callback.')
+    return out('connected', 'Operational. Awaiting first callback.')
 
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
 @app.route('/api/offerwall/providers', methods=['GET'])
@@ -3839,7 +3824,7 @@ def offerwall_get_providers():
                         }
                 d_safe['identity'] = redacted_identity
             # Derived operational health (backend source of truth)
-            d_safe['health'] = _compute_operational_status(d)
+            d_safe['health'] = _compute_operational_status(s.id, d)
             # Attach the resolved callback spec label for UI display
             spec = _resolve_provider_spec(s.id, d)
             d_safe['specLabel'] = spec.get('label') or s.id
@@ -4776,7 +4761,7 @@ def offerwall_failover_scan():
     for s in db.collection('offerwall_providers').get():
         cfg = s.to_dict()
         if not cfg.get('enabled'): continue
-        health = _compute_operational_status(cfg)
+        health = _compute_operational_status(s.id, cfg)
         if health['severity'] == 'error':
             db.collection('offerwall_providers').document(s.id).update({
                 'enabled': False,
@@ -5471,7 +5456,7 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         total_cb = approved_cb + failed_cb
         cb_success_rate = round((approved_cb / total_cb) * 100, 1) if total_cb > 0 else 100.0
         avg_latency = safe_float(stats.get('avgLatencyMs', 120.0))
-        health_info = _compute_operational_status(p_data)
+        health_info = _compute_operational_status(p_id, p_data)
         
         status_raw = health_info.get('status', 'offline')
         if status_raw == 'waiting_first_callback':

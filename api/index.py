@@ -2802,21 +2802,70 @@ _OFFERWALL_AFF_PLACEHOLDERS = (
 )
 
 
+def _normalize_and_migrate_provider_config(provider_id, config):
+    """Detect and migrate legacy config in-memory, returning a unified complete config object
+    with a fully populated 'identity' map, ensuring 100% backward compatibility."""
+    if not config:
+        return {}
+
+    cfg = dict(config)
+    pid = str(provider_id or '').lower()
+    adapter = PROVIDERS_ADAPTERS.get(pid, {})
+
+    if 'identity' not in cfg or not isinstance(cfg.get('identity'), dict) or len(cfg.get('identity', {})) == 0:
+        # Build dynamic identity object from legacy keys
+        identity = {}
+        if adapter:
+            identity_fields_spec = adapter.get('identityFields', {})
+            for key, field_spec in identity_fields_spec.items():
+                val = ""
+                if key == 'secret':
+                    val = str(cfg.get('secret') or '').strip()
+                elif key == 'apiKey':
+                    val = str(cfg.get('apiKey') or '').strip()
+                else:
+                    # Generic affiliate key fallback
+                    val = str(cfg.get('affiliateId') or '').strip()
+
+                identity[key] = {
+                    'fieldName': field_spec.get('name', key),
+                    'value': val,
+                    'required': bool(field_spec.get('required', False))
+                }
+        cfg['identity'] = identity
+
+    return cfg
+
+
 def _apply_launch_placeholders(url, uid, identity_fields, pid):
     """Replace placeholder tokens in a stored Integration URL with the real values.
-    Case-insensitive matching with boundary safety."""
+    Surgically constrains replacements to protect sensitive credentials from bare-word leaks."""
     if not url:
         return url
     import re
     result = url
 
     # 1. Substitute UID placeholders safely
-    for token in _OFFERWALL_UID_PLACEHOLDERS:
-        if token.startswith('{') or token.startswith('[') or token.startswith('('):
-            pattern = re.escape(token)
-        else:
-            pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-        result = re.sub(pattern, lambda m: uid, result, flags=re.IGNORECASE)
+    # Explicit wrapped UID placeholders
+    explicit_uid_placeholders = [
+        '{uid}', '[uid]', '(uid)',
+        '{userId}', '[userId]', '(userId)',
+        '{user_id}', '[user_id]', '(user_id)',
+        '{sub_id}', '[sub_id]', '(sub_id)',
+        '{subId}', '[subId]', '(subId)',
+        '{userID}', '[userID]', '(userID)',
+        '{unique_user_id}', '[unique_user_id]', '(unique_user_id)',
+        '{UNIQUE_USER_ID}', '[UNIQUE_USER_ID]', '(UNIQUE_USER_ID)',
+        '{USER_ID}', '[USER_ID]', '(USER_ID)', '{{USER_ID}}',
+        '{USERID}', '[USERID]', '(USERID)'
+    ]
+    for token in explicit_uid_placeholders:
+        result = re.sub(re.escape(token), lambda m: uid, result)
+
+    # Raw uppercase UID keywords (word boundaries, no '=' suffix)
+    for token in ['USER_ID', 'UNIQUE_USER_ID', 'USERID']:
+        pattern = r'\b' + re.escape(token) + r'\b(?!=)'
+        result = re.sub(pattern, lambda m: uid, result)
 
     # 2. Substitute dynamic identity fields defined by the provider adapter
     for field_key, field_data in identity_fields.items():
@@ -2824,58 +2873,55 @@ def _apply_launch_placeholders(url, uid, identity_fields, pid):
         if not val:
             continue
 
-        # Build standard variations of the field key, e.g. {placementId}, [placementId], PLACEMENT_ID, etc.
-        placeholders = [
+        is_sensitive = field_key in ('secret', 'apiKey', 'token', 'appToken', 'clientId')
+
+        # Build strict wrapped placeholders
+        explicit_placeholders = [
             f"{{{field_key}}}",
             f"[{field_key}]",
             f"({field_key})",
-            field_key.upper(),
-            # Support snake_case version of key in curly braces/brackets
+            # snake_case wrapped
             f"{{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}}",
             f"[{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}]",
-            # Support upper case with underscore
-            "".join(["_" + c.lower() if c.isupper() else c for c in field_key]).lstrip("_").upper(),
+            f"({{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}})",
         ]
 
-        # Add custom backward-compatible placeholders if needed for the specific field
-        if field_key == 'publisherId':
-            placeholders.extend(['PUBLISHER_ID', '{publisher_id}', '[publisher_id]'])
-        elif field_key in ('appId', 'applicationId'):
-            placeholders.extend(['APP_ID', 'APPLICATION_ID', '{app_id}', '[app_id]'])
-        elif field_key == 'siteId':
-            placeholders.extend(['SITE_ID', '{site_id}', '[site_id]'])
-        elif field_key == 'propertyId':
-            placeholders.extend(['PROPERTY_ID', '{property_id}', '[property_id]'])
-        elif field_key == 'placementId':
-            placeholders.extend(['PLACEMENT_ID', '{placement_id}', '[placement_id]'])
-        elif field_key == 'zoneId':
-            placeholders.extend(['ZONE_ID', '{zone_id}', '[zone_id]'])
-        elif field_key == 'appToken':
-            placeholders.extend(['APP_TOKEN', '{app_token}', '[app_token]'])
-        elif field_key == 'clientId':
-            placeholders.extend(['CLIENT_ID', '{client_id}', '[client_id]'])
-        elif field_key == 'apiKey':
-            placeholders.extend(['API_KEY', '{api_key}', '[api_key]'])
-        elif field_key == 'secret':
-            placeholders.extend(['SECRET', '{secret}', '[secret]'])
-        elif field_key == 'token':
-            placeholders.extend(['TOKEN', '{token}', '[token]'])
+        # Replace explicit wrapped placeholders
+        for token in explicit_placeholders:
+            result = re.sub(re.escape(token), lambda m: val, result)
 
-        for token in placeholders:
-            if token.startswith('{') or token.startswith('[') or token.startswith('('):
-                pattern = re.escape(token)
-            else:
+        # Only do bare-word/screaming-snake replacement for NON-SENSITIVE fields
+        if not is_sensitive:
+            raw_placeholders = [
+                field_key.upper(),
+                "".join(["_" + c.lower() if c.isupper() else c for c in field_key]).lstrip("_").upper(),
+            ]
+            # Custom mappings for standard non-sensitive fields
+            if field_key == 'publisherId':
+                raw_placeholders.append('PUBLISHER_ID')
+            elif field_key == 'appId':
+                raw_placeholders.append('APP_ID')
+            elif field_key == 'siteId':
+                raw_placeholders.append('SITE_ID')
+            elif field_key == 'propertyId':
+                raw_placeholders.append('PROPERTY_ID')
+            elif field_key == 'placementId':
+                raw_placeholders.append('PLACEMENT_ID')
+            elif field_key == 'zoneId':
+                raw_placeholders.append('ZONE_ID')
+
+            for token in raw_placeholders:
                 pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-            result = re.sub(pattern, lambda m: val, result, flags=re.IGNORECASE)
+                result = re.sub(pattern, lambda m: val, result)
 
-    # Let's also support the generic legacy {aff} replace if no specific template is matched
-    # E.g. {aff} -> the resolved primaryLaunchField value of the adapter
+    # 3. Only generic {aff} placeholders use primaryLaunchField
     adapter = PROVIDERS_ADAPTERS.get(pid, {})
     if adapter:
         primary_key = adapter.get('primaryLaunchField')
         if primary_key and primary_key in identity_fields:
             aff_val = str(identity_fields[primary_key].get('value', '')).strip()
-            for token in _OFFERWALL_AFF_PLACEHOLDERS:
+            # Generic aff placeholders only
+            for token in ['{aff}', '[aff]', '(aff)', 'AFFILIATE_ID', '{affiliateId}', '[affiliateId]']:
                 if token.startswith('{') or token.startswith('[') or token.startswith('('):
                     pattern = re.escape(token)
                 else:
@@ -2890,7 +2936,7 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     if not uid:
         return None, False
     pid = str(provider_id or '').lower()
-    config = config or {}
+    config = _normalize_and_migrate_provider_config(provider_id, config)
 
     identity_fields = config.get('identity', {})
     adapter = PROVIDERS_ADAPTERS.get(pid, {})
@@ -2936,17 +2982,19 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
         else:
             resolved = _apply_launch_placeholders(template, uid, identity_fields, pid)
 
-    # Validate for unresolved placeholders in the final generated URL
+    # Validate for unresolved placeholders in the final generated URL (Strengthened to never log resolved URLs/credentials)
     import re
     # Scan for any curly brace/bracket placeholders like {appId}, [token], etc.
-    if re.search(r'\{[a-zA-Z0-9_]+\}|\[[a-zA-Z0-9_]+\]', resolved):
-        logging.error(f"[Offerwall Launch] Validation Failed: Unresolved braces placeholder in URL: {resolved}")
+    unresolved_match = re.search(r'\{[a-zA-Z0-9_]+\}|\[[a-zA-Z0-9_]+\]', resolved)
+    if unresolved_match:
+        placeholder_name = unresolved_match.group(0)
+        logging.error(f"[Offerwall Launch] Validation Failed: Unresolved braces placeholder '{placeholder_name}' for provider '{pid}'")
         return None, False
 
-    # Check for unreplaced standard keywords like USER_ID, UNIQUE_USER_ID, API_KEY, SECRET, PUBLISHER_ID, APP_ID (case-sensitive to avoid matching lowercase parameter names/values)
-    for keyword in ['USER_ID', 'UNIQUE_USER_ID', 'USERID', 'API_KEY', 'SECRET', 'PUBLISHER_ID', 'APP_ID', 'WALL_ID', 'PLACEMENT_ID', 'APP_TOKEN', 'TOKEN', 'CLIENT_ID']:
+    # Check for unreplaced standard keywords like USER_ID, UNIQUE_USER_ID, USERID (case-sensitive to avoid matching lowercase parameter names/values)
+    for keyword in ['USER_ID', 'UNIQUE_USER_ID', 'USERID', 'PUBLISHER_ID', 'APP_ID', 'WALL_ID', 'PLACEMENT_ID', 'CLIENT_ID']:
         if re.search(r'\b' + re.escape(keyword) + r'\b', resolved):
-            logging.error(f"[Offerwall Launch] Validation Failed: Unresolved keyword placeholder '{keyword}' in URL: {resolved}")
+            logging.error(f"[Offerwall Launch] Validation Failed: Unresolved keyword placeholder '{keyword}' for provider '{pid}'")
             return None, False
 
     valid_url = _validate_launch_url(resolved)
@@ -3143,7 +3191,7 @@ def _offerwall_callback_impl(provider_id, req):
         provider_cache.invalidate()
         cached_provider = provider_cache.get_provider(provider_id, allow_cache=False)
     
-    config = cached_provider
+    config = _normalize_and_migrate_provider_config(provider_id, cached_provider)
     if not config.get('enabled', False):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
                                'Provider is disabled, callback ignored')
@@ -3725,6 +3773,7 @@ OFFERWALL_STATUS_META = {
 def _compute_operational_status(provider_id, config):
     """Derive operational status from Firestore document ID, verifying credentials,
     launch template, and callback configuration completeness."""
+    config = _normalize_and_migrate_provider_config(provider_id, config)
     stats = config.get('stats', {}) or {}
     def out(status, reason):
         meta = OFFERWALL_STATUS_META.get(status, {'label': status, 'severity': 'neutral'})
@@ -4434,7 +4483,7 @@ def offerwall_test_connection(provider_id):
     snap = ref.get()
     if not snap.exists:
         return jsonify({'success': False, 'code': 'NOT_FOUND', 'message': 'Provider not found.'}), 404
-    cfg = snap.to_dict()
+    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
     checks = []
     def check(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
@@ -4522,7 +4571,7 @@ def offerwall_generate_payload(provider_id):
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = snap.to_dict()
+    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
     spec = _resolve_provider_spec(provider_id, cfg)
 
     identity_fields = cfg.get('identity', {})
@@ -4587,7 +4636,7 @@ def offerwall_callback_test(provider_id):
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = snap.to_dict()
+    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
     spec = _resolve_provider_spec(provider_id, cfg)
     body = request.json or {}
     params = {k: str(v) for k, v in (body.get('params') or {}).items()}
@@ -4618,7 +4667,7 @@ def offerwall_simulate_reward(provider_id):
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = snap.to_dict()
+    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
     spec = _resolve_provider_spec(provider_id, cfg)
 
     identity_fields = cfg.get('identity', {})

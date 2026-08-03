@@ -80,8 +80,7 @@ export const isProviderChannel = (opp: MarketplaceOpportunity): boolean => {
   return (
     opp.id.endsWith('_channel') ||
     opp.id.endsWith('_maintenance') ||
-    (opp.metadata?.tags && opp.metadata.tags.includes('offerwall')) ||
-    opp.metadata?.verificationType === 'offerwall'
+    opp.id.endsWith('_unavailable')
   );
 };
 

@@ -1,0 +1,6 @@
+{
+  "name": "PulseEarn Earning Marketplace",
+  "description": "Unified rewards economy marketplace aggregating tasks, offerwalls, surveys, predictions, and daily check-ins into one seamless platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,80 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserData().role == 'admin' ||
+        getUserData().role == 'ADMIN' ||
+        getUserData().isRoot == true
+      );
+    }
+
+    function isModerator() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        getUserData().role == 'moderator'
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile images
+    match /users/{userId}/avatars/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if (isOwner(userId) || isAdmin())
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Support ticket attachments
+    match /support_tickets/{ticketId}/{allPaths=**} {
+      allow read: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
+        isModerator()
+      );
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid ||
+        isModerator()
+      ) && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+    }
+
+    // Task submission proof
+    match /task_claims/{claimId}/{allPaths=**} {
+      allow read: if isModerator() || (
+        isAuthenticated() &&
+        firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid
+      );
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/task_claims/$(claimId)).data.userId == request.auth.uid ||
+        isModerator()
+      ) && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Campaign assets (Admins only)
+    match /campaigns/{campaignId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // System uploads
+    match /system/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,273 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Utility functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isRoot == true
+      );
+    }
+
+    function isModerator() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator'
+      );
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // SEC-001: Removed limit-based lookup to prevent PII exposure.
+      // Referral lookups must be performed via backend or specialized indices.
+      allow read: if isOwner(userId) || isModerator();
+      allow list: if isModerator();
+
+      // CRITICAL: Prevent initial account escalation
+      allow create: if isOwner(userId) &&
+                      request.resource.data.role == 'user' &&
+                      request.resource.data.points == 0 &&
+                      request.resource.data.xp == 0 &&
+                      request.resource.data.isBanned == false;
+
+      // CRITICAL: Field-restricted updates (Phase A)
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'username', 'avatarUrl', 'bio', 'preferences', 'onboardingCompleted', 'avatar',
+          'fingerprint', 'lastSeen', 'lastActionTimestamp'
+        ])
+      );
+
+      allow delete: if isAdmin();
+
+      // Sub-collections - Audit logs should be admin/server-only
+      match /transactions/{txId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isAdmin();
+      }
+
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId) || isAdmin() || isModerator();
+        allow write: if isOwner(userId) || isAdmin() || isModerator();
+      }
+
+      match /task_history/{histId} {
+        allow read: if isOwner(userId) || isAdmin() || isModerator();
+        allow write: if isAdmin();
+      }
+
+      match /activities/{actId} {
+        allow read: if isOwner(userId) || isAdmin() || isModerator();
+        allow write: if isAdmin();
+      }
+
+      match /user_tasks/{taskId} {
+        allow read: if isOwner(userId) || isAdmin() || isModerator();
+        // SEC: cooldown/completion state is server-authoritative (written via Admin SDK in
+        // /api/tasks/submit). Owners may NOT edit it, else they could reset cooldowns and
+        // farm rewards. Writes restricted to server/admin authority.
+        allow write: if isAdmin() || isModerator();
+      }
+
+      match /campaign_participation/{campaignId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // 2. System Config (Global Settings)
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 3. System Claims (Idempotency) - Restricted to prevent squatting
+    match /system_claims/{claimId} {
+      // Fix: Allow owners to check for existence (resource == null) of claims
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      // Batch 2: Restrict creation to system logic (Admin SDK) to prevent spoofing
+      allow create: if isAdmin();
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // 4. Campaigns & Tasks
+    match /campaigns/{campaignId} {
+      allow read: if isAuthenticated();
+      allow list: if isAuthenticated();
+      // Fix #17: Protect campaign counters with rate limiting
+      allow update: if (isAdmin()) ||
+                      (isAuthenticated() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantsCount']) &&
+                       request.time > resource.data.updatedAt + duration.value(5, 's'));
+      allow write: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow list: if isAuthenticated();
+      // Fix #17: Protect task counters with rate limiting
+      allow update: if (isAdmin()) ||
+                      (isAuthenticated() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completionCount', 'totalDistributed', 'totalClaims']) &&
+                       request.time > resource.data.updatedAt + duration.value(5, 's'));
+      allow write: if isAdmin();
+    }
+
+    match /task_claims/{claimId} {
+      allow read: if isAuthenticated();
+      allow list: if isModerator();
+      // SEC: prevent forged/pre-approved claims. Users may only create their OWN claim in
+      // a PENDING state; reward-granting claims are written server-side (Admin SDK).
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.validationState == 'PENDING';
+      allow update, delete: if isModerator();
+    }
+
+    match /system_task_definitions/{id} {
+      allow read: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /user_system_tasks/{id} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      // Batch 2: Harden mission completion. Writes restricted to Admin/Server authority.
+      allow write: if isAdmin();
+    }
+
+    // 5. User Predictions
+    match /user_predictions/{predictionId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && request.query.filters.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 6. Referrals
+    match /referrals/{referralId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && (request.query.filters.referrerId == request.auth.uid || request.query.filters.refereeId == request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'metadata'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 7. Support Tickets
+    match /support_tickets/{ticketId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && (request.query.filters.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'updatedAt', 'attachments'])
+      );
+      allow delete: if isAdmin();
+
+      match /support_messages/{msgId} {
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isAdmin());
+        allow create: if isAuthenticated() && (get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // 8. Withdrawals
+    match /withdrawals/{withdrawalId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
+      // SEC: Withdrawals are created ONLY server-side (Admin SDK) inside the same
+      // transaction that debits points. Direct client creation is forbidden to prevent
+      // unfunded payout requests. See /api/execute-transaction (withdrawal_debit).
+      allow create: if false;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 9. System Logs & Security
+    match /system_anomalies/{id} {
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    match /system_audit/{id} {
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    match /system_security/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /system_uploads/{id} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+    }
+
+    match /system_fingerprints/{id} {
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isAuthenticated() && id.startsWith(request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // 10. Broadcasts
+    match /broadcasts/{id} {
+      allow read: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 11. Offerwall Platform (Phase 17)
+    // All writes are exclusively via Admin SDK (Python backend) — never from the client.
+
+    match /offerwall_providers/{providerId} {
+      // Admin reads for Operations Center real-time listener.
+      // Never expose API keys or secrets — those are stripped server-side.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      // All writes go through backend /api/offerwall/* endpoints (Admin SDK).
+      allow write: if false;
+    }
+
+    match /offerwall_callbacks/{callbackId} {
+      // Callbacks are server-written; admin can read the full audit log.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /offerwall_rewards/{rewardId} {
+      // Owners can read their own rewards. Admins can read all.
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    match /offerwall_events/{eventId} {
+      // Immutable audit event log — admin read only.
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+  }
+}

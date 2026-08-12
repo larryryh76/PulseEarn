@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "git": {
+    "deploymentEnabled": true,
+    "deploymentRoleArn": null,
+    "autoAddIntegration": true
+  },
+  "redirects": [
+    { "source": "/prediction", "destination": "/predictions", "permanent": true },
+    { "source": "/profile", "destination": "/me", "permanent": true },
+    { "source": "/referral", "destination": "/referrals", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/((?!api|assets|favicon|icons|og-image|robots|sitemap|.*\\.).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+      ]
+    }
+  ]
+}

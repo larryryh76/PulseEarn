@@ -389,6 +389,7 @@ class ProviderAdapterRegistryClass {
     this.register(new ApiProviderAdapter('bitlabs', 'BitLabs'));
     this.register(new ApiProviderAdapter('cpxresearch', 'CPX Research'));
     this.register(new ApiProviderAdapter('adgem', 'AdGem'));
+    this.register(new ApiProviderAdapter('cpagrip', 'CPAGrip'));
     this.register(new HostedOfferwallAdapter('timewall', 'TimeWall'));
     this.register(new HostedOfferwallAdapter('lootably', 'Lootably'));
     this.register(new HostedOfferwallAdapter('offertoro', 'OfferToro'));

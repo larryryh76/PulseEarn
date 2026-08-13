@@ -222,119 +222,6 @@ def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp: return 1
     return math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
 
-def resolve_timestamp(val):
-    if not val:
-        return None
-
-    # If it is a dict/document, recursively search known fields
-    if isinstance(val, dict):
-        for f in ['timestamp', 'createdAt', 'processedAt', 'lastCompleted', 'completedAt', 'updatedAt']:
-            if f in val and val[f] is not None:
-                res = resolve_timestamp(val[f])
-                if res is not None:
-                    return res
-        # Check if it has a seconds field
-        if 'seconds' in val:
-            try:
-                return datetime.fromtimestamp(float(val['seconds']), tz=timezone.utc)
-            except Exception:
-                pass
-        return None
-
-    if isinstance(val, datetime):
-        if val.tzinfo is None:
-            return val.replace(tzinfo=timezone.utc)
-        return val
-
-    if hasattr(val, 'timestamp'):
-        try:
-            return datetime.fromtimestamp(val.timestamp(), tz=timezone.utc)
-        except Exception:
-            pass
-
-    # If it is numeric (epoch timestamp)
-    if isinstance(val, (int, float)):
-        try:
-            # Detect if it is in milliseconds vs seconds
-            if val > 1e11:
-                val = val / 1000.0
-            return datetime.fromtimestamp(val, tz=timezone.utc)
-        except Exception:
-            pass
-
-    if isinstance(val, str):
-        try:
-            # Handle ISO string with or without Z
-            cleaned = val.replace('Z', '+00:00')
-            return datetime.fromisoformat(cleaned)
-        except Exception:
-            pass
-
-    return None
-
-def evaluate_task_status(t_data, ut_data):
-    """
-    Unified task completion and eligibility predicate (single source of truth).
-    Respects perUserLimit, maxCompletions, cooldownPeriod, verification state, and completion history.
-    """
-    if not ut_data:
-        return {"status": "available", "can_submit": True}
-
-    st = (ut_data.get('status') or '').lower()
-
-    # 1. Preserve unknown or non-standard states without downgrading
-    recognized_base = {'available', 'pending', 'awaiting_verification', 'submitted', 'completed', 'claimed', 'verified', 'cooldown', 'on_cooldown', 'rejected'}
-    if st and st not in recognized_base:
-        can_submit = st in ('started', 'in_progress')
-        return {"status": st, "can_submit": can_submit}
-
-    # 2. Pending checks
-    if st in ('pending', 'awaiting_verification', 'submitted'):
-        return {"status": "pending", "can_submit": False, "reason": "ALREADY_PENDING"}
-
-    # 3. Check global campaign limits (global task cap)
-    global_limit = safe_int(t_data.get('maxCompletions') or t_data.get('maxClaims'), 0)
-    total_global_claims = safe_int(t_data.get('totalClaims') or t_data.get('completionCount'), 0)
-    if global_limit > 0 and total_global_claims >= global_limit:
-        return {"status": "completed", "can_submit": False, "reason": "TASK_CAP_REACHED"}
-
-    # 4. Check per-user limit
-    cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
-    user_limit = t_data.get('perUserLimit')
-    if user_limit is None:
-        user_limit = 999999 if cooldown_hours > 0 else 1
-    user_limit = safe_int(user_limit, 1)
-    total_completions = safe_int(ut_data.get('totalCompletions', 0), 0)
-
-    if user_limit > 0 and total_completions >= user_limit:
-        return {"status": "completed", "can_submit": False, "reason": "ALREADY_COMPLETED"}
-
-    # 5. Cooldown checks using the shared resolver
-    if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'cooldown', 'on_cooldown'):
-        last_dt = resolve_timestamp(ut_data)
-        if last_dt is None:
-            return {
-                "status": "cooldown",
-                "can_submit": False,
-                "reason": "COOLDOWN_TIMESTAMP_ERROR"
-            }
-
-        now = datetime.now(timezone.utc)
-        elapsed_seconds = (now - last_dt).total_seconds()
-        if elapsed_seconds < cooldown_hours * 3600:
-            return {
-                "status": "cooldown",
-                "can_submit": False,
-                "reason": "ON_COOLDOWN",
-                "next_available": last_dt + timedelta(hours=cooldown_hours)
-            }
-
-    # 6. Rejected checks
-    if st == 'rejected':
-        return {"status": "rejected", "can_submit": True}
-
-    return {"status": "available", "can_submit": True}
-
 def evaluate_missions(user_id):
     # DECOMMISSIONED: "system tasks"/missions (e.g. "Network Builder") have been merged
     # into the standard Task system. This auto-evaluator is intentionally a no-op so no
@@ -511,10 +398,32 @@ def submit_task():
                 if total_claims >= max_claims:
                     raise Exception("TASK_CAP_REACHED")
 
-        # 5. Cooldown Guard & Idempotency (using unified evaluate_task_status)
-        status_info = evaluate_task_status(t_data, ut_snap.to_dict() if ut_snap.exists else None)
-        if not status_info["can_submit"]:
-            raise Exception(status_info["reason"])
+        # 5. Cooldown Guard & Idempotency
+        cooldown_hours = safe_float(t_data.get('cooldownPeriod') or t_data.get('cooldownHours'), 0.0)
+        if ut_snap.exists:
+            ut = ut_snap.to_dict()
+            st = ut.get('status')
+            if st in ('pending', 'awaiting_verification'):
+                raise Exception("ALREADY_PENDING")
+            if cooldown_hours <= 0 and st in ('completed', 'claimed', 'verified'):
+                raise Exception("ALREADY_COMPLETED")
+            if cooldown_hours > 0 and st in ('completed', 'claimed', 'verified', 'on_cooldown', 'cooldown'):
+                last = ut.get('lastCompleted') or ut.get('completedAt') or ut.get('updatedAt')
+                last_dt = None
+                if isinstance(last, datetime):
+                    last_dt = last
+                elif isinstance(last, (int, float)):
+                    last_dt = datetime.fromtimestamp(last, tz=timezone.utc)
+                elif isinstance(last, str):
+                    try:
+                        last_dt = datetime.fromisoformat(last.replace('Z', '+00:00'))
+                    except Exception:
+                        pass
+                if last_dt:
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                    if (now - last_dt).total_seconds() < cooldown_hours * 3600:
+                        raise Exception("ON_COOLDOWN")
 
         # 6. Verification Type & Proof Enforcement
         v_type = (t_data.get('verificationType') or 'manual').lower()
@@ -631,7 +540,6 @@ def review_claim():
 
         u_snap = user_ref.get(transaction=transaction)
         t_snap = task_ref.get(transaction=transaction)
-        ut_snap = ut_ref.get(transaction=transaction)
         if not u_snap.exists or not t_snap.exists:
             raise Exception("USER_OR_TASK_NOT_FOUND")
 
@@ -701,17 +609,10 @@ def review_claim():
                 'updatedAt': firestore.SERVER_TIMESTAMP
             })
 
-            # Evaluate new status using the unified helper
-            temp_ut = dict(ut_snap.to_dict() or {})
-            temp_ut['status'] = 'rejected'
-            res = evaluate_task_status(t_data, temp_ut)
-            status_to_set = res['status']
-            v_state_to_set = 'VERIFIED' if status_to_set == 'completed' else 'REJECTED'
-
             transaction.set(ut_ref, {
                 'taskId': task_id,
-                'status': status_to_set,
-                'verificationState': v_state_to_set,
+                'status': 'available',
+                'verificationState': 'REJECTED',
                 'updatedAt': firestore.SERVER_TIMESTAMP
             }, merge=True)
 
@@ -2039,31 +1940,6 @@ def enable_task(task_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-def _propagate_task_deletion(db, task_id):
-    # 1. Delete associated user_tasks across all users
-    try:
-        ut_docs = db.collection_group('user_tasks').where('taskId', '==', task_id).stream()
-        for doc in ut_docs:
-            doc.reference.delete()
-    except Exception as e:
-        print(f"[Propagate Deletion] Error deleting user_tasks for {task_id}: {e}")
-
-    # 2. Delete associated task_claims
-    try:
-        claim_docs = db.collection('task_claims').where('taskId', '==', task_id).stream()
-        for doc in claim_docs:
-            doc.reference.delete()
-    except Exception as e:
-        print(f"[Propagate Deletion] Error deleting task_claims for {task_id}: {e}")
-
-    # 3. Delete associated task_history records
-    try:
-        history_docs = db.collection_group('task_history').where('taskId', '==', task_id).stream()
-        for doc in history_docs:
-            doc.reference.delete()
-    except Exception as e:
-        print(f"[Propagate Deletion] Error deleting task_history for {task_id}: {e}")
-
 @app.route('/api/admin/tasks/<task_id>/delete', methods=['POST'])
 @verify_token
 def delete_task(task_id):
@@ -2076,7 +1952,6 @@ def delete_task(task_id):
     db = firestore.client()
     try:
         db.collection('tasks').document(task_id).delete()
-        _propagate_task_deletion(db, task_id)
         db.collection('system_log').add({
             'action': 'task_deleted',
             'taskId': task_id,
@@ -2238,7 +2113,6 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Click the link, click Follow on @PulseEarn, and submit your X username as proof.',
                 'proofRequirements': 'Your X handle (@username)',
                 'type': 'manual', # manual allows submitting proof!
-                'category': 'SOCIAL',
                 'rewardAmount': 250,
                 'xpReward': 25,
                 'proofLabel': 'X Handle',
@@ -2257,7 +2131,6 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Click the link, click Join Channel, and enter your Telegram username for verification.',
                 'proofRequirements': 'Your Telegram username',
                 'type': 'manual',
-                'category': 'SOCIAL',
                 'rewardAmount': 300,
                 'xpReward': 30,
                 'proofLabel': 'Telegram Username',
@@ -2276,7 +2149,6 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Provide a summary of the features you have tested, any bugs encountered, and your suggestions.',
                 'proofRequirements': 'A minimum 30-word detailed review',
                 'type': 'manual',
-                'category': 'CUSTOM',
                 'rewardAmount': 1500,
                 'xpReward': 150,
                 'proofLabel': 'Beta Review Summary',
@@ -2295,7 +2167,6 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Simply click the button below to claim. Resets every 24 hours.',
                 'proofRequirements': 'Automatic verification',
                 'type': 'automated',
-                'category': 'DAILY',
                 'rewardAmount': 100,
                 'xpReward': 10,
                 'proofLabel': 'Proof',
@@ -2314,7 +2185,6 @@ def wipe_and_rebuild_tasks():
                 'instructions': 'Post your unique referral link to help grow our ecosystem, and paste the post link as proof.',
                 'proofRequirements': 'Valid social post URL containing your referral ID',
                 'type': 'manual',
-                'category': 'REFERRAL',
                 'rewardAmount': 500,
                 'xpReward': 50,
                 'proofLabel': 'Social Post Link',
@@ -2413,13 +2283,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
             {'key': 'secret', 'label': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'},
             {'key': 'apiEndpoint', 'label': 'Integration URL', 'required': False, 'type': 'text', 'placeholder': 'https://timewall.io'}
-        ],
-        'identityFields': {
-            'placementId': {'name': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': '853f8fefa60863bd'},
-            'secret': {'name': 'SHA256 SecretKey', 'required': True, 'type': 'password', 'placeholder': 'Copy from TimeWall dashboard'}
-        },
-        'primaryLaunchField': 'placementId',
-        'launchTemplate': 'https://timewall.io/users/login?oid={placementId}&uid={uid}'
+        ]
     },
     'cpxresearch': {
         'name': 'CPX Research',
@@ -2428,13 +2292,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
             {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'},
             {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'Optional API Key if needed'}
-        ],
-        'identityFields': {
-            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 12345'},
-            'apiKey': {'name': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'CPX API Key'},
-            'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'MD5 Hash Key'}
-        },
-        'primaryLaunchField': 'appId'
+        ]
     },
     'lootably': {
         'name': 'Lootably',
@@ -2443,14 +2301,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Placement ID / Pub ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Placement ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
             {'key': 'secret', 'label': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
-        ],
-        'identityFields': {
-            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Lootably Publisher ID'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Lootably Client API Key'},
-            'secret': {'name': 'Signature Secret', 'required': True, 'type': 'password', 'placeholder': 'Lootably Postback Secret'}
-        },
-        'primaryLaunchField': 'publisherId',
-        'launchTemplate': 'https://wall.lootably.com/?placementID={publisherId}&uid={uid}'
+        ]
     },
     'bitlabs': {
         'name': 'BitLabs',
@@ -2458,14 +2309,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
             {'key': 'secret', 'label': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
-        ],
-        'identityFields': {
-            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App ID'},
-            'token': {'name': 'App Token', 'required': True, 'type': 'text', 'placeholder': 'BitLabs App Token'},
-            'secret': {'name': 'App Secret Key', 'required': True, 'type': 'password', 'placeholder': 'BitLabs HMAC Signing Secret'}
-        },
-        'primaryLaunchField': 'token',
-        'launchTemplate': 'https://web.bitlabs.ai/?token={token}&uid={uid}'
+        ]
     },
     'adgem': {
         'name': 'AdGem',
@@ -2473,13 +2317,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
             {'key': 'secret', 'label': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
-        ],
-        'identityFields': {
-            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'AdGem App ID'},
-            'secret': {'name': 'Security Token / Secret', 'required': True, 'type': 'password', 'placeholder': 'AdGem postback security token'}
-        },
-        'primaryLaunchField': 'appId',
-        'launchTemplate': 'https://api.adgem.com/v1/wall?appid={appId}&playerid={uid}'
+        ]
     },
     'offertoro': {
         'name': 'OfferToro',
@@ -2488,14 +2326,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
             {'key': 'apiKey', 'label': 'App Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
-        ],
-        'identityFields': {
-            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'OfferToro Pub ID'},
-            'appId': {'name': 'App ID / Key', 'required': True, 'type': 'text', 'placeholder': 'OfferToro App Key'},
-            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'OfferToro postback Secret Key'}
-        },
-        'primaryLaunchField': 'publisherId',
-        'launchTemplate': 'https://wall.revenueuniverse.com/{publisherId}/offers/{uid}'
+        ]
     },
     'adgate': {
         'name': 'AdGate Media',
@@ -2504,14 +2335,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
             {'key': 'secret', 'label': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
-        ],
-        'identityFields': {
-            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'AdGate Wall ID'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'AdGate Developer API Key'},
-            'secret': {'name': 'Postback Password / Secret', 'required': True, 'type': 'password', 'placeholder': 'Postback verification password'}
-        },
-        'primaryLaunchField': 'wallId',
-        'launchTemplate': 'https://wall.adgatemedia.com/affiliate/{wallId}?s1={uid}'
+        ]
     },
     'ayet': {
         'name': 'ayeT Studios',
@@ -2520,14 +2344,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
             {'key': 'secret', 'label': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
-        ],
-        'identityFields': {
-            'adgateId': {'name': 'Adgate ID', 'required': True, 'type': 'text', 'placeholder': 'ayeT Adgate ID'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'ayeT API key'},
-            'secret': {'name': 'Security Hash Key', 'required': True, 'type': 'password', 'placeholder': 'Security Hash Key'}
-        },
-        'primaryLaunchField': 'adgateId',
-        'launchTemplate': 'https://www.ayetstudios.com/offers/web_ad_gate/{adgateId}?external_identifier={uid}'
+        ]
     },
     'wannads': {
         'name': 'Wannads',
@@ -2535,14 +2352,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
-        ],
-        'identityFields': {
-            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Wannads Publisher ID'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Wannads API key'},
-            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback Secret Key'}
-        },
-        'primaryLaunchField': 'apiKey',
-        'launchTemplate': 'https://wall.wannads.com/wall?apiKey={apiKey}&userId={uid}'
+        ]
     },
     'revu': {
         'name': 'RevU',
@@ -2550,13 +2360,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
             {'key': 'secret', 'label': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
-        ],
-        'identityFields': {
-            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'RevU Wall ID'},
-            'secret': {'name': 'Hash Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'RevU postback security key'}
-        },
-        'primaryLaunchField': 'wallId',
-        'launchTemplate': 'https://wall.revenueuniverse.com/{wallId}/offers/{uid}'
+        ]
     },
     'kiwiwall': {
         'name': 'KiwiWall',
@@ -2564,13 +2368,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
-        ],
-        'identityFields': {
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'KiwiWall API Key'},
-            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'KiwiWall postback security key'}
-        },
-        'primaryLaunchField': 'apiKey',
-        'launchTemplate': 'https://www.kiwiwall.com/wall/{apiKey}/{uid}'
+        ]
     },
     'adscend': {
         'name': 'Adscend Media',
@@ -2578,13 +2376,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
-        ],
-        'identityFields': {
-            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'Adscend Publisher ID'},
-            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Adscend Postback password/secret'}
-        },
-        'primaryLaunchField': 'publisherId',
-        'launchTemplate': 'https://adscendmedia.com/adwall/publisher/{publisherId}/profile/default/user/{uid}'
+        ]
     },
     'revenue_universe': {
         'name': 'Revenue Universe',
@@ -2592,13 +2384,7 @@ PROVIDERS_ADAPTERS = {
         'fields': [
             {'key': 'affiliateId', 'label': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
             {'key': 'secret', 'label': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
-        ],
-        'identityFields': {
-            'wallId': {'name': 'Wall ID', 'required': True, 'type': 'text', 'placeholder': 'Revenue Universe Wall ID'},
-            'secret': {'name': 'Security Key / Secret', 'required': True, 'type': 'password', 'placeholder': 'Security Key'}
-        },
-        'primaryLaunchField': 'wallId',
-        'launchTemplate': 'https://wall.revenueuniverse.com/{wallId}/offers/{uid}'
+        ]
     },
     'monlix': {
         'name': 'Monlix',
@@ -2607,32 +2393,59 @@ PROVIDERS_ADAPTERS = {
             {'key': 'affiliateId', 'label': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
             {'key': 'secret', 'label': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
-        ],
-        'identityFields': {
-            'appId': {'name': 'App ID', 'required': True, 'type': 'text', 'placeholder': 'Monlix App ID'},
-            'apiKey': {'name': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'Monlix API Key'},
-            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Monlix Postback Secret Key'}
-        },
-        'primaryLaunchField': 'appId',
-        'launchTemplate': 'https://offerwall.monlix.com/?appid={appId}&userid={uid}'
+        ]
+    },
+    'cpagrip': {
+        'name': 'CPAGrip Enterprise',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Publisher ID (pub_id)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip Publisher User ID'},
+            {'key': 'apiKey', 'label': 'API Feed Key', 'required': False, 'type': 'text', 'placeholder': 'CPAGrip Offer Feed Key'},
+            {'key': 'secret', 'label': 'Postback Security Key', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Postback Hash Key'}
+        ]
+    },
+    'gemiad': {
+        'name': 'GemiAd',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'App / Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd App ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'GemiAd API Key'},
+            {'key': 'secret', 'label': 'Postback Secret Key', 'required': True, 'type': 'password', 'placeholder': 'GemiAd Postback Secret Key'}
+        ]
     },
     'pollfish': {
         'name': 'Pollfish (future)',
         'isLocked': True,
         'researchRequired': True,
-        'fields': [],
-        'identityFields': {}
+        'fields': []
     },
     'inbrain': {
         'name': 'InBrain (future)',
         'isLocked': True,
         'researchRequired': True,
-        'fields': [],
-        'identityFields': {}
+        'fields': []
     }
 }
 
 OFFERWALL_PROVIDER_REGISTRY = {
+    'cpagrip': {
+        'label': 'CPAGrip Enterprise',
+        'user_param': 'subid', 'tx_param': 'lead_id', 'offer_param': 'campaign_id',
+        'offer_name_param': 'title', 'amount_param': 'payout',
+        'usd_param': 'payout',
+        'sig_param': 'sig', 'sig_method': 'md5', 'sig_fields': ['lead_id', 'secret'],
+        'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
+        'success_response': '1',
+    },
+    'gemiad': {
+        'label': 'GemiAd',
+        'user_param': 'user_id', 'tx_param': 'tx_id', 'offer_param': 'offer_id',
+        'offer_name_param': 'offer_name', 'amount_param': 'payout',
+        'usd_param': 'payout_usd',
+        'sig_param': 'signature', 'sig_method': 'sha256', 'sig_fields': ['tx_id', 'secret'],
+        'status_param': 'status', 'status_ok': '1', 'status_reversal': '2',
+        'success_response': 'OK',
+    },
     'timewall': {
         'label': 'TimeWall',
         'user_param': 'userID', 'tx_param': 'transactionID', 'offer_param': 'offerdetail',
@@ -2802,206 +2615,92 @@ _OFFERWALL_AFF_PLACEHOLDERS = (
 )
 
 
-def _normalize_and_migrate_provider_config(provider_id, config):
-    """Detect and migrate legacy config in-memory, returning a unified complete config object
-    with a fully populated 'identity' map, ensuring 100% backward compatibility."""
-    if not config:
-        return {}
-
-    cfg = dict(config)
-    pid = str(provider_id or '').lower()
-    adapter = PROVIDERS_ADAPTERS.get(pid, {})
-
-    if 'identity' not in cfg or not isinstance(cfg.get('identity'), dict) or len(cfg.get('identity', {})) == 0:
-        # Build dynamic identity object from legacy keys
-        identity = {}
-        if adapter:
-            identity_fields_spec = adapter.get('identityFields', {})
-            for key, field_spec in identity_fields_spec.items():
-                val = ""
-                if key == 'secret':
-                    val = str(cfg.get('secret') or '').strip()
-                elif key == 'apiKey':
-                    val = str(cfg.get('apiKey') or '').strip()
-                else:
-                    # Generic affiliate key fallback
-                    val = str(cfg.get('affiliateId') or '').strip()
-
-                identity[key] = {
-                    'fieldName': field_spec.get('name', key),
-                    'value': val,
-                    'required': bool(field_spec.get('required', False))
-                }
-        cfg['identity'] = identity
-
-    return cfg
-
-
-def _apply_launch_placeholders(url, uid, identity_fields, pid):
-    """Replace placeholder tokens in a stored Integration URL with the real values.
-    Surgically constrains replacements to protect sensitive credentials from bare-word leaks."""
+def _apply_launch_placeholders(url, aff, uid):
+    """Replace every known UID / affiliate placeholder token in a stored
+    Integration URL with the real values. Case-insensitive matching."""
     if not url:
         return url
-    import re
     result = url
-
-    # 1. Substitute UID placeholders safely
-    # Explicit wrapped UID placeholders
-    explicit_uid_placeholders = [
-        '{uid}', '[uid]', '(uid)',
-        '{userId}', '[userId]', '(userId)',
-        '{user_id}', '[user_id]', '(user_id)',
-        '{sub_id}', '[sub_id]', '(sub_id)',
-        '{subId}', '[subId]', '(subId)',
-        '{userID}', '[userID]', '(userID)',
-        '{unique_user_id}', '[unique_user_id]', '(unique_user_id)',
-        '{UNIQUE_USER_ID}', '[UNIQUE_USER_ID]', '(UNIQUE_USER_ID)',
-        '{USER_ID}', '[USER_ID]', '(USER_ID)', '{{USER_ID}}',
-        '{USERID}', '[USERID]', '(USERID)'
-    ]
-    for token in explicit_uid_placeholders:
-        result = re.sub(re.escape(token), lambda m: uid, result)
-
-    # Raw uppercase UID keywords (word boundaries, no '=' suffix)
-    for token in ['USER_ID', 'UNIQUE_USER_ID', 'USERID']:
-        pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-        result = re.sub(pattern, lambda m: uid, result)
-
-    # 2. Substitute dynamic identity fields defined by the provider adapter
-    for field_key, field_data in identity_fields.items():
-        val = str(field_data.get('value', '')).strip()
-        if not val:
-            continue
-
-        is_sensitive = field_key in ('secret', 'apiKey', 'token', 'appToken', 'clientId')
-
-        # Build strict wrapped placeholders
-        explicit_placeholders = [
-            f"{{{field_key}}}",
-            f"[{field_key}]",
-            f"({field_key})",
-            # snake_case wrapped
-            f"{{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}}",
-            f"[{{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}}]",
-            f"({{''.join(['_' + c.lower() if c.isupper() else c for c in field_key]).lstrip('_')}})",
-        ]
-
-        # Replace explicit wrapped placeholders
-        for token in explicit_placeholders:
-            result = re.sub(re.escape(token), lambda m: val, result)
-
-        # Only do bare-word/screaming-snake replacement for NON-SENSITIVE fields
-        if not is_sensitive:
-            raw_placeholders = [
-                field_key.upper(),
-                "".join(["_" + c.lower() if c.isupper() else c for c in field_key]).lstrip("_").upper(),
-            ]
-            # Custom mappings for standard non-sensitive fields
-            if field_key == 'publisherId':
-                raw_placeholders.append('PUBLISHER_ID')
-            elif field_key == 'appId':
-                raw_placeholders.append('APP_ID')
-            elif field_key == 'siteId':
-                raw_placeholders.append('SITE_ID')
-            elif field_key == 'propertyId':
-                raw_placeholders.append('PROPERTY_ID')
-            elif field_key == 'placementId':
-                raw_placeholders.append('PLACEMENT_ID')
-            elif field_key == 'zoneId':
-                raw_placeholders.append('ZONE_ID')
-
-            for token in raw_placeholders:
-                pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-                result = re.sub(pattern, lambda m: val, result)
-
-    # 3. Only generic {aff} placeholders use primaryLaunchField
-    adapter = PROVIDERS_ADAPTERS.get(pid, {})
-    if adapter:
-        primary_key = adapter.get('primaryLaunchField')
-        if primary_key and primary_key in identity_fields:
-            aff_val = str(identity_fields[primary_key].get('value', '')).strip()
-            # Generic aff placeholders only
-            for token in ['{aff}', '[aff]', '(aff)', 'AFFILIATE_ID', '{affiliateId}', '[affiliateId]']:
-                if token.startswith('{') or token.startswith('[') or token.startswith('('):
-                    pattern = re.escape(token)
-                else:
-                    pattern = r'\b' + re.escape(token) + r'\b(?!=)'
-                result = re.sub(pattern, lambda m: aff_val, result, flags=re.IGNORECASE)
-
+    for token in _OFFERWALL_UID_PLACEHOLDERS:
+        # case-insensitive replace
+        idx = result.lower().find(token.lower())
+        while idx != -1:
+            result = result[:idx] + uid + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(uid))
+    for token in _OFFERWALL_AFF_PLACEHOLDERS:
+        idx = result.lower().find(token.lower())
+        while idx != -1:
+            result = result[:idx] + aff + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(aff))
     return result
 
 
 def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=None):
+    aff = str(affiliate_id or '').strip()
     uid = str(uid or '').strip()
     if not uid:
         return None, False
-    pid = str(provider_id or '').lower()
-    config = _normalize_and_migrate_provider_config(provider_id, config)
+    pid = (provider_id or '').lower()
+    config = config or {}
 
-    identity_fields = config.get('identity', {})
-    adapter = PROVIDERS_ADAPTERS.get(pid, {})
-    if not adapter:
-        return None, False
-
-    # Pre-Launch validation check: Ensure every required field in the adapter's identityFields is present and non-empty
-    identity_fields_spec = adapter.get('identityFields', {})
-    for field_key, field_spec in identity_fields_spec.items():
-        if field_spec.get('required'):
-            val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
-            if not val:
-                # check legacy fallback keys
-                if field_key == 'secret':
-                    val = str(secret or config.get('secret', '')).strip()
-                elif field_key == 'apiKey':
-                    val = str(config.get('apiKey', '')).strip()
-                else:
-                    val = str(affiliate_id or config.get('affiliateId', '')).strip()
-            if not val:
-                logging.error(f"[Offerwall Launch] Pre-Launch Verification Failed: Missing required identity field '{field_key}' for provider '{pid}'")
-                return None, False
-
-    resolved_secret = str(identity_fields.get('secret', {}).get('value', '')).strip()
-    if not resolved_secret:
-        resolved_secret = str(secret or config.get('secret', '')).strip()
-
-    # Build the launch URL
+    # ── PRIORITY 1: config-driven Integration URL ──────────────────────────────
+    # If the admin saved the exact Integration URL issued by the provider's own
+    # dashboard (the correct, non-homepage authenticated offerwall URL), use it
+    # and inject the real UID where the placeholder token sits. This is the
+    # production path and works for ANY provider without code changes.
     integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
-
     if integration_url:
-        resolved = _apply_launch_placeholders(integration_url, uid, identity_fields, pid)
-    else:
-        # Use the adapter's launchTemplate fallback
-        template = adapter.get('launchTemplate')
-        if not template:
-            if pid == 'cpxresearch':
-                app_id = str(identity_fields.get('appId', {}).get('value', '')).strip()
-                secure_hash = hashlib.md5(f'{uid}{resolved_secret}'.encode()).hexdigest()
-                resolved = f'https://offers.cpx-research.com/index.php?app_id={app_id}&ext_user_id={uid}&secure_hash={secure_hash}'
+        has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
+        resolved = _apply_launch_placeholders(integration_url, aff, uid)
+        # Only trust the stored URL if the UID actually got injected (either via a
+        # placeholder token, or because the admin pre-baked a per-user pattern).
+        if has_uid_token or (uid and uid in resolved):
+            valid_url = _validate_launch_url(resolved)
+            if valid_url:
+                embeddable = bool(config.get('embeddable', False))
+                return valid_url, embeddable
             else:
-                return None, False
-        else:
-            resolved = _apply_launch_placeholders(template, uid, identity_fields, pid)
+                logging.warning(f"[Offerwall Launch] Invalid or unsafe integration URL for provider '{provider_id}'")
 
-    # Validate for unresolved placeholders in the final generated URL (Strengthened to never log resolved URLs/credentials)
-    import re
-    # Scan for any curly brace/bracket placeholders like {appId}, [token], etc.
-    unresolved_match = re.search(r'\{[a-zA-Z0-9_]+\}|\[[a-zA-Z0-9_]+\]', resolved)
-    if unresolved_match:
-        placeholder_name = unresolved_match.group(0)
-        logging.error(f"[Offerwall Launch] Validation Failed: Unresolved braces placeholder '{placeholder_name}' for provider '{pid}'")
+    # ── PRIORITY 2: built-in per-provider templates (fallback) ─────────────────
+    # Used only when no Integration URL is configured. Requires an affiliate id.
+    if not aff:
         return None, False
 
-    # Check for unreplaced standard keywords like USER_ID, UNIQUE_USER_ID, USERID (case-sensitive to avoid matching lowercase parameter names/values)
-    for keyword in ['USER_ID', 'UNIQUE_USER_ID', 'USERID', 'PUBLISHER_ID', 'APP_ID', 'WALL_ID', 'PLACEMENT_ID', 'CLIENT_ID']:
-        if re.search(r'\b' + re.escape(keyword) + r'\b', resolved):
-            logging.error(f"[Offerwall Launch] Validation Failed: Unresolved keyword placeholder '{keyword}' for provider '{pid}'")
-            return None, False
+    templates = {
+        'lootably': 'https://wall.lootably.com/?placementID={aff}&uid={uid}',
+        'bitlabs': 'https://web.bitlabs.ai/?token={aff}&uid={uid}',
+        'adgem': 'https://api.adgem.com/v1/wall?appid={aff}&playerid={uid}',
+        'adgate': 'https://wall.adgatemedia.com/affiliate/{aff}?s1={uid}',
+        'ayet': 'https://www.ayetstudios.com/offers/web_ad_gate/{aff}?external_identifier={uid}',
+        'wannads': 'https://wall.wannads.com/wall?apiKey={aff}&userId={uid}',
+        'revu': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
+        'kiwiwall': 'https://www.kiwiwall.com/wall/{aff}/{uid}',
+        'adscend': 'https://adscendmedia.com/adwall/publisher/{aff}/profile/default/user/{uid}',
+        'revenue_universe': 'https://wall.revenueuniverse.com/{aff}/offers/{uid}',
+        'monlix': 'https://offerwall.monlix.com/?appid={aff}&userid={uid}',
+        'cpagrip': 'https://www.cpagrip.com/show.php?l=0&u={aff}&id=0&tracking_id={uid}',
+        'gemiad': 'https://gemiad.com/wall?app_id={aff}&uid={uid}',
+    }
 
-    valid_url = _validate_launch_url(resolved)
-    if valid_url:
-        embeddable = bool(config.get('embeddable', False))
-        return valid_url, embeddable
+    if pid == 'timewall':
+        return _validate_launch_url(f'https://timewall.io/users/login?oid={aff}&uid={uid}'), False
 
+    if pid == 'cpxresearch':
+        secure_hash = hashlib.md5(f'{uid}{secret or ""}'.encode()).hexdigest()
+        raw_url = (f'https://offers.cpx-research.com/index.php?app_id={aff}'
+                   f'&ext_user_id={uid}&secure_hash={secure_hash}')
+        return _validate_launch_url(raw_url), True
+
+    if pid in templates:
+        return _validate_launch_url(templates[pid].format(aff=aff, uid=uid)), True
+
+    # Pollfish and InBrain are locked placeholders (prevent redirect)
+    if pid in ('pollfish', 'inbrain'):
+        return None, False
+
+    # Unknown provider with no Integration URL: return None so caller surfaces
+    # LAUNCH_FAILED instead of redirecting the user to a provider homepage.
     return None, False
 
 
@@ -3191,20 +2890,13 @@ def _offerwall_callback_impl(provider_id, req):
         provider_cache.invalidate()
         cached_provider = provider_cache.get_provider(provider_id, allow_cache=False)
     
-    config = _normalize_and_migrate_provider_config(provider_id, cached_provider)
+    config = cached_provider
     if not config.get('enabled', False):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
                                'Provider is disabled, callback ignored')
         return pmap['success_response'], 200  # Silently ack disabled providers
 
-    # Resolve secret from identity fields if available, falling back to top level
-    identity_fields = config.get('identity', {})
-    secret = ''
-    if 'secret' in identity_fields:
-        secret = str(identity_fields['secret'].get('value', '')).strip()
-    if not secret:
-        secret = str(config.get('secret', '')).strip()
-
+    secret = config.get('secret', '')
     multiplier = float(config.get('rewardMultiplier', 1.0))
     # Business rule: user receives 30% of the awarded points, platform keeps 70%.
     user_share = float(config.get('userSharePct', 0.30))
@@ -3246,46 +2938,6 @@ def _offerwall_callback_impl(provider_id, req):
                                metadata={'params_received': list(params.keys())})
         return pmap['success_response'], 200
 
-    dedup_key = f"{provider_id}:{provider_tx_id}"
-    ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
-    user_agent = req.headers.get('User-Agent', 'unknown')[:500]
-
-    # Write initial callback record (outside transaction — dedup needs to read it)
-    callback_ref = db.collection('offerwall_callbacks').document()
-    callback_id = callback_ref.id
-
-    if config.get('status') == 'maintenance':
-        callback_data_deferred = {
-            'providerId': provider_id,
-            'providerName': config.get('name', provider_id),
-            'userId': user_id,
-            'offerId': offer_id,
-            'offerName': offer_name,
-            'rawAmount': raw_amount,
-            'usdRevenue': usd_amount,
-            'providerTransactionId': provider_tx_id,
-            'dedupKey': dedup_key,
-            'signatureValid': sig_valid,
-            'isDuplicate': False,
-            'fraudBlocked': False,
-            'status': 'DEFERRED_MAINTENANCE',
-            'pointsAwarded': 0,
-            'userPoints': 0,
-            'platformPoints': 0,
-            'transactionId': None,
-            'ipAddress': ip_address,
-            'userAgent': user_agent,
-            'receivedAt': firestore.SERVER_TIMESTAMP,
-            'processedAt': None,
-            'rawPayload': params,
-            'auditTrail': ['Deferred: Provider is currently under maintenance. Prevented reward processing. Available for replay.'],
-        }
-        callback_ref.set(callback_data_deferred)
-        _write_offerwall_event(db, provider_id, 'callback_deferred', 'warning',
-                               f'Provider {provider_id} is in maintenance. Callback deferred: {provider_tx_id}',
-                               callbackId=callback_id, userId=user_id)
-        return pmap['success_response'], 200
-
     # ── 5. Signature Verification ───────────────────────────────────────��────
     sig_valid = _verify_offerwall_sig(
         pmap.get('sig_method', 'md5'),
@@ -3319,9 +2971,17 @@ def _offerwall_callback_impl(provider_id, req):
                                    metadata={'type': status_val, 'reason': params.get('reason', '')})
             return pmap['success_response'], 200
 
+    dedup_key = f"{provider_id}:{provider_tx_id}"
+    ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
+    user_agent = req.headers.get('User-Agent', 'unknown')[:500]
+
     # ── 5b. IP Whitelist Validation (Part 9) ──────────────────────────────────
     ip_whitelist = pmap.get('ip_whitelist') or []
     is_admin_test = params.get('is_test_sim') == 'true'
+
+    # Write initial callback record (outside transaction — dedup needs to read it)
+    callback_ref = db.collection('offerwall_callbacks').document()
+    callback_id = callback_ref.id
 
     if ip_whitelist and ip_address not in ip_whitelist and not is_admin_test:
         callback_data_ip_fail = {
@@ -3766,14 +3426,12 @@ OFFERWALL_STATUS_META = {
     'connected':              {'label': 'Connected',             'severity': 'ok'},
     'waiting_first_callback': {'label': 'Waiting For First Callback', 'severity': 'warning'},
     'callback_failure':       {'label': 'Callback Failure',      'severity': 'error'},
-    'invalid_credentials':    {'label': 'Configuration Incomplete',   'severity': 'error'},
+    'invalid_credentials':    {'label': 'Invalid Credentials',   'severity': 'error'},
     'disabled':               {'label': 'Disabled',              'severity': 'neutral'},
 }
 
-def _compute_operational_status(provider_id, config):
-    """Derive operational status from Firestore document ID, verifying credentials,
-    launch template, and callback configuration completeness."""
-    config = _normalize_and_migrate_provider_config(provider_id, config)
+def _compute_operational_status(config):
+    """Derive one of 5 operational states from stored signals (no fabrication)."""
     stats = config.get('stats', {}) or {}
     def out(status, reason):
         meta = OFFERWALL_STATUS_META.get(status, {'label': status, 'severity': 'neutral'})
@@ -3782,38 +3440,9 @@ def _compute_operational_status(provider_id, config):
     if not config.get('enabled', False):
         return out('disabled', 'Provider is disabled.')
 
-    # Dynamic adapter completeness checking
-    pid = str(provider_id or '').lower()
-    adapter = PROVIDERS_ADAPTERS.get(pid, {})
-    if not adapter:
-        return out('invalid_credentials', 'Configuration Incomplete: Unresolved adapter schema.')
-
-    identity_fields = config.get('identity', {})
-
-    # 1. Verify all required credentials & identity fields are complete
-    for field_key, field_spec in adapter.get('identityFields', {}).items():
-        if field_spec.get('required'):
-            val = str(identity_fields.get(field_key, {}).get('value', '')).strip()
-            if not val:
-                # check legacy fallback keys
-                if field_key == 'secret':
-                    val = str(config.get('secret', '')).strip()
-                elif field_key == 'apiKey':
-                    val = str(config.get('apiKey', '')).strip()
-                else:
-                    val = str(config.get('affiliateId', '')).strip()
-                if not val:
-                    return out('invalid_credentials', f"Configuration Incomplete: Missing required field '{field_spec.get('name', field_key)}'.")
-
-    # 2. Verify callback configuration complete
-    if not config.get('callbackUrl'):
-        return out('invalid_credentials', "Configuration Incomplete: Missing callback URL configuration.")
-
-    # 3. Verify launch template complete and required placeholders available
-    integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
-    template = integration_url or adapter.get('launchTemplate')
-    if not template and pid != 'cpxresearch':
-        return out('invalid_credentials', "Configuration Incomplete: Missing launch template configuration.")
+    # Credentials completeness
+    if not str(config.get('affiliateId', '')).strip() or not str(config.get('secret', '')).strip():
+        return out('invalid_credentials', 'Missing required credentials.')
 
     # Explicit last Test Connection outcome takes precedence.
     test = stats.get('lastTest', {}) or {}
@@ -3824,8 +3453,8 @@ def _compute_operational_status(provider_id, config):
         return out('callback_failure', test.get('message', 'Test connection timed out or was rate-limited.'))
 
     # Callback health: repeated signature/processing failures.
-    failed = safe_int(stats.get('failedCallbacks', 0), 0)
-    approved = safe_int(stats.get('approvedRewards', 0), 0)
+    failed = int(stats.get('failedCallbacks', 0) or 0)
+    approved = int(stats.get('approvedRewards', 0) or 0)
     if failed >= 3 and failed >= approved:
         return out('callback_failure', f'Callback Failure: {failed} failed callbacks.')
 
@@ -3834,7 +3463,7 @@ def _compute_operational_status(provider_id, config):
         return out('connected', 'Connected and actively receiving callbacks.')
 
     # Configured but awaiting first callback.
-    return out('connected', 'Operational. Awaiting first callback.')
+    return out('waiting_first_callback', 'Waiting For First Callback.')
 
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
 @app.route('/api/offerwall/providers', methods=['GET'])
@@ -3856,24 +3485,8 @@ def offerwall_get_providers():
             d_safe['id'] = s.id
             d_safe['hasSecret'] = bool(d.get('secret'))
             d_safe['hasApiKey'] = bool(d.get('apiKey'))
-
-            # Redact sensitive identity values in the identity dict
-            if 'identity' in d:
-                redacted_identity = {}
-                for key, field in d['identity'].items():
-                    if isinstance(field, dict):
-                        field_safe = {k: v for k, v in field.items() if k != 'value'}
-                        field_safe['hasValue'] = bool(str(field.get('value', '')).strip())
-                        redacted_identity[key] = field_safe
-                    else:
-                        redacted_identity[key] = {
-                            'fieldName': key,
-                            'required': False,
-                            'hasValue': bool(str(field).strip())
-                        }
-                d_safe['identity'] = redacted_identity
             # Derived operational health (backend source of truth)
-            d_safe['health'] = _compute_operational_status(s.id, d)
+            d_safe['health'] = _compute_operational_status(d)
             # Attach the resolved callback spec label for UI display
             spec = _resolve_provider_spec(s.id, d)
             d_safe['specLabel'] = spec.get('label') or s.id
@@ -3903,7 +3516,6 @@ def offerwall_registry():
             'sigParam': spec.get('sig_param'),
             'successResponse': spec.get('success_response'),
             'fields': adapter.get('fields', []),
-            'identityFields': adapter.get('identityFields', {}),
             'isLocked': adapter.get('isLocked', False),
             'researchRequired': adapter.get('researchRequired', False),
         })
@@ -3930,7 +3542,7 @@ def offerwall_upsert_provider(provider_id):
 
     allowed_fields = {
         'name', 'logo', 'logoUrl', 'status', 'enabled', 'apiEndpoint',
-        'affiliateId', 'apiKey', 'secret', 'identity',
+        'affiliateId', 'apiKey', 'secret',
         'callbackUrl', 'webhookUrl', 'rewardMultiplier',
         'userSharePct', 'platformSharePct', 'minimumReward',
         'maximumReward', 'fraudRules',
@@ -3966,51 +3578,6 @@ def offerwall_upsert_provider(provider_id):
             if status == 'FAIL':
                 is_valid = False
             validation_checks.append({'name': name, 'status': status, 'detail': detail})
-
-        # Validate structured identity configuration
-        identity_payload = payload.get('identity', {})
-        structure_valid = True
-        structure_error_detail = ""
-
-        if 'identity' in payload:
-            if not isinstance(identity_payload, dict):
-                structure_valid = False
-                structure_error_detail = "Identity payload must be a key-value object (dict)."
-            else:
-                for key, field_data in identity_payload.items():
-                    if not isinstance(field_data, dict):
-                        structure_valid = False
-                        structure_error_detail = f"Identity key '{key}' must be mapped to a structured object, not a flat value."
-                        break
-                    # We expect 'required', 'fieldName' (or 'type')
-                    if 'fieldName' not in field_data and 'type' not in field_data:
-                        field_data['fieldName'] = key
-                    if 'required' not in field_data:
-                        field_data['required'] = False
-                    if 'value' not in field_data:
-                        field_data['value'] = ""
-
-        if not structure_valid:
-            add_check('Identity Structure', 'FAIL', structure_error_detail)
-        else:
-            add_check('Identity Structure', 'PASS', "Identity structure matches expected format {value, required, fieldName}.")
-
-        # Auto-merge and preserve existing identity values when editing if left blank
-        if structure_valid and 'identity' in payload:
-            existing_identity = {} if is_new else snap.to_dict().get('identity', {})
-            resolved_identity = {}
-            for key, field_data in identity_payload.items():
-                val = str(field_data.get('value', '')).strip()
-                # If empty and editing, preserve the existing value
-                if not val and not is_new and key in existing_identity:
-                    val = str(existing_identity[key].get('value', '')).strip()
-
-                resolved_identity[key] = {
-                    'fieldName': field_data.get('fieldName', key),
-                    'value': val,
-                    'required': bool(field_data.get('required', False))
-                }
-            payload['identity'] = resolved_identity
 
         name_val = str(payload.get('name', '')).strip()
         aff_val = str(payload.get('affiliateId', '')).strip()
@@ -4256,21 +3823,21 @@ def offerwall_analytics():
     provider_snaps = db.collection('offerwall_providers').get()
     providers = [{**s.to_dict(), 'id': s.id} for s in provider_snaps]
 
-    # Aggregate totals with safe numeric parsing
-    gross = sum(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) for p in providers)
+    # Aggregate totals
+    gross = sum(p.get('stats', {}).get('lifetimeRevenue', 0) for p in providers)
     user_rewards = sum(
-        round(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) * safe_float(p.get('userSharePct', 0.30), 0.30))
+        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.30)))
         for p in providers
     )
     platform_rev = gross - user_rewards
-    revenue_today = sum(safe_float(p.get('stats', {}).get('revenueToday', 0), 0.0) for p in providers)
-    revenue_week = sum(safe_float(p.get('stats', {}).get('revenueThisWeek', 0), 0.0) for p in providers)
-    revenue_month = sum(safe_float(p.get('stats', {}).get('revenueThisMonth', 0), 0.0) for p in providers)
-    fraud_total = sum(safe_int(p.get('stats', {}).get('fraudAlerts', 0), 0) for p in providers)
-    duplicates_total = sum(safe_int(p.get('stats', {}).get('duplicateCallbackAttempts', 0), 0) for p in providers)
-    approved_total = sum(safe_int(p.get('stats', {}).get('approvedRewards', 0), 0) for p in providers)
-    rejected_total = sum(safe_int(p.get('stats', {}).get('rejectedRewards', 0), 0) for p in providers)
-    pending_liabilities = sum(safe_float(p.get('stats', {}).get('outstandingUserLiability', 0), 0.0) for p in providers)
+    revenue_today = sum(p.get('stats', {}).get('revenueToday', 0) for p in providers)
+    revenue_week = sum(p.get('stats', {}).get('revenueThisWeek', 0) for p in providers)
+    revenue_month = sum(p.get('stats', {}).get('revenueThisMonth', 0) for p in providers)
+    fraud_total = sum(p.get('stats', {}).get('fraudAlerts', 0) for p in providers)
+    duplicates_total = sum(p.get('stats', {}).get('duplicateCallbackAttempts', 0) for p in providers)
+    approved_total = sum(p.get('stats', {}).get('approvedRewards', 0) for p in providers)
+    rejected_total = sum(p.get('stats', {}).get('rejectedRewards', 0) for p in providers)
+    pending_liabilities = sum(p.get('stats', {}).get('outstandingUserLiability', 0) for p in providers)
 
     # Ingest actual unique active users & average reward directly from the DB
     try:
@@ -4324,16 +3891,6 @@ def offerwall_analytics():
         } for p in providers],
     })
 
-def _is_provider_gated(cfg):
-    """Check if a provider is gated due to status or disabled configuration."""
-    status = str(cfg.get('status', 'active')).lower()
-    enabled = bool(cfg.get('enabled', False))
-    # State check: locked, archived, disabled, maintenance, inactive, offline
-    if not enabled or status in ('inactive', 'maintenance', 'locked', 'archived', 'disabled', 'offline'):
-        return True, status
-    return False, status
-
-
 # ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
 @app.route('/api/offerwall/user-providers', methods=['GET'])
 @verify_token
@@ -4350,16 +3907,9 @@ def offerwall_user_providers():
     for s in snaps:
         try:
             d = s.to_dict() or {}
-            gated, p_status = _is_provider_gated(d)
-            if gated:
-                launch_url, embeddable = None, False
-            else:
-                launch_url, embeddable = _build_offerwall_launch_url(
-                    s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
-                )
-            max_reward = safe_int(d.get('maximumReward'), 100000)
-            if max_reward >= 1000001:
-                max_reward = 100000
+            launch_url, embeddable = _build_offerwall_launch_url(
+                s.id, d.get('affiliateId', ''), d.get('secret', ''), uid, d
+            )
             providers.append({
                 'id': s.id,
                 'name': d.get('name', s.id),
@@ -4375,10 +3925,9 @@ def offerwall_user_providers():
                 'description': d.get('description', ''),
                 'affiliateId': d.get('affiliateId', ''),
                 'minimumReward': safe_int(d.get('minimumReward'), 1),
-                'maximumReward': max_reward,
+                'maximumReward': safe_int(d.get('maximumReward'), 100000),
                 'launchUrl': launch_url,
                 'embeddable': bool(embeddable),
-                'stats': d.get('stats') or {},
                 'offers': []
             })
         except Exception as e:
@@ -4405,13 +3954,8 @@ def offerwall_launch_url(provider_id):
         return jsonify({'success': False, 'error': 'PROVIDER_NOT_FOUND', 'message': 'Selected provider does not exist.'}), 404
 
     cfg = snap.to_dict()
-    gated, status = _is_provider_gated(cfg)
-    if gated:
-        return jsonify({
-            'success': False,
-            'error': 'PROVIDER_GATED',
-            'message': f'Selected provider is currently {status or "disabled"} and cannot be launched.'
-        }), 400
+    if not cfg.get('enabled', False):
+        return jsonify({'success': False, 'error': 'PROVIDER_DISABLED', 'message': 'Selected provider is currently disabled.'}), 400
 
     # Ensure it's not a locked / research required provider
     adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
@@ -4427,7 +3971,7 @@ def offerwall_launch_url(provider_id):
     )
 
     if not launch_url:
-        return jsonify({'success': False, 'error': 'LAUNCH_FAILED', 'message': 'Provider configuration is incomplete. Please contact support.'}), 400
+        return jsonify({'success': False, 'error': 'LAUNCH_FAILED', 'message': 'Failed to generate authenticated launcher URL.'}), 400
 
     # Record launch attempt stat
     try:
@@ -4483,36 +4027,15 @@ def offerwall_test_connection(provider_id):
     snap = ref.get()
     if not snap.exists:
         return jsonify({'success': False, 'code': 'NOT_FOUND', 'message': 'Provider not found.'}), 404
-    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
+    cfg = snap.to_dict()
     checks = []
     def check(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
 
     # 1. Credential presence
-    identity_fields = cfg.get('identity', {})
-
-    # Resolve values dynamically from identity, fallback to old top-level keys
-    has_secret = False
-    if 'secret' in identity_fields:
-        has_secret = bool(str(identity_fields['secret'].get('value', '')).strip())
-    if not has_secret:
-        has_secret = bool(str(cfg.get('secret', '')).strip())
-
-    has_api = False
-    if 'apiKey' in identity_fields:
-        has_api = bool(str(identity_fields['apiKey'].get('value', '')).strip())
-    if not has_api:
-        has_api = bool(str(cfg.get('apiKey', '')).strip())
-
-    has_aff = False
-    for key in ['publisherId', 'placementId', 'wallId', 'appId', 'adgateId', 'clientId', 'token', 'affiliateId']:
-        if key in identity_fields:
-            has_aff = bool(str(identity_fields[key].get('value', '')).strip())
-            if has_aff:
-                break
-    if not has_aff:
-        has_aff = bool(str(cfg.get('affiliateId', '')).strip())
-
+    has_aff = bool(str(cfg.get('affiliateId', '')).strip())
+    has_secret = bool(str(cfg.get('secret', '')).strip())
+    has_api = bool(str(cfg.get('apiKey', '')).strip())
     check('API Key / App ID', has_aff, 'App/Affiliate ID present.' if has_aff else 'Missing App/Affiliate ID.')
     check('Callback Secret', has_secret, 'Secret present.' if has_secret else 'Missing callback secret.')
     check('Callback URL', bool(cfg.get('callbackUrl')), cfg.get('callbackUrl') or 'Missing callback URL.')
@@ -4571,16 +4094,9 @@ def offerwall_generate_payload(provider_id):
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
+    cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-
-    identity_fields = cfg.get('identity', {})
-    secret = ''
-    if 'secret' in identity_fields:
-        secret = str(identity_fields['secret'].get('value', '')).strip()
-    if not secret:
-        secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
-
+    secret = str(cfg.get('secret', 'TEST_SECRET'))
     test_uid = request.user['uid']
     import time as _t
     params = {
@@ -4636,18 +4152,11 @@ def offerwall_callback_test(provider_id):
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
+    cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
     body = request.json or {}
     params = {k: str(v) for k, v in (body.get('params') or {}).items()}
-
-    identity_fields = cfg.get('identity', {})
-    secret = ''
-    if 'secret' in identity_fields:
-        secret = str(identity_fields['secret'].get('value', '')).strip()
-    if not secret:
-        secret = str(cfg.get('secret', '')).strip()
-
+    secret = str(cfg.get('secret', ''))
     received = params.get(spec.get('sig_param', 'signature'), '')
     raw_query = body.get('query', '')
     valid = _verify_offerwall_sig(
@@ -4662,40 +4171,18 @@ def offerwall_callback_test(provider_id):
 @verify_token
 def offerwall_simulate_reward(provider_id):
     """Simulate a real callback postback to trigger points credit, ledger updates, etc."""
+    if not is_admin(request.user['uid']): return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase(): return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
     snap = db.collection('offerwall_providers').document(provider_id).get()
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
-    cfg = _normalize_and_migrate_provider_config(provider_id, snap.to_dict())
+    cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-
-    identity_fields = cfg.get('identity', {})
-    secret = ''
-    if 'secret' in identity_fields:
-        secret = str(identity_fields['secret'].get('value', '')).strip()
-    if not secret:
-        secret = str(cfg.get('secret', 'TEST_SECRET')).strip()
+    secret = str(cfg.get('secret', 'TEST_SECRET'))
 
     body = request.json or {}
-    current_uid = request.user['uid']
-    test_uid = current_uid
-
-    if body.get('userId'):
-        target_uid = str(body.get('userId')).strip()
-        if target_uid != current_uid:
-            # Attempting to act on behalf of another user (impersonate)
-            if is_admin(current_uid):
-                test_uid = target_uid
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": "FORBIDDEN",
-                    "message": "Acting on behalf of another user is restricted to admins."
-                }), 403
-        else:
-            test_uid = current_uid
-
+    test_uid = body.get('userId') or request.user['uid']
     amount = str(body.get('amount') or 100)
 
     import time as _t
@@ -4810,7 +4297,7 @@ def offerwall_failover_scan():
     for s in db.collection('offerwall_providers').get():
         cfg = s.to_dict()
         if not cfg.get('enabled'): continue
-        health = _compute_operational_status(s.id, cfg)
+        health = _compute_operational_status(cfg)
         if health['severity'] == 'error':
             db.collection('offerwall_providers').document(s.id).update({
                 'enabled': False,
@@ -5004,54 +4491,6 @@ def handle_admin_marketplace_config():
     cfg_ref.set(updates, merge=True)
     return jsonify({"success": True, "message": "Marketplace composition configuration updated successfully"})
 
-def map_db_category_to_marketplace(category, task_type, platform):
-    category = (category or 'CUSTOM').upper()
-    task_type = (task_type or '').lower()
-    platform = (platform or '').upper()
-
-    if category == 'SOCIAL':
-        if platform in ('YOUTUBE', 'TIKTOK'):
-            return 'videos'
-        return 'community'
-    elif category == 'PREDICTION':
-        return 'predictions'
-    elif category == 'REFERRAL':
-        return 'referrals'
-    elif category == 'EDUCATION':
-        return 'learn'
-    elif category == 'EVENTS':
-        return 'seasonal'
-    elif category == 'SPONSORED':
-        return 'sponsored'
-    elif category == 'CUSTOM':
-        return 'featured'
-
-    # Map by type
-    if task_type in ('daily', 'streak'):
-        return 'daily'
-    elif task_type == 'once':
-        return 'featured'
-    elif task_type == 'timer':
-        return 'videos'
-    elif task_type in ('social', 'engagement', 'telegram', 'twitter', 'tiktok', 'youtube', 'discord'):
-        return 'community'
-    elif task_type == 'referral':
-        return 'referrals'
-    elif task_type == 'prediction':
-        return 'predictions'
-    elif task_type == 'education':
-        return 'learn'
-    elif task_type == 'event':
-        return 'seasonal'
-    elif task_type in ('website', 'app_install'):
-        return 'apps'
-    elif task_type == 'premium':
-        return 'featured'
-    elif task_type == 'chain':
-        return 'seasonal'
-
-    return 'featured'
-
 @app.route('/api/marketplace/search', methods=['GET', 'POST'])
 def search_marketplace_opportunities():
     """Backend-aware discovery & search engine endpoint operating on normalized opportunities."""
@@ -5078,8 +4517,10 @@ def search_marketplace_opportunities():
     enabled_cats = set([c.lower() for c in (cfg_data.get('enabledCategories') or [])])
     prioritized_map = cfg_data.get('prioritizedCampaigns') or {}
 
-    # Fetch active tasks from Firestore (no category filter in query to support perfect 1:1 mapping on the fly)
+    # Fetch active tasks from Firestore using indexed query where available (bounded reads)
     query_ref = db.collection('tasks').where('active', '==', True)
+    if category and category != 'all':
+        query_ref = query_ref.where('category', '==', category.upper())
 
     # Limit maximum Firestore scan to 500 documents for safety
     tasks_snap = query_ref.limit(500).stream()
@@ -5091,11 +4532,7 @@ def search_marketplace_opportunities():
             continue
 
         data = doc.to_dict() or {}
-        task_cat = map_db_category_to_marketplace(data.get('category'), data.get('type'), data.get('platform'))
-
-        # Category filter matching
-        if category and category != 'all' and task_cat != category.lower():
-            continue
+        task_cat = data.get('category', 'CUSTOM').lower()
 
         # Exclude disabled categories
         if task_cat in disabled_cats or data.get('category', '').upper() in disabled_cats:
@@ -5505,7 +4942,7 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         total_cb = approved_cb + failed_cb
         cb_success_rate = round((approved_cb / total_cb) * 100, 1) if total_cb > 0 else 100.0
         avg_latency = safe_float(stats.get('avgLatencyMs', 120.0))
-        health_info = _compute_operational_status(p_id, p_data)
+        health_info = _compute_operational_status(p_data)
         
         status_raw = health_info.get('status', 'offline')
         if status_raw == 'waiting_first_callback':

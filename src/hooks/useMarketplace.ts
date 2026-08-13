@@ -34,7 +34,7 @@ import {
 import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
-import { normalizeProviderOffer, generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
+import { normalizeProviderOffer } from '../engines/marketplace/OpportunityNormalizer';
 import { validateExternalUrl } from '../utils/security';
 
 // ─── Hook Interface ────────────────────────────────────────────────────────────
@@ -164,38 +164,27 @@ export function useMarketplace(): UseMarketplaceReturn {
       });
 
       if (res.success && res.providers) {
-        const providerList: ProviderInventory[] = res.providers.map((p: any) => {
-          let offers = p.offers || [];
-          let opportunities: MarketplaceOpportunity[] = [];
-
-          if (offers.length === 0 && p.launchUrl) {
-            opportunities = [generateSyntheticProviderOpportunity(p)];
-          } else {
-            opportunities = offers.map((offer: any) =>
-              normalizeProviderOffer({
-                offerId: offer.id || offer.offerId,
-                providerId: p.id,
-                providerName: p.name,
-                title: offer.title || offer.name,
-                description: offer.description || '',
-                rewardAmount: offer.points || offer.reward || 0,
-                xpReward: offer.xp || 10,
-                estimatedTime: offer.time || offer.estimatedTime,
-                thumbnail: offer.thumbnail || offer.image,
-                category: offer.category,
-                actionUrl: offer.url || offer.actionUrl,
-              })
-            );
-          }
-
-          return {
-            providerId: p.id,
-            providerName: p.name,
-            opportunities,
-            lastSyncedAt: new Date(),
-            connectionStatus: 'connected',
-          };
-        });
+        const providerList: ProviderInventory[] = res.providers.map((p: any) => ({
+          providerId: p.id,
+          providerName: p.name,
+          opportunities: (p.offers || []).map((offer: any) =>
+            normalizeProviderOffer({
+              offerId: offer.id || offer.offerId,
+              providerId: p.id,
+              providerName: p.name,
+              title: offer.title || offer.name,
+              description: offer.description || '',
+              rewardAmount: offer.points || offer.reward || 0,
+              xpReward: offer.xp || 10,
+              estimatedTime: offer.time || offer.estimatedTime,
+              thumbnail: offer.thumbnail || offer.image,
+              category: offer.category,
+              actionUrl: offer.url || offer.actionUrl,
+            })
+          ),
+          lastSyncedAt: new Date(),
+          connectionStatus: 'connected',
+        }));
 
         setProviders(providerList);
         

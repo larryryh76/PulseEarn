@@ -15,7 +15,6 @@ import {
   LaunchMode,
 } from '../../types/marketplace';
 import { Task, UserTask, Campaign, TaskCategory, TaskType, SocialPlatform } from '../../types';
-import { evaluateTaskStatus } from '../../utils';
 
 // ─── Internal Task → Opportunity ───────────────────────────────────────────────
 
@@ -210,7 +209,6 @@ export function normalizeProviderOffer(
   // Map provider category to marketplace category
   const marketplaceCategory = mapProviderCategoryToMarketplace(category || '');
 
-  const points = rewardAmount >= 1000001 ? 100000 : rewardAmount;
   return {
     id: `provider_${providerId}_${offerId}`,
     source: 'provider',
@@ -223,7 +221,7 @@ export function normalizeProviderOffer(
     requirements: '',
 
     reward: {
-      points,
+      points: rewardAmount,
       xp: xpReward,
     },
 
@@ -258,16 +256,92 @@ export function normalizeProviderOffer(
 
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
+function parseTimestampDate(val: any): Date | undefined {
+  if (!val) return undefined;
+  if (typeof val.toDate === 'function') return val.toDate();
+  if (val instanceof Date) return val;
+  if (typeof val === 'number') return new Date(val);
+  if (typeof val === 'string') {
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  if (typeof val === 'object' && val.seconds !== undefined) {
+    return new Date(val.seconds * 1000);
+  }
+  return undefined;
+}
+
 function getTaskStatus(task: Task, userTask?: UserTask): OpportunityStatus {
   if (!userTask) return 'available';
-  const res = evaluateTaskStatus(task, userTask);
-  return res.status as OpportunityStatus;
+
+  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+  const statusStr = (userTask.status || '').toLowerCase();
+
+  switch (statusStr) {
+    case 'completed':
+    case 'claimed':
+    case 'verified': {
+      if (cooldownHours <= 0) return 'completed';
+      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+      if (last) {
+        const elapsedMs = Date.now() - last.getTime();
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        if (elapsedMs < cooldownMs) {
+          return 'cooldown';
+        }
+      }
+      return 'available';
+    }
+    case 'on_cooldown':
+    case 'cooldown': {
+      if (cooldownHours <= 0) return 'completed';
+      const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+      if (last) {
+        const elapsedMs = Date.now() - last.getTime();
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        if (elapsedMs < cooldownMs) {
+          return 'cooldown';
+        }
+      }
+      return 'available';
+    }
+    case 'started':
+    case 'in_progress':
+      return 'started';
+    case 'submitted':
+      return 'submitted';
+    case 'pending':
+    case 'awaiting_verification':
+      return 'pending';
+    case 'rejected':
+      return 'rejected';
+    case 'expired':
+      return 'expired';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'available';
+  }
 }
 
 function getNextAvailableTime(task: Task, userTask?: UserTask): Date | undefined {
   if (!userTask) return undefined;
-  const res = evaluateTaskStatus(task, userTask);
-  return res.nextAvailable;
+  const status = userTask.status;
+  if (status !== 'completed' && status !== 'on_cooldown' && status !== 'cooldown') {
+    return undefined;
+  }
+  const cooldownHours = task.cooldownPeriod ?? task.cooldownHours ?? 0;
+  if (cooldownHours <= 0) return undefined;
+
+  const last = parseTimestampDate(userTask.lastCompleted || userTask.completedAt || userTask.updatedAt);
+  if (!last) return undefined;
+
+  const cooldownMs = cooldownHours * 60 * 60 * 1000;
+  const nextTime = new Date(last.getTime() + cooldownMs);
+  if (nextTime.getTime() > Date.now()) {
+    return nextTime;
+  }
+  return undefined;
 }
 
 // ─── Category Mapping ─────────────────────────────────────────────────────────
@@ -538,108 +612,4 @@ export function mergeOpportunities(
 
     return 0;
   });
-}
-
-/**
- * Consolidated capability-driven fallback generator for enabled/connected providers
- * that have empty static opportunities. Ensures providers are never silently hidden
- * and can be securely launched directly from the Marketplace.
- */
-export function generateSyntheticProviderOpportunity(p: {
-  id: string;
-  name: string;
-  description?: string;
-  maximumReward?: number;
-  minimumReward?: number;
-  userSharePct?: number;
-  launchUrl: string;
-  logo?: string;
-  logoUrl?: string;
-  stats?: any;
-}): MarketplaceOpportunity {
-  const stats = p.stats || {};
-  const approved = Number(stats.approvedRewards || 0);
-
-  if (!p.launchUrl) {
-    return {
-      id: `provider_${p.id}_channel`,
-      source: 'provider',
-      providerId: p.id,
-      providerName: p.name,
-      title: `${p.name} (Incomplete)`,
-      description: `Provider configuration incomplete.`,
-      instructions: `This provider is currently unavailable because its credentials or identity fields are incomplete. Please contact the administrator.`,
-      reward: {
-        points: 0,
-        xp: 0,
-      },
-      metadata: {
-        category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
-        difficulty: 'medium',
-        estimatedTime: 'Unknown',
-        verificationType: 'automated',
-        launchMode: 'inline',
-        artwork: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-        thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-        tags: ['offerwall', p.id],
-      },
-      engagement: {
-        completionRate: 0,
-        averageReward: 0,
-        totalCompletions: 0,
-        trending: false,
-        isNew: false,
-      },
-      status: 'configuration_required',
-      action: {
-        actionType: 'claim',
-      },
-    };
-  }
-
-  // No fabricated statistics unless we have actual approved counts
-  const totalCompletions = approved;
-  const completionRate = approved > 0 ? 1.0 : 0.0;
-  const averageReward = approved > 0 ? Number(p.minimumReward || 100) : 0;
-
-  let maxPoints = Number(p.maximumReward || 10000);
-  if (maxPoints >= 1000001) {
-    maxPoints = 100000;
-  }
-  return {
-    id: `provider_${p.id}_channel`,
-    source: 'provider',
-    providerId: p.id,
-    providerName: p.name,
-    title: `${p.name} Offerwall`,
-    description: p.description || `Complete tasks, surveys, and app installations on ${p.name} to earn rewards.`,
-    instructions: `Click 'Start Opportunity' below to securely launch the ${p.name} portal, browse available offers, and earn rewards instantly.`,
-    reward: {
-      points: maxPoints,
-      xp: 50,
-    },
-    metadata: {
-      category: p.id === 'cpxresearch' || p.id === 'bitlabs' ? 'surveys' : 'featured',
-      difficulty: 'medium',
-      estimatedTime: 'Ongoing',
-      verificationType: 'automated',
-      launchMode: 'redirect',
-      artwork: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-      thumbnail: p.logo || p.logoUrl || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-      tags: ['offerwall', p.id],
-    },
-    engagement: {
-      completionRate,
-      averageReward,
-      totalCompletions,
-      trending: approved > 5,
-      isNew: false,
-    },
-    status: 'available',
-    action: {
-      url: p.launchUrl,
-      actionType: 'url',
-      trackingId: p.id,
-    },
-  };
 }

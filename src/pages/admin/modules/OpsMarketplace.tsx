@@ -11,7 +11,7 @@
  * - Marketplace Revenue
  * - Marketplace Opportunities
  * - Categories
- * - Provider Health (from /api/admin/marketplace/health)
+ * - Provider Health
  * - Top Opportunities
  * - Featured Campaigns
  * - Pending Approvals
@@ -20,25 +20,6 @@
  * - Recent Marketplace Activity
  * 
  * Everything links into the specialist modules.
- * 
- * ─────────────────────────────────────────────────────────────────────────────
- * PHASE 9: OPERATIONAL INTELLIGENCE
- * 
- * Backend Endpoint: /api/admin/marketplace/health
- * 
- * This endpoint returns real-time operational metrics:
- * - MarketplaceOperationalOverview (from types/marketplace.ts)
- * - ProviderHealthMetrics[] with calculated dynamic tiers
- * - CampaignHealthMetrics for ecosystem health
- * - OpportunityQualityMetrics for inventory quality
- * - EconomyMarketplaceImpact for financial impact
- * - MarketplaceUserBehavior for user engagement
- * - IntegrityIssues[] for detected system problems
- * - ActiveAlerts for operational warnings
- * 
- * Integration: This admin module can be enhanced to fetch and display
- * this health data once the backend endpoint is implemented.
- * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import React, { useState, useEffect } from 'react';

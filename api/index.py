@@ -4729,9 +4729,10 @@ def cpagrip_callback():
     expected_secret = str(identity_fields.get('secret', {}).get('value', '')).strip() or str(cfg.get('secret', '')).strip()
     received_key = params.get('key') or params.get('secret') or params.get('signature')
 
-    if expected_secret and received_key != expected_secret:
+    # Fail-closed validation check
+    if not expected_secret or not received_key or received_key != expected_secret:
         _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'error',
-                               f'CPAGrip callback unauthorized: postback secret key mismatch.')
+                               'CPAGrip callback unauthorized: postback secret key is missing or incorrect.')
         return "OK", 200
 
     # 4. Validate user profile is active
@@ -4775,7 +4776,8 @@ def cpagrip_callback():
         return "OK", 200
 
     # 8. Create unified callback audit trail (PENDING initially)
-    dedup_key = f"cpagrip:{click_id}"
+    # Model conversion and reversal as separate idempotent events (idempotency key design)
+    dedup_key = f"cpagrip:reversal:{click_id}" if is_reversal else f"cpagrip:credit:{click_id}"
     callback_ref = db.collection('offerwall_callbacks').document()
     callback_id = callback_ref.id
     callback_data = {
@@ -4813,6 +4815,12 @@ def cpagrip_callback():
         dedup_ref = db.collection('offerwall_callbacks').document(dedup_key)
         if dedup_ref.get(transaction=txn).exists:
             raise Exception("DUPLICATE_CONVERSION_BLOCKED")
+
+        # Reversal guard: only allow reversal if the original conversion exists
+        if is_reversal:
+            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{click_id}")
+            if not credit_ref.get(transaction=txn).exists:
+                raise Exception("REVERSAL_BEFORE_CONVERSION_BLOCKED")
 
         u_snap = user_ref.get(transaction=txn)
         if not u_snap.exists:

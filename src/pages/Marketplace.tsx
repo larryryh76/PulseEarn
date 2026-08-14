@@ -55,6 +55,7 @@ export interface Provider {
   maximumReward?: number;
   launchUrl?: string | null;
   embeddable?: boolean;
+  offers?: MarketplaceOpportunity[];
 }
 
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
@@ -191,7 +192,7 @@ export const Marketplace: React.FC = () => {
         const currentEngineState = getMarketplaceState();
         res.providers.forEach((p: Provider) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          const existingOpps = match?.opportunities || [];
+          const existingOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,

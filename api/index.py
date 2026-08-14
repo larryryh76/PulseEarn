@@ -2629,6 +2629,22 @@ PROVIDERS_ADAPTERS = {
         'researchRequired': True,
         'fields': [],
         'identityFields': {}
+    },
+    'cpagrip': {
+        'name': 'CPAGrip',
+        'isLocked': False,
+        'fields': [
+            {'key': 'affiliateId', 'label': 'Publisher ID / Account ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 123456'},
+            {'key': 'apiKey', 'label': 'User Key / API Key', 'required': True, 'type': 'text', 'placeholder': 'e.g. abc123xyz456'},
+            {'key': 'secret', 'label': 'Tracking Domain / Secret Key', 'required': True, 'type': 'password', 'placeholder': 'Postback/Secret key'}
+        ],
+        'identityFields': {
+            'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 123456'},
+            'apiKey': {'name': 'User Key / API Key', 'required': True, 'type': 'text', 'placeholder': 'e.g. abc123xyz456'},
+            'secret': {'name': 'Secret Key', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Postback Key'}
+        },
+        'primaryLaunchField': 'publisherId',
+        'launchTemplate': 'https://www.cpagrip.com/show.php?l=0&u={uid}&id={publisherId}'
     }
 }
 
@@ -2762,6 +2778,15 @@ OFFERWALL_PROVIDER_REGISTRY = {
         'is_locked': True,
         'research_required': True,
         'success_response': 'OK',
+    },
+    'cpagrip': {
+        'label': 'CPAGrip',
+        'user_param': 'user_id', 'tx_param': 'tracking_id', 'offer_param': 'offer_id',
+        'offer_name_param': 'offer_title', 'amount_param': 'payout',
+        'usd_param': 'payout', 'sig_param': 'signature', 'sig_method': 'none',
+        'sig_fields': [],
+        'success_response': 'OK',
+        'ip_whitelist': [],
     }
 }
 
@@ -4334,6 +4359,112 @@ def _is_provider_gated(cfg):
     return False, status
 
 
+_cpagrip_feed_cache = {}
+
+def _get_cpagrip_offers_cached(pub_id, api_key):
+    global _cpagrip_feed_cache
+    now = time.time()
+    cache_key = f"{pub_id}:{api_key}"
+
+    if cache_key in _cpagrip_feed_cache:
+        cached_time, offers = _cpagrip_feed_cache[cache_key]
+        if now - cached_time < 300: # 5 min TTL
+            return offers
+
+    # Fetch from CPAGrip JSON Offer Feed
+    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}&key={api_key}"
+    get_deps()
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            _cpagrip_feed_cache[cache_key] = (now, offers)
+            return offers
+    except Exception as e:
+        print(f"[CPAGrip] Failed to fetch offer feed: {e}")
+
+    if cache_key in _cpagrip_feed_cache:
+        return _cpagrip_feed_cache[cache_key][1]
+    return []
+
+def _normalize_cpagrip_offer(offer, uid, config, host_url):
+    offer_id = str(offer.get('offer_id', ''))
+    title = offer.get('title', 'CPAGrip Offer')
+    desc = offer.get('description', '')
+    payout = safe_float(offer.get('payout', '0'))
+
+    multiplier = float(config.get('rewardMultiplier', 1.0))
+    user_share = float(config.get('userSharePct', 0.30))
+    platform_share = float(config.get('platformSharePct', 0.70))
+
+    gross_points = payout * OFFERWALL_POINTS_PER_USD * multiplier
+    user_points = round(gross_points * user_share)
+    platform_points = round(gross_points * platform_share)
+
+    cat = str(offer.get('category', 'other')).lower()
+    if 'survey' in cat or 'poll' in cat:
+        category = 'surveys'
+    elif 'game' in cat or 'play' in cat:
+        category = 'games'
+    elif 'app' in cat or 'install' in cat or 'download' in cat:
+        category = 'apps'
+    elif 'shop' in cat or 'purchase' in cat:
+        category = 'shopping'
+    else:
+        category = 'featured'
+
+    tracking_url = f"{host_url}/api/offerwall/launch/cpagrip?offer_id={offer_id}&uid={uid}"
+
+    return {
+        'id': f"cpagrip_{offer_id}",
+        'providerId': 'cpagrip',
+        'providerOfferId': offer_id,
+        'source': 'provider',
+        'providerName': 'CPAGrip',
+        'type': 'offer',
+        'title': title,
+        'description': desc,
+        'instructions': desc,
+        'requirements': offer.get('instructions', ''),
+        'image': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+        'reward': {
+            'points': user_points,
+            'xp': max(5, round(user_points * 0.15))
+        },
+        'providerPayout': payout,
+        'userReward': user_points,
+        'platformRevenue': platform_points,
+        'currency': 'PTS',
+        'metadata': {
+            'category': category,
+            'difficulty': 'medium',
+            'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
+            'verificationType': 'automated',
+            'launchMode': 'redirect',
+            'artwork': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'thumbnail': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'tags': ['offerwall', 'cpagrip']
+        },
+        'country': offer.get('countries', ['GLOBAL']),
+        'device': offer.get('devices', ['ALL']),
+        'action': {
+            'url': tracking_url,
+            'actionType': 'url',
+            'trackingId': offer_id
+        },
+        'verificationType': 'automated',
+        'status': 'available',
+        'engagement': {
+            'completionRate': 1.0,
+            'averageReward': user_points,
+            'totalCompletions': 0,
+            'trending': False,
+            'isNew': False
+        },
+        'createdAt': datetime.now(timezone.utc).isoformat()
+    }
+
 # ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
 @app.route('/api/offerwall/user-providers', methods=['GET'])
 @verify_token
@@ -4345,6 +4476,14 @@ def offerwall_user_providers():
     db = firestore.client()
 
     uid = request.user['uid']
+
+    # Performance Optimization: Hoist user document query outside of any loop
+    user_country = 'US'
+    u_doc = db.collection('users').document(uid).get()
+    if u_doc.exists:
+        u_data = u_doc.to_dict() or {}
+        user_country = str(u_data.get('region') or u_data.get('country') or 'US').upper()
+
     snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
     providers = []
     for s in snaps:
@@ -4360,6 +4499,30 @@ def offerwall_user_providers():
             max_reward = safe_int(d.get('maximumReward'), 100000)
             if max_reward >= 1000001:
                 max_reward = 100000
+
+            # Fetch and normalize CPAGrip offers if enabled
+            offers = []
+            if s.id == 'cpagrip':
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if pub_id and api_key:
+                    host_url = request.url_root.rstrip('/')
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+                    for o in raw_offers:
+                        # Country check (handle missing country metadata gracefully)
+                        countries_raw = o.get('countries')
+                        if not countries_raw:
+                            single_country = o.get('country')
+                            o_countries = [single_country] if single_country else ['GLOBAL']
+                        else:
+                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
+                        o_countries = [c.upper() for c in o_countries if c]
+
+                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
+                            continue
+
+                        offers.append(_normalize_cpagrip_offer(o, uid, d, host_url))
+
             providers.append({
                 'id': s.id,
                 'name': d.get('name', s.id),
@@ -4379,7 +4542,7 @@ def offerwall_user_providers():
                 'launchUrl': launch_url,
                 'embeddable': bool(embeddable),
                 'stats': d.get('stats') or {},
-                'offers': []
+                'offers': offers
             })
         except Exception as e:
             logging.error(f"[user-providers] Failed to parse provider document '{s.id}': {e}")
@@ -4445,6 +4608,355 @@ def offerwall_launch_url(provider_id):
         'launchUrl': launch_url,
         'embeddable': embeddable
     })
+
+
+@app.route('/api/offerwall/launch/cpagrip', methods=['GET'])
+def cpagrip_launch_offer():
+    """Secure CPAGrip Click Flow tracking. Creates the click audit record and redirects to CPAGrip."""
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+
+    uid = request.args.get('uid', '').strip()
+    offer_id = request.args.get('offer_id', '').strip()
+
+    if not uid or not offer_id:
+        return "Missing user or offer identifier.", 400
+
+    # 1. Verify user exists and is active
+    user_ref = db.collection('users').document(uid)
+    user_snap = user_ref.get()
+    if not user_snap.exists:
+        return "Invalid user session.", 403
+    user_data = user_snap.to_dict() or {}
+    if user_data.get('banned') or user_data.get('status') in ('SUSPENDED', 'BANNED', 'FROZEN'):
+        return "Account is under suspension.", 403
+
+    # 2. Get provider config to fetch feed
+    p_ref = db.collection('offerwall_providers').document('cpagrip')
+    p_snap = p_ref.get()
+    if not p_snap.exists or not p_snap.to_dict().get('enabled'):
+        return "CPAGrip channel is currently disabled.", 400
+    cfg = p_snap.to_dict()
+
+    # 3. Retrieve raw offer link from cache
+    pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip()
+    api_key = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip()
+
+    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+    matching_offer = next((o for o in raw_offers if str(o.get('offer_id')) == offer_id), None)
+
+    if not matching_offer:
+        return "Offer is expired or no longer available.", 404
+
+    raw_link = matching_offer.get('link', '')
+    if not raw_link:
+        return "Launch URL is missing from offer.", 400
+
+    # 4. Create offer-click record (secure unpredictable click ID)
+    import secrets
+    click_id = f"grip_clk_{secrets.token_urlsafe(24)}"
+    db.collection('offer_clicks').document(click_id).set({
+        'id': click_id,
+        'userId': uid,
+        'providerId': 'cpagrip',
+        'offerId': offer_id,
+        'status': 'CLICKED',
+        'timestamp': firestore.SERVER_TIMESTAMP,
+        'offerTitle': matching_offer.get('title'),
+        'payout': safe_float(matching_offer.get('payout'))
+    })
+
+    # 5. Generate tracking URL (append tracking_id parameter)
+    joiner = '&' if '?' in raw_link else '?'
+    tracking_url = f"{raw_link}{joiner}tracking_id={click_id}"
+
+    # 6. Redirect to CPAGrip
+    from flask import redirect
+    return redirect(tracking_url, code=302)
+
+
+@app.route('/api/offerwall/callback/cpagrip', methods=['GET', 'POST'])
+def cpagrip_callback():
+    """
+    Dedicated CPAGrip postback endpoint.
+    Processes conversion events, validates click records, prevents duplicates,
+    runs fraud checks, and atomically credits user points via PointTransactionEngine.
+    """
+    get_deps()
+    if not init_firebase():
+        return "OK", 200 # Fail-safe ACK
+    db = firestore.client()
+
+    # 1. Parse parameters
+    if request.method == 'GET':
+        params = dict(request.args)
+    else:
+        params = {**dict(request.args), **(request.get_json(force=True, silent=True) or {}), **request.form}
+    params = {k: (v[0] if isinstance(v, list) else str(v)) for k, v in params.items()}
+
+    click_id = params.get('tracking_id') or params.get('sid') or params.get('user_id')
+    status_str = params.get('status', 'lead')
+
+    if not click_id:
+        return "OK", 200
+
+    # 2. Look up click tracking identifier
+    click_ref = db.collection('offer_clicks').document(click_id)
+    click_snap = click_ref.get()
+
+    if not click_snap.exists:
+        _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
+                               f'Click tracking record not found: {click_id}')
+        return "OK", 200
+
+    click_data = click_snap.to_dict() or {}
+    user_id = click_data.get('userId')
+    offer_id = click_data.get('offerId')
+    offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
+
+    # Secure clamp: accept ONLY the server-stored payout mapped at launch time
+    payout = safe_float(click_data.get('payout', 0.0))
+
+    # Load CPAGrip configurations for security verification
+    p_ref = db.collection('offerwall_providers').document('cpagrip')
+    p_snap = p_ref.get()
+    cfg = p_snap.to_dict() if p_snap.exists else {}
+
+    # 2b. Signature / Security Postback Key Verification
+    identity_fields = cfg.get('identity', {})
+    expected_secret = str(identity_fields.get('secret', {}).get('value', '')).strip() or str(cfg.get('secret', '')).strip()
+    received_key = params.get('key') or params.get('secret') or params.get('signature')
+
+    # Fail-closed validation check
+    if not expected_secret or not received_key or received_key != expected_secret:
+        _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'error',
+                               'CPAGrip callback unauthorized: postback secret key is missing or incorrect.')
+        return "OK", 200
+
+    # 4. Validate user profile is active
+    user_ref = db.collection('users').document(user_id)
+    user_snap = user_ref.get()
+    if not user_snap.exists:
+        return "OK", 200
+    user_data = user_snap.to_dict() or {}
+
+    # 5. Fraud Gate
+    fraud_flags = []
+    if user_data.get('banned') or user_data.get('status') in ('SUSPENDED', 'BANNED', 'FROZEN'):
+        fraud_flags.append('USER_BANNED')
+    if user_data.get('isFlagged') or safe_float(user_data.get('riskScore')) >= 80:
+        fraud_flags.append('USER_FLAGGED')
+
+    if fraud_flags:
+        _write_offerwall_event(db, 'cpagrip', 'fraud_blocked', 'error',
+                               f'CPAGrip callback fraud-blocked for user {user_id}: {fraud_flags}',
+                               metadata={'clickId': click_id, 'fraudFlags': fraud_flags})
+        return "OK", 200
+
+    multiplier = float(cfg.get('rewardMultiplier', 1.0))
+    user_share = float(cfg.get('userSharePct', 0.30))
+    platform_share = float(cfg.get('platformSharePct', 0.70))
+    min_reward = int(cfg.get('minimumReward', 1))
+    max_reward = int(cfg.get('maximumReward', 100000))
+
+    # 7. Points Calculation (Authoritative $1 USD = 1000 Points economy base)
+    gross_points = payout * OFFERWALL_POINTS_PER_USD * multiplier
+    total_pts = min(max(abs(round(gross_points)), min_reward), max_reward)
+    user_points = round(total_pts * user_share)
+    platform_points = round(total_pts * platform_share)
+
+    is_reversal = (status_str.lower() in ('reversed', 'chargeback', 'refunded', 'cancelled'))
+    if is_reversal:
+        user_points = -abs(user_points)
+        platform_points = -abs(platform_points)
+
+    if abs(user_points) <= 0:
+        return "OK", 200
+
+    # 8. Create unified callback audit trail (PENDING initially)
+    # Model conversion and reversal as separate idempotent events (idempotency key design)
+    dedup_key = f"cpagrip:reversal:{click_id}" if is_reversal else f"cpagrip:credit:{click_id}"
+    callback_ref = db.collection('offerwall_callbacks').document()
+    callback_id = callback_ref.id
+    callback_data = {
+        'providerId': 'cpagrip',
+        'providerName': 'CPAGrip',
+        'userId': user_id,
+        'offerId': offer_id,
+        'offerName': offer_title,
+        'rawAmount': payout,
+        'usdRevenue': payout,
+        'providerTransactionId': click_id,
+        'dedupKey': dedup_key,
+        'signatureValid': True,
+        'isDuplicate': False,
+        'fraudBlocked': False,
+        'status': 'PENDING',
+        'pointsAwarded': total_pts,
+        'userPoints': user_points,
+        'platformPoints': platform_points,
+        'ipAddress': params.get('ip', 'unknown'),
+        'receivedAt': firestore.SERVER_TIMESTAMP,
+        'processedAt': None,
+        'rawPayload': params,
+        'auditTrail': [f'Received CPAGrip postback: click {click_id}, points {user_points}']
+    }
+    callback_ref.set(callback_data)
+
+    # 9. Atomic Economy Transaction
+    claim_id = f"offerwall_cpagrip_{click_id}"
+    xp_reward = 0 if is_reversal else max(1, user_points // 10)
+
+    @firestore.transactional
+    def process_cpagrip_reward(txn):
+        # 3. Check duplicate conversion atomically inside transaction
+        dedup_ref = db.collection('offerwall_callbacks').document(dedup_key)
+        if dedup_ref.get(transaction=txn).exists:
+            raise Exception("DUPLICATE_CONVERSION_BLOCKED")
+
+        # Reversal guard: only allow reversal if the original conversion exists
+        if is_reversal:
+            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{click_id}")
+            if not credit_ref.get(transaction=txn).exists:
+                raise Exception("REVERSAL_BEFORE_CONVERSION_BLOCKED")
+
+        u_snap = user_ref.get(transaction=txn)
+        if not u_snap.exists:
+            raise Exception("USER_NOT_FOUND")
+        u = u_snap.to_dict() or {}
+        current_pts = float(u.get('points', 0) or 0)
+        current_xp = float(u.get('xp', 0) or 0)
+        balance_after = current_pts + user_points
+        new_xp = current_xp + xp_reward
+
+        from math import floor, log
+        base_xp = 1000
+        if new_xp < base_xp:
+            new_level = 1
+        else:
+            new_level = int(floor(log(new_xp / base_xp) / log(3))) + 2
+
+        txn.update(user_ref, {
+            'points': firestore.Increment(user_points),
+            'xp': firestore.Increment(xp_reward),
+            'level': new_level,
+            'totalEarnedToday': firestore.Increment(user_points),
+            'stats.totalEarnings': firestore.Increment(user_points),
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        reward_ref = db.collection('offerwall_rewards').document()
+        txn.set(reward_ref, {
+            'userId': user_id,
+            'callbackId': callback_id,
+            'providerId': 'cpagrip',
+            'providerName': 'CPAGrip',
+            'offerId': offer_id,
+            'offerName': offer_title,
+            'pointsAwarded': total_pts,
+            'userPoints': user_points,
+            'platformPoints': platform_points,
+            'status': 'APPROVED',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        ledger_tx_type = 'offerwall_chargeback' if is_reversal else 'offerwall_reward'
+        activity_type = 'chargeback_issued' if is_reversal else 'reward_received'
+        post_ledger(txn, user_ref, user_id,
+                    tx_type=ledger_tx_type,
+                    amount=user_points,
+                    xp=(0 if is_reversal else xp_reward),
+                    source='Offerwall: CPAGrip',
+                    description=f'{"Chargeback" if is_reversal else "Offer completed"}: {offer_title}',
+                    claim_id=claim_id,
+                    reference_id=click_id,
+                    balance_after=balance_after,
+                    activity_type=activity_type,
+                    metadata={
+                        'providerId': 'cpagrip',
+                        'providerName': 'CPAGrip',
+                        'offerId': offer_id,
+                        'offerName': offer_title,
+                        'rawAmount': payout,
+                        'totalPoints': total_pts,
+                        'userPoints': user_points,
+                        'platformPoints': platform_points,
+                        'callbackId': callback_id,
+                        'isReversal': is_reversal
+                    })
+
+        task_hist_ref = user_ref.collection('task_history').document()
+        txn.set(task_hist_ref, {
+            'claimId': claim_id,
+            'taskType': 'offerwall',
+            'providerId': 'cpagrip',
+            'providerName': 'CPAGrip',
+            'offerId': offer_id,
+            'offerName': offer_title,
+            'resolvedStatus': 'APPROVED',
+            'pointsAwarded': user_points,
+            'xpAwarded': xp_reward,
+            'rawProviderAmount': payout,
+            'totalPointsValue': total_pts,
+            'userShare': user_points,
+            'platformShare': platform_points,
+            'resolvedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        txn.set(db.collection('system_config').document('global_metrics'), {
+            'totalPTSLiability': firestore.Increment(user_points),
+            'offerwallRevenueLifetime': firestore.Increment(total_pts)
+        }, merge=True)
+
+        # Write callback status as REWARD_ISSUED inside transaction
+        txn.set(dedup_ref, {
+            'clickId': click_id,
+            'processed': True,
+            'timestamp': firestore.SERVER_TIMESTAMP
+        })
+
+    try:
+        process_cpagrip_reward(db.transaction())
+
+        callback_status = 'CHARGEBACK_ISSUED' if is_reversal else 'REWARD_ISSUED'
+        callback_ref.update({
+            'status': callback_status,
+            'processedAt': firestore.SERVER_TIMESTAMP,
+            'auditTrail': firestore.ArrayUnion([f'REWARD_ISSUED: {user_points} pts to {user_id}'])
+        })
+
+        db.collection('offerwall_providers').document('cpagrip').set({
+            'stats.approvedRewards': firestore.Increment(1),
+            'stats.totalCallbacks': firestore.Increment(1),
+            'stats.lastSuccessfulCallback': firestore.SERVER_TIMESTAMP,
+            'stats.lastRewardProcessed': firestore.SERVER_TIMESTAMP,
+            'stats.revenueToday': firestore.Increment(total_pts),
+            'stats.revenueThisWeek': firestore.Increment(total_pts),
+            'stats.revenueThisMonth': firestore.Increment(total_pts),
+            'stats.lifetimeRevenue': firestore.Increment(total_pts),
+            'stats.outstandingUserLiability': firestore.Increment(user_points)
+        }, merge=True)
+
+        click_ref.update({'status': 'COMPLETED', 'completedAt': firestore.SERVER_TIMESTAMP})
+
+    except Exception as e:
+        print(f"[CPAGrip Callback] Transaction error: {e}")
+        callback_ref.update({
+            'status': 'REWARD_FAILED',
+            'auditTrail': firestore.ArrayUnion([f'Error: {str(e)}'])
+        })
+        _write_offerwall_event(db, 'cpagrip', 'reward_failed', 'error',
+                               f'Reward failed for cpagrip click {click_id}: {str(e)}')
+        db.collection('offerwall_providers').document('cpagrip').set({
+            'stats.failedCallbacks': firestore.Increment(1),
+            'stats.totalCallbacks': firestore.Increment(1),
+            'stats.lastFailedCallback': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
+    return "OK", 200
 
 
 # ─── User: Get Own Offerwall Rewards ─────────────────────���────────────────────

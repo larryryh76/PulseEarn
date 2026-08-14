@@ -152,6 +152,21 @@ def test_sensitive_bare_words_not_substituted():
     assert "/TOKEN" in url
     assert "token=my_token_abc" in url
 
+def test_cpagrip_preset_launch_and_callback():
+    # CPAGrip presets: launch template, and callback mapping
+    config_cpagrip = {
+        "enabled": True,
+        "identity": {
+            "publisherId": {"fieldName": "Publisher ID", "value": "123456", "required": True},
+            "apiKey": {"fieldName": "API Key", "value": "api_key_abc", "required": True},
+            "secret": {"fieldName": "Secret Key", "value": "secret_postback_xyz", "required": True}
+        }
+    }
+    url, embed = _build_offerwall_launch_url("cpagrip", "", "", "user789", config_cpagrip)
+    assert "id=123456" in url
+    assert "u=user789" in url
+    assert "cpagrip.com" in url
+
 def test_credential_leak_prevention_in_logs(caplog):
     # If placeholder substitution fails, the logged error must NOT contain the fully resolved URL
     config_failed = {
@@ -174,3 +189,43 @@ def test_credential_leak_prevention_in_logs(caplog):
         assert "Validation Failed" in log_text
         assert "bitlabs" in log_text
         assert "sensitive_token_leak" not in log_text
+
+def test_cpagrip_postback_points_calculation_and_extraction():
+    # CPAGrip postback parameters: user_id, tracking_id, payout, offer_id, offer_title
+    from index import OFFERWALL_PROVIDER_REGISTRY
+
+    spec = OFFERWALL_PROVIDER_REGISTRY.get('cpagrip')
+    assert spec is not None
+    assert spec['user_param'] == 'user_id'
+    assert spec['tx_param'] == 'tracking_id'
+    assert spec['amount_param'] == 'payout'
+    assert spec['usd_param'] == 'payout'
+    assert spec['offer_param'] == 'offer_id'
+    assert spec['offer_name_param'] == 'offer_title'
+
+    # Simulate extraction and points calculation on CPAGrip payload
+    params = {
+        'user_id': 'pulseuser101',
+        'tracking_id': 'grip_lead_9999',
+        'payout': '1.50',
+        'offer_id': 'cpagrip_offer_77',
+        'offer_title': 'Test CPAGrip Survey'
+    }
+
+    user_id = params.get(spec['user_param'])
+    tx_id = params.get(spec['tx_param'])
+    payout_usd = float(params.get(spec['usd_param']))
+
+    assert user_id == 'pulseuser101'
+    assert tx_id == 'grip_lead_9999'
+    assert payout_usd == 1.50
+
+    # Authoritative points multiplier: $1 USD = 1000 Points
+    from index import OFFERWALL_POINTS_PER_USD
+    gross_points = payout_usd * OFFERWALL_POINTS_PER_USD
+    assert gross_points == 1500.0
+
+    # User share percentage (e.g. standard 30% user share)
+    user_share_pct = 0.30
+    user_payout_points = round(gross_points * user_share_pct)
+    assert user_payout_points == 450

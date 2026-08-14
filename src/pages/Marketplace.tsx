@@ -160,7 +160,7 @@ export const Marketplace: React.FC = () => {
         const currentEngineState = getMarketplaceState();
         res.providers.forEach((p: any) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          let existingOpps = match?.opportunities || [];
+          let existingOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
 
           if (p.status === 'maintenance') {
             // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.

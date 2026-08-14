@@ -417,13 +417,16 @@ def submit_task():
                 elif isinstance(last, str):
                     try:
                         last_dt = datetime.fromisoformat(last.replace('Z', '+00:00'))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logging.warning(f"[claim_task] Failed to parse last completion timestamp '{last}': {e}")
                 if last_dt:
                     if last_dt.tzinfo is None:
                         last_dt = last_dt.replace(tzinfo=timezone.utc)
                     if (now - last_dt).total_seconds() < cooldown_hours * 3600:
                         raise Exception("ON_COOLDOWN")
+                else:
+                    # Missing or unparseable completion timestamp on a completed task: fallback to already completed
+                    raise Exception("ALREADY_COMPLETED")
 
         # 6. Verification Type & Proof Enforcement
         v_type = (t_data.get('verificationType') or 'manual').lower()
@@ -2994,7 +2997,11 @@ def _offerwall_callback_impl(provider_id, req):
 
     # ── 5b. IP Whitelist Validation (Part 9) ──────────────────────────────────
     ip_whitelist = pmap.get('ip_whitelist') or []
-    is_admin_test = params.get('is_test_sim') == 'true'
+    # Identify simulation/internal test requests securely without trusting client query parameters
+    is_admin_test = (
+        req.headers.get('X-PulseEarn-Internal-Test') == '1' and
+        (req.remote_addr in ('127.0.0.1', '::1', None) or not req.remote_addr)
+    )
 
     # Write initial callback record (outside transaction — dedup needs to read it)
     callback_ref = db.collection('offerwall_callbacks').document()
@@ -3470,8 +3477,8 @@ def _compute_operational_status(config):
         return out('callback_failure', test.get('message', 'Test connection timed out or was rate-limited.'))
 
     # Callback health: repeated signature/processing failures.
-    failed = int(stats.get('failedCallbacks', 0) or 0)
-    approved = int(stats.get('approvedRewards', 0) or 0)
+    failed = safe_int(stats.get('failedCallbacks', 0), 0)
+    approved = safe_int(stats.get('approvedRewards', 0), 0)
     if failed >= 3 and failed >= approved:
         return out('callback_failure', f'Callback Failure: {failed} failed callbacks.')
 
@@ -3841,20 +3848,20 @@ def offerwall_analytics():
     providers = [{**s.to_dict(), 'id': s.id} for s in provider_snaps]
 
     # Aggregate totals
-    gross = sum(p.get('stats', {}).get('lifetimeRevenue', 0) for p in providers)
+    gross = sum(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) for p in providers)
     user_rewards = sum(
-        round(p.get('stats', {}).get('lifetimeRevenue', 0) * float(p.get('userSharePct', 0.30)))
+        round(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) * safe_float(p.get('userSharePct', 0.30), 0.30))
         for p in providers
     )
     platform_rev = gross - user_rewards
-    revenue_today = sum(p.get('stats', {}).get('revenueToday', 0) for p in providers)
-    revenue_week = sum(p.get('stats', {}).get('revenueThisWeek', 0) for p in providers)
-    revenue_month = sum(p.get('stats', {}).get('revenueThisMonth', 0) for p in providers)
-    fraud_total = sum(p.get('stats', {}).get('fraudAlerts', 0) for p in providers)
-    duplicates_total = sum(p.get('stats', {}).get('duplicateCallbackAttempts', 0) for p in providers)
-    approved_total = sum(p.get('stats', {}).get('approvedRewards', 0) for p in providers)
-    rejected_total = sum(p.get('stats', {}).get('rejectedRewards', 0) for p in providers)
-    pending_liabilities = sum(p.get('stats', {}).get('outstandingUserLiability', 0) for p in providers)
+    revenue_today = sum(safe_float(p.get('stats', {}).get('revenueToday', 0), 0.0) for p in providers)
+    revenue_week = sum(safe_float(p.get('stats', {}).get('revenueThisWeek', 0), 0.0) for p in providers)
+    revenue_month = sum(safe_float(p.get('stats', {}).get('revenueThisMonth', 0), 0.0) for p in providers)
+    fraud_total = sum(safe_int(p.get('stats', {}).get('fraudAlerts', 0), 0) for p in providers)
+    duplicates_total = sum(safe_int(p.get('stats', {}).get('duplicateCallbackAttempts', 0), 0) for p in providers)
+    approved_total = sum(safe_int(p.get('stats', {}).get('approvedRewards', 0), 0) for p in providers)
+    rejected_total = sum(safe_int(p.get('stats', {}).get('rejectedRewards', 0), 0) for p in providers)
+    pending_liabilities = sum(safe_float(p.get('stats', {}).get('outstandingUserLiability', 0), 0.0) for p in providers)
 
     # Ingest actual unique active users & average reward directly from the DB
     try:
@@ -4713,7 +4720,6 @@ def offerwall_simulate_reward(provider_id):
         spec['tx_param']: f'sim_{int(_t.time())}',
         spec['offer_param']: 'SIM_OFFER_1',
         spec['amount_param']: amount,
-        'is_test_sim': 'true'
     }
     if spec.get('offer_name_param'):
         params[spec['offer_name_param']] = 'Simulated Admin Test Offer'
@@ -4751,7 +4757,11 @@ def offerwall_simulate_reward(provider_id):
 
     try:
         with app.test_client() as client:
-            resp = client.get(f"/api/offerwall/callback/{provider_id}", query_string=params)
+            resp = client.get(
+                f"/api/offerwall/callback/{provider_id}",
+                query_string=params,
+                headers={'X-PulseEarn-Internal-Test': '1'}
+            )
             response_text = resp.data.decode('utf-8')
             status_code = resp.status_code
 

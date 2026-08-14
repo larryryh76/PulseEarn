@@ -334,13 +334,47 @@ export const Marketplace: React.FC = () => {
     } else if (selectedSecondaryFilter === 'new') {
       list = list.filter(opp => opp.engagement?.isNew || opp.source === 'provider');
     } else if (selectedSecondaryFilter === 'mobile') {
-      list = list.filter(opp => opp.metadata.category === 'apps' || opp.metadata.tags?.some(t => t.toLowerCase().includes('mobile') || t.toLowerCase().includes('app')));
+      list = list.filter(opp => {
+        if (opp.metadata.category === 'apps') return true;
+        return opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
+        });
+      });
     } else if (selectedSecondaryFilter === 'desktop') {
-      list = list.filter(opp => opp.metadata.category === 'surveys' || opp.metadata.category === 'learn' || !opp.metadata.tags?.some(t => t.toLowerCase().includes('mobile only')));
+      list = list.filter(opp => {
+        const isMobileOnly = opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile only') || lower.includes('ios only') || lower.includes('android only');
+        });
+        if (isMobileOnly) return false;
+        if (opp.metadata.category === 'surveys' || opp.metadata.category === 'learn') return true;
+        const isExplicitDesktop = opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('desktop') || lower.includes('web') || lower.includes('browser');
+        });
+        if (isExplicitDesktop) return true;
+        const isAppOrMobile = opp.metadata.category === 'apps' || opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
+        });
+        return !isAppOrMobile;
+      });
     } else if (selectedSecondaryFilter === 'available_now') {
       list = list.filter(opp => opp.status === 'available');
     } else if (selectedSecondaryFilter === 'ending_soon') {
-      list = list.filter(opp => opp.engagement?.expiringSoon || opp.metadata.category === 'limited' || opp.expiresAt);
+      const nowMs = Date.now();
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      list = list.filter(opp => {
+        if (opp.engagement?.expiringSoon || opp.metadata.category === 'limited') return true;
+        if (opp.expiresAt) {
+          const expTime = typeof opp.expiresAt === 'string'
+            ? new Date(opp.expiresAt).getTime()
+            : (opp.expiresAt instanceof Date ? opp.expiresAt.getTime() : 0);
+          return expTime > nowMs && expTime - nowMs <= threeDaysMs;
+        }
+        return false;
+      });
     }
 
     return list;

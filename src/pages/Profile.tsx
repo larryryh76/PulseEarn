@@ -90,7 +90,7 @@ const Profile: React.FC = () => {
     const q = query(
       collection(db, 'referrals'),
       where('referrerId', '==', currentUser.uid),
-      where('status', '==', 'REWARDED')
+      where('status', 'in', ['QUALIFIED', 'REWARDED'])
     );
 
     const unsubscribe = onSnapshot(q, (snap: any) => {

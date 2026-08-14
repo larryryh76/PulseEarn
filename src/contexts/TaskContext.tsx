@@ -99,47 +99,61 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // SCALABILITY OPTIMIZATION: Non-critical historical data fetched via getDocs once on session start
     // Critical state (active tasks/campaigns/progress) remains real-time.
+    // Reset historical state to prevent cross-user data leakage
+    setSubtasks([]);
+    setTaskHistory([]);
+    setPredictions([]);
+
     let isCancelled = false;
     const fetchHistoricalData = async () => {
       const requestUserId = currentUser.uid;
 
       // NOTE: activities are handled by a dedicated real-time listener above; they are
       // intentionally not re-fetched here to avoid a stale one-time snapshot overwriting it.
-      const results = await Promise.allSettled([
-        getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
-        getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
-        getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
-      ]);
+      try {
+        const results = await Promise.allSettled([
+          getDocs(query(collection(db, 'task_claims'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20))),
+          getDocs(query(collection(db, 'users', requestUserId, 'task_history'), orderBy('resolvedAt', 'desc'), limit(20))),
+          getDocs(query(collection(db, 'user_predictions'), where('userId', '==', requestUserId), orderBy('createdAt', 'desc'), limit(20)))
+        ]);
 
-      if (isCancelled || currentUser.uid !== requestUserId) return;
+        if (isCancelled || currentUser.uid !== requestUserId) return;
 
-      if (results[0].status === 'fulfilled') {
-        setSubtasks(results[0].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
-      } else {
-        console.error("[TaskContext] Task Claims Fetch Error:", results[0].reason);
-      }
+        if (results[0].status === 'fulfilled') {
+          setSubtasks(results[0].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskClaim)));
+        } else {
+          console.error("[TaskContext] Task Claims Fetch Error:", results[0].reason);
+        }
 
-      if (results[1].status === 'fulfilled') {
-        setTaskHistory(results[1].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
-      } else {
-        console.error("[TaskContext] Task History Fetch Error:", results[1].reason);
-      }
+        if (results[1].status === 'fulfilled') {
+          setTaskHistory(results[1].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as TaskHistory)));
+        } else {
+          console.error("[TaskContext] Task History Fetch Error:", results[1].reason);
+        }
 
-      if (results[2].status === 'fulfilled') {
-        setPredictions(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
-      } else {
-        console.error("[TaskContext] Predictions Fetch Error:", results[2].reason);
+        if (results[2].status === 'fulfilled') {
+          setPredictions(results[2].value.docs.map((d: QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as PredictionRecord)));
+        } else {
+          console.error("[TaskContext] Predictions Fetch Error:", results[2].reason);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.error("[TaskContext] Error fetching historical data:", err);
+        }
+      } finally {
+        if (!isCancelled && currentUser.uid === requestUserId) {
+          setLoading(false);
+        }
       }
     };
 
     fetchHistoricalData();
 
-    // Mark loading as complete once historical data is fetched
-    setTimeout(() => setLoading(false), 100);
-
     // Safety timeout: If loading is still true after 15 seconds, force it to false
     const loadTimeout = setTimeout(() => {
+      if (!isCancelled) {
         setLoading(false);
+      }
     }, 15000);
 
     return () => {

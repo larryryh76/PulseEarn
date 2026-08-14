@@ -455,13 +455,17 @@ export const MARKETPLACE_CATEGORIES: CategoryConfig[] = [
   { id: 'social', label: 'Social', icon: 'Share2', gradient: ['#06B6D4', '#3B82F6'], color: '#06B6D4' },
   { id: 'missions', label: 'Missions', icon: 'Target', gradient: ['#EC4899', '#8B5CF6'], color: '#EC4899' },
   { id: 'campaigns', label: 'Campaigns', icon: 'Layers', gradient: ['#8B5CF6', '#3B82F6'], color: '#8B5CF6' },
-  { id: 'referrals', label: 'Referrals', icon: 'UserPlus', gradient: ['#EC4899', '#F43F5E'], color: '#EC4899' },
+  { id: 'shopping', label: 'Shopping', icon: 'ShoppingBag', gradient: ['#F59E0B', '#F97316'], color: '#F59E0B' },
+  { id: 'cashback', label: 'Cashback', icon: 'CreditCard', gradient: ['#06B6D4', '#10B981'], color: '#06B6D4' },
+  { id: 'videos', label: 'Videos', icon: 'Play', gradient: ['#EC4899', '#8B5CF6'], color: '#EC4899' },
   { id: 'learn', label: 'Learn & Earn', icon: 'GraduationCap', gradient: ['#84CC16', '#10B981'], color: '#84CC16' },
+  { id: 'community', label: 'Community', icon: 'Users', gradient: ['#06B6D4', '#3B82F6'], color: '#06B6D4' },
+  { id: 'referrals', label: 'Referrals', icon: 'UserPlus', gradient: ['#EC4899', '#F43F5E'], color: '#EC4899' },
+  { id: 'predictions', label: 'Predictions', icon: 'TrendingUp', gradient: ['#8B5CF6', '#06B6D4'], color: '#8B5CF6' },
+  { id: 'seasonal', label: 'Seasonal', icon: 'Gift', gradient: ['#EC4899', '#F97316'], color: '#EC4899' },
   { id: 'sponsored', label: 'Sponsored', icon: 'Star', gradient: ['#3B82F6', '#06B6D4'], color: '#3B82F6' },
   { id: 'limited', label: 'Limited Time', icon: 'Clock', gradient: ['#EF4444', '#F97316'], color: '#EF4444' },
   { id: 'daily', label: 'Daily', icon: 'Flame', gradient: ['#EF4444', '#F97316'], color: '#EF4444' },
-  { id: 'community', label: 'Community', icon: 'Users', gradient: ['#06B6D4', '#3B82F6'], color: '#06B6D4' },
-  { id: 'predictions', label: 'Predictions', icon: 'TrendingUp', gradient: ['#8B5CF6', '#06B6D4'], color: '#8B5CF6' },
 ];
 
 // ─── Difficulty Configuration ──────────────────────────────────────────────────

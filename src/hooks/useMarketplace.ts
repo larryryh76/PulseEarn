@@ -183,7 +183,7 @@ export function useMarketplace(): UseMarketplaceReturn {
             })
           ),
           lastSyncedAt: new Date(),
-          connectionStatus: 'connected',
+          connectionStatus: p.status === 'degraded' ? 'degraded' : (p.status === 'offline' || p.status === 'maintenance' || p.status === 'disabled') ? 'offline' : 'connected',
         }));
 
         setProviders(providerList);

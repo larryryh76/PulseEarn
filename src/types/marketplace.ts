@@ -11,8 +11,12 @@ export type OpportunityCategory =
   | 'featured'
   | 'daily'
   | 'surveys'
-  | 'games'
+  | 'offers'
   | 'apps'
+  | 'games'
+  | 'social'
+  | 'missions'
+  | 'campaigns'
   | 'shopping'
   | 'cashback'
   | 'videos'
@@ -21,7 +25,8 @@ export type OpportunityCategory =
   | 'referrals'
   | 'predictions'
   | 'seasonal'
-  | 'sponsored';
+  | 'sponsored'
+  | 'limited';
 
 export type OpportunityDifficulty = 'easy' | 'medium' | 'hard' | 'elite';
 
@@ -41,10 +46,7 @@ export type OpportunityStatus =
   | 'cancelled'
   | 'cooldown'
   | 'locked'
-  | 'archived'
-  | 'maintenance'
-  | 'unavailable'
-  | 'configuration_required';
+  | 'archived';
 
 export type OpportunitySource = 'internal' | 'provider';
 
@@ -403,7 +405,7 @@ export interface ProviderInventory {
   providerName: string;
   opportunities: MarketplaceOpportunity[];
   lastSyncedAt: Date;
-  connectionStatus: 'connected' | 'degraded' | 'offline' | 'maintenance';
+  connectionStatus: 'connected' | 'degraded' | 'offline';
   errorMessage?: string;
 }
 
@@ -445,20 +447,25 @@ export interface CategoryConfig {
 }
 
 export const MARKETPLACE_CATEGORIES: CategoryConfig[] = [
-  { id: 'featured', label: 'Featured', icon: 'Sparkles', gradient: ['#3B82F6', '#8B5CF6'], color: '#3B82F6' },
-  { id: 'daily', label: 'Daily', icon: 'Flame', gradient: ['#EF4444', '#F97316'], color: '#EF4444' },
+  { id: 'featured', label: 'Recommended', icon: 'Sparkles', gradient: ['#3B82F6', '#8B5CF6'], color: '#3B82F6' },
   { id: 'surveys', label: 'Surveys', icon: 'BarChart3', gradient: ['#10B981', '#3B82F6'], color: '#10B981' },
-  { id: 'games', label: 'Games', icon: 'Trophy', gradient: ['#F59E0B', '#EF4444'], color: '#F59E0B' },
+  { id: 'offers', label: 'Offers', icon: 'Tag', gradient: ['#3B82F6', '#06B6D4'], color: '#3B82F6' },
   { id: 'apps', label: 'Apps', icon: 'Smartphone', gradient: ['#6366F1', '#3B82F6'], color: '#6366F1' },
+  { id: 'games', label: 'Games', icon: 'Gamepad2', gradient: ['#F59E0B', '#EF4444'], color: '#F59E0B' },
+  { id: 'social', label: 'Social', icon: 'Share2', gradient: ['#06B6D4', '#3B82F6'], color: '#06B6D4' },
+  { id: 'missions', label: 'Missions', icon: 'Target', gradient: ['#EC4899', '#8B5CF6'], color: '#EC4899' },
+  { id: 'campaigns', label: 'Campaigns', icon: 'Layers', gradient: ['#8B5CF6', '#3B82F6'], color: '#8B5CF6' },
   { id: 'shopping', label: 'Shopping', icon: 'ShoppingBag', gradient: ['#F59E0B', '#F97316'], color: '#F59E0B' },
   { id: 'cashback', label: 'Cashback', icon: 'CreditCard', gradient: ['#06B6D4', '#10B981'], color: '#06B6D4' },
   { id: 'videos', label: 'Videos', icon: 'Play', gradient: ['#EC4899', '#8B5CF6'], color: '#EC4899' },
-  { id: 'learn', label: 'Learn', icon: 'GraduationCap', gradient: ['#84CC16', '#10B981'], color: '#84CC16' },
+  { id: 'learn', label: 'Learn & Earn', icon: 'GraduationCap', gradient: ['#84CC16', '#10B981'], color: '#84CC16' },
   { id: 'community', label: 'Community', icon: 'Users', gradient: ['#06B6D4', '#3B82F6'], color: '#06B6D4' },
   { id: 'referrals', label: 'Referrals', icon: 'UserPlus', gradient: ['#EC4899', '#F43F5E'], color: '#EC4899' },
   { id: 'predictions', label: 'Predictions', icon: 'TrendingUp', gradient: ['#8B5CF6', '#06B6D4'], color: '#8B5CF6' },
   { id: 'seasonal', label: 'Seasonal', icon: 'Gift', gradient: ['#EC4899', '#F97316'], color: '#EC4899' },
   { id: 'sponsored', label: 'Sponsored', icon: 'Star', gradient: ['#3B82F6', '#06B6D4'], color: '#3B82F6' },
+  { id: 'limited', label: 'Limited Time', icon: 'Clock', gradient: ['#EF4444', '#F97316'], color: '#EF4444' },
+  { id: 'daily', label: 'Daily', icon: 'Flame', gradient: ['#EF4444', '#F97316'], color: '#EF4444' },
 ];
 
 // ─── Difficulty Configuration ──────────────────────────────────────────────────

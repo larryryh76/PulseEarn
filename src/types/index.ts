@@ -430,7 +430,6 @@ export interface TaskHistory {
   id: string;
   userId: string;
   taskId: string;
-  taskType?: string;
   campaignId: string | null;
   campaignName: string;
   taskTitle: string;
@@ -498,15 +497,6 @@ export type OfferwallCallbackStatus =
 
 export type OfferwallRewardStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVERSED';
 
-export interface OfferwallProviderIdentityField {
-  fieldName: string;  // e.g. "Publisher ID"
-  value: string;      // e.g. "123456"
-  required: boolean;  // e.g. true
-  hasValue?: boolean; // metadata showing if value exists on server
-}
-
-export type OfferwallProviderIdentity = Record<string, OfferwallProviderIdentityField>;
-
 export interface OfferwallProvider {
   id: string;                    // slug e.g. 'lootably'
   name: string;                  // Display name e.g. 'Lootably'
@@ -525,7 +515,6 @@ export interface OfferwallProvider {
   affiliateId: string;
   apiKey: string;
   secret: string;
-  identity?: OfferwallProviderIdentity; // dynamic identity fields
   callbackUrl: string;
   webhookUrl: string;
   // Economy

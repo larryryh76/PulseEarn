@@ -3,14 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Zap, Compass, Filter, Search, RefreshCw,
   ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Lock
+  X, Layers, Activity, Info, Lock, ShieldCheck, Globe, Award,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
+import { validateExternalUrl } from '../utils/security';
 import toast from 'react-hot-toast';
 import { cn } from '../utils';
-import { validateExternalUrl } from '../utils/security';
 
 import {
   MarketplaceOpportunity,
@@ -28,13 +29,34 @@ import {
   getMarketplaceState,
 } from '../engines/marketplace/MarketplaceEngine';
 
-import { generateSyntheticProviderOpportunity } from '../engines/marketplace/OpportunityNormalizer';
-
 import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 
+// ─── Secondary Filter Types ───────────────────────────────────────────────────
+export type SecondaryFilter = 'all' | 'highest_reward' | 'quick_earn' | 'new' | 'mobile' | 'desktop' | 'available_now' | 'ending_soon';
 
+// ─── Provider Interface ───────────────────────────────────────────────────────
+export interface Provider {
+  id: string;
+  name: string;
+  logo?: string;
+  status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
+  enabled?: boolean;
+  apiEndpoint?: string;
+  callbackUrl?: string;
+  rewardMultiplier?: number;
+  userSharePct?: number;
+  platformSharePct?: number;
+  priority?: number;
+  description?: string;
+  affiliateId?: string;
+  minimumReward?: number;
+  maximumReward?: number;
+  launchUrl?: string | null;
+  embeddable?: boolean;
+  offers?: MarketplaceOpportunity[];
+}
 
 // ─── Canonical Status Helper ──────────────────────────────────────────────────
 export function getCanonicalStatus(status: string | undefined): {
@@ -62,6 +84,7 @@ export function getCanonicalStatus(status: string | undefined): {
     case 'completed':
     case 'claimed':
     case 'verified':
+    case 'reward_issued':
       return {
         label: 'Completed',
         badgeClass: 'bg-success/10 border-success/20 text-success',
@@ -105,6 +128,7 @@ export const Marketplace: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const { userTasks, tasks, campaigns, activities, taskHistory, unifiedHistory } = useTaskContext();
 
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<number>(0);
@@ -112,12 +136,16 @@ export const Marketplace: React.FC = () => {
   // ─── Filter & Search State ──────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<OpportunityCategory | 'all'>('all');
+  const [selectedSecondaryFilter, setSelectedSecondaryFilter] = useState<SecondaryFilter>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<OpportunityDifficulty | 'all'>('all');
-  const [minRewardFilter, setMinRewardFilter] = useState<number>(0);
   const [sortBy, setSortBy] = useState<'recommended' | 'reward' | 'time' | 'difficulty' | 'newest'>('recommended');
   
   // ─── Drawer Selection State ──────────────────────────────────────────────
   const [selectedOpportunity, setSelectedOpportunity] = useState<MarketplaceOpportunity | null>(null);
+
+  // ─── Centralized Real Economy Rate ─────────────────────────────────────────
+  const userBalancePoints = userData?.points ?? 0;
+  const userBalanceUsd = (userBalancePoints / 1000).toFixed(2);
 
   // ─── Progression Tier Strategy ──────────────────────────────────────────────
   const progressionTier = useMemo(() => {
@@ -134,12 +162,14 @@ export const Marketplace: React.FC = () => {
 
   // ─── Synchronize Marketplace Engine State ───────────────────────────────────
   useEffect(() => {
-    initializeMarketplace(tasks, campaigns, userTasks);
-    updateUserContext(tasks, campaigns, userTasks, userData);
-    setEngineVersion(v => v + 1);
+    if (tasks.length > 0 || campaigns.length > 0) {
+      initializeMarketplace(tasks, campaigns, userTasks);
+      updateUserContext(tasks, campaigns, userTasks, userData);
+      setEngineVersion(v => v + 1);
+    }
   }, [tasks, campaigns, userTasks, userData]);
 
-  // ─── Fetch Enabled Providers from Backend (Firestore Source of Truth) ──────
+  // ─── Fetch Enabled Providers from Backend ───────────────────────────────────
   const fetchProviders = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -156,65 +186,29 @@ export const Marketplace: React.FC = () => {
       });
 
       if (res.success && Array.isArray(res.providers)) {
+        setProviders(res.providers);
+
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: any) => {
+        res.providers.forEach((p: Provider) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          let existingOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
-
-          if (p.status === 'maintenance') {
-            // Tier 4: Maintenance provider. Display maintenance state only. No fabrication.
-            existingOpps = [{
-              id: `provider_${p.id}_maintenance`,
-              source: 'provider',
-              providerId: p.id,
-              providerName: p.name,
-              title: `${p.name} Under Maintenance`,
-              description: `The ${p.name} portal is currently undergoing scheduled maintenance. Please check back later.`,
-              instructions: `Under Maintenance. No actions available.`,
-              reward: { points: 0, xp: 0 },
-              metadata: {
-                category: 'featured',
-                difficulty: 'medium',
-                estimatedTime: 'Unknown',
-                verificationType: 'automated',
-                launchMode: 'inline',
-                artwork: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-                thumbnail: p.logo || `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`,
-                tags: ['maintenance', p.id],
-              },
-              engagement: {
-                completionRate: 0,
-                averageReward: 0,
-                totalCompletions: 0,
-                trending: false,
-                isNew: false,
-              },
-              status: 'maintenance',
-              action: {
-                actionType: 'claim',
-              }
-            }];
-          } else if (existingOpps.length === 0 && p.launchUrl) {
-            // Tier 2: Launch provider. If inventory is unavailable but launch URL exists, display ONE launch card.
-            existingOpps = [generateSyntheticProviderOpportunity(p as any)];
-          } else {
-            // Tier 1: Native inventory providers. Display real offers only. (Which is already in existingOpps!)
-          }
-
+          const existingOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,
             opportunities: existingOpps,
             lastSyncedAt: new Date(),
-            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' ? 'offline' : p.status === 'maintenance' ? 'maintenance' : 'connected',
+            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' || p.status === 'maintenance' ? 'offline' : 'connected',
           });
         });
         setEngineVersion(v => v + 1);
+      } else {
+        setProviders([]);
       }
     } catch (err) {
       console.error('[Marketplace] Failed to fetch providers:', err);
       setError('Unable to load Marketplace providers at this time.');
+      setProviders([]);
     } finally {
       setLoading(false);
     }
@@ -226,21 +220,77 @@ export const Marketplace: React.FC = () => {
     }
   }, [currentUser, fetchProviders]);
 
+  // ─── Launch Partner Channel ─────────────────────────────────────────────────
+  const handleLaunchProvider = async (provider: Provider) => {
+    if (provider.status === 'offline' || provider.status === 'maintenance') {
+      toast.error(`Partner channel for this opportunity is currently undergoing maintenance.`);
+      return;
+    }
 
+    let targetWindow: Window | null = null;
+    if (!provider.launchUrl && currentUser) {
+      targetWindow = window.open('about:blank', '_blank');
+    }
+
+    try {
+      let url = provider.launchUrl;
+
+      if (!url && currentUser) {
+        const idToken = await currentUser.getIdToken();
+        const res = await safeFetch(`/api/offerwall/providers/${provider.id}/launch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        });
+
+        if (res.success && res.launchUrl) {
+          url = res.launchUrl;
+        }
+      }
+
+      if (url) {
+        const val = validateExternalUrl(url);
+        if (!val.valid || !val.url) {
+          if (targetWindow) targetWindow.close();
+          toast.error(val.error || `Invalid launch URL for this opportunity.`);
+          return;
+        }
+
+        if (targetWindow) {
+          targetWindow.location.href = val.url;
+        } else {
+          window.open(val.url, '_blank', 'noopener,noreferrer');
+        }
+        toast.success(`Launching ${provider.name}...`);
+      } else {
+        if (targetWindow) targetWindow.close();
+        toast.error(`Unable to launch opportunity. Please try again later.`);
+      }
+    } catch (err) {
+      if (targetWindow) targetWindow.close();
+      console.error('[Marketplace] Launch error:', err);
+      toast.error(`Failed to launch opportunity channel.`);
+    }
+  };
 
   // ─── Handle Opportunity Action ──────────────────────────────────────────────
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
-    if (opp.status === 'maintenance') {
-      toast.error('This provider is currently under maintenance.');
-      return;
-    }
     if (opp.action.url) {
       const val = validateExternalUrl(opp.action.url);
-      if (val.valid && val.url) {
-        window.open(val.url, '_blank', 'noopener,noreferrer');
-        toast.success(`Launching ${opp.title}...`);
+      if (!val.valid || !val.url) {
+        toast.error(val.error || 'Invalid action URL for this opportunity.');
+        return;
+      }
+      window.open(val.url, '_blank', 'noopener,noreferrer');
+      toast.success(`Launching ${opp.title}...`);
+    } else if (opp.providerId) {
+      const match = providers.find(p => p.id === opp.providerId);
+      if (match) {
+        handleLaunchProvider(match);
       } else {
-        toast.error(val.error || `Unable to launch ${opp.title}. URL failed security check.`);
+        toast.error(`Partner channel for ${opp.title} is currently unavailable.`);
       }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
       toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
@@ -253,8 +303,8 @@ export const Marketplace: React.FC = () => {
   const handleResetFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedCategory('all');
+    setSelectedSecondaryFilter('all');
     setSelectedDifficulty('all');
-    setMinRewardFilter(0);
     setSortBy('recommended');
   }, []);
 
@@ -262,17 +312,73 @@ export const Marketplace: React.FC = () => {
   const { opportunities: engineOpportunities } = getMarketplaceState();
 
   const searchResults = useMemo(() => {
-    return search({
+    let list = search({
       query: searchQuery,
       filters: {
         categories: selectedCategory !== 'all' ? [selectedCategory] : undefined,
         difficulty: selectedDifficulty !== 'all' ? [selectedDifficulty] : undefined,
-        minReward: minRewardFilter > 0 ? minRewardFilter : undefined,
       },
       sortBy: sortBy === 'recommended' ? 'recommendation_score' : sortBy,
-      limit: 100,
+      limit: 150,
     });
-  }, [searchQuery, selectedCategory, selectedDifficulty, minRewardFilter, sortBy, engineOpportunities, engineVersion]);
+
+    // Apply Secondary Filters
+    if (selectedSecondaryFilter === 'highest_reward') {
+      list = [...list].sort((a, b) => b.reward.points - a.reward.points);
+    } else if (selectedSecondaryFilter === 'quick_earn') {
+      list = list.filter(opp => {
+        const timeStr = opp.metadata.estimatedTime?.toLowerCase() || '';
+        const mins = parseInt(timeStr) || 10;
+        return mins <= 5 || timeStr.includes('1 min') || timeStr.includes('2 min') || timeStr.includes('3 min') || timeStr.includes('5 min');
+      });
+    } else if (selectedSecondaryFilter === 'new') {
+      list = list.filter(opp => opp.engagement?.isNew || opp.source === 'provider');
+    } else if (selectedSecondaryFilter === 'mobile') {
+      list = list.filter(opp => {
+        if (opp.metadata.category === 'apps') return true;
+        return opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
+        });
+      });
+    } else if (selectedSecondaryFilter === 'desktop') {
+      list = list.filter(opp => {
+        const isMobileOnly = opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile only') || lower.includes('ios only') || lower.includes('android only');
+        });
+        if (isMobileOnly) return false;
+        if (opp.metadata.category === 'surveys' || opp.metadata.category === 'learn') return true;
+        const isExplicitDesktop = opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('desktop') || lower.includes('web') || lower.includes('browser');
+        });
+        if (isExplicitDesktop) return true;
+        const isAppOrMobile = opp.metadata.category === 'apps' || opp.metadata.tags?.some(t => {
+          const lower = t.toLowerCase();
+          return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
+        });
+        return !isAppOrMobile;
+      });
+    } else if (selectedSecondaryFilter === 'available_now') {
+      list = list.filter(opp => opp.status === 'available');
+    } else if (selectedSecondaryFilter === 'ending_soon') {
+      const nowMs = Date.now();
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      list = list.filter(opp => {
+        if (opp.engagement?.expiringSoon || opp.metadata.category === 'limited') return true;
+        if (opp.expiresAt) {
+          const expTime = typeof opp.expiresAt === 'string'
+            ? new Date(opp.expiresAt).getTime()
+            : (opp.expiresAt instanceof Date ? opp.expiresAt.getTime() : 0);
+          return expTime > nowMs && expTime - nowMs <= threeDaysMs;
+        }
+        return false;
+      });
+    }
+
+    return list;
+  }, [searchQuery, selectedCategory, selectedSecondaryFilter, selectedDifficulty, sortBy, engineOpportunities, engineVersion]);
 
   const dynamicSections = useMemo(() => {
     return generateAllSections(engineOpportunities, userData, activities, taskHistory);
@@ -284,9 +390,8 @@ export const Marketplace: React.FC = () => {
     const activeList = [];
 
     for (const ut of Object.values(userTasks)) {
-      if (ut.status === 'in_progress' || ut.status === 'pending' || ut.status === 'pending_review' || ut.status === 'submitted') {
+      if (ut.status === 'in_progress' || ut.status === 'pending' || ut.status === 'pending_review' || ut.status === 'submitted' || ut.status === 'started') {
         const matchingTask = taskMap.get(ut.taskId);
-        if (!matchingTask) continue;
         const statusMeta = getCanonicalStatus(ut.status);
         const targetUrl = (matchingTask as any)?.link || '';
         const hasUrl = typeof targetUrl === 'string' && targetUrl.startsWith('http');
@@ -312,7 +417,7 @@ export const Marketplace: React.FC = () => {
             url: hasUrl ? targetUrl : undefined,
           },
           status: 'started',
-          engagement: { completionRate: 0.9, averageReward: matchingTask?.rewardAmount ?? 0, totalCompletions: 10, trending: false, isNew: false },
+          engagement: { completionRate: 0.9, averageReward: matchingTask?.rewardAmount ?? 0, totalCompletions: 0, trending: false, isNew: false },
         };
 
         activeList.push({
@@ -333,33 +438,53 @@ export const Marketplace: React.FC = () => {
     };
   }, [userTasks, tasks, engineOpportunities]);
 
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedDifficulty !== 'all' || minRewardFilter > 0;
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedSecondaryFilter !== 'all' || selectedDifficulty !== 'all';
 
   return (
-    <div className="min-h-screen bg-background text-text-primary px-4 pt-28 pb-20 md:px-8 max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-text-primary px-4 pt-24 pb-20 md:px-8 max-w-7xl mx-auto space-y-6">
       
-      {/* ─── Header: Clean & Integrated Below Global Navbar ────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/80 pb-5">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary tracking-tight">
-            Marketplace
-          </h1>
-          <p className="text-xs md:text-sm text-text-secondary font-medium mt-1">
-            Discover and complete verified earning opportunities tailored to your profile.
+      {/* ─── Compact Earning Header ─────────────────────────────────────────── */}
+      <div className="p-5 md:p-6 rounded-2xl bg-surface border border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-xs">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">
+              Earn more with PulseEarn
+            </h1>
+            <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono', progressionTier.color)}>
+              {progressionTier.name}
+            </span>
+          </div>
+          <p className="text-xs md:text-sm text-text-secondary">
+            Discover verified opportunities from multiple earning providers.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border font-mono', progressionTier.color)}>
-            {progressionTier.name}
-          </span>
+        {/* Real Balance Widget & Actions */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-bright border border-border">
+            <div className="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0">
+              <Wallet size={16} />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-text-tertiary block font-mono">Current Balance</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-black text-text-primary tabular-nums">
+                  {userBalancePoints.toLocaleString()} PTS
+                </span>
+                <span className="text-xs font-semibold text-text-tertiary">
+                  ≈ ${userBalanceUsd}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <button
             onClick={fetchProviders}
             disabled={loading}
             aria-label="Refresh opportunities"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 min-h-[44px]"
           >
-            <RefreshCw size={13} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
+            <RefreshCw size={14} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
             <span>Refresh</span>
           </button>
         </div>
@@ -378,9 +503,9 @@ export const Marketplace: React.FC = () => {
         <MarketplaceSkeleton />
       ) : (
         <>
-          {/* ─── SECTION 1: Continue Where You Left Off ──────────────────────────── */}
+          {/* ─── Active Tasks / Continue Where You Left Off ────────────────────── */}
           {activeTaskSummary.totalCount > 0 && (
-            <section className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
+            <section className="p-4 md:p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <Compass size={15} />
@@ -419,18 +544,20 @@ export const Marketplace: React.FC = () => {
             </section>
           )}
 
-          {/* ─── SECTION 2: Discovery, Search & Category Toolbar ───────────────── */}
-          <section className="space-y-4">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3.5 rounded-2xl border border-border shadow-xs">
-              {/* Search Input */}
+          {/* ─── Discovery Toolbar & Search ────────────────────────────────────── */}
+          <section className="space-y-3">
+            
+            {/* Search + Sort Controls Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface p-3 rounded-2xl border border-border shadow-xs">
+              {/* Search Bar */}
               <div className="relative flex-1">
                 <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search opportunities by title, category, reward..."
-                  className="w-full bg-surface-bright/60 border border-border rounded-xl pl-9 pr-4 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary min-h-[44px]"
+                  placeholder="Search opportunities by title, provider, or tag..."
+                  className="w-full bg-surface-bright/60 border border-border rounded-xl pl-9 pr-8 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary min-h-[44px]"
                 />
                 {searchQuery && (
                   <button
@@ -443,20 +570,8 @@ export const Marketplace: React.FC = () => {
                 )}
               </div>
 
-              {/* Filters & Sorting Controls */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 md:pt-0">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value as OpportunityCategory | 'all')}
-                  aria-label="Filter by Category"
-                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
-                >
-                  <option value="all">All Categories</option>
-                  {MARKETPLACE_CATEGORIES.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.label}</option>
-                  ))}
-                </select>
-
+              {/* Sort & Difficulty Controls */}
+              <div className="flex items-center gap-2 shrink-0">
                 <select
                   value={selectedDifficulty}
                   onChange={(e) => setSelectedDifficulty(e.target.value as OpportunityDifficulty | 'all')}
@@ -486,7 +601,7 @@ export const Marketplace: React.FC = () => {
                 {hasActiveFilters && (
                   <button
                     onClick={handleResetFilters}
-                    className="px-3 py-2 text-[11px] font-semibold text-danger hover:underline shrink-0 min-h-[44px]"
+                    className="px-3 py-2 text-xs font-semibold text-danger hover:underline shrink-0 min-h-[44px]"
                   >
                     Reset
                   </button>
@@ -494,60 +609,103 @@ export const Marketplace: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Category Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {/* Top-Level Discovery Category Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               <button
                 onClick={() => setSelectedCategory('all')}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border min-h-[44px]',
+                  'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border min-h-[40px]',
                   selectedCategory === 'all'
                     ? 'bg-primary text-white border-primary shadow-xs'
                     : 'bg-surface border-border text-text-secondary hover:border-border-bright'
                 )}
               >
-                All Opportunities
+                All
               </button>
-              {MARKETPLACE_CATEGORIES.slice(0, 8).map(cat => (
+
+              {MARKETPLACE_CATEGORIES.map(cat => {
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 min-h-[40px]',
+                      isSelected
+                        ? 'bg-primary text-white border-primary shadow-xs'
+                        : 'bg-surface border-border text-text-secondary hover:border-border-bright'
+                    )}
+                  >
+                    <span>{cat.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Secondary Filters Bar */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mr-1 font-mono">Filter:</span>
+              {[
+                { id: 'all', label: 'All Types' },
+                { id: 'highest_reward', label: 'Highest Reward' },
+                { id: 'quick_earn', label: 'Quick Earn (≤5m)' },
+                { id: 'new', label: 'New' },
+                { id: 'mobile', label: 'Mobile' },
+                { id: 'desktop', label: 'Desktop' },
+                { id: 'available_now', label: 'Available Now' },
+                { id: 'ending_soon', label: 'Ending Soon' },
+              ].map(f => (
                 <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
+                  key={f.id}
+                  onClick={() => setSelectedSecondaryFilter(f.id as SecondaryFilter)}
                   className={cn(
-                    'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 min-h-[44px]',
-                    selectedCategory === cat.id
-                      ? 'bg-primary text-white border-primary shadow-xs'
-                      : 'bg-surface border-border text-text-secondary hover:border-border-bright'
+                    'px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all border',
+                    selectedSecondaryFilter === f.id
+                      ? 'bg-surface-bright border-primary text-primary font-bold shadow-xs'
+                      : 'bg-surface/60 border-border/80 text-text-tertiary hover:text-text-primary'
                   )}
                 >
-                  <span>{cat.label}</span>
+                  {f.label}
                 </button>
               ))}
             </div>
+
           </section>
 
-          {/* ─── SECTION 3: Filtered Search Results (When Filters Active) ────────── */}
-          {hasActiveFilters && (
+          {/* ─── Opportunity Grid (Active Filters or Categorized) ────────────────── */}
+          {hasActiveFilters ? (
             <section className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-                  <Filter size={14} className="text-primary" />
+                <h2 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+                  <Filter size={13} className="text-primary" />
                   <span>Matching Opportunities ({searchResults.length})</span>
                 </h2>
               </div>
 
               {searchResults.length === 0 ? (
-                <div className="p-8 rounded-2xl border border-border bg-surface text-center space-y-3">
-                  <Info size={28} className="text-text-tertiary mx-auto" />
-                  <p className="text-xs font-semibold text-text-primary">No earning opportunities match your selected filters.</p>
-                  <p className="text-[11px] text-text-tertiary">Try resetting your filters or clearing search text.</p>
-                  <button
-                    onClick={handleResetFilters}
-                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all min-h-[44px]"
-                  >
-                    Reset Filters
-                  </button>
+                <div className="p-10 rounded-2xl border border-border bg-surface text-center space-y-3">
+                  <Info size={32} className="text-text-tertiary mx-auto" />
+                  <h3 className="text-sm font-bold text-text-primary">No earning opportunities are available for your account right now.</h3>
+                  <p className="text-xs text-text-tertiary max-w-md mx-auto">
+                    Try switching categories, clearing active filters, or refresh provider inventory.
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <button
+                      onClick={handleResetFilters}
+                      className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all min-h-[44px]"
+                    >
+                      Reset Filters
+                    </button>
+                    <button
+                      onClick={fetchProviders}
+                      className="px-4 py-2 rounded-xl bg-surface-bright border border-border text-xs font-bold text-text-secondary hover:text-text-primary transition-all min-h-[44px]"
+                    >
+                      Refresh Inventory
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {searchResults.map(opp => (
                     <OpportunityCard
                       key={opp.id}
@@ -559,20 +717,18 @@ export const Marketplace: React.FC = () => {
                 </div>
               )}
             </section>
-          )}
-
-          {/* ─── SECTION 4: Dynamic Recommendation Sections ──────────────────────── */}
-          {!hasActiveFilters && dynamicSections.length > 0 && (
-            <div className="space-y-10">
+          ) : (
+            /* ─── Default Recommended View ─── */
+            <div className="space-y-8">
               {dynamicSections.map(section => (
-                <section key={section.id} className="space-y-4">
+                <section key={section.id} className="space-y-3">
                   <div className="flex items-center justify-between border-b border-border/60 pb-2">
                     <div>
                       <h2 className="text-sm md:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
-                        {section.id === 'featured' && <Sparkles size={16} className="text-primary" />}
-                        {section.id === 'personalized-for-you' && <Flame size={16} className="text-warning" />}
-                        {section.id === 'daily' && <Clock size={16} className="text-success" />}
-                        {section.id === 'highest-paying' && <Trophy size={16} className="text-primary" />}
+                        {section.id === 'featured' && <Sparkles size={15} className="text-primary" />}
+                        {section.id === 'personalized-for-you' && <Flame size={15} className="text-warning" />}
+                        {section.id === 'daily' && <Clock size={15} className="text-success" />}
+                        {section.id === 'highest-paying' && <Trophy size={15} className="text-primary" />}
                         <span>{section.title}</span>
                       </h2>
                       {section.subtitle && (
@@ -580,32 +736,38 @@ export const Marketplace: React.FC = () => {
                       )}
                     </div>
                     <span className="text-[10px] font-mono text-text-tertiary uppercase">
-                      {section.opportunities.length} Items
+                      {section.opportunities.length} Available
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {section.opportunities.map(opp => (
-                      <OpportunityCard
-                        key={opp.id}
-                        opportunity={opp}
-                        userTask={userTasks[opp.id]}
-                        onSelect={() => setSelectedOpportunity(opp)}
-                      />
-                    ))}
-                  </div>
+                  {section.opportunities.length === 0 ? (
+                    <div className="p-6 rounded-2xl border border-border/60 bg-surface/50 text-center">
+                      <p className="text-xs text-text-tertiary">No opportunities currently listed in this section.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {section.opportunities.map(opp => (
+                        <OpportunityCard
+                          key={opp.id}
+                          opportunity={opp}
+                          userTask={userTasks[opp.id]}
+                          onSelect={() => setSelectedOpportunity(opp)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </section>
               ))}
             </div>
           )}
 
-          {/* ─── SECTION 5: Recently Verified Activity ──────────────────────────── */}
+          {/* ─── Ecosystem Verified Ledger History ───────────────────────────── */}
           {unifiedHistory.length > 0 && (
             <section className="space-y-3 pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
                   <Activity size={14} className="text-success" />
-                  <span>Recently Verified Activity</span>
+                  <span>Recently Verified Completions</span>
                 </h2>
                 <span className="text-[10px] font-mono text-text-tertiary">Ecosystem Ledger</span>
               </div>
@@ -627,7 +789,8 @@ export const Marketplace: React.FC = () => {
             </section>
           )}
 
-
+          {/* ─── Footer ────────────────────────────────────────────────────── */}
+          <MarketplaceFooter totalOpportunities={engineOpportunities.length} providers={providers} />
         </>
       )}
 
@@ -647,7 +810,7 @@ export const Marketplace: React.FC = () => {
   );
 };
 
-// ─── Opportunity Card Component ───────────────────────────────────────────────
+// ─── High-Density Opportunity Card Component ───────────────────────────────────
 
 interface OpportunityCardProps {
   opportunity: MarketplaceOpportunity;
@@ -658,27 +821,34 @@ interface OpportunityCardProps {
 const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask, onSelect }) => {
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const canonicalStatus = userTask ? getCanonicalStatus(userTask.status) : null;
+  const providerLabel = opportunity.providerName || (opportunity.source === 'provider' ? 'Partner Offer' : 'PulseEarn');
 
   return (
     <motion.div
       whileHover={{ y: -2 }}
       onClick={onSelect}
-      className="p-5 rounded-2xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col justify-between space-y-4 transition-all shadow-xs hover:shadow-md group"
+      className="p-4 rounded-2xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col justify-between space-y-3.5 transition-all shadow-xs hover:shadow-md group"
     >
-      <div className="space-y-3">
-        {/* Top Badges */}
+      <div className="space-y-2.5">
+        {/* Top Badges & Provider Attribution */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-            {opportunity.metadata.category}
-          </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate">
+              {opportunity.metadata.category}
+            </span>
+            <span className="text-[9px] font-medium text-text-tertiary px-1.5 py-0.5 rounded bg-surface-bright border border-border truncate">
+              {providerLabel}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
             {canonicalStatus && (
               <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono', canonicalStatus.badgeClass)}>
                 {canonicalStatus.label}
               </span>
             )}
             <span
-              className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"
+              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border"
               style={{ color: diffConfig.color, backgroundColor: diffConfig.bgColor, borderColor: `${diffConfig.color}33` }}
             >
               {diffConfig.label}
@@ -688,7 +858,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask
 
         {/* Title & Description */}
         <div>
-          <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
+          <h3 className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
             {opportunity.title}
           </h3>
           <p className="text-[11px] text-text-tertiary line-clamp-2 mt-1 leading-relaxed">
@@ -698,13 +868,13 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask
       </div>
 
       {/* Rewards & Action CTA */}
-      <div className="space-y-3 pt-2 border-t border-border/60">
+      <div className="space-y-2.5 pt-2 border-t border-border/60">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-baseline gap-1">
-            <span className="text-base font-black text-success tabular-nums">+{opportunity.reward.points}</span>
+            <span className="text-sm md:text-base font-black text-success tabular-nums">+{opportunity.reward.points}</span>
             <span className="text-[9px] font-bold text-text-tertiary uppercase">PTS</span>
             {opportunity.reward.xp > 0 && (
-              <span className="text-[10px] text-primary font-bold ml-1 font-mono">+{opportunity.reward.xp} XP</span>
+              <span className="text-[9px] text-primary font-bold ml-1 font-mono">+{opportunity.reward.xp} XP</span>
             )}
           </div>
           <span className="text-[10px] text-text-tertiary flex items-center gap-1 font-mono">
@@ -718,7 +888,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask
             e.stopPropagation();
             onSelect();
           }}
-          className="w-full py-2 px-3 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center justify-center gap-1.5"
+          className="w-full py-2 px-3 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center justify-center gap-1.5 min-h-[36px]"
         >
           <span>View Details</span>
           <ChevronRight size={13} />
@@ -787,7 +957,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
               <Zap size={20} />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">Opportunity Details</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">Opportunity Specs</span>
               <h2 className="text-sm font-bold text-text-primary tracking-tight truncate">{opportunity.title}</h2>
             </div>
           </div>
@@ -797,7 +967,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
         </div>
 
         {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           
           {/* Rewards Grid */}
           <section className="grid grid-cols-2 gap-3">
@@ -817,7 +987,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
             </div>
           </section>
 
-          {/* Active Status Indicator (If User Started/Completed) */}
+          {/* Active Status Indicator */}
           {userTask && (
             <div className="p-3.5 rounded-xl bg-surface-bright border border-border flex items-center justify-between">
               <span className="text-xs font-semibold text-text-secondary">Current Status:</span>
@@ -835,7 +1005,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
                 <span>Overview & Specs</span>
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-success/10 border border-success/20 text-success font-mono">
-                {opportunity.source === 'provider' ? 'Powered by trusted partner' : 'Verified by PulseEarn'}
+                {opportunity.providerName || (opportunity.source === 'provider' ? 'Partner Offer' : 'PulseEarn')}
               </span>
             </div>
 
@@ -855,29 +1025,29 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
               <div className="p-2.5 rounded-xl bg-surface border border-border">
                 <span className="text-[9px] text-text-tertiary block uppercase font-mono">Verification</span>
                 <span className="font-semibold text-text-primary capitalize">
-                  {opportunity.metadata.verificationType === 'automated' || opportunity.metadata.verificationType === 'api'
-                    ? 'Instant Verification'
-                    : 'Manual Review'}
+                  {opportunity.metadata.verificationType === 'automated' || opportunity.metadata.verificationType === 'api' || opportunity.metadata.verificationType === 'offerwall'
+                    ? 'Automated / Postback'
+                    : 'Manual Verification'}
                 </span>
               </div>
             </div>
           </section>
 
-          {/* Instructions & Completion Steps */}
+          {/* Instructions & Steps */}
           <section className="space-y-2 p-4 rounded-2xl bg-surface-bright/40 border border-border">
             <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary block">
               Requirements & Completion Steps
             </span>
             <p className="text-xs text-text-secondary leading-relaxed pt-1">
-              {opportunity.instructions || opportunity.description || 'Follow the step-by-step instructions below to complete this earning opportunity and claim your reward.'}
+              {opportunity.instructions || opportunity.description || 'Follow the guidelines provided by the advertiser or campaign to complete this opportunity.'}
             </p>
           </section>
 
           {/* Support / Help Notice */}
-          <div className="p-3.5 rounded-xl bg-surface border border-border flex items-center justify-between text-xs text-text-tertiary">
+          <div className="p-3 rounded-xl bg-surface border border-border flex items-center justify-between text-xs text-text-tertiary">
             <span className="flex items-center gap-1.5">
               <Info size={14} className="text-text-tertiary shrink-0" />
-              Need assistance with this opportunity?
+              Need help with this opportunity?
             </span>
             <a href="/support" className="text-primary font-bold hover:underline">Support</a>
           </div>
@@ -889,7 +1059,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
           {canonicalStatus.label === 'Completed' ? (
             <button
               disabled
-              className="w-full py-3 px-4 rounded-xl bg-success/10 border border-success/20 text-success text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              className="w-full py-3 px-4 rounded-xl bg-success/10 border border-success/20 text-success text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
             >
               <CheckCircle2 size={16} />
               <span>Opportunity Completed</span>
@@ -897,7 +1067,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
           ) : canonicalStatus.label === 'Pending Review' ? (
             <button
               disabled
-              className="w-full py-3 px-4 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              className="w-full py-3 px-4 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
             >
               <Clock size={16} />
               <span>Under Verification</span>
@@ -905,7 +1075,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
           ) : !canonicalStatus.isActionable ? (
             <button
               disabled
-              className="w-full py-3 px-4 rounded-xl bg-surface-bright border border-border text-text-tertiary text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              className="w-full py-3 px-4 rounded-xl bg-surface-bright border border-border text-text-tertiary text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
             >
               <Lock size={16} />
               <span>{canonicalStatus.label}</span>
@@ -916,7 +1086,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
                 onAction();
                 onClose();
               }}
-              className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
+              className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/10 min-h-[44px]"
             >
               <span>{canonicalStatus.label === 'In Progress' ? 'Continue Opportunity' : 'Start Opportunity'}</span>
               <ArrowUpRight size={15} />
@@ -932,8 +1102,7 @@ const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
 
 const MarketplaceSkeleton: React.FC = () => {
   return (
-    <div className="space-y-8 animate-pulse">
-      {/* Search Toolbar Skeleton */}
+    <div className="space-y-6 animate-pulse">
       <div className="h-14 rounded-2xl bg-surface border border-border/60 p-3 flex items-center justify-between gap-4">
         <div className="h-8 bg-surface-bright rounded-xl flex-1 max-w-md" />
         <div className="flex gap-2">
@@ -942,7 +1111,6 @@ const MarketplaceSkeleton: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid Cards Skeleton */}
       <div className="space-y-4">
         <div className="h-6 w-48 bg-surface-bright rounded-lg" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -969,4 +1137,70 @@ const MarketplaceSkeleton: React.FC = () => {
   );
 };
 
+// ─── Marketplace Ecosystem Footer Component ──────────────────────────────────
+
+interface MarketplaceFooterProps {
+  totalOpportunities: number;
+  providers?: Provider[];
+}
+
+const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities, providers = [] }) => {
+  const activeProvidersCount = useMemo(() => {
+    if (!providers || providers.length === 0) return 0;
+    return providers.filter(p => p.status === 'active' || p.status === 'degraded' || !p.status).length;
+  }, [providers]);
+
+  const providerSystemStatus = useMemo(() => {
+    if (!providers || providers.length === 0) return 'Provider Network Active';
+    const hasDegraded = providers.some(p => p.status === 'degraded');
+    const hasOffline = providers.some(p => p.status === 'offline' || p.status === 'maintenance');
+    if (hasOffline || hasDegraded) return 'Provider Network Operational (Degraded Sync)';
+    return 'All Provider Systems Operational';
+  }, [providers]);
+
+  return (
+    <footer className="mt-12 pt-8 border-t border-border space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wider">
+            <Globe size={15} />
+            <span>Provider Network</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">
+            {activeProvidersCount > 0 ? `${activeProvidersCount} Integrated Networks` : 'Multi-Network Orchestration'}
+          </p>
+          <p className="text-[11px] text-text-tertiary">Real-time inventory orchestration with ProviderAdapter sync</p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-success text-xs font-bold uppercase tracking-wider">
+            <ShieldCheck size={15} />
+            <span>Verification & Payouts</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">Automated Proof Auditing</p>
+          <p className="text-[11px] text-text-tertiary">Anti-fraud checks with instant PTS ledger crediting</p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
+          <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-wider">
+            <Award size={15} />
+            <span>Ecosystem Scale</span>
+          </div>
+          <p className="text-xs text-text-primary font-bold">{totalOpportunities} Active Opportunities</p>
+          <p className="text-[11px] text-text-tertiary">Personalized recommendation engine active</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-text-tertiary gap-2 pt-2 border-t border-border/50 font-mono">
+        <span>PulseEarn Marketplace Engine • Unified Earning Ecosystem</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+          {providerSystemStatus}
+        </span>
+      </div>
+    </footer>
+  );
+};
+
 export default Marketplace;
+

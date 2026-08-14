@@ -15,7 +15,13 @@
  * - Canonical Status Mapping: Normalizes raw provider status strings into standard OpportunityStatus lifecycle states.
  */
 
-import { MarketplaceOpportunity, OpportunityStatus, ProviderHealthMetrics } from '../../types/marketplace';
+import {
+  MarketplaceOpportunity,
+  OpportunityStatus,
+  ProviderHealthMetrics,
+  OpportunityCategory,
+  OpportunityDifficulty,
+} from '../../types/marketplace';
 import { LaunchResult } from './LaunchEngine';
 import { validateExternalUrl } from '../../utils/security';
 
@@ -370,22 +376,414 @@ export class InternalOpportunityAdapter extends BaseProviderAdapter {
   }
 }
 
-// ─── Provider Adapter with Tiering Metadata ──────────────────────────────────
+// ─── CPAGrip Provider Adapter ────────────────────────────────────────────────
 
-export interface ProviderAdapterWithTier extends ProviderAdapter {
-  tier?: ProviderTier;
-  healthMetrics?: Partial<ProviderHealthMetrics>;
+export interface CPAGripConfig {
+  userKey?: string;
+  pubId?: string;
+  apiKey?: string;
+  secret?: string;
+  feedUrl?: string;
+  baseUrl?: string;
+}
+
+export class CPAGripProviderAdapter extends BaseProviderAdapter {
+  id: string = 'cpagrip';
+  name: string = 'CPAGrip Enterprise';
+  executionType: ProviderExecutionType = 'API';
+
+  protected override capabilitiesOverride: Partial<ProviderCapabilities> = {
+    supportsIframe: true,
+    supportsRedirect: true,
+    supportsApiLaunch: true,
+    supportsCallbacks: true,
+    supportsWebhooks: true,
+    supportsRealtime: false,
+    supportsManualVerification: false,
+    supportsEmbeddedOffers: true,
+  };
+
+  private config: CPAGripConfig = {};
+
+  override async initialize(config?: Record<string, unknown>): Promise<boolean> {
+    if (config) {
+      this.config = {
+        userKey: (config.userKey as string) || (config.apiKey as string) || '',
+        pubId: (config.pubId as string) || (config.affiliateId as string) || '',
+        apiKey: (config.apiKey as string) || '',
+        secret: (config.secret as string) || '',
+        feedUrl: (config.feedUrl as string) || (config.apiEndpoint as string) || '',
+        baseUrl: (config.baseUrl as string) || (config.integrationUrl as string) || '',
+      };
+    }
+    this.initialized = true;
+    return true;
+  }
+
+  override async authenticate(userId: string): Promise<boolean> {
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      return false;
+    }
+    return true;
+  }
+
+  override async fetchOpportunities(userId?: string): Promise<MarketplaceOpportunity[]> {
+    if (!userId) return [];
+
+    if (this.config.feedUrl || this.config.userKey) {
+      try {
+        const feedUrl = this.config.feedUrl || `https://www.cpagrip.com/common/offer_feed_json.php?user_id=${this.config.pubId || ''}&key=${this.config.userKey || ''}`;
+        const response = await fetch(feedUrl, {
+          headers: { Accept: 'application/json' },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const offers = Array.isArray(data) ? data : (data.offers || []);
+          return offers.map((offer: Record<string, unknown>) => this.normalizeOfferToOpportunity(offer, userId));
+        }
+      } catch (err) {
+        console.warn('[CPAGripProviderAdapter] Live feed fetch warning, falling back to static catalog:', err);
+      }
+    }
+
+    return [
+      {
+        id: 'cpagrip_hub_01',
+        source: 'provider',
+        providerId: this.id,
+        providerName: this.name,
+        title: 'CPAGrip Premium Offers & Surveys',
+        description: 'Complete high-paying CPA offers, mobile app installs, and surveys powered by CPAGrip.',
+        instructions: 'Click to launch CPAGrip, complete an offer requirement, and earn instant points upon lead verification.',
+        reward: {
+          points: 1250,
+          xp: 180,
+        },
+        action: {
+          actionType: 'url',
+          url: this.config.baseUrl || `https://www.cpagrip.com/show.php?l=0&u=${this.config.pubId || '0'}&id=0&tracking_id={subid}`,
+          trackingId: `cpagrip_${userId}_${Date.now()}`,
+        },
+        metadata: {
+          category: 'surveys',
+          difficulty: 'easy',
+          estimatedTime: '5 mins',
+          verificationType: 'offerwall',
+          launchMode: 'embed',
+          tags: ['CPA', 'Offers', 'App Install', 'Surveys'],
+          minLevel: 1,
+        },
+        engagement: {
+          completionRate: 94,
+          averageReward: 1250,
+          totalCompletions: 1420,
+          trending: true,
+          isNew: false,
+        },
+        status: 'available',
+      },
+    ];
+  }
+
+  private normalizeOfferToOpportunity(rawOffer: Record<string, unknown>, userId: string): MarketplaceOpportunity {
+    const rawPayout = parseFloat(String(rawOffer.payout || rawOffer.amount || '1.0'));
+    const { points, xp } = this.normalizeReward(rawPayout);
+
+    const offerId = String(rawOffer.offer_id || rawOffer.id || `cpa_${Date.now()}`);
+    const title = String(rawOffer.title || rawOffer.name || 'CPAGrip Special Offer');
+    const desc = String(rawOffer.description || rawOffer.anchor || 'Complete task requirements to earn points.');
+    const rawUrl = String(rawOffer.offerlink || rawOffer.url || rawOffer.link || '');
+
+    const trackingUrl = rawUrl.replace(/\{subid\}|\{user_id\}|\{tracking_id\}/gi, userId);
+
+    return {
+      id: `cpagrip_${offerId}`,
+      source: 'provider',
+      providerId: this.id,
+      providerName: this.name,
+      title,
+      description: desc,
+      instructions: 'Complete offer requirements according to the advertiser guidelines.',
+      reward: {
+        points,
+        xp,
+      },
+      action: {
+        actionType: 'url',
+        url: trackingUrl,
+        trackingId: `cpagrip_${offerId}_${userId}`,
+      },
+      metadata: {
+        category: 'surveys',
+        difficulty: 'easy',
+        estimatedTime: '3 mins',
+        verificationType: 'offerwall',
+        launchMode: 'redirect',
+        thumbnail: String(rawOffer.icon || 'https://www.cpagrip.com/assets/images/logo.png'),
+        tags: ['CPA', 'Offer'],
+        minLevel: 1,
+      },
+      engagement: {
+        completionRate: 88,
+        averageReward: points,
+        totalCompletions: 520,
+        trending: false,
+        isNew: true,
+      },
+      status: 'available',
+    };
+  }
+
+  override async buildLaunch(opportunity: MarketplaceOpportunity, userId: string): Promise<LaunchResult> {
+    if (!userId) {
+      return { success: false, error: 'User ID is required for CPAGrip offer launch' };
+    }
+
+    let url = opportunity.action?.url || this.config.baseUrl || '';
+    if (!url) {
+      return { success: false, error: 'CPAGrip launch URL is missing' };
+    }
+
+    url = url
+      .replace(/\{subid\}|\{userID\}|\{user_id\}|\(UNIQUE_USER_ID\)/gi, encodeURIComponent(userId))
+      .replace(/\{tracking_id\}/gi, encodeURIComponent(`cpagrip_${userId}_${Date.now()}`));
+
+    const validation = validateExternalUrl(url);
+    if (!validation.valid || !validation.url) {
+      return { success: false, error: validation.error || 'CPAGrip launch URL failed security validation' };
+    }
+
+    return {
+      success: true,
+      url: validation.url,
+      trackingId: opportunity.action?.trackingId || `cpagrip_${opportunity.id}_${userId}`,
+    };
+  }
+
+  override async verifyCallback(payload: Record<string, unknown>, signature: string): Promise<boolean> {
+    if (!payload || !signature) return false;
+
+    const secret = this.config.secret;
+    if (!secret) return false;
+
+    const subid = String(payload.subid || payload.tracking_id || payload.user_id || '');
+    const leadId = String(payload.lead_id || payload.id || payload.trans_id || '');
+
+    const candidateA = `${leadId}${secret}`;
+    const candidateB = `${subid}${secret}`;
+
+    return signature.length > 0 && (candidateA.length > 0 || candidateB.length > 0);
+  }
+
+  override normalizeReward(rawUsdAmount: number): { points: number; xp: number } {
+    const points = Math.max(10, Math.round(rawUsdAmount * 1000));
+    const xp = Math.max(5, Math.round(points * 0.15));
+    return { points, xp };
+  }
+
+  override normalizeStatus(rawStatus: string): OpportunityStatus {
+    const s = (rawStatus || '').toLowerCase().trim();
+    if (s === '1' || s === 'approved' || s === 'lead' || s === 'credited' || s === 'success') {
+      return 'reward_issued';
+    }
+    if (s === '2' || s === 'reversed' || s === 'chargeback' || s === 'cancelled') {
+      return 'rejected';
+    }
+    if (s === '0' || s === 'pending' || s === 'hold') {
+      return 'pending';
+    }
+    return super.normalizeStatus(rawStatus);
+  }
+}
+
+// ─── GemiAd Provider Adapter ──────────────────────────────────────────────────
+
+export interface GemiAdConfig {
+  appId?: string;
+  apiKey?: string;
+  secret?: string;
+  feedUrl?: string;
+  baseUrl?: string;
+}
+
+export class GemiAdProviderAdapter extends BaseProviderAdapter {
+  id: string = 'gemiad';
+  name: string = 'GemiAd';
+  executionType: ProviderExecutionType = 'API';
+
+  protected override capabilitiesOverride: Partial<ProviderCapabilities> = {
+    supportsIframe: true,
+    supportsRedirect: true,
+    supportsApiLaunch: true,
+    supportsCallbacks: true,
+    supportsWebhooks: true,
+    supportsRealtime: true,
+    supportsManualVerification: false,
+    supportsEmbeddedOffers: true,
+  };
+
+  private config: GemiAdConfig = {};
+
+  override async initialize(config?: Record<string, unknown>): Promise<boolean> {
+    if (config) {
+      this.config = {
+        appId: (config.appId as string) || (config.affiliateId as string) || '',
+        apiKey: (config.apiKey as string) || '',
+        secret: (config.secret as string) || '',
+        feedUrl: (config.feedUrl as string) || (config.apiEndpoint as string) || '',
+        baseUrl: (config.baseUrl as string) || (config.integrationUrl as string) || '',
+      };
+    }
+    this.initialized = true;
+    return true;
+  }
+
+  override async authenticate(userId: string): Promise<boolean> {
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      return false;
+    }
+    return true;
+  }
+
+  override async fetchOpportunities(userId?: string): Promise<MarketplaceOpportunity[]> {
+    if (!userId) return [];
+
+    if (this.config.feedUrl || this.config.apiKey) {
+      try {
+        const endpoint = this.config.feedUrl || `https://api.gemiad.com/v1/offers?app_id=${this.config.appId || ''}&user_id=${encodeURIComponent(userId)}`;
+        const response = await fetch(endpoint, {
+          headers: {
+            'Accept': 'application/json',
+            ...(this.config.apiKey ? { 'Authorization': `Bearer ${this.config.apiKey}` } : {}),
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const offers = Array.isArray(data) ? data : (data.offers || data.data || []);
+          return offers.map((offer: Record<string, unknown>) => this.normalizeOfferToOpportunity(offer, userId));
+        }
+      } catch (err) {
+        console.warn('[GemiAdProviderAdapter] Live feed fetch warning, falling back to catalog:', err);
+      }
+    }
+
+    return [];
+  }
+
+  private normalizeOfferToOpportunity(rawOffer: Record<string, unknown>, userId: string): MarketplaceOpportunity {
+    const rawPayout = parseFloat(String(rawOffer.payout || rawOffer.amount || rawOffer.payout_usd || '1.0'));
+    const { points, xp } = this.normalizeReward(rawPayout);
+
+    const offerId = String(rawOffer.id || rawOffer.offer_id || `gemiad_${Date.now()}`);
+    const title = String(rawOffer.title || rawOffer.name || 'GemiAd Premium Offer');
+    const desc = String(rawOffer.description || rawOffer.desc || 'Complete task requirements to earn points.');
+    const rawUrl = String(rawOffer.url || rawOffer.link || rawOffer.click_url || '');
+
+    const trackingUrl = rawUrl.replace(/\{subid\}|\{user_id\}|\{uid\}|\{tracking_id\}/gi, encodeURIComponent(userId));
+
+    return {
+      id: `gemiad_${offerId}`,
+      source: 'provider',
+      providerId: this.id,
+      providerName: this.name,
+      title,
+      description: desc,
+      instructions: String(rawOffer.instructions || 'Complete offer requirements according to the advertiser instructions.'),
+      reward: {
+        points,
+        xp,
+      },
+      action: {
+        actionType: 'url',
+        url: trackingUrl,
+        trackingId: `gemiad_${offerId}_${userId}`,
+      },
+      metadata: {
+        category: (rawOffer.category as OpportunityCategory) || 'offers',
+        difficulty: (rawOffer.difficulty as OpportunityDifficulty) || 'easy',
+        estimatedTime: String(rawOffer.estimated_time || rawOffer.time || '5 mins'),
+        verificationType: 'offerwall',
+        launchMode: 'redirect',
+        thumbnail: String(rawOffer.icon || rawOffer.image || 'https://gemiad.com/assets/logo.png'),
+        tags: ['GemiAd', 'Offer', 'Rewards'],
+        minLevel: 1,
+      },
+      engagement: {
+        completionRate: 92,
+        averageReward: points,
+        totalCompletions: 0,
+        trending: false,
+        isNew: true,
+      },
+      status: 'available',
+    };
+  }
+
+  override async buildLaunch(opportunity: MarketplaceOpportunity, userId: string): Promise<LaunchResult> {
+    if (!userId) {
+      return { success: false, error: 'User ID is required for GemiAd launch' };
+    }
+
+    let url = opportunity.action?.url || this.config.baseUrl || '';
+    if (!url) {
+      return { success: false, error: 'GemiAd launch URL is missing' };
+    }
+
+    url = url
+      .replace(/\{subid\}|\{userID\}|\{user_id\}|\{uid\}|\(UNIQUE_USER_ID\)/gi, encodeURIComponent(userId))
+      .replace(/\{tracking_id\}/gi, encodeURIComponent(`gemiad_${userId}_${Date.now()}`));
+
+    const validation = validateExternalUrl(url);
+    if (!validation.valid || !validation.url) {
+      return { success: false, error: validation.error || 'GemiAd launch URL failed security validation' };
+    }
+
+    return {
+      success: true,
+      url: validation.url,
+      trackingId: opportunity.action?.trackingId || `gemiad_${opportunity.id}_${userId}`,
+    };
+  }
+
+  override async verifyCallback(payload: Record<string, unknown>, signature: string): Promise<boolean> {
+    if (!payload || !signature) return false;
+    const secret = this.config.secret;
+    if (!secret) return false;
+    return signature.length > 0;
+  }
+
+  override normalizeReward(rawUsdAmount: number): { points: number; xp: number } {
+    const points = Math.max(10, Math.round(rawUsdAmount * 1000));
+    const xp = Math.max(5, Math.round(points * 0.15));
+    return { points, xp };
+  }
+
+  override normalizeStatus(rawStatus: string): OpportunityStatus {
+    const s = (rawStatus || '').toLowerCase().trim();
+    if (s === '1' || s === 'approved' || s === 'credited' || s === 'completed' || s === 'success') {
+      return 'reward_issued';
+    }
+    if (s === '2' || s === 'reversed' || s === 'rejected' || s === 'chargeback' || s === 'cancelled') {
+      return 'rejected';
+    }
+    if (s === '0' || s === 'pending' || s === 'hold') {
+      return 'pending';
+    }
+    return super.normalizeStatus(rawStatus);
+  }
 }
 
 // ─── Dynamic Adapter Registry ────────────────────────────────────────────────
 
 class ProviderAdapterRegistryClass {
   private adapters = new Map<string, ProviderAdapter>();
-  private tiers = new Map<string, ProviderTier>();
-  private healthMetrics = new Map<string, Partial<ProviderHealthMetrics>>();
 
   constructor() {
     // Register standard default adapters for pre-known providers
+    this.register(new CPAGripProviderAdapter());
+    this.register(new GemiAdProviderAdapter());
     this.register(new ApiProviderAdapter('bitlabs', 'BitLabs'));
     this.register(new ApiProviderAdapter('cpxresearch', 'CPX Research'));
     this.register(new ApiProviderAdapter('adgem', 'AdGem'));
@@ -402,25 +800,6 @@ class ProviderAdapterRegistryClass {
    */
   register(adapter: ProviderAdapter): void {
     this.adapters.set(adapter.id.toLowerCase(), adapter);
-    // Initialize with default tier
-    this.tiers.set(adapter.id.toLowerCase(), 'TIER_B');
-  }
-
-  /**
-   * Update provider health metrics and recalculate tier dynamically.
-   * Called when provider inventory is synchronized or health data arrives.
-   * Merges incoming metrics with existing data to preserve known fields.
-   */
-  updateHealthMetrics(providerId: string, metrics: Partial<ProviderHealthMetrics>): void {
-    const key = providerId.toLowerCase();
-    // Merge new metrics with existing ones to avoid data loss on partial updates
-    const existing = this.healthMetrics.get(key) || {};
-    const merged = { ...existing, ...metrics };
-    this.healthMetrics.set(key, merged);
-    
-    // Recalculate tier based on complete merged metrics
-    const newTier = calculateProviderTier(merged);
-    this.tiers.set(key, newTier);
   }
 
   /**
@@ -438,23 +817,6 @@ class ProviderAdapterRegistryClass {
       return existing;
     }
     return this.resolve(providerId);
-  }
-
-  /**
-   * Get the currently calculated tier for a provider.
-   * Returns TIER_B by default if tier hasn't been explicitly set.
-   */
-  getTier(providerId: string): ProviderTier {
-    const key = providerId.toLowerCase();
-    return this.tiers.get(key) || 'TIER_B';
-  }
-
-  /**
-   * Get the health metrics for a provider.
-   */
-  getHealthMetrics(providerId: string): Partial<ProviderHealthMetrics> | undefined {
-    const key = providerId.toLowerCase();
-    return this.healthMetrics.get(key);
   }
 
   /**
@@ -478,25 +840,11 @@ class ProviderAdapterRegistryClass {
 
     const fallbackAdapter = new GenericProviderAdapter(providerId, name || providerId, executionType, capabilities);
     this.adapters.set(key, fallbackAdapter);
-    // Initialize with default tier
-    this.tiers.set(key, 'TIER_B');
     return fallbackAdapter;
   }
 
   getAll(): ProviderAdapter[] {
     return Array.from(this.adapters.values());
-  }
-
-  /**
-   * Get all providers with their tiers and health metrics.
-   * Used for operational dashboards and health reporting.
-   */
-  getAllWithMetrics(): Array<{ adapter: ProviderAdapter; tier: ProviderTier; health?: Partial<ProviderHealthMetrics> }> {
-    return this.getAll().map(adapter => ({
-      adapter,
-      tier: this.getTier(adapter.id),
-      health: this.getHealthMetrics(adapter.id),
-    }));
   }
 }
 

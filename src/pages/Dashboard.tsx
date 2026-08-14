@@ -40,7 +40,6 @@ import OnboardingOverlay from '../components/OnboardingOverlay';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Statistics } from '../engines/statistics/StatisticsEngine';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -338,17 +337,6 @@ const Dashboard: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
-  const [liveStats, setLiveStats] = useState<any>(null);
-
-  // Subscribe to real-time authoritative Statistics ledger calculations
-  useEffect(() => {
-    if (!currentUser) return;
-    Statistics.initializeForUser(currentUser.uid, db);
-    const unsubscribe = Statistics.subscribe(currentUser.uid, (stats) => {
-      setLiveStats(stats);
-    });
-    return unsubscribe;
-  }, [currentUser]);
 
   useEffect(() => {
     if (userData && userData.onboardingCompleted === false) setShowOnboarding(true);
@@ -382,10 +370,7 @@ const Dashboard: React.FC = () => {
   };
 
   const activeCampaigns = useMemo(() => (campaigns || []).filter(c => c.active), [campaigns]);
-  const pendingSubtasks = useMemo(() => {
-    const activeTaskIds = new Set(tasks.map(t => t.id));
-    return subtasks.filter(s => s.validationState === 'PENDING' && activeTaskIds.has(s.taskId));
-  }, [subtasks, tasks]);
+  const pendingSubtasks = subtasks.filter(s => s.validationState === 'PENDING');
 
   // SYNC VERIFICATION (Phase 18): Ensure all surfaces stay in sync
   useEffect(() => {
@@ -474,22 +459,7 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
-  const points = liveStats ? liveStats.currentPoints : (userData?.points || 0);
-  const xp = liveStats ? liveStats.totalXP : (userData?.xp || 0);
-  const level = liveStats ? liveStats.currentLevel : (userData?.level || 1);
-  const streak = liveStats ? liveStats.currentStreak : (userData?.streak || 0);
-  const tasksCompleted = liveStats ? liveStats.tasksCompleted : (userData?.stats?.tasksCompleted || 0);
-  const referralsCount = liveStats ? liveStats.referralsCount : (userData?.stats?.referralsCount || 0);
-  const predictionsCount = liveStats ? liveStats.predictionsCount : (userData?.stats?.predictionsCount || 0);
-  const totalEarnings = liveStats ? liveStats.totalPointsEarned : (userData?.stats?.totalEarnings || 0);
-
-  const stats = {
-    tasksCompleted,
-    referralsCount,
-    predictionsCount,
-    totalEarnings
-  };
-
+  const { level = 1, xp = 0, points = 0, streak = 0, stats } = userData!;
   const xpProg = getXpProgress(xp);
 
   return (

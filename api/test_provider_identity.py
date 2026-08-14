@@ -2,7 +2,6 @@ import os
 import sys
 import hashlib
 import logging
-import pytest
 
 # Add parent directory of 'api' to path if needed
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -229,3 +228,12 @@ def test_cpagrip_postback_points_calculation_and_extraction():
     user_share_pct = 0.30
     user_payout_points = round(gross_points * user_share_pct)
     assert user_payout_points == 450
+
+
+if __name__ == '__main__':
+    for name, func in list(globals().items()):
+        if name.startswith('test_') and callable(func):
+            print(f"Running {name}...")
+            func()
+            print(f"PASS: {name}")
+    print("\nAll provider identity tests passed successfully!")

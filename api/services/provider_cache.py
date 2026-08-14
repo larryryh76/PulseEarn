@@ -137,10 +137,7 @@ class ProviderCache:
                         config['minimumReward'] = 1.0
 
                     try:
-                        max_r = float(data.get('maximumReward')) if data.get('maximumReward') is not None else 100000.0
-                        if max_r >= 1000001.0:
-                            max_r = 100000.0
-                        config['maximumReward'] = max_r
+                        config['maximumReward'] = float(data.get('maximumReward')) if data.get('maximumReward') is not None else 100000.0
                     except (ValueError, TypeError):
                         config['maximumReward'] = 100000.0
 
@@ -189,7 +186,7 @@ class ProviderCache:
                 return False
             
             # Check critical fields match
-            critical_fields = ['secret', 'affiliateId', 'enabled', 'identity']
+            critical_fields = ['secret', 'affiliateId', 'enabled']
             for field in critical_fields:
                 fs_val = firestore_data.get(field)
                 if field == 'enabled' and fs_val is None:

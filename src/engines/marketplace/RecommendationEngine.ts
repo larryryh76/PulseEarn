@@ -76,15 +76,6 @@ function buildUserProfile(
 
 // ─── Personalization ─────────────────────────────────────────────────────────
 
-export const isProviderChannel = (opp: MarketplaceOpportunity): boolean => {
-  return (
-    opp.id.endsWith('_channel') ||
-    opp.id.endsWith('_maintenance') ||
-    (opp.metadata?.tags && opp.metadata.tags.includes('offerwall')) ||
-    opp.metadata?.verificationType === 'offerwall'
-  );
-};
-
 /**
  * Generate personalized recommendations based on user profile.
  */
@@ -93,7 +84,7 @@ export function getPersonalizedOpportunities(
   profile: UserProfile,
   limit: number = 20
 ): MarketplaceOpportunity[] {
-  const available = allOpportunities.filter(o => o.status === 'available' && !isProviderChannel(o));
+  const available = allOpportunities.filter(o => o.status === 'available');
   
   // Score each opportunity for this user
   const scored = available.map(opp => ({
@@ -206,14 +197,12 @@ export function generateContinueSection(
 ): RecommendationSection | null {
   const continueOpps = allOpportunities
     .filter(o => 
-      !isProviderChannel(o) && (
-        o.status === 'started' ||
-        o.status === 'in_progress' ||
-        o.status === 'pending' ||
-        o.status === 'submitted' ||
-        o.status === 'awaiting_verification' ||
-        o.status === 'cooldown'
-      )
+      o.status === 'started' || 
+      o.status === 'in_progress' || 
+      o.status === 'pending' || 
+      o.status === 'submitted' || 
+      o.status === 'awaiting_verification' || 
+      o.status === 'cooldown'
     )
     .slice(0, pendingCount);
 
@@ -238,7 +227,7 @@ export function generateAlmostCompleteSection(
   limit: number = 6
 ): RecommendationSection | null {
   const almostComplete = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'pending')
+    .filter(o => o.status === 'pending')
     .slice(0, limit);
 
   if (almostComplete.length === 0) return null;
@@ -313,7 +302,6 @@ export function generateFeaturedSection(
 ): RecommendationSection | null {
   const featured = allOpportunities
     .filter(o => 
-      !isProviderChannel(o) &&
       o.status === 'available' && 
       (o.metadata.category === 'featured' || o.engagement.trending)
     )
@@ -339,7 +327,7 @@ export function generateHighestPayingSection(
   limit: number = 8
 ): RecommendationSection {
   const highest = [...allOpportunities]
-    .filter(o => !isProviderChannel(o) && o.status === 'available')
+    .filter(o => o.status === 'available')
     .sort((a, b) => b.reward.points - a.reward.points)
     .slice(0, limit);
 
@@ -362,7 +350,7 @@ export function generateQuickWinsSection(
   limit: number = 8
 ): RecommendationSection {
   const quick = [...allOpportunities]
-    .filter(o => !isProviderChannel(o) && o.status === 'available')
+    .filter(o => o.status === 'available')
     .sort((a, b) => {
       const timeA = parseTimeToMinutes(a.metadata.estimatedTime);
       const timeB = parseTimeToMinutes(b.metadata.estimatedTime);
@@ -388,7 +376,7 @@ export function generateTrendingGamesSection(
   limit: number = 6
 ): RecommendationSection | null {
   const games = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.metadata.category === 'games')
+    .filter(o => o.status === 'available' && o.metadata.category === 'games')
     .sort((a, b) => {
       if (a.engagement.trending && !b.engagement.trending) return -1;
       if (b.engagement.trending && !a.engagement.trending) return 1;
@@ -416,7 +404,7 @@ export function generateExpiringSoonSection(
   limit: number = 6
 ): RecommendationSection | null {
   const expiring = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.engagement.expiringSoon)
+    .filter(o => o.status === 'available' && o.engagement.expiringSoon)
     .slice(0, limit);
 
   if (expiring.length === 0) return null;
@@ -439,7 +427,7 @@ export function generateDailySection(
   limit: number = 8
 ): RecommendationSection | null {
   const daily = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && (o.metadata.category === 'daily' || o.id.includes('daily')))
+    .filter(o => o.status === 'available' && (o.metadata.category === 'daily' || o.id.includes('daily')))
     .slice(0, limit);
 
   if (daily.length === 0) return null;
@@ -466,7 +454,7 @@ export function generateLimitedCampaignsSection(
   source: SectionSource = 'limited_campaigns'
 ): RecommendationSection | null {
   const campaigns = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && (o.metadata.category === 'seasonal' || o.engagement.expiringSoon || o.eligibility?.maxCampaignClaims))
+    .filter(o => o.status === 'available' && (o.metadata.category === 'seasonal' || o.engagement.expiringSoon || o.eligibility?.maxCampaignClaims))
     .slice(0, limit);
 
   if (campaigns.length === 0) return null;
@@ -490,7 +478,7 @@ export function generateNewOpportunitiesSection(
   limit: number = 8
 ): RecommendationSection | null {
   const newOpps = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.engagement.isNew)
+    .filter(o => o.status === 'available' && o.engagement.isNew)
     .slice(0, limit);
 
   if (newOpps.length === 0) return null;
@@ -513,7 +501,7 @@ export function generateTrendingSection(
   limit: number = 8
 ): RecommendationSection | null {
   const trending = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.engagement.trending)
+    .filter(o => o.status === 'available' && o.engagement.trending)
     .slice(0, limit);
 
   if (trending.length === 0) return null;
@@ -536,7 +524,7 @@ export function generateReferralsSection(
   limit: number = 6
 ): RecommendationSection | null {
   const refs = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && (o.metadata.category === 'referrals' || o.metadata.verificationType === 'referral'))
+    .filter(o => o.status === 'available' && (o.metadata.category === 'referrals' || o.metadata.verificationType === 'referral'))
     .slice(0, limit);
 
   if (refs.length === 0) return null;
@@ -560,7 +548,7 @@ export function generateLearnSection(
   limit: number = 6
 ): RecommendationSection | null {
   const learn = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.metadata.category === 'learn')
+    .filter(o => o.status === 'available' && o.metadata.category === 'learn')
     .slice(0, limit);
 
   if (learn.length === 0) return null;
@@ -584,7 +572,7 @@ export function generateOfferwallsSection(
   limit: number = 8
 ): RecommendationSection | null {
   const offerwalls = allOpportunities
-    .filter(o => o.status === 'available' && isProviderChannel(o))
+    .filter(o => o.status === 'available' && (o.source === 'provider' || o.metadata.verificationType === 'offerwall'))
     .slice(0, limit);
 
   if (offerwalls.length === 0) return null;
@@ -607,7 +595,7 @@ export function generatePredictionsSection(
   limit: number = 6
 ): RecommendationSection | null {
   const pred = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && (o.metadata.category === 'predictions' || o.metadata.verificationType === 'prediction'))
+    .filter(o => o.status === 'available' && (o.metadata.category === 'predictions' || o.metadata.verificationType === 'prediction'))
     .slice(0, limit);
 
   if (pred.length === 0) return null;
@@ -631,7 +619,7 @@ export function generateCommunitySection(
   limit: number = 6
 ): RecommendationSection | null {
   const community = allOpportunities
-    .filter(o => !isProviderChannel(o) && o.status === 'available' && o.metadata.category === 'community')
+    .filter(o => o.status === 'available' && o.metadata.category === 'community')
     .slice(0, limit);
 
   if (community.length === 0) return null;
@@ -783,8 +771,12 @@ function getCategorySubtitle(category: OpportunityCategory): string {
     featured: 'Discover top opportunities',
     daily: 'Earn every day',
     surveys: 'Share your opinion',
+    offers: 'Complete partner offers',
     games: 'Play and earn',
     apps: 'Download and try',
+    social: 'Engage with community channels',
+    missions: 'Complete structured challenges',
+    campaigns: 'Special partner promotions',
     shopping: 'Shop and save',
     cashback: 'Get money back',
     videos: 'Watch and earn',
@@ -792,8 +784,9 @@ function getCategorySubtitle(category: OpportunityCategory): string {
     community: 'Join the community',
     referrals: 'Invite friends',
     predictions: 'Predict and win',
-    seasonal: 'Limited time offers',
+    seasonal: 'Seasonal special events',
     sponsored: 'Partner opportunities',
+    limited: 'Limited time offers',
   };
   return subtitles[category] || `Browse ${formatCategoryTitle(category)}`;
 }

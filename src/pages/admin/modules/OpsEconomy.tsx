@@ -52,6 +52,7 @@ const OpsEconomy: React.FC = () => {
 
   const [isAdjusting, setIsAdjusting] = React.useState(false);
   const [isManagingProviders, setIsManagingProviders] = React.useState(false);
+  const activeClaimIdRef = React.useRef<string | null>(null);
   const [adjustForm, setAdjustForm] = React.useState({
      userId: '',
      amount: 0,
@@ -159,7 +160,10 @@ const OpsEconomy: React.FC = () => {
 
      setIsSubmitting(true);
      try {
-        const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
+        if (!activeClaimIdRef.current) {
+           activeClaimIdRef.current = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
+        }
+        const claimId = activeClaimIdRef.current;
         const res = await safeFetch('/api/execute-transaction', {
            method: 'POST',
            body: JSON.stringify({
@@ -176,6 +180,7 @@ const OpsEconomy: React.FC = () => {
         if (res && res.success) {
            toast.success('Economy Adjustment Synchronized via Backend Authority');
            setIsAdjusting(false);
+           activeClaimIdRef.current = null;
            setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
            fetchHistory();
         } else {

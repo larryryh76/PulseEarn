@@ -3326,7 +3326,7 @@ def _offerwall_callback_impl(provider_id, req):
         activity_type = 'chargeback_issued' if is_reversal else 'reward_received'
         post_ledger(txn, user_ref, user_id,
                     tx_type=ledger_tx_type,
-                    amount=user_points,
+                    amount=points_increment,
                     xp=(0 if is_reversal else xp_reward),  # Don't award XP on chargebacks
                     source=f'Offerwall: {config.get("name", provider_id)}',
                     description=f'{"Chargeback" if is_reversal else "Offer completed"}: {offer_name}',

@@ -160,25 +160,26 @@ const OpsEconomy: React.FC = () => {
      setIsSubmitting(true);
      try {
         const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
-
-        const result = await PointTransactionEngine.execute({
-           userId: adjustForm.userId,
-           amount: adjustForm.isXp ? 0 : adjustForm.amount,
-           xpReward: adjustForm.isXp ? adjustForm.amount : 0,
-           type: adjustForm.type,
-           source: adjustForm.source,
-           claimId,
-           description: adjustForm.description,
-           bypassLock: true
+        const res = await safeFetch('/api/execute-transaction', {
+           method: 'POST',
+           body: JSON.stringify({
+              userId: adjustForm.userId,
+              amount: adjustForm.isXp ? 0 : adjustForm.amount,
+              xpReward: adjustForm.isXp ? adjustForm.amount : 0,
+              type: adjustForm.type || 'admin_adjustment',
+              source: adjustForm.source || 'Manual Adjustment',
+              claimId,
+              description: adjustForm.description || 'Admin manual adjustment'
+           })
         });
 
-        if (result.success) {
-           toast.success('Economy Adjustment Synchronized');
+        if (res && res.success) {
+           toast.success('Economy Adjustment Synchronized via Backend Authority');
            setIsAdjusting(false);
            setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
            fetchHistory();
         } else {
-           toast.error(result.error);
+           toast.error((res && res.error) || 'Backend Transaction Authority Rejected Request');
         }
      } catch (err) {
         toast.error('Transaction Authority Failure');

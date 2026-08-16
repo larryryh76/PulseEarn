@@ -218,6 +218,28 @@ def verify_token(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def require_admin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = getattr(request, 'user', None)
+        if not user or not user.get('uid'):
+            return jsonify({"success": False, "error": "UNAUTHORIZED"}), 401
+        if not is_admin(user['uid']):
+            return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_moderator(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = getattr(request, 'user', None)
+        if not user or not user.get('uid'):
+            return jsonify({"success": False, "error": "UNAUTHORIZED"}), 401
+        if not is_moderator(user['uid']):
+            return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 def calculate_level(xp, base_level_xp=1000):
     if xp < base_level_xp: return 1
     return math.floor(math.log(xp / base_level_xp) / math.log(3)) + 2
@@ -1663,6 +1685,7 @@ def process_referral_reward():
 
 @app.route('/api/admin/tasks/create', methods=['POST'])
 @verify_token
+@require_moderator
 def create_task():
     """Admin/Moderator: Create a new task and make it immediately live (active: true)."""
     get_deps()
@@ -1670,8 +1693,6 @@ def create_task():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
     uid = request.user['uid']
-    if not is_moderator(uid):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     data = request.json or {}
     title = (data.get('title') or '').strip()
     if not title:
@@ -1735,10 +1756,9 @@ def create_task():
 
 @app.route('/api/admin/tasks/<task_id>/update', methods=['POST'])
 @verify_token
+@require_moderator
 def update_task(task_id):
     """Admin/Moderator: Update an existing task definition."""
-    if not is_moderator(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -1842,10 +1862,9 @@ def update_task(task_id):
 
 @app.route('/api/admin/tasks/<task_id>/duplicate', methods=['POST'])
 @verify_token
+@require_moderator
 def duplicate_task(task_id):
     """Admin/Moderator: Duplicate an existing task."""
-    if not is_moderator(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -1889,10 +1908,9 @@ def duplicate_task(task_id):
 
 @app.route('/api/admin/tasks/<task_id>/disable', methods=['POST'])
 @verify_token
+@require_admin
 def disable_task(task_id):
     """Admin: Soft-delete a task by setting active: false. Triggers listener updates."""
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -1917,10 +1935,9 @@ def disable_task(task_id):
 
 @app.route('/api/admin/tasks/<task_id>/enable', methods=['POST'])
 @verify_token
+@require_admin
 def enable_task(task_id):
     """Admin: Re-enable a disabled task by setting active: true. Triggers listener updates."""
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -1945,10 +1962,9 @@ def enable_task(task_id):
 
 @app.route('/api/admin/tasks/<task_id>/delete', methods=['POST'])
 @verify_token
+@require_admin
 def delete_task(task_id):
     """Admin: Permanently delete a single task definition (hard delete)."""
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -1991,14 +2007,13 @@ def _delete_collection_batched(db, coll_ref, batch_size=400, predicate=None):
 
 @app.route('/api/admin/missions/purge', methods=['POST'])
 @verify_token
+@require_admin
 def purge_missions():
     """Admin: Permanently delete decommissioned mission data ONLY.
     Removes all `system_task_definitions` (e.g. "Network Builder") and every
     `user_system_tasks` progress doc. Standard tasks/campaigns and offerwall data
     are untouched. No confirmation body required — this collection is deprecated.
     """
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -2016,12 +2031,11 @@ def purge_missions():
 
 @app.route('/api/admin/tasks/wipe-all', methods=['POST'])
 @verify_token
+@require_admin
 def wipe_all_tasks():
     """Admin: Permanently delete ALL task/campaign/mission data and user progress.
     Offerwall data is explicitly preserved. Requires body {"confirm": "DELETE ALL TASKS"}.
     """
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -2068,13 +2082,12 @@ def wipe_all_tasks():
 
 @app.route('/api/admin/tasks/wipe-and-rebuild', methods=['POST'])
 @verify_token
+@require_admin
 def wipe_and_rebuild_tasks():
     """Admin: Permanently delete ALL task/campaign/mission data, user progress, and offerwall providers,
     then re-seed the database with high-fidelity defaults.
     Requires body {"confirm": "DELETE AND REBUILD TASKS"}.
     """
-    if not is_admin(request.user['uid']):
-        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
     get_deps()
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
@@ -2753,6 +2766,11 @@ def _verify_offerwall_sig(method, fields, params, secret, received_sig,
     int_fields = int_fields or []
     if not method or method == 'none':
         return True
+    # If the provider configuration specifies a signature verification method,
+    # a configured secret key AND a received signature are strictly required.
+    if not secret or not received_sig:
+        logging.warning("[Sig Check Reject] Missing required provider secret or signature parameter.")
+        return False
     try:
         def field_val(f):
             if f == 'secret':
@@ -3247,8 +3265,10 @@ def _offerwall_callback_impl(provider_id, req):
         u = u_snap.to_dict()
         current_pts = float(u.get('points', 0) or 0)
         current_xp = float(u.get('xp', 0) or 0)
-        balance_after = current_pts + user_points
-        new_xp = current_xp + xp_reward
+        # Prevent negative balance state on chargebacks/reversals
+        balance_after = max(0.0, current_pts + user_points)
+        points_increment = balance_after - current_pts
+        new_xp = max(0.0, current_xp + (0 if is_reversal else xp_reward))
 
         # Calculate level
         from math import floor, log
@@ -3259,14 +3279,16 @@ def _offerwall_callback_impl(provider_id, req):
             new_level = int(floor(log(new_xp / base_xp) / log(3))) + 2
 
         # Update user wallet
-        txn.update(user_ref, {
-            'points': firestore.Increment(user_points),
-            'xp': firestore.Increment(xp_reward),
+        user_updates = {
+            'points': balance_after,
+            'xp': new_xp,
             'level': new_level,
-            'totalEarnedToday': firestore.Increment(user_points),
-            'stats.totalEarnings': firestore.Increment(user_points),
             'updatedAt': firestore.SERVER_TIMESTAMP,
-        })
+        }
+        if not is_reversal and user_points > 0:
+            user_updates['totalEarnedToday'] = firestore.Increment(user_points)
+            user_updates['stats.totalEarnings'] = firestore.Increment(user_points)
+        txn.update(user_ref, user_updates)
 
         # Update callback record
         callback_status = 'CHARGEBACK_ISSUED' if is_reversal else 'REWARD_ISSUED'

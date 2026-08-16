@@ -33,7 +33,7 @@ import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
 import { cn } from '../../../utils';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
-import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import { safeFetch } from '../../../utils/api';
 import ProviderManagerModal from './modals/ProviderManagerModal';
 import DataTable from '../../../components/admin/common/DataTable';
 

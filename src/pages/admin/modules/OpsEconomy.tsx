@@ -33,7 +33,7 @@ import Button from "../../../components/ui/Button";
 import toast from "react-hot-toast";
 import { cn } from '../../../utils';
 import { EconomyConfigEngine } from '../../../engines/system/EconomyConfigEngine';
-import { PointTransactionEngine } from '../../../engines/points/PointTransactionEngine';
+import { safeFetch } from '../../../utils/api';
 import ProviderManagerModal from './modals/ProviderManagerModal';
 import DataTable from '../../../components/admin/common/DataTable';
 
@@ -52,6 +52,7 @@ const OpsEconomy: React.FC = () => {
 
   const [isAdjusting, setIsAdjusting] = React.useState(false);
   const [isManagingProviders, setIsManagingProviders] = React.useState(false);
+  const activeClaimIdRef = React.useRef<string | null>(null);
   const [adjustForm, setAdjustForm] = React.useState({
      userId: '',
      amount: 0,
@@ -159,26 +160,31 @@ const OpsEconomy: React.FC = () => {
 
      setIsSubmitting(true);
      try {
-        const claimId = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
-
-        const result = await PointTransactionEngine.execute({
-           userId: adjustForm.userId,
-           amount: adjustForm.isXp ? 0 : adjustForm.amount,
-           xpReward: adjustForm.isXp ? adjustForm.amount : 0,
-           type: adjustForm.type,
-           source: adjustForm.source,
-           claimId,
-           description: adjustForm.description,
-           bypassLock: true
+        if (!activeClaimIdRef.current) {
+           activeClaimIdRef.current = `admin_${Date.now()}_${adjustForm.userId.slice(0, 8)}`;
+        }
+        const claimId = activeClaimIdRef.current;
+        const res = await safeFetch('/api/execute-transaction', {
+           method: 'POST',
+           body: JSON.stringify({
+              userId: adjustForm.userId,
+              amount: adjustForm.isXp ? 0 : adjustForm.amount,
+              xpReward: adjustForm.isXp ? adjustForm.amount : 0,
+              type: adjustForm.type || 'admin_adjustment',
+              source: adjustForm.source || 'Manual Adjustment',
+              claimId,
+              description: adjustForm.description || 'Admin manual adjustment'
+           })
         });
 
-        if (result.success) {
-           toast.success('Economy Adjustment Synchronized');
+        if (res && res.success) {
+           toast.success('Economy Adjustment Synchronized via Backend Authority');
            setIsAdjusting(false);
+           activeClaimIdRef.current = null;
            setAdjustForm({ userId: '', amount: 0, type: 'admin_adjustment', source: 'Manual Adjustment', description: '', isXp: false });
            fetchHistory();
         } else {
-           toast.error(result.error);
+           toast.error((res && res.error) || 'Backend Transaction Authority Rejected Request');
         }
      } catch (err) {
         toast.error('Transaction Authority Failure');

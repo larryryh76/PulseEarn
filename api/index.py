@@ -10,6 +10,14 @@ import traceback
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 
+# Ensure 'api' directory and root directory are in sys.path for reliable module imports in Vercel and local runtimes
+_api_dir = os.path.dirname(os.path.abspath(__file__))
+_root_dir = os.path.dirname(_api_dir)
+if _api_dir not in sys.path:
+    sys.path.insert(0, _api_dir)
+if _root_dir not in sys.path:
+    sys.path.insert(1, _root_dir)
+
 def compute_account_age_days(created_at):
     if not created_at:
         return 0
@@ -177,6 +185,11 @@ def init_firebase():
         print(f"BOOT: Firebase Admin initialized with explicit credentials "
               f"(Project: {pid}, Method: {method})")
         sys.stdout.flush()
+        try:
+            from services.provider_cache import get_provider_cache
+            get_provider_cache().refresh_async()
+        except Exception:
+            pass
         return True
     except Exception as e:
         _INIT_STATE.update(ready=False, error=str(e), method=method)
@@ -2635,16 +2648,18 @@ OFFERWALL_DEFAULT_SPEC = {
 # makes launch config-driven: admins paste the exact URL the provider gave them
 # (e.g. TimeWall's "...&userID=USER_ID"), and the backend fills in the real UID.
 _OFFERWALL_UID_PLACEHOLDERS = (
-    '(UNIQUE_USER_ID)', '{UNIQUE_USER_ID}', '[UNIQUE_USER_ID]', 'UNIQUE_USER_ID',
-    '(USER_ID)', '{USER_ID}', '[USER_ID]', '{{USER_ID}}', 'USER_ID',
-    '(USERID)', '{USERID}', '[USERID]', 'USERID',
+    '(UNIQUE_USER_ID)', '{UNIQUE_USER_ID}', '[UNIQUE_USER_ID]',
+    '(USER_ID)', '{USER_ID}', '[USER_ID]', '{{USER_ID}}',
+    '(USERID)', '{USERID}', '[USERID]',
     '{uid}', '(uid)', '[uid]', '{userId}', '{user_id}', '{sub_id}', '{subId}',
+    '=USER_ID', '=USERID', '=UNIQUE_USER_ID',
 )
 _OFFERWALL_AFF_PLACEHOLDERS = (
-    '(PUBLISHER_ID)', '{PUBLISHER_ID}', 'PUBLISHER_ID',
-    '(AFFILIATE_ID)', '{AFFILIATE_ID}', 'AFFILIATE_ID',
-    '(PLACEMENT_ID)', '{PLACEMENT_ID}', 'PLACEMENT_ID',
-    '{aff}', '(aff)', '{appId}', '{app_id}', '{pubId}',
+    '(PUBLISHER_ID)', '{PUBLISHER_ID}', '[PUBLISHER_ID]', '{publisherId}', '{publisherid}',
+    '(AFFILIATE_ID)', '{AFFILIATE_ID}', '[AFFILIATE_ID]', '{affiliateId}', '{affiliateid}',
+    '(PLACEMENT_ID)', '{PLACEMENT_ID}', '[PLACEMENT_ID]', '{placementId}', '{placementid}',
+    '{aff}', '(aff)', '{appId}', '{app_id}', '{pubId}', '{pubid}',
+    '=PUBLISHER_ID', '=AFFILIATE_ID', '=PLACEMENT_ID',
 )
 
 
@@ -2655,16 +2670,17 @@ def _apply_launch_placeholders(url, aff, uid):
         return url
     result = url
     for token in _OFFERWALL_UID_PLACEHOLDERS:
-        # case-insensitive replace
         idx = result.lower().find(token.lower())
         while idx != -1:
-            result = result[:idx] + uid + result[idx + len(token):]
-            idx = result.lower().find(token.lower(), idx + len(uid))
+            replacement = uid if not token.startswith('=') else '=' + uid
+            result = result[:idx] + replacement + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(replacement))
     for token in _OFFERWALL_AFF_PLACEHOLDERS:
         idx = result.lower().find(token.lower())
         while idx != -1:
-            result = result[:idx] + aff + result[idx + len(token):]
-            idx = result.lower().find(token.lower(), idx + len(aff))
+            replacement = aff if not token.startswith('=') else '=' + aff
+            result = result[:idx] + replacement + result[idx + len(token):]
+            idx = result.lower().find(token.lower(), idx + len(replacement))
     return result
 
 
@@ -2835,13 +2851,6 @@ def offerwall_callback(provider_id):
     Universal offerwall callback endpoint.
     URL: /api/offerwall/callback/{provider_slug}
     Accepts GET or POST depending on provider.
-
-    Thin wrapper: guarantees the endpoint NEVER returns an opaque 500. Providers
-    (TimeWall, CPX, etc.) expect an HTTP 200 with a success token; a 500 makes
-    them treat the postback as failed and retry-storm. Any unexpected error is
-    logged and swallowed into a 200 ACK so a single bad payload (e.g. someone
-    pasting the URL with literal {userID} placeholders in a browser) can't break
-    the endpoint or leak a stack trace.
     """
     from flask import request as req
     try:
@@ -2849,8 +2858,6 @@ def offerwall_callback(provider_id):
     except Exception as e:
         import traceback
         print(f"[v0] offerwall_callback fatal error for provider={provider_id}: {e}\n{traceback.format_exc()}")
-        # If the caller looks like a browser hitting placeholder/dummy params,
-        # give a readable hint instead of a bare token.
         raw_qs = req.query_string.decode('utf-8', 'ignore') if req.query_string else ''
         if '{' in raw_qs or '%7B' in raw_qs:
             return jsonify({
@@ -2862,7 +2869,7 @@ def offerwall_callback(provider_id):
                             f"it in the {provider_id} dashboard and it will receive real "
                             "signed values from the provider."),
             }), 200
-        return "OK", 200
+        return jsonify({"success": False, "error": "INTERNAL_PROCESSING_ERROR", "message": str(e)}), 500
 
 
 def _offerwall_callback_impl(provider_id, req):
@@ -2923,18 +2930,28 @@ def _offerwall_callback_impl(provider_id, req):
     params = {k: (v[0] if isinstance(v, list) else str(v)) for k, v in params.items()}
 
     # ── 4. Verify cached config matches Firestore ────────────────────────────
-    if not provider_cache.verify_against_firestore(provider_id):
+    if cached_provider and not provider_cache.verify_against_firestore(provider_id):
         # Mismatch detected - refresh cache and try again
         provider_cache.invalidate()
         cached_provider = provider_cache.get_provider(provider_id, allow_cache=False)
     
     config = cached_provider
+    if not config:
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               f'Unknown or unconfigured provider: {provider_id}')
+        return jsonify({"success": False, "error": "UNKNOWN_PROVIDER", "message": f"Provider '{provider_id}' is not configured"}), 400
+
     if not config.get('enabled', False):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
                                'Provider is disabled, callback ignored')
         return pmap['success_response'], 200  # Silently ack disabled providers
 
-    secret = config.get('secret', '')
+    secret = str(config.get('secret', '') or '').strip()
+    if pmap.get('sig_method') != 'none' and not secret:
+        _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
+                               'Provider postback secret key is not configured')
+        return jsonify({"success": False, "error": "MISSING_SECRET", "message": f"Secret key for provider '{provider_id}' is not configured"}), 400
+
     multiplier = float(config.get('rewardMultiplier', 1.0))
     # Business rule: user receives 30% of the awarded points, platform keeps 70%.
     user_share = float(config.get('userSharePct', 0.30))
@@ -2974,7 +2991,7 @@ def _offerwall_callback_impl(provider_id, req):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
                                f'Missing required params: user_id={user_id}, tx_id={provider_tx_id}',
                                metadata={'params_received': list(params.keys())})
-        return pmap['success_response'], 200
+        return jsonify({"success": False, "error": "MISSING_PARAMS", "message": f"Missing required user or transaction identifier for provider '{provider_id}'"}), 400
 
     # ── 5. Signature Verification ───────────────────────────────────────��────
     sig_valid = _verify_offerwall_sig(
@@ -3009,7 +3026,7 @@ def _offerwall_callback_impl(provider_id, req):
                                    metadata={'type': status_val, 'reason': params.get('reason', '')})
             return pmap['success_response'], 200
 
-    dedup_key = f"{provider_id}:{provider_tx_id}"
+    dedup_key = f"{provider_id}:reversal:{provider_tx_id}" if is_reversal else f"{provider_id}:{provider_tx_id}"
     ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
     user_agent = req.headers.get('User-Agent', 'unknown')[:500]
 
@@ -3127,7 +3144,7 @@ def _offerwall_callback_impl(provider_id, req):
             'stats.lastFailedSync': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
         }, merge=True)
-        return pmap['success_response'], 200  # ACK but don't reward
+        return jsonify({"success": False, "error": "INVALID_SIGNATURE", "message": "Signature verification failed"}), 400
 
     # ── 6. Duplicate Detection ───────────────────────────────────────────────
     existing = db.collection('offerwall_callbacks').where('dedupKey', '==', dedup_key).limit(1).get()
@@ -3153,18 +3170,18 @@ def _offerwall_callback_impl(provider_id, req):
             'stats.healthScore': health_score,
             'updatedAt': firestore.SERVER_TIMESTAMP,
         }, merge=True)
-        return pmap['success_response'], 200  # ACK silently
+        return jsonify({"success": True, "status": "DUPLICATE", "message": f"Callback for transaction '{provider_tx_id}' was already processed"}), 200
 
     # ── 7. User Validation ─────────���─────────────────────────────────────────
     user_ref = db.collection('users').document(user_id)
     user_snap = user_ref.get()
     if not user_snap.exists:
-        callback_data['status'] = 'INVALID_SIGNATURE'
+        callback_data['status'] = 'USER_NOT_FOUND'
         callback_data['fraudFlags'] = ['USER_NOT_FOUND']
         callback_ref.set(callback_data)
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
                                f'User {user_id} not found', callbackId=callback_id)
-        return pmap['success_response'], 200
+        return jsonify({"success": False, "error": "USER_NOT_FOUND", "message": f"User '{user_id}' not found"}), 400
 
     user_data = user_snap.to_dict()
 
@@ -3215,7 +3232,7 @@ def _offerwall_callback_impl(provider_id, req):
             'stats.lastFailedSync': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
         }, merge=True)
-        return pmap['success_response'], 200
+        return jsonify({"success": False, "error": "FRAUD_BLOCKED", "message": f"Callback blocked by fraud gates: {fraud_flags}"}), 403
 
     # ── 9. Points Calculation ─────────────────────������─────────────────────────
     # Gross points BEFORE the user/platform split. Prefer USD × internal rate so the
@@ -3462,7 +3479,7 @@ def _offerwall_callback_impl(provider_id, req):
         }, merge=True)
         print(f"[Offerwall] Reward failed: {str(e)}")
         sys.stdout.flush()
-        return pmap['success_response'], 200  # Always ACK provider
+        return jsonify({"success": False, "error": "REWARD_PROCESSING_FAILED", "message": str(e)}), 500
 
 # ══════════���════════════════════════════════════════════════════════════════════
 # HEALTH ENGINE — derives a precise operational status from real stored signals.
@@ -4647,7 +4664,9 @@ def offerwall_generate_payload(provider_id):
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
     cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-    secret = str(cfg.get('secret', 'TEST_SECRET'))
+    secret = str(cfg.get('secret', '') or '').strip()
+    if spec.get('sig_method') != 'none' and not secret:
+        return jsonify({'success': False, 'error': 'MISSING_SECRET', 'message': f'Secret key for provider "{provider_id}" is not configured.'}), 400
     test_uid = request.user['uid']
     import time as _t
     params = {
@@ -4730,7 +4749,9 @@ def offerwall_simulate_reward(provider_id):
     if not snap.exists: return jsonify({'success': False, 'error': 'NOT_FOUND'}), 404
     cfg = snap.to_dict()
     spec = _resolve_provider_spec(provider_id, cfg)
-    secret = str(cfg.get('secret', 'TEST_SECRET'))
+    secret = str(cfg.get('secret', '') or '').strip()
+    if spec.get('sig_method') != 'none' and not secret:
+        return jsonify({'success': False, 'error': 'MISSING_SECRET', 'message': f'Secret key for provider "{provider_id}" is not configured.'}), 400
 
     body = request.json or {}
     test_uid = body.get('userId') or request.user['uid']
@@ -5981,13 +6002,11 @@ def get_economy_health_report():
     intel = calculate_marketplace_operational_intelligence()
     return jsonify({"success": True, "economy": intel['economy']})
 
-# Initialize provider cache on startup
+# Safe provider cache initialization reference
 try:
-    from services.provider_cache import init_provider_cache
-    init_provider_cache()
-    print("[Offerwall] Provider cache initialized on startup")
+    from services.provider_cache import get_provider_cache
 except Exception as e:
-    print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
+    print(f"[Offerwall] WARNING: Failed to import provider cache: {str(e)}")
 
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

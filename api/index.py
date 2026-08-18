@@ -2869,7 +2869,7 @@ def offerwall_callback(provider_id):
                             f"it in the {provider_id} dashboard and it will receive real "
                             "signed values from the provider."),
             }), 200
-        return jsonify({"success": False, "error": "INTERNAL_PROCESSING_ERROR", "message": str(e)}), 500
+        return jsonify({"success": False, "error": "INTERNAL_PROCESSING_ERROR", "message": "An internal error occurred while processing the callback"}), 500
 
 
 def _offerwall_callback_impl(provider_id, req):
@@ -2914,11 +2914,6 @@ def _offerwall_callback_impl(provider_id, req):
         cached_provider = config_snap.to_dict()
         # Refresh cache for next time
         provider_cache.refresh_async()
-    
-    # Resolve the provider spec: registry preset + Firestore config overrides.
-    # This is fully extensible — unknown providers resolve to a generic default,
-    # and any provider can override its spec from the admin config.
-    pmap = _resolve_provider_spec(provider_id, cached_provider)
 
     # ── 3. Extract all params (GET or POST) ─────────────────────────────────
     raw_query = req.query_string.decode('utf-8') if req.query_string else ''
@@ -2940,6 +2935,9 @@ def _offerwall_callback_impl(provider_id, req):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'error',
                                f'Unknown or unconfigured provider: {provider_id}')
         return jsonify({"success": False, "error": "UNKNOWN_PROVIDER", "message": f"Provider '{provider_id}' is not configured"}), 400
+
+    # Resolve the provider spec AFTER verifying/reloading final config
+    pmap = _resolve_provider_spec(provider_id, config)
 
     if not config.get('enabled', False):
         _write_offerwall_event(db, provider_id, 'callback_invalid', 'warning',
@@ -3005,17 +3003,14 @@ def _offerwall_callback_impl(provider_id, req):
         raw_query=raw_query,
         sig_param=pmap.get('sig_param', 'signature'),
     )
-    # Handle reversal/chargeback status (e.g. CPX status=2) — reverse the reward.
+    # Handle reversal/chargeback status (e.g. CPX status=2, TimeWall type=chargeback, or negative amount values)
     status_param = pmap.get('status_param')
     is_reversal = False
     if status_param:
         status_val = str(params.get(status_param, pmap.get('status_ok', '')))
         is_reversal = (status_val == str(pmap.get('status_reversal', '__none__')))
 
-        # Lifecycle "hold" states (e.g. TimeWall hold / hold_cancelled on auto-withdraw
-        # placements): acknowledge with 200 but DO NOT credit or deduct. We intentionally
-        # do not write a dedup/reward record so the later "credit" postback (same
-        # transactionID) still processes normally.
+        # Lifecycle "hold" states (e.g. TimeWall hold / hold_cancelled)
         hold_states = pmap.get('status_hold') or []
         if isinstance(hold_states, str):
             hold_states = [hold_states]
@@ -3026,6 +3021,12 @@ def _offerwall_callback_impl(provider_id, req):
                                    metadata={'type': status_val, 'reason': params.get('reason', '')})
             return pmap['success_response'], 200
 
+    # Also detect natively negative payout/revenue values as a reversal signal
+    signed_source = usd_amount if usd_amount is not None else raw_amount
+    if signed_source < 0:
+        is_reversal = True
+
+    # Construct deduplication key AFTER all reversal signals (status + amount) are known
     dedup_key = f"{provider_id}:reversal:{provider_tx_id}" if is_reversal else f"{provider_id}:{provider_tx_id}"
     ip_address = req.headers.get('X-Forwarded-For', req.remote_addr or 'unknown').split(',')[0].strip()
     user_agent = req.headers.get('User-Agent', 'unknown')[:500]
@@ -3240,10 +3241,8 @@ def _offerwall_callback_impl(provider_id, req):
     # fall back to the provider currency amount.
     if usd_amount is not None:
         gross_pts_raw = usd_amount * OFFERWALL_POINTS_PER_USD * multiplier
-        signed_source = usd_amount
     else:
         gross_pts_raw = raw_amount * multiplier
-        signed_source = raw_amount
 
     # Providers may send NEGATIVE amounts for chargebacks (e.g. TimeWall revenue=-1.35).
     # Clamp on magnitude and re-apply sign via the reversal flag so the min/max bounds
@@ -3252,11 +3251,7 @@ def _offerwall_callback_impl(provider_id, req):
     user_points = round(total_pts * user_share)
     platform_points = round(total_pts * platform_share)
 
-    # A natively-negative amount is itself a reversal signal (belt & suspenders).
-    if signed_source < 0:
-        is_reversal = True
-
-    # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ─���
+    # ── 9a. Chargeback / Reversal (Phase 18.12: reversal logic must be atomic) ───
     reversal_type = 'AWARD'
     if is_reversal:
         user_points = -abs(user_points)
@@ -3479,7 +3474,7 @@ def _offerwall_callback_impl(provider_id, req):
         }, merge=True)
         print(f"[Offerwall] Reward failed: {str(e)}")
         sys.stdout.flush()
-        return jsonify({"success": False, "error": "REWARD_PROCESSING_FAILED", "message": str(e)}), 500
+        return jsonify({"success": False, "error": "REWARD_PROCESSING_FAILED", "message": "Failed to process reward transaction"}), 500
 
 # ══════════���════════════════════════════════════════════════════════════════════
 # HEALTH ENGINE — derives a precise operational status from real stored signals.

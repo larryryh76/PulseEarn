@@ -3973,6 +3973,21 @@ def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
             return offers
 
     url = feed_url or f"https://api.gemiad.com/v1/offers?app_id={app_id}"
+
+    # Enforce HTTPS and strict origin domain validation before sending credentials
+    try:
+        parsed = urllib.parse.urlparse(str(url).strip())
+        if parsed.scheme.lower() != 'https':
+            print(f"[GemiAd] Non-HTTPS feed URL rejected: {url}")
+            return []
+        hostname = (parsed.hostname or '').lower()
+        if not (hostname == 'gemiad.com' or hostname.endswith('.gemiad.com')):
+            print(f"[GemiAd] Blocked untrusted origin domain for GemiAd feed: {hostname}")
+            return []
+    except Exception as err:
+        print(f"[GemiAd] Invalid feed URL format: {err}")
+        return []
+
     headers = {'Accept': 'application/json'}
     if api_key:
         headers['Authorization'] = f"Bearer {api_key}"
@@ -3991,6 +4006,86 @@ def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
     if cache_key in _gemiad_feed_cache:
         return _gemiad_feed_cache[cache_key][1]
     return []
+
+def _normalize_generic_provider_offer(offer, uid, config, provider_id, provider_name, host_url):
+    offer_id = str(offer.get('id') or offer.get('offerId') or offer.get('campaignId') or '0')
+    title = offer.get('title') or offer.get('name') or f"{provider_name} Offer"
+    desc = offer.get('description') or offer.get('instructions') or ''
+    payout = safe_float(offer.get('payout') or offer.get('amount') or offer.get('payoutUsd') or offer.get('reward') or '0')
+
+    multiplier = float(config.get('rewardMultiplier', 1.0))
+    user_share = float(config.get('userSharePct', 0.85))
+    platform_share = float(config.get('platformSharePct', 0.15))
+
+    gross_points = payout * OFFERWALL_POINTS_PER_USD * multiplier
+    user_points = round(gross_points * user_share)
+    platform_points = round(gross_points * platform_share)
+
+    cat_raw = str(offer.get('category', 'other')).lower()
+    if 'survey' in cat_raw or 'poll' in cat_raw:
+        category = 'surveys'
+    elif 'game' in cat_raw or 'play' in cat_raw:
+        category = 'games'
+    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw:
+        category = 'apps'
+    elif 'shop' in cat_raw or 'purchase' in cat_raw:
+        category = 'shopping'
+    elif 'video' in cat_raw or 'watch' in cat_raw:
+        category = 'videos'
+    else:
+        category = 'offers'
+
+    raw_url = offer.get('url') or offer.get('link') or offer.get('actionUrl') or ''
+    if raw_url:
+        tracking_url = raw_url.replace('{subid}', uid).replace('{user_id}', uid).replace('{uid}', uid)
+    else:
+        tracking_url = f"{host_url}/api/offerwall/providers/{provider_id}/launch"
+
+    return {
+        'id': f"{provider_id}_{offer_id}",
+        'providerId': provider_id,
+        'providerOfferId': offer_id,
+        'source': 'provider',
+        'providerName': provider_name,
+        'type': 'offer',
+        'title': title,
+        'description': desc,
+        'instructions': desc,
+        'requirements': offer.get('requirements', ''),
+        'image': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+        'reward': {
+            'points': user_points,
+            'xp': max(5, round(user_points * 0.15))
+        },
+        'providerPayout': payout,
+        'userReward': user_points,
+        'platformRevenue': platform_points,
+        'currency': 'PTS',
+        'metadata': {
+            'category': category,
+            'difficulty': 'medium',
+            'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
+            'verificationType': 'automated',
+            'launchMode': 'redirect',
+            'artwork': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'thumbnail': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'tags': ['offerwall', provider_id]
+        },
+        'action': {
+            'url': tracking_url,
+            'actionType': 'url',
+            'trackingId': offer_id
+        },
+        'verificationType': 'automated',
+        'status': 'available',
+        'engagement': {
+            'completionRate': 1.0,
+            'averageReward': user_points,
+            'totalCompletions': 0,
+            'trending': False,
+            'isNew': True
+        }
+    }
 
 def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host_url):
     offer_id = str(offer.get('id') or offer.get('offer_id') or offer.get('campaign_id') or '0')
@@ -4323,14 +4418,19 @@ def offerwall_opportunities():
 
                         all_opportunities.append(_normalize_cpagrip_offer(o, uid, d, host_url))
 
-            elif s.id == 'gemiad' or is_model_b:
+            elif s.id == 'gemiad':
                 feed_url = d.get('feedUrl') or d.get('apiEndpoint')
                 app_id = d.get('identity', {}).get('appId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
                 api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
                 if feed_url or (app_id and api_key):
                     raw_offers = _get_gemiad_offers_cached(app_id, api_key, feed_url)
                     for o in raw_offers:
-                        all_opportunities.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', s.id), host_url))
+                        all_opportunities.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', 'GemiAd'), host_url))
+
+            elif is_model_b and isinstance(d.get('offers'), list):
+                for o in d.get('offers', []):
+                    if isinstance(o, dict):
+                        all_opportunities.append(_normalize_generic_provider_offer(o, uid, d, s.id, d.get('name', s.id), host_url))
 
         except Exception as e:
             print(f"[Offerwall Opportunities] Error processing provider '{s.id}': {e}")

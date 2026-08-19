@@ -177,26 +177,43 @@ export const Marketplace: React.FC = () => {
 
     try {
       const idToken = await currentUser.getIdToken();
-      const res = await safeFetch('/api/offerwall/user-providers', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
 
-      if (res.success && Array.isArray(res.providers)) {
-        setProviders(res.providers);
+      const [resProviders, resOpps] = await Promise.all([
+        safeFetch('/api/offerwall/user-providers', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        }),
+        safeFetch('/api/offerwall/opportunities', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        }),
+      ]);
+
+      const directOpps: MarketplaceOpportunity[] = (resOpps.success && Array.isArray(resOpps.opportunities))
+        ? resOpps.opportunities
+        : [];
+
+      if (resProviders.success && Array.isArray(resProviders.providers)) {
+        setProviders(resProviders.providers);
 
         // Feed provider inventory into Marketplace Engine
         const currentEngineState = getMarketplaceState();
-        res.providers.forEach((p: Provider) => {
+        resProviders.providers.forEach((p: Provider) => {
           const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          const existingOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
+          const providerDirectOpps = directOpps.filter(o => o.providerId === p.id);
+          const embeddedOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
+          const combinedOpps = [...providerDirectOpps, ...embeddedOpps];
+
           updateProviderInventory({
             providerId: p.id,
             providerName: p.name,
-            opportunities: existingOpps,
+            opportunities: combinedOpps,
             lastSyncedAt: new Date(),
             connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' || p.status === 'maintenance' ? 'offline' : 'connected',
           });

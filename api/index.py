@@ -2951,9 +2951,9 @@ def _offerwall_callback_impl(provider_id, req):
         return jsonify({"success": False, "error": "MISSING_SECRET", "message": f"Secret key for provider '{provider_id}' is not configured"}), 400
 
     multiplier = float(config.get('rewardMultiplier', 1.0))
-    # Business rule: user receives 30% of the awarded points, platform keeps 70%.
-    user_share = float(config.get('userSharePct', 0.30))
-    platform_share = float(config.get('platformSharePct', 0.70))
+    # Business rule: user receives 85% of the awarded points, platform keeps 15%.
+    user_share = float(config.get('userSharePct', 0.85))
+    platform_share = float(config.get('platformSharePct', 0.15))
     min_reward = int(config.get('minimumReward', 1))
     max_reward = int(config.get('maximumReward', 100000))
     fraud_rules = config.get('fraudRules', {})
@@ -3884,7 +3884,7 @@ def offerwall_analytics():
     # Aggregate totals
     gross = sum(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) for p in providers)
     user_rewards = sum(
-        round(safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) * safe_float(p.get('userSharePct', 0.30), 0.30))
+        (safe_float(p.get('stats', {}).get('lifetimeRevenue', 0), 0.0) * safe_float(p.get('userSharePct', 0.85), 0.85))
         for p in providers
     )
     platform_rev = gross - user_rewards
@@ -3960,6 +3960,117 @@ def _is_provider_gated(cfg):
 
 
 _cpagrip_feed_cache = {}
+_gemiad_feed_cache = {}
+
+def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
+    global _gemiad_feed_cache
+    now = time.time()
+    cache_key = f"{app_id}:{api_key}:{feed_url}"
+
+    if cache_key in _gemiad_feed_cache:
+        cached_time, offers = _gemiad_feed_cache[cache_key]
+        if now - cached_time < 300: # 5 min TTL
+            return offers
+
+    url = feed_url or f"https://api.gemiad.com/v1/offers?app_id={app_id}"
+    headers = {'Accept': 'application/json'}
+    if api_key:
+        headers['Authorization'] = f"Bearer {api_key}"
+
+    get_deps()
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            _gemiad_feed_cache[cache_key] = (now, offers)
+            return offers
+    except Exception as e:
+        print(f"[GemiAd] Failed to fetch offer feed: {e}")
+
+    if cache_key in _gemiad_feed_cache:
+        return _gemiad_feed_cache[cache_key][1]
+    return []
+
+def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host_url):
+    offer_id = str(offer.get('id') or offer.get('offer_id') or offer.get('campaign_id') or '0')
+    title = offer.get('title') or offer.get('name') or f"{provider_name} Offer"
+    desc = offer.get('description') or offer.get('instructions') or ''
+    payout = safe_float(offer.get('payout') or offer.get('amount') or offer.get('payout_usd') or '0')
+
+    multiplier = float(config.get('rewardMultiplier', 1.0))
+    user_share = float(config.get('userSharePct', 0.85))
+    platform_share = float(config.get('platformSharePct', 0.15))
+
+    gross_points = payout * OFFERWALL_POINTS_PER_USD * multiplier
+    user_points = round(gross_points * user_share)
+    platform_points = round(gross_points * platform_share)
+
+    cat_raw = str(offer.get('category', 'other')).lower()
+    if 'survey' in cat_raw or 'poll' in cat_raw:
+        category = 'surveys'
+    elif 'game' in cat_raw or 'play' in cat_raw:
+        category = 'games'
+    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw:
+        category = 'apps'
+    elif 'shop' in cat_raw or 'purchase' in cat_raw:
+        category = 'shopping'
+    elif 'video' in cat_raw or 'watch' in cat_raw:
+        category = 'videos'
+    else:
+        category = 'offers'
+
+    raw_url = offer.get('url') or offer.get('link') or offer.get('click_url') or ''
+    if raw_url:
+        tracking_url = raw_url.replace('{subid}', uid).replace('{user_id}', uid).replace('{uid}', uid)
+    else:
+        tracking_url = f"{host_url}/api/offerwall/providers/{provider_id}/launch"
+
+    return {
+        'id': f"{provider_id}_{offer_id}",
+        'providerId': provider_id,
+        'providerOfferId': offer_id,
+        'source': 'provider',
+        'providerName': provider_name,
+        'type': 'offer',
+        'title': title,
+        'description': desc,
+        'instructions': desc,
+        'requirements': offer.get('requirements', ''),
+        'image': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+        'reward': {
+            'points': user_points,
+            'xp': max(5, round(user_points * 0.15))
+        },
+        'providerPayout': payout,
+        'userReward': user_points,
+        'platformRevenue': platform_points,
+        'currency': 'PTS',
+        'metadata': {
+            'category': category,
+            'difficulty': 'medium',
+            'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
+            'verificationType': 'automated',
+            'launchMode': 'redirect',
+            'artwork': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'thumbnail': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'tags': ['offerwall', provider_id]
+        },
+        'action': {
+            'url': tracking_url,
+            'actionType': 'url',
+            'trackingId': offer_id
+        },
+        'verificationType': 'automated',
+        'status': 'available',
+        'engagement': {
+            'completionRate': 1.0,
+            'averageReward': user_points,
+            'totalCompletions': 0,
+            'trending': False,
+            'isNew': True
+        }
+    }
 
 def _get_cpagrip_offers_cached(pub_id, api_key):
     global _cpagrip_feed_cache
@@ -3995,8 +4106,8 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
     payout = safe_float(offer.get('payout', '0'))
 
     multiplier = float(config.get('rewardMultiplier', 1.0))
-    user_share = float(config.get('userSharePct', 0.30))
-    platform_share = float(config.get('platformSharePct', 0.70))
+    user_share = float(config.get('userSharePct', 0.85))
+    platform_share = float(config.get('platformSharePct', 0.15))
 
     gross_points = payout * OFFERWALL_POINTS_PER_USD * multiplier
     user_points = round(gross_points * user_share)
@@ -4148,6 +4259,87 @@ def offerwall_user_providers():
             logging.error(f"[user-providers] Failed to parse provider document '{s.id}': {e}")
     providers.sort(key=lambda p: p.get('priority', 100))
     return jsonify({'success': True, 'providers': providers})
+
+
+@app.route('/api/offerwall/opportunities', methods=['GET'])
+@verify_token
+def offerwall_opportunities():
+    """
+    Authenticated server-side endpoint returning normalized individual API provider opportunities.
+    Exposes no provider credentials or secrets to the browser.
+    """
+    get_deps()
+    if not init_firebase():
+        return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
+    db = firestore.client()
+    uid = request.user['uid']
+
+    user_country = 'US'
+    u_doc = db.collection('users').document(uid).get()
+    if u_doc.exists:
+        u_data = u_doc.to_dict() or {}
+        user_country = str(u_data.get('region') or u_data.get('country') or 'US').upper()
+
+    host_url = request.url_root.rstrip('/')
+    snaps = db.collection('offerwall_providers').where('enabled', '==', True).get()
+
+    all_opportunities = []
+
+    for s in snaps:
+        try:
+            d = s.to_dict() or {}
+            gated, p_status = _is_provider_gated(d)
+            if gated:
+                continue
+
+            # Check if Model B provider with individual API inventory
+            is_model_b = (
+                d.get('executionType') == 'API' or
+                d.get('model') == 'API' or
+                s.id in ('cpagrip', 'gemiad') or
+                bool(d.get('apiInventory')) or
+                bool(d.get('individualOffers'))
+            )
+
+            if not is_model_b:
+                continue
+
+            if s.id == 'cpagrip':
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if pub_id and api_key:
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+                    for o in raw_offers:
+                        countries_raw = o.get('countries')
+                        if not countries_raw:
+                            single_country = o.get('country')
+                            o_countries = [single_country] if single_country else ['GLOBAL']
+                        else:
+                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
+                        o_countries = [c.upper() for c in o_countries if c]
+
+                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
+                            continue
+
+                        all_opportunities.append(_normalize_cpagrip_offer(o, uid, d, host_url))
+
+            elif s.id == 'gemiad' or is_model_b:
+                feed_url = d.get('feedUrl') or d.get('apiEndpoint')
+                app_id = d.get('identity', {}).get('appId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if feed_url or (app_id and api_key):
+                    raw_offers = _get_gemiad_offers_cached(app_id, api_key, feed_url)
+                    for o in raw_offers:
+                        all_opportunities.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', s.id), host_url))
+
+        except Exception as e:
+            print(f"[Offerwall Opportunities] Error processing provider '{s.id}': {e}")
+
+    return jsonify({
+        'success': True,
+        'opportunities': all_opportunities,
+        'count': len(all_opportunities)
+    })
 
 
 @app.route('/api/offerwall/providers/<provider_id>/launch', methods=['POST', 'GET'])
@@ -4351,8 +4543,8 @@ def cpagrip_callback():
         return "OK", 200
 
     multiplier = float(cfg.get('rewardMultiplier', 1.0))
-    user_share = float(cfg.get('userSharePct', 0.30))
-    platform_share = float(cfg.get('platformSharePct', 0.70))
+    user_share = float(cfg.get('userSharePct', 0.85))
+    platform_share = float(cfg.get('platformSharePct', 0.15))
     min_reward = int(cfg.get('minimumReward', 1))
     max_reward = int(cfg.get('maximumReward', 100000))
 

@@ -32,21 +32,52 @@ export type ProviderTier = 'TIER_A' | 'TIER_B' | 'TIER_C' | 'TIER_D';
 // ─── Provider Capabilities Interface ──────────────────────────────────────────
 
 export interface ProviderCapabilities {
-  supportsIframe: boolean;
-  supportsRedirect: boolean;
-  supportsApiLaunch: boolean;
-  supportsCallbacks: boolean;
-  supportsWebhooks: boolean;
-  supportsRealtime: boolean;
-  supportsManualVerification: boolean;
-  supportsEmbeddedOffers: boolean;
+  hostedWall: boolean;
+  apiInventory: boolean;
+  individualOffers: boolean;
+  embedded: boolean;
+  redirect: boolean;
+  iframe: boolean;
+  callback: boolean;
+  signatureVerification: boolean;
+  chargebacks: boolean;
+  offerTracking: boolean;
+  categories: boolean;
+  rewardCurrency: boolean;
+  geoTargeting: boolean;
+  deviceTargeting: boolean;
+  userEligibility: boolean;
+
+  supportsIframe?: boolean;
+  supportsRedirect?: boolean;
+  supportsApiLaunch?: boolean;
+  supportsCallbacks?: boolean;
+  supportsWebhooks?: boolean;
+  supportsRealtime?: boolean;
+  supportsManualVerification?: boolean;
+  supportsEmbeddedOffers?: boolean;
 }
 
 export function getDefaultCapabilities(type: ProviderExecutionType): ProviderCapabilities {
   switch (type) {
     case 'API':
       return {
-        supportsIframe: false,
+        hostedWall: false,
+        apiInventory: true,
+        individualOffers: true,
+        embedded: false,
+        redirect: true,
+        iframe: true,
+        callback: true,
+        signatureVerification: true,
+        chargebacks: true,
+        offerTracking: true,
+        categories: true,
+        rewardCurrency: true,
+        geoTargeting: true,
+        deviceTargeting: true,
+        userEligibility: true,
+        supportsIframe: true,
         supportsRedirect: true,
         supportsApiLaunch: true,
         supportsCallbacks: true,
@@ -57,6 +88,21 @@ export function getDefaultCapabilities(type: ProviderExecutionType): ProviderCap
       };
     case 'Embedded':
       return {
+        hostedWall: true,
+        apiInventory: false,
+        individualOffers: false,
+        embedded: true,
+        redirect: true,
+        iframe: true,
+        callback: true,
+        signatureVerification: true,
+        chargebacks: true,
+        offerTracking: true,
+        categories: false,
+        rewardCurrency: true,
+        geoTargeting: true,
+        deviceTargeting: true,
+        userEligibility: true,
         supportsIframe: true,
         supportsRedirect: true,
         supportsApiLaunch: false,
@@ -68,6 +114,21 @@ export function getDefaultCapabilities(type: ProviderExecutionType): ProviderCap
       };
     case 'Internal':
       return {
+        hostedWall: false,
+        apiInventory: true,
+        individualOffers: true,
+        embedded: true,
+        redirect: false,
+        iframe: false,
+        callback: false,
+        signatureVerification: false,
+        chargebacks: false,
+        offerTracking: true,
+        categories: true,
+        rewardCurrency: true,
+        geoTargeting: true,
+        deviceTargeting: true,
+        userEligibility: true,
         supportsIframe: false,
         supportsRedirect: false,
         supportsApiLaunch: true,
@@ -80,6 +141,21 @@ export function getDefaultCapabilities(type: ProviderExecutionType): ProviderCap
     case 'Hosted':
     default:
       return {
+        hostedWall: true,
+        apiInventory: false,
+        individualOffers: false,
+        embedded: false,
+        redirect: true,
+        iframe: false,
+        callback: true,
+        signatureVerification: true,
+        chargebacks: true,
+        offerTracking: true,
+        categories: false,
+        rewardCurrency: true,
+        geoTargeting: true,
+        deviceTargeting: true,
+        userEligibility: true,
         supportsIframe: false,
         supportsRedirect: true,
         supportsApiLaunch: false,
@@ -443,47 +519,11 @@ export class CPAGripProviderAdapter extends BaseProviderAdapter {
           return offers.map((offer: Record<string, unknown>) => this.normalizeOfferToOpportunity(offer, userId));
         }
       } catch (err) {
-        console.warn('[CPAGripProviderAdapter] Live feed fetch warning, falling back to static catalog:', err);
+        console.warn('[CPAGripProviderAdapter] Live feed fetch failed:', err);
       }
     }
 
-    return [
-      {
-        id: 'cpagrip_hub_01',
-        source: 'provider',
-        providerId: this.id,
-        providerName: this.name,
-        title: 'CPAGrip Premium Offers & Surveys',
-        description: 'Complete high-paying CPA offers, mobile app installs, and surveys powered by CPAGrip.',
-        instructions: 'Click to launch CPAGrip, complete an offer requirement, and earn instant points upon lead verification.',
-        reward: {
-          points: 1250,
-          xp: 180,
-        },
-        action: {
-          actionType: 'url',
-          url: this.config.baseUrl || `https://www.cpagrip.com/show.php?l=0&u=${this.config.pubId || '0'}&id=0&tracking_id={subid}`,
-          trackingId: `cpagrip_${userId}_${Date.now()}`,
-        },
-        metadata: {
-          category: 'surveys',
-          difficulty: 'easy',
-          estimatedTime: '5 mins',
-          verificationType: 'offerwall',
-          launchMode: 'embed',
-          tags: ['CPA', 'Offers', 'App Install', 'Surveys'],
-          minLevel: 1,
-        },
-        engagement: {
-          completionRate: 94,
-          averageReward: 1250,
-          totalCompletions: 1420,
-          trending: true,
-          isNew: false,
-        },
-        status: 'available',
-      },
-    ];
+    return [];
   }
 
   private normalizeOfferToOpportunity(rawOffer: Record<string, unknown>, userId: string): MarketplaceOpportunity {

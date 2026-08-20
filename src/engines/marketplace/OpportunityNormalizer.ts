@@ -419,6 +419,7 @@ function mapTaskCategoryToMarketplace(
 }
 
 function mapProviderCategoryToMarketplace(providerCategory: string): OpportunityCategory {
+  if (!providerCategory) return 'offers';
   const cat = providerCategory.toLowerCase();
   
   if (cat.includes('survey') || cat.includes('poll')) return 'surveys';
@@ -431,7 +432,7 @@ function mapProviderCategoryToMarketplace(providerCategory: string): Opportunity
   if (cat.includes('refer') || cat.includes('invite')) return 'referrals';
   if (cat.includes('predict') || cat.includes('bet')) return 'predictions';
   
-  return 'featured';
+  return 'offers';
 }
 
 // ─── Difficulty Estimation ────────────────────────────────────────────────────

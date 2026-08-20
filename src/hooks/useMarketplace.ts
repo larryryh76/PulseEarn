@@ -155,19 +155,46 @@ export function useMarketplace(): UseMarketplaceReturn {
 
     try {
       const idToken = await currentUser.getIdToken();
-      const res = await safeFetch('/api/offerwall/user-providers', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
 
-      if (res.success && res.providers) {
-        const providerList: ProviderInventory[] = res.providers.map((p: any) => ({
-          providerId: p.id,
-          providerName: p.name,
-          opportunities: (p.offers || []).map((offer: any) =>
+      const [resProviders, resOpps] = await Promise.all([
+        safeFetch('/api/offerwall/user-providers', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        }),
+        safeFetch('/api/offerwall/opportunities', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+        }),
+      ]);
+
+      const directOpps: MarketplaceOpportunity[] = (resOpps.success && Array.isArray(resOpps.opportunities))
+        ? resOpps.opportunities.map((offer: any) =>
+            normalizeProviderOffer({
+              offerId: offer.providerOfferId || offer.id,
+              providerId: offer.providerId,
+              providerName: offer.providerName,
+              title: offer.title,
+              description: offer.description || '',
+              rewardAmount: offer.reward?.points || 0,
+              xpReward: offer.reward?.xp || 10,
+              estimatedTime: offer.metadata?.estimatedTime || '5 min',
+              thumbnail: offer.metadata?.thumbnail || offer.image,
+              category: offer.metadata?.category,
+              actionUrl: offer.action?.url,
+            })
+          )
+        : [];
+
+      if (resProviders.success && resProviders.providers) {
+        const providerList: ProviderInventory[] = resProviders.providers.map((p: any) => {
+          const providerDirectOpps = directOpps.filter(o => o.providerId === p.id);
+          const rawEmbeddedOpps = (p.offers || []).map((offer: any) =>
             normalizeProviderOffer({
               offerId: offer.id || offer.offerId,
               providerId: p.id,
@@ -181,10 +208,18 @@ export function useMarketplace(): UseMarketplaceReturn {
               category: offer.category,
               actionUrl: offer.url || offer.actionUrl,
             })
-          ),
-          lastSyncedAt: new Date(),
-          connectionStatus: p.status === 'degraded' ? 'degraded' : (p.status === 'offline' || p.status === 'maintenance' || p.status === 'disabled') ? 'offline' : 'connected',
-        }));
+          );
+
+          const combinedOpps = [...providerDirectOpps, ...rawEmbeddedOpps];
+
+          return {
+            providerId: p.id,
+            providerName: p.name,
+            opportunities: combinedOpps,
+            lastSyncedAt: new Date(),
+            connectionStatus: p.status === 'degraded' ? 'degraded' : (p.status === 'offline' || p.status === 'maintenance' || p.status === 'disabled') ? 'offline' : 'connected',
+          };
+        });
 
         setProviders(providerList);
         

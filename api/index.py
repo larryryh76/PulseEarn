@@ -2697,8 +2697,12 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     # dashboard (the correct, non-homepage authenticated offerwall URL), use it
     # and inject the real UID where the placeholder token sits. This is the
     # production path and works for ANY provider without code changes.
-    raw_integration = config.get('integrationUrl') or config.get('launchUrlTemplate') or ''
-    integration_url = raw_integration.strip() if isinstance(raw_integration, str) else ''
+    integration_url = ''
+    for key in ('integrationUrl', 'launchUrlTemplate'):
+        val = config.get(key)
+        if isinstance(val, str) and val.strip():
+            integration_url = val.strip()
+            break
     if integration_url:
         has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
         resolved = _apply_launch_placeholders(integration_url, aff, uid)

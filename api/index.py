@@ -3612,10 +3612,24 @@ def offerwall_upsert_provider(provider_id):
         # UID placeholder token such as USER_ID / (UNIQUE_USER_ID) / {uid}) plus
         # whether it can be shown inside an in-app iframe.
         'integrationUrl', 'embeddable',
+        # Provider capabilities & execution model
+        'executionType', 'model', 'apiInventory', 'individualOffers',
+        'hostedWall', 'capabilities', 'geoRestrictions', 'deviceRestrictions',
+        'feedUrl', 'launchUrlTemplate',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
         return jsonify({'success': False, 'error': 'NO_VALID_FIELDS', 'reason': 'No valid provider fields provided'}), 400
+
+    if 'userSharePct' in payload:
+        try:
+            u_share = float(payload['userSharePct'])
+            payload['userSharePct'] = max(0.0, min(1.0, u_share))
+            if 'platformSharePct' not in payload:
+                payload['platformSharePct'] = round(1.0 - payload['userSharePct'], 2)
+        except (ValueError, TypeError):
+            payload['userSharePct'] = 0.85
+            payload['platformSharePct'] = 0.15
 
     # A callback URL is always derivable, so default webhookUrl to it when the
     # provider (e.g. CPX Research) only exposes a single postback endpoint.

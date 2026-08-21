@@ -511,6 +511,17 @@ export interface OfferwallProvider {
   launchUrl?: string;            // Resolved launch URL
   integrationUrl?: string;       // Dynamic launch URL template
   apiEndpoint?: string;          // API endpoint URL
+  // Capabilities & Execution Model
+  executionType?: 'API' | 'Hosted' | 'Embedded' | 'Internal';
+  model?: 'API' | 'Hosted' | 'Embedded';
+  apiInventory?: boolean;
+  individualOffers?: boolean;
+  hostedWall?: boolean;
+  capabilities?: Record<string, boolean>;
+  geoRestrictions?: string[];
+  deviceRestrictions?: string[];
+  feedUrl?: string;
+  launchUrlTemplate?: string;
   // Credentials
   affiliateId: string;
   apiKey: string;

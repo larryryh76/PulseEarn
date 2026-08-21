@@ -3621,12 +3621,29 @@ def offerwall_upsert_provider(provider_id):
     if not payload:
         return jsonify({'success': False, 'error': 'NO_VALID_FIELDS', 'reason': 'No valid provider fields provided'}), 400
 
-    if 'userSharePct' in payload:
+    if 'launchUrlTemplate' in payload and payload['launchUrlTemplate'] is not None:
+        if not isinstance(payload['launchUrlTemplate'], str):
+            return jsonify({'success': False, 'error': 'INVALID_TYPE', 'reason': 'launchUrlTemplate must be a string'}), 400
+
+    if 'userSharePct' in payload or 'platformSharePct' in payload:
         try:
-            u_share = float(payload['userSharePct'])
-            payload['userSharePct'] = max(0.0, min(1.0, u_share))
-            if 'platformSharePct' not in payload:
-                payload['platformSharePct'] = round(1.0 - payload['userSharePct'], 2)
+            raw_u = payload.get('userSharePct')
+            raw_p = payload.get('platformSharePct')
+
+            u_share = round(max(0.0, min(1.0, float(raw_u))), 4) if raw_u is not None else None
+            p_share = round(max(0.0, min(1.0, float(raw_p))), 4) if raw_p is not None else None
+
+            if u_share is not None and p_share is None:
+                p_share = round(1.0 - u_share, 4)
+            elif p_share is not None and u_share is None:
+                u_share = round(1.0 - p_share, 4)
+
+            if u_share is not None and p_share is not None:
+                if abs((u_share + p_share) - 1.0) > 0.001:
+                    p_share = round(1.0 - u_share, 4)
+
+            payload['userSharePct'] = u_share if u_share is not None else 0.85
+            payload['platformSharePct'] = p_share if p_share is not None else 0.15
         except (ValueError, TypeError):
             payload['userSharePct'] = 0.85
             payload['platformSharePct'] = 0.15

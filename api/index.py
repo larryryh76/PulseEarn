@@ -2697,7 +2697,12 @@ def _build_offerwall_launch_url(provider_id, affiliate_id, secret, uid, config=N
     # dashboard (the correct, non-homepage authenticated offerwall URL), use it
     # and inject the real UID where the placeholder token sits. This is the
     # production path and works for ANY provider without code changes.
-    integration_url = (config.get('integrationUrl') or config.get('launchUrlTemplate') or '').strip()
+    integration_url = ''
+    for key in ('integrationUrl', 'launchUrlTemplate'):
+        val = config.get(key)
+        if isinstance(val, str) and val.strip():
+            integration_url = val.strip()
+            break
     if integration_url:
         has_uid_token = any(t.lower() in integration_url.lower() for t in _OFFERWALL_UID_PLACEHOLDERS)
         resolved = _apply_launch_placeholders(integration_url, aff, uid)
@@ -3612,10 +3617,45 @@ def offerwall_upsert_provider(provider_id):
         # UID placeholder token such as USER_ID / (UNIQUE_USER_ID) / {uid}) plus
         # whether it can be shown inside an in-app iframe.
         'integrationUrl', 'embeddable',
+        # Provider capabilities & execution model
+        'executionType', 'model', 'apiInventory', 'individualOffers',
+        'hostedWall', 'capabilities', 'geoRestrictions', 'deviceRestrictions',
+        'feedUrl', 'launchUrlTemplate',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
         return jsonify({'success': False, 'error': 'NO_VALID_FIELDS', 'reason': 'No valid provider fields provided'}), 400
+
+    if 'integrationUrl' in payload and payload['integrationUrl'] is not None:
+        if not isinstance(payload['integrationUrl'], str):
+            return jsonify({'success': False, 'error': 'INVALID_TYPE', 'reason': 'integrationUrl must be a string'}), 400
+
+    if 'launchUrlTemplate' in payload and payload['launchUrlTemplate'] is not None:
+        if not isinstance(payload['launchUrlTemplate'], str):
+            return jsonify({'success': False, 'error': 'INVALID_TYPE', 'reason': 'launchUrlTemplate must be a string'}), 400
+
+    if 'userSharePct' in payload or 'platformSharePct' in payload:
+        try:
+            raw_u = payload.get('userSharePct')
+            raw_p = payload.get('platformSharePct')
+
+            u_share = round(max(0.0, min(1.0, float(raw_u))), 4) if raw_u is not None else None
+            p_share = round(max(0.0, min(1.0, float(raw_p))), 4) if raw_p is not None else None
+
+            if u_share is not None and p_share is None:
+                p_share = round(1.0 - u_share, 4)
+            elif p_share is not None and u_share is None:
+                u_share = round(1.0 - p_share, 4)
+
+            if u_share is not None and p_share is not None:
+                if abs((u_share + p_share) - 1.0) > 0.001:
+                    p_share = round(1.0 - u_share, 4)
+
+            payload['userSharePct'] = u_share if u_share is not None else 0.85
+            payload['platformSharePct'] = p_share if p_share is not None else 0.15
+        except (ValueError, TypeError):
+            payload['userSharePct'] = 0.85
+            payload['platformSharePct'] = 0.15
 
     # A callback URL is always derivable, so default webhookUrl to it when the
     # provider (e.g. CPX Research) only exposes a single postback endpoint.

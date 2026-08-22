@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Clock, Info, CheckCircle2, Lock, ArrowUpRight, X, Layers } from 'lucide-react';
 import { MarketplaceOpportunity, DIFFICULTY_CONFIG } from '../../types/marketplace';
 import { getCanonicalStatus } from './MarketplaceOpportunityCard';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface MarketplaceOpportunityDrawerProps {
   opportunity: MarketplaceOpportunity;
@@ -20,8 +21,10 @@ export const MarketplaceOpportunityDrawer: React.FC<MarketplaceOpportunityDrawer
 }) => {
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const canonicalStatus = getCanonicalStatus(userTaskStatus || opportunity.status);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useScrollLock(true);
+  useFocusTrap(containerRef, true);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,7 +38,14 @@ export const MarketplaceOpportunityDrawer: React.FC<MarketplaceOpportunityDrawer
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[200] flex justify-end" role="dialog" aria-modal="true" aria-label={opportunity.title}>
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-[200] flex justify-end outline-none"
+      role="dialog"
+      aria-modal="true"
+      aria-label={opportunity.title}
+    >
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}

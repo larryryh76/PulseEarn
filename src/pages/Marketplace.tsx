@@ -98,12 +98,15 @@ export const Marketplace: React.FC = () => {
       const directOpps: MarketplaceOpportunity[] =
         resOpps.success && Array.isArray(resOpps.opportunities) ? resOpps.opportunities : [];
 
+      const knownProviderIds = new Set<string>();
+
       if (resProviders.success && Array.isArray(resProviders.providers)) {
         setRawProviders(resProviders.providers);
 
         // Update Marketplace Engine Inventory for each provider
         const currentEngineState = getMarketplaceState();
         resProviders.providers.forEach((p: HostedProvider & { offers?: MarketplaceOpportunity[] }) => {
+          knownProviderIds.add(p.id);
           const match = currentEngineState.providers.find((inv) => inv.providerId === p.id);
           const providerDirectOpps = directOpps.filter((o) => o.providerId === p.id);
           const embeddedOpps = p.offers && p.offers.length > 0 ? p.offers : match?.opportunities || [];
@@ -122,36 +125,35 @@ export const Marketplace: React.FC = () => {
                 : 'connected',
           });
         });
-
-        // Also register direct opportunities whose providers might not be listed
-        const knownProviderIds = new Set(resProviders.providers.map((p: HostedProvider) => p.id));
-        const orphanOpps = directOpps.filter((o) => o.providerId && !knownProviderIds.has(o.providerId));
-        if (orphanOpps.length > 0) {
-          const orphanMap = new Map<string, MarketplaceOpportunity[]>();
-          orphanOpps.forEach((o) => {
-            if (!o.providerId) return;
-            const existing = orphanMap.get(o.providerId) || [];
-            existing.push(o);
-            orphanMap.set(o.providerId, existing);
-          });
-          orphanMap.forEach((opps, pId) => {
-            updateProviderInventory({
-              providerId: pId,
-              providerName: opps[0]?.providerName || pId.toUpperCase(),
-              opportunities: opps,
-              lastSyncedAt: new Date(),
-              connectionStatus: 'connected',
-            });
-          });
-        }
-
-        setEngineVersion((v) => v + 1);
       } else {
         setRawProviders([]);
         if (!resProviders.success) {
           setError(resProviders.error || 'Unable to load provider list.');
         }
       }
+
+      // Always register direct opportunities carrying a providerId even if resProviders failed or was empty
+      const orphanOpps = directOpps.filter((o) => o.providerId && !knownProviderIds.has(o.providerId));
+      if (orphanOpps.length > 0) {
+        const orphanMap = new Map<string, MarketplaceOpportunity[]>();
+        orphanOpps.forEach((o) => {
+          if (!o.providerId) return;
+          const existing = orphanMap.get(o.providerId) || [];
+          existing.push(o);
+          orphanMap.set(o.providerId, existing);
+        });
+        orphanMap.forEach((opps, pId) => {
+          updateProviderInventory({
+            providerId: pId,
+            providerName: opps[0]?.providerName || pId.toUpperCase(),
+            opportunities: opps,
+            lastSyncedAt: new Date(),
+            connectionStatus: 'connected',
+          });
+        });
+      }
+
+      setEngineVersion((v) => v + 1);
     } catch (err) {
       console.error('[Marketplace] Error fetching provider inventory:', err);
       setError('Unable to load earning opportunities at this time.');

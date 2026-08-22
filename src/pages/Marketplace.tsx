@@ -1,24 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Sparkles, Zap, Compass, Filter, Search, RefreshCw,
-  ArrowUpRight, Clock, Trophy, Flame, CheckCircle2, ChevronRight,
-  X, Layers, Activity, Info, Lock, ShieldCheck, Globe, Award,
-  Wallet
-} from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Sparkles, Trophy, Flame, Clock, Filter } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTaskContext } from '../contexts/TaskContext';
 import { safeFetch } from '../utils/api';
 import { validateExternalUrl } from '../utils/security';
 import toast from 'react-hot-toast';
-import { cn } from '../utils';
 
 import {
   MarketplaceOpportunity,
   OpportunityCategory,
   OpportunityDifficulty,
-  MARKETPLACE_CATEGORIES,
-  DIFFICULTY_CONFIG,
 } from '../types/marketplace';
 
 import {
@@ -33,144 +25,52 @@ import {
   generateAllSections,
 } from '../engines/marketplace/RecommendationEngine';
 
-// ─── Secondary Filter Types ───────────────────────────────────────────────────
-export type SecondaryFilter = 'all' | 'highest_reward' | 'quick_earn' | 'new' | 'mobile' | 'desktop' | 'available_now' | 'ending_soon';
-
-// ─── Provider Interface ───────────────────────────────────────────────────────
-export interface Provider {
-  id: string;
-  name: string;
-  logo?: string;
-  status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
-  enabled?: boolean;
-  apiEndpoint?: string;
-  callbackUrl?: string;
-  rewardMultiplier?: number;
-  userSharePct?: number;
-  platformSharePct?: number;
-  priority?: number;
-  description?: string;
-  affiliateId?: string;
-  minimumReward?: number;
-  maximumReward?: number;
-  launchUrl?: string | null;
-  embeddable?: boolean;
-  offers?: MarketplaceOpportunity[];
-}
-
-// ─── Canonical Status Helper ──────────────────────────────────────────────────
-export function getCanonicalStatus(status: string | undefined): {
-  label: string;
-  badgeClass: string;
-  isActionable: boolean;
-} {
-  switch (status?.toLowerCase()) {
-    case 'in_progress':
-    case 'started':
-      return {
-        label: 'In Progress',
-        badgeClass: 'bg-primary/10 border-primary/20 text-primary',
-        isActionable: true,
-      };
-    case 'pending':
-    case 'pending_review':
-    case 'submitted':
-    case 'awaiting_verification':
-      return {
-        label: 'Pending Review',
-        badgeClass: 'bg-warning/10 border-warning/20 text-warning',
-        isActionable: false,
-      };
-    case 'completed':
-    case 'claimed':
-    case 'verified':
-    case 'reward_issued':
-      return {
-        label: 'Completed',
-        badgeClass: 'bg-success/10 border-success/20 text-success',
-        isActionable: false,
-      };
-    case 'rejected':
-      return {
-        label: 'Rejected',
-        badgeClass: 'bg-danger/10 border-danger/20 text-danger',
-        isActionable: true,
-      };
-    case 'cancelled':
-      return {
-        label: 'Cancelled',
-        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
-        isActionable: false,
-      };
-    case 'expired':
-      return {
-        label: 'Expired',
-        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
-        isActionable: false,
-      };
-    case 'cooldown':
-    case 'on_cooldown':
-      return {
-        label: 'On Cooldown',
-        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
-        isActionable: false,
-      };
-    default:
-      return {
-        label: 'Available',
-        badgeClass: 'bg-surface-bright border-border text-text-secondary',
-        isActionable: true,
-      };
-  }
-}
+// Import Modular Marketplace UI Components
+import { MarketplaceHeader } from '../components/marketplace/MarketplaceHeader';
+import { MarketplaceCategories } from '../components/marketplace/MarketplaceCategories';
+import { MarketplaceHostedOfferwalls, HostedProvider } from '../components/marketplace/MarketplaceHostedOfferwalls';
+import { MarketplaceOpportunityCard } from '../components/marketplace/MarketplaceOpportunityCard';
+import { MarketplaceCampaignCard } from '../components/marketplace/MarketplaceCampaignCard';
+import { MarketplaceFilters, SecondaryFilter } from '../components/marketplace/MarketplaceFilters';
+import { MarketplaceEmptyState, MarketplaceErrorState, MarketplaceSkeleton } from '../components/marketplace/MarketplaceStates';
+import { MarketplaceOpportunityDrawer } from '../components/marketplace/MarketplaceOpportunityDrawer';
+import { CampaignDetailDrawer } from '../components/marketplace/CampaignDetailDrawer';
 
 export const Marketplace: React.FC = () => {
   const { currentUser, userData } = useAuth();
-  const { userTasks, tasks, campaigns, activities, taskHistory, unifiedHistory } = useTaskContext();
+  const { userTasks, tasks, campaigns, activities, taskHistory } = useTaskContext();
 
-  const [providers, setProviders] = useState<Provider[]>([]);
+  const [rawProviders, setRawProviders] = useState<HostedProvider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [engineVersion, setEngineVersion] = useState<number>(0);
 
-  // ─── Filter & Search State ──────────────────────────────────────────────────
+  // Filter & Search State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<OpportunityCategory | 'all'>('all');
   const [selectedSecondaryFilter, setSelectedSecondaryFilter] = useState<SecondaryFilter>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<OpportunityDifficulty | 'all'>('all');
+  const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recommended' | 'reward' | 'time' | 'difficulty' | 'newest'>('recommended');
-  
-  // ─── Drawer Selection State ──────────────────────────────────────────────
+
+  // Selected Item Drawers
   const [selectedOpportunity, setSelectedOpportunity] = useState<MarketplaceOpportunity | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<MarketplaceOpportunity | null>(null);
 
-  // ─── Centralized Real Economy Rate ─────────────────────────────────────────
+  // User balance in points
   const userBalancePoints = userData?.points ?? 0;
-  const userBalanceUsd = (userBalancePoints / 1000).toFixed(2);
 
-  // ─── Progression Tier Strategy ──────────────────────────────────────────────
-  const progressionTier = useMemo(() => {
-    const level = userData?.level || 1;
-    const completedCount = userData?.stats?.tasksCompleted || 0;
-    if (level >= 10 || completedCount >= 25) {
-      return { name: 'Pro Earner', level, badge: 'Elite Tier', color: 'text-primary bg-primary/10 border-primary/20' };
-    }
-    if (level >= 3 || completedCount >= 5) {
-      return { name: 'Verified Earner', level, badge: 'Tier 2', color: 'text-success bg-success/10 border-success/20' };
-    }
-    return { name: 'Starter Earner', level, badge: 'Tier 1', color: 'text-text-secondary bg-surface-bright border-border' };
-  }, [userData]);
-
-  // ─── Synchronize Marketplace Engine State ───────────────────────────────────
+  // Sync Engine State on context update
   useEffect(() => {
     if (tasks.length > 0 || campaigns.length > 0) {
       initializeMarketplace(tasks, campaigns, userTasks);
       updateUserContext(tasks, campaigns, userTasks, userData);
-      setEngineVersion(v => v + 1);
+      setEngineVersion((v) => v + 1);
     }
   }, [tasks, campaigns, userTasks, userData]);
 
-  // ─── Fetch Enabled Providers from Backend ───────────────────────────────────
-  const fetchProviders = useCallback(async () => {
+  // Fetch Providers & Inventory from Backend
+  const fetchProvidersAndOpportunities = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     setError(null);
@@ -183,31 +83,33 @@ export const Marketplace: React.FC = () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
           },
         }),
         safeFetch('/api/offerwall/opportunities', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
           },
         }),
       ]);
 
-      const directOpps: MarketplaceOpportunity[] = (resOpps.success && Array.isArray(resOpps.opportunities))
-        ? resOpps.opportunities
-        : [];
+      const directOpps: MarketplaceOpportunity[] =
+        resOpps.success && Array.isArray(resOpps.opportunities) ? resOpps.opportunities : [];
+
+      const knownProviderIds = new Set<string>();
 
       if (resProviders.success && Array.isArray(resProviders.providers)) {
-        setProviders(resProviders.providers);
+        setRawProviders(resProviders.providers);
 
-        // Feed provider inventory into Marketplace Engine
+        // Update Marketplace Engine Inventory for each provider
         const currentEngineState = getMarketplaceState();
-        resProviders.providers.forEach((p: Provider) => {
-          const match = currentEngineState.providers.find(inv => inv.providerId === p.id);
-          const providerDirectOpps = directOpps.filter(o => o.providerId === p.id);
-          const embeddedOpps = (p.offers && p.offers.length > 0) ? p.offers : (match?.opportunities || []);
+        resProviders.providers.forEach((p: HostedProvider & { offers?: MarketplaceOpportunity[] }) => {
+          knownProviderIds.add(p.id);
+          const match = currentEngineState.providers.find((inv) => inv.providerId === p.id);
+          const providerDirectOpps = directOpps.filter((o) => o.providerId === p.id);
+          const embeddedOpps = p.offers && p.offers.length > 0 ? p.offers : match?.opportunities || [];
           const combinedOpps = [...providerDirectOpps, ...embeddedOpps];
 
           updateProviderInventory({
@@ -215,17 +117,47 @@ export const Marketplace: React.FC = () => {
             providerName: p.name,
             opportunities: combinedOpps,
             lastSyncedAt: new Date(),
-            connectionStatus: p.status === 'degraded' ? 'degraded' : p.status === 'offline' || p.status === 'maintenance' ? 'offline' : 'connected',
+            connectionStatus:
+              p.status === 'degraded'
+                ? 'degraded'
+                : p.status === 'offline' || p.status === 'maintenance'
+                ? 'offline'
+                : 'connected',
           });
         });
-        setEngineVersion(v => v + 1);
       } else {
-        setProviders([]);
+        setRawProviders([]);
+        if (!resProviders.success) {
+          setError(resProviders.error || 'Unable to load provider list.');
+        }
       }
+
+      // Always register direct opportunities carrying a providerId even if resProviders failed or was empty
+      const orphanOpps = directOpps.filter((o) => o.providerId && !knownProviderIds.has(o.providerId));
+      if (orphanOpps.length > 0) {
+        const orphanMap = new Map<string, MarketplaceOpportunity[]>();
+        orphanOpps.forEach((o) => {
+          if (!o.providerId) return;
+          const existing = orphanMap.get(o.providerId) || [];
+          existing.push(o);
+          orphanMap.set(o.providerId, existing);
+        });
+        orphanMap.forEach((opps, pId) => {
+          updateProviderInventory({
+            providerId: pId,
+            providerName: opps[0]?.providerName || pId.toUpperCase(),
+            opportunities: opps,
+            lastSyncedAt: new Date(),
+            connectionStatus: 'connected',
+          });
+        });
+      }
+
+      setEngineVersion((v) => v + 1);
     } catch (err) {
-      console.error('[Marketplace] Failed to fetch providers:', err);
-      setError('Unable to load Marketplace providers at this time.');
-      setProviders([]);
+      console.error('[Marketplace] Error fetching provider inventory:', err);
+      setError('Unable to load earning opportunities at this time.');
+      setRawProviders([]);
     } finally {
       setLoading(false);
     }
@@ -233,66 +165,62 @@ export const Marketplace: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      fetchProviders();
+      fetchProvidersAndOpportunities();
     }
-  }, [currentUser, fetchProviders]);
+  }, [currentUser, fetchProvidersAndOpportunities]);
 
-  // ─── Launch Partner Channel ─────────────────────────────────────────────────
-  const handleLaunchProvider = async (provider: Provider) => {
+  // Launch Hosted Offerwall Provider
+  const handleLaunchProvider = async (provider: HostedProvider) => {
     if (provider.status === 'offline' || provider.status === 'maintenance') {
-      toast.error(`Partner channel for this opportunity is currently undergoing maintenance.`);
+      toast.error(`${provider.name} is currently undergoing maintenance.`);
       return;
     }
 
     let targetWindow: Window | null = null;
-    if (!provider.launchUrl && currentUser) {
+    if (currentUser) {
       targetWindow = window.open('about:blank', '_blank');
     }
 
     try {
-      let url = provider.launchUrl;
-
-      if (!url && currentUser) {
+      if (currentUser) {
         const idToken = await currentUser.getIdToken();
         const res = await safeFetch(`/api/offerwall/providers/${provider.id}/launch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
           },
         });
 
         if (res.success && res.launchUrl) {
-          url = res.launchUrl;
-        }
-      }
+          const val = validateExternalUrl(res.launchUrl);
+          if (!val.valid || !val.url) {
+            if (targetWindow) targetWindow.close();
+            toast.error(val.error || `Invalid launch URL for ${provider.name}.`);
+            return;
+          }
 
-      if (url) {
-        const val = validateExternalUrl(url);
-        if (!val.valid || !val.url) {
-          if (targetWindow) targetWindow.close();
-          toast.error(val.error || `Invalid launch URL for this opportunity.`);
+          if (targetWindow) {
+            targetWindow.opener = null;
+            targetWindow.location.href = val.url;
+          } else {
+            window.open(val.url, '_blank', 'noopener,noreferrer');
+          }
+          toast.success(`Launching ${provider.name}...`);
           return;
         }
-
-        if (targetWindow) {
-          targetWindow.location.href = val.url;
-        } else {
-          window.open(val.url, '_blank', 'noopener,noreferrer');
-        }
-        toast.success(`Launching ${provider.name}...`);
-      } else {
-        if (targetWindow) targetWindow.close();
-        toast.error(`Unable to launch opportunity. Please try again later.`);
       }
+
+      if (targetWindow) targetWindow.close();
+      toast.error(`Unable to launch ${provider.name}. Please try again later.`);
     } catch (err) {
       if (targetWindow) targetWindow.close();
-      console.error('[Marketplace] Launch error:', err);
-      toast.error(`Failed to launch opportunity channel.`);
+      console.error('[Marketplace] Provider launch error:', err);
+      toast.error(`Failed to launch ${provider.name}.`);
     }
   };
 
-  // ─── Handle Opportunity Action ──────────────────────────────────────────────
+  // Handle Opportunity Action
   const handleOpportunityAction = (opp: MarketplaceOpportunity) => {
     if (opp.action.url) {
       const val = validateExternalUrl(opp.action.url);
@@ -303,11 +231,11 @@ export const Marketplace: React.FC = () => {
       window.open(val.url, '_blank', 'noopener,noreferrer');
       toast.success(`Launching ${opp.title}...`);
     } else if (opp.providerId) {
-      const match = providers.find(p => p.id === opp.providerId);
+      const match = rawProviders.find((p) => p.id === opp.providerId);
       if (match) {
         handleLaunchProvider(match);
       } else {
-        toast.error(`Partner channel for ${opp.title} is currently unavailable.`);
+        toast.error(`Provider channel for ${opp.title} is currently unavailable.`);
       }
     } else if (opp.action.actionType === 'claim' || opp.action.actionType === 'complete') {
       toast(`Claim submitted for ${opp.title}. Verifying completion...`, { icon: 'ℹ️' });
@@ -316,381 +244,162 @@ export const Marketplace: React.FC = () => {
     }
   };
 
-  // ─── Filter Reset Callback ──────────────────────────────────────────────────
+  // Reset Filters
   const handleResetFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedCategory('all');
     setSelectedSecondaryFilter('all');
     setSelectedDifficulty('all');
+    setSelectedProvider('all');
     setSortBy('recommended');
   }, []);
 
-  // ─── Dynamic Marketplace Engine State & Search Derived Results ──────────────
+  // Derive Engine Opportunities
   const { opportunities: engineOpportunities } = getMarketplaceState();
 
+  // Active Categories Present in Inventory
+  const activeCategoriesInInventory = useMemo(() => {
+    const cats = new Set<OpportunityCategory>();
+    engineOpportunities.forEach((opp) => {
+      if (opp.metadata.category) {
+        cats.add(opp.metadata.category);
+      }
+    });
+    return Array.from(cats);
+  }, [engineOpportunities, engineVersion]);
+
+  // Available Providers for Filter Dropdown
+  const availableProviders = useMemo(() => {
+    const pMap = new Map<string, string>();
+    engineOpportunities.forEach((opp) => {
+      if (opp.providerId && opp.providerName) {
+        pMap.set(opp.providerId, opp.providerName);
+      }
+    });
+    return Array.from(pMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [engineOpportunities, engineVersion]);
+
+  // Dynamic Search & Filter Results
   const searchResults = useMemo(() => {
     let list = search({
       query: searchQuery,
       filters: {
         categories: selectedCategory !== 'all' ? [selectedCategory] : undefined,
         difficulty: selectedDifficulty !== 'all' ? [selectedDifficulty] : undefined,
+        providers: selectedProvider !== 'all' ? [selectedProvider] : undefined,
       },
       sortBy: sortBy === 'recommended' ? 'recommendation_score' : sortBy,
       limit: 150,
     });
 
-    // Apply Secondary Filters
+    // Secondary Filters
     if (selectedSecondaryFilter === 'highest_reward') {
       list = [...list].sort((a, b) => b.reward.points - a.reward.points);
     } else if (selectedSecondaryFilter === 'quick_earn') {
-      list = list.filter(opp => {
+      list = list.filter((opp) => {
         const timeStr = opp.metadata.estimatedTime?.toLowerCase() || '';
         const mins = parseInt(timeStr) || 10;
         return mins <= 5 || timeStr.includes('1 min') || timeStr.includes('2 min') || timeStr.includes('3 min') || timeStr.includes('5 min');
       });
     } else if (selectedSecondaryFilter === 'new') {
-      list = list.filter(opp => opp.engagement?.isNew || opp.source === 'provider');
+      list = list.filter((opp) => opp.engagement?.isNew || opp.source === 'provider');
     } else if (selectedSecondaryFilter === 'mobile') {
-      list = list.filter(opp => {
+      list = list.filter((opp) => {
         if (opp.metadata.category === 'apps') return true;
-        return opp.metadata.tags?.some(t => {
+        return opp.metadata.tags?.some((t) => {
           const lower = t.toLowerCase();
           return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
         });
       });
     } else if (selectedSecondaryFilter === 'desktop') {
-      list = list.filter(opp => {
-        const isMobileOnly = opp.metadata.tags?.some(t => {
+      list = list.filter((opp) => {
+        const isMobileOnly = opp.metadata.tags?.some((t) => {
           const lower = t.toLowerCase();
           return lower.includes('mobile only') || lower.includes('ios only') || lower.includes('android only');
         });
         if (isMobileOnly) return false;
-        if (opp.metadata.category === 'surveys' || opp.metadata.category === 'learn') return true;
-        const isExplicitDesktop = opp.metadata.tags?.some(t => {
-          const lower = t.toLowerCase();
-          return lower.includes('desktop') || lower.includes('web') || lower.includes('browser');
-        });
-        if (isExplicitDesktop) return true;
-        const isAppOrMobile = opp.metadata.category === 'apps' || opp.metadata.tags?.some(t => {
-          const lower = t.toLowerCase();
-          return lower.includes('mobile') || lower.includes('app') || lower.includes('android') || lower.includes('ios');
-        });
-        return !isAppOrMobile;
+        return true;
       });
     } else if (selectedSecondaryFilter === 'available_now') {
-      list = list.filter(opp => opp.status === 'available');
+      list = list.filter((opp) => opp.status === 'available');
     } else if (selectedSecondaryFilter === 'ending_soon') {
-      const nowMs = Date.now();
-      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-      list = list.filter(opp => {
-        if (opp.engagement?.expiringSoon || opp.metadata.category === 'limited') return true;
-        if (opp.expiresAt) {
-          const expTime = typeof opp.expiresAt === 'string'
-            ? new Date(opp.expiresAt).getTime()
-            : (opp.expiresAt instanceof Date ? opp.expiresAt.getTime() : 0);
-          return expTime > nowMs && expTime - nowMs <= threeDaysMs;
-        }
-        return false;
-      });
+      list = list.filter((opp) => opp.engagement?.expiringSoon || opp.metadata.category === 'limited');
     }
 
     return list;
-  }, [searchQuery, selectedCategory, selectedSecondaryFilter, selectedDifficulty, sortBy, engineOpportunities, engineVersion]);
+  }, [searchQuery, selectedCategory, selectedSecondaryFilter, selectedDifficulty, selectedProvider, sortBy, engineOpportunities, engineVersion]);
 
+  // Section Recommendations for Default View
   const dynamicSections = useMemo(() => {
     return generateAllSections(engineOpportunities, userData, activities, taskHistory);
   }, [engineOpportunities, userData, activities, taskHistory, engineVersion]);
 
-  // ─── Active Continuity Journey ───────────────────────────────────────────────
-  const activeTaskSummary = useMemo(() => {
-    const taskMap = new Map(tasks.map(t => [t.id, t]));
-    const activeList = [];
+  // Attached Tasks for Selected Campaign
+  const attachedCampaignTasks = useMemo(() => {
+    if (!selectedCampaign) return [];
+    const matchingTasks = tasks.filter((t) => t.campaignId === selectedCampaign.id);
+    const matchingTaskIds = new Set(matchingTasks.map((t) => t.id));
+    return engineOpportunities.filter((opp) => matchingTaskIds.has(opp.id));
+  }, [selectedCampaign, tasks, engineOpportunities]);
 
-    for (const ut of Object.values(userTasks)) {
-      if (ut.status === 'in_progress' || ut.status === 'pending' || ut.status === 'pending_review' || ut.status === 'submitted' || ut.status === 'started') {
-        const matchingTask = taskMap.get(ut.taskId);
-        const statusMeta = getCanonicalStatus(ut.status);
-        const targetUrl = (matchingTask as any)?.link || '';
-        const hasUrl = typeof targetUrl === 'string' && targetUrl.startsWith('http');
-
-        const matchingOpp: MarketplaceOpportunity = engineOpportunities.find(o => o.id === ut.taskId) || {
-          id: ut.taskId,
-          title: matchingTask?.title || 'Active Opportunity',
-          description: matchingTask?.description || '',
-          providerName: 'PulseEarn',
-          source: 'internal',
-          reward: { points: matchingTask?.rewardAmount ?? 0, xp: matchingTask?.xpReward ?? 0 },
-          metadata: {
-            category: (matchingTask?.category as OpportunityCategory) || 'community',
-            difficulty: 'medium' as OpportunityDifficulty,
-            estimatedTime: '2 mins',
-            verificationType: 'manual',
-            launchMode: 'inline',
-            tags: ['active'],
-          },
-          instructions: matchingTask?.instructions || 'Complete the task instructions.',
-          action: {
-            actionType: hasUrl ? 'url' : 'complete',
-            url: hasUrl ? targetUrl : undefined,
-          },
-          status: 'started',
-          engagement: { completionRate: 0.9, averageReward: matchingTask?.rewardAmount ?? 0, totalCompletions: 0, trending: false, isNew: false },
-        };
-
-        activeList.push({
-          id: ut.taskId,
-          title: matchingTask?.title || 'Active Opportunity',
-          reward: matchingTask?.rewardAmount ?? 0,
-          xp: matchingTask?.xpReward ?? 0,
-          statusLabel: statusMeta.label,
-          statusBadgeClass: statusMeta.badgeClass,
-          opportunity: matchingOpp,
-        });
-      }
-    }
-
-    return {
-      items: activeList.slice(0, 3),
-      totalCount: activeList.length,
-    };
-  }, [userTasks, tasks, engineOpportunities]);
-
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategory !== 'all' || selectedSecondaryFilter !== 'all' || selectedDifficulty !== 'all';
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    selectedCategory !== 'all' ||
+    selectedSecondaryFilter !== 'all' ||
+    selectedDifficulty !== 'all' ||
+    selectedProvider !== 'all';
 
   return (
     <div className="min-h-screen bg-background text-text-primary px-4 pt-24 pb-20 md:px-8 max-w-7xl mx-auto space-y-6">
       
-      {/* ─── Compact Earning Header ─────────────────────────────────────────── */}
-      <div className="p-5 md:p-6 rounded-2xl bg-surface border border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl md:text-2xl font-black text-text-primary tracking-tight">
-              Earn more with PulseEarn
-            </h1>
-            <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono', progressionTier.color)}>
-              {progressionTier.name}
-            </span>
-          </div>
-          <p className="text-xs md:text-sm text-text-secondary">
-            Discover verified opportunities from multiple earning providers.
-          </p>
-        </div>
+      {/* Page Header */}
+      <MarketplaceHeader
+        pointsBalance={userBalancePoints}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onRefresh={fetchProvidersAndOpportunities}
+        isRefreshing={loading}
+      />
 
-        {/* Real Balance Widget & Actions */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-surface-bright border border-border">
-            <div className="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0">
-              <Wallet size={16} />
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-text-tertiary block font-mono">Current Balance</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-black text-text-primary tabular-nums">
-                  {userBalancePoints.toLocaleString()} PTS
-                </span>
-                <span className="text-xs font-semibold text-text-tertiary">
-                  ≈ ${userBalanceUsd}
-                </span>
-              </div>
-            </div>
-          </div>
+      {/* Error Banner */}
+      {error && <MarketplaceErrorState message={error} onRetry={fetchProvidersAndOpportunities} />}
 
-          <button
-            onClick={fetchProviders}
-            disabled={loading}
-            aria-label="Refresh opportunities"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-border bg-surface hover:bg-surface-bright text-xs font-semibold text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 min-h-[44px]"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin text-primary' : 'text-text-tertiary'} />
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Error Banner ──────────────────────────────────────────────────── */}
-      {error && (
-        <div className="p-4 rounded-2xl border border-danger/20 bg-danger/5 flex items-center gap-3 text-danger text-xs font-medium">
-          <Info size={16} className="shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* ─── Skeleton Loading State ─────────────────────────────────────────── */}
+      {/* Loading Skeleton */}
       {loading && engineOpportunities.length === 0 ? (
         <MarketplaceSkeleton />
       ) : (
         <>
-          {/* ─── Active Tasks / Continue Where You Left Off ────────────────────── */}
-          {activeTaskSummary.totalCount > 0 && (
-            <section className="p-4 md:p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <Compass size={15} />
-                  <span>Continue Where You Left Off</span>
-                </div>
-                <span className="text-[10px] font-mono text-text-tertiary">{activeTaskSummary.totalCount} active</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {activeTaskSummary.items.map(t => (
-                  <div
-                    key={t.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setSelectedOpportunity(t.opportunity)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedOpportunity(t.opportunity);
-                      }
-                    }}
-                    className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between shadow-xs transition-all group focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]"
-                  >
-                    <div className="min-w-0 pr-2">
-                      <p className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors truncate">{t.title}</p>
-                      <span className={cn('inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border mt-1 font-mono', t.statusBadgeClass)}>
-                        {t.statusLabel}
-                      </span>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-bold text-success block">+{t.reward} PTS</span>
-                      {t.xp > 0 && <span className="text-[9px] text-primary font-mono block">+{t.xp} XP</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+          {/* Category Navigation System */}
+          <MarketplaceCategories
+            activeCategoriesInInventory={activeCategoriesInInventory}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+
+          {/* Model A: Hosted Offerwalls Section (Dedicated integrated section) */}
+          {selectedCategory === 'all' && !hasActiveFilters && rawProviders.length > 0 && (
+            <MarketplaceHostedOfferwalls providers={rawProviders} onLaunch={handleLaunchProvider} />
           )}
 
-          {/* ─── Discovery Toolbar & Search ────────────────────────────────────── */}
-          <section className="space-y-3">
-            
-            {/* Search + Sort Controls Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface p-3 rounded-2xl border border-border shadow-xs">
-              {/* Search Bar */}
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search opportunities by title, provider, or tag..."
-                  className="w-full bg-surface-bright/60 border border-border rounded-xl pl-9 pr-8 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary min-h-[44px]"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Clear search query"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary p-1"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+          {/* Filters & Sorting Controls */}
+          <MarketplaceFilters
+            selectedDifficulty={selectedDifficulty}
+            onSelectDifficulty={setSelectedDifficulty}
+            selectedSecondaryFilter={selectedSecondaryFilter}
+            onSelectSecondaryFilter={setSelectedSecondaryFilter}
+            selectedProvider={selectedProvider}
+            onSelectProvider={setSelectedProvider}
+            availableProviders={availableProviders}
+            sortBy={sortBy}
+            onSelectSortBy={setSortBy}
+            hasActiveFilters={hasActiveFilters}
+            onResetFilters={handleResetFilters}
+          />
 
-              {/* Sort & Difficulty Controls */}
-              <div className="flex items-center gap-2 shrink-0">
-                <select
-                  value={selectedDifficulty}
-                  onChange={(e) => setSelectedDifficulty(e.target.value as OpportunityDifficulty | 'all')}
-                  aria-label="Filter by Difficulty"
-                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
-                >
-                  <option value="all">All Difficulties</option>
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                  <option value="elite">Elite</option>
-                </select>
-
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'recommended' | 'reward' | 'time' | 'difficulty' | 'newest')}
-                  aria-label="Sort opportunities"
-                  className="bg-surface-bright border border-border rounded-xl px-3 py-2 text-xs font-medium text-text-secondary focus:outline-none focus:border-primary transition-all min-h-[44px]"
-                >
-                  <option value="recommended">Best Match</option>
-                  <option value="reward">Highest Reward</option>
-                  <option value="time">Fastest Time</option>
-                  <option value="difficulty">Difficulty</option>
-                  <option value="newest">Newest</option>
-                </select>
-
-                {hasActiveFilters && (
-                  <button
-                    onClick={handleResetFilters}
-                    className="px-3 py-2 text-xs font-semibold text-danger hover:underline shrink-0 min-h-[44px]"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Top-Level Discovery Category Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={cn(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border min-h-[40px]',
-                  selectedCategory === 'all'
-                    ? 'bg-primary text-white border-primary shadow-xs'
-                    : 'bg-surface border-border text-text-secondary hover:border-border-bright'
-                )}
-              >
-                All
-              </button>
-
-              {MARKETPLACE_CATEGORIES.map(cat => {
-                const isSelected = selectedCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={cn(
-                      'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-1.5 min-h-[40px]',
-                      isSelected
-                        ? 'bg-primary text-white border-primary shadow-xs'
-                        : 'bg-surface border-border text-text-secondary hover:border-border-bright'
-                    )}
-                  >
-                    <span>{cat.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Secondary Filters Bar */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mr-1 font-mono">Filter:</span>
-              {[
-                { id: 'all', label: 'All Types' },
-                { id: 'highest_reward', label: 'Highest Reward' },
-                { id: 'quick_earn', label: 'Quick Earn (≤5m)' },
-                { id: 'new', label: 'New' },
-                { id: 'mobile', label: 'Mobile' },
-                { id: 'desktop', label: 'Desktop' },
-                { id: 'available_now', label: 'Available Now' },
-                { id: 'ending_soon', label: 'Ending Soon' },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setSelectedSecondaryFilter(f.id as SecondaryFilter)}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all border',
-                    selectedSecondaryFilter === f.id
-                      ? 'bg-surface-bright border-primary text-primary font-bold shadow-xs'
-                      : 'bg-surface/60 border-border/80 text-text-tertiary hover:text-text-primary'
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-          </section>
-
-          {/* ─── Opportunity Grid (Active Filters or Categorized) ────────────────── */}
-          {hasActiveFilters ? (
+          {/* Opportunity Grid Section */}
+          {engineOpportunities.length === 0 ? (
+            <MarketplaceEmptyState onResetFilters={handleResetFilters} onRefresh={fetchProvidersAndOpportunities} />
+          ) : hasActiveFilters ? (
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
@@ -700,57 +409,43 @@ export const Marketplace: React.FC = () => {
               </div>
 
               {searchResults.length === 0 ? (
-                <div className="p-10 rounded-2xl border border-border bg-surface text-center space-y-3">
-                  <Info size={32} className="text-text-tertiary mx-auto" />
-                  <h3 className="text-sm font-bold text-text-primary">No earning opportunities are available for your account right now.</h3>
-                  <p className="text-xs text-text-tertiary max-w-md mx-auto">
-                    Try switching categories, clearing active filters, or refresh provider inventory.
-                  </p>
-                  <div className="pt-2 flex items-center justify-center gap-2">
-                    <button
-                      onClick={handleResetFilters}
-                      className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-all min-h-[44px]"
-                    >
-                      Reset Filters
-                    </button>
-                    <button
-                      onClick={fetchProviders}
-                      className="px-4 py-2 rounded-xl bg-surface-bright border border-border text-xs font-bold text-text-secondary hover:text-text-primary transition-all min-h-[44px]"
-                    >
-                      Refresh Inventory
-                    </button>
-                  </div>
-                </div>
+                <MarketplaceEmptyState onResetFilters={handleResetFilters} onRefresh={fetchProvidersAndOpportunities} />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {searchResults.map(opp => (
-                    <OpportunityCard
-                      key={opp.id}
-                      opportunity={opp}
-                      userTask={userTasks[opp.id]}
-                      onSelect={() => setSelectedOpportunity(opp)}
-                    />
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {searchResults.map((opp) =>
+                    opp.metadata.category === 'campaigns' ? (
+                      <MarketplaceCampaignCard
+                        key={opp.id}
+                        campaignOpportunity={opp}
+                        onSelect={() => setSelectedCampaign(opp)}
+                      />
+                    ) : (
+                      <MarketplaceOpportunityCard
+                        key={opp.id}
+                        opportunity={opp}
+                        userTaskStatus={userTasks[opp.id]?.status}
+                        onSelect={() => setSelectedOpportunity(opp)}
+                      />
+                    )
+                  )}
                 </div>
               )}
             </section>
           ) : (
-            /* ─── Default Recommended View ─── */
+            /* Categorized Sections View */
             <div className="space-y-8">
-              {dynamicSections.map(section => (
+              {dynamicSections.map((section) => (
                 <section key={section.id} className="space-y-3">
                   <div className="flex items-center justify-between border-b border-border/60 pb-2">
                     <div>
-                      <h2 className="text-sm md:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
+                      <h2 className="text-sm sm:text-base font-bold text-text-primary tracking-tight flex items-center gap-2">
                         {section.id === 'featured' && <Sparkles size={15} className="text-primary" />}
                         {section.id === 'personalized-for-you' && <Flame size={15} className="text-warning" />}
                         {section.id === 'daily' && <Clock size={15} className="text-success" />}
                         {section.id === 'highest-paying' && <Trophy size={15} className="text-primary" />}
                         <span>{section.title}</span>
                       </h2>
-                      {section.subtitle && (
-                        <p className="text-[11px] text-text-tertiary mt-0.5">{section.subtitle}</p>
-                      )}
+                      {section.subtitle && <p className="text-[11px] text-text-tertiary mt-0.5">{section.subtitle}</p>}
                     </div>
                     <span className="text-[10px] font-mono text-text-tertiary uppercase">
                       {section.opportunities.length} Available
@@ -762,462 +457,58 @@ export const Marketplace: React.FC = () => {
                       <p className="text-xs text-text-tertiary">No opportunities currently listed in this section.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                      {section.opportunities.map(opp => (
-                        <OpportunityCard
-                          key={opp.id}
-                          opportunity={opp}
-                          userTask={userTasks[opp.id]}
-                          onSelect={() => setSelectedOpportunity(opp)}
-                        />
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                      {section.opportunities.map((opp) =>
+                        opp.metadata.category === 'campaigns' ? (
+                          <MarketplaceCampaignCard
+                            key={opp.id}
+                            campaignOpportunity={opp}
+                            onSelect={() => setSelectedCampaign(opp)}
+                          />
+                        ) : (
+                          <MarketplaceOpportunityCard
+                            key={opp.id}
+                            opportunity={opp}
+                            userTaskStatus={userTasks[opp.id]?.status}
+                            onSelect={() => setSelectedOpportunity(opp)}
+                          />
+                        )
+                      )}
                     </div>
                   )}
                 </section>
               ))}
             </div>
           )}
-
-          {/* ─── Ecosystem Verified Ledger History ───────────────────────────── */}
-          {unifiedHistory.length > 0 && (
-            <section className="space-y-3 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-                  <Activity size={14} className="text-success" />
-                  <span>Recently Verified Completions</span>
-                </h2>
-                <span className="text-[10px] font-mono text-text-tertiary">Ecosystem Ledger</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
-                {unifiedHistory.slice(0, 4).map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                      <CheckCircle2 size={14} className="text-success shrink-0" />
-                      <span className="font-semibold text-text-primary truncate">{item.taskTitle || 'Completed Opportunity'}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 text-right font-mono">
-                      {item.rewardAmount > 0 && <span className="text-success font-bold">+{item.rewardAmount} PTS</span>}
-                      {item.xpReward > 0 && <span className="text-primary font-bold">+{item.xpReward} XP</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ─── Footer ────────────────────────────────────────────────────── */}
-          <MarketplaceFooter totalOpportunities={engineOpportunities.length} providers={providers} />
         </>
       )}
 
-      {/* ─── Opportunity Detail Drawer ──────────────────────────────────────── */}
+      {/* Opportunity Detail Drawer */}
       <AnimatePresence>
         {selectedOpportunity && (
-          <OpportunityDetailDrawer
+          <MarketplaceOpportunityDrawer
             opportunity={selectedOpportunity}
-            userTask={userTasks[selectedOpportunity.id]}
+            userTaskStatus={userTasks[selectedOpportunity.id]?.status}
             onClose={() => setSelectedOpportunity(null)}
             onAction={() => handleOpportunityAction(selectedOpportunity)}
           />
         )}
       </AnimatePresence>
 
+      {/* Model D: Campaign Detail Drawer */}
+      <AnimatePresence>
+        {selectedCampaign && (
+          <CampaignDetailDrawer
+            campaignOpportunity={selectedCampaign}
+            attachedTasks={attachedCampaignTasks}
+            userTasks={userTasks}
+            onClose={() => setSelectedCampaign(null)}
+            onSelectTask={(task) => setSelectedOpportunity(task)}
+          />
+        )}
+      </AnimatePresence>
     </div>
-  );
-};
-
-// ─── High-Density Opportunity Card Component ───────────────────────────────────
-
-interface OpportunityCardProps {
-  opportunity: MarketplaceOpportunity;
-  userTask?: { status?: string };
-  onSelect: () => void;
-}
-
-const OpportunityCard: React.FC<OpportunityCardProps> = ({ opportunity, userTask, onSelect }) => {
-  const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
-  const canonicalStatus = userTask ? getCanonicalStatus(userTask.status) : null;
-  const providerLabel = opportunity.providerName || (opportunity.source === 'provider' ? 'Partner Offer' : 'PulseEarn');
-
-  return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      onClick={onSelect}
-      className="p-4 rounded-2xl border border-border bg-surface hover:border-border-bright cursor-pointer flex flex-col justify-between space-y-3.5 transition-all shadow-xs hover:shadow-md group"
-    >
-      <div className="space-y-2.5">
-        {/* Top Badges & Provider Attribution */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 overflow-hidden">
-            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate">
-              {opportunity.metadata.category}
-            </span>
-            <span className="text-[9px] font-medium text-text-tertiary px-1.5 py-0.5 rounded bg-surface-bright border border-border truncate">
-              {providerLabel}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {canonicalStatus && (
-              <span className={cn('text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border font-mono', canonicalStatus.badgeClass)}>
-                {canonicalStatus.label}
-              </span>
-            )}
-            <span
-              className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border"
-              style={{ color: diffConfig.color, backgroundColor: diffConfig.bgColor, borderColor: `${diffConfig.color}33` }}
-            >
-              {diffConfig.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Title & Description */}
-        <div>
-          <h3 className="text-xs md:text-sm font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
-            {opportunity.title}
-          </h3>
-          <p className="text-[11px] text-text-tertiary line-clamp-2 mt-1 leading-relaxed">
-            {opportunity.description || 'Verified earning opportunity available in the PulseEarn ecosystem.'}
-          </p>
-        </div>
-      </div>
-
-      {/* Rewards & Action CTA */}
-      <div className="space-y-2.5 pt-2 border-t border-border/60">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-baseline gap-1">
-            <span className="text-sm md:text-base font-black text-success tabular-nums">+{opportunity.reward.points}</span>
-            <span className="text-[9px] font-bold text-text-tertiary uppercase">PTS</span>
-            {opportunity.reward.xp > 0 && (
-              <span className="text-[9px] text-primary font-bold ml-1 font-mono">+{opportunity.reward.xp} XP</span>
-            )}
-          </div>
-          <span className="text-[10px] text-text-tertiary flex items-center gap-1 font-mono">
-            <Clock size={11} />
-            {opportunity.metadata.estimatedTime}
-          </span>
-        </div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-          }}
-          className="w-full py-2 px-3 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center justify-center gap-1.5 min-h-[36px]"
-        >
-          <span>View Details</span>
-          <ChevronRight size={13} />
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-// ─── Opportunity Detail Drawer Component ──────────────────────────────────────
-
-interface OpportunityDetailDrawerProps {
-  opportunity: MarketplaceOpportunity;
-  userTask?: { status?: string };
-  onClose: () => void;
-  onAction: () => void;
-}
-
-const OpportunityDetailDrawer: React.FC<OpportunityDetailDrawerProps> = ({
-  opportunity,
-  userTask,
-  onClose,
-  onAction,
-}) => {
-  const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
-  const canonicalStatus = getCanonicalStatus(userTask?.status);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-[200] flex justify-end" role="dialog" aria-modal="true" aria-label={opportunity.title}>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-      />
-
-      {/* Drawer Panel */}
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="relative w-full max-w-lg bg-surface border-l border-border shadow-2xl flex flex-col h-full overflow-hidden"
-      >
-        {/* Drawer Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between bg-surface-bright/50 shrink-0">
-          <div className="flex items-center gap-3 min-w-0 pr-2">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-              <Zap size={20} />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block">Opportunity Specs</span>
-              <h2 className="text-sm font-bold text-text-primary tracking-tight truncate">{opportunity.title}</h2>
-            </div>
-          </div>
-          <button onClick={onClose} aria-label="Close details" className="p-2 hover:bg-surface-bright rounded-xl text-text-tertiary transition-colors shrink-0">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          
-          {/* Rewards Grid */}
-          <section className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-2xl bg-surface-bright border border-border">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-text-tertiary block">Reward Value</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-black text-success tabular-nums">+{opportunity.reward.points}</span>
-                <span className="text-[10px] font-bold text-text-tertiary uppercase">PTS</span>
-              </div>
-            </div>
-            <div className="p-4 rounded-2xl bg-surface-bright border border-border">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-text-tertiary block">Level Progression</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-2xl font-black text-primary tabular-nums">+{opportunity.reward.xp}</span>
-                <span className="text-[10px] font-bold text-text-tertiary uppercase">XP</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Active Status Indicator */}
-          {userTask && (
-            <div className="p-3.5 rounded-xl bg-surface-bright border border-border flex items-center justify-between">
-              <span className="text-xs font-semibold text-text-secondary">Current Status:</span>
-              <span className={cn('text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border font-mono', canonicalStatus.badgeClass)}>
-                {canonicalStatus.label}
-              </span>
-            </div>
-          )}
-
-          {/* Key Overview Metrics */}
-          <section className="space-y-3 p-4 rounded-2xl bg-surface-bright/40 border border-border">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-                <Layers size={12} />
-                <span>Overview & Specs</span>
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-success/10 border border-success/20 text-success font-mono">
-                {opportunity.providerName || (opportunity.source === 'provider' ? 'Partner Offer' : 'PulseEarn')}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-xl bg-surface border border-border">
-                <span className="text-[9px] text-text-tertiary block uppercase font-mono">Estimated Time</span>
-                <span className="font-semibold text-text-primary">{opportunity.metadata.estimatedTime}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-surface border border-border">
-                <span className="text-[9px] text-text-tertiary block uppercase font-mono">Difficulty</span>
-                <span className="font-semibold" style={{ color: diffConfig.color }}>{diffConfig.label}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-surface border border-border">
-                <span className="text-[9px] text-text-tertiary block uppercase font-mono">Category</span>
-                <span className="font-semibold text-text-primary capitalize">{opportunity.metadata.category}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-surface border border-border">
-                <span className="text-[9px] text-text-tertiary block uppercase font-mono">Verification</span>
-                <span className="font-semibold text-text-primary capitalize">
-                  {opportunity.metadata.verificationType === 'automated' || opportunity.metadata.verificationType === 'api' || opportunity.metadata.verificationType === 'offerwall'
-                    ? 'Automated / Postback'
-                    : 'Manual Verification'}
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* Instructions & Steps */}
-          <section className="space-y-2 p-4 rounded-2xl bg-surface-bright/40 border border-border">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary block">
-              Requirements & Completion Steps
-            </span>
-            <p className="text-xs text-text-secondary leading-relaxed pt-1">
-              {opportunity.instructions || opportunity.description || 'Follow the guidelines provided by the advertiser or campaign to complete this opportunity.'}
-            </p>
-          </section>
-
-          {/* Support / Help Notice */}
-          <div className="p-3 rounded-xl bg-surface border border-border flex items-center justify-between text-xs text-text-tertiary">
-            <span className="flex items-center gap-1.5">
-              <Info size={14} className="text-text-tertiary shrink-0" />
-              Need help with this opportunity?
-            </span>
-            <a href="/support" className="text-primary font-bold hover:underline">Support</a>
-          </div>
-
-        </div>
-
-        {/* Footer Action CTA */}
-        <div className="p-4 border-t border-border bg-surface-bright/50 shrink-0">
-          {canonicalStatus.label === 'Completed' ? (
-            <button
-              disabled
-              className="w-full py-3 px-4 rounded-xl bg-success/10 border border-success/20 text-success text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
-            >
-              <CheckCircle2 size={16} />
-              <span>Opportunity Completed</span>
-            </button>
-          ) : canonicalStatus.label === 'Pending Review' ? (
-            <button
-              disabled
-              className="w-full py-3 px-4 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
-            >
-              <Clock size={16} />
-              <span>Under Verification</span>
-            </button>
-          ) : !canonicalStatus.isActionable ? (
-            <button
-              disabled
-              className="w-full py-3 px-4 rounded-xl bg-surface-bright border border-border text-text-tertiary text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed min-h-[44px]"
-            >
-              <Lock size={16} />
-              <span>{canonicalStatus.label}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                onAction();
-                onClose();
-              }}
-              className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/10 min-h-[44px]"
-            >
-              <span>{canonicalStatus.label === 'In Progress' ? 'Continue Opportunity' : 'Start Opportunity'}</span>
-              <ArrowUpRight size={15} />
-            </button>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-// ─── Marketplace Skeleton Loader Component ───────────────────────────────────
-
-const MarketplaceSkeleton: React.FC = () => {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-14 rounded-2xl bg-surface border border-border/60 p-3 flex items-center justify-between gap-4">
-        <div className="h-8 bg-surface-bright rounded-xl flex-1 max-w-md" />
-        <div className="flex gap-2">
-          <div className="h-8 w-28 bg-surface-bright rounded-xl" />
-          <div className="h-8 w-28 bg-surface-bright rounded-xl" />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="h-6 w-48 bg-surface-bright rounded-lg" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="p-5 rounded-2xl border border-border bg-surface space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="h-4 w-20 bg-surface-bright rounded" />
-                <div className="h-4 w-16 bg-surface-bright rounded" />
-              </div>
-              <div className="space-y-2">
-                <div className="h-5 w-3/4 bg-surface-bright rounded" />
-                <div className="h-3 w-full bg-surface-bright rounded" />
-                <div className="h-3 w-2/3 bg-surface-bright rounded" />
-              </div>
-              <div className="pt-3 border-t border-border flex justify-between items-center">
-                <div className="h-5 w-24 bg-surface-bright rounded" />
-                <div className="h-8 w-24 bg-surface-bright rounded-xl" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Marketplace Ecosystem Footer Component ──────────────────────────────────
-
-interface MarketplaceFooterProps {
-  totalOpportunities: number;
-  providers?: Provider[];
-}
-
-const MarketplaceFooter: React.FC<MarketplaceFooterProps> = ({ totalOpportunities, providers = [] }) => {
-  const activeProvidersCount = useMemo(() => {
-    if (!providers || providers.length === 0) return 0;
-    return providers.filter(p => p.status === 'active' || p.status === 'degraded' || !p.status).length;
-  }, [providers]);
-
-  const providerSystemStatus = useMemo(() => {
-    if (!providers || providers.length === 0) return 'Provider Network Active';
-    const hasDegraded = providers.some(p => p.status === 'degraded');
-    const hasOffline = providers.some(p => p.status === 'offline' || p.status === 'maintenance');
-    if (hasOffline || hasDegraded) return 'Provider Network Operational (Degraded Sync)';
-    return 'All Provider Systems Operational';
-  }, [providers]);
-
-  return (
-    <footer className="mt-12 pt-8 border-t border-border space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-primary text-xs font-bold uppercase tracking-wider">
-            <Globe size={15} />
-            <span>Provider Network</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">
-            {activeProvidersCount > 0 ? `${activeProvidersCount} Integrated Networks` : 'Multi-Network Orchestration'}
-          </p>
-          <p className="text-[11px] text-text-tertiary">Real-time inventory orchestration with ProviderAdapter sync</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-success text-xs font-bold uppercase tracking-wider">
-            <ShieldCheck size={15} />
-            <span>Verification & Payouts</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">Automated Proof Auditing</p>
-          <p className="text-[11px] text-text-tertiary">Anti-fraud checks with instant PTS ledger crediting</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-wider">
-            <Award size={15} />
-            <span>Ecosystem Scale</span>
-          </div>
-          <p className="text-xs text-text-primary font-bold">{totalOpportunities} Active Opportunities</p>
-          <p className="text-[11px] text-text-tertiary">Personalized recommendation engine active</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-between text-[11px] text-text-tertiary gap-2 pt-2 border-t border-border/50 font-mono">
-        <span>PulseEarn Marketplace Engine • Unified Earning Ecosystem</span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          {providerSystemStatus}
-        </span>
-      </div>
-    </footer>
   );
 };
 
 export default Marketplace;
-

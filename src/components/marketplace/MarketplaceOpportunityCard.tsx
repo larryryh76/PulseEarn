@@ -46,6 +46,7 @@ export function getCanonicalStatus(status: string | undefined): {
         ctaText: 'Try Again',
       };
     case 'expired':
+    case 'archived':
       return {
         label: 'Expired',
         badgeClass: 'bg-surface-bright border-border text-text-tertiary',
@@ -59,6 +60,20 @@ export function getCanonicalStatus(status: string | undefined): {
         badgeClass: 'bg-surface-bright border-border text-text-tertiary',
         isActionable: false,
         ctaText: 'Cooldown',
+      };
+    case 'locked':
+      return {
+        label: 'Locked',
+        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
+        isActionable: false,
+        ctaText: 'Locked',
+      };
+    case 'cancelled':
+      return {
+        label: 'Cancelled',
+        badgeClass: 'bg-surface-bright border-border text-text-tertiary',
+        isActionable: false,
+        ctaText: 'Cancelled',
       };
     default:
       return {

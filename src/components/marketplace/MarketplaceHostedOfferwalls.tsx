@@ -6,7 +6,7 @@ export interface HostedProvider {
   id: string;
   name: string;
   logo?: string;
-  status?: string; // 'active' | 'degraded' | 'maintenance' | 'offline'
+  status?: 'active' | 'degraded' | 'maintenance' | 'offline' | string;
   description?: string;
 }
 
@@ -40,8 +40,18 @@ export const MarketplaceHostedOfferwalls: React.FC<MarketplaceHostedOfferwallsPr
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {providers.map((provider) => {
-          const isOffline = provider.status === 'offline' || provider.status === 'maintenance';
+          const isMaintenance = provider.status === 'maintenance';
+          const isOffline = provider.status === 'offline';
           const isDegraded = provider.status === 'degraded';
+          const isDisabled = isMaintenance || isOffline;
+
+          const statusLabel = isMaintenance
+            ? 'Maintenance'
+            : isOffline
+            ? 'Offline'
+            : isDegraded
+            ? 'Degraded'
+            : 'Available';
 
           return (
             <div
@@ -57,10 +67,10 @@ export const MarketplaceHostedOfferwalls: React.FC<MarketplaceHostedOfferwallsPr
                     <span
                       className={cn(
                         'w-2 h-2 rounded-full',
-                        isOffline ? 'bg-danger' : isDegraded ? 'bg-warning' : 'bg-success'
+                        isDisabled ? 'bg-danger' : isDegraded ? 'bg-warning' : 'bg-success'
                       )}
                     />
-                    {isOffline ? 'Maintenance' : isDegraded ? 'Degraded' : 'Available'}
+                    {statusLabel}
                   </span>
                 </div>
 
@@ -80,7 +90,7 @@ export const MarketplaceHostedOfferwalls: React.FC<MarketplaceHostedOfferwallsPr
                 </span>
                 <button
                   onClick={() => onLaunch(provider)}
-                  disabled={isOffline}
+                  disabled={isDisabled}
                   className="px-3.5 py-1.5 rounded-xl bg-surface-bright hover:bg-primary hover:text-white border border-border text-xs font-bold text-text-secondary transition-all flex items-center gap-1.5 disabled:opacity-50 min-h-[36px]"
                 >
                   <span>Open Offers</span>

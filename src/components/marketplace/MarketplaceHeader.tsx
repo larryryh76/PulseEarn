@@ -62,6 +62,7 @@ export const MarketplaceHeader: React.FC<MarketplaceHeaderProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
+          aria-label="Search opportunities by title, provider, category, or tag"
           placeholder="Search opportunities by title, provider, category, or tag..."
           className="w-full bg-surface-bright/70 border border-border rounded-xl pl-9 pr-8 py-2 text-xs text-text-primary focus:outline-none focus:border-primary transition-colors placeholder:text-text-tertiary min-h-[40px]"
         />

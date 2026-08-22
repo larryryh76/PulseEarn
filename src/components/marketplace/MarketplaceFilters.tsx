@@ -119,6 +119,7 @@ export const MarketplaceFilters: React.FC<MarketplaceFiltersProps> = ({
           <button
             key={f.id}
             onClick={() => onSelectSecondaryFilter(f.id as SecondaryFilter)}
+            aria-pressed={selectedSecondaryFilter === f.id}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all border ${
               selectedSecondaryFilter === f.id
                 ? 'bg-surface-bright border-primary text-primary font-bold shadow-xs'

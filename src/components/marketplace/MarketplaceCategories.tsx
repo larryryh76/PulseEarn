@@ -22,6 +22,7 @@ export const MarketplaceCategories: React.FC<MarketplaceCategoriesProps> = ({
     <nav className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Opportunity Categories">
       <button
         onClick={() => onSelectCategory('all')}
+        aria-pressed={selectedCategory === 'all'}
         className={cn(
           'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border min-h-[36px]',
           selectedCategory === 'all'
@@ -38,6 +39,7 @@ export const MarketplaceCategories: React.FC<MarketplaceCategoriesProps> = ({
           <button
             key={cat.id}
             onClick={() => onSelectCategory(cat.id)}
+            aria-pressed={isSelected}
             className={cn(
               'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border min-h-[36px]',
               isSelected

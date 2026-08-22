@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Zap, Clock, Info, CheckCircle2, Lock, ArrowUpRight, X, Layers } from 'lucide-react';
 import { MarketplaceOpportunity, DIFFICULTY_CONFIG } from '../../types/marketplace';
 import { getCanonicalStatus } from './MarketplaceOpportunityCard';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 interface MarketplaceOpportunityDrawerProps {
   opportunity: MarketplaceOpportunity;
@@ -20,16 +21,16 @@ export const MarketplaceOpportunityDrawer: React.FC<MarketplaceOpportunityDrawer
   const diffConfig = DIFFICULTY_CONFIG[opportunity.metadata.difficulty] || DIFFICULTY_CONFIG.medium;
   const canonicalStatus = getCanonicalStatus(userTaskStatus || opportunity.status);
 
+  useScrollLock(true);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 

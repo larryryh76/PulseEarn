@@ -122,9 +122,35 @@ export const Marketplace: React.FC = () => {
                 : 'connected',
           });
         });
+
+        // Also register direct opportunities whose providers might not be listed
+        const knownProviderIds = new Set(resProviders.providers.map((p: HostedProvider) => p.id));
+        const orphanOpps = directOpps.filter((o) => o.providerId && !knownProviderIds.has(o.providerId));
+        if (orphanOpps.length > 0) {
+          const orphanMap = new Map<string, MarketplaceOpportunity[]>();
+          orphanOpps.forEach((o) => {
+            if (!o.providerId) return;
+            const existing = orphanMap.get(o.providerId) || [];
+            existing.push(o);
+            orphanMap.set(o.providerId, existing);
+          });
+          orphanMap.forEach((opps, pId) => {
+            updateProviderInventory({
+              providerId: pId,
+              providerName: opps[0]?.providerName || pId.toUpperCase(),
+              opportunities: opps,
+              lastSyncedAt: new Date(),
+              connectionStatus: 'connected',
+            });
+          });
+        }
+
         setEngineVersion((v) => v + 1);
       } else {
         setRawProviders([]);
+        if (!resProviders.success) {
+          setError(resProviders.error || 'Unable to load provider list.');
+        }
       }
     } catch (err) {
       console.error('[Marketplace] Error fetching provider inventory:', err);
@@ -173,6 +199,7 @@ export const Marketplace: React.FC = () => {
           }
 
           if (targetWindow) {
+            targetWindow.opener = null;
             targetWindow.location.href = val.url;
           } else {
             window.open(val.url, '_blank', 'noopener,noreferrer');
@@ -308,8 +335,10 @@ export const Marketplace: React.FC = () => {
   // Attached Tasks for Selected Campaign
   const attachedCampaignTasks = useMemo(() => {
     if (!selectedCampaign) return [];
-    return engineOpportunities.filter((opp) => opp.id !== selectedCampaign.id && opp.metadata.category === 'campaigns');
-  }, [selectedCampaign, engineOpportunities]);
+    const matchingTasks = tasks.filter((t) => t.campaignId === selectedCampaign.id);
+    const matchingTaskIds = new Set(matchingTasks.map((t) => t.id));
+    return engineOpportunities.filter((opp) => matchingTaskIds.has(opp.id));
+  }, [selectedCampaign, tasks, engineOpportunities]);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||

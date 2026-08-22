@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Layers } from 'lucide-react';
 import { MarketplaceOpportunity, DIFFICULTY_CONFIG } from '../../types/marketplace';
 import { getCanonicalStatus } from './MarketplaceOpportunityCard';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import { cn } from '../../utils';
 
 interface CampaignDetailDrawerProps {
@@ -20,16 +21,16 @@ export const CampaignDetailDrawer: React.FC<CampaignDetailDrawerProps> = ({
   onClose,
   onSelectTask,
 }) => {
+  useScrollLock(true);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 
@@ -104,11 +105,20 @@ export const CampaignDetailDrawer: React.FC<CampaignDetailDrawerProps> = ({
                   return (
                     <div
                       key={task.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         onClose();
                         onSelectTask(task);
                       }}
-                      className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between gap-3 transition-all group"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onClose();
+                          onSelectTask(task);
+                        }
+                      }}
+                      className="p-3.5 rounded-xl bg-surface border border-border hover:border-primary/40 cursor-pointer flex items-center justify-between gap-3 transition-all group focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
                       <div className="min-w-0 space-y-1">
                         <h4 className="text-xs font-bold text-text-primary group-hover:text-primary transition-colors truncate">

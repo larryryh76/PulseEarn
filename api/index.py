@@ -4002,34 +4002,43 @@ def _is_provider_gated(cfg):
 _cpagrip_feed_cache = {}
 _gemiad_feed_cache = {}
 
-def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
+def _get_gemiad_offers_cached(placement_id, api_key, feed_url=None):
     global _gemiad_feed_cache
     now = time.time()
-    cache_key = f"{app_id}:{api_key}:{feed_url}"
+    cache_key = f"{placement_id}:{api_key}:{feed_url}"
 
     if cache_key in _gemiad_feed_cache:
         cached_time, offers = _gemiad_feed_cache[cache_key]
         if now - cached_time < 300: # 5 min TTL
             return offers
 
-    url = feed_url or f"https://api.gemiad.com/v1/offers?app_id={app_id}"
+    if feed_url and str(feed_url).strip():
+        url = str(feed_url).strip()
+    elif placement_id and api_key:
+        url = f"https://api.gemiwall.com/api/offers/static?placementId={placement_id}&apiKey={api_key}"
+    elif placement_id:
+        url = f"https://api.gemiwall.com/api/offers/static?placementId={placement_id}"
+    else:
+        return []
 
-    # Enforce HTTPS and strict origin domain validation before sending credentials
     try:
         parsed = urllib.parse.urlparse(str(url).strip())
         if parsed.scheme.lower() != 'https':
             print(f"[GemiAd] Non-HTTPS feed URL rejected: {url}")
             return []
         hostname = (parsed.hostname or '').lower()
-        if not (hostname == 'gemiad.com' or hostname.endswith('.gemiad.com')):
+        if not (hostname in ('gemiad.com', 'gemiwall.com', 'api.gemiwall.com', 'api.gemiad.com') or hostname.endswith('.gemiad.com') or hostname.endswith('.gemiwall.com')):
             print(f"[GemiAd] Blocked untrusted origin domain for GemiAd feed: {hostname}")
             return []
     except Exception as err:
         print(f"[GemiAd] Invalid feed URL format: {err}")
         return []
 
-    headers = {'Accept': 'application/json'}
-    if api_key:
+    headers = {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    if api_key and 'apiKey=' not in url:
         headers['Authorization'] = f"Bearer {api_key}"
 
     get_deps()
@@ -4037,9 +4046,16 @@ def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             data = r.json()
-            offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            if isinstance(data, dict):
+                offers = data.get('offers', [])
+            elif isinstance(data, list):
+                offers = data
+            else:
+                offers = []
             _gemiad_feed_cache[cache_key] = (now, offers)
             return offers
+        else:
+            print(f"[GemiAd] Feed request returned status {r.status_code}")
     except Exception as e:
         print(f"[GemiAd] Failed to fetch offer feed: {e}")
 
@@ -4128,9 +4144,16 @@ def _normalize_generic_provider_offer(offer, uid, config, provider_id, provider_
     }
 
 def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host_url):
+    import re
     offer_id = str(offer.get('id') or offer.get('offer_id') or offer.get('campaign_id') or '0')
-    title = offer.get('title') or offer.get('name') or f"{provider_name} Offer"
-    desc = offer.get('description') or offer.get('instructions') or ''
+    title = offer.get('name') or offer.get('title') or f"{provider_name} Offer"
+
+    desc_raw = offer.get('description') or offer.get('instructions') or ''
+    if isinstance(desc_raw, dict):
+        desc = desc_raw.get('en') or (next(iter(desc_raw.values()), '') if desc_raw else '')
+    else:
+        desc = str(desc_raw) if desc_raw else ''
+
     payout = safe_float(offer.get('payout') or offer.get('amount') or offer.get('payout_usd') or '0')
 
     multiplier = float(config.get('rewardMultiplier', 1.0))
@@ -4146,20 +4169,56 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         category = 'surveys'
     elif 'game' in cat_raw or 'play' in cat_raw:
         category = 'games'
-    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw:
+    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw or 'mobile' in cat_raw or 'ios' in cat_raw or 'android' in cat_raw:
         category = 'apps'
-    elif 'shop' in cat_raw or 'purchase' in cat_raw:
+    elif 'shop' in cat_raw or 'purchase' in cat_raw or 'cashback' in cat_raw:
         category = 'shopping'
     elif 'video' in cat_raw or 'watch' in cat_raw:
         category = 'videos'
+    elif 'web' in cat_raw or 'signup' in cat_raw or 'register' in cat_raw or 'sign' in cat_raw:
+        category = 'signups'
+    elif 'edu' in cat_raw:
+        category = 'education'
     else:
         category = 'offers'
 
     raw_url = offer.get('url') or offer.get('link') or offer.get('click_url') or ''
     if raw_url:
-        tracking_url = raw_url.replace('{subid}', uid).replace('{user_id}', uid).replace('{uid}', uid)
+        tracking_url = raw_url.replace('[USER_ID]', uid).replace('{user_id}', uid).replace('{uid}', uid).replace('{subid}', uid)
     else:
         tracking_url = f"{host_url}/api/offerwall/providers/{provider_id}/launch"
+
+    requirements = ''
+    events = offer.get('events')
+    if isinstance(events, list) and len(events) > 0:
+        event_actions = []
+        for ev in events:
+            if isinstance(ev, dict) and 'action' in ev:
+                act = ev['action']
+                if isinstance(act, dict):
+                    event_actions.append(act.get('en') or next(iter(act.values()), ''))
+                elif isinstance(act, str):
+                    event_actions.append(act)
+        if event_actions:
+            requirements = ' -> '.join([a for a in event_actions if a])
+
+    country_raw = offer.get('country')
+    if isinstance(country_raw, list):
+        countries = [str(c).upper() for c in country_raw if c]
+    elif isinstance(country_raw, str) and country_raw.strip():
+        countries = [country_raw.strip().upper()]
+    else:
+        countries = ['GLOBAL']
+
+    device_raw = offer.get('device')
+    if isinstance(device_raw, list):
+        devices = [str(d).lower() for d in device_raw if d]
+    elif isinstance(device_raw, str) and device_raw.strip():
+        devices = [device_raw.strip().lower()]
+    else:
+        devices = ['all']
+
+    icon_url = offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}"
 
     return {
         'id': f"{provider_id}_{offer_id}",
@@ -4171,8 +4230,8 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         'title': title,
         'description': desc,
         'instructions': desc,
-        'requirements': offer.get('requirements', ''),
-        'image': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+        'requirements': requirements,
+        'image': icon_url,
         'reward': {
             'points': user_points,
             'xp': max(5, round(user_points * 0.15))
@@ -4187,10 +4246,12 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
             'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
             'verificationType': 'automated',
             'launchMode': 'redirect',
-            'artwork': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
-            'thumbnail': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'artwork': icon_url,
+            'thumbnail': icon_url,
             'tags': ['offerwall', provider_id]
         },
+        'country': countries,
+        'device': devices,
         'action': {
             'url': tracking_url,
             'actionType': 'url',
@@ -4207,26 +4268,36 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         }
     }
 
-def _get_cpagrip_offers_cached(pub_id, api_key):
+def _get_cpagrip_offers_cached(pub_id, api_key, key=None):
     global _cpagrip_feed_cache
     now = time.time()
-    cache_key = f"{pub_id}:{api_key}"
+    cache_key = f"{pub_id}:{api_key}:{key}"
 
     if cache_key in _cpagrip_feed_cache:
         cached_time, offers = _cpagrip_feed_cache[cache_key]
         if now - cached_time < 300: # 5 min TTL
             return offers
 
-    # Fetch from CPAGrip JSON Offer Feed
-    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}&key={api_key}"
+    private_key = key or api_key
+    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}&pubkey={api_key}"
+    if private_key and private_key != api_key:
+        url += f"&key={private_key}"
+
+    headers = {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
     get_deps()
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             data = r.json()
             offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
             _cpagrip_feed_cache[cache_key] = (now, offers)
             return offers
+        else:
+            print(f"[CPAGrip] Feed request returned status {r.status_code}")
     except Exception as e:
         print(f"[CPAGrip] Failed to fetch offer feed: {e}")
 
@@ -4235,6 +4306,7 @@ def _get_cpagrip_offers_cached(pub_id, api_key):
     return []
 
 def _normalize_cpagrip_offer(offer, uid, config, host_url):
+    import re
     offer_id = str(offer.get('offer_id', ''))
     title = offer.get('title', 'CPAGrip Offer')
     desc = offer.get('description', '')
@@ -4253,14 +4325,33 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
         category = 'surveys'
     elif 'game' in cat or 'play' in cat:
         category = 'games'
-    elif 'app' in cat or 'install' in cat or 'download' in cat:
+    elif 'app' in cat or 'install' in cat or 'download' in cat or 'mobile' in cat or 'android' in cat or 'ios' in cat:
         category = 'apps'
     elif 'shop' in cat or 'purchase' in cat:
         category = 'shopping'
+    elif 'video' in cat or 'watch' in cat:
+        category = 'videos'
+    elif 'email' in cat or 'zip' in cat or 'pin' in cat or 'signup' in cat or 'registration' in cat or 'credit' in cat:
+        category = 'signups'
+    elif 'edu' in cat:
+        category = 'education'
     else:
-        category = 'featured'
+        category = 'offers'
 
     tracking_url = f"{host_url}/api/offerwall/launch/cpagrip?offer_id={offer_id}&uid={uid}"
+
+    acc_countries = offer.get('accepted_countries') or offer.get('countries') or offer.get('country')
+    if isinstance(acc_countries, str):
+        countries = [c.strip().upper() for c in re.split(r'[\s,]+', acc_countries) if c.strip()]
+    elif isinstance(acc_countries, list):
+        countries = [str(c).strip().upper() for c in acc_countries if c]
+    else:
+        countries = ['GLOBAL']
+
+    if not countries:
+        countries = ['GLOBAL']
+
+    icon_url = offer.get('offerphoto') or offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}"
 
     return {
         'id': f"cpagrip_{offer_id}",
@@ -4273,7 +4364,7 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
         'description': desc,
         'instructions': desc,
         'requirements': offer.get('instructions', ''),
-        'image': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+        'image': icon_url,
         'reward': {
             'points': user_points,
             'xp': max(5, round(user_points * 0.15))
@@ -4288,12 +4379,12 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
             'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
             'verificationType': 'automated',
             'launchMode': 'redirect',
-            'artwork': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
-            'thumbnail': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'artwork': icon_url,
+            'thumbnail': icon_url,
             'tags': ['offerwall', 'cpagrip']
         },
-        'country': offer.get('countries', ['GLOBAL']),
-        'device': offer.get('devices', ['ALL']),
+        'country': countries,
+        'device': ['ALL'],
         'action': {
             'url': tracking_url,
             'actionType': 'url',
@@ -4306,9 +4397,8 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
             'averageReward': user_points,
             'totalCompletions': 0,
             'trending': False,
-            'isNew': False
-        },
-        'createdAt': datetime.now(timezone.utc).isoformat()
+            'isNew': True
+        }
     }
 
 # ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
@@ -4440,18 +4530,20 @@ def offerwall_opportunities():
                 continue
 
             if s.id == 'cpagrip':
-                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
-                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
-                if pub_id and api_key:
-                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
+                private_key = d.get('secret', '').strip() or d.get('key', '').strip()
+                if pub_id and (api_key or private_key):
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key, private_key)
                     for o in raw_offers:
-                        countries_raw = o.get('countries')
-                        if not countries_raw:
-                            single_country = o.get('country')
-                            o_countries = [single_country] if single_country else ['GLOBAL']
+                        countries_raw = o.get('accepted_countries') or o.get('countries') or o.get('country')
+                        if countries_raw:
+                            if isinstance(countries_raw, str):
+                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
+                            else:
+                                o_countries = [str(c).upper() for c in countries_raw if c]
                         else:
-                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
-                        o_countries = [c.upper() for c in o_countries if c]
+                            o_countries = ['GLOBAL']
 
                         if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
                             continue
@@ -4460,11 +4552,23 @@ def offerwall_opportunities():
 
             elif s.id == 'gemiad':
                 feed_url = d.get('feedUrl') or d.get('apiEndpoint')
-                app_id = d.get('identity', {}).get('appId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                placement_id = d.get('placementId') or d.get('identity', {}).get('placementId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
                 api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
-                if feed_url or (app_id and api_key):
-                    raw_offers = _get_gemiad_offers_cached(app_id, api_key, feed_url)
+                if feed_url or (placement_id and api_key) or placement_id:
+                    raw_offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
                     for o in raw_offers:
+                        countries_raw = o.get('country') or o.get('countries')
+                        if countries_raw:
+                            if isinstance(countries_raw, str):
+                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
+                            else:
+                                o_countries = [str(c).upper() for c in countries_raw if c]
+                        else:
+                            o_countries = ['GLOBAL']
+
+                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
+                            continue
+
                         all_opportunities.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', 'GemiAd'), host_url))
 
             elif is_model_b and isinstance(d.get('offers'), list):
@@ -4577,7 +4681,7 @@ def cpagrip_launch_offer():
     if not matching_offer:
         return "Offer is expired or no longer available.", 404
 
-    raw_link = matching_offer.get('link', '')
+    raw_link = matching_offer.get('offerlink') or matching_offer.get('link') or matching_offer.get('url') or ''
     if not raw_link:
         return "Launch URL is missing from offer.", 400
 
@@ -4633,18 +4737,24 @@ def cpagrip_callback():
     click_ref = db.collection('offer_clicks').document(click_id)
     click_snap = click_ref.get()
 
-    if not click_snap.exists:
-        _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
-                               f'Click tracking record not found: {click_id}')
-        return "OK", 200
-
-    click_data = click_snap.to_dict() or {}
-    user_id = click_data.get('userId')
-    offer_id = click_data.get('offerId')
-    offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
-
-    # Secure clamp: accept ONLY the server-stored payout mapped at launch time
-    payout = safe_float(click_data.get('payout', 0.0))
+    if click_snap.exists:
+        click_data = click_snap.to_dict() or {}
+        user_id = click_data.get('userId')
+        offer_id = click_data.get('offerId')
+        offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
+        payout = safe_float(click_data.get('payout', 0.0))
+    else:
+        # Fallback: Check if click_id is a valid PulseEarn user ID directly
+        user_ref_fallback = db.collection('users').document(click_id)
+        if user_ref_fallback.get().exists:
+            user_id = click_id
+            offer_id = params.get('offer_id') or params.get('campaign_id') or params.get('id') or '0'
+            offer_title = params.get('title') or params.get('offer_title') or f'CPAGrip Offer {offer_id}'
+            payout = safe_float(params.get('payout') or params.get('amount') or 0.0)
+        else:
+            _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
+                                   f'Click tracking record or user not found: {click_id}')
+            return "OK", 200
 
     # Load CPAGrip configurations for security verification
     p_ref = db.collection('offerwall_providers').document('cpagrip')

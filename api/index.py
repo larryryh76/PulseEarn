@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import json
@@ -4672,10 +4673,11 @@ def cpagrip_launch_offer():
     cfg = p_snap.to_dict()
 
     # 3. Retrieve raw offer link from cache
-    pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip()
-    api_key = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip()
+    pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip() or cfg.get('user_id', '').strip()
+    api_key = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip() or cfg.get('pubkey', '').strip()
+    private_key = cfg.get('secret', '').strip() or cfg.get('key', '').strip()
 
-    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key, private_key)
     matching_offer = next((o for o in raw_offers if str(o.get('offer_id')) == offer_id), None)
 
     if not matching_offer:
@@ -4737,23 +4739,29 @@ def cpagrip_callback():
     click_ref = db.collection('offer_clicks').document(click_id)
     click_snap = click_ref.get()
 
+    click_ref_to_update = None
     if click_snap.exists:
         click_data = click_snap.to_dict() or {}
         user_id = click_data.get('userId')
         offer_id = click_data.get('offerId')
         offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
         payout = safe_float(click_data.get('payout', 0.0))
+        conversion_tx_id = click_id
+        click_ref_to_update = click_ref
     else:
-        # Fallback: Check if click_id is a valid PulseEarn user ID directly
+        # Fallback: Check if click_id is a valid PulseEarn user ID directly AND CPAGrip supplied a unique lead/conversion ID
+        lead_id = params.get('lead_id') or params.get('conversion_id') or params.get('tx_id') or params.get('subid') or params.get('id')
         user_ref_fallback = db.collection('users').document(click_id)
-        if user_ref_fallback.get().exists:
+        if user_ref_fallback.get().exists and lead_id:
             user_id = click_id
-            offer_id = params.get('offer_id') or params.get('campaign_id') or params.get('id') or '0'
+            offer_id = params.get('offer_id') or params.get('campaign_id') or '0'
             offer_title = params.get('title') or params.get('offer_title') or f'CPAGrip Offer {offer_id}'
             payout = safe_float(params.get('payout') or params.get('amount') or 0.0)
+            conversion_tx_id = f"lead_{lead_id}"
+            click_ref_to_update = None
         else:
             _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
-                                   f'Click tracking record or user not found: {click_id}')
+                                   f'Click tracking record or conversion ID not found for click_id {click_id}')
             return "OK", 200
 
     # Load CPAGrip configurations for security verification
@@ -4789,7 +4797,7 @@ def cpagrip_callback():
     if fraud_flags:
         _write_offerwall_event(db, 'cpagrip', 'fraud_blocked', 'error',
                                f'CPAGrip callback fraud-blocked for user {user_id}: {fraud_flags}',
-                               metadata={'clickId': click_id, 'fraudFlags': fraud_flags})
+                               metadata={'clickId': conversion_tx_id, 'fraudFlags': fraud_flags})
         return "OK", 200
 
     multiplier = float(cfg.get('rewardMultiplier', 1.0))
@@ -4814,7 +4822,7 @@ def cpagrip_callback():
 
     # 8. Create unified callback audit trail (PENDING initially)
     # Model conversion and reversal as separate idempotent events (idempotency key design)
-    dedup_key = f"cpagrip:reversal:{click_id}" if is_reversal else f"cpagrip:credit:{click_id}"
+    dedup_key = f"cpagrip:reversal:{conversion_tx_id}" if is_reversal else f"cpagrip:credit:{conversion_tx_id}"
     callback_ref = db.collection('offerwall_callbacks').document()
     callback_id = callback_ref.id
     callback_data = {
@@ -4825,7 +4833,7 @@ def cpagrip_callback():
         'offerName': offer_title,
         'rawAmount': payout,
         'usdRevenue': payout,
-        'providerTransactionId': click_id,
+        'providerTransactionId': conversion_tx_id,
         'dedupKey': dedup_key,
         'signatureValid': True,
         'isDuplicate': False,
@@ -4855,7 +4863,7 @@ def cpagrip_callback():
 
         # Reversal guard: only allow reversal if the original conversion exists
         if is_reversal:
-            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{click_id}")
+            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{conversion_tx_id}")
             if not credit_ref.get(transaction=txn).exists:
                 raise Exception("REVERSAL_BEFORE_CONVERSION_BLOCKED")
 
@@ -4909,7 +4917,7 @@ def cpagrip_callback():
                     source='Offerwall: CPAGrip',
                     description=f'{"Chargeback" if is_reversal else "Offer completed"}: {offer_title}',
                     claim_id=claim_id,
-                    reference_id=click_id,
+                    reference_id=conversion_tx_id,
                     balance_after=balance_after,
                     activity_type=activity_type,
                     metadata={
@@ -4950,7 +4958,7 @@ def cpagrip_callback():
 
         # Write callback status as REWARD_ISSUED inside transaction
         txn.set(dedup_ref, {
-            'clickId': click_id,
+            'clickId': conversion_tx_id,
             'processed': True,
             'timestamp': firestore.SERVER_TIMESTAMP
         })
@@ -4977,7 +4985,8 @@ def cpagrip_callback():
             'stats.outstandingUserLiability': firestore.Increment(user_points)
         }, merge=True)
 
-        click_ref.update({'status': 'COMPLETED', 'completedAt': firestore.SERVER_TIMESTAMP})
+        if click_ref_to_update:
+            click_ref_to_update.update({'status': 'COMPLETED', 'completedAt': firestore.SERVER_TIMESTAMP})
 
     except Exception as e:
         print(f"[CPAGrip Callback] Transaction error: {e}")

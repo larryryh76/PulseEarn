@@ -3538,7 +3538,6 @@ def _ensure_default_offerwall_providers(db):
     global _DEFAULT_PROVIDERS_SEEDED
     if _DEFAULT_PROVIDERS_SEEDED:
         return
-    _DEFAULT_PROVIDERS_SEEDED = True
 
     try:
         # Load environment variable secrets if configured (no hardcoded secrets in source code)
@@ -3553,10 +3552,11 @@ def _ensure_default_offerwall_providers(db):
         gemi_ref = db.collection('offerwall_providers').document('gemiad')
         gemi_snap = gemi_ref.get()
         if not gemi_snap.exists:
+            gemi_has_creds = bool(gemi_placement and gemi_key)
             gemi_ref.set({
                 'name': 'GemiAd',
-                'enabled': True,
-                'status': 'active',
+                'enabled': gemi_has_creds,
+                'status': 'active' if gemi_has_creds else 'inactive',
                 'placementId': gemi_placement,
                 'apiKey': gemi_key,
                 'affiliateId': gemi_placement,
@@ -3575,10 +3575,10 @@ def _ensure_default_offerwall_providers(db):
                 'createdAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
                 'stats': {
-                    'connectionStatus': 'online',
-                    'apiStatus': 'healthy',
-                    'webhookStatus': 'healthy',
-                    'callbackStatus': 'healthy'
+                    'connectionStatus': 'online' if gemi_has_creds else 'offline',
+                    'apiStatus': 'healthy' if gemi_has_creds else 'unknown',
+                    'webhookStatus': 'healthy' if gemi_has_creds else 'unknown',
+                    'callbackStatus': 'healthy' if gemi_has_creds else 'unknown'
                 }
             })
         else:
@@ -3597,10 +3597,11 @@ def _ensure_default_offerwall_providers(db):
         cpagrip_ref = db.collection('offerwall_providers').document('cpagrip')
         cpagrip_snap = cpagrip_ref.get()
         if not cpagrip_snap.exists:
+            cpagrip_has_creds = bool(cpagrip_aff and (cpagrip_pubkey or cpagrip_feed_key))
             cpagrip_ref.set({
                 'name': 'CPAGrip Enterprise',
-                'enabled': True,
-                'status': 'active',
+                'enabled': cpagrip_has_creds,
+                'status': 'active' if cpagrip_has_creds else 'inactive',
                 'affiliateId': cpagrip_aff,
                 'user_id': cpagrip_aff,
                 'pubkey': cpagrip_pubkey,
@@ -3621,10 +3622,10 @@ def _ensure_default_offerwall_providers(db):
                 'createdAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
                 'stats': {
-                    'connectionStatus': 'online',
-                    'apiStatus': 'healthy',
-                    'webhookStatus': 'healthy',
-                    'callbackStatus': 'healthy'
+                    'connectionStatus': 'online' if cpagrip_has_creds else 'offline',
+                    'apiStatus': 'healthy' if cpagrip_has_creds else 'unknown',
+                    'webhookStatus': 'healthy' if cpagrip_has_creds else 'unknown',
+                    'callbackStatus': 'healthy' if cpagrip_has_creds else 'unknown'
                 }
             })
         else:
@@ -3671,7 +3672,10 @@ def _ensure_default_offerwall_providers(db):
                         'callbackStatus': 'healthy'
                     }
                 })
+
+        _DEFAULT_PROVIDERS_SEEDED = True
     except Exception as e:
+        _DEFAULT_PROVIDERS_SEEDED = False
         logging.error(f"[EnsureDefaultProviders] Failed to sync baseline providers: {e}")
 
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
@@ -3690,11 +3694,13 @@ def offerwall_get_providers():
         providers = []
         for s in snaps:
             d = s.to_dict()
-            # Never expose raw secret to client
-            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey')}
+            # Never expose raw secret or private API keys to client
+            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey', 'key', 'feedKey')}
             d_safe['id'] = s.id
             d_safe['hasSecret'] = bool(d.get('secret'))
             d_safe['hasApiKey'] = bool(d.get('apiKey'))
+            d_safe['hasKey'] = bool(d.get('key'))
+            d_safe['hasFeedKey'] = bool(d.get('feedKey'))
             # Derived operational health (backend source of truth)
             d_safe['health'] = _compute_operational_status(d)
             # Attach the resolved callback spec label for UI display
@@ -3843,7 +3849,8 @@ def offerwall_upsert_provider(provider_id):
             for field in adapter.get('fields', []):
                 if field.get('required'):
                     val = payload.get(field['key'], '')
-                    if is_new or field['key'] not in ('secret', 'apiKey'):
+                    is_secret_like = field['key'] in ('secret', 'apiKey', 'key', 'feedKey') or field.get('type') == 'password'
+                    if is_new or not is_secret_like:
                         if not str(val).strip():
                             missing_creds.append(field['label'])
                     else:

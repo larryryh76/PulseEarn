@@ -4448,14 +4448,15 @@ def offerwall_user_providers():
                     host_url = request.url_root.rstrip('/')
                     raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
                     for o in raw_offers:
-                        # Country check (handle missing country metadata gracefully)
-                        countries_raw = o.get('countries')
-                        if not countries_raw:
-                            single_country = o.get('country')
-                            o_countries = [single_country] if single_country else ['GLOBAL']
+                        # Country check (handle accepted_countries, countries, country space/comma separated)
+                        countries_raw = o.get('accepted_countries') or o.get('countries') or o.get('country')
+                        if countries_raw:
+                            if isinstance(countries_raw, str):
+                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
+                            else:
+                                o_countries = [str(c).upper() for c in countries_raw if c]
                         else:
-                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
-                        o_countries = [c.upper() for c in o_countries if c]
+                            o_countries = ['GLOBAL']
 
                         if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
                             continue

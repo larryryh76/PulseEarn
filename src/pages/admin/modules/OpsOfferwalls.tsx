@@ -170,11 +170,17 @@ const ProviderStatusCard: React.FC<{
         onChanged();
       } else {
         if (res.validation_report?.checks) {
-          const failedChecks = res.validation_report.checks
-            .filter((c: any) => c.status === 'FAIL')
-            .map((c: any) => c.detail)
+          interface ValidationCheckItem {
+            name: string;
+            status: string;
+            detail: string;
+          }
+          const failedChecks = (res.validation_report.checks as ValidationCheckItem[])
+            .filter((c: ValidationCheckItem) => c.status === 'FAIL')
+            .map((c: ValidationCheckItem) => c.detail)
             .join('; ');
-          toast.error(`Validation Failed: ${failedChecks || res.message}`, { duration: 6000 });
+          const message = failedChecks || res.message || 'Failed to toggle state';
+          toast.error(`Validation Failed: ${message}`, { duration: 6000 });
         } else {
           toast.error(res.message || "Failed to toggle state");
         }
@@ -350,7 +356,9 @@ const ProviderStatusCard: React.FC<{
                   <div className="p-2.5 rounded-lg bg-surface border border-border space-y-0.5">
                     <p className="text-[8px] text-text-tertiary uppercase tracking-widest font-bold">Latency (AVG)</p>
                     <p className="text-[11px] font-bold text-primary tabular-nums">
-                      {stats.providerLatency ? `${stats.providerLatency}ms` : 'N/A'}
+                      {stats.providerLatency !== undefined && stats.providerLatency !== null
+                        ? `${stats.providerLatency}ms`
+                        : 'N/A'}
                     </p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-surface border border-border space-y-0.5">

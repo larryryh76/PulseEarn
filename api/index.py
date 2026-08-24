@@ -3433,7 +3433,7 @@ def _offerwall_callback_impl(provider_id, req):
             'stats.lastRewardProcessed': firestore.SERVER_TIMESTAMP,
             'stats.healthScore': health_score,
             'stats.totalUsers': total_users_count,
-            'stats.providerLatency': p_stats.get('providerLatency') or 120,
+            'stats.providerLatency': p_stats.get('providerLatency') or p_stats.get('avgLatencyMs'),
             'stats.revenueToday': firestore.Increment(total_pts),
             'stats.revenueThisWeek': firestore.Increment(total_pts),
             'stats.revenueThisMonth': firestore.Increment(total_pts),
@@ -3575,10 +3575,11 @@ def _ensure_default_offerwall_providers(db):
                 'createdAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
                 'stats': {
-                    'connectionStatus': 'online' if gemi_has_creds else 'offline',
-                    'apiStatus': 'healthy' if gemi_has_creds else 'unknown',
-                    'webhookStatus': 'healthy' if gemi_has_creds else 'unknown',
-                    'callbackStatus': 'healthy' if gemi_has_creds else 'unknown'
+                    'connectionStatus': 'connected' if gemi_has_creds else 'disabled',
+                    'apiStatus': 'ok' if gemi_has_creds else 'unknown',
+                    'totalCallbacks': 0,
+                    'approvedRewards': 0,
+                    'failedCallbacks': 0
                 }
             })
         else:
@@ -3622,10 +3623,11 @@ def _ensure_default_offerwall_providers(db):
                 'createdAt': firestore.SERVER_TIMESTAMP,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
                 'stats': {
-                    'connectionStatus': 'online' if cpagrip_has_creds else 'offline',
-                    'apiStatus': 'healthy' if cpagrip_has_creds else 'unknown',
-                    'webhookStatus': 'healthy' if cpagrip_has_creds else 'unknown',
-                    'callbackStatus': 'healthy' if cpagrip_has_creds else 'unknown'
+                    'connectionStatus': 'connected' if cpagrip_has_creds else 'disabled',
+                    'apiStatus': 'ok' if cpagrip_has_creds else 'unknown',
+                    'totalCallbacks': 0,
+                    'approvedRewards': 0,
+                    'failedCallbacks': 0
                 }
             })
         else:
@@ -3655,8 +3657,8 @@ def _ensure_default_offerwall_providers(db):
             if not ref.get().exists:
                 ref.set({
                     'name': pname,
-                    'enabled': True,
-                    'status': 'active',
+                    'enabled': False,
+                    'status': 'inactive',
                     'rewardMultiplier': 1.0,
                     'userSharePct': 0.85,
                     'platformSharePct': 0.15,
@@ -3666,10 +3668,11 @@ def _ensure_default_offerwall_providers(db):
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP,
                     'stats': {
-                        'connectionStatus': 'online',
-                        'apiStatus': 'healthy',
-                        'webhookStatus': 'healthy',
-                        'callbackStatus': 'healthy'
+                        'connectionStatus': 'disabled',
+                        'apiStatus': 'unknown',
+                        'totalCallbacks': 0,
+                        'approvedRewards': 0,
+                        'failedCallbacks': 0
                     }
                 })
 
@@ -5226,45 +5229,96 @@ def offerwall_test_connection(provider_id):
     def check(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
 
-    # 1. Credential presence
-    has_aff = bool(str(cfg.get('affiliateId', '')).strip())
-    has_secret = bool(str(cfg.get('secret', '')).strip())
-    has_api = bool(str(cfg.get('apiKey', '')).strip())
-    check('API Key / App ID', has_aff, 'App/Affiliate ID present.' if has_aff else 'Missing App/Affiliate ID.')
-    check('Callback Secret', has_secret, 'Secret present.' if has_secret else 'Missing callback secret.')
+    # 1. Capability-driven Credential Check
+    adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
+    adapter_fields = adapter.get('fields', [])
+    missing_fields = []
+
+    if adapter_fields:
+        for field in adapter_fields:
+            k = field['key']
+            val = cfg.get(k)
+            # fallback checks for alias fields
+            if not val:
+                if k in ('affiliateId', 'placementId', 'user_id'):
+                    val = cfg.get('affiliateId') or cfg.get('placementId') or cfg.get('user_id')
+                elif k in ('apiKey', 'pubkey'):
+                    val = cfg.get('apiKey') or cfg.get('pubkey')
+                elif k in ('key', 'feedKey'):
+                    val = cfg.get('key') or cfg.get('feedKey')
+
+            if field.get('required') and not str(val or '').strip():
+                missing_fields.append(field['label'])
+                check(field['label'], False, f"Missing required field: {field['label']}")
+            else:
+                check(field['label'], True, f"{field['label']} present.")
+    else:
+        has_aff = bool(str(cfg.get('affiliateId', '') or cfg.get('placementId', '') or cfg.get('user_id', '')).strip())
+        check('Affiliate/Publisher ID', has_aff, 'ID present.' if has_aff else 'Missing Affiliate/Publisher ID.')
+        if not has_aff:
+            missing_fields.append('Affiliate/Publisher ID')
+
     check('Callback URL', bool(cfg.get('callbackUrl')), cfg.get('callbackUrl') or 'Missing callback URL.')
 
     spec = _resolve_provider_spec(provider_id, cfg)
     check('Signature Spec', bool(spec.get('sig_method')),
           f"Method: {spec.get('sig_method')}, fields: {spec.get('sig_fields')}")
 
-    result_code, result_msg = 'OK', 'All local checks passed. Awaiting live callback for full certification.'
-    if not has_aff or not has_secret:
-        result_code, result_msg = 'INVALID_CREDENTIALS', 'Provider credentials are incomplete.'
+    result_code = 'OK'
+    result_msg = 'All local configuration checks passed.'
 
-    # 2. Optional live endpoint reachability (if an apiEndpoint is configured)
-    endpoint = cfg.get('apiEndpoint') or cfg.get('embedUrl')
-    if endpoint and has_api:
-        try:
-            import urllib.request
-            req_url = endpoint
-            r = urllib.request.urlopen(req_url, timeout=8)
-            status = r.getcode()
-            if status == 200:
-                check('Endpoint Reachability', True, f'HTTP 200 from {endpoint}')
-            elif status in (401, 403):
-                result_code, result_msg = 'AUTH_FAILED', f'Provider returned HTTP {status} (authentication failed).'
-                check('Endpoint Reachability', False, f'HTTP {status} — auth failed.')
-            elif status == 429:
-                result_code, result_msg = 'RATE_LIMITED', 'Provider returned HTTP 429 (rate limited).'
-                check('Endpoint Reachability', False, 'HTTP 429 — rate limited.')
+    if missing_fields:
+        result_code = 'INVALID_CREDENTIALS'
+        result_msg = f"Incomplete configuration: Missing {', '.join(missing_fields)}."
+
+    # 2. Live Provider Inventory / Connection Test
+    if result_code == 'OK':
+        if provider_id == 'gemiad':
+            placement_id = str(cfg.get('placementId') or cfg.get('affiliateId') or '').strip()
+            api_key = str(cfg.get('apiKey') or '').strip()
+            feed_url = cfg.get('apiEndpoint') or cfg.get('feedUrl')
+            offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
+            if isinstance(offers, list) and len(offers) > 0:
+                check('Live Inventory Fetch', True, f"Successfully fetched {len(offers)} offers from GemiAd feed.")
+            elif isinstance(offers, list):
+                check('Live Inventory Fetch', True, "GemiAd inventory endpoint reachable (0 offers returned).")
             else:
-                check('Endpoint Reachability', False, f'HTTP {status}')
-        except Exception as e:
-            msg = str(e)
-            if 'timed out' in msg.lower():
-                result_code, result_msg = 'TIMEOUT', f'Endpoint timed out: {endpoint}'
-            check('Endpoint Reachability', False, msg[:200])
+                result_code = 'INVALID_RESPONSE'
+                result_msg = "GemiAd API connection failed or returned an invalid inventory payload."
+                check('Live Inventory Fetch', False, "GemiAd API request failed.")
+
+        elif provider_id == 'cpagrip':
+            pub_id = str(cfg.get('affiliateId') or cfg.get('user_id') or '').strip()
+            key = str(cfg.get('key') or cfg.get('feedKey') or '').strip()
+            pubkey = str(cfg.get('pubkey') or cfg.get('apiKey') or '').strip()
+            feed_url = cfg.get('feedUrl') or cfg.get('apiEndpoint')
+            offers = _get_cpagrip_offers_cached(pub_id, key, pubkey, feed_url)
+            if isinstance(offers, list) and len(offers) > 0:
+                check('Live Inventory Fetch', True, f"Successfully fetched {len(offers)} offers from CPAGrip feed.")
+            elif isinstance(offers, list):
+                check('Live Inventory Fetch', True, "CPAGrip inventory endpoint reachable (0 offers returned).")
+            else:
+                result_code = 'INVALID_RESPONSE'
+                result_msg = "CPAGrip API connection failed or returned an invalid inventory payload."
+                check('Live Inventory Fetch', False, "CPAGrip API request failed.")
+
+        else:
+            endpoint = cfg.get('apiEndpoint') or cfg.get('embedUrl')
+            if endpoint and endpoint.startswith('http'):
+                try:
+                    import urllib.request
+                    req = urllib.request.Request(endpoint, headers={'User-Agent': 'Mozilla/5.0'})
+                    r = urllib.request.urlopen(req, timeout=8)
+                    status = r.getcode()
+                    if status == 200:
+                        check('Endpoint Reachability', True, f'HTTP 200 from {endpoint}')
+                    else:
+                        check('Endpoint Reachability', False, f'HTTP {status}')
+                except Exception as e:
+                    msg = str(e)
+                    if 'timed out' in msg.lower():
+                        result_code, result_msg = 'TIMEOUT', f'Endpoint timed out: {endpoint}'
+                    check('Endpoint Reachability', False, msg[:200])
 
     ref.update({
         'stats.lastTest': {'code': result_code, 'message': result_msg,
@@ -6142,7 +6196,8 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         failed_cb = safe_int(stats.get('failedCallbacks', 0))
         total_cb = approved_cb + failed_cb
         cb_success_rate = round((approved_cb / total_cb) * 100, 1) if total_cb > 0 else 100.0
-        avg_latency = safe_float(stats.get('avgLatencyMs', 120.0))
+        raw_latency = stats.get('avgLatencyMs') if 'avgLatencyMs' in stats else stats.get('providerLatency')
+        avg_latency = safe_float(raw_latency) if raw_latency is not None else None
         health_info = _compute_operational_status(p_data)
         
         status_raw = health_info.get('status', 'offline')

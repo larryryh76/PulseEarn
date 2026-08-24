@@ -2432,7 +2432,7 @@ PROVIDERS_ADAPTERS = {
             {'key': 'placementId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd Placement ID'},
             {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'GemiAd API Key'},
             {'key': 'apiEndpoint', 'label': 'Integration/Feed URL', 'required': False, 'type': 'text', 'placeholder': 'https://api.gemiwall.com/api/offers/static'},
-            {'key': 'secret', 'label': 'Postback Secret Key', 'required': False, 'type': 'password', 'placeholder': 'GemiAd Postback Secret Key'}
+            {'key': 'secret', 'label': 'Postback Secret Key', 'required': True, 'type': 'password', 'placeholder': 'GemiAd Postback Secret Key'}
         ]
     },
     'pollfish': {

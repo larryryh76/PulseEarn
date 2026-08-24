@@ -160,10 +160,8 @@ const ProviderStatusCard: React.FC<{
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name: provider.name,
-          enabled: newEnabledState,
-          affiliateId: provider.affiliateId,
-          callbackUrl: provider.callbackUrl
+          ...provider,
+          enabled: newEnabledState
         })
       });
 
@@ -171,7 +169,15 @@ const ProviderStatusCard: React.FC<{
         toast.success(`Provider ${newEnabledState ? 'enabled' : 'disabled'} successfully`);
         onChanged();
       } else {
-        toast.error(res.message || "Failed to toggle state");
+        if (res.validation_report?.checks) {
+          const failedChecks = res.validation_report.checks
+            .filter((c: any) => c.status === 'FAIL')
+            .map((c: any) => c.detail)
+            .join('; ');
+          toast.error(`Validation Failed: ${failedChecks || res.message}`, { duration: 6000 });
+        } else {
+          toast.error(res.message || "Failed to toggle state");
+        }
       }
     } catch {
       toast.error("Toggle request failed");
@@ -344,16 +350,18 @@ const ProviderStatusCard: React.FC<{
                   <div className="p-2.5 rounded-lg bg-surface border border-border space-y-0.5">
                     <p className="text-[8px] text-text-tertiary uppercase tracking-widest font-bold">Latency (AVG)</p>
                     <p className="text-[11px] font-bold text-primary tabular-nums">
-                      {stats.providerLatency ? `${stats.providerLatency}ms` : '120ms'}
+                      {stats.providerLatency ? `${stats.providerLatency}ms` : 'N/A'}
                     </p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-surface border border-border space-y-0.5">
                     <p className="text-[8px] text-text-tertiary uppercase tracking-widest font-bold">Health Score</p>
                     <p className={cn(
                       'text-[11px] font-black tabular-nums',
-                      (stats.healthScore ?? 100) >= 90 ? 'text-success' : (stats.healthScore ?? 100) >= 70 ? 'text-warning' : 'text-danger'
+                      stats.healthScore !== undefined && stats.healthScore !== null
+                        ? (stats.healthScore >= 90 ? 'text-success' : stats.healthScore >= 70 ? 'text-warning' : 'text-danger')
+                        : 'text-text-tertiary'
                     )}>
-                      {stats.healthScore ?? 100}/100
+                      {stats.healthScore !== undefined && stats.healthScore !== null ? `${stats.healthScore}/100` : 'Not tested'}
                     </p>
                   </div>
                 </div>

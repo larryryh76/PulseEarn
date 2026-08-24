@@ -4269,20 +4269,21 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         }
     }
 
-def _get_cpagrip_offers_cached(pub_id, api_key, key=None):
+def _get_cpagrip_offers_cached(pub_id, pubkey, feed_key=None):
     global _cpagrip_feed_cache
     now = time.time()
-    cache_key = f"{pub_id}:{api_key}:{key}"
+    cache_key = f"{pub_id}:{pubkey}:{feed_key}"
 
     if cache_key in _cpagrip_feed_cache:
         cached_time, offers = _cpagrip_feed_cache[cache_key]
         if now - cached_time < 300: # 5 min TTL
             return offers
 
-    private_key = key or api_key
-    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}&pubkey={api_key}"
-    if private_key and private_key != api_key:
-        url += f"&key={private_key}"
+    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}"
+    if pubkey:
+        url += f"&pubkey={pubkey}"
+    if feed_key and feed_key != pubkey:
+        url += f"&key={feed_key}"
 
     headers = {
         'Accept': 'application/json',
@@ -4440,11 +4441,12 @@ def offerwall_user_providers():
             # Fetch and normalize CPAGrip offers if enabled
             offers = []
             if s.id == 'cpagrip':
-                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
-                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
-                if pub_id and api_key:
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
+                pubkey = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
+                feed_key = d.get('feedKey', '').strip() or d.get('key', '').strip()
+                if pub_id and (pubkey or feed_key):
                     host_url = request.url_root.rstrip('/')
-                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
                     for o in raw_offers:
                         # Country check (handle missing country metadata gracefully)
                         countries_raw = o.get('countries')
@@ -4532,10 +4534,10 @@ def offerwall_opportunities():
 
             if s.id == 'cpagrip':
                 pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
-                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
-                private_key = d.get('secret', '').strip() or d.get('key', '').strip()
-                if pub_id and (api_key or private_key):
-                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key, private_key)
+                pubkey = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
+                feed_key = d.get('feedKey', '').strip() or d.get('key', '').strip()
+                if pub_id and (pubkey or feed_key):
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
                     for o in raw_offers:
                         countries_raw = o.get('accepted_countries') or o.get('countries') or o.get('country')
                         if countries_raw:
@@ -4674,10 +4676,10 @@ def cpagrip_launch_offer():
 
     # 3. Retrieve raw offer link from cache
     pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip() or cfg.get('user_id', '').strip()
-    api_key = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip() or cfg.get('pubkey', '').strip()
-    private_key = cfg.get('secret', '').strip() or cfg.get('key', '').strip()
+    pubkey = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip() or cfg.get('pubkey', '').strip()
+    feed_key = cfg.get('feedKey', '').strip() or cfg.get('key', '').strip()
 
-    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key, private_key)
+    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
     matching_offer = next((o for o in raw_offers if str(o.get('offer_id')) == offer_id), None)
 
     if not matching_offer:

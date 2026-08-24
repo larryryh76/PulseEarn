@@ -2429,8 +2429,9 @@ PROVIDERS_ADAPTERS = {
         'name': 'GemiAd',
         'isLocked': False,
         'fields': [
-            {'key': 'affiliateId', 'label': 'App / Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd App ID'},
-            {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'GemiAd API Key'},
+            {'key': 'placementId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd Placement ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'GemiAd API Key'},
+            {'key': 'apiEndpoint', 'label': 'Integration/Feed URL', 'required': False, 'type': 'text', 'placeholder': 'https://api.gemiwall.com/api/offers/static'},
             {'key': 'secret', 'label': 'Postback Secret Key', 'required': True, 'type': 'password', 'placeholder': 'GemiAd Postback Secret Key'}
         ]
     },
@@ -2451,9 +2452,10 @@ PROVIDERS_ADAPTERS = {
         'name': 'CPAGrip Enterprise',
         'isLocked': False,
         'fields': [
-            {'key': 'affiliateId', 'label': 'Publisher ID (pub_id)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip Publisher User ID'},
-            {'key': 'apiKey', 'label': 'API Feed Key', 'required': False, 'type': 'text', 'placeholder': 'CPAGrip Offer Feed Key'},
-            {'key': 'secret', 'label': 'Postback Security Key', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Postback Hash Key'}
+            {'key': 'affiliateId', 'label': 'User / Publisher ID (user_id)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip User ID'},
+            {'key': 'pubkey', 'label': 'Public Key (pubkey)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip Public Key'},
+            {'key': 'key', 'label': 'Private API Key (key)', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Private Key'},
+            {'key': 'secret', 'label': 'Postback Security Key', 'required': False, 'type': 'password', 'placeholder': 'CPAGrip Postback Key'}
         ],
         'identityFields': {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 123456'},
@@ -3529,6 +3531,153 @@ def _compute_operational_status(config):
     # Configured but awaiting first callback.
     return out('waiting_first_callback', 'Waiting For First Callback.')
 
+_DEFAULT_PROVIDERS_SEEDED = False
+
+def _ensure_default_offerwall_providers(db):
+    """Ensures baseline provider configuration records exist in Firestore offerwall_providers collection (runs once per process execution)."""
+    global _DEFAULT_PROVIDERS_SEEDED
+    if _DEFAULT_PROVIDERS_SEEDED:
+        return
+
+    try:
+        # Load environment variable secrets if configured (no hardcoded secrets in source code)
+        gemi_placement = os.environ.get('GEMIAD_PLACEMENT_ID', '')
+        gemi_key = os.environ.get('GEMIAD_API_KEY', '')
+
+        cpagrip_aff = os.environ.get('CPAGRIP_AFFILIATE_ID', '')
+        cpagrip_pubkey = os.environ.get('CPAGRIP_PUBKEY', '')
+        cpagrip_feed_key = os.environ.get('CPAGRIP_KEY', '')
+
+        # 1. GemiAd
+        gemi_ref = db.collection('offerwall_providers').document('gemiad')
+        gemi_snap = gemi_ref.get()
+        if not gemi_snap.exists:
+            gemi_has_creds = bool(gemi_placement and gemi_key)
+            gemi_ref.set({
+                'name': 'GemiAd',
+                'enabled': gemi_has_creds,
+                'status': 'active' if gemi_has_creds else 'inactive',
+                'placementId': gemi_placement,
+                'apiKey': gemi_key,
+                'affiliateId': gemi_placement,
+                'apiEndpoint': 'https://api.gemiwall.com/api/offers/static',
+                'rewardMultiplier': 1.0,
+                'userSharePct': 0.85,
+                'platformSharePct': 0.15,
+                'priority': 20,
+                'description': 'GemiAd Offerwall',
+                'minimumReward': 1,
+                'maximumReward': 100000,
+                'executionType': 'API',
+                'model': 'API',
+                'apiInventory': True,
+                'individualOffers': True,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'stats': {
+                    'connectionStatus': 'online' if gemi_has_creds else 'offline',
+                    'apiStatus': 'healthy' if gemi_has_creds else 'unknown',
+                    'webhookStatus': 'healthy' if gemi_has_creds else 'unknown',
+                    'callbackStatus': 'healthy' if gemi_has_creds else 'unknown'
+                }
+            })
+        else:
+            g_dict = gemi_snap.to_dict() or {}
+            updates = {}
+            if gemi_placement and not g_dict.get('placementId'):
+                updates['placementId'] = gemi_placement
+                updates['affiliateId'] = gemi_placement
+            if gemi_key and not g_dict.get('apiKey'):
+                updates['apiKey'] = gemi_key
+            if updates:
+                updates['updatedAt'] = firestore.SERVER_TIMESTAMP
+                gemi_ref.update(updates)
+
+        # 2. CPAGrip
+        cpagrip_ref = db.collection('offerwall_providers').document('cpagrip')
+        cpagrip_snap = cpagrip_ref.get()
+        if not cpagrip_snap.exists:
+            cpagrip_has_creds = bool(cpagrip_aff and (cpagrip_pubkey or cpagrip_feed_key))
+            cpagrip_ref.set({
+                'name': 'CPAGrip Enterprise',
+                'enabled': cpagrip_has_creds,
+                'status': 'active' if cpagrip_has_creds else 'inactive',
+                'affiliateId': cpagrip_aff,
+                'user_id': cpagrip_aff,
+                'pubkey': cpagrip_pubkey,
+                'key': cpagrip_feed_key,
+                'apiKey': cpagrip_pubkey,
+                'feedKey': cpagrip_feed_key,
+                'rewardMultiplier': 1.0,
+                'userSharePct': 0.85,
+                'platformSharePct': 0.15,
+                'priority': 30,
+                'description': 'CPAGrip CPA Offers',
+                'minimumReward': 1,
+                'maximumReward': 100000,
+                'executionType': 'API',
+                'model': 'API',
+                'apiInventory': True,
+                'individualOffers': True,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'stats': {
+                    'connectionStatus': 'online' if cpagrip_has_creds else 'offline',
+                    'apiStatus': 'healthy' if cpagrip_has_creds else 'unknown',
+                    'webhookStatus': 'healthy' if cpagrip_has_creds else 'unknown',
+                    'callbackStatus': 'healthy' if cpagrip_has_creds else 'unknown'
+                }
+            })
+        else:
+            c_dict = cpagrip_snap.to_dict() or {}
+            updates = {}
+            if cpagrip_aff and not c_dict.get('affiliateId'):
+                updates['affiliateId'] = cpagrip_aff
+                updates['user_id'] = cpagrip_aff
+            if cpagrip_pubkey and not c_dict.get('pubkey'):
+                updates['pubkey'] = cpagrip_pubkey
+                updates['apiKey'] = cpagrip_pubkey
+            if cpagrip_feed_key and not c_dict.get('key'):
+                updates['key'] = cpagrip_feed_key
+                updates['feedKey'] = cpagrip_feed_key
+            if updates:
+                updates['updatedAt'] = firestore.SERVER_TIMESTAMP
+                cpagrip_ref.update(updates)
+
+        # 3. Core defaults (TimeWall, CPX Research, Wannads)
+        defaults = [
+            ('timewall', 'TimeWall', 10),
+            ('cpxresearch', 'CPX Research', 40),
+            ('wannads', 'Wannads', 50)
+        ]
+        for pid, pname, prio in defaults:
+            ref = db.collection('offerwall_providers').document(pid)
+            if not ref.get().exists:
+                ref.set({
+                    'name': pname,
+                    'enabled': True,
+                    'status': 'active',
+                    'rewardMultiplier': 1.0,
+                    'userSharePct': 0.85,
+                    'platformSharePct': 0.15,
+                    'priority': prio,
+                    'minimumReward': 1,
+                    'maximumReward': 100000,
+                    'createdAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                    'stats': {
+                        'connectionStatus': 'online',
+                        'apiStatus': 'healthy',
+                        'webhookStatus': 'healthy',
+                        'callbackStatus': 'healthy'
+                    }
+                })
+
+        _DEFAULT_PROVIDERS_SEEDED = True
+    except Exception as e:
+        _DEFAULT_PROVIDERS_SEEDED = False
+        logging.error(f"[EnsureDefaultProviders] Failed to sync baseline providers: {e}")
+
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
 @app.route('/api/offerwall/providers', methods=['GET'])
 @verify_token
@@ -3540,15 +3689,18 @@ def offerwall_get_providers():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
     try:
+        _ensure_default_offerwall_providers(db)
         snaps = db.collection('offerwall_providers').get()
         providers = []
         for s in snaps:
             d = s.to_dict()
-            # Never expose raw secret to client
-            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey')}
+            # Never expose raw secret or private API keys to client
+            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey', 'key', 'feedKey')}
             d_safe['id'] = s.id
             d_safe['hasSecret'] = bool(d.get('secret'))
             d_safe['hasApiKey'] = bool(d.get('apiKey'))
+            d_safe['hasKey'] = bool(d.get('key'))
+            d_safe['hasFeedKey'] = bool(d.get('feedKey'))
             # Derived operational health (backend source of truth)
             d_safe['health'] = _compute_operational_status(d)
             # Attach the resolved callback spec label for UI display
@@ -3622,6 +3774,7 @@ def offerwall_upsert_provider(provider_id):
         'executionType', 'model', 'apiInventory', 'individualOffers',
         'hostedWall', 'capabilities', 'geoRestrictions', 'deviceRestrictions',
         'feedUrl', 'launchUrlTemplate',
+        'placementId', 'user_id', 'pubkey', 'key', 'feedKey',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
@@ -3696,7 +3849,8 @@ def offerwall_upsert_provider(provider_id):
             for field in adapter.get('fields', []):
                 if field.get('required'):
                     val = payload.get(field['key'], '')
-                    if is_new or field['key'] not in ('secret', 'apiKey'):
+                    is_secret_like = field['key'] in ('secret', 'apiKey', 'key', 'feedKey') or field.get('type') == 'password'
+                    if is_new or not is_secret_like:
                         if not str(val).strip():
                             missing_creds.append(field['label'])
                     else:
@@ -4412,6 +4566,7 @@ def offerwall_user_providers():
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
+    _ensure_default_offerwall_providers(db)
 
     uid = request.user['uid']
 
@@ -4438,7 +4593,7 @@ def offerwall_user_providers():
             if max_reward >= 1000001:
                 max_reward = 100000
 
-            # Fetch and normalize CPAGrip offers if enabled
+            # Fetch and normalize CPAGrip & GemiAd offers if enabled
             offers = []
             if s.id == 'cpagrip':
                 pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
@@ -4462,6 +4617,27 @@ def offerwall_user_providers():
                             continue
 
                         offers.append(_normalize_cpagrip_offer(o, uid, d, host_url))
+            elif s.id == 'gemiad':
+                feed_url = d.get('feedUrl') or d.get('apiEndpoint')
+                placement_id = d.get('placementId') or d.get('identity', {}).get('placementId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if feed_url or (placement_id and api_key) or placement_id:
+                    host_url = request.url_root.rstrip('/')
+                    raw_offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
+                    for o in raw_offers:
+                        countries_raw = o.get('country') or o.get('countries')
+                        if countries_raw:
+                            if isinstance(countries_raw, str):
+                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
+                            else:
+                                o_countries = [str(c).upper() for c in countries_raw if c]
+                        else:
+                            o_countries = ['GLOBAL']
+
+                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
+                            continue
+
+                        offers.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', 'GemiAd'), host_url))
 
             providers.append({
                 'id': s.id,
@@ -4501,6 +4677,7 @@ def offerwall_opportunities():
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
+    _ensure_default_offerwall_providers(db)
     uid = request.user['uid']
 
     user_country = 'US'

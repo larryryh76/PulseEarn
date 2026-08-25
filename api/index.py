@@ -1,4 +1,3 @@
-import re
 import os
 import sys
 import json
@@ -2429,9 +2428,8 @@ PROVIDERS_ADAPTERS = {
         'name': 'GemiAd',
         'isLocked': False,
         'fields': [
-            {'key': 'placementId', 'label': 'Placement ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd Placement ID'},
-            {'key': 'apiKey', 'label': 'API Key', 'required': True, 'type': 'text', 'placeholder': 'GemiAd API Key'},
-            {'key': 'apiEndpoint', 'label': 'Integration/Feed URL', 'required': False, 'type': 'text', 'placeholder': 'https://api.gemiwall.com/api/offers/static'},
+            {'key': 'affiliateId', 'label': 'App / Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'GemiAd App ID'},
+            {'key': 'apiKey', 'label': 'API Key', 'required': False, 'type': 'text', 'placeholder': 'GemiAd API Key'},
             {'key': 'secret', 'label': 'Postback Secret Key', 'required': True, 'type': 'password', 'placeholder': 'GemiAd Postback Secret Key'}
         ]
     },
@@ -2452,10 +2450,9 @@ PROVIDERS_ADAPTERS = {
         'name': 'CPAGrip Enterprise',
         'isLocked': False,
         'fields': [
-            {'key': 'affiliateId', 'label': 'User / Publisher ID (user_id)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip User ID'},
-            {'key': 'pubkey', 'label': 'Public Key (pubkey)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip Public Key'},
-            {'key': 'key', 'label': 'Private API Key (key)', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Private Key'},
-            {'key': 'secret', 'label': 'Postback Security Key', 'required': False, 'type': 'password', 'placeholder': 'CPAGrip Postback Key'}
+            {'key': 'affiliateId', 'label': 'Publisher ID (pub_id)', 'required': True, 'type': 'text', 'placeholder': 'CPAGrip Publisher User ID'},
+            {'key': 'apiKey', 'label': 'API Feed Key', 'required': False, 'type': 'text', 'placeholder': 'CPAGrip Offer Feed Key'},
+            {'key': 'secret', 'label': 'Postback Security Key', 'required': True, 'type': 'password', 'placeholder': 'CPAGrip Postback Hash Key'}
         ],
         'identityFields': {
             'publisherId': {'name': 'Publisher ID', 'required': True, 'type': 'text', 'placeholder': 'e.g. 123456'},
@@ -3433,7 +3430,7 @@ def _offerwall_callback_impl(provider_id, req):
             'stats.lastRewardProcessed': firestore.SERVER_TIMESTAMP,
             'stats.healthScore': health_score,
             'stats.totalUsers': total_users_count,
-            'stats.providerLatency': p_stats.get('providerLatency') or p_stats.get('avgLatencyMs'),
+            'stats.providerLatency': p_stats.get('providerLatency') or 120,
             'stats.revenueToday': firestore.Increment(total_pts),
             'stats.revenueThisWeek': firestore.Increment(total_pts),
             'stats.revenueThisMonth': firestore.Increment(total_pts),
@@ -3531,156 +3528,6 @@ def _compute_operational_status(config):
     # Configured but awaiting first callback.
     return out('waiting_first_callback', 'Waiting For First Callback.')
 
-_DEFAULT_PROVIDERS_SEEDED = False
-
-def _ensure_default_offerwall_providers(db):
-    """Ensures baseline provider configuration records exist in Firestore offerwall_providers collection (runs once per process execution)."""
-    global _DEFAULT_PROVIDERS_SEEDED
-    if _DEFAULT_PROVIDERS_SEEDED:
-        return
-
-    try:
-        # Load environment variable secrets if configured (no hardcoded secrets in source code)
-        gemi_placement = os.environ.get('GEMIAD_PLACEMENT_ID', '')
-        gemi_key = os.environ.get('GEMIAD_API_KEY', '')
-
-        cpagrip_aff = os.environ.get('CPAGRIP_AFFILIATE_ID', '')
-        cpagrip_pubkey = os.environ.get('CPAGRIP_PUBKEY', '')
-        cpagrip_feed_key = os.environ.get('CPAGRIP_KEY', '')
-
-        # 1. GemiAd
-        gemi_ref = db.collection('offerwall_providers').document('gemiad')
-        gemi_snap = gemi_ref.get()
-        if not gemi_snap.exists:
-            gemi_has_creds = bool(gemi_placement and gemi_key)
-            gemi_ref.set({
-                'name': 'GemiAd',
-                'enabled': gemi_has_creds,
-                'status': 'active' if gemi_has_creds else 'inactive',
-                'placementId': gemi_placement,
-                'apiKey': gemi_key,
-                'affiliateId': gemi_placement,
-                'apiEndpoint': 'https://api.gemiwall.com/api/offers/static',
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.85,
-                'platformSharePct': 0.15,
-                'priority': 20,
-                'description': 'GemiAd Offerwall',
-                'minimumReward': 1,
-                'maximumReward': 100000,
-                'executionType': 'API',
-                'model': 'API',
-                'apiInventory': True,
-                'individualOffers': True,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-                'stats': {
-                    'connectionStatus': 'connected' if gemi_has_creds else 'disabled',
-                    'apiStatus': 'ok' if gemi_has_creds else 'unknown',
-                    'totalCallbacks': 0,
-                    'approvedRewards': 0,
-                    'failedCallbacks': 0
-                }
-            })
-        else:
-            g_dict = gemi_snap.to_dict() or {}
-            updates = {}
-            if gemi_placement and not g_dict.get('placementId'):
-                updates['placementId'] = gemi_placement
-                updates['affiliateId'] = gemi_placement
-            if gemi_key and not g_dict.get('apiKey'):
-                updates['apiKey'] = gemi_key
-            if updates:
-                updates['updatedAt'] = firestore.SERVER_TIMESTAMP
-                gemi_ref.update(updates)
-
-        # 2. CPAGrip
-        cpagrip_ref = db.collection('offerwall_providers').document('cpagrip')
-        cpagrip_snap = cpagrip_ref.get()
-        if not cpagrip_snap.exists:
-            cpagrip_has_creds = bool(cpagrip_aff and (cpagrip_pubkey or cpagrip_feed_key))
-            cpagrip_ref.set({
-                'name': 'CPAGrip Enterprise',
-                'enabled': cpagrip_has_creds,
-                'status': 'active' if cpagrip_has_creds else 'inactive',
-                'affiliateId': cpagrip_aff,
-                'user_id': cpagrip_aff,
-                'pubkey': cpagrip_pubkey,
-                'key': cpagrip_feed_key,
-                'apiKey': cpagrip_pubkey,
-                'feedKey': cpagrip_feed_key,
-                'rewardMultiplier': 1.0,
-                'userSharePct': 0.85,
-                'platformSharePct': 0.15,
-                'priority': 30,
-                'description': 'CPAGrip CPA Offers',
-                'minimumReward': 1,
-                'maximumReward': 100000,
-                'executionType': 'API',
-                'model': 'API',
-                'apiInventory': True,
-                'individualOffers': True,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-                'stats': {
-                    'connectionStatus': 'connected' if cpagrip_has_creds else 'disabled',
-                    'apiStatus': 'ok' if cpagrip_has_creds else 'unknown',
-                    'totalCallbacks': 0,
-                    'approvedRewards': 0,
-                    'failedCallbacks': 0
-                }
-            })
-        else:
-            c_dict = cpagrip_snap.to_dict() or {}
-            updates = {}
-            if cpagrip_aff and not c_dict.get('affiliateId'):
-                updates['affiliateId'] = cpagrip_aff
-                updates['user_id'] = cpagrip_aff
-            if cpagrip_pubkey and not c_dict.get('pubkey'):
-                updates['pubkey'] = cpagrip_pubkey
-                updates['apiKey'] = cpagrip_pubkey
-            if cpagrip_feed_key and not c_dict.get('key'):
-                updates['key'] = cpagrip_feed_key
-                updates['feedKey'] = cpagrip_feed_key
-            if updates:
-                updates['updatedAt'] = firestore.SERVER_TIMESTAMP
-                cpagrip_ref.update(updates)
-
-        # 3. Core defaults (TimeWall, CPX Research, Wannads)
-        defaults = [
-            ('timewall', 'TimeWall', 10),
-            ('cpxresearch', 'CPX Research', 40),
-            ('wannads', 'Wannads', 50)
-        ]
-        for pid, pname, prio in defaults:
-            ref = db.collection('offerwall_providers').document(pid)
-            if not ref.get().exists:
-                ref.set({
-                    'name': pname,
-                    'enabled': False,
-                    'status': 'inactive',
-                    'rewardMultiplier': 1.0,
-                    'userSharePct': 0.85,
-                    'platformSharePct': 0.15,
-                    'priority': prio,
-                    'minimumReward': 1,
-                    'maximumReward': 100000,
-                    'createdAt': firestore.SERVER_TIMESTAMP,
-                    'updatedAt': firestore.SERVER_TIMESTAMP,
-                    'stats': {
-                        'connectionStatus': 'disabled',
-                        'apiStatus': 'unknown',
-                        'totalCallbacks': 0,
-                        'approvedRewards': 0,
-                        'failedCallbacks': 0
-                    }
-                })
-
-        _DEFAULT_PROVIDERS_SEEDED = True
-    except Exception as e:
-        _DEFAULT_PROVIDERS_SEEDED = False
-        logging.error(f"[EnsureDefaultProviders] Failed to sync baseline providers: {e}")
-
 # ─── Admin: Get All Providers ──────────────────────────────────────────────────
 @app.route('/api/offerwall/providers', methods=['GET'])
 @verify_token
@@ -3692,18 +3539,15 @@ def offerwall_get_providers():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
     try:
-        _ensure_default_offerwall_providers(db)
         snaps = db.collection('offerwall_providers').get()
         providers = []
         for s in snaps:
             d = s.to_dict()
-            # Never expose raw secret or private API keys to client
-            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey', 'key', 'feedKey')}
+            # Never expose raw secret to client
+            d_safe = {k: v for k, v in d.items() if k not in ('secret', 'apiKey')}
             d_safe['id'] = s.id
             d_safe['hasSecret'] = bool(d.get('secret'))
             d_safe['hasApiKey'] = bool(d.get('apiKey'))
-            d_safe['hasKey'] = bool(d.get('key'))
-            d_safe['hasFeedKey'] = bool(d.get('feedKey'))
             # Derived operational health (backend source of truth)
             d_safe['health'] = _compute_operational_status(d)
             # Attach the resolved callback spec label for UI display
@@ -3777,7 +3621,6 @@ def offerwall_upsert_provider(provider_id):
         'executionType', 'model', 'apiInventory', 'individualOffers',
         'hostedWall', 'capabilities', 'geoRestrictions', 'deviceRestrictions',
         'feedUrl', 'launchUrlTemplate',
-        'placementId', 'user_id', 'pubkey', 'key', 'feedKey',
     }
     payload = {k: v for k, v in body.items() if k in allowed_fields}
     if not payload:
@@ -3852,8 +3695,7 @@ def offerwall_upsert_provider(provider_id):
             for field in adapter.get('fields', []):
                 if field.get('required'):
                     val = payload.get(field['key'], '')
-                    is_secret_like = field['key'] in ('secret', 'apiKey', 'key', 'feedKey') or field.get('type') == 'password'
-                    if is_new or not is_secret_like:
+                    if is_new or field['key'] not in ('secret', 'apiKey'):
                         if not str(val).strip():
                             missing_creds.append(field['label'])
                     else:
@@ -4160,43 +4002,34 @@ def _is_provider_gated(cfg):
 _cpagrip_feed_cache = {}
 _gemiad_feed_cache = {}
 
-def _get_gemiad_offers_cached(placement_id, api_key, feed_url=None):
+def _get_gemiad_offers_cached(app_id, api_key, feed_url=None):
     global _gemiad_feed_cache
     now = time.time()
-    cache_key = f"{placement_id}:{api_key}:{feed_url}"
+    cache_key = f"{app_id}:{api_key}:{feed_url}"
 
     if cache_key in _gemiad_feed_cache:
         cached_time, offers = _gemiad_feed_cache[cache_key]
         if now - cached_time < 300: # 5 min TTL
             return offers
 
-    if feed_url and str(feed_url).strip():
-        url = str(feed_url).strip()
-    elif placement_id and api_key:
-        url = f"https://api.gemiwall.com/api/offers/static?placementId={placement_id}&apiKey={api_key}"
-    elif placement_id:
-        url = f"https://api.gemiwall.com/api/offers/static?placementId={placement_id}"
-    else:
-        return []
+    url = feed_url or f"https://api.gemiad.com/v1/offers?app_id={app_id}"
 
+    # Enforce HTTPS and strict origin domain validation before sending credentials
     try:
         parsed = urllib.parse.urlparse(str(url).strip())
         if parsed.scheme.lower() != 'https':
             print(f"[GemiAd] Non-HTTPS feed URL rejected: {url}")
             return []
         hostname = (parsed.hostname or '').lower()
-        if not (hostname in ('gemiad.com', 'gemiwall.com', 'api.gemiwall.com', 'api.gemiad.com') or hostname.endswith('.gemiad.com') or hostname.endswith('.gemiwall.com')):
+        if not (hostname == 'gemiad.com' or hostname.endswith('.gemiad.com')):
             print(f"[GemiAd] Blocked untrusted origin domain for GemiAd feed: {hostname}")
             return []
     except Exception as err:
         print(f"[GemiAd] Invalid feed URL format: {err}")
         return []
 
-    headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-    if api_key and 'apiKey=' not in url:
+    headers = {'Accept': 'application/json'}
+    if api_key:
         headers['Authorization'] = f"Bearer {api_key}"
 
     get_deps()
@@ -4204,16 +4037,9 @@ def _get_gemiad_offers_cached(placement_id, api_key, feed_url=None):
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:
             data = r.json()
-            if isinstance(data, dict):
-                offers = data.get('offers', [])
-            elif isinstance(data, list):
-                offers = data
-            else:
-                offers = []
+            offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
             _gemiad_feed_cache[cache_key] = (now, offers)
             return offers
-        else:
-            print(f"[GemiAd] Feed request returned status {r.status_code}")
     except Exception as e:
         print(f"[GemiAd] Failed to fetch offer feed: {e}")
 
@@ -4302,16 +4128,9 @@ def _normalize_generic_provider_offer(offer, uid, config, provider_id, provider_
     }
 
 def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host_url):
-    import re
     offer_id = str(offer.get('id') or offer.get('offer_id') or offer.get('campaign_id') or '0')
-    title = offer.get('name') or offer.get('title') or f"{provider_name} Offer"
-
-    desc_raw = offer.get('description') or offer.get('instructions') or ''
-    if isinstance(desc_raw, dict):
-        desc = desc_raw.get('en') or (next(iter(desc_raw.values()), '') if desc_raw else '')
-    else:
-        desc = str(desc_raw) if desc_raw else ''
-
+    title = offer.get('title') or offer.get('name') or f"{provider_name} Offer"
+    desc = offer.get('description') or offer.get('instructions') or ''
     payout = safe_float(offer.get('payout') or offer.get('amount') or offer.get('payout_usd') or '0')
 
     multiplier = float(config.get('rewardMultiplier', 1.0))
@@ -4327,56 +4146,20 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         category = 'surveys'
     elif 'game' in cat_raw or 'play' in cat_raw:
         category = 'games'
-    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw or 'mobile' in cat_raw or 'ios' in cat_raw or 'android' in cat_raw:
+    elif 'app' in cat_raw or 'install' in cat_raw or 'download' in cat_raw:
         category = 'apps'
-    elif 'shop' in cat_raw or 'purchase' in cat_raw or 'cashback' in cat_raw:
+    elif 'shop' in cat_raw or 'purchase' in cat_raw:
         category = 'shopping'
     elif 'video' in cat_raw or 'watch' in cat_raw:
         category = 'videos'
-    elif 'web' in cat_raw or 'signup' in cat_raw or 'register' in cat_raw or 'sign' in cat_raw:
-        category = 'signups'
-    elif 'edu' in cat_raw:
-        category = 'education'
     else:
         category = 'offers'
 
     raw_url = offer.get('url') or offer.get('link') or offer.get('click_url') or ''
     if raw_url:
-        tracking_url = raw_url.replace('[USER_ID]', uid).replace('{user_id}', uid).replace('{uid}', uid).replace('{subid}', uid)
+        tracking_url = raw_url.replace('{subid}', uid).replace('{user_id}', uid).replace('{uid}', uid)
     else:
         tracking_url = f"{host_url}/api/offerwall/providers/{provider_id}/launch"
-
-    requirements = ''
-    events = offer.get('events')
-    if isinstance(events, list) and len(events) > 0:
-        event_actions = []
-        for ev in events:
-            if isinstance(ev, dict) and 'action' in ev:
-                act = ev['action']
-                if isinstance(act, dict):
-                    event_actions.append(act.get('en') or next(iter(act.values()), ''))
-                elif isinstance(act, str):
-                    event_actions.append(act)
-        if event_actions:
-            requirements = ' -> '.join([a for a in event_actions if a])
-
-    country_raw = offer.get('country')
-    if isinstance(country_raw, list):
-        countries = [str(c).upper() for c in country_raw if c]
-    elif isinstance(country_raw, str) and country_raw.strip():
-        countries = [country_raw.strip().upper()]
-    else:
-        countries = ['GLOBAL']
-
-    device_raw = offer.get('device')
-    if isinstance(device_raw, list):
-        devices = [str(d).lower() for d in device_raw if d]
-    elif isinstance(device_raw, str) and device_raw.strip():
-        devices = [device_raw.strip().lower()]
-    else:
-        devices = ['all']
-
-    icon_url = offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}"
 
     return {
         'id': f"{provider_id}_{offer_id}",
@@ -4388,8 +4171,8 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         'title': title,
         'description': desc,
         'instructions': desc,
-        'requirements': requirements,
-        'image': icon_url,
+        'requirements': offer.get('requirements', ''),
+        'image': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
         'reward': {
             'points': user_points,
             'xp': max(5, round(user_points * 0.15))
@@ -4404,12 +4187,10 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
             'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
             'verificationType': 'automated',
             'launchMode': 'redirect',
-            'artwork': icon_url,
-            'thumbnail': icon_url,
+            'artwork': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'thumbnail': offer.get('icon') or offer.get('image') or offer.get('thumbnail') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
             'tags': ['offerwall', provider_id]
         },
-        'country': countries,
-        'device': devices,
         'action': {
             'url': tracking_url,
             'actionType': 'url',
@@ -4426,37 +4207,26 @@ def _normalize_gemiad_offer(offer, uid, config, provider_id, provider_name, host
         }
     }
 
-def _get_cpagrip_offers_cached(pub_id, pubkey, feed_key=None):
+def _get_cpagrip_offers_cached(pub_id, api_key):
     global _cpagrip_feed_cache
     now = time.time()
-    cache_key = f"{pub_id}:{pubkey}:{feed_key}"
+    cache_key = f"{pub_id}:{api_key}"
 
     if cache_key in _cpagrip_feed_cache:
         cached_time, offers = _cpagrip_feed_cache[cache_key]
         if now - cached_time < 300: # 5 min TTL
             return offers
 
-    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}"
-    if pubkey:
-        url += f"&pubkey={pubkey}"
-    if feed_key and feed_key != pubkey:
-        url += f"&key={feed_key}"
-
-    headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-
+    # Fetch from CPAGrip JSON Offer Feed
+    url = f"https://www.cpagrip.com/common/offer_feed_json.php?user_id={pub_id}&key={api_key}"
     get_deps()
     try:
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(url, timeout=10)
         if r.status_code == 200:
             data = r.json()
             offers = data.get('offers', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
             _cpagrip_feed_cache[cache_key] = (now, offers)
             return offers
-        else:
-            print(f"[CPAGrip] Feed request returned status {r.status_code}")
     except Exception as e:
         print(f"[CPAGrip] Failed to fetch offer feed: {e}")
 
@@ -4465,7 +4235,6 @@ def _get_cpagrip_offers_cached(pub_id, pubkey, feed_key=None):
     return []
 
 def _normalize_cpagrip_offer(offer, uid, config, host_url):
-    import re
     offer_id = str(offer.get('offer_id', ''))
     title = offer.get('title', 'CPAGrip Offer')
     desc = offer.get('description', '')
@@ -4484,33 +4253,14 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
         category = 'surveys'
     elif 'game' in cat or 'play' in cat:
         category = 'games'
-    elif 'app' in cat or 'install' in cat or 'download' in cat or 'mobile' in cat or 'android' in cat or 'ios' in cat:
+    elif 'app' in cat or 'install' in cat or 'download' in cat:
         category = 'apps'
     elif 'shop' in cat or 'purchase' in cat:
         category = 'shopping'
-    elif 'video' in cat or 'watch' in cat:
-        category = 'videos'
-    elif 'email' in cat or 'zip' in cat or 'pin' in cat or 'signup' in cat or 'registration' in cat or 'credit' in cat:
-        category = 'signups'
-    elif 'edu' in cat:
-        category = 'education'
     else:
-        category = 'offers'
+        category = 'featured'
 
     tracking_url = f"{host_url}/api/offerwall/launch/cpagrip?offer_id={offer_id}&uid={uid}"
-
-    acc_countries = offer.get('accepted_countries') or offer.get('countries') or offer.get('country')
-    if isinstance(acc_countries, str):
-        countries = [c.strip().upper() for c in re.split(r'[\s,]+', acc_countries) if c.strip()]
-    elif isinstance(acc_countries, list):
-        countries = [str(c).strip().upper() for c in acc_countries if c]
-    else:
-        countries = ['GLOBAL']
-
-    if not countries:
-        countries = ['GLOBAL']
-
-    icon_url = offer.get('offerphoto') or offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}"
 
     return {
         'id': f"cpagrip_{offer_id}",
@@ -4523,7 +4273,7 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
         'description': desc,
         'instructions': desc,
         'requirements': offer.get('instructions', ''),
-        'image': icon_url,
+        'image': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
         'reward': {
             'points': user_points,
             'xp': max(5, round(user_points * 0.15))
@@ -4538,12 +4288,12 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
             'estimatedTime': '8-12 min' if user_points > 500 else '5 min',
             'verificationType': 'automated',
             'launchMode': 'redirect',
-            'artwork': icon_url,
-            'thumbnail': icon_url,
+            'artwork': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
+            'thumbnail': offer.get('search_image') or offer.get('icon') or f"https://api.dicebear.com/7.x/shapes/svg?seed={offer_id}",
             'tags': ['offerwall', 'cpagrip']
         },
-        'country': countries,
-        'device': ['ALL'],
+        'country': offer.get('countries', ['GLOBAL']),
+        'device': offer.get('devices', ['ALL']),
         'action': {
             'url': tracking_url,
             'actionType': 'url',
@@ -4556,8 +4306,9 @@ def _normalize_cpagrip_offer(offer, uid, config, host_url):
             'averageReward': user_points,
             'totalCompletions': 0,
             'trending': False,
-            'isNew': True
-        }
+            'isNew': False
+        },
+        'createdAt': datetime.now(timezone.utc).isoformat()
     }
 
 # ─── User: Get Offerwall Providers (public, filtered) ─────────────────────────
@@ -4569,7 +4320,6 @@ def offerwall_user_providers():
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
-    _ensure_default_offerwall_providers(db)
 
     uid = request.user['uid']
 
@@ -4596,51 +4346,28 @@ def offerwall_user_providers():
             if max_reward >= 1000001:
                 max_reward = 100000
 
-            # Fetch and normalize CPAGrip & GemiAd offers if enabled
+            # Fetch and normalize CPAGrip offers if enabled
             offers = []
             if s.id == 'cpagrip':
-                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
-                pubkey = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
-                feed_key = d.get('feedKey', '').strip() or d.get('key', '').strip()
-                if pub_id and (pubkey or feed_key):
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if pub_id and api_key:
                     host_url = request.url_root.rstrip('/')
-                    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
                     for o in raw_offers:
-                        # Country check (handle accepted_countries, countries, country space/comma separated)
-                        countries_raw = o.get('accepted_countries') or o.get('countries') or o.get('country')
-                        if countries_raw:
-                            if isinstance(countries_raw, str):
-                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
-                            else:
-                                o_countries = [str(c).upper() for c in countries_raw if c]
+                        # Country check (handle missing country metadata gracefully)
+                        countries_raw = o.get('countries')
+                        if not countries_raw:
+                            single_country = o.get('country')
+                            o_countries = [single_country] if single_country else ['GLOBAL']
                         else:
-                            o_countries = ['GLOBAL']
+                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
+                        o_countries = [c.upper() for c in o_countries if c]
 
                         if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
                             continue
 
                         offers.append(_normalize_cpagrip_offer(o, uid, d, host_url))
-            elif s.id == 'gemiad':
-                feed_url = d.get('feedUrl') or d.get('apiEndpoint')
-                placement_id = d.get('placementId') or d.get('identity', {}).get('placementId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
-                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
-                if feed_url or (placement_id and api_key) or placement_id:
-                    host_url = request.url_root.rstrip('/')
-                    raw_offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
-                    for o in raw_offers:
-                        countries_raw = o.get('country') or o.get('countries')
-                        if countries_raw:
-                            if isinstance(countries_raw, str):
-                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
-                            else:
-                                o_countries = [str(c).upper() for c in countries_raw if c]
-                        else:
-                            o_countries = ['GLOBAL']
-
-                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
-                            continue
-
-                        offers.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', 'GemiAd'), host_url))
 
             providers.append({
                 'id': s.id,
@@ -4680,7 +4407,6 @@ def offerwall_opportunities():
     if not init_firebase():
         return jsonify({"error": "SERVICE_UNAVAILABLE"}), 503
     db = firestore.client()
-    _ensure_default_offerwall_providers(db)
     uid = request.user['uid']
 
     user_country = 'US'
@@ -4714,20 +4440,18 @@ def offerwall_opportunities():
                 continue
 
             if s.id == 'cpagrip':
-                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip() or d.get('user_id', '').strip()
-                pubkey = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip() or d.get('pubkey', '').strip()
-                feed_key = d.get('feedKey', '').strip() or d.get('key', '').strip()
-                if pub_id and (pubkey or feed_key):
-                    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
+                pub_id = d.get('identity', {}).get('publisherId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
+                if pub_id and api_key:
+                    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
                     for o in raw_offers:
-                        countries_raw = o.get('accepted_countries') or o.get('countries') or o.get('country')
-                        if countries_raw:
-                            if isinstance(countries_raw, str):
-                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
-                            else:
-                                o_countries = [str(c).upper() for c in countries_raw if c]
+                        countries_raw = o.get('countries')
+                        if not countries_raw:
+                            single_country = o.get('country')
+                            o_countries = [single_country] if single_country else ['GLOBAL']
                         else:
-                            o_countries = ['GLOBAL']
+                            o_countries = countries_raw if isinstance(countries_raw, list) else [countries_raw]
+                        o_countries = [c.upper() for c in o_countries if c]
 
                         if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
                             continue
@@ -4736,23 +4460,11 @@ def offerwall_opportunities():
 
             elif s.id == 'gemiad':
                 feed_url = d.get('feedUrl') or d.get('apiEndpoint')
-                placement_id = d.get('placementId') or d.get('identity', {}).get('placementId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
+                app_id = d.get('identity', {}).get('appId', {}).get('value', '').strip() or d.get('affiliateId', '').strip()
                 api_key = d.get('identity', {}).get('apiKey', {}).get('value', '').strip() or d.get('apiKey', '').strip()
-                if feed_url or (placement_id and api_key) or placement_id:
-                    raw_offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
+                if feed_url or (app_id and api_key):
+                    raw_offers = _get_gemiad_offers_cached(app_id, api_key, feed_url)
                     for o in raw_offers:
-                        countries_raw = o.get('country') or o.get('countries')
-                        if countries_raw:
-                            if isinstance(countries_raw, str):
-                                o_countries = [c.strip().upper() for c in re.split(r'[\s,]+', countries_raw) if c.strip()]
-                            else:
-                                o_countries = [str(c).upper() for c in countries_raw if c]
-                        else:
-                            o_countries = ['GLOBAL']
-
-                        if 'GLOBAL' not in o_countries and 'ALL' not in o_countries and user_country not in o_countries:
-                            continue
-
                         all_opportunities.append(_normalize_gemiad_offer(o, uid, d, s.id, d.get('name', 'GemiAd'), host_url))
 
             elif is_model_b and isinstance(d.get('offers'), list):
@@ -4856,17 +4568,16 @@ def cpagrip_launch_offer():
     cfg = p_snap.to_dict()
 
     # 3. Retrieve raw offer link from cache
-    pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip() or cfg.get('user_id', '').strip()
-    pubkey = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip() or cfg.get('pubkey', '').strip()
-    feed_key = cfg.get('feedKey', '').strip() or cfg.get('key', '').strip()
+    pub_id = cfg.get('identity', {}).get('publisherId', {}).get('value', '').strip() or cfg.get('affiliateId', '').strip()
+    api_key = cfg.get('identity', {}).get('apiKey', {}).get('value', '').strip() or cfg.get('apiKey', '').strip()
 
-    raw_offers = _get_cpagrip_offers_cached(pub_id, pubkey, feed_key)
+    raw_offers = _get_cpagrip_offers_cached(pub_id, api_key)
     matching_offer = next((o for o in raw_offers if str(o.get('offer_id')) == offer_id), None)
 
     if not matching_offer:
         return "Offer is expired or no longer available.", 404
 
-    raw_link = matching_offer.get('offerlink') or matching_offer.get('link') or matching_offer.get('url') or ''
+    raw_link = matching_offer.get('link', '')
     if not raw_link:
         return "Launch URL is missing from offer.", 400
 
@@ -4922,30 +4633,18 @@ def cpagrip_callback():
     click_ref = db.collection('offer_clicks').document(click_id)
     click_snap = click_ref.get()
 
-    click_ref_to_update = None
-    if click_snap.exists:
-        click_data = click_snap.to_dict() or {}
-        user_id = click_data.get('userId')
-        offer_id = click_data.get('offerId')
-        offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
-        payout = safe_float(click_data.get('payout', 0.0))
-        conversion_tx_id = click_id
-        click_ref_to_update = click_ref
-    else:
-        # Fallback: Check if click_id is a valid PulseEarn user ID directly AND CPAGrip supplied a unique lead/conversion ID
-        lead_id = params.get('lead_id') or params.get('conversion_id') or params.get('tx_id') or params.get('subid') or params.get('id')
-        user_ref_fallback = db.collection('users').document(click_id)
-        if user_ref_fallback.get().exists and lead_id:
-            user_id = click_id
-            offer_id = params.get('offer_id') or params.get('campaign_id') or '0'
-            offer_title = params.get('title') or params.get('offer_title') or f'CPAGrip Offer {offer_id}'
-            payout = safe_float(params.get('payout') or params.get('amount') or 0.0)
-            conversion_tx_id = f"lead_{lead_id}"
-            click_ref_to_update = None
-        else:
-            _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
-                                   f'Click tracking record or conversion ID not found for click_id {click_id}')
-            return "OK", 200
+    if not click_snap.exists:
+        _write_offerwall_event(db, 'cpagrip', 'callback_invalid', 'warning',
+                               f'Click tracking record not found: {click_id}')
+        return "OK", 200
+
+    click_data = click_snap.to_dict() or {}
+    user_id = click_data.get('userId')
+    offer_id = click_data.get('offerId')
+    offer_title = click_data.get('offerTitle', f'Offer {offer_id}')
+
+    # Secure clamp: accept ONLY the server-stored payout mapped at launch time
+    payout = safe_float(click_data.get('payout', 0.0))
 
     # Load CPAGrip configurations for security verification
     p_ref = db.collection('offerwall_providers').document('cpagrip')
@@ -4980,7 +4679,7 @@ def cpagrip_callback():
     if fraud_flags:
         _write_offerwall_event(db, 'cpagrip', 'fraud_blocked', 'error',
                                f'CPAGrip callback fraud-blocked for user {user_id}: {fraud_flags}',
-                               metadata={'clickId': conversion_tx_id, 'fraudFlags': fraud_flags})
+                               metadata={'clickId': click_id, 'fraudFlags': fraud_flags})
         return "OK", 200
 
     multiplier = float(cfg.get('rewardMultiplier', 1.0))
@@ -5005,7 +4704,7 @@ def cpagrip_callback():
 
     # 8. Create unified callback audit trail (PENDING initially)
     # Model conversion and reversal as separate idempotent events (idempotency key design)
-    dedup_key = f"cpagrip:reversal:{conversion_tx_id}" if is_reversal else f"cpagrip:credit:{conversion_tx_id}"
+    dedup_key = f"cpagrip:reversal:{click_id}" if is_reversal else f"cpagrip:credit:{click_id}"
     callback_ref = db.collection('offerwall_callbacks').document()
     callback_id = callback_ref.id
     callback_data = {
@@ -5016,7 +4715,7 @@ def cpagrip_callback():
         'offerName': offer_title,
         'rawAmount': payout,
         'usdRevenue': payout,
-        'providerTransactionId': conversion_tx_id,
+        'providerTransactionId': click_id,
         'dedupKey': dedup_key,
         'signatureValid': True,
         'isDuplicate': False,
@@ -5046,7 +4745,7 @@ def cpagrip_callback():
 
         # Reversal guard: only allow reversal if the original conversion exists
         if is_reversal:
-            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{conversion_tx_id}")
+            credit_ref = db.collection('offerwall_callbacks').document(f"cpagrip:credit:{click_id}")
             if not credit_ref.get(transaction=txn).exists:
                 raise Exception("REVERSAL_BEFORE_CONVERSION_BLOCKED")
 
@@ -5100,7 +4799,7 @@ def cpagrip_callback():
                     source='Offerwall: CPAGrip',
                     description=f'{"Chargeback" if is_reversal else "Offer completed"}: {offer_title}',
                     claim_id=claim_id,
-                    reference_id=conversion_tx_id,
+                    reference_id=click_id,
                     balance_after=balance_after,
                     activity_type=activity_type,
                     metadata={
@@ -5141,7 +4840,7 @@ def cpagrip_callback():
 
         # Write callback status as REWARD_ISSUED inside transaction
         txn.set(dedup_ref, {
-            'clickId': conversion_tx_id,
+            'clickId': click_id,
             'processed': True,
             'timestamp': firestore.SERVER_TIMESTAMP
         })
@@ -5168,8 +4867,7 @@ def cpagrip_callback():
             'stats.outstandingUserLiability': firestore.Increment(user_points)
         }, merge=True)
 
-        if click_ref_to_update:
-            click_ref_to_update.update({'status': 'COMPLETED', 'completedAt': firestore.SERVER_TIMESTAMP})
+        click_ref.update({'status': 'COMPLETED', 'completedAt': firestore.SERVER_TIMESTAMP})
 
     except Exception as e:
         print(f"[CPAGrip Callback] Transaction error: {e}")
@@ -5229,96 +4927,45 @@ def offerwall_test_connection(provider_id):
     def check(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
 
-    # 1. Capability-driven Credential Check
-    adapter = PROVIDERS_ADAPTERS.get(provider_id, {})
-    adapter_fields = adapter.get('fields', [])
-    missing_fields = []
-
-    if adapter_fields:
-        for field in adapter_fields:
-            k = field['key']
-            val = cfg.get(k)
-            # fallback checks for alias fields
-            if not val:
-                if k in ('affiliateId', 'placementId', 'user_id'):
-                    val = cfg.get('affiliateId') or cfg.get('placementId') or cfg.get('user_id')
-                elif k in ('apiKey', 'pubkey'):
-                    val = cfg.get('apiKey') or cfg.get('pubkey')
-                elif k in ('key', 'feedKey'):
-                    val = cfg.get('key') or cfg.get('feedKey')
-
-            if field.get('required') and not str(val or '').strip():
-                missing_fields.append(field['label'])
-                check(field['label'], False, f"Missing required field: {field['label']}")
-            else:
-                check(field['label'], True, f"{field['label']} present.")
-    else:
-        has_aff = bool(str(cfg.get('affiliateId', '') or cfg.get('placementId', '') or cfg.get('user_id', '')).strip())
-        check('Affiliate/Publisher ID', has_aff, 'ID present.' if has_aff else 'Missing Affiliate/Publisher ID.')
-        if not has_aff:
-            missing_fields.append('Affiliate/Publisher ID')
-
+    # 1. Credential presence
+    has_aff = bool(str(cfg.get('affiliateId', '')).strip())
+    has_secret = bool(str(cfg.get('secret', '')).strip())
+    has_api = bool(str(cfg.get('apiKey', '')).strip())
+    check('API Key / App ID', has_aff, 'App/Affiliate ID present.' if has_aff else 'Missing App/Affiliate ID.')
+    check('Callback Secret', has_secret, 'Secret present.' if has_secret else 'Missing callback secret.')
     check('Callback URL', bool(cfg.get('callbackUrl')), cfg.get('callbackUrl') or 'Missing callback URL.')
 
     spec = _resolve_provider_spec(provider_id, cfg)
     check('Signature Spec', bool(spec.get('sig_method')),
           f"Method: {spec.get('sig_method')}, fields: {spec.get('sig_fields')}")
 
-    result_code = 'OK'
-    result_msg = 'All local configuration checks passed.'
+    result_code, result_msg = 'OK', 'All local checks passed. Awaiting live callback for full certification.'
+    if not has_aff or not has_secret:
+        result_code, result_msg = 'INVALID_CREDENTIALS', 'Provider credentials are incomplete.'
 
-    if missing_fields:
-        result_code = 'INVALID_CREDENTIALS'
-        result_msg = f"Incomplete configuration: Missing {', '.join(missing_fields)}."
-
-    # 2. Live Provider Inventory / Connection Test
-    if result_code == 'OK':
-        if provider_id == 'gemiad':
-            placement_id = str(cfg.get('placementId') or cfg.get('affiliateId') or '').strip()
-            api_key = str(cfg.get('apiKey') or '').strip()
-            feed_url = cfg.get('apiEndpoint') or cfg.get('feedUrl')
-            offers = _get_gemiad_offers_cached(placement_id, api_key, feed_url)
-            if isinstance(offers, list) and len(offers) > 0:
-                check('Live Inventory Fetch', True, f"Successfully fetched {len(offers)} offers from GemiAd feed.")
-            elif isinstance(offers, list):
-                check('Live Inventory Fetch', True, "GemiAd inventory endpoint reachable (0 offers returned).")
+    # 2. Optional live endpoint reachability (if an apiEndpoint is configured)
+    endpoint = cfg.get('apiEndpoint') or cfg.get('embedUrl')
+    if endpoint and has_api:
+        try:
+            import urllib.request
+            req_url = endpoint
+            r = urllib.request.urlopen(req_url, timeout=8)
+            status = r.getcode()
+            if status == 200:
+                check('Endpoint Reachability', True, f'HTTP 200 from {endpoint}')
+            elif status in (401, 403):
+                result_code, result_msg = 'AUTH_FAILED', f'Provider returned HTTP {status} (authentication failed).'
+                check('Endpoint Reachability', False, f'HTTP {status} — auth failed.')
+            elif status == 429:
+                result_code, result_msg = 'RATE_LIMITED', 'Provider returned HTTP 429 (rate limited).'
+                check('Endpoint Reachability', False, 'HTTP 429 — rate limited.')
             else:
-                result_code = 'INVALID_RESPONSE'
-                result_msg = "GemiAd API connection failed or returned an invalid inventory payload."
-                check('Live Inventory Fetch', False, "GemiAd API request failed.")
-
-        elif provider_id == 'cpagrip':
-            pub_id = str(cfg.get('affiliateId') or cfg.get('user_id') or '').strip()
-            key = str(cfg.get('key') or cfg.get('feedKey') or '').strip()
-            pubkey = str(cfg.get('pubkey') or cfg.get('apiKey') or '').strip()
-            feed_url = cfg.get('feedUrl') or cfg.get('apiEndpoint')
-            offers = _get_cpagrip_offers_cached(pub_id, key, pubkey, feed_url)
-            if isinstance(offers, list) and len(offers) > 0:
-                check('Live Inventory Fetch', True, f"Successfully fetched {len(offers)} offers from CPAGrip feed.")
-            elif isinstance(offers, list):
-                check('Live Inventory Fetch', True, "CPAGrip inventory endpoint reachable (0 offers returned).")
-            else:
-                result_code = 'INVALID_RESPONSE'
-                result_msg = "CPAGrip API connection failed or returned an invalid inventory payload."
-                check('Live Inventory Fetch', False, "CPAGrip API request failed.")
-
-        else:
-            endpoint = cfg.get('apiEndpoint') or cfg.get('embedUrl')
-            if endpoint and endpoint.startswith('http'):
-                try:
-                    import urllib.request
-                    req = urllib.request.Request(endpoint, headers={'User-Agent': 'Mozilla/5.0'})
-                    r = urllib.request.urlopen(req, timeout=8)
-                    status = r.getcode()
-                    if status == 200:
-                        check('Endpoint Reachability', True, f'HTTP 200 from {endpoint}')
-                    else:
-                        check('Endpoint Reachability', False, f'HTTP {status}')
-                except Exception as e:
-                    msg = str(e)
-                    if 'timed out' in msg.lower():
-                        result_code, result_msg = 'TIMEOUT', f'Endpoint timed out: {endpoint}'
-                    check('Endpoint Reachability', False, msg[:200])
+                check('Endpoint Reachability', False, f'HTTP {status}')
+        except Exception as e:
+            msg = str(e)
+            if 'timed out' in msg.lower():
+                result_code, result_msg = 'TIMEOUT', f'Endpoint timed out: {endpoint}'
+            check('Endpoint Reachability', False, msg[:200])
 
     ref.update({
         'stats.lastTest': {'code': result_code, 'message': result_msg,
@@ -6196,8 +5843,7 @@ def calculate_marketplace_operational_intelligence(timeframe='today'):
         failed_cb = safe_int(stats.get('failedCallbacks', 0))
         total_cb = approved_cb + failed_cb
         cb_success_rate = round((approved_cb / total_cb) * 100, 1) if total_cb > 0 else 100.0
-        raw_latency = stats.get('avgLatencyMs') if 'avgLatencyMs' in stats else stats.get('providerLatency')
-        avg_latency = safe_float(raw_latency) if raw_latency is not None else None
+        avg_latency = safe_float(stats.get('avgLatencyMs', 120.0))
         health_info = _compute_operational_status(p_data)
         
         status_raw = health_info.get('status', 'offline')

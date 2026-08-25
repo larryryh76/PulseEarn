@@ -32,6 +32,12 @@ interface ProviderForm {
   affiliateId: string;
   apiKey: string;
   secret: string;
+  placementId: string;
+  user_id: string;
+  pubkey: string;
+  key: string;
+  feedKey: string;
+  feedUrl: string;
   integrationUrl: string;
   callbackUrl: string;
   webhookUrl: string;
@@ -66,6 +72,12 @@ const BLANK_FORM: ProviderForm = {
   affiliateId: '',
   apiKey: '',
   secret: '',
+  placementId: '',
+  user_id: '',
+  pubkey: '',
+  key: '',
+  feedKey: '',
+  feedUrl: '',
   integrationUrl: '',
   callbackUrl: '',
   webhookUrl: '',
@@ -279,9 +291,15 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
             description: found.description || '',
             apiEndpoint: found.apiEndpoint || found.integrationUrl || '',
             enabled: found.enabled ?? true,
-            affiliateId: found.affiliateId || '',
+            affiliateId: found.affiliateId || found.placementId || found.user_id || '',
             apiKey: '',   // never pre-populated for security
             secret: '',   // never pre-populated for security
+            placementId: found.placementId || found.affiliateId || '',
+            user_id: found.user_id || found.affiliateId || '',
+            pubkey: found.pubkey || '',
+            key: '',      // never pre-populated for security
+            feedKey: '',  // never pre-populated for security
+            feedUrl: found.feedUrl || '',
             integrationUrl: found.integrationUrl || '',
             callbackUrl: found.callbackUrl || '',
             webhookUrl: found.webhookUrl || '',
@@ -372,9 +390,24 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
   const validate = (): string | null => {
     if (!form.id.trim()) return 'Provider ID is required';
     if (!form.name.trim()) return 'Provider name is required';
-    if (!form.affiliateId.trim()) return 'Affiliate ID is required';
     if (!form.callbackUrl.trim() && !callbackUrl) return 'Callback URL is required';
     
+    // Capability-driven required fields validation
+    if (dynamicFields && dynamicFields.length > 0) {
+      for (const f of dynamicFields) {
+        if (f.required && isNew) {
+          const val = String((form as any)[f.key] || '').trim();
+          if (!val) {
+            return `${f.label} is required`;
+          }
+        }
+      }
+    } else {
+      if (isNew && !form.affiliateId.trim() && !form.placementId.trim() && !form.user_id.trim()) {
+        return 'Publisher/Affiliate ID is required';
+      }
+    }
+
     const sum = form.userSharePct + form.platformSharePct;
     if (Math.abs(sum - 1.0) > 0.001) return `User + Platform share must equal 100% (currently ${(sum * 100).toFixed(1)}%)`;
     if (form.minimumReward < 0) return 'Minimum reward cannot be negative';
@@ -405,7 +438,11 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
         description: form.description.trim(),
         apiEndpoint: form.apiEndpoint.trim(),
         enabled: form.enabled,
-        affiliateId: form.affiliateId.trim(),
+        affiliateId: form.affiliateId.trim() || form.placementId.trim() || form.user_id.trim(),
+        placementId: form.placementId.trim() || form.affiliateId.trim(),
+        user_id: form.user_id.trim() || form.affiliateId.trim(),
+        pubkey: form.pubkey.trim(),
+        feedUrl: form.feedUrl.trim(),
         integrationUrl: form.integrationUrl.trim(),
         callbackUrl: resolvedCallbackUrl,
         webhookUrl: form.webhookUrl.trim() || resolvedCallbackUrl,
@@ -422,6 +459,8 @@ const ProviderManagerModal: React.FC<Props> = ({ isOpen, onClose, providerId }) 
       };
       if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim();
       if (form.secret.trim()) payload.secret = form.secret.trim();
+      if (form.key.trim()) payload.key = form.key.trim();
+      if (form.feedKey.trim()) payload.feedKey = form.feedKey.trim();
 
       const targetId = form.id.trim().toLowerCase().replace(/\s+/g, '_');
       const res = await safeFetch(`/api/offerwall/providers/${targetId}`, {

@@ -14,7 +14,8 @@ import {
   Sparkles,
   Menu,
   X,
-  Clock
+  Clock,
+  User
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,11 +39,12 @@ export const PSEMineNavbar: React.FC = () => {
   const navLinks = [
     { label: 'Overview', path: '/mine', icon: Sparkles },
     { label: 'Dashboard', path: '/mine/dashboard', icon: LayoutDashboard, requiresAuth: true },
-    { label: 'Tool Market', path: '/mine/tools', icon: Cpu },
+    { label: 'Mine', path: '/mine/tools', icon: Cpu },
     { label: 'Wallet', path: '/mine/wallet', icon: Wallet, requiresAuth: true },
     { label: 'Referrals', path: '/mine/referrals', icon: Users, requiresAuth: true },
     { label: 'Activity', path: '/mine/activity', icon: History, requiresAuth: true },
-    { label: 'Campaign Guide', path: '/mine/guide', icon: BookOpen },
+    { label: 'Guide', path: '/mine/guide', icon: BookOpen },
+    { label: 'Me', path: '/mine/me', icon: User, requiresAuth: true },
   ];
 
   const handleWalletAction = async () => {
@@ -54,26 +56,26 @@ export const PSEMineNavbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#090D16]/90 backdrop-blur-md border-b border-cyan-900/30 text-white">
+    <header className="sticky top-0 z-40 bg-[#080C14]/90 backdrop-blur-xl border-b border-slate-800/80 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
           {/* Logo & Ecosystem Switcher */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <Link to="/mine" className="flex items-center space-x-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-200">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
                 <Pickaxe className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center space-x-1.5">
-                  <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-cyan-100 to-cyan-400 bg-clip-text text-transparent">
+                  <span className="font-extrabold text-base tracking-tight text-white">
                     PSEmine
                   </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-cyan-950/80 text-cyan-300 border border-cyan-700/40 rounded">
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-950/80 text-blue-400 border border-blue-800/40 rounded-md">
                     90D
                   </span>
                 </div>
-                <span className="text-[10px] text-gray-400 font-medium tracking-tight">
+                <span className="text-[10px] text-slate-400 font-medium tracking-tight">
                   PulseEarn Capacity Node
                 </span>
               </div>
@@ -81,15 +83,15 @@ export const PSEMineNavbar: React.FC = () => {
 
             {/* Campaign Countdown Badge */}
             {!isCampaignArchived && (
-              <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 bg-cyan-950/40 border border-cyan-500/20 rounded-full text-xs text-cyan-300">
-                <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                <span>{campaignDaysRemaining}d remaining</span>
+              <div className="hidden xl:flex items-center space-x-1.5 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-full text-xs text-slate-300">
+                <Clock className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-medium">{campaignDaysRemaining}d remaining</span>
               </div>
             )}
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden lg:flex items-center space-x-1">
             {navLinks.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -99,13 +101,13 @@ export const PSEMineNavbar: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 flex items-center space-x-1.5 ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center space-x-1.5 ${
                     isActive 
-                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                      : 'text-gray-300 hover:text-white hover:bg-slate-800/50'
+                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30 shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-gray-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-blue-400' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -113,19 +115,19 @@ export const PSEMineNavbar: React.FC = () => {
           </nav>
 
           {/* Right Action Bar */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             
             {/* Live Accrued Ticker (if logged in & mining active) */}
             {currentUser && pseUser && (
               <Link 
                 to="/mine/dashboard"
-                className="hidden sm:flex flex-col items-end px-3 py-1 bg-slate-900/80 border border-cyan-800/40 rounded-xl hover:border-cyan-500/50 transition-colors"
+                className="hidden sm:flex flex-col items-end px-3 py-1 bg-[#0D131F] border border-slate-800/80 hover:border-blue-500/40 rounded-xl transition-colors"
               >
-                <div className="text-[10px] uppercase font-bold text-gray-400 flex items-center space-x-1">
+                <div className="text-[9px] uppercase font-bold text-slate-400 flex items-center space-x-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Accrued</span>
+                  <span>Earnings</span>
                 </div>
-                <div className="text-sm font-black font-mono text-cyan-300">
+                <div className="text-xs font-bold font-mono text-white">
                   £{liveAccruedGBP.toFixed(4)}
                 </div>
               </Link>
@@ -137,14 +139,14 @@ export const PSEMineNavbar: React.FC = () => {
                 id="psemine-wallet-btn"
                 onClick={handleWalletAction}
                 disabled={isConnectingWallet}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all duration-200 shadow-md ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 shadow-md ${
                   connectedWallet
-                    ? 'bg-cyan-950/70 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-900/50'
-                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20'
+                    ? 'bg-[#0D131F] border border-blue-900/50 text-blue-300 hover:bg-slate-900'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
                 }`}
               >
-                <Wallet className="w-4 h-4 text-cyan-300" />
-                <span>
+                <Wallet className="w-3.5 h-3.5 text-blue-300" />
+                <span className="font-mono text-xs">
                   {isConnectingWallet 
                     ? 'Connecting...'
                     : connectedWallet 
@@ -152,28 +154,48 @@ export const PSEMineNavbar: React.FC = () => {
                       : 'Connect BSC'
                   }
                 </span>
-                {connectedWallet && <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />}
+                {connectedWallet && <ChevronDown className="w-3 h-3 text-slate-400" />}
               </button>
 
               {/* Wallet Dropdown */}
               {walletDropdownOpen && connectedWallet && (
-                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-cyan-900/60 rounded-xl shadow-2xl py-2 z-50">
-                  <div className="px-3 py-2 border-b border-slate-800">
-                    <div className="text-[11px] text-gray-400">Connected Wallet (BSC)</div>
-                    <div className="font-mono text-xs text-cyan-300 font-bold truncate">
+                <div className="absolute right-0 mt-2 w-60 bg-[#0D131F] border border-slate-800 rounded-2xl shadow-2xl py-2 z-50 divide-y divide-slate-800/60">
+                  <div className="px-3.5 py-2.5">
+                    <div className="text-[10px] text-slate-400 uppercase font-semibold">Payment Wallet (BSC)</div>
+                    <div className="font-mono text-xs text-white font-bold truncate mt-0.5">
                       {connectedWallet}
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      disconnectWallet();
-                      setWalletDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-800/60 flex items-center space-x-2"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Disconnect Wallet</span>
-                  </button>
+                  <div className="py-1">
+                    <Link
+                      to="/mine/wallet"
+                      onClick={() => setWalletDropdownOpen(false)}
+                      className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-slate-800/50 flex items-center space-x-2"
+                    >
+                      <Wallet className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Wallet & Settlement</span>
+                    </Link>
+                    <Link
+                      to="/mine/me"
+                      onClick={() => setWalletDropdownOpen(false)}
+                      className="w-full text-left px-3.5 py-2 text-xs text-slate-300 hover:bg-slate-800/50 flex items-center space-x-2"
+                    >
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Account Settings</span>
+                    </Link>
+                  </div>
+                  <div className="pt-1">
+                    <button
+                      onClick={() => {
+                        disconnectWallet();
+                        setWalletDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-950/30 flex items-center space-x-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Disconnect Wallet</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -181,19 +203,20 @@ export const PSEMineNavbar: React.FC = () => {
             {/* Return to PulseEarn Main Rewards Hub */}
             <Link
               to="/dashboard"
-              title="Switch to PulseEarn Rewards Platform"
-              className="hidden lg:flex items-center space-x-1 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800 rounded-xl transition-all"
+              title="Return to PulseEarn Hub"
+              className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition-colors"
             >
               <span>PulseEarn</span>
-              <ExternalLink className="w-3 h-3 text-gray-400" />
+              <ExternalLink className="w-3 h-3 text-slate-400" />
             </Link>
 
             {/* Mobile Hamburger Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-slate-800 rounded-lg"
+              className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl"
+              aria-label="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -201,7 +224,7 @@ export const PSEMineNavbar: React.FC = () => {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#0a0f1d] border-b border-cyan-900/40 px-4 pt-2 pb-6 space-y-2">
+        <div className="lg:hidden bg-[#0D131F] border-b border-slate-800 px-4 pt-2 pb-6 space-y-1.5 shadow-2xl">
           {navLinks.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -212,13 +235,13 @@ export const PSEMineNavbar: React.FC = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium ${
+                className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${
                   isActive 
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
-                    : 'text-gray-300 hover:bg-slate-800'
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
+                    : 'text-slate-300 hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className="w-5 h-5 text-cyan-400" />
+                <Icon className="w-4 h-4 text-blue-400" />
                 <span>{item.label}</span>
               </Link>
             );
@@ -228,9 +251,9 @@ export const PSEMineNavbar: React.FC = () => {
             <Link
               to="/dashboard"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-xs text-gray-400 hover:text-cyan-300 flex items-center space-x-1"
+              className="text-xs text-slate-400 hover:text-blue-400 flex items-center space-x-1"
             >
-              <span>Go to PulseEarn Rewards</span>
+              <span>Switch to PulseEarn</span>
               <ExternalLink className="w-3 h-3" />
             </Link>
             {currentUser ? (
@@ -239,7 +262,7 @@ export const PSEMineNavbar: React.FC = () => {
                   logout();
                   setMobileMenuOpen(false);
                 }}
-                className="text-xs text-red-400 hover:text-red-300 font-medium"
+                className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
               >
                 Sign Out
               </button>
@@ -247,7 +270,7 @@ export const PSEMineNavbar: React.FC = () => {
               <Link
                 to="/login?redirect=/mine/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-xs text-cyan-400 font-bold"
+                className="text-xs text-blue-400 font-bold"
               >
                 Sign In
               </Link>

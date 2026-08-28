@@ -52,6 +52,7 @@ import { PSEMineWallet } from './pages/psemine/PSEMineWallet'
 import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
 import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
 import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
+import { PSEMineMe } from './pages/psemine/PSEMineMe'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -198,6 +199,7 @@ function App() {
           <Route path="referrals" element={<ProtectedRoute><PSEMineReferrals /></ProtectedRoute>} />
           <Route path="activity" element={<ProtectedRoute><PSEMineActivity /></ProtectedRoute>} />
           <Route path="guide" element={<PSEMineGuide />} />
+          <Route path="me" element={<ProtectedRoute><PSEMineMe /></ProtectedRoute>} />
         </Route>
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />

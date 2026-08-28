@@ -14,10 +14,10 @@ import toast from 'react-hot-toast';
 
 export const PSEMineReferrals: React.FC = () => {
   const { pseUser, referrals } = usePSEMine();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  const referralCode = currentUser?.uid?.slice(0, 8).toUpperCase() || 'PSEMINE';
+  const referralCode = userData?.referralCode || currentUser?.uid?.slice(0, 8).toUpperCase() || 'PSEMINE';
   const referralLink = `${window.location.origin}/signup?ref=${referralCode}&redirect=/mine/dashboard`;
 
   const qualifiedCount = pseUser?.qualifiedReferralsCount || 0;
@@ -26,51 +26,55 @@ export const PSEMineReferrals: React.FC = () => {
   const copyLink = () => {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
-    toast.success('Referral link copied to clipboard!');
+    toast.success('Referral link copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-6 pb-24 md:pb-12">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/40 text-emerald-400 text-xs font-semibold mb-1.5">
+            <Users className="w-3.5 h-3.5" />
+            <span>Referral Accelerator • Max 5 Qualified</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             Referral Capacity Boost Hub
           </h1>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">
-            Grow the mining network. Earn a permanent <strong className="text-cyan-300">+£0.30/hr</strong> for each qualified referral (up to 5 referrals / +£1.50/hr).
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+            Expand the mining network. Earn a permanent <strong className="text-emerald-400">+£0.30/hr</strong> for each qualified referral (up to 5 miners / +£1.50/hr).
           </p>
         </div>
 
         {/* Current Boost Badge */}
-        <div className="px-5 py-3 bg-[#0a1226] border border-cyan-500/40 rounded-2xl flex items-center space-x-3 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+        <div className="p-3.5 bg-[#0D131F] border border-slate-800 rounded-2xl flex items-center space-x-3 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
             <TrendingUp className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] uppercase font-bold text-gray-400">Active Referral Boost</div>
-            <div className="text-lg font-black text-emerald-400 font-mono">
+            <div className="text-[10px] uppercase font-bold text-slate-400">Active Referral Boost</div>
+            <div className="text-base font-bold text-emerald-400 font-mono">
               +£{currentBoost.toFixed(2)}/hour
             </div>
           </div>
         </div>
       </div>
 
-      {/* 5-Slot Visual Progress Bar */}
-      <div className="p-6 sm:p-8 bg-gradient-to-br from-[#0c162e] to-[#080e1e] border border-cyan-900/50 rounded-3xl space-y-6">
+      {/* 5-Slot Visual Progress */}
+      <div className="p-6 bg-[#0D131F] border border-slate-800/80 rounded-2xl space-y-4">
         <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h2 className="text-base font-bold text-white flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-blue-400" />
               <span>5 Qualified Referral Slots</span>
             </h2>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-slate-400">
               Each slot adds +£0.30/hr continuous mining capacity once your referral deploys their first tool.
             </p>
           </div>
-          <span className="font-mono text-sm font-bold text-cyan-300">
+          <span className="font-mono text-xs font-bold text-blue-400 bg-blue-950/80 border border-blue-800/40 px-2.5 py-1 rounded-lg">
             {qualifiedCount} / 5 Qualified
           </span>
         </div>
@@ -82,29 +86,29 @@ export const PSEMineReferrals: React.FC = () => {
             return (
               <div
                 key={slotNumber}
-                className={`p-4 rounded-2xl border text-center transition-all ${
+                className={`p-4 rounded-xl border text-center transition-all ${
                   isQualified
-                    ? 'bg-emerald-950/40 border-emerald-500/40 shadow-lg shadow-emerald-950/20'
-                    : 'bg-[#080d19] border-slate-800 opacity-80'
+                    ? 'bg-[#080C14] border-emerald-500/40 shadow-md shadow-emerald-950/20'
+                    : 'bg-[#080C14] border-slate-800/80 opacity-70'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold font-mono text-gray-400">
+                  <span className="text-[10px] font-bold font-mono text-slate-400">
                     SLOT {slotNumber}
                   </span>
                   {isQualified ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   ) : (
-                    <Clock className="w-4 h-4 text-gray-600" />
+                    <Clock className="w-3.5 h-3.5 text-slate-600" />
                   )}
                 </div>
 
-                <div className={`text-base font-black font-mono my-1 ${isQualified ? 'text-emerald-300' : 'text-gray-400'}`}>
+                <div className={`text-sm font-bold font-mono my-1 ${isQualified ? 'text-emerald-400' : 'text-slate-500'}`}>
                   +£0.30/hr
                 </div>
 
-                <div className="text-[10px] text-gray-400">
-                  {isQualified ? 'Active & Earning' : 'Locked (Pending)'}
+                <div className="text-[10px] text-slate-400">
+                  {isQualified ? 'Active & Earning' : 'Pending Activation'}
                 </div>
               </div>
             );
@@ -113,33 +117,33 @@ export const PSEMineReferrals: React.FC = () => {
       </div>
 
       {/* Invite Code & Share Box */}
-      <div className="p-6 sm:p-8 bg-[#0a1122] border border-cyan-900/40 rounded-3xl space-y-4">
+      <div className="p-6 bg-[#0D131F] border border-slate-800/80 rounded-2xl space-y-3">
         <div>
-          <h3 className="text-base font-bold text-white">Your Unique Mining Invite Link</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Share this link with participants. When they register and deploy any mining tool, your capacity updates automatically.
+          <h3 className="text-sm font-bold text-white">Your Unique Mining Invite Link</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Share this link with participants. When they sign up and deploy any mining tool, your capacity updates automatically.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 px-4 py-3 bg-[#080d19] border border-slate-800 rounded-xl font-mono text-xs text-cyan-300 truncate flex items-center">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 px-4 py-2.5 bg-[#080C14] border border-slate-700 rounded-xl font-mono text-xs text-blue-400 truncate flex items-center">
             {referralLink}
           </div>
           <button
             onClick={copyLink}
-            className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shrink-0 transition-colors shadow-lg shadow-cyan-600/20"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shrink-0 transition-all shadow-md shadow-blue-600/20"
           >
-            {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Copied Link' : 'Copy Invite Link'}</span>
           </button>
         </div>
       </div>
 
       {/* Referrals List Table */}
-      <div className="p-6 bg-[#0a1122] border border-cyan-900/40 rounded-3xl space-y-4">
+      <div className="p-6 bg-[#0D131F] border border-slate-800/80 rounded-2xl space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-white flex items-center space-x-2">
-            <Users className="w-4 h-4 text-cyan-400" />
+          <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+            <Users className="w-4 h-4 text-blue-400" />
             <span>Referred Miners Log ({referrals.length})</span>
           </h3>
         </div>
@@ -147,7 +151,7 @@ export const PSEMineReferrals: React.FC = () => {
         {referrals.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-gray-400 uppercase font-mono text-[10px] border-b border-slate-800">
+              <thead className="text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
                 <tr>
                   <th className="pb-3 font-semibold">Miner ID</th>
                   <th className="pb-3 font-semibold">Registered</th>
@@ -157,11 +161,11 @@ export const PSEMineReferrals: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-mono">
                 {referrals.map((ref) => (
-                  <tr key={ref.id} className="text-gray-300 hover:bg-slate-900/40">
+                  <tr key={ref.id} className="text-slate-300 hover:bg-slate-900/40">
                     <td className="py-3 text-white font-bold">
                       {ref.refereeId.slice(0, 8)}...
                     </td>
-                    <td className="py-3 text-gray-400">
+                    <td className="py-3 text-slate-400">
                       {new Date(ref.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3">
@@ -174,7 +178,7 @@ export const PSEMineReferrals: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 font-bold text-emerald-400">
-                      {ref.status === 'qualified' ? `+£${(ref.capacityContributionGBPPerHour ?? 0.30).toFixed(2)}/hr` : '£0.00/hr (Pending Purchase)'}
+                      {ref.status === 'qualified' ? `+£${(ref.capacityContributionGBPPerHour ?? 0.30).toFixed(2)}/hr` : '£0.00/hr (Pending Deployment)'}
                     </td>
                   </tr>
                 ))}
@@ -182,8 +186,8 @@ export const PSEMineReferrals: React.FC = () => {
             </table>
           </div>
         ) : (
-          <div className="py-8 text-center text-xs text-gray-500">
-            No referred miners yet. Share your invite link to unlock up to +£1.50/hour in capacity boost!
+          <div className="py-8 text-center text-xs text-slate-500">
+            No referred miners yet. Share your invite link to unlock up to +£1.50/hour in capacity boost.
           </div>
         )}
       </div>

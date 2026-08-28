@@ -240,6 +240,11 @@ export class PSEMineEngine {
     toolId: PSEToolTierId,
     exchangeRateOverride?: number
   ): Promise<PSEMineQuote> {
+    const activeCampaign = await this.getOrCreateActiveCampaign();
+    if (activeCampaign.status === 'archived' || activeCampaign.status === 'closed' || activeCampaign.purchaseEnabled === false || activeCampaign.shutdownState?.isArchived) {
+      throw new Error('Tool purchases are disabled because the campaign has concluded.');
+    }
+
     const tool = LOCKED_PSEMINE_TOOLS[toolId];
     if (!tool) {
       throw new Error(`Invalid tool tier: ${toolId}`);
@@ -265,7 +270,7 @@ export class PSEMineEngine {
     // Format to 6 decimal places with precision
     const bnbAmount = parseFloat(rawBnbAmount.toFixed(6));
 
-    const campaign = await this.getOrCreateActiveCampaign();
+    const campaign = activeCampaign;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + PSEMINE_CONSTANTS.QUOTE_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -336,6 +341,11 @@ export class PSEMineEngine {
     txHash: string,
     senderWallet?: string
   ): Promise<{ success: boolean; error?: string; user?: PSEMineUser }> {
+    const campaign = await this.getOrCreateActiveCampaign();
+    if (campaign.status === 'archived' || campaign.status === 'closed' || campaign.shutdownState?.isArchived) {
+      return { success: false, error: 'Campaign has been terminated and archived.' };
+    }
+
     const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
     const purchaseSnap = await getDoc(purchaseRef);
 
@@ -378,7 +388,6 @@ export class PSEMineEngine {
     }
 
     // 1. Settle existing accrued balance at the OLD capacity before modifying
-    const campaign = await this.getOrCreateActiveCampaign();
     const currentAccrued = this.calculateLiveAccrued(user, campaign);
     const nowIso = new Date().toISOString();
 

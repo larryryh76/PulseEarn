@@ -12,10 +12,13 @@ import {
   Zap
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { PSEMineToolDefinition } from '../../types/psemine';
 import { PSEMinePurchaseModal } from '../../components/psemine/PSEMinePurchaseModal';
+import { PSEMineOnboardingModal } from '../../components/psemine/PSEMineOnboardingModal';
 
 export const PSEMineDashboard: React.FC = () => {
+  const { userData } = useAuth();
   const { 
     pseUser, 
     campaign,
@@ -25,6 +28,8 @@ export const PSEMineDashboard: React.FC = () => {
     connectedWallet,
     refreshData 
   } = usePSEMine();
+
+  const showOnboarding = userData && userData.productAccess?.psemine === false;
 
   const [selectedToolForPurchase, setSelectedToolForPurchase] = useState<PSEMineToolDefinition | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -448,6 +453,9 @@ export const PSEMineDashboard: React.FC = () => {
           onClose={() => setSelectedToolForPurchase(null)}
         />
       )}
+
+      {/* Lightweight Onboarding Modal for existing PulseEarn users visiting /mine */}
+      {showOnboarding && <PSEMineOnboardingModal />}
 
     </div>
   );

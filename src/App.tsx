@@ -53,6 +53,7 @@ import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
 import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
 import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
+import { PSEMineSignup } from './pages/psemine/PSEMineSignup'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -70,7 +71,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+
+  // Enforce product access isolation: PSEmine-only users cannot access regular PulseEarn pages
+  if (!isOpsUser && userData?.productAccess && userData.productAccess.pulseearn === false && !window.location.pathname.startsWith('/mine')) {
+    return <Navigate to="/mine/dashboard" replace />;
+  }
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
@@ -96,6 +102,9 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
   if (!isOps) {
+    if (userData?.productAccess?.pulseearn === false) {
+      return <Navigate to="/mine/dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -106,7 +115,12 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
-    if (userData?.role === 'admin' || userData?.role === 'moderator') return <Navigate to="/admin" replace />;
+    if (userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true) {
+      return <Navigate to="/admin" replace />;
+    }
+    if (userData?.productAccess?.pulseearn === false) {
+      return <Navigate to="/mine/dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
@@ -193,6 +207,7 @@ function App() {
         {/* PSEMINE 90-DAY CAMPAIGN ECOSYSTEM */}
         <Route path="/mine" element={<PSEMineLayout />}>
           <Route index element={<PSEMineLanding />} />
+          <Route path="signup" element={<PSEMineSignup />} />
           <Route path="dashboard" element={<ProtectedRoute><PSEMineDashboard /></ProtectedRoute>} />
           <Route path="tools" element={<PSEMineTools />} />
           <Route path="wallet" element={<ProtectedRoute><PSEMineWallet /></ProtectedRoute>} />

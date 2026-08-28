@@ -42,9 +42,9 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string, productAccessOptions?: { pulseearn?: boolean; psemine?: boolean }) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string) => Promise<void>;
+  signInWithGoogle: (referralCode?: string, productAccessOptions?: { pulseearn?: boolean; psemine?: boolean }) => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -195,7 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
-  async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
+  async function initializeUserProfile(
+    user: User,
+    username: string,
+    referralCodeInput?: string,
+    productAccessOptions?: { pulseearn?: boolean; psemine?: boolean }
+  ) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -228,6 +233,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
 
+    const pulseearnAccess = productAccessOptions?.pulseearn ?? true;
+    const psemineAccess = productAccessOptions?.psemine ?? false;
+
     const newUserData: UserData = {
       uid: user.uid,
       email: user.email,
@@ -244,8 +252,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'user',
       status: 'active',
       productAccess: {
-        pulseearn: true,
-        psemine: true
+        pulseearn: pulseearnAccess,
+        psemine: psemineAccess
       },
       isBanned: false,
       isFlagged: false,
@@ -385,7 +393,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
+  async function signup(
+    email: string,
+    password: string,
+    username: string,
+    referralCodeInput?: string,
+    productAccessOptions?: { pulseearn?: boolean; psemine?: boolean }
+  ) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -409,15 +423,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    await initializeUserProfile(user, username, referralCodeInput);
+    await initializeUserProfile(user, username, referralCodeInput, productAccessOptions);
   }
 
-  async function signInWithGoogle(referralCodeInput?: string) {
+  async function signInWithGoogle(
+    referralCodeInput?: string,
+    productAccessOptions?: { pulseearn?: boolean; psemine?: boolean }
+  ) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput);
+    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput, productAccessOptions);
   }
 
   function login(email: string, password: string) {

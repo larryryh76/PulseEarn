@@ -98,9 +98,6 @@ class ProviderCache:
         try:
             self._loading = True
             
-            if not firebase_admin._apps:
-                return False
-
             db = firestore.client()
             docs = db.collection('offerwall_providers').stream()
             
@@ -171,9 +168,6 @@ class ProviderCache:
             True if cache and Firestore match, False if mismatch detected
         """
         try:
-            if not firebase_admin._apps:
-                return True
-
             db = firestore.client()
             snap = db.collection('offerwall_providers').document(provider_id).get()
             

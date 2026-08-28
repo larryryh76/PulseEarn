@@ -20,7 +20,8 @@ import {
   Menu,
   X,
   Settings,
-  Globe
+  Globe,
+  Pickaxe
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'WITHDRAWALS', label: 'Withdrawals', icon: CreditCard, path: '/admin/withdrawals', category: 'ECONOMY', isAdminOnly: true },
   { id: 'LEDGER', label: 'Transactions', icon: Activity, path: '/admin/ledger', category: 'ECONOMY', isAdminOnly: true },
   { id: 'ECONOMY', label: 'Economy Hub', icon: BarChart3, path: '/admin/economy', category: 'ECONOMY', isAdminOnly: true },
+  { id: 'PSEMINE', label: 'PSEmine 90D', icon: Pickaxe, path: '/admin/mine', category: 'ECONOMY', isAdminOnly: true },
   { id: 'XP', label: 'XP Engine', icon: Trophy, path: '/admin/xp', category: 'ECONOMY', isAdminOnly: true },
 
   { id: 'USERS', label: 'User Directory', icon: Users, path: '/admin/users', category: 'SYSTEM' },

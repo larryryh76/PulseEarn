@@ -243,6 +243,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
+      productAccess: {
+        pulseearn: true,
+        psemine: true
+      },
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,

@@ -321,6 +321,10 @@ export interface UserData {
     preferredCategories: string[];
   };
   status?: 'active' | 'restricted' | 'frozen';
+  productAccess?: {
+    pulseearn: boolean;
+    psemine: boolean;
+  };
   execution_lock?: boolean;
   execution_lock_at?: Timestamp | null;
   security?: {
@@ -511,17 +515,6 @@ export interface OfferwallProvider {
   launchUrl?: string;            // Resolved launch URL
   integrationUrl?: string;       // Dynamic launch URL template
   apiEndpoint?: string;          // API endpoint URL
-  // Capabilities & Execution Model
-  executionType?: 'API' | 'Hosted' | 'Embedded' | 'Internal';
-  model?: 'API' | 'Hosted' | 'Embedded';
-  apiInventory?: boolean;
-  individualOffers?: boolean;
-  hostedWall?: boolean;
-  capabilities?: Record<string, boolean>;
-  geoRestrictions?: string[];
-  deviceRestrictions?: string[];
-  feedUrl?: string;
-  launchUrlTemplate?: string;
   // Credentials
   affiliateId: string;
   apiKey: string;
@@ -720,3 +713,6 @@ export interface UserSystemTask {
   claimedAt?: Timestamp | null;
   transactionReference?: string | null;
 }
+
+export * from './psemine';
+

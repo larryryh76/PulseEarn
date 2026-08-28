@@ -269,5 +269,56 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow write: if false;
     }
+
+    // 12. PSEmine 90-Day Campaign Ecosystem
+    match /psemine_campaigns/{campaignId} {
+      // Publicly readable so prospective miners can review status, duration & economic terms
+      allow read: if true;
+      allow list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /psemine_tools/{toolId} {
+      allow read: if true;
+      allow list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /psemine_users/{userId} {
+      allow read: if isOwner(userId) || isModerator();
+      allow list: if isModerator();
+      allow write: if isOwner(userId) || isAdmin();
+
+      match /activity/{activityId} {
+        allow read: if isOwner(userId) || isModerator();
+        allow list: if isOwner(userId) || isModerator();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /psemine_tool_ownership/{ownershipId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /psemine_purchases/{purchaseId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /psemine_referrals/{referralId} {
+      allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if isAuthenticated() || isAdmin();
+    }
+
+    match /psemine_payouts/{payoutId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
   }
 }
+

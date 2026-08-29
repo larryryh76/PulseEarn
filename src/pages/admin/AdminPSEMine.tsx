@@ -30,8 +30,12 @@ export const AdminPSEMine: React.FC = () => {
     totalAccruedLiabilityGBP: 0,
     totalBNBCollected: 0,
     qualifiedReferrals: 0,
-    campaignStatus: 'active'
+    campaignStatus: 'active',
+    receiverWalletAddress: ''
   });
+
+  const [receiverWalletInput, setReceiverWalletInput] = useState('');
+  const [isUpdatingWallet, setIsUpdatingWallet] = useState(false);
 
   // Settlement & Payout Asset Configuration
   const [payoutConfig] = useState({
@@ -61,6 +65,9 @@ export const AdminPSEMine: React.FC = () => {
           const data = await res.json();
           if (data.stats) {
             setStats(data.stats);
+            if (data.stats.receiverWalletAddress) {
+              setReceiverWalletInput(data.stats.receiverWalletAddress);
+            }
           }
         }
       }
@@ -107,6 +114,11 @@ export const AdminPSEMine: React.FC = () => {
     }
   };
 
+  const closeKillSwitchModal = () => {
+    setTypedConfirmation('');
+    setIsKillSwitchOpen(false);
+  };
+
   // Protected Super Admin Kill Switch Trigger
   const handleExecuteKillSwitch = async () => {
     if (!currentUser || !isSuperAdmin) {
@@ -137,7 +149,7 @@ export const AdminPSEMine: React.FC = () => {
       const data = await res.json();
       if (data.success) {
         toast.success('KILL SWITCH EXECUTED: PSEmine public campaign terminated & archived.');
-        setIsKillSwitchOpen(false);
+        closeKillSwitchModal();
         await refreshData();
         await fetchAdminData();
       } else {
@@ -148,6 +160,49 @@ export const AdminPSEMine: React.FC = () => {
       toast.error(err?.message || 'Kill switch error');
     } finally {
       setIsExecutingShutdown(false);
+    }
+  };
+
+  const handleUpdateReceiverWallet = async () => {
+    if (!currentUser || !isSuperAdmin) {
+      toast.error('Super Admin authorization required');
+      return;
+    }
+    const wallet = receiverWalletInput.trim().toLowerCase();
+    if (!wallet.startsWith('0x') || wallet.length !== 42) {
+      toast.error('Invalid BNB Smart Chain wallet address');
+      return;
+    }
+
+    setIsUpdatingWallet(true);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/admin/mine/campaign/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          action: 'update_receiver_wallet',
+          receiverWalletAddress: wallet,
+          reason: 'Super Admin updated receiving wallet configuration'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Receiving wallet address updated successfully!');
+        await refreshData();
+        await fetchAdminData();
+      } else {
+        toast.error(data.error || 'Failed to update receiving wallet');
+      }
+    } catch (e: unknown) {
+      const err = e as Error;
+      toast.error(err?.message || 'Update error');
+    } finally {
+      setIsUpdatingWallet(false);
     }
   };
 
@@ -209,9 +264,35 @@ export const AdminPSEMine: React.FC = () => {
         })}
       </div>
 
-      {/* TAB 1: OVERVIEW */}
+  {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Receiving Wallet Configuration */}
+          <div className="p-6 bg-[#0D131F] border border-slate-800 rounded-2xl space-y-3">
+            <h2 className="text-sm font-bold text-white uppercase font-mono tracking-wider flex items-center space-x-2">
+              <Coins className="w-4 h-4 text-cyan-400" />
+              <span>Campaign Authorized Receiving Wallet Address</span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              All tool checkout quotes and on-chain BNB transaction verifications require an authorized receiving wallet address configured here.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+              <input
+                type="text"
+                value={receiverWalletInput}
+                onChange={(e) => setReceiverWalletInput(e.target.value)}
+                placeholder="0x..."
+                className="flex-1 w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                onClick={handleUpdateReceiverWallet}
+                disabled={isUpdatingWallet || !receiverWalletInput}
+                className="w-full sm:w-auto px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-mono font-bold text-xs rounded-xl transition-all"
+              >
+                {isUpdatingWallet ? 'Updating...' : 'Save Wallet'}
+              </button>
+            </div>
+          </div>
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-5 bg-[#0D131F] border border-slate-800 rounded-2xl">
@@ -396,7 +477,7 @@ export const AdminPSEMine: React.FC = () => {
                 <span className="text-base font-mono uppercase">Super Admin Kill Switch</span>
               </div>
               <button
-                onClick={() => setIsKillSwitchOpen(false)}
+                onClick={closeKillSwitchModal}
                 className="text-slate-400 hover:text-white"
               >
                 <X size={20} />
@@ -435,7 +516,7 @@ export const AdminPSEMine: React.FC = () => {
 
             <div className="flex space-x-3 pt-2">
               <button
-                onClick={() => setIsKillSwitchOpen(false)}
+                onClick={closeKillSwitchModal}
                 className="w-1/3 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-mono text-xs font-bold rounded-xl"
               >
                 Cancel

@@ -211,7 +211,7 @@ export const PSEMineLanding: React.FC = () => {
                   <p className="text-xs text-slate-400 mt-1 line-clamp-2">{tool.description}</p>
                 </div>
 
-                <div className="p-3 bg-[#080C14] border border-slate-800/80 rounded-xl space-y-1 text-xs font-mono">
+                <div className="p-3 bg-[#05070E] border border-slate-800/80 rounded-xl space-y-1 text-xs font-mono">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Price:</span>
                     <span className="font-bold text-white">£{tool.purchasePriceGBP.toFixed(2)}</span>
@@ -267,7 +267,7 @@ export const PSEMineLanding: React.FC = () => {
             </div>
 
             {/* Capacity Stacking Table */}
-            <div className="p-5 bg-[#080C14] border border-slate-800 rounded-xl space-y-3 font-mono text-xs">
+            <div className="p-5 bg-[#05070E] border border-slate-800 rounded-xl space-y-3 font-mono text-xs">
               <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-2">
                 <span>COMPONENT</span>
                 <span>MAX CONTRIBUTION</span>

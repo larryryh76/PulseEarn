@@ -88,8 +88,8 @@ export const PSEMineReferrals: React.FC = () => {
                 key={slotNumber}
                 className={`p-4 rounded-xl border text-center transition-all ${
                   isQualified
-                    ? 'bg-[#080C14] border-emerald-500/40 shadow-md shadow-emerald-950/20'
-                    : 'bg-[#080C14] border-slate-800/80 opacity-70'
+                    ? 'bg-[#05070E] border-emerald-500/40 shadow-md shadow-emerald-950/20'
+                    : 'bg-[#05070E] border-slate-800/80 opacity-70'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -126,7 +126,7 @@ export const PSEMineReferrals: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1 px-4 py-2.5 bg-[#080C14] border border-slate-700 rounded-xl font-mono text-xs text-blue-400 truncate flex items-center">
+          <div className="flex-1 px-4 py-2.5 bg-[#05070E] border border-slate-700 rounded-xl font-mono text-xs text-blue-400 truncate flex items-center">
             {referralLink}
           </div>
           <button

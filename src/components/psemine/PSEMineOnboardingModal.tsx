@@ -29,7 +29,11 @@ export const PSEMineOnboardingModal: React.FC<PSEMineOnboardingModalProps> = ({ 
   const handleInitialize = async () => {
     if (!currentUser) return;
     if (!acceptedTerms) {
-      toast.error('Please accept the campaign rules & accounting terms');
+      toast.error('Please accept the campaign operational rules first');
+      return;
+    }
+    if (!connectedWallet) {
+      toast.error('Please connect a BSC wallet to complete PSEmine onboarding');
       return;
     }
 
@@ -103,7 +107,7 @@ export const PSEMineOnboardingModal: React.FC<PSEMineOnboardingModalProps> = ({ 
               </ul>
             </div>
 
-            <label className="flex items-start gap-3 p-3 bg-[#080C14] border border-slate-800 rounded-xl cursor-pointer hover:border-slate-700 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-[#05070E] border border-slate-800 rounded-xl cursor-pointer hover:border-slate-700 transition-colors">
               <input
                 type="checkbox"
                 checked={acceptedTerms}

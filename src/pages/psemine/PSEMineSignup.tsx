@@ -100,7 +100,7 @@ export const PSEMineSignup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-slate-100 flex items-center justify-center px-6 py-20 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#05070E] text-slate-100 flex items-center justify-center px-6 py-20 relative overflow-hidden font-sans">
       {/* Background ambient light */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-1/4 left-1/4 w-[35rem] h-[30rem] bg-blue-600/10 rounded-full blur-[160px]" />

@@ -87,6 +87,27 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#05070E] flex items-center justify-center">
+      <div className="w-12 h-12 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+
+  // Enforce productAccess.psemine === true for protected /mine/* routes
+  if (!isOpsUser && userData?.productAccess?.psemine !== true && window.location.pathname !== '/mine/dashboard') {
+    return <Navigate to="/mine/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
@@ -209,12 +230,12 @@ function App() {
           <Route index element={<PSEMineLanding />} />
           <Route path="signup" element={<PSEMineSignup />} />
           <Route path="dashboard" element={<ProtectedRoute><PSEMineDashboard /></ProtectedRoute>} />
-          <Route path="tools" element={<PSEMineTools />} />
-          <Route path="wallet" element={<ProtectedRoute><PSEMineWallet /></ProtectedRoute>} />
-          <Route path="referrals" element={<ProtectedRoute><PSEMineReferrals /></ProtectedRoute>} />
-          <Route path="activity" element={<ProtectedRoute><PSEMineActivity /></ProtectedRoute>} />
+          <Route path="tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />
+          <Route path="wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
+          <Route path="referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
+          <Route path="activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
           <Route path="guide" element={<PSEMineGuide />} />
-          <Route path="me" element={<ProtectedRoute><PSEMineMe /></ProtectedRoute>} />
+          <Route path="me" element={<PSEMineProtectedRoute><PSEMineMe /></PSEMineProtectedRoute>} />
         </Route>
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />

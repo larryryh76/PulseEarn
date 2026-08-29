@@ -6025,9 +6025,16 @@ def generate_psemine_tool_quote():
     quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
 
     camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    receiver_wallet = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
+    receiver_wallet = ""
     if camp_doc.exists:
-        receiver_wallet = camp_doc.to_dict().get('receiverWalletAddress', receiver_wallet)
+        receiver_wallet = (camp_doc.to_dict().get('receiverWalletAddress') or '').strip()
+
+    if not receiver_wallet or not receiver_wallet.startswith('0x'):
+        return jsonify({
+            "success": False,
+            "error": "PAYMENT_RECEIVER_UNCONFIGURED",
+            "message": "Authorized receiving wallet is not configured for this campaign. Please contact an administrator."
+        }), 400
 
     quote = {
         "quoteId": quote_id,
@@ -6046,10 +6053,11 @@ def generate_psemine_tool_quote():
 
     return jsonify({"success": True, "quote": quote})
 
-def verify_bsc_transaction_rpc(tx_hash, expected_receiver=None, expected_bnb_amount=0.0):
+def verify_bsc_transaction_rpc(tx_hash, expected_receiver=None, expected_bnb_amount=0.0, required_confirmations=2):
     """
     Independently queries BNB Smart Chain RPC node using eth_getTransactionByHash & eth_getTransactionReceipt.
-    Verifies transaction status, recipient address, BNB amount, and confirmation count.
+    Verifies transaction status, recipient address, BNB amount, and real confirmation count.
+    NEVER returns verified: True when RPC calls fail.
     """
     rpc_urls = [
         'https://bsc-dataseed.binance.org/',
@@ -6059,7 +6067,7 @@ def verify_bsc_transaction_rpc(tx_hash, expected_receiver=None, expected_bnb_amo
 
     get_deps()
     if not requests:
-        return {"success": False, "verified": False, "error": "REQUESTS_UNAVAILABLE"}
+        return {"success": False, "verified": False, "error": "REQUESTS_UNAVAILABLE", "message": "HTTP requests dependency unavailable."}
 
     for rpc_url in rpc_urls:
         try:
@@ -6094,52 +6102,75 @@ def verify_bsc_transaction_rpc(tx_hash, expected_receiver=None, expected_bnb_amo
             # 3. Check status == "0x1" (Success)
             status = rcpt_data.get('status')
             if status != '0x1':
-                return {"success": True, "verified": False, "error": "TRANSACTION_FAILED_ON_CHAIN"}
+                return {"success": False, "verified": False, "error": "TRANSACTION_FAILED_ON_CHAIN", "message": "Blockchain transaction status indicates failure."}
 
             # 4. Check recipient wallet address
             to_addr = (tx_data.get('to') or '').lower()
             if expected_receiver and to_addr != expected_receiver.lower():
                 return {
-                    "success": True,
+                    "success": False,
                     "verified": False,
-                    "error": f"RECIPIENT_MISMATCH: Expected {expected_receiver}, got {to_addr}"
+                    "error": "RECIPIENT_MISMATCH",
+                    "message": f"Recipient address mismatch. Expected {expected_receiver}, got {to_addr}"
                 }
 
-            # 5. Check value in BNB
+            # 5. Check value in BNB (convert wei hex)
             val_hex = tx_data.get('value', '0x0')
             val_wei = int(val_hex, 16) if val_hex.startswith('0x') else int(val_hex)
             val_bnb = val_wei / 1e18
 
             if expected_bnb_amount > 0 and val_bnb < (expected_bnb_amount * 0.98):
                 return {
+                    "success": False,
+                    "verified": False,
+                    "error": "UNDERPAID",
+                    "message": f"Insufficient payment amount. Required {expected_bnb_amount} BNB, received {val_bnb:.6f} BNB"
+                }
+
+            # 6. Real confirmation calculation: currentBlock - txBlock + 1
+            block_hex = rcpt_data.get('blockNumber')
+            confirmations = 0
+            if block_hex:
+                res_block = requests.post(rpc_url, json={"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":3}, timeout=5)
+                if res_block.status_code == 200:
+                    latest_block_hex = res_block.json().get('result')
+                    if latest_block_hex:
+                        current_block = int(latest_block_hex, 16)
+                        tx_block = int(block_hex, 16)
+                        confirmations = max(0, current_block - tx_block + 1)
+
+            if confirmations < required_confirmations:
+                return {
                     "success": True,
                     "verified": False,
-                    "error": f"UNDERPAID: Required {expected_bnb_amount} BNB, received {val_bnb:.6f} BNB"
+                    "status": "pending_confirmations",
+                    "confirmations": confirmations,
+                    "requiredConfirmations": required_confirmations,
+                    "error": "INSUFFICIENT_CONFIRMATIONS",
+                    "message": f"Transaction has {confirmations}/{required_confirmations} required block confirmations."
                 }
 
             return {
                 "success": True,
                 "verified": True,
+                "status": "verified",
                 "txHash": tx_hash,
                 "from": tx_data.get('from', '').lower(),
                 "to": to_addr,
                 "valueBNB": val_bnb,
-                "confirmations": 2
+                "confirmations": confirmations
             }
 
         except Exception as e:
             logging.warning(f"[BSC RPC] Node {rpc_url} failed: {e}")
             continue
 
-    # Fallback response for offline sandbox or unindexed recent transaction
+    # STRICT SECURITY RULE: NEVER return verified: True when RPC calls fail!
     return {
-        "success": True,
-        "verified": True,
-        "txHash": tx_hash,
-        "from": "0x0000000000000000000000000000000000000000",
-        "to": (expected_receiver or "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33").lower(),
-        "valueBNB": expected_bnb_amount,
-        "confirmations": 2
+        "success": False,
+        "verified": False,
+        "error": "BSC_RPC_UNAVAILABLE",
+        "message": "Unable to verify transaction on BNB Smart Chain RPC nodes. Please retry."
     }
 
 @app.route('/api/mine/tools/verify-purchase', methods=['POST'])
@@ -6156,25 +6187,68 @@ def verify_psemine_tool_purchase():
     if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) < 64:
         return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH"}), 400
 
-    # Replay protection: ensure txHash has not already been used
-    dupes = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
-    if len(dupes) > 0:
-        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED"}), 409
+    # Replay Protection: Check if transactionHash has already been claimed/activated
+    existing_claim = db.collection('psemine_tx_claims').document(tx_hash).get()
+    if existing_claim.exists and existing_claim.to_dict().get('status') == 'activated':
+        return jsonify({
+            "success": False,
+            "verified": False,
+            "error": "TRANSACTION_HASH_ALREADY_CONSUMED",
+            "message": "This transaction hash has already been claimed and activated."
+        }), 400
 
-    # Check purchase intent if purchase_id provided
-    expected_receiver = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
+    existing_pur = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').limit(1).get()
+    if len(existing_pur) > 0:
+        return jsonify({
+            "success": False,
+            "verified": False,
+            "error": "TRANSACTION_HASH_ALREADY_CONSUMED",
+            "message": "This transaction hash has already been claimed and activated."
+        }), 400
+
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    camp_data = camp_doc.to_dict() if camp_doc.exists else {}
+
+    # Atomically revalidate campaign status
+    campaign_status = camp_data.get('status', 'active')
+    purchase_enabled = camp_data.get('purchaseEnabled', True)
+    is_archived = camp_data.get('shutdownState', {}).get('isArchived', False)
+
+    if campaign_status in ('archived', 'closed', 'settling', 'paused') or not purchase_enabled or is_archived:
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_INACTIVE",
+            "message": f"Tool purchases are disabled because the campaign is currently {campaign_status}."
+        }), 400
+
+    # Check active receiving wallet in campaign config
+    expected_receiver = (camp_data.get('receiverWalletAddress') or '').strip().lower()
+    if not expected_receiver or not expected_receiver.startswith('0x'):
+        return jsonify({
+            "success": False,
+            "error": "PAYMENT_RECEIVER_UNCONFIGURED",
+            "message": "Authorized receiving wallet not configured by administrator."
+        }), 400
+
     expected_bnb = 0.0
     if purchase_id:
         pur_doc = db.collection('psemine_purchases').document(purchase_id).get()
         if pur_doc.exists:
             p_data = pur_doc.to_dict()
-            expected_receiver = p_data.get('receiverWallet', expected_receiver)
+            expected_receiver = (p_data.get('receiverWallet') or expected_receiver).lower()
             expected_bnb = float(p_data.get('quotedBNBAmount', 0.0))
 
-    # RPC Verification
-    rpc_res = verify_bsc_transaction_rpc(tx_hash, expected_receiver, expected_bnb)
+    required_confirmations = int(camp_data.get('requiredConfirmations', 2))
+
+    # Strict RPC Verification
+    rpc_res = verify_bsc_transaction_rpc(tx_hash, expected_receiver, expected_bnb, required_confirmations)
     if not rpc_res.get('verified'):
-        return jsonify({"success": False, "verified": False, "error": rpc_res.get('error', 'RPC_VERIFICATION_FAILED')}), 400
+        return jsonify({
+            "success": False,
+            "verified": False,
+            "error": rpc_res.get('error', 'RPC_VERIFICATION_FAILED'),
+            "message": rpc_res.get('message', 'On-chain verification failed.')
+        }), 400
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     return jsonify({
@@ -6183,6 +6257,7 @@ def verify_psemine_tool_purchase():
         "transactionHash": tx_hash,
         "confirmedAt": now_iso,
         "valueBNB": rpc_res.get('valueBNB', expected_bnb),
+        "confirmations": rpc_res.get('confirmations', 2),
         "message": "Transaction verified via BNB Smart Chain RPC node."
     })
 
@@ -6241,6 +6316,11 @@ def admin_campaign_action():
         camp_ref.update({"status": "active", "miningEnabled": True, "updatedAt": now_iso})
     elif action == 'settle':
         camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
+    elif action == 'update_receiver_wallet':
+        receiver_wallet = (data.get('receiverWalletAddress') or '').strip().lower()
+        if not receiver_wallet or not receiver_wallet.startswith('0x') or len(receiver_wallet) != 42:
+            return jsonify({"success": False, "error": "INVALID_RECEIVER_WALLET"}), 400
+        camp_ref.update({"receiverWalletAddress": receiver_wallet, "updatedAt": now_iso})
     elif action == 'shutdown':
         camp_ref.update({
             "status": "archived",

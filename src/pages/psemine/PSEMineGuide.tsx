@@ -53,22 +53,22 @@ export const PSEMineGuide: React.FC = () => {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-            <div className="p-3 bg-[#080C14] border border-slate-800 rounded-xl space-y-1">
+            <div className="p-3 bg-[#05070E] border border-slate-800 rounded-xl space-y-1">
               <div className="text-white font-bold">Tier 1: Starter Miner</div>
               <div className="text-blue-400 font-semibold">£3.00 • +£0.10/hour (Max: 5 Units)</div>
               <div className="text-slate-400 text-[11px]">Max Tier Output: £0.50/hr</div>
             </div>
-            <div className="p-3 bg-[#080C14] border border-slate-800 rounded-xl space-y-1">
+            <div className="p-3 bg-[#05070E] border border-slate-800 rounded-xl space-y-1">
               <div className="text-white font-bold">Tier 2: Builder Miner</div>
               <div className="text-blue-400 font-semibold">£10.00 • +£0.50/hour (Max: 3 Units)</div>
               <div className="text-slate-400 text-[11px]">Max Tier Output: £1.50/hr</div>
             </div>
-            <div className="p-3 bg-[#080C14] border border-slate-800 rounded-xl space-y-1">
+            <div className="p-3 bg-[#05070E] border border-slate-800 rounded-xl space-y-1">
               <div className="text-white font-bold">Tier 3: Advanced Miner</div>
               <div className="text-blue-400 font-semibold">£50.00 • +£1.20/hour (Max: 3 Units)</div>
               <div className="text-slate-400 text-[11px]">Max Tier Output: £3.60/hr</div>
             </div>
-            <div className="p-3 bg-[#080C14] border border-slate-800 rounded-xl space-y-1">
+            <div className="p-3 bg-[#05070E] border border-slate-800 rounded-xl space-y-1">
               <div className="text-white font-bold">Tier 4: Elite Miner</div>
               <div className="text-blue-400 font-semibold">£200.00 • +£2.50/hour (Max: 2 Units)</div>
               <div className="text-slate-400 text-[11px]">Max Tier Output: £5.00/hr</div>

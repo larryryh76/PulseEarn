@@ -11,7 +11,7 @@ const PSEMineLayoutContent: React.FC = () => {
 
   if (isCampaignArchived) {
     return (
-      <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      <div className="min-h-screen bg-[#05070E] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
         <PSEMineNavbar />
         
         <main className="flex-1 flex items-center justify-center p-6 pb-24 md:pb-12">
@@ -61,7 +61,7 @@ const PSEMineLayoutContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#05070E] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <PSEMineNavbar />
       <main className="flex-1">
         <Outlet />

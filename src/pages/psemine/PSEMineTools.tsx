@@ -108,7 +108,7 @@ export const PSEMineTools: React.FC = () => {
                 </div>
 
                 {/* Specs Box */}
-                <div className="p-3.5 bg-[#080C14] border border-slate-800/80 rounded-xl space-y-2 text-xs font-mono">
+                <div className="p-3.5 bg-[#05070E] border border-slate-800/80 rounded-xl space-y-2 text-xs font-mono">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400 font-sans">Price:</span>
                     <span className="font-bold text-white text-sm">£{tool.purchasePriceGBP.toFixed(2)}</span>

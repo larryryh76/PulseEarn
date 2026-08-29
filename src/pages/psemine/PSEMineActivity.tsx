@@ -65,7 +65,7 @@ export const PSEMineActivity: React.FC = () => {
               return (
                 <div
                   key={act.id}
-                  className="p-4 bg-[#080C14] border border-slate-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className="p-4 bg-[#05070E] border border-slate-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="flex items-start space-x-3">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${

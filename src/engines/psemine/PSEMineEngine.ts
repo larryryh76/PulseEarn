@@ -3,6 +3,8 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
+  runTransaction,
+  increment,
   collection, 
   query, 
   where, 
@@ -128,7 +130,7 @@ export class PSEMineEngine {
       paymentNetwork: 'BNB Smart Chain',
       paymentChainId: PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID,
       paymentAsset: 'BNB',
-      receiverWalletAddress: PSEMINE_CONSTANTS.DEFAULT_RECEIVER_WALLET,
+      receiverWalletAddress: '',
       walletChangeDeadline: new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       purchaseEnabled: true,
       miningEnabled: true,
@@ -240,6 +242,11 @@ export class PSEMineEngine {
     toolId: PSEToolTierId,
     exchangeRateOverride?: number
   ): Promise<PSEMineQuote> {
+    const activeCampaign = await this.getOrCreateActiveCampaign();
+    if (activeCampaign.status === 'archived' || activeCampaign.status === 'closed' || activeCampaign.purchaseEnabled === false || activeCampaign.shutdownState?.isArchived) {
+      throw new Error('Tool purchases are disabled because the campaign has concluded.');
+    }
+
     const tool = LOCKED_PSEMINE_TOOLS[toolId];
     if (!tool) {
       throw new Error(`Invalid tool tier: ${toolId}`);
@@ -265,11 +272,15 @@ export class PSEMineEngine {
     // Format to 6 decimal places with precision
     const bnbAmount = parseFloat(rawBnbAmount.toFixed(6));
 
-    const campaign = await this.getOrCreateActiveCampaign();
+    const campaign = activeCampaign;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + PSEMINE_CONSTANTS.QUOTE_EXPIRATION_MINUTES * 60 * 1000);
 
     const quoteId = `quote_${toolId}_${userId.slice(0, 6)}_${Date.now()}`;
+
+    if (!campaign.receiverWalletAddress || !campaign.receiverWalletAddress.startsWith('0x')) {
+      throw new Error('Authorized receiving wallet is not configured for this campaign. Please contact support or an administrator.');
+    }
 
     const quote: PSEMineQuote = {
       quoteId,
@@ -279,7 +290,7 @@ export class PSEMineEngine {
       gbpPrice: tool.purchasePriceGBP,
       bnbAmount,
       exchangeRateBNBGBP: exchangeRate,
-      receiverWallet: campaign.receiverWalletAddress || PSEMINE_CONSTANTS.DEFAULT_RECEIVER_WALLET,
+      receiverWallet: campaign.receiverWalletAddress,
       network: PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME,
       chainId: PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID,
       createdAt: now.toISOString(),
@@ -336,130 +347,143 @@ export class PSEMineEngine {
     txHash: string,
     senderWallet?: string
   ): Promise<{ success: boolean; error?: string; user?: PSEMineUser }> {
-    const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
-    const purchaseSnap = await getDoc(purchaseRef);
-
-    if (!purchaseSnap.exists()) {
-      return { success: false, error: 'Purchase intent not found' };
-    }
-
-    const purchase = purchaseSnap.data() as PSEMinePurchase;
-    if (purchase.status === 'activated') {
-      return { success: false, error: 'Purchase already activated' };
-    }
-
-    // Check tx hash duplicate
-    const dupeQuery = query(
-      collection(db, 'psemine_purchases'),
-      where('transactionHash', '==', txHash),
-      where('status', '==', 'activated')
-    );
-    const dupeSnap = await getDocs(dupeQuery);
-    if (!dupeSnap.empty) {
-      return { success: false, error: 'Transaction hash has already been used' };
-    }
-
-    const tool = LOCKED_PSEMINE_TOOLS[purchase.toolId];
-    const userRef = doc(db, 'psemine_users', purchase.userId);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      return { success: false, error: 'Miner profile not found' };
-    }
-
-    const user = userSnap.data() as PSEMineUser;
-    const currentOwnershipCount = user.toolOwnershipCounts[purchase.toolId] || 0;
-
-    if (currentOwnershipCount >= tool.maxPerUser) {
-      return { 
-        success: false, 
-        error: `Maximum ownership reached for ${tool.name} (Max: ${tool.maxPerUser})` 
-      };
-    }
-
-    // 1. Settle existing accrued balance at the OLD capacity before modifying
     const campaign = await this.getOrCreateActiveCampaign();
-    const currentAccrued = this.calculateLiveAccrued(user, campaign);
-    const nowIso = new Date().toISOString();
+    if (campaign.status === 'archived' || campaign.status === 'closed' || campaign.status === 'settling' || campaign.shutdownState?.isArchived) {
+      return { success: false, error: 'Campaign is not currently active.' };
+    }
 
-    // 2. Increment tool ownership count
-    const updatedOwnershipCounts = {
-      ...user.toolOwnershipCounts,
-      [purchase.toolId]: currentOwnershipCount + 1
-    };
+    const normalizedTxHash = txHash.toLowerCase().trim();
+    const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
+    const claimRef = doc(db, 'psemine_tx_claims', normalizedTxHash);
 
-    // 3. Recalculate new total capacities
-    const newCapacities = this.computeCapacities(
-      updatedOwnershipCounts,
-      user.qualifiedReferralsCount
-    );
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const purchaseSnap = await transaction.get(purchaseRef);
+        if (!purchaseSnap.exists()) {
+          throw new Error('Purchase intent not found');
+        }
 
-    // 4. Create tool ownership record
-    const ownershipId = `own_${purchase.toolId}_${purchase.userId.slice(0, 5)}_${Date.now()}`;
-    const ownershipRecord: PSEMineToolOwnership = {
-      id: ownershipId,
-      userId: purchase.userId,
-      toolId: purchase.toolId,
-      toolName: tool.name,
-      toolVersion: tool.version,
-      purchaseId: purchase.id,
-      hourlyRateGBP: tool.hourlyRateGBP,
-      purchasePriceGBP: tool.purchasePriceGBP,
-      activatedAt: nowIso,
-      status: 'active'
-    };
+        const purchase = purchaseSnap.data() as PSEMinePurchase;
+        if (purchase.status === 'activated') {
+          throw new Error('Purchase already activated');
+        }
 
-    await setDoc(doc(db, 'psemine_tool_ownership', ownershipId), ownershipRecord);
+        const claimSnap = await transaction.get(claimRef);
+        if (claimSnap.exists()) {
+          const claimData = claimSnap.data();
+          if (claimData.status === 'activated') {
+            throw new Error('Transaction hash has already been consumed and activated.');
+          }
+        }
 
-    // 5. Update purchase status
-    const updatedPurchase: Partial<PSEMinePurchase> = {
-      status: 'activated',
-      transactionHash: txHash,
-      paymentWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
-      confirmedAt: nowIso,
-      activatedAt: nowIso,
-      confirmations: 2
-    };
-    await updateDoc(purchaseRef, updatedPurchase);
+        const userRef = doc(db, 'psemine_users', purchase.userId);
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) {
+          throw new Error('Miner profile not found');
+        }
 
-    // 6. Update user mining state atomically
-    const updatedUserData: Partial<PSEMineUser> = {
-      status: 'active',
-      toolCapacityGBPPerHour: newCapacities.toolCapacityGBPPerHour,
-      referralCapacityGBPPerHour: newCapacities.referralCapacityGBPPerHour,
-      totalCapacityGBPPerHour: newCapacities.totalCapacityGBPPerHour,
-      totalAccruedGBP: currentAccrued,
-      lastAccruedAt: nowIso,
-      miningStartedAt: user.miningStartedAt || nowIso,
-      toolOwnershipCounts: updatedOwnershipCounts,
-      updatedAt: nowIso
-    };
+        const user = userSnap.data() as PSEMineUser;
+        const tool = LOCKED_PSEMINE_TOOLS[purchase.toolId];
+        const currentOwnershipCount = user.toolOwnershipCounts[purchase.toolId] || 0;
 
-    await updateDoc(userRef, updatedUserData);
+        if (currentOwnershipCount >= tool.maxPerUser) {
+          throw new Error(`Maximum ownership reached for ${tool.name} (Max: ${tool.maxPerUser})`);
+        }
 
-    // 7. Update Campaign aggregate stats
-    const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
-    await updateDoc(campaignRef, {
-      totalCapacitiesRegisteredGBPPerHour: (campaign.totalCapacitiesRegisteredGBPPerHour || 0) + tool.hourlyRateGBP,
-      totalBNBCollected: Number(((campaign.totalBNBCollected || 0) + purchase.quotedBNBAmount).toFixed(4)),
-      totalMinersCount: user.status === 'inactive' ? (campaign.totalMinersCount || 0) + 1 : campaign.totalMinersCount || 1,
-      updatedAt: nowIso
-    });
+        const nowIso = new Date().toISOString();
+        const currentAccrued = this.calculateLiveAccrued(user, campaign);
 
-    // 8. Log activity
-    await this.logActivity(purchase.userId, {
-      type: 'tool_purchased',
-      title: `${tool.name} Activated`,
-      description: `Deployed 1 unit of ${tool.name}. +£${tool.hourlyRateGBP.toFixed(2)}/hour capacity added.`,
-      capacityDeltaGBPPerHour: tool.hourlyRateGBP,
-      referenceId: purchase.id
-    });
+        const updatedOwnershipCounts = {
+          ...user.toolOwnershipCounts,
+          [purchase.toolId]: currentOwnershipCount + 1
+        };
 
-    // 9. Check if this user was referred by someone and trigger referral qualification check
-    await this.checkRefereeQualification(purchase.userId);
+        const newCapacities = this.computeCapacities(
+          updatedOwnershipCounts,
+          user.qualifiedReferralsCount
+        );
 
-    const updatedUser = { ...user, ...updatedUserData } as PSEMineUser;
-    return { success: true, user: updatedUser };
+        const ownershipId = `own_${purchase.toolId}_${purchase.userId.slice(0, 5)}_${Date.now()}`;
+        const ownershipRecord: PSEMineToolOwnership = {
+          id: ownershipId,
+          userId: purchase.userId,
+          toolId: purchase.toolId,
+          toolName: tool.name,
+          toolVersion: tool.version,
+          purchaseId: purchase.id,
+          hourlyRateGBP: tool.hourlyRateGBP,
+          purchasePriceGBP: tool.purchasePriceGBP,
+          activatedAt: nowIso,
+          status: 'active'
+        };
+
+        // Write claim
+        transaction.set(claimRef, {
+          txHash: normalizedTxHash,
+          userId: purchase.userId,
+          purchaseId: purchase.id,
+          status: 'activated',
+          createdAt: nowIso,
+          updatedAt: nowIso
+        });
+
+        // Write ownership
+        transaction.set(doc(db, 'psemine_tool_ownership', ownershipId), ownershipRecord);
+
+        // Update purchase
+        transaction.update(purchaseRef, {
+          status: 'activated',
+          transactionHash: normalizedTxHash,
+          paymentWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
+          confirmedAt: nowIso,
+          activatedAt: nowIso,
+          confirmations: 2
+        });
+
+        // Update user state
+        const updatedUserData: Partial<PSEMineUser> = {
+          status: 'active',
+          toolCapacityGBPPerHour: newCapacities.toolCapacityGBPPerHour,
+          referralCapacityGBPPerHour: newCapacities.referralCapacityGBPPerHour,
+          totalCapacityGBPPerHour: newCapacities.totalCapacityGBPPerHour,
+          totalAccruedGBP: currentAccrued,
+          lastAccruedAt: nowIso,
+          miningStartedAt: user.miningStartedAt || nowIso,
+          toolOwnershipCounts: updatedOwnershipCounts,
+          updatedAt: nowIso
+        };
+        transaction.update(userRef, updatedUserData);
+
+        // Update Campaign aggregate stats
+        const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
+        transaction.update(campaignRef, {
+          totalCapacitiesRegisteredGBPPerHour: increment(tool.hourlyRateGBP),
+          totalBNBCollected: increment(purchase.quotedBNBAmount),
+          totalMinersCount: user.status === 'inactive' ? increment(1) : increment(0),
+          updatedAt: nowIso
+        });
+
+        const updatedUser = { ...user, ...updatedUserData } as PSEMineUser;
+        return { success: true, user: updatedUser, toolName: tool.name, hourlyRateGBP: tool.hourlyRateGBP, purchaseId: purchase.id, userId: purchase.userId };
+      });
+
+      if (result.success) {
+        // Log activity after transaction commits
+        await this.logActivity(result.userId, {
+          type: 'tool_purchased',
+          title: `${result.toolName} Activated`,
+          description: `Deployed 1 unit of ${result.toolName}. +£${result.hourlyRateGBP.toFixed(2)}/hour capacity added.`,
+          capacityDeltaGBPPerHour: result.hourlyRateGBP,
+          referenceId: result.purchaseId
+        });
+
+        await this.checkRefereeQualification(result.userId);
+      }
+
+      return { success: true, user: result.user };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Transaction error during tool activation' };
+    }
   }
 
   /**

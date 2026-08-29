@@ -4,7 +4,7 @@ import { Pickaxe, HelpCircle, CheckCircle2 } from 'lucide-react';
 
 export const PSEMineFooter: React.FC = () => {
   return (
-    <footer className="bg-[#050811] border-t border-slate-800 text-slate-400 text-xs mt-auto">
+    <footer className="bg-[#05070E] border-t border-slate-800 text-slate-400 text-xs mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           

@@ -173,7 +173,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
       <div className="relative w-full max-w-lg bg-[#0D131F] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-8">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#080C14]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#05070E]">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <Cpu className="w-5 h-5" />
@@ -249,7 +249,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 bg-[#080C14] border border-slate-800 rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-[#05070E] border border-slate-800 rounded-xl">
                   <div>
                     <div className="text-xl font-bold text-blue-400 font-mono">
                       {activeQuote.bnbAmount} BNB
@@ -273,7 +273,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                     <span>Treasury Address (BNB Smart Chain)</span>
                     <span className="text-blue-400 font-mono text-[10px]">BEP-20</span>
                   </div>
-                  <div className="flex items-center justify-between p-2.5 bg-[#080C14] border border-slate-800 rounded-xl">
+                  <div className="flex items-center justify-between p-2.5 bg-[#05070E] border border-slate-800 rounded-xl">
                     <span className="font-mono text-xs text-slate-300 truncate mr-2">
                       {activeQuote.receiverWallet}
                     </span>
@@ -324,7 +324,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                       placeholder="0x..."
                       value={txHashInput}
                       onChange={(e) => setTxHashInput(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
+                      className="flex-1 px-3 py-2 bg-[#05070E] border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
                     />
                     <button
                       type="submit"

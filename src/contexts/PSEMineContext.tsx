@@ -301,21 +301,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
         return null;
       } else {
-        // Fallback for simulation / mobile deep link
-        const mockAddress = `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`.toLowerCase();
-        setConnectedWallet(mockAddress);
-        localStorage.setItem('psemine_connected_wallet', mockAddress);
-
-        if (currentUser) {
-          const userRef = doc(db, 'psemine_users', currentUser.uid);
-          await updateDoc(userRef, {
-            connectedWallet: mockAddress,
-            payoutWallet: pseUser?.payoutWallet || mockAddress,
-            updatedAt: new Date().toISOString()
-          });
-        }
-        toast.success(`Wallet Linked: ${mockAddress.slice(0, 6)}...${mockAddress.slice(-4)}`);
-        return mockAddress;
+        toast.error('No Web3 wallet extension detected. Please install MetaMask, Trust Wallet, or another compatible BSC browser extension.');
+        return null;
       }
     } catch (e: any) {
       console.error('[PSEMineContext] Wallet connect error:', e);

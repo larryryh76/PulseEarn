@@ -53,7 +53,7 @@ export const PSEMineBottomNav: React.FC = () => {
   return (
     <nav 
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#080C14]/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-2 safe-area-bottom shadow-2xl shadow-black/80"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#05070E]/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-2 safe-area-bottom shadow-2xl shadow-black/80"
     >
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {navItems.map((item) => {

@@ -11,7 +11,7 @@ const PSEMineLayoutContent: React.FC = () => {
 
   if (isCampaignArchived) {
     return (
-      <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      <div className="min-h-screen bg-[#05070E] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
         <PSEMineNavbar />
         
         <main className="flex-1 flex items-center justify-center p-6 pb-24 md:pb-12">
@@ -25,39 +25,43 @@ const PSEMineLayoutContent: React.FC = () => {
                 PSEmine Campaign Concluded
               </h1>
               <p className="text-sm text-slate-400 leading-relaxed">
-                The 90-day PSEmine campaign has reached its official settlement period. All active capacity nodes and hourly accruals are sealed for final distribution.
+                The 90-day PSEmine campaign has reached its official settlement period. Public mining operations are now closed. All financial records, purchase transactions, and audit ledgers remain permanently preserved for compliance.
               </p>
             </div>
 
-            <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl text-left text-xs text-slate-300 space-y-2">
+            <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl text-left text-xs text-slate-300 space-y-2 font-mono">
               <div className="flex justify-between">
-                <span className="text-slate-500">Status:</span>
-                <span className="font-semibold text-white">{campaign?.shutdownState?.reason || 'Campaign Duration Expired'}</span>
+                <span className="text-slate-500">Reason:</span>
+                <span className="font-semibold text-white">{campaign?.shutdownState?.reason || 'Campaign Duration Expired & Settled'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Settlement Date:</span>
+                <span className="text-slate-500">Archived Date:</span>
                 <span className="font-mono text-blue-400">{campaign?.shutdownState?.archivedAt ? new Date(campaign.shutdownState.archivedAt).toLocaleDateString() : 'Settled'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Audit Status:</span>
-                <span className="text-emerald-400 font-semibold">Ledger Preserved for Disbursement</span>
+                <span className="text-emerald-400 font-semibold">Financial Ledger Preserved</span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Verified accrued balances are disbursed in crypto to miners' configured BNB Smart Chain settlement wallets.
-            </p>
+            <div>
+              <a
+                href="/dashboard"
+                className="inline-flex px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-xs rounded-xl shadow-lg transition-colors"
+              >
+                Return to PulseEarn Main Platform
+              </a>
+            </div>
           </div>
         </main>
 
-        <PSEMineBottomNav />
         <PSEMineFooter />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#05070E] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <PSEMineNavbar />
       <main className="flex-1">
         <Outlet />

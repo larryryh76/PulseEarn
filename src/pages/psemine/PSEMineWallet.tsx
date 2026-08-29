@@ -341,7 +341,7 @@ export const PSEMineWallet: React.FC = () => {
                   placeholder="0x1234567890abcdef1234567890abcdef12345678"
                   value={payoutInput}
                   onChange={(e) => setPayoutInput(e.target.value)}
-                  className="flex-1 px-4 py-2.5 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
+                  className="flex-1 px-4 py-2.5 bg-[#05070E] border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
                 />
                 
                 {connectedWallet && (

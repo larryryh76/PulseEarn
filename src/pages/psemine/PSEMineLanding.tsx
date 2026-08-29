@@ -1,349 +1,67 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Pickaxe, 
-  Cpu, 
-  ArrowRight, 
-  Wallet, 
-  Coins, 
-  CheckCircle2, 
-  HelpCircle, 
-  Sparkles,
-  ChevronRight,
-  TrendingUp
-} from 'lucide-react';
-import { usePSEMine } from '../../contexts/PSEMineContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
+import React from 'react'
+import { ArrowDownRight, ArrowRight, Check, ChevronDown, CircleDot, ShieldCheck, Sparkles } from 'lucide-react'
+import { PSEMineLandingLayout } from '../../components/psemine/PSEMineWordmark'
+import './psemine.css'
 
-export const PSEMineLanding: React.FC = () => {
-  const { campaignDaysRemaining } = usePSEMine();
-  const { currentUser } = useAuth();
+const steps = [
+  ['01', 'Join the campaign', 'Create your PulseEarn account and reserve your place in the experience.'],
+  ['02', 'Choose your capacity', 'Select the level of participation that fits your plans.'],
+  ['03', 'Let it run', 'Your chosen equipment participates throughout the campaign window.'],
+  ['04', 'Settle clearly', 'Follow your progress and receive the campaign outcome in pounds.'],
+]
 
-  const toolList = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
+const faqs = [
+  ['What is PSEmine?', 'PSEmine is a limited campaign experience inside PulseEarn, designed around real mining equipment and clear campaign participation.'],
+  ['Do I need to be a mining expert?', 'No. PSEmine is designed to make participation simple, with the important information presented in plain language.'],
+  ['When does the campaign begin?', 'The campaign schedule will be shared with participants before access opens.'],
+  ['How are earnings shown?', 'The experience is designed around British pounds, so your progress is easy to understand.'],
+]
 
-  const faqs = [
-    {
-      q: 'What is PSEmine and how does it relate to PulseEarn?',
-      a: 'PSEmine is a specialized 90-day Genesis computational node within the PulseEarn ecosystem. Rather than completing sporadic micro-tasks, participants deploy continuous cloud mining capacity tools to accrue real-time balances in British Pounds (GBP £).'
-    },
-    {
-      q: 'Do I need physical mining hardware or electricity?',
-      a: 'No physical hardware or GPU rigs are required. Mining capacity is hosted on dedicated server nodes and activates immediately once verified on BNB Smart Chain.'
-    },
-    {
-      q: 'How are tool purchases paid and verified?',
-      a: 'Tools are priced in fixed GBP (£3, £10, £50, £200) and settled in BNB on BNB Smart Chain (BEP-20). Each checkout locks a 10-minute real-time exchange quote. Purchases activate upon 2 blockchain confirmations.'
-    },
-    {
-      q: 'What is the maximum achievable mining capacity?',
-      a: 'Deploying the maximum permitted units across all 4 tiers (5 Starter, 3 Builder, 3 Advanced, 2 Elite) yields £10.60/hour. Adding 5 qualified referrals (+£0.30/hour each) reaches the hard mathematical ceiling of £12.10/hour.'
-    },
-    {
-      q: 'How does the 90-Day Campaign Settlement work?',
-      a: 'Your mining earnings accumulate 24/7 strictly in GBP (£) with zero mid-campaign volatility. At Day 90, finalized balances are disbursed in crypto (BNB / USDT) to your configured BSC payout address.'
-    }
-  ];
-
-  return (
-    <div className="space-y-20 pb-24 md:pb-16">
-      
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-12 lg:pt-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center space-y-6 max-w-3xl mx-auto relative z-10">
-          
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-950/80 border border-blue-800/40 text-blue-400 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>90-DAY GENESIS MINING CAMPAIGN • BNB SMART CHAIN</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Deploy Continuous Mining Capacity in{' '}
-            <span className="text-blue-400">
-              GBP (£)
-            </span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl mx-auto">
-            Acquire cloud mining hardware units, earn up to <strong className="text-white font-mono">£12.10/hour</strong> in continuous balance accrual, and receive settlement at the end of the 90-day Genesis campaign.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <Link
-              to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 flex items-center justify-center space-x-2 transition-all group"
-            >
-              <span>{currentUser ? "Launch Mining Dashboard" : "Start Mining"}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-
-            <Link
-              to="/mine/tools"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-xs bg-[#0D131F] hover:bg-slate-800 border border-slate-800 text-slate-200 flex items-center justify-center space-x-2 transition-all"
-            >
-              <Cpu className="w-4 h-4 text-blue-400" />
-              <span>Explore Hardware</span>
-            </Link>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 text-left">
-            <div className="p-4 bg-[#0D131F] border border-slate-800/80 rounded-2xl">
-              <div className="text-[11px] text-slate-400 font-medium">Accounting Currency</div>
-              <div className="text-lg font-bold text-white font-mono mt-0.5">GBP (£)</div>
-            </div>
-            <div className="p-4 bg-[#0D131F] border border-slate-800/80 rounded-2xl">
-              <div className="text-[11px] text-slate-400 font-medium">Max Hardware Output</div>
-              <div className="text-lg font-bold text-blue-400 font-mono mt-0.5">£10.60/hr</div>
-            </div>
-            <div className="p-4 bg-[#0D131F] border border-slate-800/80 rounded-2xl">
-              <div className="text-[11px] text-slate-400 font-medium">Referral Accelerator</div>
-              <div className="text-lg font-bold text-emerald-400 font-mono mt-0.5">+£1.50/hr</div>
-            </div>
-            <div className="p-4 bg-[#0D131F] border border-slate-800/80 rounded-2xl">
-              <div className="text-[11px] text-slate-400 font-medium">Campaign Window</div>
-              <div className="text-lg font-bold text-white font-mono mt-0.5">{campaignDaysRemaining} Days Left</div>
-            </div>
-          </div>
-
+export const PSEMineLanding: React.FC = () => (
+  <PSEMineLandingLayout>
+    <main>
+      <section className="psemine-hero psemine-shell">
+        <div className="psemine-hero-copy">
+          <p className="psemine-eyebrow"><CircleDot size={13} /> A new PulseEarn experience</p>
+          <h1>Mining, made <em>worth watching.</em></h1>
+          <p className="psemine-lede">A considered way to participate in a time-bound mining campaign, with a clear view of what your equipment is doing and what it means for you.</p>
+          <div className="psemine-hero-actions"><a className="psemine-button" href="/signup">Get started <ArrowRight size={17} /></a><a className="psemine-text-link" href="#experience">Explore PSEmine <ArrowDownRight size={16} /></a></div>
+          <p className="psemine-note">Built inside PulseEarn. Designed for clarity.</p>
+        </div>
+        <div className="psemine-hero-visual" aria-label="A premium mining equipment preview">
+          <img src="/psemine-miner.png" alt="Graphite industrial mining computer in a studio setting" />
+          <div className="psemine-visual-caption"><span>Equipment preview</span><strong>Precision hardware<br />for a focused campaign</strong></div>
+          <div className="psemine-visual-line" />
         </div>
       </section>
 
-      {/* 2. HOW IT WORKS */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="text-center space-y-2 mb-10">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-            Operational Protocol
-          </h2>
-          <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            How PSEmine Mining Operates
-          </p>
-        </div>
+      <section className="psemine-proof psemine-shell" id="experience">
+        <div><p className="psemine-eyebrow">A more thoughtful interface</p><h2>Everything you need.<br /><span>Nothing you don&apos;t.</span></h2></div>
+        <div className="psemine-proof-copy"><p>PSEmine brings the physical world of mining together with the calm, familiar experience of a modern financial product.</p><a className="psemine-text-link" href="#how-it-works">See how it works <ArrowRight size={16} /></a></div>
+      </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              step: '01',
-              title: 'Connect Wallet',
-              desc: 'Link your BNB Smart Chain Web3 wallet to authorize hardware acquisitions.',
-              icon: Wallet
-            },
-            {
-              step: '02',
-              title: 'Deploy Hardware',
-              desc: 'Select from 4 hardware tiers priced in fixed GBP and settled via BNB.',
-              icon: Cpu
-            },
-            {
-              step: '03',
-              title: 'Continuous Accrual',
-              desc: 'Your node generates GBP earnings 24/7 with deterministic hourly rates.',
-              icon: TrendingUp
-            },
-            {
-              step: '04',
-              title: '90-Day Settlement',
-              desc: 'Finalized campaign earnings are disbursed in crypto to your BSC payout wallet.',
-              icon: Coins
-            }
-          ].map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <div 
-                key={idx} 
-                className="p-5 bg-[#0D131F] border border-slate-800/80 rounded-2xl space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xl font-mono font-bold text-slate-600">{item.step}</span>
-                  <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">{item.desc}</p>
-                </div>
-              </div>
-            );
-          })}
+      <section className="psemine-preview-section psemine-shell">
+        <div className="psemine-preview-intro"><p className="psemine-eyebrow">The participant view</p><h2>A clear picture of your campaign.</h2><p>Progress, equipment and earnings are brought together in one focused view — shown in pounds, not abstract balances.</p></div>
+        <div className="psemine-dashboard-preview" aria-label="Illustrative PSEmine product preview">
+          <div className="psemine-preview-top"><span className="psemine-mini-brand">PSEmine</span><span className="psemine-preview-status"><i /> Preview experience</span></div>
+          <div className="psemine-preview-main"><div><span className="psemine-data-label">Campaign earnings</span><strong>£ —</strong><small>Shown here when your campaign begins</small></div><div className="psemine-ring"><span>Active<br /><b>view</b></span></div></div>
+          <div className="psemine-preview-bottom"><div><span className="psemine-data-label">Equipment</span><b>Selected capacity</b></div><div><span className="psemine-data-label">Campaign</span><b>Participation window</b></div><div><span className="psemine-data-label">Next view</span><b>Updated regularly</b></div></div>
         </div>
       </section>
 
-      {/* 3. HARDWARE MARKETPLACE PREVIEW */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3">
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-              Hardware Tiers
-            </h2>
-            <p className="text-2xl font-bold text-white tracking-tight">
-              4 Locked Mining Hardware Tiers
-            </p>
-          </div>
-          <Link
-            to="/mine/tools"
-            className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center space-x-1"
-          >
-            <span>View Full Marketplace</span>
-            <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
+      <section className="psemine-steps-section" id="how-it-works"><div className="psemine-shell"><div className="psemine-section-heading"><p className="psemine-eyebrow">How it works</p><h2>A simple path from interest<br />to participation.</h2></div><div className="psemine-steps">{steps.map(([number, title, body]) => <article className="psemine-step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div></div></section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {toolList.map((tool) => (
-            <div 
-              key={tool.id}
-              className="p-5 bg-[#0D131F] border border-slate-800/80 rounded-2xl flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    Tier {tool.tier}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">
-                    Max: {tool.maxPerUser} Units
-                  </span>
-                </div>
+      <section className="psemine-equipment psemine-shell"><div className="psemine-equipment-image"><img src="/psemine-miner.png" alt="Close detail of premium graphite mining hardware" /></div><div className="psemine-equipment-copy"><p className="psemine-eyebrow">The mining experience</p><h2>Real equipment.<br /><em>Refined participation.</em></h2><p>From the first level, Basic, through to Elite, PSEmine is built around a progression of physical technology — presented without the noise.</p><div className="psemine-equipment-list"><span><Check size={15} /> Purpose-built equipment</span><span><Check size={15} /> A focused campaign window</span><span><Check size={15} /> Clear pound-based progress</span></div></div></section>
 
-                <div>
-                  <h3 className="text-base font-bold text-white">{tool.name}</h3>
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{tool.description}</p>
-                </div>
+      <section className="psemine-campaign psemine-shell"><div><p className="psemine-eyebrow">Campaign experience</p><h2>Designed as a journey,<br />not a countdown.</h2></div><div className="psemine-timeline"><div className="psemine-timeline-labels"><span>Participation opens</span><span>Campaign window</span><span>Settlement</span></div><div className="psemine-timeline-line"><i /><i /><i /></div><p>The exact campaign schedule will be communicated clearly before participation begins.</p></div></section>
 
-                <div className="p-3 bg-[#080C14] border border-slate-800/80 rounded-xl space-y-1 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Price:</span>
-                    <span className="font-bold text-white">£{tool.purchasePriceGBP.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Hourly Rate:</span>
-                    <span className="font-bold text-emerald-400">+£{tool.hourlyRateGBP.toFixed(2)}/hr</span>
-                  </div>
-                </div>
-              </div>
+      <section className="psemine-trust"><div className="psemine-shell psemine-trust-inner"><div><ShieldCheck size={24} /><p className="psemine-eyebrow">Built for clarity</p><h2>A premium experience<br />should feel understandable.</h2></div><div className="psemine-trust-points"><p><strong>See the essentials.</strong> Your campaign view keeps participation, equipment and progress close at hand.</p><p><strong>Stay in control.</strong> Wallet-based interaction is presented with the same care as the rest of PulseEarn.</p><p><strong>Share, if you want to.</strong> Referrals are an optional way to grow your participation — never the main event.</p></div></div></section>
 
-              <Link
-                to="/mine/tools"
-                className="mt-4 w-full py-2 bg-slate-900 hover:bg-blue-600 text-blue-400 hover:text-white rounded-xl text-xs font-bold text-center border border-slate-800 hover:border-blue-500 transition-colors"
-              >
-                Deploy Miner
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
+      <section className="psemine-faq psemine-shell" id="faq"><div className="psemine-section-heading"><p className="psemine-eyebrow">Questions, answered</p><h2>Good products leave<br />less to guess.</h2></div><div className="psemine-faq-list">{faqs.map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={18} /></summary><p>{answer}</p></details>)}</div></section>
 
-      {/* 4. CAPACITY ARCHITECTURE */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="p-6 sm:p-8 bg-[#0D131F] border border-slate-800/80 rounded-2xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            
-            <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-blue-400">
-                Mathematical Economics
-              </span>
-              <h2 className="text-2xl font-bold text-white tracking-tight">
-                Capacity Stacking Architecture
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                PSEmine replaces token speculation with deterministic capacity limits. Every hardware unit adds an immutable hourly rate that stacks additively.
-              </p>
+      <section className="psemine-final-cta psemine-shell"><Sparkles size={20} /><h2>Make your next move<br /><em>more considered.</em></h2><p>PSEmine is coming to PulseEarn. Join the experience from the beginning.</p><a className="psemine-button" href="/signup">Get started <ArrowRight size={17} /></a></section>
+    </main>
+  </PSEMineLandingLayout>
+)
 
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span>5x Starter (£0.50/hr) + 3x Builder (£1.50/hr) + 3x Advanced (£3.60/hr) + 2x Elite (£5.00/hr)</span>
-                </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span>Maximum Hardware Capacity Limit: <strong>£10.60/hour</strong></span>
-                </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-300">
-                  <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span>Peak Rate with 5 Referrals: <strong>£12.10/hour</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Capacity Stacking Table */}
-            <div className="p-5 bg-[#080C14] border border-slate-800 rounded-xl space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-2">
-                <span>COMPONENT</span>
-                <span>MAX CONTRIBUTION</span>
-              </div>
-              <div className="flex justify-between text-white">
-                <span className="text-slate-300 font-sans">Hardware Tools Base</span>
-                <span className="text-blue-400 font-bold">£10.60 / hr</span>
-              </div>
-              <div className="flex justify-between text-white">
-                <span className="text-slate-300 font-sans">Qualified Referrals (5x)</span>
-                <span className="text-emerald-400 font-bold">+£1.50 / hr</span>
-              </div>
-              <div className="pt-2 border-t border-slate-800 flex justify-between text-sm">
-                <span className="font-bold text-white font-sans">Combined Peak Rate</span>
-                <span className="font-bold text-white">£12.10 / hr</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* 5. FAQ */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-        <div className="text-center space-y-2 mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-            Frequently Asked Questions
-          </h2>
-          <p className="text-2xl font-bold text-white tracking-tight">
-            Key Campaign Details
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="p-5 bg-[#0D131F] border border-slate-800/80 rounded-2xl space-y-2">
-              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                <HelpCircle className="w-4 h-4 text-blue-400 shrink-0" />
-                <span>{faq.q}</span>
-              </h3>
-              <p className="text-xs text-slate-300 pl-6 leading-relaxed">
-                {faq.a}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 6. CALL TO ACTION */}
-      <section className="px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center">
-        <div className="p-8 sm:p-10 bg-[#0D131F] border border-slate-800 rounded-2xl space-y-4 shadow-xl">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mx-auto text-blue-400">
-            <Pickaxe className="w-6 h-6" />
-          </div>
-
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              Ready to Deploy Mining Hardware?
-            </h2>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Join the 90-day Genesis campaign. Link your BSC wallet and begin continuous hourly capacity accrual.
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-              className="inline-flex px-8 py-3 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 items-center space-x-2 transition-all"
-            >
-              <span>{currentUser ? "Open Mining Dashboard" : "Create Account & Start Mining"}</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-    </div>
-  );
-};
+export default PSEMineLanding

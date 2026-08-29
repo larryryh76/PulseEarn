@@ -44,16 +44,7 @@ import ReferralPolicy from './pages/legal/ReferralPolicy'
 import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
-import { PSEMineLayout } from './components/psemine/PSEMineLayout'
 import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
-import { PSEMineDashboard } from './pages/psemine/PSEMineDashboard'
-import { PSEMineTools } from './pages/psemine/PSEMineTools'
-import { PSEMineWallet } from './pages/psemine/PSEMineWallet'
-import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
-import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
-import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
-import { PSEMineMe } from './pages/psemine/PSEMineMe'
-import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -190,22 +181,10 @@ function App() {
         <Route path="/support-policy" element={<SupportPolicy />} />
         <Route path="/help" element={<HelpCenter />} />
 
-        {/* PSEMINE 90-DAY CAMPAIGN ECOSYSTEM */}
-        <Route path="/mine" element={<PSEMineLayout />}>
-          <Route index element={<PSEMineLanding />} />
-          <Route path="dashboard" element={<ProtectedRoute><PSEMineDashboard /></ProtectedRoute>} />
-          <Route path="tools" element={<PSEMineTools />} />
-          <Route path="wallet" element={<ProtectedRoute><PSEMineWallet /></ProtectedRoute>} />
-          <Route path="referrals" element={<ProtectedRoute><PSEMineReferrals /></ProtectedRoute>} />
-          <Route path="activity" element={<ProtectedRoute><PSEMineActivity /></ProtectedRoute>} />
-          <Route path="guide" element={<PSEMineGuide />} />
-          <Route path="me" element={<ProtectedRoute><PSEMineMe /></ProtectedRoute>} />
-        </Route>
+        <Route path="/mine" element={<PSEMineLanding />} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/mine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
         <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />

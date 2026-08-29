@@ -4,6 +4,7 @@ import {
   setDoc, 
   updateDoc, 
   runTransaction,
+  increment,
   collection, 
   query, 
   where, 
@@ -456,9 +457,9 @@ export class PSEMineEngine {
         // Update Campaign aggregate stats
         const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
         transaction.update(campaignRef, {
-          totalCapacitiesRegisteredGBPPerHour: (campaign.totalCapacitiesRegisteredGBPPerHour || 0) + tool.hourlyRateGBP,
-          totalBNBCollected: Number(((campaign.totalBNBCollected || 0) + purchase.quotedBNBAmount).toFixed(4)),
-          totalMinersCount: user.status === 'inactive' ? (campaign.totalMinersCount || 0) + 1 : campaign.totalMinersCount || 1,
+          totalCapacitiesRegisteredGBPPerHour: increment(tool.hourlyRateGBP),
+          totalBNBCollected: increment(purchase.quotedBNBAmount),
+          totalMinersCount: user.status === 'inactive' ? increment(1) : increment(0),
           updatedAt: nowIso
         });
 

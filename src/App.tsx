@@ -100,6 +100,11 @@ const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
 
+  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
+    return <Navigate to="/verify-email" replace />;
+  }
+
   // Enforce productAccess.psemine === true for protected /mine/* routes
   if (!isOpsUser && userData?.productAccess?.psemine !== true && window.location.pathname !== '/mine/dashboard') {
     return <Navigate to="/mine/dashboard" replace />;

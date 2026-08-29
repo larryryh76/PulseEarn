@@ -169,7 +169,7 @@ export const AdminPSEMine: React.FC = () => {
       return;
     }
     const wallet = receiverWalletInput.trim().toLowerCase();
-    if (!wallet.startsWith('0x') || wallet.length !== 42) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
       toast.error('Invalid BNB Smart Chain wallet address');
       return;
     }
@@ -240,17 +240,17 @@ export const AdminPSEMine: React.FC = () => {
       {/* Admin Navigation Tabs */}
       <div className="flex items-center space-x-1 border-b border-slate-800 pb-1">
         {[
-          { id: 'overview', label: 'Protocol Overview', icon: FileText },
-          { id: 'tools', label: 'Tools Config', icon: Cpu },
-          { id: 'payouts', label: 'Settlement & Payouts', icon: Coins },
-          { id: 'shutdown', label: 'Kill Switch & Archival', icon: ShieldAlert }
+          { id: 'overview' as const, label: 'Protocol Overview', icon: FileText },
+          { id: 'tools' as const, label: 'Tools Config', icon: Cpu },
+          { id: 'payouts' as const, label: 'Settlement & Payouts', icon: Coins },
+          { id: 'shutdown' as const, label: 'Kill Switch & Archival', icon: ShieldAlert }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold flex items-center space-x-2 transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'

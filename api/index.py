@@ -6184,8 +6184,23 @@ def verify_psemine_tool_purchase():
     tx_hash = (data.get('transactionHash') or '').strip().lower()
     sender_wallet = (data.get('senderWallet') or '').strip().lower()
 
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID", "message": "Purchase intent ID is required."}), 400
+
     if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) < 64:
         return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH"}), 400
+
+    # Look up purchase intent document
+    pur_doc = db.collection('psemine_purchases').document(purchase_id).get()
+    if not pur_doc.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND", "message": "Purchase intent document not found."}), 404
+
+    p_data = pur_doc.to_dict()
+    if p_data.get('userId') != uid:
+        return jsonify({"success": False, "error": "UNAUTHORIZED_PURCHASE", "message": "Purchase intent does not belong to the calling user."}), 403
+
+    if p_data.get('status') == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "Purchase intent has already been activated."}), 400
 
     # Replay Protection: Check if transactionHash has already been claimed/activated
     existing_claim = db.collection('psemine_tx_claims').document(tx_hash).get()
@@ -6221,8 +6236,9 @@ def verify_psemine_tool_purchase():
             "message": f"Tool purchases are disabled because the campaign is currently {campaign_status}."
         }), 400
 
-    # Check active receiving wallet in campaign config
-    expected_receiver = (camp_data.get('receiverWalletAddress') or '').strip().lower()
+    expected_receiver = (p_data.get('receiverWallet') or camp_data.get('receiverWalletAddress') or '').strip().lower()
+    expected_bnb = float(p_data.get('quotedBNBAmount', 0.0))
+
     if not expected_receiver or not expected_receiver.startswith('0x'):
         return jsonify({
             "success": False,
@@ -6230,13 +6246,12 @@ def verify_psemine_tool_purchase():
             "message": "Authorized receiving wallet not configured by administrator."
         }), 400
 
-    expected_bnb = 0.0
-    if purchase_id:
-        pur_doc = db.collection('psemine_purchases').document(purchase_id).get()
-        if pur_doc.exists:
-            p_data = pur_doc.to_dict()
-            expected_receiver = (p_data.get('receiverWallet') or expected_receiver).lower()
-            expected_bnb = float(p_data.get('quotedBNBAmount', 0.0))
+    if expected_bnb <= 0:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_PURCHASE_QUOTE",
+            "message": "Quoted BNB amount for this purchase is invalid."
+        }), 400
 
     required_confirmations = int(camp_data.get('requiredConfirmations', 2))
 

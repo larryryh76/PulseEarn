@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { describe, expect, test } from 'bun:test';
 import { PSEMineEngine } from './PSEMineEngine';
+import { PSEMineCampaign, PSEMineUser } from '../../types/psemine';
 
 describe('PSEMine Capacity & Accrual Calculations', () => {
   test('computeCapacities calculates correct rates for 0 tools', () => {
@@ -78,15 +79,18 @@ describe('PSEMine Capacity & Accrual Calculations', () => {
   });
 
   test('calculateLiveAccrued calculates correct accrued earnings over time', () => {
-    const mockUser: any = {
+    const nowMs = Date.now();
+    const tenHoursAgo = new Date(nowMs - 10 * 3600 * 1000).toISOString();
+
+    const mockUser: Partial<PSEMineUser> = {
       uid: 'user_1',
       status: 'active',
       totalCapacityGBPPerHour: 3.20,
       totalAccruedGBP: 10.00,
-      lastAccruedAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString() // 10 hours ago
+      lastAccruedAt: tenHoursAgo
     };
 
-    const live = PSEMineEngine.calculateLiveAccrued(mockUser, null, Date.now());
+    const live = PSEMineEngine.calculateLiveAccrued(mockUser as PSEMineUser, null, nowMs);
     // 10.00 + (3.20 * 10) = 42.00
     expect(live).toBe(42.00);
   });
@@ -95,13 +99,13 @@ describe('PSEMine Capacity & Accrual Calculations', () => {
     const campaignStart = new Date(Date.now() - 100 * 24 * 3600 * 1000); // 100 days ago
     const campaignEnd = new Date(campaignStart.getTime() + 90 * 24 * 3600 * 1000); // Ended 10 days ago
 
-    const mockCampaign: any = {
+    const mockCampaign: Partial<PSEMineCampaign> = {
       id: 'active_campaign',
       status: 'settling',
       endAt: campaignEnd.toISOString()
     };
 
-    const mockUser: any = {
+    const mockUser: Partial<PSEMineUser> = {
       uid: 'user_1',
       status: 'active',
       totalCapacityGBPPerHour: 10.00,
@@ -110,7 +114,7 @@ describe('PSEMine Capacity & Accrual Calculations', () => {
     };
 
     // Current time is 10 days after campaign end
-    const live = PSEMineEngine.calculateLiveAccrued(mockUser, mockCampaign, Date.now());
+    const live = PSEMineEngine.calculateLiveAccrued(mockUser as PSEMineUser, mockCampaign as PSEMineCampaign, Date.now());
 
     // Should accrue ONLY 2 hours (up to campaignEnd), NOT 10 days!
     // 100.00 + (10.00 * 2) = 120.00

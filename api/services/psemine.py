@@ -173,7 +173,11 @@ def dashboard_snapshot(db, uid):
     campaign = get_active_campaign(db)
     ownership = [dict(x.to_dict() or {}, ownershipId=x.id) for x in db.collection(PSE_COLLECTIONS["ownership"]).where("userId", "==", uid).stream()]
     earnings = db.collection(PSE_COLLECTIONS["earnings"]).document(f"{uid}_{campaign['campaignId'] if campaign else 'none'}").get()
-    return {"user": user, "campaign": serialize_campaign(campaign), "ownership": ownership, "earnings": earnings.to_dict() if earnings.exists else {"grossToolEarningsGBP": "0.00", "referralBonusGBP": "0.00", "status": "not_started"}}
+    ledger = earnings.to_dict() if earnings.exists else {"grossToolEarningsGBP": "0.00", "referralBonusGBP": "0.00", "status": "not_started"}
+    tool_earnings = money(ledger.get("grossToolEarningsGBP", "0.00"), "grossToolEarningsGBP")
+    referral_bonus = money(ledger.get("referralBonusGBP", "0.00"), "referralBonusGBP")
+    ledger["totalEarningsGBP"] = str((tool_earnings + referral_bonus).quantize(Decimal("0.01")))
+    return {"user": user, "campaign": serialize_campaign(campaign), "ownership": ownership, "earnings": ledger}
 
 
 def safe_wallet_view(db, uid):

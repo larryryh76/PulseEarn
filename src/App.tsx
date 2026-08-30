@@ -45,6 +45,11 @@ import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
 import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
+import PSEMineLogin from './pages/psemine/PSEMineLogin'
+import PSEMineSignup from './pages/psemine/PSEMineSignup'
+import PSEMineForgotPassword from './pages/psemine/PSEMineForgotPassword'
+import PSEMineActivate from './pages/psemine/PSEMineActivate'
+import PSEMineDashboard from './pages/psemine/PSEMineDashboard'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -61,12 +66,40 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+
+  // Enforce Product Access for PulseEarn
+  const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+  if (!productAccess.pulseearn && !isOpsUser) {
+    return <Navigate to="/mine/dashboard" replace />;
+  }
 
   const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!currentUser) return <Navigate to="/mine/login" replace />;
+
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+
+  // Enforce Product Access for PSEmine
+  const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+  if (!productAccess.psemine && !isOpsUser) {
+    return <Navigate to="/mine/activate" replace />;
   }
 
   return <>{children}</>;
@@ -87,6 +120,10 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
   if (!isOps) {
+    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+    if (!productAccess.pulseearn) {
+      return <Navigate to="/mine/dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -98,7 +135,24 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) return null;
   if (currentUser) {
     if (userData?.role === 'admin' || userData?.role === 'moderator') return <Navigate to="/admin" replace />;
+    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+    if (!productAccess.pulseearn) {
+      return <Navigate to="/mine/dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+};
+
+const PSEMinePublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, userData, loading } = useAuth();
+  if (loading) return null;
+  if (currentUser) {
+    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+    if (productAccess.psemine || userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true) {
+      return <Navigate to="/mine/dashboard" replace />;
+    }
+    return <Navigate to="/mine/activate" replace />;
   }
   return <>{children}</>;
 };
@@ -182,6 +236,11 @@ function App() {
         <Route path="/help" element={<HelpCenter />} />
 
         <Route path="/mine" element={<PSEMineLanding />} />
+        <Route path="/mine/login" element={<PSEMinePublicRoute><PSEMineLogin /></PSEMinePublicRoute>} />
+        <Route path="/mine/signup" element={<PSEMinePublicRoute><PSEMineSignup /></PSEMinePublicRoute>} />
+        <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
+        <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
+        <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />

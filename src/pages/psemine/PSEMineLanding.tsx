@@ -1,67 +1,83 @@
-import React from 'react'
-import { ArrowDownRight, ArrowRight, Check, ChevronDown, CircleDot, ShieldCheck, Sparkles } from 'lucide-react'
+import React, { useState } from 'react'
+import { ArrowDownRight, ArrowRight, Check, ChevronDown, CircleDot, Clock3, LockKeyhole, ShieldCheck, Sparkles, WalletCards, Zap } from 'lucide-react'
 import { PSEMineLandingLayout } from '../../components/psemine/PSEMineWordmark'
 import './psemine.css'
 
 const steps = [
-  ['01', 'Join the campaign', 'Create your PulseEarn account and reserve your place in the experience.'],
-  ['02', 'Choose your capacity', 'Select the level of participation that fits your plans.'],
-  ['03', 'Let it run', 'Your chosen equipment participates throughout the campaign window.'],
-  ['04', 'Settle clearly', 'Follow your progress and receive the campaign outcome in pounds.'],
+  ['01', 'Create your account', 'Enter the PulseEarn ecosystem and reserve your place in the campaign.'],
+  ['02', 'Connect your wallet', 'Keep your wallet connected for participation and eventual settlement.'],
+  ['03', 'Activate mining tools', 'Choose the equipment that matches the capacity you want to build.'],
+  ['04', 'Mine and follow earnings', 'Track SHA activity through a familiar campaign view shown in pounds.'],
 ]
 
 const faqs = [
-  ['What is PSEmine?', 'PSEmine is a limited campaign experience inside PulseEarn, designed around real mining equipment and clear campaign participation.'],
-  ['Do I need to be a mining expert?', 'No. PSEmine is designed to make participation simple, with the important information presented in plain language.'],
-  ['When does the campaign begin?', 'The campaign schedule will be shared with participants before access opens.'],
-  ['How are earnings shown?', 'The experience is designed around British pounds, so your progress is easy to understand.'],
+  ['What is PSEmine?', 'PSEmine is a limited digital mining campaign inside the PulseEarn ecosystem. You join, activate mining tools and follow your campaign earnings.'],
+  ['What is SHA?', 'SHA is the digital asset at the centre of the PSEmine mining campaign. It is what your mining activity contributes toward.'],
+  ['How do mining tools work?', 'Mining tools provide the capacity for your participation. The application will make your active tools and campaign activity easy to follow.'],
+  ['Why are earnings displayed in pounds?', 'Pounds keep the main experience clear and familiar. SHA is the asset being mined; your campaign view is primarily presented in GBP.'],
+  ['What happens at settlement?', 'When the campaign closes, the settlement stage begins and eligible campaign outcomes are sent to your connected wallet.'],
 ]
 
-export const PSEMineLanding: React.FC = () => (
-  <PSEMineLandingLayout>
-    <main>
-      <section className="psemine-hero psemine-shell">
-        <div className="psemine-hero-copy">
-          <p className="psemine-eyebrow"><CircleDot size={13} /> A new PulseEarn experience</p>
-          <h1>Mining, made <em>worth watching.</em></h1>
-          <p className="psemine-lede">A considered way to participate in a time-bound mining campaign, with a clear view of what your equipment is doing and what it means for you.</p>
-          <div className="psemine-hero-actions"><a className="psemine-button" href="/signup">Get started <ArrowRight size={17} /></a><a className="psemine-text-link" href="#experience">Explore PSEmine <ArrowDownRight size={16} /></a></div>
-          <p className="psemine-note">Built inside PulseEarn. Designed for clarity.</p>
-        </div>
-        <div className="psemine-hero-visual" aria-label="A premium mining equipment preview">
-          <img src="/psemine-miner.png" alt="Graphite industrial mining computer in a studio setting" />
-          <div className="psemine-visual-caption"><span>Equipment preview</span><strong>Precision hardware<br />for a focused campaign</strong></div>
-          <div className="psemine-visual-line" />
-        </div>
-      </section>
+function ShaMark({ large = false }: { large?: boolean }) {
+  return <span className={`sha-mark ${large ? 'sha-mark--large' : ''}`} aria-hidden="true"><span /></span>
+}
 
-      <section className="psemine-proof psemine-shell" id="experience">
-        <div><p className="psemine-eyebrow">A more thoughtful interface</p><h2>Everything you need.<br /><span>Nothing you don&apos;t.</span></h2></div>
-        <div className="psemine-proof-copy"><p>PSEmine brings the physical world of mining together with the calm, familiar experience of a modern financial product.</p><a className="psemine-text-link" href="#how-it-works">See how it works <ArrowRight size={16} /></a></div>
-      </section>
+function ProductVisual() {
+  return <div className="product-visual" aria-label="Illustrative PSEmine campaign preview">
+    <div className="visual-orbit visual-orbit--one" /><div className="visual-orbit visual-orbit--two" />
+    <div className="sha-core"><ShaMark large /><span>SHA</span></div>
+    <div className="visual-line visual-line--one"><span>capacity</span><i /></div>
+    <div className="visual-line visual-line--two"><span>activity</span><i /></div>
+    <div className="visual-line visual-line--three"><span>settlement</span><i /></div>
+    <div className="preview-panel preview-panel--top"><span>Campaign status</span><strong>Building</strong><b><i /></b></div>
+    <div className="preview-panel preview-panel--bottom"><span>Campaign earnings</span><strong>£—</strong><small>Shown in GBP</small></div>
+    <div className="preview-chip"><Zap size={14} /> SHA mining</div>
+  </div>
+}
 
-      <section className="psemine-preview-section psemine-shell">
-        <div className="psemine-preview-intro"><p className="psemine-eyebrow">The participant view</p><h2>A clear picture of your campaign.</h2><p>Progress, equipment and earnings are brought together in one focused view — shown in pounds, not abstract balances.</p></div>
-        <div className="psemine-dashboard-preview" aria-label="Illustrative PSEmine product preview">
-          <div className="psemine-preview-top"><span className="psemine-mini-brand">PSEmine</span><span className="psemine-preview-status"><i /> Preview experience</span></div>
-          <div className="psemine-preview-main"><div><span className="psemine-data-label">Campaign earnings</span><strong>£ —</strong><small>Shown here when your campaign begins</small></div><div className="psemine-ring"><span>Active<br /><b>view</b></span></div></div>
-          <div className="psemine-preview-bottom"><div><span className="psemine-data-label">Equipment</span><b>Selected capacity</b></div><div><span className="psemine-data-label">Campaign</span><b>Participation window</b></div><div><span className="psemine-data-label">Next view</span><b>Updated regularly</b></div></div>
-        </div>
-      </section>
+function EarningsPreview() {
+  return <div className="earnings-preview">
+    <div className="earnings-preview__head"><div><span className="eyebrow">Illustrative product view</span><h3>Campaign earnings</h3></div><span className="status-pill"><i /> Active</span></div>
+    <div className="earnings-preview__value">£<span>—</span></div>
+    <div className="earnings-preview__rule" />
+    <div className="earnings-preview__rows"><div><span>Mining asset</span><strong><ShaMark /> SHA</strong></div><div><span>Mining capacity</span><strong>Tools active</strong></div><div><span>Campaign stage</span><strong>Participation</strong></div></div>
+    <div className="earnings-preview__foot"><CircleDot size={16} /> Your campaign view keeps the focus on earnings in pounds.</div>
+  </div>
+}
 
-      <section className="psemine-steps-section" id="how-it-works"><div className="psemine-shell"><div className="psemine-section-heading"><p className="psemine-eyebrow">How it works</p><h2>A simple path from interest<br />to participation.</h2></div><div className="psemine-steps">{steps.map(([number, title, body]) => <article className="psemine-step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div></div></section>
+function ToolPreview() {
+  return <div className="tools-stage"><div className="tool tool--basic"><div className="tool-top" /><div className="tool-body" /><span>Basic</span></div><div className="tool tool--core"><div className="tool-top" /><div className="tool-body" /><span>Core</span></div><div className="tool tool--advanced"><div className="tool-top" /><div className="tool-body" /><span>Advanced</span></div><div className="tool tool--elite"><div className="tool-top" /><div className="tool-body" /><span>Elite</span></div><div className="tool-signal"><ShaMark /><span>One equipment family.<br />Four ways to build capacity.</span></div></div>
+}
 
-      <section className="psemine-equipment psemine-shell"><div className="psemine-equipment-image"><img src="/psemine-miner.png" alt="Close detail of premium graphite mining hardware" /></div><div className="psemine-equipment-copy"><p className="psemine-eyebrow">The mining experience</p><h2>Real equipment.<br /><em>Refined participation.</em></h2><p>From the first level, Basic, through to Elite, PSEmine is built around a progression of physical technology — presented without the noise.</p><div className="psemine-equipment-list"><span><Check size={15} /> Purpose-built equipment</span><span><Check size={15} /> A focused campaign window</span><span><Check size={15} /> Clear pound-based progress</span></div></div></section>
+export const PSEMineLanding: React.FC = () => {
+  const [openFaq, setOpenFaq] = useState(0)
+  return (
+    <PSEMineLandingLayout>
+    <main className="psemine-page">
+      <section className="psemine-hero psemine-shell"><div className="psemine-hero-copy"><p className="psemine-eyebrow"><CircleDot size={13} /> A limited PulseEarn campaign</p><h1>Mine SHA.<br /><em>Build your earning capacity.</em></h1><p className="psemine-lede">Join PSEmine, activate mining tools and follow your campaign earnings in pounds.</p><div className="psemine-hero-actions"><a className="psemine-button" href="/signup">Join PSEmine <ArrowRight size={17} /></a><a className="psemine-text-link" href="#how-it-works">How it works <ArrowDownRight size={16} /></a></div><p className="psemine-note">A clearer way to enter digital mining.</p></div><ProductVisual /></section>
 
-      <section className="psemine-campaign psemine-shell"><div><p className="psemine-eyebrow">Campaign experience</p><h2>Designed as a journey,<br />not a countdown.</h2></div><div className="psemine-timeline"><div className="psemine-timeline-labels"><span>Participation opens</span><span>Campaign window</span><span>Settlement</span></div><div className="psemine-timeline-line"><i /><i /><i /></div><p>The exact campaign schedule will be communicated clearly before participation begins.</p></div></section>
+      <section className="sha-section" id="experience"><div className="psemine-shell sha-grid"><div className="sha-display"><div className="sha-display__halo" /><ShaMark large /><span className="sha-display__label">SHA / digital asset</span></div><div className="psemine-section-copy"><p className="psemine-eyebrow">The asset at the centre</p><h2>Meet SHA.</h2><p>SHA is what you are mining inside the PSEmine campaign. Your tools create capacity, your activity contributes to SHA mining, and your campaign experience stays grounded in a balance you can understand.</p><div className="psemine-inline-value"><span>Mining asset</span><strong><ShaMark /> SHA</strong></div></div></div></section>
 
-      <section className="psemine-trust"><div className="psemine-shell psemine-trust-inner"><div><ShieldCheck size={24} /><p className="psemine-eyebrow">Built for clarity</p><h2>A premium experience<br />should feel understandable.</h2></div><div className="psemine-trust-points"><p><strong>See the essentials.</strong> Your campaign view keeps participation, equipment and progress close at hand.</p><p><strong>Stay in control.</strong> Wallet-based interaction is presented with the same care as the rest of PulseEarn.</p><p><strong>Share, if you want to.</strong> Referrals are an optional way to grow your participation — never the main event.</p></div></div></section>
+      <section className="psemine-steps-section" id="how-it-works"><div className="psemine-shell"><div className="psemine-section-heading"><p className="psemine-eyebrow">How PSEmine works</p><h2>A simple path from joining<br /><em>to campaign earnings.</em></h2></div><div className="psemine-steps">{steps.map(([number, title, body]) => <article className="psemine-step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{body}</p></div><ArrowRight size={18} /></article>)}</div></div></section>
 
-      <section className="psemine-faq psemine-shell" id="faq"><div className="psemine-section-heading"><p className="psemine-eyebrow">Questions, answered</p><h2>Good products leave<br />less to guess.</h2></div><div className="psemine-faq-list">{faqs.map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={18} /></summary><p>{answer}</p></details>)}</div></section>
+      <section className="capacity-section"><div className="psemine-shell"><div className="capacity-heading"><div><p className="psemine-eyebrow">The relationship is simple</p><h2>Tools become capacity.<br /><em>Capacity becomes activity.</em></h2></div><p>Activate equipment, follow your SHA mining, and see the campaign value in a familiar view of pounds.</p></div><div className="capacity-flow"><div><div className="flow-icon"><Sparkles /></div><strong>Mining tool</strong><small>Equipment you activate</small></div><ArrowRight /><div><div className="flow-icon"><Zap /></div><strong>Mining capacity</strong><small>Power to participate</small></div><ArrowRight /><div><div className="flow-icon"><ShaMark /></div><strong>SHA mining</strong><small>The asset at work</small></div><ArrowRight /><div className="flow-final"><div className="flow-icon">£</div><strong>Campaign earnings</strong><small>Your primary view</small></div></div></div></section>
 
-      <section className="psemine-final-cta psemine-shell"><Sparkles size={20} /><h2>Make your next move<br /><em>more considered.</em></h2><p>PSEmine is coming to PulseEarn. Join the experience from the beginning.</p><a className="psemine-button" href="/signup">Get started <ArrowRight size={17} /></a></section>
+      <section className="earnings-section"><div className="psemine-shell earnings-grid"><div className="psemine-section-copy"><p className="psemine-eyebrow">A product view built for clarity</p><h2>See the value.<br /><em>Not the noise.</em></h2><p>PSEmine puts campaign earnings first. SHA is the asset being mined, but the experience you return to is a familiar view of your progress in pounds.</p><div className="clarity-list"><span><Check size={15} /> GBP-first campaign view</span><span><Check size={15} /> Clear mining status</span><span><Check size={15} /> No tokenomics overload</span></div></div><EarningsPreview /></div></section>
+
+      <section className="psemine-equipment"><div className="psemine-shell"><div className="tools-heading"><div><p className="psemine-eyebrow">The mining tool family</p><h2>Start with a tool.<br /><em>Build toward Elite.</em></h2></div><p>A progression of purpose-designed equipment, made to feel like one PSEmine family. Explore the details after you enter the campaign.</p></div><ToolPreview /></div></section>
+
+      <section className="referral-section"><div className="psemine-shell referral-grid"><div className="referral-mark"><WalletCards size={23} /><span>Optional<br />boost</span></div><div><p className="psemine-eyebrow">Grow your capacity</p><h2>Invite the right people.<br /><em>Keep your focus on mining.</em></h2></div><p>Referrals are an optional boost for participants who want to grow their campaign activity. They are part of the experience, never the whole story.</p></div></section>
+
+      <section className="psemine-campaign"><div className="psemine-shell campaign-grid"><div><p className="psemine-eyebrow">A defined campaign window</p><h2>Participation has a beginning,<br /><em>a middle and a close.</em></h2></div><div className="psemine-timeline"><div><span>01</span><strong>Participation</strong><small>Join, connect and activate your tools.</small></div><div><span>02</span><strong>Mining</strong><small>Build capacity and follow SHA activity.</small></div><div><span>03</span><strong>Settlement</strong><small>The campaign closes and outcomes are settled.</small></div></div></div></section>
+
+      <section className="psemine-trust"><div className="psemine-shell trust-grid"><div><ShieldCheck size={24} /><p className="psemine-eyebrow">Designed for confidence</p><h2>A serious product<br /><em>should feel clear.</em></h2></div><div className="trust-points"><div><LockKeyhole /><span><strong>Your wallet stays yours.</strong>Wallet connection is part of participation, not a reason to compromise ownership.</span></div><div><ShieldCheck /><span><strong>Activity is visible.</strong>Follow the campaign through a product experience designed to be understood.</span></div><div><Clock3 /><span><strong>Settlement is contextual.</strong>The campaign has a defined close, so the next step is never hidden.</span></div></div></div></section>
+
+      <section className="psemine-faq psemine-shell" id="faq"><div className="faq-grid"><div className="psemine-section-heading"><p className="psemine-eyebrow">Questions, answered</p><h2>Understand it<br /><em>before you join.</em></h2></div><div className="psemine-faq-list">{faqs.map(([question, answer], index) => <div className={`faq-item ${openFaq === index ? 'is-open' : ''}`} key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span>{question}</span><ChevronDown size={18} /></button>{openFaq === index && <p>{answer}</p>}</div>)}</div></div></section>
+
+      <section className="psemine-final-cta psemine-shell"><ShaMark large /><p className="psemine-eyebrow">The next campaign is taking shape</p><h2>Build your place<br /><em>inside PSEmine.</em></h2><p>Join the PulseEarn ecosystem and be ready for a different kind of mining experience.</p><a className="psemine-button" href="/signup">Join PSEmine <ArrowRight size={17} /></a></section>
     </main>
-  </PSEMineLandingLayout>
-)
+    </PSEMineLandingLayout>
+  )
+}
 
 export default PSEMineLanding

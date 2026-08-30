@@ -42,9 +42,10 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string) => Promise<void>;
+  signInWithGoogle: (referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
+  activatePSEMineAccess: () => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -195,7 +196,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
-  async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
+  async function initializeUserProfile(
+    user: User,
+    username: string,
+    referralCodeInput?: string,
+    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+  ) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -222,11 +228,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        return;
     }
 
-    // PHASE 4: Create document FIRST
+    // Create document FIRST
     const referralCode = generateReferralCode(user.uid);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
+
+    const initialProductAccess = productContext === 'psemine'
+      ? { pulseearn: false, psemine: true }
+      : { pulseearn: true, psemine: false };
 
     const newUserData: UserData = {
       uid: user.uid,
@@ -243,10 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
-      productAccess: {
-        pulseearn: true,
-        psemine: true
-      },
+      productAccess: initialProductAccess,
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,
@@ -385,7 +392,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
+  async function signup(
+    email: string,
+    password: string,
+    username: string,
+    referralCodeInput?: string,
+    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+  ) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -409,15 +422,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    await initializeUserProfile(user, username, referralCodeInput);
+    await initializeUserProfile(user, username, referralCodeInput, productContext);
   }
 
-  async function signInWithGoogle(referralCodeInput?: string) {
+  async function signInWithGoogle(
+    referralCodeInput?: string,
+    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+  ) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput);
+    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput, productContext);
+  }
+
+  async function activatePSEMineAccess() {
+    if (!currentUser) return;
+    const userRef = doc(db, 'users', currentUser.uid);
+    const currentAccess = userData?.productAccess || { pulseearn: true, psemine: false };
+    const updatedAccess = {
+      ...currentAccess,
+      psemine: true
+    };
+    await updateDoc(userRef, {
+      productAccess: updatedAccess
+    });
   }
 
   function login(email: string, password: string) {
@@ -481,7 +510,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const resolvedData: UserData = {
               ...data,
               role: resolvedRole,
-              status: data.status || 'active'
+              status: data.status || 'active',
+              productAccess: data.productAccess || {
+                pulseearn: true,
+                psemine: false
+              }
             };
 
             setUserData(resolvedData as UserData);
@@ -543,6 +576,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     signInWithGoogle,
+    activatePSEMineAccess,
     logout,
     logActivity,
     sendVerification,

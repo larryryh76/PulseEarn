@@ -270,54 +270,74 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 12. PSEmine 90-Day Campaign Ecosystem
+    // 12. PSEmine campaign product. Financial mutations are server/Admin SDK only.
     match /psemine_campaigns/{campaignId} {
-      // Publicly readable so prospective miners can review status, duration & economic terms
       allow read: if true;
       allow list: if true;
       allow write: if isAdmin();
     }
-
     match /psemine_tools/{toolId} {
       allow read: if true;
       allow list: if true;
       allow write: if isAdmin();
     }
-
     match /psemine_users/{userId} {
       allow read: if isOwner(userId) || isModerator();
       allow list: if isModerator();
-      allow write: if isOwner(userId) || isAdmin();
-
-      match /activity/{activityId} {
-        allow read: if isOwner(userId) || isModerator();
-        allow list: if isOwner(userId) || isModerator();
-        allow write: if isOwner(userId) || isAdmin();
-      }
+      allow create, update, delete: if isAdmin();
     }
-
-    match /psemine_tool_ownership/{ownershipId} {
-      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      allow list: if isAuthenticated();
-      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
-    }
-
-    match /psemine_purchases/{purchaseId} {
-      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      allow list: if isAuthenticated();
-      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
-    }
-
-    match /psemine_referrals/{referralId} {
-      allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
-      allow list: if isAuthenticated();
-      allow write: if isAuthenticated() || isAdmin();
-    }
-
-    match /psemine_payouts/{payoutId} {
-      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+    match /psemine_wallets/{walletId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
       allow list: if isModerator();
       allow write: if isAdmin();
+    }
+    match /psemine_purchase_intents/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_purchases/{purchaseId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_tool_ownership/{ownershipId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_earnings/{earningsId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_referrals/{referralId} {
+      allow read: if isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid) || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_settlements/{settlementId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_payouts/{payoutId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_activity/{activityId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid || isModerator();
+      allow list: if isModerator();
+      allow write: if isAdmin();
+    }
+    match /psemine_admin_config/{configId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /psemine_audit_logs/{eventId} {
+      allow read, list: if isAdmin();
+      allow write: if false;
     }
   }
 }

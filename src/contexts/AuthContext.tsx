@@ -245,7 +245,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'active',
       productAccess: {
         pulseearn: true,
-        psemine: true
+        // PSEmine participation is granted only by its backend onboarding flow.
+        psemine: false
       },
       isBanned: false,
       isFlagged: false,

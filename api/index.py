@@ -1476,6 +1476,100 @@ def authorize_resend():
     except Exception as e:
         return jsonify({"success": False, "error": "DISPATCH_ERROR", "message": str(e)}), 500
 
+
+# ---------------------------------------------------------------------------
+# PSEmine authority API. These endpoints are isolated from PulseEarn documents
+# and never mutate balances or ownership from the browser.
+# ---------------------------------------------------------------------------
+
+def _psemine_error_response(error):
+    from services.psemine import error_payload
+    return jsonify(error_payload(error)), getattr(error, "status", 400)
+
+
+@app.route('/api/psemine/public', methods=['GET'])
+@require_db
+def psemine_public():
+    from services.psemine import PSE_COLLECTIONS, get_active_campaign, serialize_campaign, serialize_tool
+    db = get_db()
+    campaign = get_active_campaign(db)
+    tools = [serialize_tool(doc) for doc in db.collection(PSE_COLLECTIONS['tools']).order_by('sortOrder').stream()]
+    return jsonify({"success": True, "campaign": serialize_campaign(campaign), "tools": tools, "network": "BNB Smart Chain", "currency": "GBP"})
+
+
+@app.route('/api/psemine/me', methods=['GET'])
+@verify_token
+@require_db
+def psemine_me():
+    from services.psemine import dashboard_snapshot, safe_wallet_view, PSEmineError
+    db = get_db(); uid = request.user['uid']
+    try:
+        snapshot = dashboard_snapshot(db, uid)
+        snapshot['wallets'] = safe_wallet_view(db, uid)
+        return jsonify({"success": True, **snapshot})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+@app.route('/api/psemine/onboarding', methods=['POST'])
+@verify_token
+@require_db
+def psemine_onboarding():
+    from services.psemine import PSE_COLLECTIONS, normalize_address, audit, PSEmineError
+    db = get_db(); uid = request.user['uid']; payload = request.get_json(silent=True) or {}
+    try:
+        wallet = normalize_address(payload.get('walletAddress'))
+        ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
+        before = ref.get().to_dict() or {}
+        ref.set({'userId': uid, 'productAccess': {'psemine': True}, 'participationStatus': 'eligible',
+                 'purchaseWallet': wallet, 'payoutWallet': wallet, 'walletNetwork': 'bsc',
+                 'agreementAcceptedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
+        return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": f'{wallet[:6]}...{wallet[-4:]}'})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+@app.route('/api/psemine/purchase-intents', methods=['POST'])
+@verify_token
+@require_db
+def psemine_purchase_intent():
+    from services.psemine import create_purchase_intent, PSEmineError
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = create_purchase_intent(get_db(), request.user['uid'], payload.get('toolId'), payload.get('quantity'))
+        return jsonify({"success": True, **result})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+@app.route('/api/psemine/purchases/<purchase_id>/verify', methods=['POST'])
+@verify_token
+@require_db
+def psemine_verify_purchase(purchase_id):
+    from services.psemine import verify_transaction_not_implemented, PSEmineError
+    try:
+        # Deliberately fail closed until BSC RPC and verifier configuration exists.
+        verify_transaction_not_implemented()
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+@app.route('/api/psemine/admin/bootstrap', methods=['POST'])
+@verify_token
+@require_db
+def psemine_admin_bootstrap():
+    from services.psemine import seed_defaults, PSEmineError
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "Admin permission required."}), 403
+    try:
+        seed_defaults(get_db(), request.user['uid'])
+        return jsonify({"success": True, "message": "PSEmine defaults initialized without changing user balances."})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
 @app.route('/api/request-password-reset', methods=['POST'])
 @require_db
 def request_password_reset():
@@ -1654,7 +1748,7 @@ def process_referral_reward():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ���══════════════════════════════════════════════════════════════════════════════
 # TASK LIFECYCLE MANAGEMENT — Phase 18 (Sync Audit)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Critical: All task state changes must be soft-deletes (active: false).
@@ -5428,7 +5522,7 @@ def simulate_user_eligibility():
 # ───────────────────────────────────────────────────────────────��─────────────
 get_deps()
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────���──────────────────
 # PHASE 9 — MARKETPLACE OPERATIONAL INTELLIGENCE
 # ──────────────────────────────────────────────────────────────────────────────
 

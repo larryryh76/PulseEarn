@@ -45,6 +45,7 @@ import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
 import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
+import PSEmineApp from './pages/psemine/PSEmineApp'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -182,6 +183,7 @@ function App() {
         <Route path="/help" element={<HelpCenter />} />
 
         <Route path="/mine" element={<PSEMineLanding />} />
+        <Route path="/mine/app" element={<ProtectedRoute><PSEmineApp /></ProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />

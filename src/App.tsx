@@ -50,6 +50,11 @@ import PSEMineSignup from './pages/psemine/PSEMineSignup'
 import PSEMineForgotPassword from './pages/psemine/PSEMineForgotPassword'
 import PSEMineActivate from './pages/psemine/PSEMineActivate'
 import PSEMineDashboard from './pages/psemine/PSEMineDashboard'
+import PSEMineTools from './pages/psemine/PSEMineTools'
+import PSEMineWallet from './pages/psemine/PSEMineWallet'
+import PSEMineActivity from './pages/psemine/PSEMineActivity'
+import PSEMineReferrals from './pages/psemine/PSEMineReferrals'
+import PSEMineProfile from './pages/psemine/PSEMineProfile'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
@@ -241,6 +246,11 @@ function App() {
         <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
         <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
         <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
+        <Route path="/mine/tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />
+        <Route path="/mine/wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
+        <Route path="/mine/activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
+        <Route path="/mine/referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
+        <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />

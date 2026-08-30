@@ -19,10 +19,17 @@ export const PSEMineDashboard: React.FC = () => {
       <header className="psemine-header">
         <div className="psemine-shell psemine-nav">
           <PSEMineWordmark />
+          <nav className="psemine-nav-links">
+            <a href="/mine/dashboard" style={{ color: '#fff', fontWeight: 800 }}>Dashboard</a>
+            <a href="/mine/tools">Tools</a>
+            <a href="/mine/wallet">Wallet</a>
+            <a href="/mine/activity">Activity</a>
+            <a href="/mine/referrals">Referrals</a>
+          </nav>
           <div className="psemine-nav-actions">
-            <span style={{ fontSize: '13px', color: 'var(--pm-muted)', fontWeight: 600 }}>
+            <a href="/mine/me" style={{ fontSize: '13px', color: 'var(--pm-muted)', fontWeight: 600, textDecoration: 'none' }}>
               {userData?.username || currentUser?.email}
-            </span>
+            </a>
             <button
               onClick={handleLogout}
               className="psemine-button psemine-button-small"

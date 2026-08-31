@@ -253,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
+      // Authentication and PSEmine campaign participation remain separate states.
       productAccess: initialProductAccess,
       isBanned: false,
       isFlagged: false,
@@ -298,11 +299,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (res.success) {
             const referredBy = res.referrerId;
-            
+
             // Create referral record first
             const referralDocRef = doc(collection(db, 'referrals'));
             const referralDocId = referralDocRef.id;
-            
+
             await setDoc(referralDocRef, {
               referrerId: referredBy,
               refereeId: user.uid,
@@ -313,9 +314,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             // Update user with referral info
-            await updateDoc(userRef, { 
+            await updateDoc(userRef, {
               referredBy,
-              referralDocId 
+              referralDocId
             });
 
             // Immediately apply signup bonuses (30 PTS to referee, 50 PTS to referrer)

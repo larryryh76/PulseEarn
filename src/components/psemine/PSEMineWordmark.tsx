@@ -18,8 +18,8 @@ export const PSEMineLandingLayout: React.FC<{ children: React.ReactNode }> = ({ 
           <a href="#faq">FAQ</a>
         </nav>
         <div className="psemine-nav-actions">
-          <a className="psemine-signin" href="/login">Sign in</a>
-          <a className="psemine-button psemine-button-small" href="/signup">Get started <span aria-hidden="true">↗</span></a>
+          <a className="psemine-signin" href="/mine/login">Sign in</a>
+          <a className="psemine-button psemine-button-small" href="/mine/signup">Get started <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </header>

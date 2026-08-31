@@ -22,6 +22,12 @@ DEFAULT_COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=binan
 def _required_config(name):
     value = os.environ.get(name)
     if not value:
+        defaults = {
+            'PSEMINE_BSC_RPC_URL': 'https://bsc-dataseed.binance.org',
+            'PSEMINE_COINGECKO_API_URL': DEFAULT_COINGECKO_URL,
+        }
+        value = defaults.get(name)
+    if not value:
         raise PSEmineError('CONFIGURATION_REQUIRED', f'{name} is not configured for live settlement.', 503, {'variable': name})
     return value
 

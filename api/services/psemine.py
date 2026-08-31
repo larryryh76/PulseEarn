@@ -188,8 +188,14 @@ def money(value, field="amount"):
 
 
 def positive_quantity(value):
+    if isinstance(value, bool):
+        raise PSEmineError("INVALID_QUANTITY", "Quantity must be a positive integer.", 400)
     try:
         quantity = int(value)
+        if isinstance(value, float) and not value.is_integer():
+            raise ValueError("fractional quantity")
+        if isinstance(value, str) and str(quantity) != value.strip():
+            raise ValueError("non-integer quantity")
     except (TypeError, ValueError):
         raise PSEmineError("INVALID_QUANTITY", "Quantity must be a positive integer.", 400)
     if quantity < 1 or quantity > 100:

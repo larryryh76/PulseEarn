@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Activity, ArrowRight, ShieldAlert, WalletCards, Home, Package, Clock3, UserRound, BookOpen, LogOut } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -22,12 +22,23 @@ export const PSEmineApp: React.FC = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [error, setError] = useState<{ code?: string; message?: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const requestUserId = useRef<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!currentUser) return
+    const user = currentUser
+    requestUserId.current = user?.uid ?? null
+    if (!user) {
+      setSnapshot(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
+    setSnapshot(null)
+    setError(null)
     setLoading(true)
-    const token = await currentUser.getIdToken()
+    const token = await user.getIdToken()
     const result = await safeFetch('/api/psemine/me', { headers: { Authorization: `Bearer ${token}` } })
+    if (requestUserId.current !== user.uid) return
     if (result.success) {
       setSnapshot(result)
       setError(null)

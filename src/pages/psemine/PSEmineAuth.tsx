@@ -23,9 +23,9 @@ export default function PSEmineAuth() {
     if (!email || !password || (isSignup && !username)) return toast.error('Complete the required fields.')
     setSubmitting(true)
     try {
-      if (isSignup) await signup(email, password, username)
+      if (isSignup) await signup(email, password, username, undefined, 'psemine')
       else await login(email, password)
-      navigate('/mine/app')
+      navigate('/mine/app', { replace: true })
     } catch (error) { toast.error(mapAuthError(error)) } finally { setSubmitting(false) }
   }
 

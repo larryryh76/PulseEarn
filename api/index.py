@@ -1417,7 +1417,8 @@ def send_branded_email(to, template, context, subject):
 @require_db
 def send_v():
     u = request.user
-    db = get_db(); user_data = db.collection('users').document(u['uid']).get().to_dict()
+    db = get_db()
+    user_data = db.collection('users').document(u['uid']).get().to_dict()
     link = auth.generate_email_verification_link(u['email'], auth.ActionCodeSettings(url='https://pulseearn.online/auth/action', handle_code_in_app=True))
     if send_branded_email(u['email'], 'VerifyEmail', {'username': user_data.get('username','Member'), 'link': link}, "Verify your PulseEarn account"):
         return jsonify({"success": True})
@@ -1503,7 +1504,8 @@ def psemine_public():
 @require_db
 def psemine_me():
     from services.psemine import dashboard_snapshot, safe_wallet_view, PSEmineError
-    db = get_db(); uid = request.user['uid']
+    db = get_db()
+    uid = request.user['uid']
     try:
         snapshot = dashboard_snapshot(db, uid)
         snapshot['wallets'] = safe_wallet_view(db, uid)
@@ -1517,7 +1519,9 @@ def psemine_me():
 @require_db
 def psemine_onboarding():
     from services.psemine import PSE_COLLECTIONS, normalize_address, audit, PSEmineError
-    db = get_db(); uid = request.user['uid']; payload = request.get_json(silent=True) or {}
+    db = get_db()
+    uid = request.user['uid']
+    payload = request.get_json(silent=True) or {}
     try:
         wallet = normalize_address(payload.get('walletAddress'))
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)

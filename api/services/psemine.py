@@ -6,10 +6,141 @@ client supplied balances, prices, verification, or timestamps as authoritative.
 """
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
+import os
 import re
 import uuid
 
+import requests
 from firebase_admin import firestore
+
+
+BSC_CHAIN_ID = 56
+WEI_PER_BNB = Decimal(10) ** 18
+DEFAULT_COINGECKO_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=gbp'
+
+
+def _required_config(name):
+    value = os.environ.get(name)
+    if not value:
+        raise PSEmineError('CONFIGURATION_REQUIRED', f'{name} is not configured for live settlement.', 503, {'variable': name})
+    return value
+
+
+def live_bnb_gbp_price():
+    url = os.environ.get('PSEMINE_COINGECKO_API_URL', DEFAULT_COINGECKO_URL)
+    try:
+        response = requests.get(url, timeout=8, headers={'Accept': 'application/json', 'User-Agent': 'PSEmine/1.0'})
+        response.raise_for_status()
+        price = money(response.json().get('binancecoin', {}).get('gbp'), 'bnbGbpPrice')
+        if price <= 0:
+            raise ValueError('non-positive price')
+        return price
+    except (requests.RequestException, ValueError, TypeError, KeyError) as error:
+        raise PSEmineError('PRICE_UNAVAILABLE', 'Live BNB pricing is temporarily unavailable.', 503, {'provider': 'coingecko', 'reason': str(error)})
+
+
+def bsc_rpc(method, params):
+    url = _required_config('PSEMINE_BSC_RPC_URL')
+    try:
+        response = requests.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=10)
+        response.raise_for_status()
+        body = response.json()
+        if body.get('error'):
+            raise ValueError(body['error'].get('message', 'RPC error'))
+        return body.get('result')
+    except (requests.RequestException, ValueError, TypeError) as error:
+        raise PSEmineError('BSC_RPC_UNAVAILABLE', 'BSC transaction verification is temporarily unavailable.', 503, {'reason': str(error)})
+
+
+def bsc_transaction(tx_hash):
+    if not re.fullmatch(r'0x[a-fA-F0-9]{64}', tx_hash or ''):
+        raise PSEmineError('INVALID_TRANSACTION_HASH', 'Enter a valid BSC transaction hash.', 400)
+    transaction = bsc_rpc('eth_getTransactionByHash', [tx_hash])
+    receipt = bsc_rpc('eth_getTransactionReceipt', [tx_hash])
+    if not transaction or not receipt:
+        raise PSEmineError('TRANSACTION_NOT_FOUND', 'The BSC transaction is not available yet.', 409)
+    return transaction, receipt
+
+
+def wei_to_bnb(value):
+    try:
+        return Decimal(int(value, 16)) / WEI_PER_BNB
+    except (TypeError, ValueError):
+        raise PSEmineError('INVALID_TRANSACTION', 'The BSC transaction amount is invalid.', 400)
+
+
+def create_live_purchase_intent(db, uid, tool_id, quantity):
+    base = create_purchase_intent(db, uid, tool_id, quantity)
+    bnb_gbp = live_bnb_gbp_price()
+    expected_gbp = money(base['expectedGBP'], 'expectedGBP')
+    bnb_amount = (expected_gbp / bnb_gbp).quantize(Decimal('0.000000000000000001'), rounding=ROUND_DOWN)
+    intent_id = str(uuid.uuid4())
+    db.collection(PSE_COLLECTIONS['intents']).document(intent_id).set({
+        'intentId': intent_id, 'userId': uid, 'campaignId': base['campaignId'], 'toolId': tool_id,
+        'quantity': positive_quantity(quantity), 'expectedGBP': str(expected_gbp), 'bnbGbpPrice': str(bnb_gbp),
+        'expectedBNB': str(bnb_amount), 'status': 'quoted', 'createdAt': firestore.SERVER_TIMESTAMP,
+        'expiresAt': utc_now() + timedelta(minutes=10),
+    })
+    return {'intentId': intent_id, 'expectedGBP': str(expected_gbp), 'bnbGbpPrice': str(bnb_gbp), 'expectedBNB': str(bnb_amount), 'expiresInSeconds': 600}
+
+
+def verify_purchase(db, uid, purchase_id, tx_hash):
+    intent_ref = db.collection(PSE_COLLECTIONS['intents']).document(purchase_id)
+    intent_snap = intent_ref.get()
+    if not intent_snap.exists:
+        raise PSEmineError('PURCHASE_INTENT_NOT_FOUND', 'Purchase intent not found.', 404)
+    intent = intent_snap.to_dict() or {}
+    if intent.get('userId') != uid:
+        raise PSEmineError('FORBIDDEN', 'Purchase intent does not belong to this account.', 403)
+    if intent.get('status') != 'quoted':
+        raise PSEmineError('PURCHASE_ALREADY_PROCESSED', 'This purchase intent has already been processed.', 409)
+    expires = intent.get('expiresAt')
+    if expires and hasattr(expires, 'timestamp') and expires < utc_now():
+        raise PSEmineError('PURCHASE_INTENT_EXPIRED', 'This purchase quote has expired.', 409)
+    transaction, receipt = bsc_transaction(tx_hash)
+    if int(transaction.get('chainId', '0x0'), 16) != BSC_CHAIN_ID or receipt.get('status') != '0x1':
+        raise PSEmineError('TRANSACTION_INVALID', 'The transaction was not confirmed successfully on BSC.', 400)
+    expected_wei = int((Decimal(intent['expectedBNB']) * WEI_PER_BNB).to_integral_value(rounding=ROUND_DOWN))
+    actual_wei = int(transaction.get('value', '0x0'), 16)
+    if actual_wei < expected_wei:
+        raise PSEmineError('PAYMENT_INSUFFICIENT', 'The confirmed BNB payment is below the quoted amount.', 400)
+    wallet = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').get().to_dict() or {}
+    if transaction.get('to', '').lower() != wallet.get('treasuryAddress', '').lower():
+        raise PSEmineError('PAYMENT_RECIPIENT_INVALID', 'The payment recipient does not match the campaign treasury.', 400)
+    intent_ref.set({'status': 'verified', 'txHash': tx_hash.lower(), 'verifiedAt': firestore.SERVER_TIMESTAMP, 'actualWei': str(actual_wei)}, merge=True)
+    db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).set({'txHash': tx_hash.lower(), 'userId': uid, 'intentId': purchase_id, 'status': 'verified', 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified'}
+
+
+def reconcile_psemine(db):
+    processed = 0
+    for doc in db.collection(PSE_COLLECTIONS['intents']).where('status', '==', 'verified').limit(100).stream():
+        data = doc.to_dict() or {}
+        if data.get('reconciledAt'):
+            continue
+        db.collection(PSE_COLLECTIONS['settlements']).document(doc.id).set({'settlementId': doc.id, 'intentId': doc.id, 'userId': data.get('userId'), 'status': 'pending', 'amountGBP': data.get('expectedGBP'), 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        doc.reference.set({'status': 'reconciled', 'reconciledAt': firestore.SERVER_TIMESTAMP}, merge=True)
+        processed += 1
+    return {'processed': processed}
+
+
+def request_managed_payout(db, settlement_id):
+    signer_url = _required_config('PSEMINE_MANAGED_SIGNER_URL')
+    signer_token = _required_config('PSEMINE_MANAGED_SIGNER_TOKEN')
+    settlement_ref = db.collection(PSE_COLLECTIONS['settlements']).document(settlement_id)
+    settlement = settlement_ref.get().to_dict() or {}
+    if not settlement or settlement.get('status') != 'pending':
+        raise PSEmineError('SETTLEMENT_NOT_READY', 'Settlement is not ready for payout.', 409)
+    response = requests.post(signer_url, json={'settlementId': settlement_id, 'userId': settlement.get('userId'), 'amountGBP': settlement.get('amountGBP')}, headers={'Authorization': f'Bearer {signer_token}', 'Content-Type': 'application/json'}, timeout=15)
+    if response.status_code >= 400:
+        raise PSEmineError('PAYOUT_PROVIDER_ERROR', 'Managed payout provider rejected the settlement.', 502)
+    result = response.json()
+    payout_id = result.get('payoutId')
+    if not payout_id:
+        raise PSEmineError('PAYOUT_PROVIDER_ERROR', 'Managed payout provider returned no payout id.', 502)
+    settlement_ref.set({'status': 'submitted', 'payoutId': payout_id, 'submittedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    db.collection(PSE_COLLECTIONS['payouts']).document(payout_id).set({'payoutId': payout_id, 'settlementId': settlement_id, 'userId': settlement.get('userId'), 'status': 'submitted', 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    return {'success': True, 'payoutId': payout_id, 'status': 'submitted'}
 
 PSE_COLLECTIONS = {
     "campaigns": "psemine_campaigns",
@@ -153,8 +284,7 @@ def create_purchase_intent(db, uid, tool_id, quantity):
     if owned_qty + quantity > int(tool.get("maxPerAccount", 0)):
         raise PSEmineError("TOOL_LIMIT_REACHED", "This purchase exceeds your ownership limit.", 409, {"owned": owned_qty, "maximum": tool.get("maxPerAccount")})
     gbp = money(tool.get("purchasePriceGBP"), "purchasePriceGBP") * quantity
-    # A quote is not payable without a real server-side BNB price source.
-    raise PSEmineError("PRICE_UNAVAILABLE", "A live BNB price source is not configured; no payable quote was created.", 503, {"expectedGBP": str(gbp), "campaignId": campaign["campaignId"]})
+    return {"expectedGBP": str(gbp), "campaignId": campaign["campaignId"], "toolId": tool_id, "quantity": quantity}
 
 
 def serialize_campaign(campaign):

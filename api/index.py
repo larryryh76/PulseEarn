@@ -7,6 +7,7 @@ import time
 import urllib.parse
 import logging
 import traceback
+import hmac
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 
@@ -1536,10 +1537,10 @@ def psemine_onboarding():
 @verify_token
 @require_db
 def psemine_purchase_intent():
-    from services.psemine import create_purchase_intent, PSEmineError
+    from services.psemine import create_live_purchase_intent, PSEmineError
     payload = request.get_json(silent=True) or {}
     try:
-        result = create_purchase_intent(get_db(), request.user['uid'], payload.get('toolId'), payload.get('quantity'))
+        result = create_live_purchase_intent(get_db(), request.user['uid'], payload.get('toolId'), payload.get('quantity'))
         return jsonify({"success": True, **result})
     except PSEmineError as error:
         return _psemine_error_response(error)
@@ -1549,10 +1550,46 @@ def psemine_purchase_intent():
 @verify_token
 @require_db
 def psemine_verify_purchase(purchase_id):
-    from services.psemine import verify_transaction_not_implemented, PSEmineError
+    from services.psemine import verify_purchase, PSEmineError
+    payload = request.get_json(silent=True) or {}
     try:
-        # Deliberately fail closed until BSC RPC and verifier configuration exists.
-        verify_transaction_not_implemented()
+        result = verify_purchase(get_db(), request.user['uid'], purchase_id, payload.get('txHash'))
+        return jsonify(result)
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+def _require_psemine_cron():
+    configured = os.environ.get('PSEMINE_CRON_SECRET')
+    supplied = request.headers.get('X-PSEmine-Cron-Secret', '')
+    authorization = request.headers.get('Authorization', '')
+    if not supplied and authorization.startswith('Bearer '):
+        supplied = authorization[7:]
+    if not configured or not hmac.compare_digest(supplied, configured):
+        return jsonify({'success': False, 'error': 'FORBIDDEN', 'message': 'Valid scheduler authorization is required.'}), 403
+    return None
+
+
+@app.route('/api/psemine/jobs/reconcile', methods=['POST'])
+def psemine_reconcile_job():
+    denied = _require_psemine_cron()
+    if denied:
+        return denied
+    from services.psemine import reconcile_psemine, PSEmineError
+    try:
+        return jsonify({'success': True, **reconcile_psemine(get_db())})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
+@app.route('/api/psemine/jobs/payout/<settlement_id>', methods=['POST'])
+def psemine_payout_job(settlement_id):
+    denied = _require_psemine_cron()
+    if denied:
+        return denied
+    from services.psemine import request_managed_payout, PSEmineError
+    try:
+        return jsonify(request_managed_payout(get_db(), settlement_id))
     except PSEmineError as error:
         return _psemine_error_response(error)
 

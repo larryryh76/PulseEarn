@@ -76,7 +76,12 @@ def wei_to_bnb(value):
 
 
 def create_live_purchase_intent(db, uid, tool_id, quantity):
+    user = ensure_user(db, uid)
     base = create_purchase_intent(db, uid, tool_id, quantity)
+    campaign = db.collection(PSE_COLLECTIONS['campaigns']).document(base['campaignId']).get().to_dict() or {}
+    receiver = str(campaign.get('receiverWalletAddress') or '').strip()
+    if not ADDRESS_RE.fullmatch(receiver):
+        raise PSEmineError('PAYMENT_CONFIG_REQUIRED', 'The campaign payment wallet is not configured.', 503)
     bnb_gbp = live_bnb_gbp_price()
     expected_gbp = money(base['expectedGBP'], 'expectedGBP')
     bnb_amount = (expected_gbp / bnb_gbp).quantize(Decimal('0.000000000000000001'), rounding=ROUND_DOWN)
@@ -106,6 +111,14 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
     transaction, receipt = bsc_transaction(tx_hash)
     if int(transaction.get('chainId', '0x0'), 16) != BSC_CHAIN_ID or receipt.get('status') != '0x1':
         raise PSEmineError('TRANSACTION_INVALID', 'The transaction was not confirmed successfully on BSC.', 400)
+    existing = db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).get()
+    if existing.exists:
+        raise PSEmineError('TRANSACTION_REPLAYED', 'This transaction has already been submitted.', 409)
+    latest_block = bsc_rpc('eth_blockNumber', [])
+    tx_block = receipt.get('blockNumber')
+    confirmations_required = int(os.environ.get('PSEMINE_REQUIRED_CONFIRMATIONS', '15'))
+    if not latest_block or not tx_block or int(latest_block, 16) - int(tx_block, 16) + 1 < confirmations_required:
+        raise PSEmineError('PAYMENT_CONFIRMATIONS_PENDING', 'Payment is confirmed but has not reached the required BSC confirmations.', 409, {'required': confirmations_required})
     expected_wei = int((Decimal(intent['expectedBNB']) * WEI_PER_BNB).to_integral_value(rounding=ROUND_DOWN))
     actual_wei = int(transaction.get('value', '0x0'), 16)
     if actual_wei < expected_wei:
@@ -118,7 +131,10 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
         raise PSEmineError('PAYMENT_SENDER_INVALID', 'The payment was sent from a different wallet than the purchase wallet.', 400)
     intent_ref.set({'status': 'verified', 'txHash': tx_hash.lower(), 'verifiedAt': firestore.SERVER_TIMESTAMP, 'actualWei': str(actual_wei)}, merge=True)
     db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).set({'txHash': tx_hash.lower(), 'userId': uid, 'intentId': purchase_id, 'status': 'verified', 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
-    return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified'}
+    ownership_id = purchase_id
+    ownership_ref = db.collection(PSE_COLLECTIONS['ownership']).document(ownership_id)
+    ownership_ref.set({'ownershipId': ownership_id, 'userId': uid, 'campaignId': intent.get('campaignId'), 'toolId': intent.get('toolId'), 'quantity': int(intent.get('quantity', 1)), 'hourlyRateGBP': str((db.collection(PSE_COLLECTIONS['tools']).document(intent.get('toolId', '')).get().to_dict() or {}).get('hourlyRateGBP', '0.00')), 'status': 'activated', 'purchaseIntentId': purchase_id, 'activatedAt': firestore.SERVER_TIMESTAMP, 'lastAccruedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified', 'ownershipId': ownership_id}
 
 
 def reconcile_psemine(db):
@@ -347,15 +363,24 @@ def accrue_psemine(db, now=None):
     if not campaign or campaign.get('status') != 'active':
         return {'processed': 0, 'status': 'not_active'}
     processed = 0
-    for owner_doc in db.collection(PSE_COLLECTIONS['ownership']).where('status', '==', 'activated').limit(500).stream():
+    campaign_id = campaign.get('campaignId')
+    campaign_start = campaign.get('startAt')
+    campaign_end = campaign.get('endAt')
+    if not hasattr(campaign_start, 'timestamp'):
+        return {'processed': 0, 'status': 'campaign_start_unconfigured'}
+    accrual_now = min(now, campaign_end) if hasattr(campaign_end, 'timestamp') else now
+    if accrual_now <= campaign_start:
+        return {'processed': 0, 'status': 'campaign_not_started'}
+    for owner_doc in db.collection(PSE_COLLECTIONS['ownership']).where('status', '==', 'activated').where('campaignId', '==', campaign_id).limit(500).stream():
         owner = owner_doc.to_dict() or {}
-        if not owner.get('userId') or not owner.get('campaignId'):
+        if not owner.get('userId') or owner.get('campaignId') != campaign_id:
             continue
         last = owner.get('lastAccruedAt')
-        last_at = last if hasattr(last, 'timestamp') else campaign.get('startAt')
-        if not last_at or not hasattr(last_at, 'timestamp'):
-            continue
-        seconds = max(0, min((now - last_at).total_seconds(), 3600 * 24))
+        last_at = last if hasattr(last, 'timestamp') else campaign_start
+        last_at = max(last_at, campaign_start)
+        if hasattr(campaign_end, 'timestamp'):
+            last_at = min(last_at, campaign_end)
+        seconds = max(0, min((accrual_now - last_at).total_seconds(), 3600 * 24))
         amount = (money(owner.get('hourlyRateGBP', '0.00')) * int(owner.get('quantity', 0)) * Decimal(str(seconds)) / Decimal('3600')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         if amount <= 0:
             owner_doc.reference.set({'lastAccruedAt': now}, merge=True)

@@ -45,7 +45,7 @@ interface AuthContextType {
   signup: (email: string, password: string, username: string, referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
   signInWithGoogle: (referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
-  activatePSEMineAccess: () => Promise<void>;
+  activatePSEMineAccess: (walletAddress?: string) => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -437,17 +437,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput, productContext);
   }
 
-  async function activatePSEMineAccess() {
-    if (!currentUser) return;
+  async function activatePSEMineAccess(walletAddress?: string) {
+    if (!currentUser) throw new Error('You must be signed in to activate PSEmine.');
+    const token = await currentUser.getIdToken(true);
+    const response = await safeFetch('/api/psemine/onboarding', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
+    });
+    if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
     const userRef = doc(db, 'users', currentUser.uid);
     const currentAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    const updatedAccess = {
-      ...currentAccess,
-      psemine: true
-    };
-    await updateDoc(userRef, {
-      productAccess: updatedAccess
-    });
+    await updateDoc(userRef, { productAccess: { ...currentAccess, psemine: true } });
   }
 
   function login(email: string, password: string) {

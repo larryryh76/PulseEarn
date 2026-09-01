@@ -6182,20 +6182,11 @@ def get_current_bnb_gbp_price():
 def get_psemine_campaign_status():
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    if camp_doc.exists:
-        return jsonify({"success": True, "campaign": camp_doc.to_dict()})
-    return jsonify({"success": True, "campaign": {
-        "id": "active_campaign",
-        "name": "PSEmine Genesis 90-Day Campaign",
-        "status": "active",
-        "durationDays": 90,
-        "currencyDisplay": "GBP",
-        "paymentNetwork": "BNB Smart Chain",
-        "paymentAsset": "BNB",
-        "purchaseEnabled": True,
-        "miningEnabled": True
-    }})
+    from services.psemine import get_active_campaign, serialize_campaign
+    camp = get_active_campaign(db)
+    if camp:
+        return jsonify({"success": True, "campaign": serialize_campaign(camp)})
+    return jsonify({"success": True, "campaign": {"status": "draft", "durationDays": 90, "currencyDisplay": "GBP", "paymentNetwork": "BNB Smart Chain", "paymentAsset": "BNB", "purchaseEnabled": False, "miningEnabled": False}})
 
 @app.route('/api/mine/tools/quote', methods=['POST'])
 @verify_token
@@ -6235,15 +6226,14 @@ def get_admin_mine_overview():
     users_docs = db.collection('psemine_users').get()
     purchases_docs = db.collection('psemine_purchases').get()
     referrals_docs = db.collection('psemine_referrals').get()
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    from services.psemine import get_active_campaign
+    camp_data = get_active_campaign(db) or {}
 
     active_miners = sum(1 for d in users_docs if d.to_dict().get('status') == 'active')
     total_tools_sold = len([d for d in purchases_docs if d.to_dict().get('status') == 'activated'])
     total_capacity = sum(d.to_dict().get('totalCapacityGBPPerHour', 0) for d in users_docs)
     total_accrued = sum(d.to_dict().get('totalAccruedGBP', 0) for d in users_docs)
     qualified_refs = len([d for d in referrals_docs if d.to_dict().get('status') == 'qualified'])
-
-    camp_data = camp_doc.to_dict() if camp_doc.exists else {}
 
     return jsonify({
         "success": True,
@@ -6258,6 +6248,43 @@ def get_admin_mine_overview():
             "campaignStatus": camp_data.get('status', 'active')
         }
     })
+
+@app.route('/api/admin/mine/config', methods=['GET', 'POST'])
+@verify_token
+def admin_psemine_config():
+    db = get_db()
+    if not db:
+        return jsonify({'success': False, 'error': 'SERVICE_UNAVAILABLE'}), 503
+    uid = request.user['uid']
+    if not is_admin(uid):
+        return jsonify({'success': False, 'error': 'SUPER_ADMIN_REQUIRED'}), 403
+    from services.psemine import PSE_COLLECTIONS, normalize_address, audit, PSEmineError
+    ref = db.collection(PSE_COLLECTIONS['campaigns']).document('psemine-initial')
+    if request.method == 'GET':
+        data = ref.get().to_dict() or {}
+        data.pop('privateKey', None); data.pop('signerToken', None); data.pop('rpcCredential', None)
+        return jsonify({'success': True, 'campaign': data})
+    payload = request.get_json(silent=True) or {}
+    updates = {}
+    if 'receiverWalletAddress' in payload:
+        updates['receiverWalletAddress'] = normalize_address(payload.get('receiverWalletAddress'))
+    for key in ('purchaseEnabled', 'walletConnectionEnabled', 'referralEnabled'):
+        if key in payload:
+            updates[key] = bool(payload[key])
+    if 'durationDays' in payload:
+        try:
+            duration = int(payload['durationDays'])
+            if duration != 90: raise ValueError()
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'INVALID_DURATION', 'message': 'PSEmine campaign duration is fixed at 90 days.'}), 400
+        updates['durationDays'] = duration
+    if not updates:
+        return jsonify({'success': False, 'error': 'NO_SAFE_CONFIGURATION', 'message': 'No supported campaign configuration was provided.'}), 400
+    updates['updatedAt'] = firestore.SERVER_TIMESTAMP
+    ref.set(updates, merge=True)
+    audit(db, uid, 'PSEMINE_CAMPAIGN_CONFIG_UPDATED', campaign_id=ref.id, metadata={'keys': sorted(k for k in updates if k != 'updatedAt')})
+    return jsonify({'success': True, 'updated': [k for k in updates if k != 'updatedAt']})
+
 
 @app.route('/api/admin/mine/campaign/action', methods=['POST'])
 @verify_token

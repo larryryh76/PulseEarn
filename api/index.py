@@ -1586,6 +1586,17 @@ def psemine_reconcile_job():
         return _psemine_error_response(error)
 
 
+@app.route('/api/admin/mine/settlements', methods=['GET'])
+@verify_token
+@require_db
+def admin_psemine_settlements():
+    if not is_admin(request.user['uid']):
+        return jsonify({'success': False, 'error': 'ADMIN_REQUIRED'}), 403
+    from services.psemine import PSE_COLLECTIONS
+    rows = get_db().collection(PSE_COLLECTIONS['settlements']).limit(100).stream()
+    return jsonify({'success': True, 'settlements': [dict(row.to_dict() or {}, settlementId=row.id) for row in rows]})
+
+
 @app.route('/api/psemine/jobs/payout/<settlement_id>', methods=['POST'])
 def psemine_payout_job(settlement_id):
     denied = _require_psemine_cron()
@@ -2177,7 +2188,7 @@ def purge_missions():
     """Admin: Permanently delete decommissioned mission data ONLY.
     Removes all `system_task_definitions` (e.g. "Network Builder") and every
     `user_system_tasks` progress doc. Standard tasks/campaigns and offerwall data
-    are untouched. No confirmation body required — this collection is deprecated.
+    are untouched. No confirmation body required �� this collection is deprecated.
     """
     if not is_admin(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
@@ -5612,7 +5623,7 @@ get_deps()
 
 # ───────────────────────────────────────────────────────────���──────────────────
 # PHASE 9 — MARKETPLACE OPERATIONAL INTELLIGENCE
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────��─────────────────
 
 def calculate_marketplace_operational_intelligence(timeframe='today'):
     """Calculates comprehensive operational intelligence metrics across providers, campaigns,

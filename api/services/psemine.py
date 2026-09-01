@@ -83,7 +83,7 @@ def create_live_purchase_intent(db, uid, tool_id, quantity):
     intent_id = str(uuid.uuid4())
     db.collection(PSE_COLLECTIONS['intents']).document(intent_id).set({
         'intentId': intent_id, 'userId': uid, 'campaignId': base['campaignId'], 'toolId': tool_id,
-        'quantity': positive_quantity(quantity), 'expectedGBP': str(expected_gbp), 'bnbGbpPrice': str(bnb_gbp),
+        'quantity': positive_quantity(quantity), 'purchaseWallet': user.get('purchaseWallet'), 'expectedGBP': str(expected_gbp), 'bnbGbpPrice': str(bnb_gbp),
         'expectedBNB': str(bnb_amount), 'status': 'quoted', 'createdAt': firestore.SERVER_TIMESTAMP,
         'expiresAt': utc_now() + timedelta(minutes=10),
     })
@@ -110,9 +110,12 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
     actual_wei = int(transaction.get('value', '0x0'), 16)
     if actual_wei < expected_wei:
         raise PSEmineError('PAYMENT_INSUFFICIENT', 'The confirmed BNB payment is below the quoted amount.', 400)
-    wallet = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').get().to_dict() or {}
-    if transaction.get('to', '').lower() != wallet.get('treasuryAddress', '').lower():
-        raise PSEmineError('PAYMENT_RECIPIENT_INVALID', 'The payment recipient does not match the campaign treasury.', 400)
+    campaign = db.collection(PSE_COLLECTIONS['campaigns']).document(intent.get('campaignId', '')).get().to_dict() or {}
+    treasury = (campaign.get('receiverWalletAddress') or '').lower()
+    if not treasury or transaction.get('to', '').lower() != treasury:
+        raise PSEmineError('PAYMENT_RECIPIENT_INVALID', 'The payment recipient does not match the active campaign treasury.', 400)
+    if transaction.get('from', '').lower() != str(intent.get('purchaseWallet', '')).lower() and intent.get('purchaseWallet'):
+        raise PSEmineError('PAYMENT_SENDER_INVALID', 'The payment was sent from a different wallet than the purchase wallet.', 400)
     intent_ref.set({'status': 'verified', 'txHash': tx_hash.lower(), 'verifiedAt': firestore.SERVER_TIMESTAMP, 'actualWei': str(actual_wei)}, merge=True)
     db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).set({'txHash': tx_hash.lower(), 'userId': uid, 'intentId': purchase_id, 'status': 'verified', 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
     return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified'}
@@ -319,7 +322,15 @@ def dashboard_snapshot(db, uid):
     tool_earnings = money(ledger.get("grossToolEarningsGBP", "0.00"), "grossToolEarningsGBP")
     referral_bonus = money(ledger.get("referralBonusGBP", "0.00"), "referralBonusGBP")
     ledger["totalEarningsGBP"] = str((tool_earnings + referral_bonus).quantize(Decimal("0.01")))
-    return {"user": user, "campaign": serialize_campaign(campaign), "ownership": ownership, "earnings": ledger}
+    active_tools = [item for item in ownership if item.get("status") == "activated"]
+    hourly_rate = sum((money(item.get("hourlyRateGBP", "0.00")) * int(item.get("quantity", 0)) for item in active_tools), Decimal("0.00"))
+    referrals = list(db.collection(PSE_COLLECTIONS["referrals"]).where("referrerId", "==", uid).stream())
+    qualified = sum(1 for item in referrals if (item.to_dict() or {}).get("status") == "qualified")
+    activity = list(db.collection(PSE_COLLECTIONS["activity"]).where("userId", "==", uid).limit(5).stream())
+    return {"user": user, "campaign": serialize_campaign(campaign), "ownership": ownership, "earnings": ledger,
+            "capacity": {"activeTools": len(active_tools), "hourlyRateGBP": str(hourly_rate.quantize(Decimal("0.01")))},
+            "referrals": {"qualified": min(qualified, 5), "maximum": 5, "hourlyBoostGBP": str((Decimal(min(qualified, 5)) * Decimal("0.30")).quantize(Decimal("0.01")))},
+            "activity": [dict(item.to_dict() or {}, activityId=item.id) for item in activity]}
 
 
 def safe_wallet_view(db, uid):
@@ -328,6 +339,38 @@ def safe_wallet_view(db, uid):
         data = doc.to_dict() or {}
         wallets.append({"walletId": doc.id, "address": public_address(data.get("address")), "network": data.get("network"), "role": data.get("role"), "status": data.get("status")})
     return wallets
+
+
+def accrue_psemine(db, now=None):
+    now = now or utc_now()
+    campaign = get_active_campaign(db)
+    if not campaign or campaign.get('status') != 'active':
+        return {'processed': 0, 'status': 'not_active'}
+    processed = 0
+    for owner_doc in db.collection(PSE_COLLECTIONS['ownership']).where('status', '==', 'activated').limit(500).stream():
+        owner = owner_doc.to_dict() or {}
+        if not owner.get('userId') or not owner.get('campaignId'):
+            continue
+        last = owner.get('lastAccruedAt')
+        last_at = last if hasattr(last, 'timestamp') else campaign.get('startAt')
+        if not last_at or not hasattr(last_at, 'timestamp'):
+            continue
+        seconds = max(0, min((now - last_at).total_seconds(), 3600 * 24))
+        amount = (money(owner.get('hourlyRateGBP', '0.00')) * int(owner.get('quantity', 0)) * Decimal(str(seconds)) / Decimal('3600')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        if amount <= 0:
+            owner_doc.reference.set({'lastAccruedAt': now}, merge=True)
+            continue
+        entry_id = f"{owner_doc.id}_{int(now.timestamp() // 3600)}"
+        entry_ref = db.collection(PSE_COLLECTIONS['activity']).document(entry_id)
+        if not entry_ref.get().exists:
+            entry_ref.set({'activityId': entry_id, 'userId': owner['userId'], 'campaignId': owner['campaignId'], 'type': 'earning_accrual', 'amountGBP': str(amount), 'message': 'Verified tool earnings accrued.', 'createdAt': firestore.SERVER_TIMESTAMP})
+            ledger_ref = db.collection(PSE_COLLECTIONS['earnings']).document(f"{owner['userId']}_{owner['campaignId']}")
+            snap = ledger_ref.get().to_dict() or {}
+            total = money(snap.get('grossToolEarningsGBP', '0.00')) + amount
+            ledger_ref.set({'userId': owner['userId'], 'campaignId': owner['campaignId'], 'grossToolEarningsGBP': str(total), 'status': 'accruing', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            processed += 1
+        owner_doc.reference.set({'lastAccruedAt': now}, merge=True)
+    return {'processed': processed, 'status': 'accrued'}
 
 
 def verify_transaction_not_implemented():

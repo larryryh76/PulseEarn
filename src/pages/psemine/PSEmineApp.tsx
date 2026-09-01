@@ -9,6 +9,9 @@ interface Snapshot {
   campaign?: { name?: string; status?: string; endAt?: string }
   ownership?: Array<{ toolNameSnapshot?: string; quantity?: number; status?: string }>
   earnings?: { grossToolEarningsGBP?: string; referralBonusGBP?: string; totalEarningsGBP?: string; status?: string }
+  capacity?: { activeTools?: number; hourlyRateGBP?: string }
+  referrals?: { qualified?: number; maximum?: number; hourlyBoostGBP?: string }
+  activity?: Array<{ type?: string; message?: string; createdAt?: string }>
   wallets?: Array<{ address?: string; role?: string; network?: string; status?: string }>
   user?: { participationStatus?: string }
 }
@@ -55,7 +58,7 @@ export const PSEmineApp: React.FC = () => {
   if (error) return <div className="psemine-app-state"><ShieldAlert size={22} /><div><strong>{error.code === 'PSEmine_ACCESS_REQUIRED' ? 'Finish PSEmine onboarding' : 'Campaign data unavailable'}</strong><p>{error.message}</p><button className="psemine-button" onClick={() => { window.location.href = '/mine' }}>Return to PSEmine</button></div></div>
 
   const total = snapshot?.earnings?.totalEarningsGBP || '0.00'
-  const activeTools = snapshot?.ownership?.filter(tool => tool.status === 'activated').reduce((sum, tool) => sum + Number(tool.quantity || 0), 0) || 0
+  const activeTools = snapshot?.capacity?.activeTools ?? (snapshot?.ownership?.filter(tool => tool.status === 'activated').reduce((sum, tool) => sum + Number(tool.quantity || 0), 0) || 0)
 
   const navItems = [{ href: '/mine/app', label: 'Home', icon: Home }, { href: '/mine/tools', label: 'Tools', icon: Package }, { href: '/mine/activity', label: 'Activity', icon: Clock3 }, { href: '/mine/guide', label: 'Guide', icon: BookOpen }, { href: '/mine/me', label: 'Me', icon: UserRound }]
   return <div className="psemine-app-page">

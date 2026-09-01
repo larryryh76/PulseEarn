@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark';
 import { Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './psemine.css';
 
 export const PSEMineWalletPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const [payoutWallet, setPayoutWallet] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -15,9 +17,10 @@ export const PSEMineWalletPage: React.FC = () => {
     }
     setIsSaving(true);
     try {
+      const token = await currentUser?.getIdToken();
       const res = await fetch('/api/mine/wallet/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ payoutWallet: payoutWallet.trim() })
       });
       const data = await res.json();
@@ -27,7 +30,7 @@ export const PSEMineWalletPage: React.FC = () => {
         toast.error(data.message || 'Failed to update payout wallet');
       }
     } catch {
-      toast.success('Payout wallet address configured!');
+      toast.error('Could not update the payout wallet. Please try again.');
     } finally {
       setIsSaving(false);
     }

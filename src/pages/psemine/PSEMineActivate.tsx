@@ -19,7 +19,8 @@ export const PSEMineActivate: React.FC = () => {
       navigate('/mine/dashboard');
     } catch (error: any) {
       console.error("[PSEMineActivate] Activation Error:", error);
-      toast.error('Failed to activate PSEmine access. Please try again.');
+      const message = error?.message || error?.code || 'Failed to activate PSEmine access. Please try again.';
+      toast.error(message);
     } finally {
       setIsActivating(false);
     }

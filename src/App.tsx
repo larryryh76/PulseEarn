@@ -245,7 +245,7 @@ function App() {
         <Route path="/mine/login" element={<PSEMinePublicRoute><PSEMineLogin /></PSEMinePublicRoute>} />
         <Route path="/mine/signup" element={<PSEMinePublicRoute><PSEMineSignup /></PSEMinePublicRoute>} />
         <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
-        <Route path="/mine/activate" element={<PSEMineProtectedRoute><PSEMineActivate /></PSEMineProtectedRoute>} />
+        <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
         <Route path="/mine/app" element={<Navigate to="/mine/dashboard" replace />} />
         <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
         <Route path="/mine/tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />

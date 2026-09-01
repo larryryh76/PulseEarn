@@ -33,7 +33,7 @@ def _required_config(name):
 
 
 def live_bnb_gbp_price():
-    url = os.environ.get('PSEMINE_COINGECKO_API_URL', DEFAULT_COINGECKO_URL)
+    url = _required_config('PSEMINE_COINGECKO_API_URL')
     try:
         response = requests.get(url, timeout=8, headers={'Accept': 'application/json', 'User-Agent': 'PSEmine/1.0'})
         response.raise_for_status()

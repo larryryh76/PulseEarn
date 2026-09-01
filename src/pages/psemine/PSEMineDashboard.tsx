@@ -12,6 +12,7 @@ interface Snapshot {
   earnings?: { grossToolEarningsGBP?: string; referralBonusGBP?: string; totalEarningsGBP?: string; status?: string; hourlyRateGBP?: string }
   wallets?: Array<{ address?: string; role?: string; network?: string; status?: string }>
   referrals?: { qualified?: number; pending?: number; rewardGBP?: string }
+  capacity?: { activeTools?: number; hourlyRateGBP?: string }
   activity?: Array<{ type?: string; label?: string; createdAt?: string }>
   user?: { participationStatus?: string }
 }
@@ -53,8 +54,9 @@ export const PSEMineDashboard: React.FC = () => {
   useEffect(() => { void refresh() }, [refresh])
 
   const counts = useMemo(() => tools.map(tool => ({ ...tool, count: snapshot?.ownership?.filter(item => item.toolNameSnapshot?.toLowerCase() === tool.key.toLowerCase()).reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0 })), [snapshot])
-  const activeTools = snapshot?.ownership?.filter(item => item.status === 'activated').reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0
-  const hourlyRate = snapshot?.earnings?.hourlyRateGBP || counts.reduce((sum, item) => sum + item.count * item.rate, 0).toFixed(2)
+  const activeCounts = useMemo(() => tools.map(tool => ({ ...tool, count: snapshot?.ownership?.filter(item => item.status === 'activated' && item.toolNameSnapshot?.toLowerCase() === tool.key.toLowerCase()).reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0 })), [snapshot])
+  const activeTools = snapshot?.capacity?.activeTools ?? activeCounts.reduce((sum, item) => sum + item.count, 0)
+  const hourlyRate = snapshot?.earnings?.hourlyRateGBP || activeCounts.reduce((sum, item) => sum + item.count * item.rate, 0).toFixed(2)
   const wallet = snapshot?.wallets?.find(item => item.role === 'payout') || snapshot?.wallets?.[0]
   const activity = snapshot?.activity?.slice(0, 5) || []
 

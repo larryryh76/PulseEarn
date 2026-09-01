@@ -252,6 +252,7 @@ function App() {
         <Route path="/mine/wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
         <Route path="/mine/activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
         <Route path="/mine/referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
+        <Route path="/mine/guide" element={<PSEMineProtectedRoute><Guide /></PSEMineProtectedRoute>} />
         <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark';
 import { ArrowRight, CheckCircle2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
@@ -14,13 +14,6 @@ interface ToolConfig {
   description: string;
 }
 
-const TOOLS: ToolConfig[] = [
-  { id: 'basic', name: 'Basic', priceGBP: 3, hourlyRateGBP: 0.10, maxCopies: 5, description: 'A dependable entry tool for starting your campaign capacity.' },
-  { id: 'core', name: 'Core', priceGBP: 10, hourlyRateGBP: 0.50, maxCopies: 3, description: 'A balanced tool for building a stronger earning base.' },
-  { id: 'advanced', name: 'Advanced Miner', priceGBP: 50, hourlyRateGBP: 1.20, maxCopies: 3, description: 'High-performance equipment for serious participants.' },
-  { id: 'elite', name: 'Elite Miner', priceGBP: 200, hourlyRateGBP: 2.50, maxCopies: 2, description: 'Top-tier mining hardware for maximum campaign yield.' },
-];
-
 export const PSEMineTools: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const [selectedTool, setSelectedTool] = useState<ToolConfig | null>(null);
@@ -28,6 +21,19 @@ export const PSEMineTools: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quote, setQuote] = useState<any>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
+  const [tools, setTools] = useState<ToolConfig[]>([]);
+
+  useEffect(() => {
+    const loadTools = async () => {
+      const token = await currentUser?.getIdToken();
+      if (!token) return;
+      const response = await fetch('/api/psemine/tools', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (data.success) setTools(data.tools.map((tool: any) => ({ id: tool.toolId, name: tool.name, priceGBP: Number(tool.purchasePriceGBP), hourlyRateGBP: Number(tool.hourlyRateGBP), maxCopies: Number(tool.maxPerAccount), description: tool.description || 'Campaign mining equipment.' })));
+      else toast.error(data.message || data.error || 'Could not load available tools.');
+    };
+    void loadTools();
+  }, [currentUser]);
 
   const handleOpenCheckout = async (tool: ToolConfig) => {
     setSelectedTool(tool);
@@ -131,7 +137,7 @@ export const PSEMineTools: React.FC = () => {
               gap: '24px'
             }}
           >
-            {TOOLS.map((tool) => (
+            {tools.map((tool: ToolConfig) => (
               <div
                 key={tool.id}
                 style={{

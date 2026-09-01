@@ -1526,7 +1526,8 @@ def psemine_onboarding():
         wallet = normalize_address(payload.get('walletAddress'))
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
         before = ref.get().to_dict() or {}
-        ref.set({'userId': uid, 'productAccess': {'psemine': True}, 'participationStatus': 'eligible',
+        current_access = before.get('productAccess') or {'pulseearn': True}
+        ref.set({'userId': uid, 'productAccess': {**current_access, 'psemine': True}, 'participationStatus': 'eligible',
                  'purchaseWallet': wallet, 'payoutWallet': wallet, 'walletNetwork': 'bsc',
                  'agreementAcceptedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
@@ -6188,6 +6189,19 @@ def get_psemine_campaign_status():
         return jsonify({"success": True, "campaign": serialize_campaign(camp)})
     return jsonify({"success": True, "campaign": {"status": "draft", "durationDays": 90, "currencyDisplay": "GBP", "paymentNetwork": "BNB Smart Chain", "paymentAsset": "BNB", "purchaseEnabled": False, "miningEnabled": False}})
 
+@app.route('/api/psemine/tools', methods=['GET'])
+@verify_token
+@require_db
+def psemine_tools_catalog():
+    from services.psemine import PSE_COLLECTIONS, require_participation, serialize_tool, PSEmineError
+    try:
+        require_participation(get_db(), request.user['uid'])
+        tools = [serialize_tool(doc) for doc in get_db().collection(PSE_COLLECTIONS['tools']).where('status', '==', 'enabled').stream()]
+        return jsonify({'success': True, 'tools': tools})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+
+
 @app.route('/api/mine/tools/quote', methods=['POST'])
 @verify_token
 def generate_psemine_tool_quote():
@@ -6301,14 +6315,16 @@ def admin_campaign_action():
     camp_ref = db.collection('psemine_campaigns').document(data.get('campaignId') or 'psemine-initial')
     if not camp_ref.get().exists:
         return jsonify({'success': False, 'error': 'CAMPAIGN_NOT_FOUND'}), 404
-    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat().replace('+00:00', 'Z')
 
     if action == 'start':
-        camp_ref.update({'status': 'active', 'miningEnabled': True, 'purchaseEnabled': True, 'startAt': now_iso, 'updatedAt': now_iso})
+        duration_days = int((camp_ref.get().to_dict() or {}).get('durationDays') or 90)
+        camp_ref.update({'status': 'active', 'miningEnabled': True, 'purchaseEnabled': True, 'startAt': now, 'endAt': now + timedelta(days=duration_days), 'updatedAt': now})
     elif action == 'stop':
-        camp_ref.update({'status': 'disabled', 'miningEnabled': False, 'purchaseEnabled': False, 'updatedAt': now_iso})
+        camp_ref.update({'status': 'disabled', 'miningEnabled': False, 'purchaseEnabled': False, 'updatedAt': now})
     elif action == 'settle':
-        camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
+        camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now})
     elif action == 'shutdown':
         camp_ref.update({
             "status": "archived",
@@ -6321,7 +6337,7 @@ def admin_campaign_action():
                 "archivedBy": uid,
                 "reason": reason
             },
-            "updatedAt": now_iso
+            "updatedAt": now
         })
     else:
         return jsonify({"success": False, "error": "INVALID_ACTION"}), 400
@@ -6331,7 +6347,7 @@ def admin_campaign_action():
         "timestamp": firestore.SERVER_TIMESTAMP,
         "adminId": uid,
         "action": f"PSEMINE_CAMPAIGN_{action.upper()}",
-        "targetEntity": "psemine_campaigns/active_campaign",
+        "targetEntity": f"psemine_campaigns/{camp_ref.id}",
         "metadata": {"reason": reason, "action": action}
     })
 

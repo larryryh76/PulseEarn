@@ -9,17 +9,20 @@ import './psemine.css';
 export const PSEMineActivate: React.FC = () => {
   const { currentUser, userData, activatePSEMineAccess } = useAuth();
   const [isActivating, setIsActivating] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(userData?.walletAddress || '');
   const navigate = useNavigate();
 
   const handleActivate = async () => {
     try {
       setIsActivating(true);
-      await activatePSEMineAccess();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress.trim())) throw new Error('Connect or enter a valid BSC wallet address first.');
+      await activatePSEMineAccess(walletAddress.trim());
       toast.success('PSEmine access activated!');
       navigate('/mine/dashboard');
     } catch (error: any) {
       console.error("[PSEMineActivate] Activation Error:", error);
-      toast.error('Failed to activate PSEmine access. Please try again.');
+      const message = error?.message || error?.code || 'Failed to activate PSEmine access. Please try again.';
+      toast.error(message);
     } finally {
       setIsActivating(false);
     }
@@ -63,6 +66,11 @@ export const PSEMineActivate: React.FC = () => {
             <p style={{ color: 'var(--pm-muted)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 24px' }}>
               Welcome, <strong style={{ color: '#fff' }}>{userData?.username || currentUser?.email}</strong>. You are currently authenticated. To enter the PSEmine digital mining environment, confirm your access below.
             </p>
+
+            <label style={{ display: 'grid', gap: '8px', textAlign: 'left', marginBottom: '20px', color: 'var(--pm-muted)', fontSize: '13px' }}>
+              BSC wallet address
+              <input value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x..." autoComplete="off" style={{ background: 'var(--pm-soft)', border: '1px solid var(--pm-line)', borderRadius: '10px', padding: '13px', color: '#fff', fontFamily: 'monospace' }} />
+            </label>
 
             <div
               style={{

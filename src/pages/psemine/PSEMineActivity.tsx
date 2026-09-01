@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark';
+import { safeFetch } from '../../utils/api';
 import { Clock } from 'lucide-react';
 import './psemine.css';
 
 export const PSEMineActivity: React.FC = () => {
+  const { currentUser } = useAuth();
+  const [items, setItems] = useState<Array<{ type?: string; message?: string; amountGBP?: string; createdAt?: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const refresh = useCallback(async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    const token = await currentUser.getIdToken();
+    const result = await safeFetch('/api/psemine/activity', { headers: { Authorization: `Bearer ${token}` } });
+    if (result.success) setItems(result.activity || []);
+    else setError(result.message || 'Activity is temporarily unavailable.');
+    setLoading(false);
+  }, [currentUser]);
+  useEffect(() => { void refresh(); }, [refresh]);
+
   return (
     <div className="psemine-site" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header className="psemine-header">
@@ -43,7 +60,7 @@ export const PSEMineActivity: React.FC = () => {
             }}
           >
             <p style={{ color: 'var(--pm-muted)', fontSize: '14px', margin: 0 }}>
-              No campaign transactions recorded yet. Activate a mining tool to begin generating activity logs.
+              {loading ? 'Loading campaign activity...' : error ? error : items.length ? items.map((item, index) => <span key={`${item.type}-${index}`} style={{ display: 'block', textAlign: 'left', padding: '12px 0', borderBottom: '1px solid var(--pm-line)' }}>{item.message || item.type || 'Campaign event'}{item.amountGBP ? ` · £${item.amountGBP}` : ''}</span>) : 'No campaign transactions recorded yet. Activate a mining tool to begin generating activity logs.'}
             </p>
           </div>
         </div>

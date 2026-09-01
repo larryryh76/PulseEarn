@@ -14,6 +14,7 @@ import Notifications from './pages/Notifications'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
 import Marketplace from './pages/Marketplace'
+import PSEmineAdmin from './pages/admin/PSEmineAdmin'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
@@ -245,14 +246,17 @@ function App() {
         <Route path="/mine/signup" element={<PSEMinePublicRoute><PSEMineSignup /></PSEMinePublicRoute>} />
         <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
         <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
+        <Route path="/mine/app" element={<Navigate to="/mine/dashboard" replace />} />
         <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
         <Route path="/mine/tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />
         <Route path="/mine/wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
         <Route path="/mine/activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
         <Route path="/mine/referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
+        <Route path="/mine/guide" element={<PSEMineProtectedRoute><Guide /></PSEMineProtectedRoute>} />
         <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
+  <Route path="/admin/psemine" element={<OpsRoute><PSEmineAdmin /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />

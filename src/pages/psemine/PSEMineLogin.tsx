@@ -19,8 +19,9 @@ export const PSEMineLogin: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       setIsSubmitting(true);
+      sessionStorage.setItem('psemine-auth-flow', 'true');
       await signInWithGoogle(undefined, 'psemine');
-      navigate('/mine/dashboard');
+      navigate('/mine/activate');
     } catch (error: any) {
       let message = 'An unexpected error occurred.';
       if (error.code === 'auth/unauthorized-domain') {
@@ -46,8 +47,9 @@ export const PSEMineLogin: React.FC = () => {
 
     try {
       setIsSubmitting(true);
+      sessionStorage.setItem('psemine-auth-flow', 'true');
       await login(email, password);
-      navigate('/mine/dashboard');
+      navigate('/mine/activate');
     } catch (error: any) {
       console.error("[PSEMineLogin] Auth Error:", error.code, error.message);
       toast.error(mapAuthError(error));

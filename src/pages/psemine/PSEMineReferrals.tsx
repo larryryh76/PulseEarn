@@ -1,13 +1,16 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { safeFetch } from '../../utils/api';
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark';
 import { Users, Copy, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './psemine.css';
 
 export const PSEMineReferrals: React.FC = () => {
-  const { userData } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [copied, setCopied] = React.useState(false);
+  const [summary, setSummary] = React.useState({ qualified: 0, maximum: 5, hourlyBoostGBP: '0.00' });
+  React.useEffect(() => { void (async () => { const token = await currentUser?.getIdToken(); if (!token) return; const result = await safeFetch('/api/psemine/referrals', { headers: { Authorization: `Bearer ${token}` } }); if (result.success) setSummary({ qualified: result.qualified, maximum: result.maximum, hourlyBoostGBP: result.hourlyBoostGBP }); })(); }, [currentUser]);
 
   const referralLink = `https://pulseearn.online/mine/signup?ref=${userData?.referralCode || 'PSEMINE'}`;
 
@@ -53,7 +56,7 @@ export const PSEMineReferrals: React.FC = () => {
                 Qualified Referrals
               </span>
               <div style={{ fontSize: '36px', fontWeight: 800, color: '#fff', margin: '12px 0 6px' }}>
-                0 <span style={{ fontSize: '16px', color: 'var(--pm-muted)' }}>/ 5 max</span>
+                {summary.qualified} <span style={{ fontSize: '16px', color: 'var(--pm-muted)' }}>/ {summary.maximum} max</span>
               </div>
               <small style={{ color: 'var(--pm-muted)', fontSize: '12px' }}>Count toward capacity boost</small>
             </div>
@@ -63,7 +66,7 @@ export const PSEMineReferrals: React.FC = () => {
                 Current Hourly Boost
               </span>
               <div style={{ fontSize: '36px', fontWeight: 800, color: 'var(--pm-cyan)', margin: '12px 0 6px' }}>
-                +£0.00 <span style={{ fontSize: '16px' }}>/ hr</span>
+                +£{summary.hourlyBoostGBP} <span style={{ fontSize: '16px' }}>/ hr</span>
               </div>
               <small style={{ color: 'var(--pm-muted)', fontSize: '12px' }}>Max referral boost is +£1.50/hr</small>
             </div>

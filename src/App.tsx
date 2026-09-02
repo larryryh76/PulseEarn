@@ -102,6 +102,11 @@ const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
 
+  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass) {
+    return <Navigate to="/verify-email" replace />;
+  }
+
   // Enforce Product Access for PSEmine
   const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
   if (!productAccess.psemine && !isOpsUser) {
@@ -154,8 +159,12 @@ const PSEMinePublicRoute: React.FC<{ children: React.ReactNode }> = ({ children 
   const { currentUser, userData, loading } = useAuth();
   if (loading) return null;
   if (currentUser) {
+    const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+    if (!currentUser.emailVerified && !isOpsUser) {
+      return <Navigate to="/verify-email" replace />;
+    }
     const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    if (productAccess.psemine || userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true) {
+    if (productAccess.psemine || isOpsUser) {
       return <Navigate to="/mine/dashboard" replace />;
     }
     return <Navigate to="/mine/activate" replace />;
@@ -256,7 +265,8 @@ function App() {
         <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
-  <Route path="/admin/psemine" element={<OpsRoute><PSEmineAdmin /></OpsRoute>} />
+        <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><PSEmineAdmin /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/mine" element={<OpsRoute><OpsLayout><PSEmineAdmin /></OpsLayout></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />

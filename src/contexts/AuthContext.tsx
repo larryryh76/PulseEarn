@@ -439,6 +439,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   async function activatePSEMineAccess(walletAddress?: string) {
     if (!currentUser) throw new Error('You must be signed in to activate PSEmine.');
+    if (!currentUser.emailVerified && userData?.role !== 'admin' && userData?.role !== 'moderator') {
+      throw new Error('Please verify your email address before activating PSEmine.');
+    }
     const token = await currentUser.getIdToken(true);
     const response = await safeFetch('/api/psemine/onboarding', {
       method: 'POST',
@@ -446,9 +449,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
     });
     if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
-    const userRef = doc(db, 'users', currentUser.uid);
-    const currentAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    await updateDoc(userRef, { productAccess: { ...currentAccess, psemine: true } });
+    // Authoritative access is granted server-side in /api/psemine/onboarding via Admin SDK.
+    // AuthContext onSnapshot automatically receives and propagates updated user snapshot.
   }
 
   function login(email: string, password: string) {

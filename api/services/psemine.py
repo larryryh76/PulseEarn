@@ -27,7 +27,7 @@ def _required_config(name):
 
 
 def live_bnb_gbp_price():
-    url = _required_config('PSEMINE_COINGECKO_API_URL')
+    url = os.environ.get('PSEMINE_COINGECKO_API_URL') or DEFAULT_COINGECKO_URL
     try:
         response = requests.get(url, timeout=8, headers={'Accept': 'application/json', 'User-Agent': 'PSEmine/1.0'})
         response.raise_for_status()
@@ -35,8 +35,17 @@ def live_bnb_gbp_price():
         if price <= 0:
             raise ValueError('non-positive price')
         return price
-    except (requests.RequestException, ValueError, TypeError, KeyError) as error:
-        raise PSEmineError('PRICE_UNAVAILABLE', 'Live BNB pricing is temporarily unavailable.', 503, {'provider': 'coingecko', 'reason': str(error)})
+    except (requests.RequestException, ValueError, TypeError, KeyError) as primary_error:
+        try:
+            binance_url = 'https://api.binance.com/api/v3/ticker/price?symbol=BNBGBP'
+            resp2 = requests.get(binance_url, timeout=8, headers={'Accept': 'application/json', 'User-Agent': 'PSEmine/1.0'})
+            resp2.raise_for_status()
+            p2 = money(resp2.json().get('price'), 'bnbGbpPrice')
+            if p2 > 0:
+                return p2
+        except Exception:
+            pass
+        raise PSEmineError('PRICE_UNAVAILABLE', 'Live BNB pricing is temporarily unavailable.', 503, {'provider': 'coingecko', 'reason': str(primary_error)})
 
 
 def bsc_rpc(method, params):
@@ -90,6 +99,7 @@ def create_live_purchase_intent(db, uid, tool_id, quantity):
 
 
 def verify_purchase(db, uid, purchase_id, tx_hash):
+    # PHASE A: Non-transactional validation & external BSC RPC lookup
     intent_ref = db.collection(PSE_COLLECTIONS['intents']).document(purchase_id)
     intent_snap = intent_ref.get()
     if not intent_snap.exists:
@@ -102,33 +112,104 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
     expires = intent.get('expiresAt')
     if expires and hasattr(expires, 'timestamp') and expires < utc_now():
         raise PSEmineError('PURCHASE_INTENT_EXPIRED', 'This purchase quote has expired.', 409)
+
     transaction, receipt = bsc_transaction(tx_hash)
     if int(transaction.get('chainId', '0x0'), 16) != BSC_CHAIN_ID or receipt.get('status') != '0x1':
         raise PSEmineError('TRANSACTION_INVALID', 'The transaction was not confirmed successfully on BSC.', 400)
-    existing = db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).get()
-    if existing.exists:
-        raise PSEmineError('TRANSACTION_REPLAYED', 'This transaction has already been submitted.', 409)
+
     latest_block = bsc_rpc('eth_blockNumber', [])
     tx_block = receipt.get('blockNumber')
     confirmations_required = int(os.environ.get('PSEMINE_REQUIRED_CONFIRMATIONS', '15'))
     if not latest_block or not tx_block or int(latest_block, 16) - int(tx_block, 16) + 1 < confirmations_required:
         raise PSEmineError('PAYMENT_CONFIRMATIONS_PENDING', 'Payment is confirmed but has not reached the required BSC confirmations.', 409, {'required': confirmations_required})
+
     expected_wei = int((Decimal(intent['expectedBNB']) * WEI_PER_BNB).to_integral_value(rounding=ROUND_DOWN))
     actual_wei = int(transaction.get('value', '0x0'), 16)
     if actual_wei < expected_wei:
         raise PSEmineError('PAYMENT_INSUFFICIENT', 'The confirmed BNB payment is below the quoted amount.', 400)
+
     campaign = db.collection(PSE_COLLECTIONS['campaigns']).document(intent.get('campaignId', '')).get().to_dict() or {}
     treasury = (campaign.get('receiverWalletAddress') or '').lower()
     if not treasury or transaction.get('to', '').lower() != treasury:
         raise PSEmineError('PAYMENT_RECIPIENT_INVALID', 'The payment recipient does not match the active campaign treasury.', 400)
-    if transaction.get('from', '').lower() != str(intent.get('purchaseWallet', '')).lower() and intent.get('purchaseWallet'):
-        raise PSEmineError('PAYMENT_SENDER_INVALID', 'The payment was sent from a different wallet than the purchase wallet.', 400)
-    intent_ref.set({'status': 'verified', 'txHash': tx_hash.lower(), 'verifiedAt': firestore.SERVER_TIMESTAMP, 'actualWei': str(actual_wei)}, merge=True)
-    db.collection(PSE_COLLECTIONS['transactions']).document(tx_hash.lower()).set({'txHash': tx_hash.lower(), 'userId': uid, 'intentId': purchase_id, 'status': 'verified', 'createdAt': firestore.SERVER_TIMESTAMP}, merge=True)
+
+    recorded_wallet = str(intent.get('purchaseWallet') or '').strip().lower()
+    if recorded_wallet and transaction.get('from', '').lower() != recorded_wallet:
+        raise PSEmineError('PAYMENT_SENDER_INVALID', 'The payment was sent from a different wallet than the recorded purchase wallet.', 400)
+
+    tx_doc_id = tx_hash.lower()
+    tx_ref = db.collection(PSE_COLLECTIONS['transactions']).document(tx_doc_id)
     ownership_id = purchase_id
     ownership_ref = db.collection(PSE_COLLECTIONS['ownership']).document(ownership_id)
-    ownership_ref.set({'ownershipId': ownership_id, 'userId': uid, 'campaignId': intent.get('campaignId'), 'toolId': intent.get('toolId'), 'quantity': int(intent.get('quantity', 1)), 'hourlyRateGBP': str((db.collection(PSE_COLLECTIONS['tools']).document(intent.get('toolId', '')).get().to_dict() or {}).get('hourlyRateGBP', '0.00')), 'status': 'activated', 'purchaseIntentId': purchase_id, 'activatedAt': firestore.SERVER_TIMESTAMP, 'lastAccruedAt': firestore.SERVER_TIMESTAMP}, merge=True)
-    return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified', 'ownershipId': ownership_id}
+    tool_snap = db.collection(PSE_COLLECTIONS['tools']).document(intent.get('toolId', '')).get()
+    hourly_rate = str((tool_snap.to_dict() or {}).get('hourlyRateGBP', '0.00')) if tool_snap.exists else '0.00'
+
+    # PHASE B: Atomic Firestore mutation (establishes single-use claim & ownership)
+    @firestore.transactional
+    def process_verification(txn):
+        tx_snap_txn = tx_ref.get(transaction=txn)
+        if tx_snap_txn.exists:
+            raise PSEmineError('TRANSACTION_REPLAYED', 'This transaction has already been submitted.', 409)
+
+        intent_snap_txn = intent_ref.get(transaction=txn)
+        if not intent_snap_txn.exists:
+            raise PSEmineError('PURCHASE_INTENT_NOT_FOUND', 'Purchase intent not found.', 404)
+        intent_txn = intent_snap_txn.to_dict() or {}
+        if intent_txn.get('status') != 'quoted':
+            raise PSEmineError('PURCHASE_ALREADY_PROCESSED', 'This purchase intent has already been processed.', 409)
+
+        txn.set(tx_ref, {
+            'txHash': tx_doc_id, 'userId': uid, 'intentId': purchase_id,
+            'status': 'verified', 'actualWei': str(actual_wei),
+            'fromWallet': transaction.get('from', '').lower(),
+            'toWallet': transaction.get('to', '').lower(),
+            'createdAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
+        txn.set(intent_ref, {
+            'status': 'verified', 'txHash': tx_doc_id,
+            'verifiedAt': firestore.SERVER_TIMESTAMP, 'actualWei': str(actual_wei)
+        }, merge=True)
+
+        txn.set(ownership_ref, {
+            'ownershipId': ownership_id, 'userId': uid,
+            'campaignId': intent.get('campaignId'), 'toolId': intent.get('toolId'),
+            'quantity': int(intent.get('quantity', 1)), 'hourlyRateGBP': hourly_rate,
+            'status': 'activated', 'purchaseIntentId': purchase_id,
+            'activatedAt': firestore.SERVER_TIMESTAMP, 'lastAccruedAt': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
+        act_ref = db.collection(PSE_COLLECTIONS['activity']).document()
+        txn.set(act_ref, {
+            'activityId': act_ref.id, 'userId': uid,
+            'campaignId': intent.get('campaignId'),
+            'type': 'tool_purchase_verified',
+            'amountGBP': intent.get('expectedGBP', '0.00'),
+            'txHash': tx_doc_id,
+            'message': 'Tool purchase verified and activated.',
+            'createdAt': firestore.SERVER_TIMESTAMP
+        })
+
+        ref_query = db.collection(PSE_COLLECTIONS['referrals']).where('refereeId', '==', uid).limit(1).stream()
+        for ref_doc in ref_query:
+            r_data = ref_doc.to_dict() or {}
+            if r_data.get('status') == 'registered':
+                txn.set(ref_doc.reference, {
+                    'status': 'qualified',
+                    'qualificationEvent': 'PSEMINE_TOOL_PURCHASE',
+                    'qualifiedAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
+
+    try:
+        process_verification(db.transaction())
+        audit(db, uid, 'PURCHASE_VERIFIED', target_user_id=uid, campaign_id=intent.get('campaignId'),
+              metadata={'txHash': tx_doc_id, 'purchaseId': purchase_id, 'toolId': intent.get('toolId')})
+        return {'success': True, 'intentId': purchase_id, 'txHash': tx_doc_id, 'status': 'verified', 'ownershipId': ownership_id}
+    except PSEmineError:
+        raise
+    except Exception as e:
+        raise PSEmineError('PURCHASE_VERIFICATION_FAILED', str(e), 500)
 
 
 def reconcile_psemine(db):

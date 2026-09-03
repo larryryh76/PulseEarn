@@ -457,41 +457,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    if (localStorage.getItem('pulseearn-test-bypass') === 'true') {
-      setCurrentUser({
-        uid: 'test-user-uid',
-        email: 'test@pulseearn.online',
-        emailVerified: true,
-        getIdToken: async () => 'test-id-token',
-        getIdTokenResult: async () => ({ token: 'test-id-token', claims: { role: 'user' } }),
-      } as any);
-      setUserData({
-        uid: 'test-user-uid',
-        email: 'test@pulseearn.online',
-        username: 'PremiumUser',
-        points: 12500,
-        referralCode: 'PULSE-TEST',
-        referredBy: null,
-        streak: 5,
-        totalEarnedToday: 450,
-        xp: 3200,
-        level: 3,
-        role: 'user',
-        status: 'active',
-        onboardingCompleted: true,
-        stats: {
-          tasksCompleted: 15,
-          referralsCount: 3,
-          predictionsCount: 8,
-          totalEarnings: 24500,
-          weeklyEarnings: 1250
-        }
-      } as any);
-      setLoading(false);
-      setIsRestoring(false);
-      return;
-    }
-
     let unsubscribeData: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {

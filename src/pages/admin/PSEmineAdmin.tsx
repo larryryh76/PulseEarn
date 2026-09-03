@@ -39,17 +39,23 @@ export default function PSEmineAdmin() {
       return
     }
     setBusy(true); setMessage('')
-    const token = await auth.currentUser?.getIdToken()
-    const result = await safeFetch('/api/admin/mine/campaign/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ action, reason }),
-    })
-    const msg = result.success ? `Campaign ${action} request completed.` : result.message || result.error || 'Action failed.'
-    setMessage(msg)
-    if (result.success) toast.success(msg)
-    else toast.error(msg)
-    await load(); setBusy(false)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const result = await safeFetch('/api/admin/mine/campaign/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action, reason }),
+      })
+      const msg = result.success ? `Campaign ${action} request completed.` : result.message || result.error || 'Action failed.'
+      setMessage(msg)
+      if (result.success) toast.success(msg)
+      else toast.error(msg)
+      await load()
+    } catch (err: any) {
+      toast.error(err?.message || 'Action failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const saveConfig = async () => {
@@ -58,17 +64,23 @@ export default function PSEmineAdmin() {
       return
     }
     setBusy(true); setMessage('')
-    const token = await auth.currentUser?.getIdToken()
-    const result = await safeFetch('/api/admin/mine/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ receiverWalletAddress: wallet.trim() }),
-    })
-    const msg = result.success ? 'Receiving wallet saved securely.' : result.message || result.error || 'Configuration failed.'
-    setMessage(msg)
-    if (result.success) toast.success(msg)
-    else toast.error(msg)
-    await load(); setBusy(false)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const result = await safeFetch('/api/admin/mine/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ receiverWalletAddress: wallet.trim() }),
+      })
+      const msg = result.success ? 'Receiving wallet saved securely.' : result.message || result.error || 'Configuration failed.'
+      setMessage(msg)
+      if (result.success) toast.success(msg)
+      else toast.error(msg)
+      await load()
+    } catch (err: any) {
+      toast.error(err?.message || 'Configuration failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleBootstrap = async () => {
@@ -76,16 +88,22 @@ export default function PSEmineAdmin() {
       return
     }
     setBusy(true); setMessage('')
-    const token = await auth.currentUser?.getIdToken()
-    const result = await safeFetch('/api/psemine/admin/bootstrap', {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-    })
-    const msg = result.success ? result.message : result.message || 'Bootstrap failed.'
-    setMessage(msg)
-    if (result.success) toast.success(msg)
-    else toast.error(msg)
-    await load(); setBusy(false)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const result = await safeFetch('/api/psemine/admin/bootstrap', {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      })
+      const msg = result.success ? result.message : result.message || 'Bootstrap failed.'
+      setMessage(msg)
+      if (result.success) toast.success(msg)
+      else toast.error(msg)
+      await load()
+    } catch (err: any) {
+      toast.error(err?.message || 'Bootstrap failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

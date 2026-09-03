@@ -14,13 +14,15 @@ export const PSEMineLoader: React.FC<PSEMineLoaderProps> = ({
   timeoutSeconds = 15,
 }) => {
   const [showTimeoutNotice, setShowTimeoutNotice] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    setShowTimeoutNotice(false)
     const timer = setTimeout(() => {
       setShowTimeoutNotice(true)
     }, timeoutSeconds * 1000)
     return () => clearTimeout(timer)
-  }, [timeoutSeconds])
+  }, [timeoutSeconds, attempt])
 
   return (
     <div
@@ -88,6 +90,7 @@ export const PSEMineLoader: React.FC<PSEMineLoaderProps> = ({
           <button
             onClick={() => {
               setShowTimeoutNotice(false)
+              setAttempt(prev => prev + 1)
               if (onRetry) {
                 onRetry()
               } else {

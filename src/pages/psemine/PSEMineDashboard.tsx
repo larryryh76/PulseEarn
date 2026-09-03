@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, ArrowRight, CheckCircle2, Clock3, Home, LogOut, Package, UserRound, WalletCards, XCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -35,20 +35,26 @@ export const PSEMineDashboard: React.FC = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestGen = useRef(0)
 
   const refresh = useCallback(async () => {
     if (!currentUser) return
+    const gen = ++requestGen.current
     setLoading(true)
     setError(null)
     try {
       const token = await currentUser.getIdToken()
       const result = await safeFetch('/api/psemine/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (gen !== requestGen.current) return
       if (!result.success) throw new Error(result.message || 'We could not load your campaign data.')
       setSnapshot(result)
     } catch (cause) {
+      if (gen !== requestGen.current) return
       setError(cause instanceof Error ? cause.message : 'We could not load your campaign data.')
     } finally {
-      setLoading(false)
+      if (gen === requestGen.current) {
+        setLoading(false)
+      }
     }
   }, [currentUser])
 

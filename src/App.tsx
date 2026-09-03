@@ -82,7 +82,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/mine/dashboard" replace />;
   }
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
@@ -101,7 +101,7 @@ const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
 
   // Enforce Email Verification if required
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass) {
     return <Navigate to="/verify-email" replace />;
   }

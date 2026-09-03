@@ -24,15 +24,45 @@ export const PSEMineActivate: React.FC = () => {
   const [hasProvider, setHasProvider] = useState(false);
   const navigate = useNavigate();
 
+  const ensureBscNetwork = async (ethereum: any) => {
+    try {
+      const chainId = await ethereum.request({ method: 'eth_chainId' });
+      if (chainId?.toLowerCase() !== BSC_CHAIN_ID_HEX.toLowerCase()) {
+        try {
+          await ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: BSC_CHAIN_ID_HEX }]
+          });
+        } catch (switchError: any) {
+          if (switchError.code === 4902 || switchError?.message?.includes('Unrecognized chain')) {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [BSC_CHAIN_CONFIG]
+            });
+          } else {
+            throw switchError;
+          }
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('Network switch to BSC was not completed:', err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       setHasProvider(true);
-      // Auto-reconnect if already authorized
-      (window as any).ethereum
+      const ethereum = (window as any).ethereum;
+      ethereum
         .request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
+        .then(async (accounts: string[]) => {
           if (accounts && accounts.length > 0 && !walletAddress) {
-            setWalletAddress(accounts[0]);
+            const isBsc = await ensureBscNetwork(ethereum);
+            if (isBsc) {
+              setWalletAddress(accounts[0]);
+            }
           }
         })
         .catch((err: any) => console.log('eth_accounts check error:', err));
@@ -50,33 +80,17 @@ export const PSEMineActivate: React.FC = () => {
       setIsConnectingWallet(true);
       const ethereum = (window as any).ethereum;
 
-      // Request accounts
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       if (!accounts || accounts.length === 0) {
         throw new Error('No account returned from wallet provider.');
       }
 
-      const connectedAccount = accounts[0];
-
-      // Network check/switch to BSC
-      try {
-        await ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: BSC_CHAIN_ID_HEX }]
-        });
-      } catch (switchError: any) {
-        // Chain 56 not added to wallet -> request add
-        if (switchError.code === 4902 || switchError?.message?.includes('Unrecognized chain')) {
-          await ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [BSC_CHAIN_CONFIG]
-          });
-        } else {
-          console.warn('Network switch warning:', switchError);
-        }
+      const isBsc = await ensureBscNetwork(ethereum);
+      if (!isBsc) {
+        throw new Error('Please switch your wallet to BNB Smart Chain to continue.');
       }
 
-      setWalletAddress(connectedAccount);
+      setWalletAddress(accounts[0]);
       toast.success('BNB Smart Chain wallet connected!');
     } catch (err: any) {
       console.error('Wallet connection error:', err);

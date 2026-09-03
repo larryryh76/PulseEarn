@@ -27,9 +27,11 @@ export const PSEmineApp: React.FC = () => {
   const [error, setError] = useState<{ code?: string; message?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const requestUserId = useRef<string | null>(null)
+  const reqGen = useRef(0)
 
   const refresh = useCallback(async () => {
     const user = currentUser
+    const gen = ++reqGen.current
     requestUserId.current = user?.uid ?? null
     if (!user) {
       setSnapshot(null)
@@ -42,7 +44,7 @@ export const PSEmineApp: React.FC = () => {
     setLoading(true)
     const token = await user.getIdToken()
     const result = await safeFetch('/api/psemine/me', { headers: { Authorization: `Bearer ${token}` } })
-    if (requestUserId.current !== user.uid) return
+    if (requestUserId.current !== user.uid || gen !== reqGen.current) return
     if (result.success) {
       setSnapshot(result)
       setError(null)

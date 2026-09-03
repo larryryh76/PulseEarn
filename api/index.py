@@ -1538,17 +1538,18 @@ def psemine_onboarding():
         user_main = db.collection('users').document(uid).get().to_dict() or {}
         referrer_id = user_main.get('referredBy') or before.get('referredBy')
         if referrer_id and referrer_id != uid:
-            ref_docs = list(db.collection(PSE_COLLECTIONS['referrals']).where('refereeId', '==', uid).limit(1).stream())
-            if not ref_docs:
-                db.collection(PSE_COLLECTIONS['referrals']).add({
-                    'referralId': str(uuid.uuid4()),
+            ref_doc_id = f"psemine_ref_{uid}"
+            ref_ref = db.collection(PSE_COLLECTIONS['referrals']).document(ref_doc_id)
+            if not ref_ref.get().exists:
+                ref_ref.set({
+                    'referralId': ref_doc_id,
                     'referrerId': referrer_id,
                     'refereeId': uid,
                     'referredUserId': uid,
                     'status': 'pending',
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP
-                })
+                }, merge=True)
 
         audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
         return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": f'{wallet[:6]}...{wallet[-4:]}'})

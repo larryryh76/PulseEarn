@@ -26,8 +26,10 @@ def _required_config(name):
     return value
 
 
+DEFAULT_BSC_RPC = 'https://bsc-dataseed.binance.org/'
+
 def live_bnb_gbp_price():
-    url = _required_config('PSEMINE_COINGECKO_API_URL')
+    url = os.environ.get('PSEMINE_COINGECKO_API_URL') or DEFAULT_COINGECKO_URL
     try:
         response = requests.get(url, timeout=8, headers={'Accept': 'application/json', 'User-Agent': 'PSEmine/1.0'})
         response.raise_for_status()
@@ -35,12 +37,20 @@ def live_bnb_gbp_price():
         if price <= 0:
             raise ValueError('non-positive price')
         return price
-    except (requests.RequestException, ValueError, TypeError, KeyError) as error:
-        raise PSEmineError('PRICE_UNAVAILABLE', 'Live BNB pricing is temporarily unavailable.', 503, {'provider': 'coingecko', 'reason': str(error)})
+    except Exception as primary_error:
+        try:
+            binance_res = requests.get('https://api.binance.com/api/v3/ticker/price?symbol=BNBGBP', timeout=5, headers={'User-Agent': 'PSEmine/1.0'})
+            binance_res.raise_for_status()
+            price = money(binance_res.json().get('price'), 'bnbGbpPrice')
+            if price <= 0:
+                raise ValueError('non-positive price')
+            return price
+        except Exception as fallback_error:
+            raise PSEmineError('PRICE_UNAVAILABLE', 'Live BNB pricing is temporarily unavailable.', 503, {'provider': 'coingecko/binance', 'reason': f"{primary_error}; {fallback_error}"})
 
 
 def bsc_rpc(method, params):
-    url = _required_config('PSEMINE_BSC_RPC_URL')
+    url = os.environ.get('PSEMINE_BSC_RPC_URL') or DEFAULT_BSC_RPC
     try:
         response = requests.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=10)
         response.raise_for_status()

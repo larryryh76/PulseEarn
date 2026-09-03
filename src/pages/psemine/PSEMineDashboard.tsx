@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, ArrowRight, CheckCircle2, Clock3, Home, LogOut, Package, UserRound, WalletCards, XCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { safeFetch } from '../../utils/api'
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark'
+import PSEMineLoader from '../../components/psemine/PSEMineLoader'
 import './psemine.css'
 
 interface Snapshot {
@@ -34,20 +35,26 @@ export const PSEMineDashboard: React.FC = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestGen = useRef(0)
 
   const refresh = useCallback(async () => {
     if (!currentUser) return
+    const gen = ++requestGen.current
     setLoading(true)
     setError(null)
     try {
       const token = await currentUser.getIdToken()
       const result = await safeFetch('/api/psemine/me', { headers: { Authorization: `Bearer ${token}` } })
+      if (gen !== requestGen.current) return
       if (!result.success) throw new Error(result.message || 'We could not load your campaign data.')
       setSnapshot(result)
     } catch (cause) {
+      if (gen !== requestGen.current) return
       setError(cause instanceof Error ? cause.message : 'We could not load your campaign data.')
     } finally {
-      setLoading(false)
+      if (gen === requestGen.current) {
+        setLoading(false)
+      }
     }
   }, [currentUser])
 
@@ -60,7 +67,7 @@ export const PSEMineDashboard: React.FC = () => {
   const wallet = snapshot?.wallets?.find(item => item.role === 'payout') || snapshot?.wallets?.[0]
   const activity = snapshot?.activity?.slice(0, 5) || []
 
-  if (loading) return <div className="psemine-app-state"><span className="psemine-spinner" />Loading your campaign workspace</div>
+  if (loading) return <PSEMineLoader message="Loading your campaign workspace..." onRetry={() => void refresh()} />
   if (!currentUser) return <div className="psemine-app-state"><XCircle size={22} />Sign in to access PSEmine.</div>
   if (error) return <div className="psemine-app-state"><XCircle size={22} /><div><strong>We couldn&apos;t load your campaign data.</strong><p>{error}</p><button className="psemine-button" onClick={() => void refresh()}>Retry</button></div></div>
 

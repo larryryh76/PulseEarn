@@ -61,6 +61,7 @@ import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
+import PSEMineLoader from './components/psemine/PSEMineLoader'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -81,7 +82,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/mine/dashboard" replace />;
   }
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
+  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
@@ -93,15 +94,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
-  if (loading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) return <PSEMineLoader message="Loading PSEmine Campaign Workspace..." />;
 
   if (!currentUser) return <Navigate to="/mine/login" replace />;
 
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+
+  // Enforce Email Verification if required
+  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
+  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass) {
+    return <Navigate to="/verify-email" replace />;
+  }
 
   // Enforce Product Access for PSEmine
   const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };

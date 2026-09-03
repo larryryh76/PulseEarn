@@ -3,6 +3,7 @@ import { Activity, ArrowRight, ShieldAlert, WalletCards, Home, Package, Clock3, 
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { safeFetch } from '../../utils/api'
+import PSEMineLoader from '../../components/psemine/PSEMineLoader'
 import './psemine.css'
 
 interface Snapshot {
@@ -26,9 +27,11 @@ export const PSEmineApp: React.FC = () => {
   const [error, setError] = useState<{ code?: string; message?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const requestUserId = useRef<string | null>(null)
+  const reqGen = useRef(0)
 
   const refresh = useCallback(async () => {
     const user = currentUser
+    const gen = ++reqGen.current
     requestUserId.current = user?.uid ?? null
     if (!user) {
       setSnapshot(null)
@@ -41,7 +44,7 @@ export const PSEmineApp: React.FC = () => {
     setLoading(true)
     const token = await user.getIdToken()
     const result = await safeFetch('/api/psemine/me', { headers: { Authorization: `Bearer ${token}` } })
-    if (requestUserId.current !== user.uid) return
+    if (requestUserId.current !== user.uid || gen !== reqGen.current) return
     if (result.success) {
       setSnapshot(result)
       setError(null)
@@ -53,7 +56,7 @@ export const PSEmineApp: React.FC = () => {
 
   useEffect(() => { void refresh() }, [refresh])
 
-  if (authLoading || loading) return <div className="psemine-app-state"><span className="psemine-spinner" />Loading your campaign workspace</div>
+  if (authLoading || loading) return <PSEMineLoader message="Loading your campaign workspace..." onRetry={() => void refresh()} />
   if (!currentUser) return <div className="psemine-app-state"><ShieldAlert size={22} />Sign in to access PSEmine.</div>
   if (error) return <div className="psemine-app-state"><ShieldAlert size={22} /><div><strong>{error.code === 'PSEmine_ACCESS_REQUIRED' ? 'Finish PSEmine onboarding' : 'Campaign data unavailable'}</strong><p>{error.message}</p><button className="psemine-button" onClick={() => { window.location.href = '/mine' }}>Return to PSEmine</button></div></div>
 

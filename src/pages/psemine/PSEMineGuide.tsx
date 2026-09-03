@@ -1,6 +1,6 @@
 import React from 'react';
 import { PSEMineWordmark } from '../../components/psemine/PSEMineWordmark';
-import { BookOpen, ShieldCheck, Zap, Users, Wallet, Clock, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Zap, Users, Wallet, Clock } from 'lucide-react';
 import './psemine.css';
 
 export const PSEMineGuide: React.FC = () => {

@@ -149,6 +149,22 @@ def process_psemine_referral_qualification(db, uid):
             }, merge=True)
             referrer_id = data.get('referrerId')
             if referrer_id:
+                # Update referrer document referral boost capacity
+                ref_user_doc = db.collection(PSE_COLLECTIONS['users']).document(referrer_id)
+                ref_user_snap = ref_user_doc.get()
+                if ref_user_snap.exists:
+                    ref_user_data = ref_user_snap.to_dict() or {}
+                    # Calculate new count of qualified referrals up to 5 max
+                    all_qualified = list(db.collection(PSE_COLLECTIONS['referrals']).where('referrerId', '==', referrer_id).where('status', '==', 'qualified').stream())
+                    qualified_count = min(len(all_qualified), 5)
+                    boost_gbp = (Decimal(qualified_count) * Decimal('0.30')).quantize(Decimal('0.01'))
+
+                    ref_user_doc.set({
+                        'referralCapacityGBPPerHour': str(boost_gbp),
+                        'qualifiedReferralCount': qualified_count,
+                        'updatedAt': firestore.SERVER_TIMESTAMP
+                    }, merge=True)
+
                 db.collection(PSE_COLLECTIONS['activity']).add({
                     'activityId': str(uuid.uuid4()),
                     'userId': referrer_id,

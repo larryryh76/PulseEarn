@@ -1519,6 +1519,7 @@ def psemine_me():
 @require_db
 def psemine_onboarding():
     from services.psemine import PSE_COLLECTIONS, normalize_address, audit, PSEmineError
+    import uuid
     db = get_db()
     uid = request.user['uid']
     payload = request.get_json(silent=True) or {}
@@ -1532,6 +1533,23 @@ def psemine_onboarding():
                  'agreementAcceptedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
         db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+
+        # Check for referral link from main user profile or psemine user profile
+        user_main = db.collection('users').document(uid).get().to_dict() or {}
+        referrer_id = user_main.get('referredBy') or before.get('referredBy')
+        if referrer_id and referrer_id != uid:
+            ref_docs = list(db.collection(PSE_COLLECTIONS['referrals']).where('refereeId', '==', uid).limit(1).stream())
+            if not ref_docs:
+                db.collection(PSE_COLLECTIONS['referrals']).add({
+                    'referralId': str(uuid.uuid4()),
+                    'referrerId': referrer_id,
+                    'refereeId': uid,
+                    'referredUserId': uid,
+                    'status': 'pending',
+                    'createdAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP
+                })
+
         audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
         return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": f'{wallet[:6]}...{wallet[-4:]}'})
     except PSEmineError as error:

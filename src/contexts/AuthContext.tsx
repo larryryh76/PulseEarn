@@ -446,9 +446,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
     });
     if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
-    const userRef = doc(db, 'users', currentUser.uid);
-    const currentAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    await updateDoc(userRef, { productAccess: { ...currentAccess, psemine: true } });
+    // Note: Backend /api/psemine/onboarding updates the authoritative user document in Firestore.
+    // AuthContext's onSnapshot listener on user doc will automatically update userData.productAccess.psemine.
   }
 
   function login(email: string, password: string) {

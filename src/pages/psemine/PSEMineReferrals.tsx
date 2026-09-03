@@ -12,7 +12,7 @@ export const PSEMineReferrals: React.FC = () => {
   const [summary, setSummary] = React.useState({ qualified: 0, maximum: 5, hourlyBoostGBP: '0.00' });
   React.useEffect(() => { void (async () => { const token = await currentUser?.getIdToken(); if (!token) return; const result = await safeFetch('/api/psemine/referrals', { headers: { Authorization: `Bearer ${token}` } }); if (result.success) setSummary({ qualified: result.qualified, maximum: result.maximum, hourlyBoostGBP: result.hourlyBoostGBP }); })(); }, [currentUser]);
 
-  const referralLink = `https://pulseearn.online/mine/signup?ref=${userData?.referralCode || 'PSEMINE'}`;
+  const referralLink = `${window.location.origin}/mine/signup?ref=${encodeURIComponent(userData?.referralCode || 'PSEMINE')}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);

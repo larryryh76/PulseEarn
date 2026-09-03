@@ -67,8 +67,12 @@ export const PSEMineTools: React.FC = () => {
 
   const handleVerifyPurchase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!txHash.trim() || !txHash.startsWith('0x') || txHash.length < 64) {
-      return toast.error('Please enter a valid BSC transaction hash (0x...)');
+    if (!txHash.trim() || !/^0x[a-fA-F0-9]{64}$/.test(txHash.trim())) {
+      return toast.error('Enter the 66-character BSC transaction hash from your wallet.');
+    }
+    const senderWallet = userData?.walletAddress;
+    if (!senderWallet || !/^0x[a-fA-F0-9]{40}$/.test(senderWallet)) {
+      return toast.error('Connect your BSC wallet from PSEmine Wallet before verifying a purchase.');
     }
 
     try {
@@ -83,7 +87,7 @@ export const PSEMineTools: React.FC = () => {
         body: JSON.stringify({
           purchaseId: quote?.quoteId,
           transactionHash: txHash,
-          senderWallet: userData?.walletAddress || '0x'
+          senderWallet
         })
       });
       const data = await res.json();
@@ -314,8 +318,8 @@ export const PSEMineTools: React.FC = () => {
 
       <footer className="psemine-footer">
         <div className="psemine-shell psemine-footer-inner">
-          <div><PSEMineWordmark /><p>Part of the PulseEarn ecosystem.</p></div>
-          <p className="psemine-copyright">© {new Date().getFullYear()} PulseEarn</p>
+          <div><PSEMineWordmark /><p>Independent campaign mining platform.</p></div>
+          <p className="psemine-copyright">© {new Date().getFullYear()} PSEmine</p>
         </div>
       </footer>
     </div>

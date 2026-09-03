@@ -46,6 +46,7 @@ import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
 import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
+import PSEMineGuide from './pages/psemine/PSEMineGuide'
 import PSEMineLogin from './pages/psemine/PSEMineLogin'
 import PSEMineSignup from './pages/psemine/PSEMineSignup'
 import PSEMineForgotPassword from './pages/psemine/PSEMineForgotPassword'
@@ -80,9 +81,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/mine/dashboard" replace />;
   }
 
-  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
-  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
+  if (!currentUser.emailVerified && !isOpsUser && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
   }
 
@@ -90,7 +90,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData, loading } = useAuth();
+  const { currentUser, loading } = useAuth();
 
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -100,14 +100,8 @@ const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   if (!currentUser) return <Navigate to="/mine/login" replace />;
 
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
-
-  // Enforce Product Access for PSEmine
-  const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-  if (!productAccess.psemine && !isOpsUser) {
-    return <Navigate to="/mine/activate" replace />;
-  }
-
+  // PSEmine has its own product access and backend participation records.
+  // It must never be blocked by PulseEarn's productAccess flags.
   return <>{children}</>;
 };
 
@@ -245,14 +239,14 @@ function App() {
         <Route path="/mine/login" element={<PSEMinePublicRoute><PSEMineLogin /></PSEMinePublicRoute>} />
         <Route path="/mine/signup" element={<PSEMinePublicRoute><PSEMineSignup /></PSEMinePublicRoute>} />
         <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
-        <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
+        <Route path="/mine/activate" element={<PSEMineProtectedRoute><PSEMineActivate /></PSEMineProtectedRoute>} />
         <Route path="/mine/app" element={<Navigate to="/mine/dashboard" replace />} />
         <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
         <Route path="/mine/tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />
         <Route path="/mine/wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
         <Route path="/mine/activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
         <Route path="/mine/referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
-        <Route path="/mine/guide" element={<PSEMineProtectedRoute><Guide /></PSEMineProtectedRoute>} />
+        <Route path="/mine/guide" element={<PSEMineProtectedRoute><PSEMineGuide /></PSEMineProtectedRoute>} />
         <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />

@@ -234,9 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
 
-    const initialProductAccess = productContext === 'psemine'
-      ? { pulseearn: false, psemine: true }
-      : { pulseearn: true, psemine: false };
+    const initialProductAccess = { pulseearn: true, psemine: false };
 
     const newUserData: UserData = {
       uid: user.uid,
@@ -384,8 +382,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await NotificationEngine.send({
          userId: user.uid,
-         title: 'Identity Synchronized',
-         description: 'Your PulseEarn profile has been established. Welcome to the network.',
+         title: productContext === 'psemine' ? 'PSEmine identity created' : 'PulseEarn identity created',
+         description: productContext === 'psemine' ? 'Your separate PSEmine account surface is ready.' : 'Your PulseEarn profile has been established. Welcome to the network.',
          type: 'system'
       });
     } catch (err) {
@@ -443,12 +441,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const response = await safeFetch('/api/psemine/onboarding', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
+      body: JSON.stringify(walletAddress ? { walletAddress } : {})
     });
     if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
-    const userRef = doc(db, 'users', currentUser.uid);
-    const currentAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    await updateDoc(userRef, { productAccess: { ...currentAccess, psemine: true } });
+    // PSEmine access is stored by the PSEmine backend collection. Do not mutate PulseEarn productAccess flags here.
   }
 
   function login(email: string, password: string) {
@@ -461,41 +457,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    if (localStorage.getItem('pulseearn-test-bypass') === 'true') {
-      setCurrentUser({
-        uid: 'test-user-uid',
-        email: 'test@pulseearn.online',
-        emailVerified: true,
-        getIdToken: async () => 'test-id-token',
-        getIdTokenResult: async () => ({ token: 'test-id-token', claims: { role: 'user' } }),
-      } as any);
-      setUserData({
-        uid: 'test-user-uid',
-        email: 'test@pulseearn.online',
-        username: 'PremiumUser',
-        points: 12500,
-        referralCode: 'PULSE-TEST',
-        referredBy: null,
-        streak: 5,
-        totalEarnedToday: 450,
-        xp: 3200,
-        level: 3,
-        role: 'user',
-        status: 'active',
-        onboardingCompleted: true,
-        stats: {
-          tasksCompleted: 15,
-          referralsCount: 3,
-          predictionsCount: 8,
-          totalEarnings: 24500,
-          weeklyEarnings: 1250
-        }
-      } as any);
-      setLoading(false);
-      setIsRestoring(false);
-      return;
-    }
-
     let unsubscribeData: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {

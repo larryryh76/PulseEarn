@@ -482,6 +482,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         level: 3,
         role: 'user',
         status: 'active',
+        productAccess: { pulseearn: true, psemine: true },
         onboardingCompleted: true,
         stats: {
           tasksCompleted: 15,

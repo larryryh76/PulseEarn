@@ -128,7 +128,34 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
     ownership_id = purchase_id
     ownership_ref = db.collection(PSE_COLLECTIONS['ownership']).document(ownership_id)
     ownership_ref.set({'ownershipId': ownership_id, 'userId': uid, 'campaignId': intent.get('campaignId'), 'toolId': intent.get('toolId'), 'quantity': int(intent.get('quantity', 1)), 'hourlyRateGBP': str((db.collection(PSE_COLLECTIONS['tools']).document(intent.get('toolId', '')).get().to_dict() or {}).get('hourlyRateGBP', '0.00')), 'status': 'activated', 'purchaseIntentId': purchase_id, 'activatedAt': firestore.SERVER_TIMESTAMP, 'lastAccruedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    process_psemine_referral_qualification(db, uid)
     return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified', 'ownershipId': ownership_id}
+
+
+def process_psemine_referral_qualification(db, uid):
+    """Transition any pending referral for this user to qualified upon tool purchase."""
+    refs = list(db.collection(PSE_COLLECTIONS['referrals']).where('refereeId', '==', uid).limit(5).stream())
+    if not refs:
+        refs = list(db.collection(PSE_COLLECTIONS['referrals']).where('referredUserId', '==', uid).limit(5).stream())
+    for ref_doc in refs:
+        data = ref_doc.to_dict() or {}
+        if data.get('status') != 'qualified':
+            ref_doc.reference.set({
+                'status': 'qualified',
+                'qualificationStage': 'mining_active',
+                'bonusHourlyRate': '0.30',
+                'qualifiedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            referrer_id = data.get('referrerId')
+            if referrer_id:
+                db.collection(PSE_COLLECTIONS['activity']).add({
+                    'activityId': str(uuid.uuid4()),
+                    'userId': referrer_id,
+                    'type': 'referral_qualified',
+                    'message': 'A referred participant activated mining capacity (+£0.30/hr boost).',
+                    'createdAt': firestore.SERVER_TIMESTAMP
+                })
 
 
 def reconcile_psemine(db):

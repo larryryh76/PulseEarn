@@ -314,8 +314,8 @@ export const PSEMineTools: React.FC = () => {
 
       <footer className="psemine-footer">
         <div className="psemine-shell psemine-footer-inner">
-          <div><PSEMineWordmark /><p>Part of the PulseEarn ecosystem.</p></div>
-          <p className="psemine-copyright">© {new Date().getFullYear()} PulseEarn</p>
+          <div><PSEMineWordmark /><p>Independent campaign mining platform.</p></div>
+          <p className="psemine-copyright">© {new Date().getFullYear()} PSEmine</p>
         </div>
       </footer>
     </div>

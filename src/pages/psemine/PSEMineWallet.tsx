@@ -5,15 +5,43 @@ import { Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './psemine.css';
 
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on?: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+    };
+  }
+}
+
 export const PSEMineWalletPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [payoutWallet, setPayoutWallet] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const connectWallet = async () => {
+    if (!window.ethereum) return toast.error('Install a BSC-compatible wallet to connect your payout address.');
+    try {
+      setIsConnecting(true);
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
+      if (!accounts?.[0]) throw new Error('No wallet account returned.');
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' }) as string;
+      if (chainId !== '0x38') await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+      setPayoutWallet(accounts[0]);
+      toast.success('BSC wallet connected.');
+    } catch (error: any) {
+      toast.error(error?.message || 'Wallet connection was cancelled.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   const handleSaveWallets = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payoutWallet.trim() || !payoutWallet.startsWith('0x') || payoutWallet.length < 42) {
-      return toast.error('Please enter a valid BSC payout wallet address (0x...)');
+    if (!/^0x[a-fA-F0-9]{40}$/.test(payoutWallet)) {
+      return toast.error('Connect a valid BSC wallet first.');
     }
     setIsSaving(true);
     try {
@@ -104,24 +132,9 @@ export const PSEMineWalletPage: React.FC = () => {
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--pm-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
                   Payout Wallet Address (Receives Settlement)
                 </label>
-                <input
-                  type="text"
-                  placeholder="0x..."
-                  value={payoutWallet}
-                  onChange={(e) => setPayoutWallet(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    background: 'var(--pm-soft)',
-                    border: '1px solid var(--pm-line)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#fff',
-                    fontSize: '13px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <button type="button" onClick={connectWallet} disabled={isConnecting} className="psemine-button" style={{ width: '100%', border: '1px solid var(--pm-line)', cursor: 'pointer' }}>
+                  {isConnecting ? 'Connecting wallet…' : payoutWallet ? `Connected ${payoutWallet.slice(0, 6)}…${payoutWallet.slice(-4)}` : 'Connect BSC wallet'}
+                </button>
               </div>
 
               <button
@@ -139,8 +152,8 @@ export const PSEMineWalletPage: React.FC = () => {
 
       <footer className="psemine-footer">
         <div className="psemine-shell psemine-footer-inner">
-          <div><PSEMineWordmark /><p>Part of the PulseEarn ecosystem.</p></div>
-          <p className="psemine-copyright">© {new Date().getFullYear()} PulseEarn</p>
+          <div><PSEMineWordmark /><p>Independent campaign mining platform.</p></div>
+          <p className="psemine-copyright">© {new Date().getFullYear()} PSEmine</p>
         </div>
       </footer>
     </div>

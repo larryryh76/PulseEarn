@@ -14,8 +14,6 @@ import Notifications from './pages/Notifications'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
 import Marketplace from './pages/Marketplace'
-import PSEmineAdmin from './pages/admin/PSEmineAdmin'
-import PSEMineGuide from './pages/psemine/PSEMineGuide'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,

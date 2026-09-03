@@ -12,6 +12,8 @@ export const PSEMineWalletPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [payoutWallet, setPayoutWallet] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<{
     earnings?: { totalEarningsGBP?: string };
     capacity?: { hourlyRateGBP?: string };
@@ -19,17 +21,29 @@ export const PSEMineWalletPage: React.FC = () => {
   } | null>(null);
 
   const loadSnapshot = useCallback(async () => {
-    if (!currentUser) return;
-    const token = await currentUser.getIdToken();
-    const result = await safeFetch('/api/psemine/me', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (result.success) {
-      setSnapshot(result);
-      const configuredPayout = result.wallets?.find((w: any) => w.role === 'payout')?.address;
-      if (configuredPayout) {
-        setPayoutWallet(configuredPayout);
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+    setError(null);
+    try {
+      const token = await currentUser.getIdToken();
+      const result = await safeFetch('/api/psemine/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (result.success) {
+        setSnapshot(result);
+        const configuredPayout = result.wallets?.find((w: { address?: string; role?: string; status?: string }) => w.role === 'payout')?.address;
+        if (configuredPayout) {
+          setPayoutWallet(configuredPayout);
+        }
+      } else {
+        setError(result.message || 'Failed to load wallet data.');
       }
+    } catch {
+      setError('An error occurred while loading wallet data.');
+    } finally {
+      setIsLoading(false);
     }
   }, [currentUser]);
 
@@ -105,10 +119,10 @@ export const PSEMineWalletPage: React.FC = () => {
                 Campaign Accrued Balance
               </span>
               <div style={{ fontSize: '42px', fontWeight: 800, color: '#fff', margin: '12px 0 6px', letterSpacing: '-0.05em' }}>
-                {pounds(totalEarnings)}
+                {isLoading ? '...' : error ? 'Error' : pounds(totalEarnings)}
               </div>
               <small style={{ color: 'var(--pm-muted)', fontSize: '12px' }}>
-                GBP campaign accounting value (settles at campaign close)
+                {error || 'GBP campaign accounting value (settles at campaign close)'}
               </small>
             </div>
 
@@ -117,7 +131,7 @@ export const PSEMineWalletPage: React.FC = () => {
                 Active Earning Capacity
               </span>
               <div style={{ fontSize: '42px', fontWeight: 800, color: 'var(--pm-cyan)', margin: '12px 0 6px', letterSpacing: '-0.05em' }}>
-                {pounds(hourlyRate)} <span style={{ fontSize: '16px' }}>/ hr</span>
+                {isLoading ? '...' : error ? 'Error' : pounds(hourlyRate)} {!isLoading && !error && <span style={{ fontSize: '16px' }}>/ hr</span>}
               </div>
               <small style={{ color: 'var(--pm-muted)', fontSize: '12px' }}>
                 Combined output from active tools & referral boost

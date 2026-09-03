@@ -12,7 +12,8 @@ export const PSEMineReferrals: React.FC = () => {
   const [summary, setSummary] = React.useState({ qualified: 0, maximum: 5, hourlyBoostGBP: '0.00' });
   React.useEffect(() => { void (async () => { const token = await currentUser?.getIdToken(); if (!token) return; const result = await safeFetch('/api/psemine/referrals', { headers: { Authorization: `Bearer ${token}` } }); if (result.success) setSummary({ qualified: result.qualified, maximum: result.maximum, hourlyBoostGBP: result.hourlyBoostGBP }); })(); }, [currentUser]);
 
-  const referralLink = `https://pulseearn.online/mine/signup?ref=${userData?.referralCode || 'PSEMINE'}`;
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://pulseearn.online';
+  const referralLink = `${baseUrl}/mine/signup?ref=${userData?.referralCode || 'PSEMINE'}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
@@ -32,6 +33,7 @@ export const PSEMineReferrals: React.FC = () => {
             <a href="/mine/wallet">Wallet</a>
             <a href="/mine/activity">Activity</a>
             <a href="/mine/referrals" style={{ color: '#fff', fontWeight: 800 }}>Referrals</a>
+            <a href="/mine/guide">Guide</a>
           </nav>
         </div>
       </header>

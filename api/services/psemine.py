@@ -128,7 +128,54 @@ def verify_purchase(db, uid, purchase_id, tx_hash):
     ownership_id = purchase_id
     ownership_ref = db.collection(PSE_COLLECTIONS['ownership']).document(ownership_id)
     ownership_ref.set({'ownershipId': ownership_id, 'userId': uid, 'campaignId': intent.get('campaignId'), 'toolId': intent.get('toolId'), 'quantity': int(intent.get('quantity', 1)), 'hourlyRateGBP': str((db.collection(PSE_COLLECTIONS['tools']).document(intent.get('toolId', '')).get().to_dict() or {}).get('hourlyRateGBP', '0.00')), 'status': 'activated', 'purchaseIntentId': purchase_id, 'activatedAt': firestore.SERVER_TIMESTAMP, 'lastAccruedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+    try:
+        process_psemine_referral_qualification(db, uid)
+    except Exception as ref_err:
+        print(f"[verify_purchase] Non-fatal referral qualification error for {uid}: {ref_err}")
     return {'success': True, 'intentId': purchase_id, 'txHash': tx_hash.lower(), 'status': 'verified', 'ownershipId': ownership_id}
+
+
+def process_psemine_referral_qualification(db, uid):
+    """Transition any pending referral for this user to qualified upon tool purchase."""
+    ref_map = {}
+    q1 = list(db.collection(PSE_COLLECTIONS['referrals']).where('refereeId', '==', uid).limit(10).stream())
+    q2 = list(db.collection(PSE_COLLECTIONS['referrals']).where('referredUserId', '==', uid).limit(10).stream())
+    for doc in q1 + q2:
+        ref_map[doc.id] = doc
+
+    for doc_id, ref_doc in ref_map.items():
+        data = ref_doc.to_dict() or {}
+        if data.get('status') == 'pending':
+            ref_doc.reference.set({
+                'status': 'qualified',
+                'qualificationStage': 'mining_active',
+                'bonusHourlyRate': '0.30',
+                'qualifiedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            referrer_id = data.get('referrerId')
+            if referrer_id:
+                # Update referrer document referral boost capacity
+                ref_user_doc = db.collection(PSE_COLLECTIONS['users']).document(referrer_id)
+                ref_user_snap = ref_user_doc.get()
+                if ref_user_snap.exists:
+                    all_qualified = list(db.collection(PSE_COLLECTIONS['referrals']).where('referrerId', '==', referrer_id).where('status', '==', 'qualified').stream())
+                    qualified_count = min(len(all_qualified), 5)
+                    boost_gbp = (Decimal(qualified_count) * Decimal('0.30')).quantize(Decimal('0.01'))
+
+                    ref_user_doc.set({
+                        'referralCapacityGBPPerHour': str(boost_gbp),
+                        'qualifiedReferralCount': qualified_count,
+                        'updatedAt': firestore.SERVER_TIMESTAMP
+                    }, merge=True)
+
+                db.collection(PSE_COLLECTIONS['activity']).add({
+                    'activityId': str(uuid.uuid4()),
+                    'userId': referrer_id,
+                    'type': 'referral_qualified',
+                    'message': 'A referred participant activated mining capacity (+£0.30/hr boost).',
+                    'createdAt': firestore.SERVER_TIMESTAMP
+                })
 
 
 def reconcile_psemine(db):
@@ -376,6 +423,7 @@ def accrue_psemine(db, now=None):
             last_at = min(last_at, campaign_end)
         seconds = max(0, min((accrual_now - last_at).total_seconds(), 3600 * 24))
         amount = (money(owner.get('hourlyRateGBP', '0.00')) * int(owner.get('quantity', 0)) * Decimal(str(seconds)) / Decimal('3600')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
         if amount <= 0:
             owner_doc.reference.set({'lastAccruedAt': now}, merge=True)
             continue
@@ -385,10 +433,42 @@ def accrue_psemine(db, now=None):
             entry_ref.set({'activityId': entry_id, 'userId': owner['userId'], 'campaignId': owner['campaignId'], 'type': 'earning_accrual', 'amountGBP': str(amount), 'message': 'Verified tool earnings accrued.', 'createdAt': firestore.SERVER_TIMESTAMP})
             ledger_ref = db.collection(PSE_COLLECTIONS['earnings']).document(f"{owner['userId']}_{owner['campaignId']}")
             snap = ledger_ref.get().to_dict() or {}
-            total = money(snap.get('grossToolEarningsGBP', '0.00')) + amount
-            ledger_ref.set({'userId': owner['userId'], 'campaignId': owner['campaignId'], 'grossToolEarningsGBP': str(total), 'status': 'accruing', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            total_tool = money(snap.get('grossToolEarningsGBP', '0.00')) + amount
+            ledger_ref.set({'userId': owner['userId'], 'campaignId': owner['campaignId'], 'grossToolEarningsGBP': str(total_tool), 'status': 'accruing', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
             processed += 1
         owner_doc.reference.set({'lastAccruedAt': now}, merge=True)
+
+    # Accrue referral boost earnings independently at the user level
+    for user_doc in db.collection(PSE_COLLECTIONS['users']).stream():
+        user_data = user_doc.to_dict() or {}
+        ref_rate = money(user_data.get('referralCapacityGBPPerHour', '0.00'), 'referralCapacityGBPPerHour')
+        if ref_rate <= 0:
+            continue
+        user_id = user_doc.id
+        ledger_ref = db.collection(PSE_COLLECTIONS['earnings']).document(f"{user_id}_{campaign_id}")
+        snap = ledger_ref.get().to_dict() or {}
+        last = snap.get('lastReferralAccruedAt')
+        last_at = last if hasattr(last, 'timestamp') else campaign_start
+        last_at = max(last_at, campaign_start)
+        if hasattr(campaign_end, 'timestamp'):
+            last_at = min(last_at, campaign_end)
+        seconds = max(0, min((accrual_now - last_at).total_seconds(), 3600 * 24))
+        ref_amount = (ref_rate * Decimal(str(seconds)) / Decimal('3600')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+        if ref_amount <= 0:
+            ledger_ref.set({'lastReferralAccruedAt': now}, merge=True)
+            continue
+
+        entry_id = f"ref_{user_id}_{int(now.timestamp() // 3600)}"
+        entry_ref = db.collection(PSE_COLLECTIONS['activity']).document(entry_id)
+        if not entry_ref.get().exists:
+            entry_ref.set({'activityId': entry_id, 'userId': user_id, 'campaignId': campaign_id, 'type': 'referral_accrual', 'amountGBP': str(ref_amount), 'message': 'Referral boost earnings accrued.', 'createdAt': firestore.SERVER_TIMESTAMP})
+            total_ref = money(snap.get('referralBonusGBP', '0.00')) + ref_amount
+            ledger_ref.set({'userId': user_id, 'campaignId': campaign_id, 'referralBonusGBP': str(total_ref), 'lastReferralAccruedAt': now, 'status': 'accruing', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+            processed += 1
+        else:
+            ledger_ref.set({'lastReferralAccruedAt': now}, merge=True)
+
     return {'processed': processed, 'status': 'accrued'}
 
 

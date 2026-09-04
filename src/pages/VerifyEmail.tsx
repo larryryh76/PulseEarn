@@ -11,7 +11,6 @@ import { safeFetch } from '../utils/api';
 
 const VerifyEmail: React.FC = () => {
   const { currentUser, userData, logout, sendVerification } = useAuth();
-  const isPSEmineFlow = new URLSearchParams(window.location.search).get('product') === 'psemine' || sessionStorage.getItem('psemine-auth-flow') === 'true';
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -70,7 +69,7 @@ const VerifyEmail: React.FC = () => {
       await auth.currentUser?.reload();
       if (auth.currentUser?.emailVerified) {
         toast.success('Email verified successfully!');
-        navigate(isPSEmineFlow ? '/mine/activate' : '/dashboard');
+        navigate('/dashboard');
       } else {
         toast.error('Still pending verification.');
       }
@@ -84,7 +83,7 @@ const VerifyEmail: React.FC = () => {
   // Bypass for ops users (admin + moderator)
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
   if (currentUser.emailVerified || isOpsUser) {
-    const target = isOpsUser ? '/admin' : (isPSEmineFlow ? '/mine/activate' : '/dashboard');
+    const target = isOpsUser ? '/admin' : '/dashboard';
     return <Navigate to={target} replace />;
   }
 

@@ -1,8 +1,6 @@
 {
   "version": 2,
-  "crons": [
-    { "path": "/api/psemine/jobs/reconcile", "schedule": "0 3 * * *" }
-  ],
+  "crons": [],
   "git": {
     "deploymentEnabled": true,
     "deploymentRoleArn": null,

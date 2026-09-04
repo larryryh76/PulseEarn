@@ -14,7 +14,6 @@ import Notifications from './pages/Notifications'
 import SupportCenter from './pages/SupportCenter'
 import Guide from './pages/Guide'
 import Marketplace from './pages/Marketplace'
-import PSEmineAdmin from './pages/admin/PSEmineAdmin'
 import OpsLayout from './pages/admin/OpsLayout'
 import {
   OpsOverview as AdminOverview,
@@ -45,23 +44,10 @@ import ReferralPolicy from './pages/legal/ReferralPolicy'
 import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
-import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
-import PSEMineLogin from './pages/psemine/PSEMineLogin'
-import PSEMineSignup from './pages/psemine/PSEMineSignup'
-import PSEMineForgotPassword from './pages/psemine/PSEMineForgotPassword'
-import PSEMineActivate from './pages/psemine/PSEMineActivate'
-import PSEMineDashboard from './pages/psemine/PSEMineDashboard'
-import PSEMineTools from './pages/psemine/PSEMineTools'
-import PSEMineWallet from './pages/psemine/PSEMineWallet'
-import PSEMineActivity from './pages/psemine/PSEMineActivity'
-import PSEMineReferrals from './pages/psemine/PSEMineReferrals'
-import PSEMineProfile from './pages/psemine/PSEMineProfile'
-import PSEMineGuide from './pages/psemine/PSEMineGuide'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
-import PSEMineLoader from './components/psemine/PSEMineLoader'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -76,40 +62,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
 
-  // Enforce Product Access for PulseEarn
-  const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-  if (!productAccess.pulseearn && !isOpsUser) {
-    return <Navigate to="/mine/dashboard" replace />;
-  }
-
   const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-const PSEMineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData, loading } = useAuth();
-
-  if (loading) return <PSEMineLoader message="Loading PSEmine Campaign Workspace..." />;
-
-  if (!currentUser) return <Navigate to="/mine/login" replace />;
-
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
-
-  // Enforce Email Verification if required
-  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
-  if (!currentUser.emailVerified && !isOpsUser && !isTestBypass) {
-    return <Navigate to="/verify-email" replace />;
-  }
-
-  // Enforce Product Access for PSEmine
-  const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-  if (!productAccess.psemine && !isOpsUser) {
-    return <Navigate to="/mine/activate" replace />;
   }
 
   return <>{children}</>;
@@ -130,10 +86,6 @@ const OpsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isOps = role === 'admin' || role === 'moderator' || userData?.isRoot === true;
 
   if (!isOps) {
-    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    if (!productAccess.pulseearn) {
-      return <Navigate to="/mine/dashboard" replace />;
-    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -145,24 +97,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) return null;
   if (currentUser) {
     if (userData?.role === 'admin' || userData?.role === 'moderator') return <Navigate to="/admin" replace />;
-    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    if (!productAccess.pulseearn) {
-      return <Navigate to="/mine/dashboard" replace />;
-    }
     return <Navigate to="/dashboard" replace />;
-  }
-  return <>{children}</>;
-};
-
-const PSEMinePublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData, loading } = useAuth();
-  if (loading) return null;
-  if (currentUser) {
-    const productAccess = userData?.productAccess || { pulseearn: true, psemine: false };
-    if (productAccess.psemine || userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true) {
-      return <Navigate to="/mine/dashboard" replace />;
-    }
-    return <Navigate to="/mine/activate" replace />;
   }
   return <>{children}</>;
 };
@@ -245,22 +180,7 @@ function App() {
         <Route path="/support-policy" element={<SupportPolicy />} />
         <Route path="/help" element={<HelpCenter />} />
 
-        <Route path="/mine" element={<PSEMineLanding />} />
-        <Route path="/mine/login" element={<PSEMinePublicRoute><PSEMineLogin /></PSEMinePublicRoute>} />
-        <Route path="/mine/signup" element={<PSEMinePublicRoute><PSEMineSignup /></PSEMinePublicRoute>} />
-        <Route path="/mine/forgot-password" element={<PSEMineForgotPassword />} />
-        <Route path="/mine/activate" element={<ProtectedRoute><PSEMineActivate /></ProtectedRoute>} />
-        <Route path="/mine/app" element={<Navigate to="/mine/dashboard" replace />} />
-        <Route path="/mine/dashboard" element={<PSEMineProtectedRoute><PSEMineDashboard /></PSEMineProtectedRoute>} />
-        <Route path="/mine/tools" element={<PSEMineProtectedRoute><PSEMineTools /></PSEMineProtectedRoute>} />
-        <Route path="/mine/wallet" element={<PSEMineProtectedRoute><PSEMineWallet /></PSEMineProtectedRoute>} />
-        <Route path="/mine/activity" element={<PSEMineProtectedRoute><PSEMineActivity /></PSEMineProtectedRoute>} />
-        <Route path="/mine/referrals" element={<PSEMineProtectedRoute><PSEMineReferrals /></PSEMineProtectedRoute>} />
-        <Route path="/mine/guide" element={<PSEMineProtectedRoute><PSEMineGuide /></PSEMineProtectedRoute>} />
-        <Route path="/mine/me" element={<PSEMineProtectedRoute><PSEMineProfile /></PSEMineProtectedRoute>} />
-
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
-  <Route path="/admin/psemine" element={<OpsRoute><PSEmineAdmin /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />

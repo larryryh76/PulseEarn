@@ -33,7 +33,6 @@ import { UserData } from '../types';
 import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
-import PSEMineLoader from '../components/psemine/PSEMineLoader';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
@@ -43,10 +42,9 @@ interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string, referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string, productContext?: 'pulseearn' | 'psemine') => Promise<void>;
-  activatePSEMineAccess: (walletAddress?: string) => Promise<void>;
+  signInWithGoogle: (referralCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -200,8 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   async function initializeUserProfile(
     user: User,
     username: string,
-    referralCodeInput?: string,
-    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+    referralCodeInput?: string
   ) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -235,10 +232,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
 
-    const initialProductAccess = productContext === 'psemine'
-      ? { pulseearn: false, psemine: true }
-      : { pulseearn: true, psemine: false };
-
     const newUserData: UserData = {
       uid: user.uid,
       email: user.email,
@@ -254,8 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
-      // Authentication and PSEmine campaign participation remain separate states.
-      productAccess: initialProductAccess,
+      productAccess: { pulseearn: true },
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,
@@ -398,8 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     password: string,
     username: string,
-    referralCodeInput?: string,
-    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+    referralCodeInput?: string
   ) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -424,31 +415,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    await initializeUserProfile(user, username, referralCodeInput, productContext);
+    await initializeUserProfile(user, username, referralCodeInput);
   }
 
   async function signInWithGoogle(
-    referralCodeInput?: string,
-    productContext: 'pulseearn' | 'psemine' = 'pulseearn'
+    referralCodeInput?: string
   ) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput, productContext);
-  }
-
-  async function activatePSEMineAccess(walletAddress?: string) {
-    if (!currentUser) throw new Error('You must be signed in to activate PSEmine.');
-    const token = await currentUser.getIdToken(true);
-    const response = await safeFetch('/api/psemine/onboarding', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
-    });
-    if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
-    // Note: Backend /api/psemine/onboarding updates the authoritative user document in Firestore.
-    // AuthContext's onSnapshot listener on user doc will automatically update userData.productAccess.psemine.
+    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput);
   }
 
   function login(email: string, password: string) {
@@ -482,7 +459,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         level: 3,
         role: 'user',
         status: 'active',
-        productAccess: { pulseearn: true, psemine: true },
+        productAccess: { pulseearn: true },
         onboardingCompleted: true,
         stats: {
           tasksCompleted: 15,
@@ -515,8 +492,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: resolvedRole,
               status: data.status || 'active',
               productAccess: data.productAccess || {
-                pulseearn: true,
-                psemine: false
+                pulseearn: true
               }
             };
 
@@ -579,7 +555,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     login,
     signInWithGoogle,
-    activatePSEMineAccess,
     logout,
     logActivity,
     sendVerification,
@@ -601,32 +576,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         )}
 
         {isRestoring && !systemError ? (
-          window.location.pathname.startsWith('/mine') ? (
-            <div className="fixed inset-0 z-[100]">
-              <PSEMineLoader message="Loading PSEmine Workspace..." />
-            </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
-            >
-               <div className="scale-150 mb-4">
-                  <Logo />
-               </div>
-               <div className="flex flex-col items-center gap-3">
-                  <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
-                     <motion.div
-                       initial={{ left: '-100%' }}
-                       animate={{ left: '100%' }}
-                       transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                       className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
-                     />
-                  </div>
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
-               </div>
-            </motion.div>
-          )
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
+          >
+             <div className="scale-150 mb-4">
+                <Logo />
+             </div>
+             <div className="flex flex-col items-center gap-3">
+                <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
+                   <motion.div
+                     initial={{ left: '-100%' }}
+                     animate={{ left: '100%' }}
+                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                     className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                   />
+                </div>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
+             </div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
       {!loading && !systemError && children}

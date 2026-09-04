@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp, Sun, Moon, MessageSquare, FileText, LogOut, Pickaxe } from 'lucide-react';
+import { LayoutDashboard, Shield, Wallet, User, Bell, Menu, X, Terminal, TrendingUp, Sun, Moon, MessageSquare, FileText, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { cn } from '../../utils';
@@ -30,7 +30,6 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'PSEmine', path: '/mine', icon: Pickaxe },
     { name: 'Prediction', path: '/predictions', icon: TrendingUp },
     { name: 'Marketplace', path: '/marketplace', icon: Shield },
     { name: 'Wallet', path: '/wallet', icon: Wallet },

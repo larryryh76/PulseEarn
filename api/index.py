@@ -1492,11 +1492,20 @@ def _psemine_error_response(error):
 @app.route('/api/psemine/public', methods=['GET'])
 @require_db
 def psemine_public():
-    from services.psemine import PSE_COLLECTIONS, get_active_campaign, serialize_campaign, serialize_tool
-    db = get_db()
-    campaign = get_active_campaign(db)
-    tools = [serialize_tool(doc) for doc in db.collection(PSE_COLLECTIONS['tools']).order_by('sortOrder').stream()]
-    return jsonify({"success": True, "campaign": serialize_campaign(campaign), "tools": tools, "network": "BNB Smart Chain", "currency": "GBP"})
+    from services.psemine import PSE_COLLECTIONS, get_active_campaign, serialize_campaign, serialize_tool, PSEmineError
+    try:
+        db = get_db()
+        if db is None:
+            return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+        campaign = get_active_campaign(db)
+        tools = [serialize_tool(doc) for doc in db.collection(PSE_COLLECTIONS['tools']).order_by('sortOrder').stream()]
+        return jsonify({"success": True, "campaign": serialize_campaign(campaign), "tools": tools, "network": "BNB Smart Chain", "currency": "GBP"})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Server exception in psemine_public: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("INTERNAL_ERROR", "An internal server error occurred while fetching campaign data.", 500))
 
 
 @app.route('/api/psemine/me', methods=['GET'])
@@ -1505,6 +1514,8 @@ def psemine_public():
 def psemine_me():
     from services.psemine import dashboard_snapshot, safe_wallet_view, PSEmineError
     db = get_db()
+    if db is None:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     try:
         snapshot = dashboard_snapshot(db, uid)
@@ -1512,6 +1523,10 @@ def psemine_me():
         return jsonify({"success": True, **snapshot})
     except PSEmineError as error:
         return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Server exception in psemine_me for user {uid}: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("INTERNAL_ERROR", "An internal server error occurred while fetching dashboard state.", 500))
 
 
 @app.route('/api/psemine/onboarding', methods=['POST'])
@@ -1519,8 +1534,9 @@ def psemine_me():
 @require_db
 def psemine_onboarding():
     from services.psemine import PSE_COLLECTIONS, normalize_address, audit, PSEmineError
-    import uuid
     db = get_db()
+    if db is None:
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     payload = request.get_json(silent=True) or {}
     try:
@@ -1529,42 +1545,61 @@ def psemine_onboarding():
         if raw_wallet and str(raw_wallet).strip():
             wallet = normalize_address(raw_wallet)
 
+        # Keep PSEmine access, wallet, referral, and audit state in one commit.
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
-        before = ref.get().to_dict() or {}
-        current_access = before.get('productAccess') or {'pulseearn': True}
+        main_user_ref = db.collection('users').document(uid)
+        purchase_wallet_ref = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase')
+        payout_wallet_ref = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout')
 
-        user_update = {
-            'userId': uid,
-            'productAccess': {**current_access, 'psemine': True},
-            'participationStatus': 'eligible',
-            'agreementAcceptedAt': firestore.SERVER_TIMESTAMP,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }
-        if wallet:
-            user_update.update({
-                'purchaseWallet': wallet,
-                'payoutWallet': wallet,
-                'walletNetwork': 'bsc'
-            })
-            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({
-                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP
-            }, merge=True)
-            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({
-                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP
-            }, merge=True)
-            audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
+        @firestore.transactional
+        def apply_onboarding(transaction):
+            # Firestore requires every transactional read to precede every write.
+            psemine_user_snap = ref.get(transaction=transaction)
+            main_user_snap = main_user_ref.get(transaction=transaction)
+            before = psemine_user_snap.to_dict() or {}
+            main_data = main_user_snap.to_dict() or {}
+            referrer_id = main_data.get('referredBy') or before.get('referredBy')
+            referral_ref = None
+            referral_exists = False
+            if referrer_id and referrer_id != uid:
+                referral_ref = db.collection(PSE_COLLECTIONS['referrals']).document(f'psemine_ref_{uid}')
+                referral_exists = referral_ref.get(transaction=transaction).exists
 
-        ref.set(user_update, merge=True)
+            user_update = {
+                'userId': uid,
+                'productAccess': {**(before.get('productAccess') or {'pulseearn': True}), 'psemine': True},
+                'participationStatus': 'eligible',
+                'agreementAcceptedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }
+            if wallet:
+                user_update.update({
+                    'purchaseWallet': wallet,
+                    'payoutWallet': wallet,
+                    'walletNetwork': 'bsc'
+                })
+                transaction.set(purchase_wallet_ref, {
+                    'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase',
+                    'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
+                transaction.set(payout_wallet_ref, {
+                    'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout',
+                    'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
 
-        # Check for referral link from main user profile or psemine user profile
-        user_main = db.collection('users').document(uid).get().to_dict() or {}
-        referrer_id = user_main.get('referredBy') or before.get('referredBy')
-        if referrer_id and referrer_id != uid:
-            ref_doc_id = f"psemine_ref_{uid}"
-            ref_ref = db.collection(PSE_COLLECTIONS['referrals']).document(ref_doc_id)
-            if not ref_ref.get().exists:
-                ref_ref.set({
-                    'referralId': ref_doc_id,
+            transaction.set(ref, user_update, merge=True)
+
+            main_update = {
+                'productAccess': {**(main_data.get('productAccess') or {'pulseearn': True}), 'psemine': True},
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }
+            if wallet:
+                main_update['walletAddress'] = wallet
+            transaction.set(main_user_ref, main_update, merge=True)
+
+            if referral_ref is not None and not referral_exists:
+                transaction.set(referral_ref, {
+                    'referralId': f'psemine_ref_{uid}',
                     'referrerId': referrer_id,
                     'refereeId': uid,
                     'referredUserId': uid,
@@ -1572,12 +1607,21 @@ def psemine_onboarding():
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP
                 }, merge=True)
+            if wallet:
+                audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid,
+                      metadata={'network': 'bsc'}, transaction=transaction)
+            audit(db, uid, 'PSEMINE_ONBOARDING_COMPLETED', target_user_id=uid,
+                  transaction=transaction)
 
-        audit(db, uid, 'PSEMINE_ONBOARDING_COMPLETED', target_user_id=uid)
+        apply_onboarding(db.transaction())
         payout_display = f'{wallet[:6]}...{wallet[-4:]}' if wallet else 'None'
         return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": payout_display})
     except PSEmineError as error:
         return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Onboarding failed for user {uid}: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("ONBOARDING_FAILED", "An internal error occurred during PSEmine onboarding. Please try again.", 500))
 
 
 @app.route('/api/psemine/purchase-intents', methods=['POST'])

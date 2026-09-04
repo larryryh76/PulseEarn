@@ -66,12 +66,14 @@ export const PSEMineActivate: React.FC = () => {
           }
         })
         .catch((err: any) => console.log('eth_accounts check error:', err));
+    } else {
+      setHasProvider(false);
     }
   }, []);
 
   const handleConnectWallet = async () => {
     if (!(window as any).ethereum) {
-      toast.error('No Web3 wallet provider found. You can switch to manual entry below.');
+      toast.error('Web3 wallet provider unavailable. You can skip now or enter an address manually.');
       setUseManualEntry(true);
       return;
     }
@@ -94,7 +96,7 @@ export const PSEMineActivate: React.FC = () => {
       toast.success('BNB Smart Chain wallet connected!');
     } catch (err: any) {
       console.error('Wallet connection error:', err);
-      toast.error(err?.message || 'Failed to connect wallet.');
+      toast.error(err?.message || 'Failed to connect wallet. You can skip and connect later.');
     } finally {
       setIsConnectingWallet(false);
     }

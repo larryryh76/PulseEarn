@@ -67,7 +67,10 @@ export const PSEMineActivate: React.FC = () => {
         })
         .catch((err: any) => console.log('eth_accounts check error:', err));
     } else {
+      // Mobile browsers without an injected provider should land on the
+      // wallet-optional manual/skip path instead of a dead connect action.
       setHasProvider(false);
+      setUseManualEntry(true);
     }
   }, []);
 

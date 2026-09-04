@@ -1554,8 +1554,11 @@ def psemine_onboarding():
         @firestore.transactional
         def apply_onboarding(transaction):
             # Firestore requires every transactional read to precede every write.
-            psemine_user_snap = ref.get(transaction=transaction)
-            main_user_snap = main_user_ref.get(transaction=transaction)
+            # Use the transaction read API consistently. Every read happens before
+            # the first write so retries remain safe and wallet-optional skips work
+            # even when either profile document has not been created yet.
+            psemine_user_snap = transaction.get(ref)
+            main_user_snap = transaction.get(main_user_ref)
             before = psemine_user_snap.to_dict() or {}
             main_data = main_user_snap.to_dict() or {}
             referrer_id = main_data.get('referredBy') or before.get('referredBy')
@@ -1563,7 +1566,7 @@ def psemine_onboarding():
             referral_exists = False
             if referrer_id and referrer_id != uid:
                 referral_ref = db.collection(PSE_COLLECTIONS['referrals']).document(f'psemine_ref_{uid}')
-                referral_exists = referral_ref.get(transaction=transaction).exists
+                referral_exists = transaction.get(referral_ref).exists
 
             user_update = {
                 'userId': uid,

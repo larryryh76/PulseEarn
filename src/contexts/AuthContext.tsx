@@ -444,7 +444,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const response = await safeFetch('/api/psemine/onboarding', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
+      // Only submit the address explicitly selected during this activation flow.
+      // A stale or malformed profile wallet must never turn a wallet-optional skip into a failure.
+      body: JSON.stringify({ walletAddress: walletAddress?.trim() || undefined })
     });
     if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
     // Note: Backend /api/psemine/onboarding updates the authoritative user document in Firestore.

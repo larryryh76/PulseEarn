@@ -1743,6 +1743,36 @@ def psemine_admin_bootstrap():
     except PSEmineError as error:
         return _psemine_error_response(error)
 
+@app.route('/api/admin/psemine/purge-users', methods=['POST'])
+@verify_token
+@require_db
+def admin_purge_psemine_users():
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "Admin permission required."}), 403
+    db = get_db()
+    from services.psemine import PSE_COLLECTIONS
+    try:
+        # Purge psemine_users collection
+        psemine_users_count = _delete_collection_batched(db, db.collection(PSE_COLLECTIONS['users']))
+        # Reset psemine access in main users collection
+        main_users = db.collection('users').stream()
+        updated_main_users = 0
+        for doc in main_users:
+            data = doc.to_dict() or {}
+            access = data.get('productAccess') or {}
+            if access.get('psemine'):
+                doc.reference.set({'productAccess': {**access, 'psemine': False}}, merge=True)
+                updated_main_users += 1
+        return jsonify({
+            "success": True,
+            "purgedPSEmineUsers": psemine_users_count,
+            "resetMainUserAccess": updated_main_users,
+            "message": f"Purged {psemine_users_count} PSEmine user profiles and reset access for {updated_main_users} main profiles."
+        })
+    except Exception as e:
+        logging.exception(f"[PSEmine] Purge failed: {e}")
+        return jsonify({"success": False, "error": "PURGE_FAILED", "message": str(e)}), 500
+
 @app.route('/api/request-password-reset', methods=['POST'])
 @require_db
 def request_password_reset():

@@ -1524,15 +1524,37 @@ def psemine_onboarding():
     uid = request.user['uid']
     payload = request.get_json(silent=True) or {}
     try:
-        wallet = normalize_address(payload.get('walletAddress'))
+        raw_wallet = payload.get('walletAddress')
+        wallet = None
+        if raw_wallet and str(raw_wallet).strip():
+            wallet = normalize_address(raw_wallet)
+
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
         before = ref.get().to_dict() or {}
         current_access = before.get('productAccess') or {'pulseearn': True}
-        ref.set({'userId': uid, 'productAccess': {**current_access, 'psemine': True}, 'participationStatus': 'eligible',
-                 'purchaseWallet': wallet, 'payoutWallet': wallet, 'walletNetwork': 'bsc',
-                 'agreementAcceptedAt': firestore.SERVER_TIMESTAMP, 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
-        db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
-        db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP}, merge=True)
+
+        user_update = {
+            'userId': uid,
+            'productAccess': {**current_access, 'psemine': True},
+            'participationStatus': 'eligible',
+            'agreementAcceptedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        if wallet:
+            user_update.update({
+                'purchaseWallet': wallet,
+                'payoutWallet': wallet,
+                'walletNetwork': 'bsc'
+            })
+            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({
+                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({
+                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
+
+        ref.set(user_update, merge=True)
 
         # Check for referral link from main user profile or psemine user profile
         user_main = db.collection('users').document(uid).get().to_dict() or {}
@@ -1551,8 +1573,9 @@ def psemine_onboarding():
                     'updatedAt': firestore.SERVER_TIMESTAMP
                 }, merge=True)
 
-        audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
-        return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": f'{wallet[:6]}...{wallet[-4:]}'})
+        audit(db, uid, 'PSEMINE_ONBOARDING_COMPLETED', target_user_id=uid)
+        payout_display = f'{wallet[:6]}...{wallet[-4:]}' if wallet else 'None'
+        return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": payout_display})
     except PSEmineError as error:
         return _psemine_error_response(error)
 

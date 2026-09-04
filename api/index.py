@@ -1542,29 +1542,50 @@ def psemine_onboarding():
 
         # 1. Update PSEmine-specific user document in psemine_users/{uid}
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
-        before = ref.get().to_dict() or {}
-        current_access = before.get('productAccess') or {'pulseearn': True}
+        main_user_ref = db.collection('users').document(uid)
+        purchase_wallet_ref = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase')
+        payout_wallet_ref = db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout')
 
-        user_update = {
-            'userId': uid,
-            'productAccess': {**current_access, 'psemine': True},
-            'participationStatus': 'eligible',
-            'agreementAcceptedAt': firestore.SERVER_TIMESTAMP,
-            'updatedAt': firestore.SERVER_TIMESTAMP
-        }
-        if wallet:
-            user_update.update({
-                'purchaseWallet': wallet,
-                'payoutWallet': wallet,
-                'walletNetwork': 'bsc'
-            })
-            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_purchase').set({
-                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase', 'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP
-            }, merge=True)
-            db.collection(PSE_COLLECTIONS['wallets']).document(f'{uid}_payout').set({
-                'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout', 'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP
-            }, merge=True)
-            audit(db, uid, 'WALLET_CONNECTED', target_user_id=uid, metadata={'network': 'bsc'})
+        @firestore.transactional
+        def apply_onboarding(transaction):
+            # Firestore requires every transactional read to precede every write.
+            # Use the transaction read API consistently. Every read happens before
+            # the first write so retries remain safe and wallet-optional skips work
+            # even when either profile document has not been created yet.
+            psemine_user_snap = transaction.get(ref)
+            main_user_snap = transaction.get(main_user_ref)
+            before = psemine_user_snap.to_dict() or {}
+            main_data = main_user_snap.to_dict() or {}
+            referrer_id = main_data.get('referredBy') or before.get('referredBy')
+            referral_ref = None
+            referral_exists = False
+            if referrer_id and referrer_id != uid:
+                referral_ref = db.collection(PSE_COLLECTIONS['referrals']).document(f'psemine_ref_{uid}')
+                referral_exists = transaction.get(referral_ref).exists
+
+            user_update = {
+                'userId': uid,
+                'productAccess': {**(before.get('productAccess') or {'pulseearn': True}), 'psemine': True},
+                'participationStatus': 'eligible',
+                'agreementAcceptedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }
+            if wallet:
+                user_update.update({
+                    'purchaseWallet': wallet,
+                    'payoutWallet': wallet,
+                    'walletNetwork': 'bsc'
+                })
+                transaction.set(purchase_wallet_ref, {
+                    'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'purchase',
+                    'status': 'connected', 'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
+                transaction.set(payout_wallet_ref, {
+                    'userId': uid, 'address': wallet, 'network': 'bsc', 'role': 'payout',
+                    'status': 'configured', 'updatedAt': firestore.SERVER_TIMESTAMP
+                }, merge=True)
+
+            transaction.set(ref, user_update, merge=True)
 
         ref.set(user_update, merge=True)
 

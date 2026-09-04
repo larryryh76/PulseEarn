@@ -438,17 +438,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput, productContext);
   }
 
-  async function activatePSEMineAccess(walletAddress?: string) {
+  async function activatePSEMineAccess() {
     if (!currentUser) throw new Error('You must be signed in to activate PSEmine.');
     const token = await currentUser.getIdToken(true);
     const response = await safeFetch('/api/psemine/onboarding', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: walletAddress || userData?.walletAddress })
+      body: JSON.stringify({})
     });
     if (!response?.success) throw new Error(response?.message || 'PSEmine onboarding could not be completed.');
-    // Note: Backend /api/psemine/onboarding updates the authoritative user document in Firestore.
-    // AuthContext's onSnapshot listener on user doc will automatically update userData.productAccess.psemine.
   }
 
   function login(email: string, password: string) {

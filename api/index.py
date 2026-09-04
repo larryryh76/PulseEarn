@@ -1571,16 +1571,15 @@ def psemine_onboarding():
         # 2. Update main user profile in users/{uid} so AuthContext listeners pick up productAccess.psemine immediately
         main_user_ref = db.collection('users').document(uid)
         main_user_snap = main_user_ref.get()
-        if main_user_snap.exists:
-            main_data = main_user_snap.to_dict() or {}
-            main_access = main_data.get('productAccess') or {'pulseearn': True}
-            main_update = {
-                'productAccess': {**main_access, 'psemine': True},
-                'updatedAt': firestore.SERVER_TIMESTAMP
-            }
-            if wallet:
-                main_update['walletAddress'] = wallet
-            main_user_ref.set(main_update, merge=True)
+        main_data = main_user_snap.to_dict() or {} if main_user_snap.exists else {}
+        main_access = main_data.get('productAccess') or {'pulseearn': True}
+        main_update = {
+            'productAccess': {**main_access, 'psemine': True},
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        if wallet:
+            main_update['walletAddress'] = wallet
+        main_user_ref.set(main_update, merge=True)
 
         # Check for referral link from main user profile or psemine user profile
         user_main = main_user_snap.to_dict() if main_user_snap.exists else {}

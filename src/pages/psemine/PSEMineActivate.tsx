@@ -104,10 +104,10 @@ export const PSEMineActivate: React.FC = () => {
     try {
       setIsActivating(true);
       const trimmedWallet = walletAddress.trim();
-      if (!/^0x[a-fA-F0-9]{40}$/.test(trimmedWallet)) {
-        throw new Error('Connect or enter a valid EVM/BSC wallet address first.');
+      if (trimmedWallet && !/^0x[a-fA-F0-9]{40}$/.test(trimmedWallet)) {
+        throw new Error('Please enter a valid EVM/BSC wallet address (0x...) or clear the input to continue without a wallet.');
       }
-      await activatePSEMineAccess(trimmedWallet);
+      await activatePSEMineAccess(trimmedWallet || undefined);
       toast.success('PSEmine access activated!');
       navigate('/mine/dashboard');
     } catch (error: any) {
@@ -155,7 +155,7 @@ export const PSEMineActivate: React.FC = () => {
             </h1>
 
             <p style={{ color: 'var(--pm-muted)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 24px' }}>
-              Welcome, <strong style={{ color: '#fff' }}>{userData?.username || currentUser?.email}</strong>. Connect your BNB Smart Chain wallet to confirm your campaign identity.
+              Welcome, <strong style={{ color: '#fff' }}>{userData?.username || currentUser?.email}</strong>. Connect a wallet now or add one later when making a purchase.
             </p>
 
             {/* Wallet Selection Section */}
@@ -262,9 +262,9 @@ export const PSEMineActivate: React.FC = () => {
 
             <button
               onClick={handleActivate}
-              disabled={isActivating || !walletAddress.trim()}
+              disabled={isActivating}
               className="psemine-button"
-              style={{ width: '100%', border: 0, cursor: 'pointer', opacity: isActivating || !walletAddress.trim() ? 0.6 : 1 }}
+              style={{ width: '100%', border: 0, cursor: 'pointer', opacity: isActivating ? 0.6 : 1 }}
             >
               {isActivating ? (
                 <>
@@ -273,7 +273,7 @@ export const PSEMineActivate: React.FC = () => {
                 </>
               ) : (
                 <>
-                  Enter PSEmine Campaign <ArrowRight size={16} />
+                  {walletAddress.trim() ? 'Enter PSEmine Campaign' : 'Skip & Enter PSEmine Workspace'} <ArrowRight size={16} />
                 </>
               )}
             </button>

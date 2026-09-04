@@ -287,8 +287,13 @@ def normalize_address(value):
 
 
 def public_address(value):
-    address = normalize_address(value)
-    return f"{address[:6]}...{address[-4:]}"
+    if not value or not str(value).strip():
+        return ""
+    try:
+        address = normalize_address(value)
+        return f"{address[:6]}...{address[-4:]}"
+    except Exception:
+        return ""
 
 
 class PSEmineError(Exception):

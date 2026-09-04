@@ -301,16 +301,12 @@ def error_payload(error):
     return {"success": False, "error": error.code, "message": error.message, "details": error.details}
 
 
-def audit(db, actor_id, event_type, target_user_id=None, campaign_id=None, metadata=None, previous_state=None, new_state=None, transaction=None):
-    payload = {
+def audit(db, actor_id, event_type, target_user_id=None, campaign_id=None, metadata=None, previous_state=None, new_state=None):
+    db.collection(PSE_COLLECTIONS["audit"]).add({
         "eventId": str(uuid.uuid4()), "actorId": actor_id, "targetUserId": target_user_id,
         "campaignId": campaign_id, "eventType": event_type, "previousState": previous_state,
         "newState": new_state, "metadata": metadata or {}, "createdAt": firestore.SERVER_TIMESTAMP,
-    }
-    if transaction is not None:
-        transaction.set(db.collection(PSE_COLLECTIONS["audit"]).document(), payload)
-    else:
-        db.collection(PSE_COLLECTIONS["audit"]).add(payload)
+    })
 
 
 def ensure_user(db, uid, auth_user=None):

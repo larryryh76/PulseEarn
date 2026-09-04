@@ -1492,11 +1492,18 @@ def _psemine_error_response(error):
 @app.route('/api/psemine/public', methods=['GET'])
 @require_db
 def psemine_public():
-    from services.psemine import PSE_COLLECTIONS, get_active_campaign, serialize_campaign, serialize_tool
-    db = get_db()
-    campaign = get_active_campaign(db)
-    tools = [serialize_tool(doc) for doc in db.collection(PSE_COLLECTIONS['tools']).order_by('sortOrder').stream()]
-    return jsonify({"success": True, "campaign": serialize_campaign(campaign), "tools": tools, "network": "BNB Smart Chain", "currency": "GBP"})
+    from services.psemine import PSE_COLLECTIONS, get_active_campaign, serialize_campaign, serialize_tool, PSEmineError
+    try:
+        db = get_db()
+        campaign = get_active_campaign(db)
+        tools = [serialize_tool(doc) for doc in db.collection(PSE_COLLECTIONS['tools']).order_by('sortOrder').stream()]
+        return jsonify({"success": True, "campaign": serialize_campaign(campaign), "tools": tools, "network": "BNB Smart Chain", "currency": "GBP"})
+    except PSEmineError as error:
+        return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Server exception in psemine_public: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("INTERNAL_ERROR", "An internal server error occurred while fetching campaign data.", 500))
 
 
 @app.route('/api/psemine/me', methods=['GET'])
@@ -1512,6 +1519,10 @@ def psemine_me():
         return jsonify({"success": True, **snapshot})
     except PSEmineError as error:
         return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Server exception in psemine_me for user {uid}: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("INTERNAL_ERROR", "An internal server error occurred while fetching dashboard state.", 500))
 
 
 @app.route('/api/psemine/onboarding', methods=['POST'])
@@ -1529,6 +1540,7 @@ def psemine_onboarding():
         if raw_wallet and str(raw_wallet).strip():
             wallet = normalize_address(raw_wallet)
 
+        # 1. Update PSEmine-specific user document in psemine_users/{uid}
         ref = db.collection(PSE_COLLECTIONS['users']).document(uid)
         before = ref.get().to_dict() or {}
         current_access = before.get('productAccess') or {'pulseearn': True}
@@ -1556,8 +1568,22 @@ def psemine_onboarding():
 
         ref.set(user_update, merge=True)
 
+        # 2. Update main user profile in users/{uid} so AuthContext listeners pick up productAccess.psemine immediately
+        main_user_ref = db.collection('users').document(uid)
+        main_user_snap = main_user_ref.get()
+        if main_user_snap.exists:
+            main_data = main_user_snap.to_dict() or {}
+            main_access = main_data.get('productAccess') or {'pulseearn': True}
+            main_update = {
+                'productAccess': {**main_access, 'psemine': True},
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            }
+            if wallet:
+                main_update['walletAddress'] = wallet
+            main_user_ref.set(main_update, merge=True)
+
         # Check for referral link from main user profile or psemine user profile
-        user_main = db.collection('users').document(uid).get().to_dict() or {}
+        user_main = main_user_snap.to_dict() if main_user_snap.exists else {}
         referrer_id = user_main.get('referredBy') or before.get('referredBy')
         if referrer_id and referrer_id != uid:
             ref_doc_id = f"psemine_ref_{uid}"
@@ -1578,6 +1604,10 @@ def psemine_onboarding():
         return jsonify({"success": True, "participationStatus": "eligible", "payoutWallet": payout_display})
     except PSEmineError as error:
         return _psemine_error_response(error)
+    except Exception as e:
+        logging.exception(f"[PSEmine] Onboarding failed for user {uid}: {e}")
+        from services.psemine import PSEmineError
+        return _psemine_error_response(PSEmineError("ONBOARDING_FAILED", "An internal error occurred during PSEmine onboarding. Please try again.", 500))
 
 
 @app.route('/api/psemine/purchase-intents', methods=['POST'])

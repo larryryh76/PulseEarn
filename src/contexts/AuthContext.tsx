@@ -106,6 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function checkDailyReward(uid: string) {
+    // Strictly isolate: Do not trigger PulseEarn Daily Rewards on PSEmine routes
+    if (window.location.pathname.startsWith('/mine')) return;
+
     try {
       const config = await EconomyConfigEngine.getConfig();
 
@@ -480,6 +483,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
+        // If navigating under PSEmine (/mine/*), bypass PulseEarn user document listening/healing and daily rewards
+        if (window.location.pathname.startsWith('/mine')) {
+          setLoading(false);
+          setIsRestoring(false);
+          return;
+        }
+
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
@@ -499,8 +509,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserData(resolvedData as UserData);
             setSystemError(null);
 
-            // Skip fingerprinting and daily reward checks for ops users (admin/moderator)
-            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator') {
+            // Skip fingerprinting and daily reward checks for ops users (admin/moderator) or PSEmine routes
+            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator' && !window.location.pathname.startsWith('/mine')) {
               UserEngine.recordFingerprint(user.uid);
               if (user.emailVerified) {
                 checkDailyReward(user.uid);
@@ -575,7 +585,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            />
         )}
 
-        {isRestoring && !systemError ? (
+        {isRestoring && !systemError && !window.location.pathname.startsWith('/mine') ? (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}

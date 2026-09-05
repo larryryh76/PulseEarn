@@ -49,6 +49,18 @@ import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
 
+// PSEmine Clean Rebuild Imports
+import { PsemineAuthProvider } from './contexts/PsemineAuthContext'
+import { PsemineProtectedRoute, PseminePublicRoute } from './components/mine/PsemineRoutes'
+import PsemineHome from './pages/mine/PsemineHome'
+import PsemineLogin from './pages/mine/PsemineLogin'
+import PsemineSignup from './pages/mine/PsemineSignup'
+import PsemineVerifyEmail from './pages/mine/PsemineVerifyEmail'
+import PsemineForgotPassword from './pages/mine/PsemineForgotPassword'
+import PsemineResetPassword from './pages/mine/PsemineResetPassword'
+import PsemineGuide from './pages/mine/PsemineGuide'
+import PsemineDashboard from './pages/mine/PsemineDashboard'
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
@@ -147,6 +159,23 @@ function App() {
         }}
       />
       <Routes>
+        {/* PSEMINE CLEAN REBUILD ROUTES */}
+        <Route path="/mine/*" element={
+          <PsemineAuthProvider>
+            <Routes>
+              <Route path="/" element={<PsemineHome />} />
+              <Route path="/login" element={<PseminePublicRoute><PsemineLogin /></PseminePublicRoute>} />
+              <Route path="/signup" element={<PseminePublicRoute><PsemineSignup /></PseminePublicRoute>} />
+              <Route path="/verify-email" element={<PsemineProtectedRoute><PsemineVerifyEmail /></PsemineProtectedRoute>} />
+              <Route path="/forgot-password" element={<PsemineForgotPassword />} />
+              <Route path="/reset-password" element={<PsemineResetPassword />} />
+              <Route path="/guide" element={<PsemineProtectedRoute><PsemineGuide /></PsemineProtectedRoute>} />
+              <Route path="/dashboard" element={<PsemineProtectedRoute><PsemineDashboard /></PsemineProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/mine" replace />} />
+            </Routes>
+          </PsemineAuthProvider>
+        } />
+
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

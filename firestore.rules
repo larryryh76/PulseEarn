@@ -272,7 +272,17 @@ service cloud.firestore {
 
     // 12. PSEmine Profiles
     match /psemine_profiles/{profileId} {
-      allow read, create, update: if isAuthenticated() && request.auth.uid == profileId;
+      allow read: if isOwner(profileId) || isAdmin();
+      allow create: if isOwner(profileId) &&
+                      request.resource.data.uid == request.auth.uid &&
+                      request.resource.data.keys().hasOnly([
+                        'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
+                      ]);
+      allow update: if isOwner(profileId) &&
+                      request.resource.data.uid == resource.data.uid &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'email', 'username', 'hasCompletedGuide', 'updatedAt'
+                      ]);
       allow delete: if isAdmin();
     }
   }

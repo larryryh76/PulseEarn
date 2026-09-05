@@ -19,12 +19,12 @@ export const PsemineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
     return <Navigate to="/mine/verify-email" replace />;
   }
 
-  // If email is verified and trying to access dashboard before completing guide:
+  // If email is verified and attempting to access any protected route before completing guide:
   if (
     currentUser.emailVerified &&
-    location.pathname === '/mine/dashboard' &&
-    psemineProfile &&
-    !psemineProfile.hasCompletedGuide
+    location.pathname !== '/mine/guide' &&
+    location.pathname !== '/mine/verify-email' &&
+    !psemineProfile?.hasCompletedGuide
   ) {
     return <Navigate to="/mine/guide" replace />;
   }

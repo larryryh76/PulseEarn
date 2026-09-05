@@ -4,6 +4,7 @@ import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import PsemineLogo from '../../components/mine/PsemineLogo';
 import { Mail, RefreshCw, CheckCircle2, ArrowRight, AlertCircle, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { auth } from '../../firebase/config';
 
 export const PsemineVerifyEmail: React.FC = () => {
   const { currentUser, sendVerification, refreshVerificationStatus, logout, psemineProfile } = usePsemineAuth();
@@ -62,8 +63,9 @@ export const PsemineVerifyEmail: React.FC = () => {
       setRefreshing(true);
       setErrorMsg(null);
       await refreshVerificationStatus();
+      const isVerified = auth.currentUser?.emailVerified;
 
-      if (currentUser?.emailVerified) {
+      if (isVerified) {
         toast.success('Email verified successfully!');
         if (psemineProfile?.hasCompletedGuide) {
           navigate('/mine/dashboard');

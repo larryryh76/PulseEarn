@@ -157,7 +157,6 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (snap.exists()) {
       const existingData = snap.data();
       const updatePayload = {
-        uid: currentUser.uid,
         email: currentUser.email,
         username: psemineProfile?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
         hasCompletedGuide: true,

@@ -3,6 +3,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   User,
   UserCredential,
@@ -36,6 +38,7 @@ interface PsemineAuthContextType {
   loading: boolean;
   signup: (email: string, password: string, username: string) => Promise<UserCredential>;
   login: (email: string, password: string) => Promise<UserCredential>;
+  loginWithGoogle: () => Promise<UserCredential>;
   logout: () => Promise<void>;
   sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -111,6 +114,13 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const login = async (email: string, password: string): Promise<UserCredential> => {
     return signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const loginWithGoogle = async (): Promise<UserCredential> => {
+    const provider = new GoogleAuthProvider();
+    const credential = await signInWithPopup(auth, provider);
+    await initializePsemineProfile(credential.user);
+    return credential;
   };
 
   const logout = async () => {
@@ -196,6 +206,7 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     loading,
     signup,
     login,
+    loginWithGoogle,
     logout,
     sendVerification,
     resetPassword,

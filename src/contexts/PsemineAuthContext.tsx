@@ -152,21 +152,43 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const completeGuide = async () => {
     if (!currentUser) return;
     const profileRef = doc(db, 'psemine_profiles', currentUser.uid);
-    const updatePayload = {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      username: psemineProfile?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
-      hasCompletedGuide: true,
-      updatedAt: serverTimestamp()
-    };
-    await setDoc(profileRef, updatePayload, { merge: true });
-    setPsemineProfile((prev) => ({
-      uid: currentUser.uid,
-      email: currentUser.email,
-      username: prev?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
-      hasCompletedGuide: true,
-      ...prev
-    }));
+    const snap = await getDoc(profileRef);
+
+    if (snap.exists()) {
+      const existingData = snap.data();
+      const updatePayload = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        username: psemineProfile?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+        hasCompletedGuide: true,
+        updatedAt: serverTimestamp()
+      };
+      await setDoc(profileRef, updatePayload, { merge: true });
+      setPsemineProfile((prev) => ({
+        ...prev,
+        uid: currentUser.uid,
+        email: currentUser.email,
+        username: prev?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+        hasCompletedGuide: true
+      }));
+    } else {
+      const createPayload = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        username: psemineProfile?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+        hasCompletedGuide: true
+      };
+      await setDoc(profileRef, {
+        ...createPayload,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setPsemineProfile({
+        ...createPayload,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
   };
 
   useEffect(() => {

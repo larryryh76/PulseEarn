@@ -16,7 +16,6 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
   onSnapshot,
   serverTimestamp,
   Timestamp
@@ -153,11 +152,21 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const completeGuide = async () => {
     if (!currentUser) return;
     const profileRef = doc(db, 'psemine_profiles', currentUser.uid);
-    await updateDoc(profileRef, {
+    const updatePayload = {
+      uid: currentUser.uid,
+      email: currentUser.email,
+      username: psemineProfile?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
       hasCompletedGuide: true,
       updatedAt: serverTimestamp()
-    });
-    setPsemineProfile((prev) => prev ? { ...prev, hasCompletedGuide: true } : null);
+    };
+    await setDoc(profileRef, updatePayload, { merge: true });
+    setPsemineProfile((prev) => ({
+      uid: currentUser.uid,
+      email: currentUser.email,
+      username: prev?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+      hasCompletedGuide: true,
+      ...prev
+    }));
   };
 
   useEffect(() => {

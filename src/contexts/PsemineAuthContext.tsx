@@ -152,42 +152,30 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const completeGuide = async () => {
     if (!currentUser) return;
     const profileRef = doc(db, 'psemine_profiles', currentUser.uid);
-    const snap = await getDoc(profileRef);
+    let snap = await getDoc(profileRef);
 
-    if (snap.exists()) {
-      const existingData = snap.data();
-      const updatePayload = {
-        email: currentUser.email,
-        username: psemineProfile?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
-        hasCompletedGuide: true,
-        updatedAt: serverTimestamp()
-      };
-      await setDoc(profileRef, updatePayload, { merge: true });
-      setPsemineProfile((prev) => ({
-        ...prev,
-        uid: currentUser.uid,
-        email: currentUser.email,
-        username: prev?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
-        hasCompletedGuide: true
-      }));
-    } else {
-      const createPayload = {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        username: psemineProfile?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
-        hasCompletedGuide: true
-      };
-      await setDoc(profileRef, {
-        ...createPayload,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      setPsemineProfile({
-        ...createPayload,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+    if (!snap.exists()) {
+      // Ensure profile exists with hasCompletedGuide: false before updating
+      await initializePsemineProfile(currentUser, psemineProfile?.username);
+      snap = await getDoc(profileRef);
     }
+
+    const existingData = snap.data();
+    const updatePayload = {
+      email: currentUser.email,
+      username: psemineProfile?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+      hasCompletedGuide: true,
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(profileRef, updatePayload, { merge: true });
+    setPsemineProfile((prev) => ({
+      ...prev,
+      uid: currentUser.uid,
+      email: currentUser.email,
+      username: prev?.username || existingData?.username || currentUser.displayName || `Miner_${currentUser.uid.slice(0, 5)}`,
+      hasCompletedGuide: true
+    }));
   };
 
   useEffect(() => {

@@ -7,16 +7,32 @@ describe('PSEmine Firestore Rules & Isolation Checks', () => {
   test('psemine_profiles rule exists and enforces isOwner', () => {
     expect(rulesContent).toContain('match /psemine_profiles/{profileId}');
     expect(rulesContent).toContain('allow read: if isOwner(profileId) || isAdmin();');
-    expect(rulesContent).toContain('isOwner(profileId)');
   });
 
-  test('psemine_profiles create enforces strict schema fields', () => {
-    expect(rulesContent).toContain("request.resource.data.keys().hasOnly([\n                        'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'\n                      ])");
+  test('psemine_profiles create enforces strict schema, types, and timestamps', () => {
+    expect(rulesContent).toContain("request.resource.data.keys().hasOnly([\n          'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'\n        ])");
+    expect(rulesContent).toContain('request.resource.data.uid == request.auth.uid');
+    expect(rulesContent).toContain('request.resource.data.hasCompletedGuide is bool');
+    expect(rulesContent).toContain('request.resource.data.createdAt != null');
+    expect(rulesContent).toContain('request.resource.data.updatedAt != null');
   });
 
-  test('psemine_profiles update prevents changing uid and limits updated fields', () => {
+  test('psemine_profiles update prevents changing uid or createdAt and limits updated fields', () => {
     expect(rulesContent).toContain('request.resource.data.uid == resource.data.uid');
-    expect(rulesContent).toContain("request.resource.data.diff(resource.data).affectedKeys().hasOnly([\n                        'email', 'username', 'hasCompletedGuide', 'updatedAt'\n                      ])");
+    expect(rulesContent).toContain('request.resource.data.createdAt == resource.data.createdAt');
+    expect(rulesContent).toContain("request.resource.data.diff(resource.data).affectedKeys().hasOnly([\n          'email', 'username', 'hasCompletedGuide', 'updatedAt'\n        ])");
+  });
+
+  test('psemine_profiles delete is restricted to admins only', () => {
+    expect(rulesContent).toContain('allow delete: if isAdmin();');
+  });
+
+  test('PulseEarn rules for users, campaigns, tasks, withdrawals, and offerwall remain intact', () => {
+    expect(rulesContent).toContain('match /users/{userId}');
+    expect(rulesContent).toContain('match /campaigns/{campaignId}');
+    expect(rulesContent).toContain('match /tasks/{taskId}');
+    expect(rulesContent).toContain('match /withdrawals/{withdrawalId}');
+    expect(rulesContent).toContain('match /offerwall_providers/{providerId}');
   });
 
   test('psemine_profiles does not allow broad read/write', () => {

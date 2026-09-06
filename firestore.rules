@@ -85,20 +85,6 @@ service cloud.firestore {
       }
     }
 
-    // PSEmine profiles are user-owned onboarding records.
-    match /psemine_profiles/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.hasCompletedGuide == false;
-      allow update: if isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'email', 'username', 'hasCompletedGuide', 'updatedAt'
-        ])
-        && request.resource.data.uid == resource.data.uid;
-      allow delete: if false;
-    }
-
     // 2. System Config (Global Settings)
     match /system_config/{configId} {
       allow read: if isAuthenticated();
@@ -287,16 +273,29 @@ service cloud.firestore {
     // 12. PSEmine Profiles
     match /psemine_profiles/{profileId} {
       allow read: if isOwner(profileId) || isAdmin();
-      allow create: if isOwner(profileId) &&
-                      request.resource.data.uid == request.auth.uid &&
-                      request.resource.data.keys().hasOnly([
-                        'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
-                      ]);
-      allow update: if isOwner(profileId) &&
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                        'email', 'username', 'hasCompletedGuide', 'updatedAt'
-                      ]);
+
+      // Client-created profiles are limited to the exact PSEmine schema. A missing
+      // profile may be created during normal initialization or onboarding completion.
+      allow create: if isOwner(profileId)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.hasCompletedGuide is bool
+        && request.resource.data.createdAt != null
+        && request.resource.data.updatedAt != null;
+
+      // uid and createdAt are immutable; no arbitrary fields can be added.
+      allow update: if isOwner(profileId)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'email', 'username', 'hasCompletedGuide', 'updatedAt'
+        ]);
+
       allow delete: if isAdmin();
     }
   }

@@ -19,6 +19,8 @@ export const PsemineGuide: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleContinue = async () => {
+    if (loading) return;
+
     try {
       setLoading(true);
       await completeGuide();
@@ -26,7 +28,12 @@ export const PsemineGuide: React.FC = () => {
       navigate('/mine/dashboard');
     } catch (err: any) {
       console.error('[PSEmine Guide] Complete error:', err);
-      toast.error('Failed to complete onboarding: ' + (err.message || 'Unknown error'));
+      toast.error(
+        err?.code === 'permission-denied'
+          ? 'Onboarding permissions are not deployed yet. Please contact support.'
+          : 'Failed to complete onboarding: ' + (err.message || 'Unknown error'),
+        { id: 'psemine-onboarding-error' }
+      );
     } finally {
       setLoading(false);
     }

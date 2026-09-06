@@ -85,20 +85,6 @@ service cloud.firestore {
       }
     }
 
-    // PSEmine profiles are user-owned onboarding records.
-    match /psemine_profiles/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.hasCompletedGuide == false;
-      allow update: if isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'email', 'username', 'hasCompletedGuide', 'updatedAt'
-        ])
-        && request.resource.data.uid == resource.data.uid;
-      allow delete: if false;
-    }
-
     // 2. System Config (Global Settings)
     match /system_config/{configId} {
       allow read: if isAuthenticated();

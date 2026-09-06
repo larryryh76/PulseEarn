@@ -30,4 +30,9 @@ describe('PSEmine Firestore Rules & Isolation Checks', () => {
     expect(authContext).not.toContain('streak:');
     expect(authContext).not.toContain('referralCode:');
   });
+
+  test('PulseEarn AuthContext prevents auto-healing and checkDailyReward on PSEmine routes', () => {
+    const authContext = fs.readFileSync('src/contexts/AuthContext.tsx', 'utf-8');
+    expect(authContext).toContain("if (window.location.pathname.startsWith('/mine')) return;");
+  });
 });

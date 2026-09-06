@@ -274,6 +274,8 @@ service cloud.firestore {
     match /psemine_profiles/{profileId} {
       allow read: if isOwner(profileId) || isAdmin();
 
+      // Client-created profiles are limited to the exact PSEmine schema. A missing
+      // profile may be created during normal initialization or onboarding completion.
       allow create: if isOwner(profileId)
         && request.resource.data.keys().hasOnly([
           'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
@@ -283,6 +285,7 @@ service cloud.firestore {
         && request.resource.data.createdAt != null
         && request.resource.data.updatedAt != null;
 
+      // uid and createdAt are immutable; no arbitrary fields can be added.
       allow update: if isOwner(profileId)
         && request.resource.data.keys().hasOnly([
           'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'

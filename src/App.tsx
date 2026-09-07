@@ -31,7 +31,8 @@ import {
   OpsHealth as AdminHealth,
   OpsModerators as AdminModerators,
   OpsOfferwalls as AdminOfferwalls,
-  OpsMarketplace as AdminMarketplace
+  OpsMarketplace as AdminMarketplace,
+  OpsPsemine as AdminPsemine
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -60,6 +61,9 @@ import PsemineForgotPassword from './pages/mine/PsemineForgotPassword'
 import PsemineResetPassword from './pages/mine/PsemineResetPassword'
 import PsemineGuide from './pages/mine/PsemineGuide'
 import PsemineDashboard from './pages/mine/PsemineDashboard'
+import PsemineModulePage from './pages/mine/PsemineModulePage'
+import PsemineSupportPage from './pages/mine/PsemineSupportPage'
+import PsemineWalletPage from './pages/mine/PsemineWalletPage'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -171,6 +175,12 @@ function App() {
               <Route path="/reset-password" element={<PsemineResetPassword />} />
               <Route path="/guide" element={<PsemineProtectedRoute><PsemineGuide /></PsemineProtectedRoute>} />
               <Route path="/dashboard" element={<PsemineProtectedRoute><PsemineDashboard /></PsemineProtectedRoute>} />
+              <Route path="/activity" element={<PsemineProtectedRoute><PsemineModulePage module="activity" /></PsemineProtectedRoute>} />
+              <Route path="/referrals" element={<PsemineProtectedRoute><PsemineModulePage module="referrals" /></PsemineProtectedRoute>} />
+              <Route path="/account" element={<PsemineProtectedRoute><PsemineModulePage module="account" /></PsemineProtectedRoute>} />
+              <Route path="/support" element={<PsemineProtectedRoute><PsemineSupportPage /></PsemineProtectedRoute>} />
+              <Route path="/notifications" element={<PsemineProtectedRoute><PsemineModulePage module="notifications" /></PsemineProtectedRoute>} />
+              <Route path="/wallet" element={<PsemineProtectedRoute><PsemineWalletPage /></PsemineProtectedRoute>} />
               <Route path="*" element={<Navigate to="/mine" replace />} />
             </Routes>
           </PsemineAuthProvider>
@@ -212,6 +222,7 @@ function App() {
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
+  <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPsemine /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
         <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
         <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />

@@ -1,67 +1,13 @@
-import { PsemineTool, PsemineCampaign } from '../types/psemine';
+import { PsemineMiningSession, PsemineToolOwnership } from '../types/psemine';
 
-export const GENESIS_CAMPAIGN: PsemineCampaign = {
-  id: 'genesis-90-day',
-  name: '90-Day Genesis Mining Campaign',
-  type: 'genesis',
-  status: 'active',
-  startDate: new Date().toISOString(),
-  endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-  durationDays: 90,
-  description: 'The inaugural 90-day Genesis mining campaign establishing initial hash generation and tool distribution.',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-
-export const GENESIS_TOOLS: PsemineTool[] = [
-  {
-    id: 'starter',
-    name: 'Starter Rig',
-    tier: 'starter',
-    priceGbp: 3,
-    miningRateGbpPerHour: 0.10,
-    maxCopiesPerUser: 5,
-    campaignId: 'genesis-90-day',
-    isActive: true,
-    description: 'Entry-level Genesis node designed for initial hash rate generation.',
-  },
-  {
-    id: 'growth',
-    name: 'Growth Rig',
-    tier: 'growth',
-    priceGbp: 10,
-    miningRateGbpPerHour: 0.50,
-    maxCopiesPerUser: 3,
-    campaignId: 'genesis-90-day',
-    isActive: true,
-    description: 'Mid-tier node engineered for optimized steady-state mining performance.',
-  },
-  {
-    id: 'pro',
-    name: 'Pro Rig',
-    tier: 'pro',
-    priceGbp: 50,
-    miningRateGbpPerHour: 1.20,
-    maxCopiesPerUser: 3,
-    campaignId: 'genesis-90-day',
-    isActive: true,
-    description: 'High-throughput enterprise mining cluster for professional output.',
-  },
-  {
-    id: 'elite',
-    name: 'Elite Rig',
-    tier: 'elite',
-    priceGbp: 200,
-    miningRateGbpPerHour: 2.50,
-    maxCopiesPerUser: 2,
-    campaignId: 'genesis-90-day',
-    isActive: true,
-    description: 'Maximum capacity Genesis tier delivering high-rate block processing.',
-  },
-];
-
+/**
+ * Pure calculations used to render backend snapshots. This module deliberately
+ * contains no product prices, campaign dates, ownership writes, or client-side
+ * timestamps. Economic configuration and state must come from trusted backend
+ * documents or a privileged service.
+ */
 export interface CalculateMiningRateParams {
-  ownedTools: Array<{ toolId: string; status: string; miningRateGbpPerHour: number }>;
+  ownedTools: Pick<PsemineToolOwnership, 'status' | 'miningRateGbpPerHour'>[];
   qualifiedReferralsCount: number;
 }
 
@@ -74,30 +20,43 @@ export interface CalculateMiningRateResult {
 }
 
 export function calculateMiningRate(params: CalculateMiningRateParams): CalculateMiningRateResult {
-  const activeTools = params.ownedTools.filter((t) => t.status === 'active');
-  const baseRate = activeTools.reduce((acc, tool) => acc + (tool.miningRateGbpPerHour || 0), 0);
-
-  const safeRef = Math.min(Math.max(0, params.qualifiedReferralsCount || 0), 5);
-  const referralBonus = safeRef * 0.30;
-
-  const totalRate = Math.min(baseRate + referralBonus, 12.10);
+  const activeTools = params.ownedTools.filter((tool) => tool.status === 'active');
+  const baseRate = activeTools.reduce((sum, tool) => sum + Math.max(0, tool.miningRateGbpPerHour), 0);
+  const qualifiedReferralsCount = Math.min(Math.max(0, Math.floor(params.qualifiedReferralsCount)), 5);
+  const referralBonus = qualifiedReferralsCount * 0.3;
 
   return {
     baseMiningRateGbpPerHour: Number(baseRate.toFixed(2)),
     referralBonusGbpPerHour: Number(referralBonus.toFixed(2)),
-    totalMiningRateGbpPerHour: Number(totalRate.toFixed(2)),
-    qualifiedReferralsCount: safeRef,
+    totalMiningRateGbpPerHour: Number(Math.min(baseRate + referralBonus, 12.1).toFixed(2)),
+    qualifiedReferralsCount,
     activeToolsCount: activeTools.length,
   };
 }
 
 export function calculateAccumulatedOutput(
-  startTimestampMs: number,
-  currentTimestampMs: number,
-  rateGbpPerHour: number
+  session: Pick<PsemineMiningSession, 'state' | 'startedAt' | 'expiresAt' | 'totalMiningRateGbpPerHour' | 'accumulatedOutputGbp'>,
+  nowMs: number,
 ): number {
-  if (currentTimestampMs <= startTimestampMs || rateGbpPerHour <= 0) return 0;
-  const elapsedHours = (currentTimestampMs - startTimestampMs) / (1000 * 60 * 60);
-  const output = elapsedHours * rateGbpPerHour;
-  return Number(output.toFixed(4));
+  if (session.state !== 'active') return Number(Math.max(0, session.accumulatedOutputGbp).toFixed(4));
+
+  const startMs = Date.parse(session.startedAt);
+  const expiryMs = Date.parse(session.expiresAt);
+  if (!Number.isFinite(startMs) || !Number.isFinite(expiryMs) || nowMs <= startMs) return 0;
+
+  const boundedNow = Math.min(nowMs, expiryMs);
+  const elapsedHours = (boundedNow - startMs) / 3_600_000;
+  const generated = elapsedHours * Math.max(0, session.totalMiningRateGbpPerHour);
+  return Number(Math.max(0, session.accumulatedOutputGbp + generated).toFixed(4));
+}
+
+export function canTransitionMiningState(from: PsemineMiningSession['state'], to: PsemineMiningSession['state']): boolean {
+  const transitions: Record<PsemineMiningSession['state'], PsemineMiningSession['state'][]> = {
+    inactive: ['active'],
+    active: ['paused', 'completed', 'expired'],
+    paused: ['active', 'completed', 'expired'],
+    completed: [],
+    expired: [],
+  };
+  return transitions[from].includes(to);
 }

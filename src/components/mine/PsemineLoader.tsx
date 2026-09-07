@@ -1,93 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import PsemineLogo from './PsemineLogo';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, Binary } from 'lucide-react';
 
-interface PsemineLoaderProps {
-  message?: string;
-  timeoutMs?: number;
-  onRetry?: () => void;
-  fullScreen?: boolean;
-}
+interface PsemineLoaderProps { message?: string; timeoutMs?: number; onRetry?: () => void; fullScreen?: boolean; }
 
-export const PsemineLoader: React.FC<PsemineLoaderProps> = ({
-  message = 'Loading PSEmine...',
-  timeoutMs = 15000,
-  onRetry,
-  fullScreen = true
-}) => {
+export const PsemineLoader: React.FC<PsemineLoaderProps> = ({ message = 'Synchronizing protocol state...', timeoutMs = 15000, onRetry, fullScreen = true }) => {
   const [timedOut, setTimedOut] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTimedOut(true);
-    }, timeoutMs);
-
-    return () => clearTimeout(timer);
-  }, [timeoutMs]);
-
-  const containerClasses = fullScreen
-    ? "fixed inset-0 z-[100] bg-[#080A11] flex flex-col items-center justify-center p-6"
-    : "min-h-[400px] w-full bg-[#080A11] rounded-2xl border border-white/5 flex flex-col items-center justify-center p-6";
-
-  return (
-    <div className={containerClasses}>
-      <div className="flex flex-col items-center gap-6 max-w-sm text-center">
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <PsemineLogo size="lg" />
-        </motion.div>
-
-        {!timedOut ? (
-          <div className="flex flex-col items-center gap-4 w-full">
-            {/* Loading Bar */}
-            <div className="w-56 h-1.5 bg-white/5 rounded-full overflow-hidden relative border border-white/10">
-              <motion.div
-                initial={{ left: '-100%' }}
-                animate={{ left: '100%' }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-[#00F2FE] to-transparent rounded-full shadow-[0_0_15px_#00F2FE]"
-              />
-            </div>
-
-            {/* Message */}
-            <p className="text-xs font-semibold text-cyan-200/70 tracking-widest uppercase">
-              {message}
-            </p>
-          </div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-4 bg-red-950/20 border border-red-500/20 p-5 rounded-xl text-center"
-          >
-            <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-wider">
-              <AlertCircle size={16} />
-              <span>Connection Delayed</span>
-            </div>
-            <p className="text-xs text-gray-400">
-              Taking longer than expected to load PSEmine. Check your connection or retry.
-            </p>
-            <button
-              onClick={() => {
-                setTimedOut(false);
-                if (onRetry) onRetry();
-                else window.location.reload();
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#00F2FE]/10 hover:bg-[#00F2FE]/20 text-[#00F2FE] border border-[#00F2FE]/30 rounded-lg text-xs font-bold transition-all"
-            >
-              <RefreshCw size={14} />
-              <span>Retry Request</span>
-            </button>
-          </motion.div>
-        )}
-      </div>
-    </div>
-  );
+  useEffect(() => { const timer = setTimeout(() => setTimedOut(true), timeoutMs); return () => clearTimeout(timer); }, [timeoutMs]);
+  const containerClasses = fullScreen ? 'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#080b10] p-6' : 'flex min-h-[400px] w-full flex-col items-center justify-center rounded-2xl bg-[#080b10] p-6';
+  return <div className={containerClasses}><div className="psemine-grid pointer-events-none absolute inset-0 opacity-40" /><div className="relative flex max-w-sm flex-col items-center gap-8 text-center">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .45 }} className="psemine-pulse"><PsemineLogo size="lg" /></motion.div>
+    {!timedOut ? <div className="flex w-full flex-col items-center gap-5"><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.25em] text-[#758287]"><Binary size={13} className="text-[#f0aa3e]" /> PSEmine protocol</div><div className="relative h-1.5 w-64 overflow-hidden rounded-full bg-white/10"><motion.div initial={{ x: '-100%' }} animate={{ x: '200%' }} transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }} className="psemine-loader-beam absolute inset-y-0 w-1/2 rounded-full" /></div><p className="text-xs font-semibold uppercase tracking-widest text-[#9ca8ac]">{message}</p></div> : <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="psemine-panel flex flex-col items-center gap-4 rounded-2xl p-5"><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#f0aa3e]"><AlertCircle size={16} /> Connection delayed</div><p className="text-xs leading-6 text-[#9ca8ac]">PSEmine is taking longer than expected to respond.</p><button onClick={() => { setTimedOut(false); onRetry ? onRetry() : window.location.reload(); }} className="psemine-button-secondary flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold"><RefreshCw size={14} /> Retry request</button></motion.div>}
+  </div></div>;
 };
-
 export default PsemineLoader;

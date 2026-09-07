@@ -4,38 +4,45 @@ import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import { db } from '../../firebase/config';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { PsemineWithdrawal } from '../../types/psemine';
-import { Wallet, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Wallet, ShieldCheck, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const PsemineWithdrawals: React.FC = () => {
   const { currentUser } = usePsemineAuth();
   const [withdrawals, setWithdrawals] = useState<PsemineWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [amountGbp, setAmountGbp] = useState('');
   const [payoutAddress, setPayoutAddress] = useState('');
 
-  useEffect(() => {
-    async function fetchWithdrawals() {
-      if (!currentUser?.uid) return;
-      try {
-        const q = query(
-          collection(db, 'psemine_withdrawals'),
-          where('userId', '==', currentUser.uid)
-        );
-        const snap = await getDocs(q);
-        const list: PsemineWithdrawal[] = [];
-        snap.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as PsemineWithdrawal);
-        });
-        setWithdrawals(list);
-      } catch (err) {
-        console.error('Error fetching withdrawals:', err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchWithdrawals = async () => {
+    if (!currentUser?.uid) return;
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const q = query(
+        collection(db, 'psemine_withdrawals'),
+        where('userId', '==', currentUser.uid)
+      );
+      const snap = await getDocs(q);
+      const list: PsemineWithdrawal[] = [];
+      snap.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as PsemineWithdrawal);
+      });
+      setWithdrawals(list);
+    } catch (err: unknown) {
+      console.error('Error fetching withdrawals:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to load withdrawal history';
+      setFetchError(msg);
+      toast.error('Unable to fetch withdrawal history');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchWithdrawals();
   }, [currentUser?.uid]);
 
@@ -78,8 +85,9 @@ export const PsemineWithdrawals: React.FC = () => {
       setWithdrawals((prev) => [{ id: docRef.id, ...withdrawalPayload } as PsemineWithdrawal, ...prev]);
       setAmountGbp('');
       setPayoutAddress('');
-    } catch (err: any) {
-      toast.error('Failed to submit withdrawal: ' + (err.message || 'Unknown error'));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error('Failed to submit withdrawal: ' + msg);
     } finally {
       setSubmitting(false);
     }
@@ -152,6 +160,18 @@ export const PsemineWithdrawals: React.FC = () => {
 
             {loading ? (
               <div className="text-center text-xs text-gray-400 py-6">Loading payout history...</div>
+            ) : fetchError ? (
+              <div className="text-center py-6 space-y-2">
+                <AlertCircle size={24} className="text-red-400 mx-auto" />
+                <p className="text-xs text-red-400">{fetchError}</p>
+                <button
+                  onClick={fetchWithdrawals}
+                  className="px-3 py-1 bg-white/10 hover:bg-white/15 text-white text-xs rounded-lg inline-flex items-center gap-1"
+                >
+                  <RefreshCw size={12} />
+                  <span>Retry</span>
+                </button>
+              </div>
             ) : withdrawals.length === 0 ? (
               <div className="text-center text-xs text-gray-500 py-6">No withdrawal requests found.</div>
             ) : (
@@ -177,7 +197,7 @@ export const PsemineWithdrawals: React.FC = () => {
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                               w.status === 'completed' || w.status === 'approved'
                                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : w.status === 'pending'
+                                : w.status === 'pending' || w.status === 'under_review' || w.status === 'processing'
                                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                 : 'bg-red-500/10 text-red-400 border-red-500/20'
                             }`}

@@ -84,7 +84,7 @@ export interface PsemineActivity {
     | 'SECURITY_EVENT';
   title: string;
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -184,7 +184,7 @@ export interface PsemineAuditLog {
   actorType: 'user' | 'admin' | 'system';
   action: string;
   targetId?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -199,7 +199,7 @@ export interface PsemineFraudFlag {
     | 'SUSPICIOUS_WITHDRAWAL'
     | 'MULTI_ACCOUNT';
   severity: 'low' | 'medium' | 'high' | 'critical';
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   status: 'active' | 'investigating' | 'cleared' | 'actioned';
   createdAt: string;
 }

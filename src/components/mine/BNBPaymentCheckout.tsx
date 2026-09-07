@@ -20,6 +20,7 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
   } = usePsemineWallet();
 
   const [order, setOrder] = useState<PsemineOrder | null>(null);
+  const [submittedTxHash, setSubmittedTxHash] = useState<string | null>(null);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
@@ -43,9 +44,11 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
       }
 
       setOrder(data.order);
+      setSubmittedTxHash(null);
       toast.success('Quote locked for 15 minutes');
-    } catch (err: any) {
-      toast.error(err.message || 'Order creation failed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Order creation failed';
+      toast.error(msg);
     } finally {
       setCreatingOrder(false);
     }
@@ -72,12 +75,14 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
         valueWeiHex: valueHex,
       });
 
+      setSubmittedTxHash(hash);
       toast.success('Transaction submitted to BSC. Verifying on-chain...');
 
       await handleVerifyOnChain(hash, order.id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Payment error:', err);
-      toast.error(err.message || 'Payment failed or rejected');
+      const msg = err instanceof Error ? err.message : 'Payment failed or rejected';
+      toast.error(msg);
     } finally {
       setSubmittingPayment(false);
     }
@@ -106,8 +111,9 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
 
       toast.success('Payment confirmed! Tool entitlement activated.');
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || 'Verification pending or failed. Retry in a moment.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification pending or failed. Retry in a moment.';
+      toast.error(msg);
     } finally {
       setVerifyingPayment(false);
     }
@@ -180,6 +186,12 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
               <span className="text-gray-400">Destination Address:</span>
               <span className="font-mono text-gray-300">{order.destinationAddress.slice(0, 6)}...{order.destinationAddress.slice(-4)}</span>
             </div>
+            {submittedTxHash && (
+              <div className="flex justify-between text-[11px] pt-1 border-t border-white/5">
+                <span className="text-gray-400">Submitted Tx Hash:</span>
+                <span className="font-mono text-emerald-400">{submittedTxHash.slice(0, 8)}...{submittedTxHash.slice(-6)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-[10px] text-gray-500 pt-1 border-t border-white/5">
               <span>Quote Provider: {order.quoteProvider}</span>
               <span>Expires in 15 mins</span>
@@ -201,6 +213,24 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
             >
               <AlertCircle size={16} />
               <span>Switch Network to BNB Smart Chain</span>
+            </button>
+          ) : submittedTxHash ? (
+            <button
+              onClick={() => handleVerifyOnChain(submittedTxHash, order.id)}
+              disabled={verifyingPayment}
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-[#080A11] rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+            >
+              {verifyingPayment ? (
+                <>
+                  <RefreshCw size={16} className="animate-spin" />
+                  <span>Verifying On-Chain...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  <span>Retry On-Chain Verification</span>
+                </>
+              )}
             </button>
           ) : (
             <button

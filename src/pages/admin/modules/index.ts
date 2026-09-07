@@ -14,3 +14,4 @@ export { default as OpsHealth } from './OpsHealth';
 export { default as OpsModerators } from './OpsModerators';
 export { default as OpsOfferwalls } from './OpsOfferwalls';
 export { default as OpsMarketplace } from './OpsMarketplace';
+export { default as OpsPsemine } from './OpsPsemine';

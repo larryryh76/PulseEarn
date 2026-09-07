@@ -179,6 +179,25 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   useEffect(() => {
+    if (import.meta.env.DEV && typeof window !== 'undefined' && localStorage.getItem('psemine-test-bypass') === 'true') {
+      const mockUser = {
+        uid: 'dev_test_miner_uid',
+        email: 'miner@psemine.io',
+        emailVerified: true,
+        displayName: 'TestMiner'
+      } as User;
+      const mockProfile: PsemineProfile = {
+        uid: 'dev_test_miner_uid',
+        email: 'miner@psemine.io',
+        username: 'TestMiner',
+        hasCompletedGuide: true
+      };
+      setCurrentUser(mockUser);
+      setPsemineProfile(mockProfile);
+      setLoading(false);
+      return;
+    }
+
     let unsubscribeProfile: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {

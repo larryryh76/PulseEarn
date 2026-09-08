@@ -9,6 +9,7 @@ import logging
 import traceback
 import hmac
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from functools import wraps
 
 def compute_account_age_days(created_at):
@@ -5972,6 +5973,866 @@ try:
     print("[Offerwall] Provider cache initialized on startup")
 except Exception as e:
     print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PSEMINE BACKEND ENGINE & REAL ECONOMIC FOUNDATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
+PSEMINE_BSC_CHAIN_ID = 56
+PSEMINE_QUOTE_TTL_MINUTES = 15
+
+def psemine_ensure_canonical_data(db):
+    """Idempotently seed canonical Genesis Campaign and canonical Mining Tools."""
+    try:
+        # 1. Genesis Campaign (doc ID: genesis_campaign_v1)
+        camp_ref = db.collection('psemine_campaigns').document('genesis_campaign_v1')
+        if not camp_ref.get().exists:
+            now_dt = datetime.now(timezone.utc)
+            end_dt = now_dt + timedelta(days=90)
+            camp_ref.set({
+                'id': 'genesis_campaign_v1',
+                'name': 'Genesis Campaign',
+                'type': 'genesis',
+                'status': 'active',
+                'startDate': now_dt.isoformat(),
+                'endDate': end_dt.isoformat(),
+                'durationDays': 90,
+                'description': 'PSEmine 90-day canonical Genesis Mining Campaign.',
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+
+        # 2. Canonical Mining Tools (deterministic doc IDs: starter, growth, pro, elite)
+        canonical_tools = {
+            'starter': {
+                'id': 'starter',
+                'name': 'Starter',
+                'tier': 'starter',
+                'priceGbp': 3.0,
+                'miningRateGbpPerHour': 0.10,
+                'maxCopiesPerUser': 5,
+                'campaignId': 'genesis_campaign_v1',
+                'isActive': True,
+                'description': 'Starter mining tool - £3 GBP, £0.10/hour, maximum 5 copies per user.',
+            },
+            'growth': {
+                'id': 'growth',
+                'name': 'Growth',
+                'tier': 'growth',
+                'priceGbp': 10.0,
+                'miningRateGbpPerHour': 0.50,
+                'maxCopiesPerUser': 3,
+                'campaignId': 'genesis_campaign_v1',
+                'isActive': True,
+                'description': 'Growth mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
+            },
+            'pro': {
+                'id': 'pro',
+                'name': 'Pro',
+                'tier': 'pro',
+                'priceGbp': 50.0,
+                'miningRateGbpPerHour': 1.20,
+                'maxCopiesPerUser': 3,
+                'campaignId': 'genesis_campaign_v1',
+                'isActive': True,
+                'description': 'Pro mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
+            },
+            'elite': {
+                'id': 'elite',
+                'name': 'Elite',
+                'tier': 'elite',
+                'priceGbp': 200.0,
+                'miningRateGbpPerHour': 2.50,
+                'maxCopiesPerUser': 2,
+                'campaignId': 'genesis_campaign_v1',
+                'isActive': True,
+                'description': 'Elite mining tool - £200 GBP, £2.50/hour, maximum 2 copies per user.',
+            },
+        }
+
+        for tool_id, tool_data in canonical_tools.items():
+            t_ref = db.collection('psemine_tools').document(tool_id)
+            if not t_ref.get().exists:
+                t_ref.set({
+                    **tool_data,
+                    'createdAt': firestore.SERVER_TIMESTAMP,
+                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                })
+    except Exception as e:
+        print(f"[PSEmine Seed] Error seeding canonical data: {e}", flush=True)
+
+def fetch_psemine_bnb_gbp_quote():
+    """Fetch live BNB/GBP market rate from CoinGecko with CryptoCompare fallback."""
+    get_deps()
+    price = None
+    provider = None
+    try:
+        res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': 'binancecoin', 'vs_currencies': 'gbp'}, timeout=8)
+        if res.status_code == 200:
+            price = res.json().get('binancecoin', {}).get('gbp')
+            if price and price > 0:
+                provider = 'coingecko'
+    except Exception as e:
+        print(f"[PSEmine Quote] CoinGecko error: {e}", flush=True)
+
+    if price is None:
+        try:
+            res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': 'BNB', 'tsyms': 'GBP'}, timeout=8)
+            if res.status_code == 200:
+                price = res.json().get('GBP')
+                if price and price > 0:
+                    provider = 'cryptocompare'
+        except Exception as e:
+            print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
+
+    if price is None or price <= 0:
+        raise Exception("LIVE_BNB_QUOTE_UNAVAILABLE")
+
+    return float(price), provider
+
+def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount):
+    """Verify BSC transaction on-chain via JSON-RPC."""
+    rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
+    try:
+        # 1. Chain ID check
+        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}, timeout=8)
+        chain_res = r.json()
+        if not chain_res.get('result'):
+            return False, "RPC_ERROR", "Could not verify BSC network chain ID", 0
+        chain_id = int(chain_res['result'], 16)
+        if chain_id != PSEMINE_BSC_CHAIN_ID:
+            return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0
+
+        # 2. Get Transaction
+        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
+        tx_data = r.json().get('result')
+        if not tx_data:
+            return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
+
+        # 3. Get Receipt
+        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionReceipt", "params": [tx_hash], "id": 3}, timeout=8)
+        receipt_data = r.json().get('result')
+        if not receipt_data:
+            return False, "RECEIPT_NOT_FOUND", "Transaction receipt not available yet", 0
+
+        receipt_status = int(receipt_data.get('status', '0x0'), 16)
+        if receipt_status != 1:
+            return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1)", 0
+
+        to_addr = (tx_data.get('to') or '').lower()
+        exp_addr = expected_destination.lower()
+        if to_addr != exp_addr:
+            return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0
+
+        value_wei = int(tx_data.get('value', '0x0'), 16)
+        if value_wei != int(expected_wei_amount):
+            return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0
+
+        block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
+        return True, None, None, block_number
+
+    except Exception as e:
+        return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0
+
+def recalculate_psemine_user_mining_state(db, user_id):
+    """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state."""
+    # 1. Fetch active tool ownerships
+    ownership_snaps = db.collection('psemine_tool_ownership') \
+        .where('userId', '==', user_id) \
+        .where('status', '==', 'active') \
+        .get()
+
+    active_tools = [s.to_dict() for s in ownership_snaps]
+    base_rate = sum(safe_float(t.get('miningRateGbpPerHour')) for t in active_tools)
+
+    # 2. Fetch qualified referrals
+    referral_snaps = db.collection('psemine_referrals') \
+        .where('referrerId', '==', user_id) \
+        .where('status', '==', 'qualified') \
+        .get()
+
+    qualified_count = min(5, len(referral_snaps))
+    referral_bonus = round(qualified_count * 0.30, 2)
+    total_rate = round(min(12.10, base_rate + referral_bonus), 2)
+
+    # 3. Calculate accumulated output so far from existing session
+    session_ref = db.collection('psemine_mining_sessions').document(user_id)
+    session_snap = session_ref.get()
+
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+    accumulated_output = 0.0
+    started_at = now_iso
+    session_state = 'active' if active_tools else 'inactive'
+
+    if session_snap.exists:
+        s_data = session_snap.to_dict() or {}
+        started_at = s_data.get('startedAt') or now_iso
+        prev_output = safe_float(s_data.get('accumulatedOutputGbp'), 0.0)
+        prev_rate = safe_float(s_data.get('totalMiningRateGbpPerHour'), 0.0)
+        last_calc = s_data.get('lastCalculatedAt')
+
+        if s_data.get('state') == 'active' and last_calc:
+            try:
+                if isinstance(last_calc, datetime):
+                    last_dt = last_calc
+                else:
+                    last_dt = datetime.fromisoformat(str(last_calc).replace('Z', '+00:00'))
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=timezone.utc)
+                elapsed_hours = max(0.0, (now_dt - last_dt).total_seconds() / 3600.0)
+                accumulated_output = prev_output + (elapsed_hours * prev_rate)
+            except Exception:
+                accumulated_output = prev_output
+        else:
+            accumulated_output = prev_output
+
+    # Campaign end date
+    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    expires_at = (camp_snap.to_dict().get('endDate') if camp_snap.exists else None) or (now_dt + timedelta(days=90)).isoformat()
+
+    session_payload = {
+        'id': user_id,
+        'userId': user_id,
+        'campaignId': 'genesis_campaign_v1',
+        'state': session_state,
+        'activeToolsCount': len(active_tools),
+        'baseMiningRateGbpPerHour': round(base_rate, 2),
+        'referralBonusGbpPerHour': referral_bonus,
+        'totalMiningRateGbpPerHour': total_rate,
+        'accumulatedOutputGbp': round(accumulated_output, 4),
+        'lastCalculatedAt': now_iso,
+        'startedAt': started_at,
+        'expiresAt': expires_at,
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    }
+
+    session_ref.set(session_payload, merge=True)
+    return session_payload
+
+@app.route('/api/psemine/setup', methods=['POST'])
+@verify_token
+@require_db
+def psemine_setup():
+    """Admin / System Setup endpoint: Idempotently seeds canonical campaign and mining tools."""
+    db = get_db()
+    if not is_admin(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    psemine_ensure_canonical_data(db)
+    return jsonify({"success": True, "message": "Canonical PSEmine campaign and tool definitions verified."})
+
+@app.route('/api/psemine/campaigns', methods=['GET'])
+@require_db
+def psemine_get_campaigns():
+    """Public / Authenticated read of canonical PSEmine campaigns."""
+    db = get_db()
+    psemine_ensure_canonical_data(db)
+    snaps = db.collection('psemine_campaigns').get()
+    campaigns = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    return jsonify({"success": True, "campaigns": campaigns})
+
+@app.route('/api/psemine/tools', methods=['GET'])
+@require_db
+def psemine_get_tools():
+    """Public / Authenticated read of canonical PSEmine mining tools."""
+    db = get_db()
+    psemine_ensure_canonical_data(db)
+    snaps = db.collection('psemine_tools').get()
+    tools = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    return jsonify({"success": True, "tools": tools})
+
+@app.route('/api/psemine/orders/create', methods=['POST'])
+@verify_token
+@require_db
+def psemine_create_order():
+    """Create locked BNB purchase quote for a PSEmine mining tool."""
+    db = get_db()
+    psemine_ensure_canonical_data(db)
+    uid = request.user['uid']
+    data = request.json or {}
+    tool_id = (data.get('toolId') or '').strip().lower()
+
+    if not tool_id:
+        return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
+
+    tool_doc = db.collection('psemine_tools').document(tool_id).get()
+    if not tool_doc.exists:
+        return jsonify({"success": False, "error": "TOOL_NOT_FOUND", "message": "Mining tool not found."}), 404
+
+    tool = tool_doc.to_dict() or {}
+    if not tool.get('isActive', True):
+        return jsonify({"success": False, "error": "TOOL_INACTIVE", "message": "This mining tool is currently unavailable."}), 400
+
+    # Enforce maximum copies limit per user
+    owned_snaps = db.collection('psemine_tool_ownership') \
+        .where('userId', '==', uid) \
+        .where('toolId', '==', tool_id) \
+        .where('status', '==', 'active') \
+        .get()
+
+    max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
+    if len(owned_snaps) >= max_copies:
+        return jsonify({
+            "success": False,
+            "error": "MAX_COPIES_REACHED",
+            "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool.get('name')} tool."
+        }), 409
+
+    try:
+        bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
+    except Exception as e:
+        return jsonify({"success": False, "error": "QUOTE_UNAVAILABLE", "message": str(e)}), 503
+
+    gbp_price = float(tool['priceGbp'])
+    bnb_amount = gbp_price / bnb_gbp_price
+    wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
+
+    now_dt = datetime.now(timezone.utc)
+    expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+
+    order_ref = db.collection('psemine_orders').document()
+    order_payload = {
+        'id': order_ref.id,
+        'userId': uid,
+        'toolId': tool_id,
+        'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+        'priceGbp': gbp_price,
+        'bnbGbpPrice': bnb_gbp_price,
+        'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
+        'payableBnbAmount': f"{bnb_amount:.8f}",
+        'payableWeiAmount': str(wei_amount),
+        'quoteProvider': quote_provider,
+        'quoteTimestamp': now_dt.isoformat(),
+        'quoteExpiry': expiry_dt.isoformat(),
+        'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
+        'chainId': PSEMINE_BSC_CHAIN_ID,
+        'status': 'quoted',
+        'createdAt': firestore.SERVER_TIMESTAMP,
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    }
+
+    order_ref.set(order_payload)
+
+    # Log order creation activity
+    act_ref = db.collection('psemine_activities').document()
+    act_ref.set({
+        'id': act_ref.id,
+        'userId': uid,
+        'type': 'ORDER_CREATED',
+        'title': f"Order Quoted for {tool.get('name')} Tool",
+        'description': f"Created quote for {tool.get('name')} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for 15 minutes.",
+        'metadata': {'orderId': order_ref.id, 'toolId': tool_id, 'payableWeiAmount': str(wei_amount)},
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    return jsonify({"success": True, "order": order_payload})
+
+@app.route('/api/psemine/orders/verify-payment', methods=['POST'])
+@verify_token
+@require_db
+def psemine_verify_payment():
+    """Verify BSC transaction on-chain and trigger ownership, session, referral, and notification pipeline."""
+    db = get_db()
+    uid = request.user['uid']
+    data = request.json or {}
+    order_id = (data.get('orderId') or '').strip()
+    tx_hash = (data.get('txHash') or '').strip().lower()
+
+    if not order_id or not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_PARAMS", "message": "Valid orderId and 66-char txHash required."}), 400
+
+    order_ref = db.collection('psemine_orders').document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return jsonify({"success": False, "error": "ORDER_NOT_FOUND", "message": "Order document not found."}), 404
+
+    order = order_snap.to_dict() or {}
+    if order.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This order does not belong to you."}), 403
+
+    if order.get('status') == 'confirmed':
+        return jsonify({"success": False, "error": "ORDER_ALREADY_CONFIRMED", "message": "This order has already been verified and paid."}), 409
+
+    # Quote Expiry Check
+    expiry_raw = order.get('quoteExpiry')
+    if expiry_raw:
+        try:
+            if isinstance(expiry_raw, datetime):
+                exp_dt = expiry_raw
+            else:
+                exp_dt = datetime.fromisoformat(str(expiry_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp_dt:
+                order_ref.update({'status': 'expired', 'updatedAt': firestore.SERVER_TIMESTAMP})
+                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote expired. Please create a new order."}), 409
+        except Exception:
+            pass
+
+    # Replay Protection: Check if transaction hash has already been used in psemine_payments
+    dupe_snaps = db.collection('psemine_payments').where('txHash', '==', tx_hash).get()
+    if dupe_snaps:
+        return jsonify({"success": False, "error": "TRANSACTION_REUSED", "message": "This transaction hash has already been consumed."}), 409
+
+    # On-Chain Verification
+    verified, err_code, err_msg, block_num = verify_bsc_transaction(tx_hash, order['destinationAddress'], order['payableWeiAmount'])
+    if not verified:
+        return jsonify({"success": False, "error": err_code or "VERIFICATION_FAILED", "message": err_msg or "On-chain verification failed."}), 422
+
+    # Fetch Tool Details
+    tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
+    tool = tool_doc.to_dict() if tool_doc.exists else {}
+
+    # ATOMIC PIPELINE WRITES
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    # 1. Create Payment Record
+    pay_ref = db.collection('psemine_payments').document()
+    pay_payload = {
+        'id': pay_ref.id,
+        'orderId': order_id,
+        'userId': uid,
+        'toolId': order['toolId'],
+        'priceGbp': order['priceGbp'],
+        'paidBnbAmount': order['payableBnbAmount'],
+        'paidWeiAmount': order['payableWeiAmount'],
+        'asset': 'BNB',
+        'chainId': PSEMINE_BSC_CHAIN_ID,
+        'destinationAddress': order['destinationAddress'],
+        'txHash': tx_hash,
+        'blockNumber': block_num,
+        'status': 'confirmed',
+        'createdAt': firestore.SERVER_TIMESTAMP,
+        'confirmedAt': firestore.SERVER_TIMESTAMP,
+    }
+    pay_ref.set(pay_payload)
+
+    # 2. Create Tool Ownership
+    own_ref = db.collection('psemine_tool_ownership').document()
+    own_payload = {
+        'id': own_ref.id,
+        'userId': uid,
+        'toolId': order['toolId'],
+        'orderId': order_id,
+        'paymentId': pay_ref.id,
+        'txHash': tx_hash,
+        'purchasePriceGbp': order['priceGbp'],
+        'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
+        'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+        'status': 'active',
+        'acquiredAt': now_iso,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    }
+    own_ref.set(own_payload)
+
+    # 3. Update Order Status
+    order_ref.update({
+        'status': 'confirmed',
+        'paymentTxHash': tx_hash,
+        'confirmedAt': firestore.SERVER_TIMESTAMP,
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    # 4. Update/Recalculate User Mining Session
+    session_data = recalculate_psemine_user_mining_state(db, uid)
+
+    # 5. Record Activity & Notification for Buyer
+    tool_name = tool.get('name', 'Mining')
+    act_ref = db.collection('psemine_activities').document()
+    act_ref.set({
+        'id': act_ref.id,
+        'userId': uid,
+        'type': 'TOOL_PURCHASED',
+        'title': f"Purchased {tool_name} Tool",
+        'description': f"Acquired {tool_name} tool (£{order['priceGbp']:.2f} GBP). Mining rate updated to £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'metadata': {'orderId': order_id, 'paymentId': pay_ref.id, 'txHash': tx_hash, 'toolId': order['toolId']},
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    notif_ref = db.collection('psemine_notifications').document()
+    notif_ref.set({
+        'id': notif_ref.id,
+        'userId': uid,
+        'type': 'purchase',
+        'title': 'Tool Purchase Confirmed',
+        'message': f"Your {tool_name} tool purchase is confirmed. Active rate is now £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
+        'read': False,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    # 6. Referral Qualification Check
+    # Check if this user was referred by someone and referral is pending qualification
+    ref_snaps = db.collection('psemine_referrals') \
+        .where('refereeId', '==', uid) \
+        .where('status', '==', 'pending') \
+        .get()
+
+    for ref_doc in ref_snaps:
+        r_data = ref_doc.to_dict() or {}
+        referrer_id = r_data.get('referrerId')
+        if referrer_id and referrer_id != uid:
+            # Mark referral as qualified idempotently
+            ref_doc.reference.update({
+                'status': 'qualified',
+                'bonusRateGbpPerHour': 0.30,
+                'qualifiedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Recalculate Referrer Mining Session
+            ref_session = recalculate_psemine_user_mining_state(db, referrer_id)
+
+            # Add Activity & Notification for Referrer
+            user_snap = db.collection('users').document(uid).get()
+            referee_name = (user_snap.to_dict().get('username') if user_snap.exists else 'Your referral') or 'Your referral'
+
+            ref_act = db.collection('psemine_activities').document()
+            ref_act.set({
+                'id': ref_act.id,
+                'userId': referrer_id,
+                'type': 'REFERRAL_QUALIFIED',
+                'title': 'Referral Qualified!',
+                'description': f"{referee_name} purchased a mining tool. Your mining bonus increased by +£0.30/hr!",
+                'metadata': {'refereeId': uid, 'referralDocId': ref_doc.id},
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            ref_notif = db.collection('psemine_notifications').document()
+            ref_notif.set({
+                'id': ref_notif.id,
+                'userId': referrer_id,
+                'type': 'referral',
+                'title': 'Mining Bonus Active',
+                'message': f"{referee_name} qualified! Bonus rate is now +£{ref_session['referralBonusGbpPerHour']:.2f}/hr.",
+                'read': False,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+
+    return jsonify({
+        "success": True,
+        "orderId": order_id,
+        "paymentId": pay_ref.id,
+        "ownershipId": own_ref.id,
+        "session": session_data,
+    })
+
+@app.route('/api/psemine/dashboard', methods=['GET'])
+@verify_token
+@require_db
+def psemine_dashboard_data():
+    """Retrieve real backend-authoritative dashboard data for current user."""
+    db = get_db()
+    psemine_ensure_canonical_data(db)
+    uid = request.user['uid']
+
+    # 1. Active Campaign
+    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    campaign = camp_snap.to_dict() if camp_snap.exists else None
+
+    # 2. Owned Tools
+    owned_snaps = db.collection('psemine_tool_ownership') \
+        .where('userId', '==', uid) \
+        .where('status', '==', 'active') \
+        .get()
+
+    owned_tools = [{**s.to_dict(), 'id': s.id} for s in owned_snaps]
+
+    # 3. Recalculate & fetch Mining Session
+    session = recalculate_psemine_user_mining_state(db, uid)
+
+    # 4. Qualified Referrals
+    ref_snaps = db.collection('psemine_referrals') \
+        .where('referrerId', '==', uid) \
+        .where('status', '==', 'qualified') \
+        .get()
+
+    qualified_count = len(ref_snaps)
+
+    # 5. Recent Activity (last 10)
+    act_snaps = db.collection('psemine_activities') \
+        .where('userId', '==', uid) \
+        .order_by('createdAt', direction='DESCENDING') \
+        .limit(10) \
+        .get()
+
+    recent_activity = [{**s.to_dict(), 'id': s.id} for s in act_snaps]
+
+    # 6. Notifications (last 10)
+    notif_snaps = db.collection('psemine_notifications') \
+        .where('userId', '==', uid) \
+        .order_by('createdAt', direction='DESCENDING') \
+        .limit(10) \
+        .get()
+
+    notifications = [{**s.to_dict(), 'id': s.id} for s in notif_snaps]
+
+    return jsonify({
+        "success": True,
+        "campaign": campaign,
+        "ownedTools": owned_tools,
+        "session": session,
+        "referrals": {
+            "qualifiedCount": min(5, qualified_count),
+            "bonusRateGbpPerHour": round(min(5, qualified_count) * 0.30, 2),
+        },
+        "recentActivity": recent_activity,
+        "notifications": notifications,
+    })
+
+@app.route('/api/psemine/sessions/sync', methods=['POST'])
+@verify_token
+@require_db
+def psemine_sync_session():
+    """Sync mining session checkpoint and write controlled accrual to ledger."""
+    db = get_db()
+    uid = request.user['uid']
+
+    session = recalculate_psemine_user_mining_state(db, uid)
+    output = session['accumulatedOutputGbp']
+
+    # Record accrual checkpoint in psemine_mining_ledger if active and output > 0
+    if session['state'] == 'active' and output > 0:
+        ledger_ref = db.collection('psemine_mining_ledger').document()
+        ledger_ref.set({
+            'id': ledger_ref.id,
+            'userId': uid,
+            'campaignId': session['campaignId'],
+            'totalMiningRateGbpPerHour': session['totalMiningRateGbpPerHour'],
+            'accumulatedOutputGbp': output,
+            'event': 'CHECKPOINT_ACCQUAL',
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+
+    return jsonify({"success": True, "session": session})
+
+@app.route('/api/psemine/withdrawals/create', methods=['POST'])
+@verify_token
+@require_db
+def psemine_create_withdrawal():
+    """Create backend-validated withdrawal request."""
+    db = get_db()
+    uid = request.user['uid']
+    data = request.json or {}
+
+    amount_gbp = safe_float(data.get('amountGbp'), 0.0)
+    payout_address = (data.get('payoutAddress') or '').strip()
+
+    if amount_gbp < 10.0:
+        return jsonify({"success": False, "error": "BELOW_THRESHOLD", "message": "Minimum withdrawal amount is £10.00 GBP."}), 400
+
+    if not payout_address or not payout_address.startswith('0x') or len(payout_address) != 42:
+        return jsonify({"success": False, "error": "INVALID_ADDRESS", "message": "Valid BEP-20 address (0x...) required."}), 400
+
+    # 1. Calculate user's authoritative total accumulated output
+    session = recalculate_psemine_user_mining_state(db, uid)
+    accumulated_output = safe_float(session.get('accumulatedOutputGbp'), 0.0)
+
+    # 2. Sum existing pending / approved / processing / completed withdrawals
+    wd_snaps = db.collection('psemine_withdrawals') \
+        .where('userId', '==', uid) \
+        .get()
+
+    withdrawn_total = 0.0
+    has_pending = False
+
+    for w_doc in wd_snaps:
+        w = w_doc.to_dict() or {}
+        st = w.get('status')
+        if st in ('pending', 'under_review', 'processing'):
+            has_pending = True
+            withdrawn_total += safe_float(w.get('amountGbp'), 0.0)
+        elif st in ('approved', 'completed'):
+            withdrawn_total += safe_float(w.get('amountGbp'), 0.0)
+
+    if has_pending:
+        return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
+
+    available_balance = max(0.0, accumulated_output - withdrawn_total)
+    if amount_gbp > available_balance:
+        return jsonify({
+            "success": False,
+            "error": "INSUFFICIENT_OUTPUT_BALANCE",
+            "message": f"Insufficient available mining balance (£{available_balance:.2f} GBP available)."
+        }), 400
+
+    # Create Pending Withdrawal Record
+    wd_ref = db.collection('psemine_withdrawals').document()
+    wd_payload = {
+        'id': wd_ref.id,
+        'userId': uid,
+        'amountGbp': round(amount_gbp, 2),
+        'payoutAddress': payout_address,
+        'status': 'pending',
+        'createdAt': firestore.SERVER_TIMESTAMP,
+        'updatedAt': firestore.SERVER_TIMESTAMP,
+    }
+    wd_ref.set(wd_payload)
+
+    # Record Activity & Notification
+    act_ref = db.collection('psemine_activities').document()
+    act_ref.set({
+        'id': act_ref.id,
+        'userId': uid,
+        'type': 'WITHDRAWAL_REQUESTED',
+        'title': f"Withdrawal Requested (£{amount_gbp:.2f})",
+        'description': f"Submitted payout request to {payout_address[:6]}...{payout_address[-4:]}. Pending admin review.",
+        'metadata': {'withdrawalId': wd_ref.id, 'payoutAddress': payout_address, 'amountGbp': amount_gbp},
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    notif_ref = db.collection('psemine_notifications').document()
+    notif_ref.set({
+        'id': notif_ref.id,
+        'userId': uid,
+        'type': 'withdrawal',
+        'title': 'Withdrawal Under Review',
+        'message': f"Your payout request of £{amount_gbp:.2f} to {payout_address[:6]}...{payout_address[-4:]} is pending admin review.",
+        'read': False,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+    })
+
+    return jsonify({"success": True, "withdrawal": wd_payload})
+
+@app.route('/api/admin/psemine/overview', methods=['GET'])
+@verify_token
+@require_db
+def admin_psemine_overview():
+    """Admin endpoint: Get system-wide PSEmine statistics and operations overview."""
+    db = get_db()
+    if not is_moderator(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    orders_count = len(db.collection('psemine_orders').get())
+    payments_count = len(db.collection('psemine_payments').get())
+    ownership_count = len(db.collection('psemine_tool_ownership').get())
+    sessions_count = len(db.collection('psemine_mining_sessions').get())
+    withdrawals_snaps = db.collection('psemine_withdrawals').get()
+
+    pending_withdrawals = [s.to_dict() for s in withdrawals_snaps if (s.to_dict() or {}).get('status') == 'pending']
+
+    return jsonify({
+        "success": True,
+        "stats": {
+            "totalOrders": orders_count,
+            "totalConfirmedPayments": payments_count,
+            "activeToolOwnerships": ownership_count,
+            "activeMiningSessions": sessions_count,
+            "pendingWithdrawalsCount": len(pending_withdrawals),
+            "pendingWithdrawalsVolumeGbp": sum(safe_float(w.get('amountGbp')) for w in pending_withdrawals),
+        }
+    })
+
+@app.route('/api/admin/psemine/orders', methods=['GET'])
+@verify_token
+@require_db
+def admin_psemine_orders():
+    """Admin endpoint: Inspect PSEmine orders."""
+    db = get_db()
+    if not is_moderator(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    snaps = db.collection('psemine_orders').order_by('createdAt', direction='DESCENDING').limit(100).get()
+    orders = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    return jsonify({"success": True, "orders": orders})
+
+@app.route('/api/admin/psemine/withdrawals', methods=['GET'])
+@verify_token
+@require_db
+def admin_psemine_withdrawals():
+    """Admin endpoint: Inspect PSEmine withdrawal queue."""
+    db = get_db()
+    if not is_moderator(request.user['uid']):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    snaps = db.collection('psemine_withdrawals').order_by('createdAt', direction='DESCENDING').limit(100).get()
+    withdrawals = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    return jsonify({"success": True, "withdrawals": withdrawals})
+
+@app.route('/api/admin/psemine/withdrawals/<withdrawal_id>/review', methods=['POST'])
+@verify_token
+@require_db
+def admin_psemine_review_withdrawal(withdrawal_id):
+    """Admin endpoint: Review and approve/reject PSEmine withdrawal request."""
+    db = get_db()
+    admin_id = request.user['uid']
+    if not is_admin(admin_id):
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+
+    data = request.json or {}
+    action = (data.get('action') or '').upper()
+    admin_notes = (data.get('adminNotes') or '').strip()
+    tx_hash = (data.get('txHash') or '').strip()
+
+    if action not in ('APPROVE', 'REJECT'):
+        return jsonify({"success": False, "error": "INVALID_ACTION", "message": "Action must be APPROVE or REJECT."}), 400
+
+    wd_ref = db.collection('psemine_withdrawals').document(withdrawal_id)
+    wd_snap = wd_ref.get()
+    if not wd_snap.exists:
+        return jsonify({"success": False, "error": "NOT_FOUND", "message": "Withdrawal request not found."}), 404
+
+    wd = wd_snap.to_dict() or {}
+    if wd.get('status') not in ('pending', 'under_review'):
+        return jsonify({"success": False, "error": "ALREADY_RESOLVED", "message": f"Withdrawal is already {wd.get('status')}."}), 409
+
+    user_id = wd.get('userId')
+    amount_gbp = safe_float(wd.get('amountGbp'), 0.0)
+
+    if action == 'APPROVE':
+        wd_ref.update({
+            'status': 'completed',
+            'adminNotes': admin_notes,
+            'payoutTxHash': tx_hash or None,
+            'reviewedBy': admin_id,
+            'processedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        act_ref = db.collection('psemine_activities').document()
+        act_ref.set({
+            'id': act_ref.id,
+            'userId': user_id,
+            'type': 'WITHDRAWAL_COMPLETED',
+            'title': f"Withdrawal Completed (£{amount_gbp:.2f})",
+            'description': f"Payout of £{amount_gbp:.2f} GBP was approved and executed on-chain.",
+            'metadata': {'withdrawalId': withdrawal_id, 'txHash': tx_hash},
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        notif_ref = db.collection('psemine_notifications').document()
+        notif_ref.set({
+            'id': notif_ref.id,
+            'userId': user_id,
+            'type': 'withdrawal',
+            'title': 'Withdrawal Approved & Executed',
+            'message': f"Your withdrawal of £{amount_gbp:.2f} GBP has been approved and completed.",
+            'read': False,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+    else:
+        wd_ref.update({
+            'status': 'rejected',
+            'adminNotes': admin_notes or 'Request rejected during administrative review.',
+            'reviewedBy': admin_id,
+            'processedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        notif_ref = db.collection('psemine_notifications').document()
+        notif_ref.set({
+            'id': notif_ref.id,
+            'userId': user_id,
+            'type': 'withdrawal',
+            'title': 'Withdrawal Request Rejected',
+            'message': f"Your withdrawal request of £{amount_gbp:.2f} GBP was rejected. Notes: {admin_notes or 'Did not pass review.'}",
+            'read': False,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+
+    return jsonify({"success": True, "withdrawalId": withdrawal_id, "status": "completed" if action == 'APPROVE' else "rejected"})
 
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

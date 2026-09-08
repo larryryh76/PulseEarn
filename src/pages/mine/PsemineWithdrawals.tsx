@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PsemineLayout from '../../components/mine/PsemineLayout';
 import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import { db } from '../../firebase/config';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { PsemineWithdrawal } from '../../types/psemine';
 import { Wallet, ShieldCheck, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -63,28 +63,28 @@ export const PsemineWithdrawals: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const withdrawalPayload = {
-        userId: currentUser.uid,
-        amountGbp: val,
-        payoutAddress,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      };
+      const token = await (window as any).psemineAuthToken?.();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const docRef = await addDoc(collection(db, 'psemine_withdrawals'), withdrawalPayload);
-
-      await addDoc(collection(db, 'psemine_activities'), {
-        userId: currentUser.uid,
-        type: 'WITHDRAWAL_REQUESTED',
-        title: `Withdrawal Requested (£${val.toFixed(2)})`,
-        description: `Submitted payout request to ${payoutAddress.slice(0, 6)}...${payoutAddress.slice(-4)}. Pending admin review.`,
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/psemine/withdrawals/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          amountGbp: val,
+          payoutAddress,
+        }),
       });
 
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Failed to submit withdrawal request');
+      }
+
       toast.success('Withdrawal request submitted for admin review!');
-      setWithdrawals((prev) => [{ id: docRef.id, ...withdrawalPayload } as PsemineWithdrawal, ...prev]);
       setAmountGbp('');
       setPayoutAddress('');
+      fetchWithdrawals();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       toast.error('Failed to submit withdrawal: ' + msg);

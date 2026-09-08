@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertTriangle, CheckCircle2, Link2, Unplug, WalletCards, ShieldCheck } from 'lucide-react';
 import { PsemineLayout } from '../../components/mine/PsemineLayout';
 import { usePsemineWallet } from '../../contexts/PsemineWalletContext';

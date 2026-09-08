@@ -1,17 +1,17 @@
-/* PSEmine design system: graphite, paper, signal amber, verified mint. */
-.psemine-surface { background: #101311; color: #f4f1e8; }
-.psemine-grid { background-image: linear-gradient(rgba(244,241,232,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(244,241,232,.04) 1px, transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(to bottom, black, transparent 78%); }
+/* PSEmine — PulseEarn family visual system. */
+.psemine-surface { background: var(--color-background); color: var(--color-text-primary); }
+.psemine-grid { background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 32px 32px; mask-image: linear-gradient(to bottom, black, transparent 72%); }
 .psemine-logo { display: inline-flex; align-items: center; gap: .65rem; user-select: none; }
-.psemine-mark { display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid rgba(231,168,75,.65); background: #181c18; box-shadow: 0 0 0 4px rgba(231,168,75,.06); }
-.psemine-mark-sm { width: 1.7rem; height: 1.7rem; border-radius: .42rem; }.psemine-mark-md { width: 2.35rem; height: 2.35rem; border-radius: .58rem; }.psemine-mark-lg { width: 3.5rem; height: 3.5rem; border-radius: .8rem; }
-.psemine-mark-core { width: 35%; height: 35%; border: 1px solid #e7a84b; background: #101311; transform: rotate(45deg); z-index: 2; }
-.psemine-mark-line { position: absolute; width: 70%; height: 1px; background: #e7a84b; opacity: .8; }.psemine-mark-line-a { transform: rotate(45deg); }.psemine-mark-line-b { transform: rotate(-45deg); }
-.psemine-wordmark { font-weight: 900; letter-spacing: .12em; color: #f4f1e8; }.psemine-wordmark strong { color: #e7a84b; }.psemine-wordmark-sm { font-size: .78rem; }.psemine-wordmark-md { font-size: 1.05rem; }.psemine-wordmark-lg { font-size: 1.55rem; }
-.psemine-kicker { color: #e7a84b; font-size: .67rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
-.psemine-panel { background: rgba(24,28,24,.88); border: 1px solid rgba(244,241,232,.12); box-shadow: 0 18px 55px rgba(0,0,0,.2); }
-.psemine-button-primary { background: #e7a84b; color: #101311; }.psemine-button-primary:hover { background: #f3c16d; }.psemine-button-secondary { background: rgba(244,241,232,.04); border: 1px solid rgba(244,241,232,.16); color: #f4f1e8; }.psemine-button-secondary:hover { background: rgba(244,241,232,.09); }
-.psemine-loader-beam { background: #e7a84b; box-shadow: 0 0 18px rgba(231,168,75,.7); }
+.psemine-mark { display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid rgba(94,106,210,.7); background: var(--color-surface); box-shadow: 0 0 0 4px rgba(94,106,210,.08); }
+.psemine-mark-sm { width: 1.7rem; height: 1.7rem; border-radius: .55rem; }.psemine-mark-md { width: 2.25rem; height: 2.25rem; border-radius: .7rem; }.psemine-mark-lg { width: 3.25rem; height: 3.25rem; border-radius: .9rem; }
+.psemine-mark-core { width: 36%; height: 36%; border: 1px solid var(--primary-bright); background: var(--background); transform: rotate(45deg); z-index: 2; }.psemine-mark-line { position: absolute; width: 72%; height: 1px; background: var(--primary); opacity: .85; }.psemine-mark-line-a { transform: rotate(45deg); }.psemine-mark-line-b { transform: rotate(-45deg); }
+.psemine-wordmark { font-weight: 900; letter-spacing: .1em; color: var(--text-primary); }.psemine-wordmark strong { color: var(--primary-bright); }.psemine-wordmark-sm { font-size: .78rem; }.psemine-wordmark-md { font-size: 1.02rem; }.psemine-wordmark-lg { font-size: 1.45rem; }
+.psemine-kicker { color: var(--primary-bright); font-size: .64rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+.psemine-panel { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-subtle); }
+.psemine-button-primary { background: var(--text-primary); color: var(--background); }.psemine-button-primary:hover { opacity: .88; }.psemine-button-secondary { background: var(--surface-bright); border: 1px solid var(--border); color: var(--text-primary); }.psemine-button-secondary:hover { background: var(--surface-accent); }
+.psemine-status { color: var(--success); background: var(--success-muted); border: 1px solid rgba(16,185,129,.25); }
+.psemine-loader-beam { background: var(--primary); box-shadow: 0 0 18px rgba(94,106,210,.7); }
 @keyframes psemine-pulse { 0%,100% { opacity: .58; } 50% { opacity: 1; } }.psemine-pulse { animation: psemine-pulse 1.8s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .psemine-pulse { animation: none; } }
-@media (max-width: 640px) { .psemine-wordmark-lg { font-size: 1.3rem; } }
-.mining-bars { display: flex; align-items: end; gap: .35rem; height: 7rem; }.mining-bars span { flex: 1; min-width: .35rem; background: #e7a84b; opacity: .5; border-radius: .2rem .2rem 0 0; }
+@media (max-width: 640px) { .psemine-wordmark-lg { font-size: 1.25rem; } }
+.mining-bars { display:flex; align-items:end; gap:.35rem; height:7rem; }.mining-bars span { flex:1; min-width:.35rem; background:var(--primary); opacity:.55; border-radius:.2rem .2rem 0 0; }

@@ -1,71 +1,30 @@
 import React from 'react';
-import { Activity, Bell, CircleHelp, Settings2, UsersRound } from 'lucide-react';
+import { Activity, Bell, CircleHelp, ExternalLink, LogOut, Settings2, ShieldCheck, UsersRound, Wallet, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PsemineLayout } from '../../components/mine/PsemineLayout';
 import { usePsemineRecords } from '../../hooks/usePsemineRecords';
+import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
+import toast from 'react-hot-toast';
 
 type Module = 'activity' | 'referrals' | 'account' | 'notifications';
-const config: Record<Module, { title: string; eyebrow: string; description: string; icon: React.ElementType }> = {
-  activity: { title: 'Activity', eyebrow: 'PSEmine ledger', description: 'Verified PSEmine events will appear here as backend records are created.', icon: Activity },
-  referrals: { title: 'Referrals', eyebrow: 'Mining network', description: 'Referral attribution and qualification are being connected to the PSEmine backend.', icon: UsersRound },
-  account: { title: 'Account', eyebrow: 'Identity & security', description: 'Account controls will be backed by the isolated PSEmine profile and security services.', icon: Settings2 },
-  notifications: { title: 'Notifications', eyebrow: 'Protocol notices', description: 'Mining, campaign, payment, referral, and security notices will appear here from the backend.', icon: Bell },
+type RecordItem = { id?: string; title?: string; type?: string; status?: string; description?: string; message?: string; createdAt?: { toDate?: () => Date } | string };
+const config: Record<Module, { title: string; eyebrow: string; description: string; icon: React.ElementType; collection: string }> = {
+  activity: { title: 'Activity', eyebrow: 'PSEmine ledger', description: 'A clear record of tool purchases, mining events, referral qualification, and withdrawals.', icon: Activity, collection: 'psemine_activities' },
+  referrals: { title: 'Referrals', eyebrow: 'Mining network', description: 'Track invited, pending, qualified, and rejected referrals. Only qualified referrals generate mining bonus.', icon: UsersRound, collection: 'psemine_referrals' },
+  account: { title: 'Account', eyebrow: 'Identity & security', description: 'Manage your PSEmine profile, security preferences, wallet connection, and support access.', icon: Settings2, collection: 'psemine_profiles' },
+  notifications: { title: 'Notifications', eyebrow: 'Protocol notices', description: 'Payment, mining, referral, withdrawal, security, and system notices from PSEmine.', icon: Bell, collection: 'psemine_notifications' },
 };
 
-interface PsemineModuleRecord {
-  id?: string;
-  title?: string;
-  type?: string;
-  status?: string;
-  description?: string;
-  message?: string;
-  createdAt?: { toDate?: () => Date };
-}
-
 export default function PsemineModulePage({ module }: { module: Module }) {
-  const item = config[module];
-  const Icon = item.icon;
-  const collectionName = module === 'activity' ? 'psemine_activities' : module === 'referrals' ? 'psemine_referrals' : module === 'notifications' ? 'psemine_notifications' : 'psemine_profiles';
-  const { records, loading, error } = usePsemineRecords(collectionName);
-  const hasRecords = records.length > 0;
-  return (
-    <PsemineLayout>
-      <div className="mx-auto max-w-3xl py-8">
-        <div className="psemine-kicker flex items-center gap-2">
-          <Icon size={14} /> {item.eyebrow}
-        </div>
-        <h1 className="mt-4 text-4xl font-black tracking-tight text-[#f4f7f2]">{item.title}</h1>
-        <p className="mt-4 max-w-xl text-sm leading-7 text-[#9ca8ac]">{item.description}</p>
-        <div className="psemine-panel mt-10 rounded-3xl p-8">
-          <div className="flex size-12 items-center justify-center rounded-2xl border border-[#f0aa3e]/25 bg-[#f0aa3e]/10 text-[#f0aa3e]">
-            <CircleHelp size={22} />
-          </div>
-          <h2 className="mt-6 text-lg font-bold text-[#f4f7f2]">
-            {loading ? 'Synchronizing records' : error ? 'Records unavailable' : hasRecords ? `${records.length} verified record${records.length === 1 ? '' : 's'}` : 'No records to display'}
-          </h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-[#7f8c90]">
-            {error || 'This screen displays only authorized PSEmine backend data. No simulated balances, activity, referrals, or account state are generated in the browser.'}
-          </p>
-          {hasRecords && (
-            <div className="mt-6 flex flex-col gap-2">
-              {(records as PsemineModuleRecord[]).slice(0, 8).map((record, index) => (
-                <div key={record.id || index} className="rounded-2xl border border-white/10 bg-[#080b10] p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-bold text-[#f4f7f2]">{record.title || record.type || record.status || 'PSEmine record'}</span>
-                    <span className="font-mono text-[10px] text-[#758287]">
-                      {record.createdAt?.toDate ? record.createdAt.toDate().toLocaleDateString() : 'Verified record'}
-                    </span>
-                  </div>
-                  {(record.description || record.message) && (
-                    <p className="mt-1 text-xs leading-5 text-[#7f8c90]">{record.description || record.message}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </PsemineLayout>
-  );
+  const item = config[module]; const Icon = item.icon; const { records, loading, error } = usePsemineRecords(item.collection); const { logout } = usePsemineAuth();
+  const items = records as RecordItem[];
+  const recordDate = (record: RecordItem) => { if (typeof record.createdAt === 'string') return new Date(record.createdAt).toLocaleDateString(); if (record.createdAt?.toDate) return record.createdAt.toDate().toLocaleDateString(); return 'Verified record'; };
+  const handleLogout = async () => { try { await logout(); toast.success('You have been signed out'); } catch { toast.error('Unable to sign out'); } };
+  return <PsemineLayout><div className="flex flex-col gap-8"><section className="flex flex-col gap-3 border-b border-[var(--pm-border)] pb-7"><div className="psemine-kicker flex items-center gap-2"><Icon size={14} /> {item.eyebrow}</div><h1 className="text-3xl font-semibold tracking-[-.04em] text-[var(--pm-text)] sm:text-5xl">{item.title}</h1><p className="max-w-xl text-sm leading-6 text-[var(--pm-muted)]">{item.description}</p></section>{module === 'account' ? <AccountControls onLogout={handleLogout} /> : <RecordsPanel module={module} items={items} loading={loading} error={error} recordDate={recordDate} />}</div></PsemineLayout>;
 }
 
+function RecordsPanel({ module, items, loading, error, recordDate }: { module: Module; items: RecordItem[]; loading: boolean; error?: string | null; recordDate: (record: RecordItem) => string }) { return <section className="pm-card overflow-hidden"><div className="flex items-center justify-between border-b border-[var(--pm-border)] px-5 py-4 sm:px-7"><div><h2 className="text-sm font-semibold text-[var(--pm-text)]">{module === 'activity' ? 'Verified events' : module === 'referrals' ? 'Referral status' : 'Unread and recent notices'}</h2><p className="mt-1 text-xs text-[var(--pm-muted)]">Backend records only. No simulated balances or activity.</p></div>{loading && <RefreshCw size={16} className="animate-spin text-[var(--pm-amber)]" />}</div>{error ? <div className="flex flex-col items-center gap-3 px-6 py-16 text-center"><CircleHelp size={22} className="text-[var(--pm-amber)]" /><h3 className="text-sm font-semibold text-[var(--pm-text)]">We couldn&apos;t load this page</h3><p className="max-w-sm text-sm leading-6 text-[var(--pm-muted)]">{error}</p></div> : items.length === 0 && !loading ? <div className="flex flex-col items-center gap-3 px-6 py-16 text-center"><div className="grid size-11 place-items-center rounded-xl bg-[var(--pm-amber)]/10 text-[var(--pm-amber)]"><IconForEmpty module={module} /></div><h3 className="text-sm font-semibold text-[var(--pm-text)]">{module === 'activity' ? 'No activity yet' : module === 'referrals' ? 'No referrals yet' : 'You&apos;re all caught up'}</h3><p className="max-w-sm text-sm leading-6 text-[var(--pm-muted)]">{module === 'activity' ? 'Your mining and account activity will appear here.' : module === 'referrals' ? 'Share your referral link when it becomes available.' : 'New PSEmine notices will appear here.'}</p></div> : <div className="flex flex-col gap-1 p-3 sm:p-5">{items.slice(0, 20).map((record, index) => <div key={record.id || index} className="flex items-start justify-between gap-4 rounded-xl px-3 py-4 hover:bg-[var(--pm-surface-soft)]"><div className="flex min-w-0 items-start gap-3"><div className="mt-1 size-2 shrink-0 rounded-full bg-[var(--pm-mint)]" /><div className="min-w-0"><div className="truncate text-sm font-medium text-[var(--pm-text)]">{record.title || record.type || record.status || 'PSEmine record'}</div><p className="mt-1 text-xs leading-5 text-[var(--pm-muted)]">{record.description || record.message || 'Verified account event'}</p></div></div><time className="shrink-0 text-[10px] text-[var(--pm-muted)]">{recordDate(record)}</time></div>)}</div>}</section>; }
+function IconForEmpty({ module }: { module: Module }) { const Icon = module === 'referrals' ? UsersRound : module === 'notifications' ? Bell : Activity; return <Icon size={20} />; }
+function AccountControls({ onLogout }: { onLogout: () => void }) { return <div className="grid gap-4 md:grid-cols-2"><AccountItem icon={<ShieldCheck size={18} />} title="Profile & security" description="Your Firebase identity and PSEmine profile remain separate from PulseEarn economic data." action="Account details" /><AccountItem icon={<Wallet size={18} />} title="Connected wallet" description="Connect a BSC wallet only when you are ready to purchase or manage withdrawals." href="/mine/wallet" action="Open wallet" /><AccountItem icon={<CircleHelp size={18} />} title="Support & FAQ" description="Find answers about tools, payments, mining sessions, and withdrawal review." href="/mine/support" action="Visit support" /><div className="pm-card flex flex-col justify-between gap-5 p-5"><div className="grid size-10 place-items-center rounded-xl bg-[var(--pm-surface-soft)] text-[var(--pm-muted)]"><LogOut size={18} /></div><div><h3 className="text-sm font-semibold text-[var(--pm-text)]">Sign out</h3><p className="mt-2 text-sm leading-6 text-[var(--pm-muted)]">End this PSEmine session on the current device.</p></div><button onClick={onLogout} className="pm-quiet-button w-fit">Sign out</button></div></div>; }
+function AccountItem({ icon, title, description, action, href }: { icon: React.ReactNode; title: string; description: string; action: string; href?: string }) { const content = <div className="pm-card flex flex-col justify-between gap-5 p-5"><div className="grid size-10 place-items-center rounded-xl bg-[var(--pm-amber)]/10 text-[var(--pm-amber)]">{icon}</div><div><h3 className="text-sm font-semibold text-[var(--pm-text)]">{title}</h3><p className="mt-2 text-sm leading-6 text-[var(--pm-muted)]">{description}</p></div><span className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--pm-amber)]">{action} <ExternalLink size={13} /></span></div>; return href ? <Link to={href}>{content}</Link> : content; }
 export function PsemineNotificationsPage() { return <PsemineModulePage module="notifications" />; }

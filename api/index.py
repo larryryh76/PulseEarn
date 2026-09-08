@@ -6087,7 +6087,9 @@ def fetch_psemine_bnb_gbp_quote():
             print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
 
     if price is None or price <= 0:
-        raise Exception("LIVE_BNB_QUOTE_UNAVAILABLE")
+        print("[PSEmine Quote] Warning: Live BNB quote APIs unavailable. Using hardcoded fallback rate £500.0/BNB.", flush=True)
+        price = 500.0
+        provider = 'fallback_static'
 
     return float(price), provider
 
@@ -6105,10 +6107,13 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
             return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0
 
         # 2. Get Transaction
-        r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
-        tx_data = r.json().get('result')
-        if not tx_data:
-            return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
+        try:
+            r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
+            tx_data = r.json().get('result')
+            if not tx_data:
+                return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
+        except Exception:
+            return False, "RPC_ERROR", "Transaction verification failed, please try again later.", 0
 
         # 3. Get Receipt
         r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionReceipt", "params": [tx_hash], "id": 3}, timeout=8)
@@ -6269,86 +6274,90 @@ def psemine_get_tools():
 @require_db
 def psemine_create_order():
     """Create locked BNB purchase quote for a PSEmine mining tool."""
-    db = get_db()
-    psemine_ensure_canonical_data(db)
-    uid = request.user['uid']
-    data = request.json or {}
-    tool_id = (data.get('toolId') or '').strip().lower()
-
-    if not tool_id:
-        return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
-
-    tool_doc = db.collection('psemine_tools').document(tool_id).get()
-    if not tool_doc.exists:
-        return jsonify({"success": False, "error": "TOOL_NOT_FOUND", "message": "Mining tool not found."}), 404
-
-    tool = tool_doc.to_dict() or {}
-    if not tool.get('isActive', True):
-        return jsonify({"success": False, "error": "TOOL_INACTIVE", "message": "This mining tool is currently unavailable."}), 400
-
-    # Enforce maximum copies limit per user
-    owned_snaps = db.collection('psemine_tool_ownership') \
-        .where('userId', '==', uid) \
-        .where('toolId', '==', tool_id) \
-        .where('status', '==', 'active') \
-        .get()
-
-    max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
-    if len(owned_snaps) >= max_copies:
-        return jsonify({
-            "success": False,
-            "error": "MAX_COPIES_REACHED",
-            "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool.get('name')} tool."
-        }), 409
-
     try:
-        bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
-    except Exception as e:
-        return jsonify({"success": False, "error": "QUOTE_UNAVAILABLE", "message": str(e)}), 503
+        db = get_db()
+        psemine_ensure_canonical_data(db)
+        uid = request.user['uid']
+        data = request.json or {}
+        tool_id = (data.get('toolId') or '').strip().lower()
 
-    gbp_price = float(tool['priceGbp'])
-    bnb_amount = gbp_price / bnb_gbp_price
-    wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
+        if not tool_id:
+            return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
 
-    now_dt = datetime.now(timezone.utc)
-    expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+        tool_doc = db.collection('psemine_tools').document(tool_id).get()
+        if not tool_doc.exists:
+            return jsonify({"success": False, "error": "TOOL_NOT_FOUND", "message": "Mining tool not found."}), 404
 
-    order_ref = db.collection('psemine_orders').document()
-    order_payload = {
-        'id': order_ref.id,
-        'userId': uid,
-        'toolId': tool_id,
-        'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
-        'priceGbp': gbp_price,
-        'bnbGbpPrice': bnb_gbp_price,
-        'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
-        'payableBnbAmount': f"{bnb_amount:.8f}",
-        'payableWeiAmount': str(wei_amount),
-        'quoteProvider': quote_provider,
-        'quoteTimestamp': now_dt.isoformat(),
-        'quoteExpiry': expiry_dt.isoformat(),
-        'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
-        'chainId': PSEMINE_BSC_CHAIN_ID,
-        'status': 'quoted',
-        'createdAt': firestore.SERVER_TIMESTAMP,
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    }
+        tool = tool_doc.to_dict() or {}
+        if not tool.get('isActive', True):
+            return jsonify({"success": False, "error": "TOOL_INACTIVE", "message": "This mining tool is currently unavailable."}), 400
 
-    order_ref.set(order_payload)
+        # Enforce maximum copies limit per user
+        owned_snaps = db.collection('psemine_tool_ownership') \
+            .where('userId', '==', uid) \
+            .where('toolId', '==', tool_id) \
+            .where('status', '==', 'active') \
+            .get()
 
-    # Log order creation activity
-    act_ref = db.collection('psemine_activities').document()
-    act_ref.set({
-        'id': act_ref.id,
-        'userId': uid,
-        'type': 'ORDER_CREATED',
-        'title': f"Order Quoted for {tool.get('name')} Tool",
-        'description': f"Created quote for {tool.get('name')} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for 15 minutes.",
-        'metadata': {'orderId': order_ref.id, 'toolId': tool_id, 'payableWeiAmount': str(wei_amount)},
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    })
+        max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
+        if len(owned_snaps) >= max_copies:
+            return jsonify({
+                "success": False,
+                "error": "MAX_COPIES_REACHED",
+                "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool.get('name')} tool."
+            }), 409
 
-    return jsonify({"success": True, "order": order_payload})
+        try:
+            bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
+        except Exception as e:
+            return jsonify({"success": False, "error": "QUOTE_UNAVAILABLE", "message": str(e)}), 503
+
+        gbp_price = float(tool['priceGbp'])
+        bnb_amount = gbp_price / bnb_gbp_price
+        wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
+
+        now_dt = datetime.now(timezone.utc)
+        expiry_dt = now_dt + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+
+        order_ref = db.collection('psemine_orders').document()
+        order_payload = {
+            'id': order_ref.id,
+            'userId': uid,
+            'toolId': tool_id,
+            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'priceGbp': gbp_price,
+            'bnbGbpPrice': bnb_gbp_price,
+            'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
+            'payableBnbAmount': f"{bnb_amount:.8f}",
+            'payableWeiAmount': str(wei_amount),
+            'quoteProvider': quote_provider,
+            'quoteTimestamp': now_dt.isoformat(),
+            'quoteExpiry': expiry_dt.isoformat(),
+            'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
+            'chainId': PSEMINE_BSC_CHAIN_ID,
+            'status': 'quoted',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }
+
+        order_ref.set(order_payload)
+
+        # Log order creation activity
+        act_ref = db.collection('psemine_activities').document()
+        act_ref.set({
+            'id': act_ref.id,
+            'userId': uid,
+            'type': 'ORDER_CREATED',
+            'title': f"Order Quoted for {tool.get('name')} Tool",
+            'description': f"Created quote for {tool.get('name')} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for 15 minutes.",
+            'metadata': {'orderId': order_ref.id, 'toolId': tool_id, 'payableWeiAmount': str(wei_amount)},
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+
+        return jsonify({"success": True, "order": order_payload})
+    except Exception as exc:
+        print(f"[PSEmine Create Order Error]: {exc}", flush=True)
+        return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE", "message": "Unable to process order quote right now. Please try again later."}), 503
 
 @app.route('/api/psemine/orders/verify-payment', methods=['POST'])
 @verify_token

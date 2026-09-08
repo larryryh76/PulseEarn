@@ -11,6 +11,16 @@ const config: Record<Module, { title: string; eyebrow: string; description: stri
   notifications: { title: 'Notifications', eyebrow: 'Protocol notices', description: 'Mining, campaign, payment, referral, and security notices will appear here from the backend.', icon: Bell },
 };
 
+interface PsemineModuleRecord {
+  id?: string;
+  title?: string;
+  type?: string;
+  status?: string;
+  description?: string;
+  message?: string;
+  createdAt?: { toDate?: () => Date };
+}
+
 export default function PsemineModulePage({ module }: { module: Module }) {
   const item = config[module];
   const Icon = item.icon;
@@ -37,8 +47,8 @@ export default function PsemineModulePage({ module }: { module: Module }) {
           </p>
           {hasRecords && (
             <div className="mt-6 flex flex-col gap-2">
-              {records.slice(0, 8).map((record: any) => (
-                <div key={record.id} className="rounded-2xl border border-white/10 bg-[#080b10] p-4">
+              {(records as PsemineModuleRecord[]).slice(0, 8).map((record, index) => (
+                <div key={record.id || index} className="rounded-2xl border border-white/10 bg-[#080b10] p-4">
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-sm font-bold text-[#f4f7f2]">{record.title || record.type || record.status || 'PSEmine record'}</span>
                     <span className="font-mono text-[10px] text-[#758287]">

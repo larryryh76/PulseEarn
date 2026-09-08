@@ -6699,9 +6699,8 @@ def psemine_create_withdrawal():
             "message": f"Insufficient available mining balance (£{available_balance:.2f} GBP available)."
         }), 400
 
-    # Create Pending Withdrawal Record with deterministic doc ID to prevent race conditions
-    wd_doc_id = f"pending_{uid}_{int(time.time())}"
-    wd_ref = db.collection('psemine_withdrawals').document(wd_doc_id)
+    # Create Pending Withdrawal Record inside transaction
+    wd_ref = db.collection('psemine_withdrawals').document()
     wd_payload = {
         'id': wd_ref.id,
         'userId': uid,
@@ -6755,18 +6754,24 @@ def psemine_create_withdrawal():
 @verify_token
 @require_db
 def admin_psemine_overview():
-    """Admin endpoint: Get system-wide PSEmine statistics and operations overview."""
+    """Admin endpoint: Get system-wide PSEmine statistics and operations overview using aggregation."""
     db = get_db()
     if not is_moderator(request.user['uid']):
         return jsonify({"success": False, "error": "FORBIDDEN"}), 403
 
-    orders_count = len(db.collection('psemine_orders').get())
-    payments_count = len(db.collection('psemine_payments').get())
-    ownership_count = len(db.collection('psemine_tool_ownership').get())
-    sessions_count = len(db.collection('psemine_mining_sessions').get())
-    withdrawals_snaps = db.collection('psemine_withdrawals').get()
+    try:
+        orders_count = db.collection('psemine_orders').count().get()[0][0].value
+        payments_count = db.collection('psemine_payments').count().get()[0][0].value
+        ownership_count = db.collection('psemine_tool_ownership').where('status', '==', 'active').count().get()[0][0].value
+        sessions_count = db.collection('psemine_mining_sessions').where('state', '==', 'active').count().get()[0][0].value
+    except Exception:
+        orders_count = len(db.collection('psemine_orders').get())
+        payments_count = len(db.collection('psemine_payments').get())
+        ownership_count = len(db.collection('psemine_tool_ownership').where('status', '==', 'active').get())
+        sessions_count = len(db.collection('psemine_mining_sessions').where('state', '==', 'active').get())
 
-    pending_withdrawals = [s.to_dict() for s in withdrawals_snaps if (s.to_dict() or {}).get('status') == 'pending']
+    pending_snaps = db.collection('psemine_withdrawals').where('status', '==', 'pending').get()
+    pending_withdrawals = [s.to_dict() for s in pending_snaps]
 
     return jsonify({
         "success": True,
@@ -6823,6 +6828,9 @@ def admin_psemine_review_withdrawal(withdrawal_id):
 
     if action not in ('APPROVE', 'REJECT'):
         return jsonify({"success": False, "error": "INVALID_ACTION", "message": "Action must be APPROVE or REJECT."}), 400
+
+    if action == 'APPROVE' and not tx_hash:
+        return jsonify({"success": False, "error": "MISSING_TX_HASH", "message": "Valid payout txHash is required to approve withdrawal."}), 400
 
     wd_ref = db.collection('psemine_withdrawals').document(withdrawal_id)
     wd_snap = wd_ref.get()

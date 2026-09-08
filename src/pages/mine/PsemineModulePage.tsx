@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Bell, Settings2, UsersRound, Copy, Check, ShieldCheck, Mail, User, Lock, ExternalLink } from 'lucide-react';
+import { Activity, Bell, Settings2, UsersRound, Copy, Check, ShieldCheck, User } from 'lucide-react';
 import { PsemineLayout } from '../../components/mine/PsemineLayout';
 import { usePsemineRecords } from '../../hooks/usePsemineRecords';
 import { usePsemineAuth } from '../../contexts/PsemineAuthContext';

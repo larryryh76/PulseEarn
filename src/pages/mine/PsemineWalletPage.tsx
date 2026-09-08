@@ -1,7 +1,7 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, Link2, Unplug, WalletCards, ShieldCheck, ArrowRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Link2, Unplug, WalletCards, ShieldCheck } from 'lucide-react';
 import { PsemineLayout } from '../../components/mine/PsemineLayout';
-import { BSC_CHAIN_ID, usePsemineWallet } from '../../contexts/PsemineWalletContext';
+import { usePsemineWallet } from '../../contexts/PsemineWalletContext';
 
 export default function PsemineWalletPage() {
   const { address, chainId, isConnecting, isConnected, isBscNetwork, connectWallet, disconnectWallet, switchToBscNetwork } = usePsemineWallet();

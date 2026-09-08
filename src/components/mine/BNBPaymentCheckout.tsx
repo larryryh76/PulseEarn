@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePsemineWallet, PSE_PAYMENT_ADDRESS } from '../../contexts/PsemineWalletContext';
 import { PsemineOrder, PsemineTool } from '../../types/psemine';
-import { Wallet, ShieldCheck, RefreshCw, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Wallet, ShieldCheck, RefreshCw, AlertCircle, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface BNBPaymentCheckoutProps {

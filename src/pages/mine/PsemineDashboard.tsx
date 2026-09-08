@@ -13,9 +13,7 @@ import {
   ShoppingBag,
   Zap,
   TrendingUp,
-  Bell,
-  ShieldCheck,
-  CheckCircle2
+  Bell
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 

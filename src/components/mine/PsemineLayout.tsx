@@ -11,8 +11,7 @@ import {
   Wallet,
   ArrowUpRight,
   Bell,
-  LogOut,
-  Sparkles
+  LogOut
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 

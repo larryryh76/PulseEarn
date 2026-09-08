@@ -5,18 +5,10 @@ import PsemineLogo from '../../components/mine/PsemineLogo';
 import {
   ArrowRight,
   ShieldCheck,
-  Activity,
   ChevronRight,
-  Zap,
-  Cpu,
   Users,
-  Wallet,
-  HelpCircle,
-  Lock,
   Sparkles,
-  Layers,
-  CheckCircle2,
-  ExternalLink
+  CheckCircle2
 } from 'lucide-react';
 
 export const PsemineHome: React.FC = () => {
@@ -28,7 +20,6 @@ export const PsemineHome: React.FC = () => {
 
   // Referral Calculator state
   const [calcRefNum, setCalcRefNum] = useState<number>(3);
-  const selectedToolPrice = 50; // Pro Tier (£50)
   const baseRate = 1.20; // Pro rate £1.20/hr
   const refBonus = calcRefNum * 0.30;
   const totalRate = baseRate + refBonus;
@@ -41,10 +32,10 @@ export const PsemineHome: React.FC = () => {
   };
 
   const tools = [
-    { tier: 'Starter', price: '£3', rate: '£0.10/hr', limit: '5 copies max', bg: 'from-emerald-500/10 to-transparent', border: 'border-emerald-500/20', accent: 'text-emerald-400' },
-    { tier: 'Growth', price: '£10', rate: '£0.50/hr', limit: '3 copies max', bg: 'from-emerald-500/15 to-transparent', border: 'border-emerald-500/30', accent: 'text-emerald-400' },
-    { tier: 'Pro', price: '£50', rate: '£1.20/hr', limit: '3 copies max', bg: 'from-emerald-500/20 to-transparent', border: 'border-emerald-500/40', accent: 'text-emerald-400', popular: true },
-    { tier: 'Elite', price: '£200', rate: '£2.50/hr', limit: '2 copies max', bg: 'from-emerald-500/25 to-transparent', border: 'border-emerald-500/50', accent: 'text-emerald-400' },
+    { tier: 'Starter', price: '£3', rate: '£0.10/hr', limit: '5 copies max', border: 'border-emerald-500/20', accent: 'text-emerald-400' },
+    { tier: 'Growth', price: '£10', rate: '£0.50/hr', limit: '3 copies max', border: 'border-emerald-500/30', accent: 'text-emerald-400' },
+    { tier: 'Pro', price: '£50', rate: '£1.20/hr', limit: '3 copies max', border: 'border-emerald-500/40', accent: 'text-emerald-400', popular: true },
+    { tier: 'Elite', price: '£200', rate: '£2.50/hr', limit: '2 copies max', border: 'border-emerald-500/50', accent: 'text-emerald-400' },
   ];
 
   const faqs = [

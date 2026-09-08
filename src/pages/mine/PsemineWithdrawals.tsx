@@ -4,7 +4,7 @@ import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import { db } from '../../firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { PsemineWithdrawal } from '../../types/psemine';
-import { Wallet, ShieldCheck, ArrowRight, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Wallet, ShieldCheck, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const PsemineWithdrawals: React.FC = () => {

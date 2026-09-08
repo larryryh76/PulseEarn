@@ -163,7 +163,7 @@ export const PsemineDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-widest text-emerald-400/90">Accumulated Output</span>
               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Zap size={18} className="animate-pulse" />
+                <Zap size={18} className="motion-safe:animate-pulse" />
               </div>
             </div>
             <div className="space-y-1">
@@ -173,8 +173,8 @@ export const PsemineDashboard: React.FC = () => {
               <p className="text-xs font-bold text-emerald-400 tracking-wide">GBP TOTAL YIELD</p>
             </div>
             <div className="pt-2 border-t border-emerald-500/20 flex items-center gap-1.5 text-[11px] text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <span>Server-Authoritative Real-Time Accrual</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 motion-safe:animate-ping inline-block" />
+              <span>Client-Side Estimate from Server Data</span>
             </div>
           </div>
 
@@ -270,7 +270,7 @@ export const PsemineDashboard: React.FC = () => {
                     <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                       {tool.toolId}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
                   </div>
                   <div>
                     <p className="text-xs text-zinc-400">Mining Yield</p>

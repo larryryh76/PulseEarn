@@ -12,6 +12,7 @@ interface PsemineWalletContextType {
   address: string | null;
   chainId: number | null;
   isConnecting: boolean;
+  isPending: boolean;
   isConnected: boolean;
   isBscNetwork: boolean;
   connectWallet: () => Promise<void>;
@@ -23,10 +24,11 @@ interface PsemineWalletContextType {
 const PsemineWalletContext = createContext<PsemineWalletContextType | undefined>(undefined);
 
 export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isConnected, address } = useConnection({ namespaceId: 'eip155' });
+  const { isConnected, address, chain, status } = useConnection({ namespaceId: 'eip155' });
   const { open } = useTrustModal();
   const { disconnect } = useConnect();
   const { mutateAsync: sendTxAsync, isPending } = useSendTransaction();
+  const chainId = chain ? Number(chain.reference) : null;
 
   const connectWallet = async () => {
     try {
@@ -72,10 +74,11 @@ export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({
     <PsemineWalletContext.Provider
       value={{
         address: address || null,
-        chainId: BSC_CHAIN_ID,
-        isConnecting: isPending,
+        chainId,
+        isConnecting: status === 'connecting',
+        isPending,
         isConnected: !!isConnected && !!address,
-        isBscNetwork: true,
+        isBscNetwork: chainId === BSC_CHAIN_ID,
         connectWallet,
         disconnectWallet,
         switchToBscNetwork,

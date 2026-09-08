@@ -5981,6 +5981,8 @@ except Exception as e:
 PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
+PSEMINE_QUOTE_CACHE_TTL_SECONDS = 5 * 60
+_psemine_bnb_gbp_quote_cache = None
 
 def psemine_ensure_canonical_data(db):
     """Idempotently seed canonical Genesis Campaign and canonical Mining Tools."""
@@ -6063,35 +6065,45 @@ def psemine_ensure_canonical_data(db):
         print(f"[PSEmine Seed] Error seeding canonical data: {e}", flush=True)
 
 def fetch_psemine_bnb_gbp_quote():
-    """Fetch live BNB/GBP market rate from CoinGecko with CryptoCompare fallback."""
+    """Fetch BNB/GBP, falling back only to a recent provider-validated quote."""
+    global _psemine_bnb_gbp_quote_cache
     get_deps()
     price = None
     provider = None
     try:
         res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': 'binancecoin', 'vs_currencies': 'gbp'}, timeout=8)
         if res.status_code == 200:
-            price = res.json().get('binancecoin', {}).get('gbp')
-            if price and price > 0:
+            price = safe_float(res.json().get('binancecoin', {}).get('gbp'), None)
+            if price is not None and price > 0:
                 provider = 'coingecko'
     except Exception as e:
         print(f"[PSEmine Quote] CoinGecko error: {e}", flush=True)
 
-    if price is None:
+    if price is None or price <= 0:
         try:
             res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': 'BNB', 'tsyms': 'GBP'}, timeout=8)
             if res.status_code == 200:
-                price = res.json().get('GBP')
-                if price and price > 0:
+                price = safe_float(res.json().get('GBP'), None)
+                if price is not None and price > 0:
                     provider = 'cryptocompare'
         except Exception as e:
             print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
 
-    if price is None or price <= 0:
-        print("[PSEmine Quote] Warning: Live BNB quote APIs unavailable. Using hardcoded fallback rate £500.0/BNB.", flush=True)
-        price = 500.0
-        provider = 'fallback_static'
+    if price is not None and price > 0 and provider:
+        _psemine_bnb_gbp_quote_cache = {
+            'price': float(price),
+            'provider': provider,
+            'validated_at': time.monotonic(),
+        }
+        return float(price), provider
 
-    return float(price), provider
+    cached_quote = _psemine_bnb_gbp_quote_cache
+    if cached_quote:
+        quote_age = time.monotonic() - cached_quote['validated_at']
+        if 0 <= quote_age < PSEMINE_QUOTE_CACHE_TTL_SECONDS:
+            return cached_quote['price'], f"cached_{cached_quote['provider']}"
+
+    raise RuntimeError("LIVE_BNB_QUOTE_UNAVAILABLE")
 
 def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
     """Verify BSC transaction on-chain via JSON-RPC."""
@@ -6109,7 +6121,19 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
         # 2. Get Transaction
         try:
             r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
-            tx_data = r.json().get('result')
+            tx_response = r.json()
+            rpc_error = tx_response.get('error')
+            if rpc_error is not None:
+                if isinstance(rpc_error, dict):
+                    error_code = rpc_error.get('code')
+                    error_message = rpc_error.get('message') or 'Unknown provider error'
+                    code_detail = f" ({error_code})" if error_code is not None else ''
+                    provider_detail = f"{code_detail}: {error_message}"
+                else:
+                    provider_detail = f": {rpc_error}"
+                return False, "RPC_ERROR", f"BSC RPC provider error{provider_detail}", 0
+
+            tx_data = tx_response.get('result')
             if not tx_data:
                 return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
         except Exception:

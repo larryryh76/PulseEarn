@@ -2,61 +2,12 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import PsemineLogo from '../../components/mine/PsemineLogo';
-import { ArrowRight, Binary, ShieldCheck, Waypoints, Activity, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check, CircleDot, ShieldCheck, Waypoints } from 'lucide-react';
 
-export const PsemineHome: React.FC = () => {
-  const { currentUser, psemineProfile } = usePsemineAuth();
-  const navigate = useNavigate();
-  const enter = () => {
-    if (!currentUser) return navigate('/mine/login');
-    if (!currentUser.emailVerified) return navigate('/mine/verify-email');
-    navigate(psemineProfile?.hasCompletedGuide ? '/mine/dashboard' : '/mine/guide');
-  };
-
-  return (
-    <div className="psemine-surface min-h-screen overflow-hidden font-sans selection:bg-[#f0aa3e]/30">
-      <div className="psemine-grid pointer-events-none fixed inset-0 opacity-60" />
-      <header className="relative z-10 border-b border-white/10 bg-[#080b10]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link to="/mine"><PsemineLogo size="md" /></Link>
-          <div className="flex items-center gap-3">
-            {!currentUser && <Link to="/mine/login" className="psemine-button-secondary rounded-xl px-4 py-2.5 text-xs font-bold">Sign in</Link>}
-            <button onClick={enter} className="psemine-button-primary flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider">
-              {currentUser ? 'Open command center' : 'Join PSEmine'} <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto max-w-7xl px-5 pb-20 pt-16 sm:px-8 sm:pt-24">
-        <section className="grid items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
-          <div>
-            <div className="psemine-kicker mb-6 flex items-center gap-2"><Binary size={14} /> SHA infrastructure / genesis protocol</div>
-            <h1 className="max-w-3xl text-5xl font-black leading-[.98] tracking-[-.06em] text-[#f4f7f2] sm:text-7xl lg:text-8xl">Mine with a system built for <span className="text-[#f0aa3e]">proof.</span></h1>
-            <p className="mt-7 max-w-xl text-base leading-8 text-[#9ca8ac] sm:text-lg">PSEmine is a dedicated SHA mining economy for structured campaigns, measurable output, and a clear path from tool ownership to verified activity.</p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <button onClick={enter} className="psemine-button-primary flex items-center justify-center gap-3 rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-[.12em]">Enter the genesis campaign <ArrowRight size={17} /></button>
-              <Link to="/mine/guide" className="psemine-button-secondary flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold">Read the protocol <ChevronRight size={17} /></Link>
-            </div>
-            <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-[#758287]"><span className="flex items-center gap-2"><ShieldCheck size={15} className="text-[#8fc9a7]" /> Isolated PSEmine state</span><span className="flex items-center gap-2"><Activity size={15} className="text-[#f0aa3e]" /> Backend-authoritative</span></div>
-          </div>
-
-          <div className="relative mx-auto w-full max-w-md">
-            <div className="psemine-panel relative overflow-hidden rounded-[2rem] p-5 shadow-2xl shadow-black/40">
-              <div className="flex items-center justify-between border-b border-white/10 pb-5"><div><p className="psemine-kicker">Genesis / 90 days</p><p className="mt-2 text-lg font-bold">SHA mining command</p></div><div className="rounded-full border border-[#8fc9a7]/30 bg-[#8fc9a7]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#8fc9a7]">Ready</div></div>
-              <div className="grid grid-cols-2 gap-3 py-5"><div className="rounded-2xl bg-white/[.04] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-[#758287]">Campaign</p><p className="mt-2 text-xl font-black text-[#f4f7f2]">90 days</p></div><div className="rounded-2xl bg-white/[.04] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-[#758287]">Settlement</p><p className="mt-2 text-xl font-black text-[#f4f7f2]">On-chain</p></div></div>
-              <div className="rounded-2xl border border-[#f0aa3e]/20 bg-[#f0aa3e]/[.06] p-5"><div className="mb-5 flex items-center justify-between"><span className="text-xs font-bold text-[#9ca8ac]">Protocol state</span><span className="font-mono text-xs text-[#f0aa3e]">SHA-256</span></div><div className="flex items-end gap-1.5">{[22,38,30,54,42,68,48,84,61,92,74,100].map((height, index) => <span key={index} className="flex-1 rounded-t-sm bg-[#f0aa3e]" style={{ height: `${height}px`, opacity: .25 + index / 18 }} />)}</div></div>
-              <div className="mt-4 flex items-center gap-3 text-xs text-[#9ca8ac]"><Waypoints size={16} className="text-[#8fc9a7]" /> Built for transparent progression, not simulated balances.</div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-24 grid gap-4 border-t border-white/10 pt-8 sm:grid-cols-3">
-          {[['01', 'Own the tool', 'Choose a Genesis tool tier configured by the protocol.'], ['02', 'Activate the lane', 'Campaign eligibility and mining state stay backend-controlled.'], ['03', 'Track the output', 'Every important action becomes a traceable activity record.']].map(([number, title, body]) => <div key={number} className="psemine-panel rounded-2xl p-5"><span className="font-mono text-xs text-[#f0aa3e]">{number}</span><h2 className="mt-7 text-lg font-bold">{title}</h2><p className="mt-2 text-sm leading-6 text-[#8b989b]">{body}</p></div>)}
-        </section>
-      </main>
-      <footer className="relative z-10 border-t border-white/10 px-5 py-7 text-center text-xs text-[#687478] sm:px-8"><div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row"><PsemineLogo size="sm" /><span>© {new Date().getFullYear()} PSEmine. A separate PulseEarn ecosystem.</span></div></footer>
-    </div>
-  );
-};
+const tools = [['Starter', '£3', '£0.10/hr', '5 copies'], ['Growth', '£10', '£0.50/hr', '3 copies'], ['Pro', '£50', '£1.20/hr', '3 copies'], ['Elite', '£200', '£2.50/hr', '2 copies']];
+export const PsemineHome: React.FC = () => { const { currentUser, psemineProfile } = usePsemineAuth(); const navigate = useNavigate(); const enter = () => { if (!currentUser) return navigate('/mine/signup'); if (!currentUser.emailVerified) return navigate('/mine/verify-email'); navigate(psemineProfile?.hasCompletedGuide ? '/mine/dashboard' : '/mine/guide'); };
+return <div className="psemine-surface min-h-screen overflow-hidden font-sans"><div className="psemine-grid pointer-events-none fixed inset-0 opacity-70" /><header className="relative z-10 border-b border-white/10"><div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8"><Link to="/mine"><PsemineLogo size="md" /></Link><div className="flex items-center gap-3">{!currentUser && <Link to="/mine/login" className="psemine-button-secondary rounded-xl px-4 py-2.5 text-xs font-bold">Sign in</Link>}<button onClick={enter} className="psemine-button-primary flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black">{currentUser ? 'Open workspace' : 'Create account'} <ArrowRight size={15} /></button></div></div></header>
+<main className="relative z-10 mx-auto max-w-7xl px-5 pb-24 pt-16 sm:px-8 sm:pt-24"><section className="grid items-center gap-14 lg:grid-cols-[1fr_.9fr]"><div><div className="psemine-kicker mb-6 flex items-center gap-2"><CircleDot size={14} /> Genesis mining / backend controlled</div><h1 className="max-w-3xl text-5xl font-black leading-[.98] tracking-[-.055em] sm:text-7xl">A clearer way to build <span className="text-[#e7a84b]">mining ownership.</span></h1><p className="mt-7 max-w-xl text-base leading-8 text-[#b4b5ab] sm:text-lg">PSEmine connects verified tool ownership, campaign participation, and measurable mining output in one focused workspace.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><button onClick={enter} className="psemine-button-primary flex items-center justify-center gap-3 rounded-2xl px-6 py-4 text-sm font-black">Enter Genesis <ArrowRight size={17} /></button><Link to="/mine/guide" className="psemine-button-secondary flex items-center justify-center rounded-2xl px-6 py-4 text-sm font-bold">Read how it works</Link></div><div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-[#92978e]"><span className="flex items-center gap-2"><ShieldCheck size={15} className="text-[#9ac7ad]" /> Separate PSEmine state</span><span className="flex items-center gap-2"><Waypoints size={15} className="text-[#e7a84b]" /> Payments verified server-side</span></div></div><div className="psemine-panel rounded-[2rem] p-5 sm:p-7"><div className="flex items-start justify-between border-b border-white/10 pb-5"><div><p className="psemine-kicker">Genesis campaign</p><p className="mt-2 text-xl font-bold">Mining command center</p></div><span className="rounded-full border border-[#9ac7ad]/30 bg-[#9ac7ad]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#9ac7ad]">Live state</span></div><div className="grid grid-cols-2 gap-3 py-5"><div className="rounded-2xl bg-white/[.04] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-[#92978e]">Mining rate</p><p className="mt-2 text-xl font-black">£0.00/hr</p><p className="mt-1 text-xs text-[#92978e]">Starts with owned tools</p></div><div className="rounded-2xl bg-white/[.04] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-[#92978e]">Referral bonus</p><p className="mt-2 text-xl font-black">Up to £1.50/hr</p><p className="mt-1 text-xs text-[#92978e]">5 qualified referrals</p></div></div><div className="rounded-2xl border border-[#e7a84b]/20 bg-[#e7a84b]/[.06] p-5"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-bold text-[#b4b5ab]">Output is calculated by the backend</span><span className="font-mono text-xs text-[#e7a84b]">SHA-256</span></div><div className="mining-bars">{[28,44,32,56,43,66,51,78,60,88,71,96].map((height, index) => <span key={index} style={{ height: `${height}%`, opacity: .28 + index / 20 }} />)}</div></div></div></section>
+<section className="mt-24"><div className="flex flex-col justify-between gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-end"><div><p className="psemine-kicker">Canonical tools</p><h2 className="mt-2 text-3xl font-black">Choose your mining lane</h2></div><p className="max-w-md text-sm text-[#92978e]">Prices and rates are configured by the Genesis campaign. BNB amounts are quoted live when you create an order.</p></div><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tools.map(([tier, price, rate, limit]) => <div key={tier} className="psemine-panel rounded-2xl p-5"><div className="flex items-center justify-between"><span className="psemine-kicker">{tier}</span><Check size={16} className="text-[#9ac7ad]" /></div><p className="mt-7 text-3xl font-black">{price}</p><p className="mt-1 text-sm font-bold text-[#e7a84b]">{rate}</p><div className="mt-6 border-t border-white/10 pt-4 text-xs text-[#92978e]">Ownership limit: {limit}</div></div>)}</div></section>
+<section className="mt-24 grid gap-4 border-t border-white/10 pt-8 sm:grid-cols-3">{[['01','Create identity','Register, verify your email, and complete the orientation.'],['02','Own a tool','Choose a tier, create a live quote, and pay through the supported network.'],['03','Track verified output','Mining, referrals, activity, and ownership are controlled by the backend.']].map(([n,t,b]) => <div key={n} className="psemine-panel rounded-2xl p-5"><span className="font-mono text-xs text-[#e7a84b]">{n}</span><h2 className="mt-7 text-lg font-bold">{t}</h2><p className="mt-2 text-sm leading-6 text-[#92978e]">{b}</p></div>)}</section><section className="mt-24 flex flex-col items-start justify-between gap-6 rounded-3xl border border-[#e7a84b]/25 bg-[#e7a84b]/[.06] p-7 sm:flex-row sm:items-center sm:p-10"><div><p className="psemine-kicker">Ready when you are</p><h2 className="mt-2 text-3xl font-black">Build your PSEmine account.</h2><p className="mt-3 max-w-xl text-sm text-[#b4b5ab]">No simulated balances. No frontend promises. Just a focused workspace for the campaign state you can verify.</p></div><button onClick={enter} className="psemine-button-primary flex shrink-0 items-center gap-2 rounded-xl px-5 py-3 text-sm font-black">Get started <ArrowRight size={16} /></button></section></main><footer className="relative z-10 border-t border-white/10 px-5 py-7 text-center text-xs text-[#737b73] sm:px-8"><div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row"><PsemineLogo size="sm" /><span>© {new Date().getFullYear()} PSEmine. A separate PulseEarn ecosystem.</span></div></footer></div>; };
 export default PsemineHome;

@@ -1,14 +1,17 @@
-/* PSEmine visual system: graphite, paper, signal amber, verified mint. */
-.psemine-surface { background: #080b10; color: #f4f7f2; }
-.psemine-grid { background-image: linear-gradient(rgba(244,247,242,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(244,247,242,.045) 1px, transparent 1px); background-size: 44px 44px; mask-image: linear-gradient(to bottom, black, transparent 80%); }
-.psemine-logo { display: inline-flex; align-items: center; gap: .7rem; user-select: none; }
-.psemine-mark { position: relative; display: grid; place-items: center; border: 1px solid rgba(240,170,62,.55); background: #10161d; box-shadow: 0 0 0 4px rgba(240,170,62,.06), 0 12px 30px rgba(0,0,0,.32); overflow: hidden; }
-.psemine-mark-sm { width: 1.65rem; height: 1.65rem; border-radius: .45rem; }.psemine-mark-md { width: 2.35rem; height: 2.35rem; border-radius: .62rem; }.psemine-mark-lg { width: 3.5rem; height: 3.5rem; border-radius: .9rem; }
-.psemine-mark-core { width: 24%; height: 24%; border-radius: 50%; background: #f0aa3e; box-shadow: 0 0 16px rgba(240,170,62,.9); z-index: 2; }
-.psemine-mark-line { position: absolute; width: 62%; height: 1px; background: #f0aa3e; transform-origin: center; opacity: .85; }.psemine-mark-line-a { transform: rotate(30deg); }.psemine-mark-line-b { transform: rotate(90deg); }.psemine-mark-line-c { transform: rotate(150deg); }
-.psemine-wordmark { font-weight: 900; letter-spacing: .14em; color: #f4f7f2; }.psemine-wordmark strong { color: #f0aa3e; font-weight: 900; }.psemine-wordmark-sm { font-size: .82rem; }.psemine-wordmark-md { font-size: 1.12rem; }.psemine-wordmark-lg { font-size: 1.65rem; }
-.psemine-kicker { color: #f0aa3e; font-size: .68rem; font-weight: 900; letter-spacing: .22em; text-transform: uppercase; }.psemine-panel { background: rgba(16,22,29,.86); border: 1px solid rgba(244,247,242,.1); }.psemine-button-primary { background: #f0aa3e; color: #080b10; }.psemine-button-primary:hover { background: #ffc15d; }.psemine-button-secondary { background: rgba(244,247,242,.04); border: 1px solid rgba(244,247,242,.14); color: #f4f7f2; }.psemine-button-secondary:hover { background: rgba(244,247,242,.09); }
-.psemine-loader-beam { background: linear-gradient(90deg, transparent, #f0aa3e, transparent); box-shadow: 0 0 18px rgba(240,170,62,.8); }
-@keyframes psemine-pulse { 0%,100% { transform: scale(.92); opacity: .65; } 50% { transform: scale(1.06); opacity: 1; } }.psemine-pulse { animation: psemine-pulse 1.8s ease-in-out infinite; }
+/* PSEmine design system: graphite, paper, signal amber, verified mint. */
+.psemine-surface { background: #101311; color: #f4f1e8; }
+.psemine-grid { background-image: linear-gradient(rgba(244,241,232,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(244,241,232,.04) 1px, transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(to bottom, black, transparent 78%); }
+.psemine-logo { display: inline-flex; align-items: center; gap: .65rem; user-select: none; }
+.psemine-mark { display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid rgba(231,168,75,.65); background: #181c18; box-shadow: 0 0 0 4px rgba(231,168,75,.06); }
+.psemine-mark-sm { width: 1.7rem; height: 1.7rem; border-radius: .42rem; }.psemine-mark-md { width: 2.35rem; height: 2.35rem; border-radius: .58rem; }.psemine-mark-lg { width: 3.5rem; height: 3.5rem; border-radius: .8rem; }
+.psemine-mark-core { width: 35%; height: 35%; border: 1px solid #e7a84b; background: #101311; transform: rotate(45deg); z-index: 2; }
+.psemine-mark-line { position: absolute; width: 70%; height: 1px; background: #e7a84b; opacity: .8; }.psemine-mark-line-a { transform: rotate(45deg); }.psemine-mark-line-b { transform: rotate(-45deg); }
+.psemine-wordmark { font-weight: 900; letter-spacing: .12em; color: #f4f1e8; }.psemine-wordmark strong { color: #e7a84b; }.psemine-wordmark-sm { font-size: .78rem; }.psemine-wordmark-md { font-size: 1.05rem; }.psemine-wordmark-lg { font-size: 1.55rem; }
+.psemine-kicker { color: #e7a84b; font-size: .67rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+.psemine-panel { background: rgba(24,28,24,.88); border: 1px solid rgba(244,241,232,.12); box-shadow: 0 18px 55px rgba(0,0,0,.2); }
+.psemine-button-primary { background: #e7a84b; color: #101311; }.psemine-button-primary:hover { background: #f3c16d; }.psemine-button-secondary { background: rgba(244,241,232,.04); border: 1px solid rgba(244,241,232,.16); color: #f4f1e8; }.psemine-button-secondary:hover { background: rgba(244,241,232,.09); }
+.psemine-loader-beam { background: #e7a84b; box-shadow: 0 0 18px rgba(231,168,75,.7); }
+@keyframes psemine-pulse { 0%,100% { opacity: .58; } 50% { opacity: 1; } }.psemine-pulse { animation: psemine-pulse 1.8s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .psemine-pulse { animation: none; } }
-@media (max-width: 640px) { .psemine-wordmark-lg { font-size: 1.35rem; } }
+@media (max-width: 640px) { .psemine-wordmark-lg { font-size: 1.3rem; } }
+.mining-bars { display: flex; align-items: end; gap: .35rem; height: 7rem; }.mining-bars span { flex: 1; min-width: .35rem; background: #e7a84b; opacity: .5; border-radius: .2rem .2rem 0 0; }

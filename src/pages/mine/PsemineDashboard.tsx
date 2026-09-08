@@ -71,10 +71,14 @@ export const PsemineDashboard: React.FC = () => {
         if (dashData.session) {
           setLiveOutput(dashData.session.accumulatedOutputGbp || 0);
         }
+      } else if (!dashRes.ok || !dashData.success) {
+        toast.error(dashData.message || dashData.error || 'Failed to fetch dashboard state.');
       }
 
       if (toolsRes.ok && toolsData.success) {
         setAvailableTools(toolsData.tools || []);
+      } else if (!toolsRes.ok || !toolsData.success) {
+        toast.error(toolsData.message || toolsData.error || 'Failed to fetch tools catalog.');
       }
     } catch (err) {
       console.error('[PSEmine Dashboard] Error loading data:', err);

@@ -6091,7 +6091,7 @@ def fetch_psemine_bnb_gbp_quote():
 
     return float(price), provider
 
-def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount):
+def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
     """Verify BSC transaction on-chain via JSON-RPC."""
     rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
     try:
@@ -6125,6 +6125,11 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount):
         if to_addr != exp_addr:
             return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0
 
+        from_addr = (tx_data.get('from') or '').lower()
+        if expected_sender and expected_sender.strip():
+            if from_addr != expected_sender.strip().lower():
+                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) does not match order wallet ({expected_sender})", 0
+
         value_wei = int(tx_data.get('value', '0x0'), 16)
         if value_wei != int(expected_wei_amount):
             return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0
@@ -6136,7 +6141,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount):
         return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0
 
 def recalculate_psemine_user_mining_state(db, user_id):
-    """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state."""
+    """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state bounded by campaign expiry."""
     # 1. Fetch active tool ownerships
     ownership_snaps = db.collection('psemine_tool_ownership') \
         .where('userId', '==', user_id) \
@@ -6156,15 +6161,34 @@ def recalculate_psemine_user_mining_state(db, user_id):
     referral_bonus = round(qualified_count * 0.30, 2)
     total_rate = round(min(12.10, base_rate + referral_bonus), 2)
 
-    # 3. Calculate accumulated output so far from existing session
+    # 3. Campaign end date
+    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    campaign_end_dt = now_dt + timedelta(days=90)
+    if camp_snap.exists:
+        end_raw = camp_snap.to_dict().get('endDate')
+        if end_raw:
+            try:
+                if isinstance(end_raw, datetime):
+                    campaign_end_dt = end_raw
+                else:
+                    campaign_end_dt = datetime.fromisoformat(str(end_raw).replace('Z', '+00:00'))
+                if campaign_end_dt.tzinfo is None:
+                    campaign_end_dt = campaign_end_dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                pass
+
+    expires_at = campaign_end_dt.isoformat()
+    session_state = 'expired' if now_dt >= campaign_end_dt else ('active' if active_tools else 'inactive')
+
+    # 4. Calculate accumulated output bounded at campaign expiry
     session_ref = db.collection('psemine_mining_sessions').document(user_id)
     session_snap = session_ref.get()
 
-    now_dt = datetime.now(timezone.utc)
-    now_iso = now_dt.isoformat()
     accumulated_output = 0.0
     started_at = now_iso
-    session_state = 'active' if active_tools else 'inactive'
 
     if session_snap.exists:
         s_data = session_snap.to_dict() or {}
@@ -6181,16 +6205,14 @@ def recalculate_psemine_user_mining_state(db, user_id):
                     last_dt = datetime.fromisoformat(str(last_calc).replace('Z', '+00:00'))
                 if last_dt.tzinfo is None:
                     last_dt = last_dt.replace(tzinfo=timezone.utc)
-                elapsed_hours = max(0.0, (now_dt - last_dt).total_seconds() / 3600.0)
+
+                bounded_now = min(now_dt, campaign_end_dt)
+                elapsed_hours = max(0.0, (bounded_now - last_dt).total_seconds() / 3600.0)
                 accumulated_output = prev_output + (elapsed_hours * prev_rate)
             except Exception:
                 accumulated_output = prev_output
         else:
             accumulated_output = prev_output
-
-    # Campaign end date
-    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
-    expires_at = (camp_snap.to_dict().get('endDate') if camp_snap.exists else None) or (now_dt + timedelta(days=90)).isoformat()
 
     session_payload = {
         'id': user_id,
@@ -6370,11 +6392,6 @@ def psemine_verify_payment():
         except Exception:
             pass
 
-    # Replay Protection: Check if transaction hash has already been used in psemine_payments
-    dupe_snaps = db.collection('psemine_payments').where('txHash', '==', tx_hash).get()
-    if dupe_snaps:
-        return jsonify({"success": False, "error": "TRANSACTION_REUSED", "message": "This transaction hash has already been consumed."}), 409
-
     # On-Chain Verification
     verified, err_code, err_msg, block_num = verify_bsc_transaction(tx_hash, order['destinationAddress'], order['payableWeiAmount'])
     if not verified:
@@ -6384,56 +6401,84 @@ def psemine_verify_payment():
     tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
     tool = tool_doc.to_dict() if tool_doc.exists else {}
 
-    # ATOMIC PIPELINE WRITES
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
 
-    # 1. Create Payment Record
-    pay_ref = db.collection('psemine_payments').document()
-    pay_payload = {
-        'id': pay_ref.id,
-        'orderId': order_id,
-        'userId': uid,
-        'toolId': order['toolId'],
-        'priceGbp': order['priceGbp'],
-        'paidBnbAmount': order['payableBnbAmount'],
-        'paidWeiAmount': order['payableWeiAmount'],
-        'asset': 'BNB',
-        'chainId': PSEMINE_BSC_CHAIN_ID,
-        'destinationAddress': order['destinationAddress'],
-        'txHash': tx_hash,
-        'blockNumber': block_num,
-        'status': 'confirmed',
-        'createdAt': firestore.SERVER_TIMESTAMP,
-        'confirmedAt': firestore.SERVER_TIMESTAMP,
-    }
-    pay_ref.set(pay_payload)
-
-    # 2. Create Tool Ownership
+    pay_doc_id = f"pay_{tx_hash}"
+    pay_ref = db.collection('psemine_payments').document(pay_doc_id)
     own_ref = db.collection('psemine_tool_ownership').document()
-    own_payload = {
-        'id': own_ref.id,
-        'userId': uid,
-        'toolId': order['toolId'],
-        'orderId': order_id,
-        'paymentId': pay_ref.id,
-        'txHash': tx_hash,
-        'purchasePriceGbp': order['priceGbp'],
-        'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
-        'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
-        'status': 'active',
-        'acquiredAt': now_iso,
-        'createdAt': firestore.SERVER_TIMESTAMP,
-    }
-    own_ref.set(own_payload)
 
-    # 3. Update Order Status
-    order_ref.update({
-        'status': 'confirmed',
-        'paymentTxHash': tx_hash,
-        'confirmedAt': firestore.SERVER_TIMESTAMP,
-        'updatedAt': firestore.SERVER_TIMESTAMP,
-    })
+    @firestore.transactional
+    def process_payment_confirmation(txn):
+        # Reads before writes
+        pay_snap = pay_ref.get(transaction=txn)
+        if pay_snap.exists:
+            raise Exception("TRANSACTION_REUSED")
+
+        o_snap = order_ref.get(transaction=txn)
+        if not o_snap.exists:
+            raise Exception("ORDER_NOT_FOUND")
+        if o_snap.to_dict().get('status') == 'confirmed':
+            raise Exception("ORDER_ALREADY_CONFIRMED")
+
+        owned_query = db.collection('psemine_tool_ownership') \
+            .where('userId', '==', uid) \
+            .where('toolId', '==', order['toolId']) \
+            .where('status', '==', 'active')
+        owned_count = len(owned_query.get(transaction=txn))
+        max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
+        if owned_count >= max_copies:
+            raise Exception("MAX_COPIES_REACHED")
+
+        pay_payload = {
+            'id': pay_doc_id,
+            'orderId': order_id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'priceGbp': order['priceGbp'],
+            'paidBnbAmount': order['payableBnbAmount'],
+            'paidWeiAmount': order['payableWeiAmount'],
+            'asset': 'BNB',
+            'chainId': PSEMINE_BSC_CHAIN_ID,
+            'destinationAddress': order['destinationAddress'],
+            'txHash': tx_hash,
+            'blockNumber': block_num,
+            'status': 'confirmed',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(pay_ref, pay_payload)
+
+        own_payload = {
+            'id': own_ref.id,
+            'userId': uid,
+            'toolId': order['toolId'],
+            'orderId': order_id,
+            'paymentId': pay_doc_id,
+            'txHash': tx_hash,
+            'purchasePriceGbp': order['priceGbp'],
+            'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
+            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'status': 'active',
+            'acquiredAt': now_iso,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        }
+        txn.set(own_ref, own_payload)
+
+        txn.update(order_ref, {
+            'status': 'confirmed',
+            'paymentTxHash': tx_hash,
+            'confirmedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        })
+
+    try:
+        process_payment_confirmation(db.transaction())
+    except Exception as e:
+        err_str = str(e)
+        if err_str in ("TRANSACTION_REUSED", "ORDER_ALREADY_CONFIRMED", "MAX_COPIES_REACHED"):
+            return jsonify({"success": False, "error": err_str, "message": f"Payment processing stopped: {err_str}"}), 409
+        return jsonify({"success": False, "error": "CONFIRMATION_FAILED", "message": str(e)}), 400
 
     # 4. Update/Recalculate User Mining Session
     session_data = recalculate_psemine_user_mining_state(db, uid)
@@ -6447,7 +6492,7 @@ def psemine_verify_payment():
         'type': 'TOOL_PURCHASED',
         'title': f"Purchased {tool_name} Tool",
         'description': f"Acquired {tool_name} tool (£{order['priceGbp']:.2f} GBP). Mining rate updated to £{session_data['totalMiningRateGbpPerHour']:.2f}/hr.",
-        'metadata': {'orderId': order_id, 'paymentId': pay_ref.id, 'txHash': tx_hash, 'toolId': order['toolId']},
+        'metadata': {'orderId': order_id, 'paymentId': pay_doc_id, 'txHash': tx_hash, 'toolId': order['toolId']},
         'createdAt': firestore.SERVER_TIMESTAMP,
     })
 
@@ -6463,7 +6508,6 @@ def psemine_verify_payment():
     })
 
     # 6. Referral Qualification Check
-    # Check if this user was referred by someone and referral is pending qualification
     ref_snaps = db.collection('psemine_referrals') \
         .where('refereeId', '==', uid) \
         .where('status', '==', 'pending') \
@@ -6473,7 +6517,6 @@ def psemine_verify_payment():
         r_data = ref_doc.to_dict() or {}
         referrer_id = r_data.get('referrerId')
         if referrer_id and referrer_id != uid:
-            # Mark referral as qualified idempotently
             ref_doc.reference.update({
                 'status': 'qualified',
                 'bonusRateGbpPerHour': 0.30,
@@ -6481,10 +6524,8 @@ def psemine_verify_payment():
                 'updatedAt': firestore.SERVER_TIMESTAMP,
             })
 
-            # Recalculate Referrer Mining Session
             ref_session = recalculate_psemine_user_mining_state(db, referrer_id)
 
-            # Add Activity & Notification for Referrer
             user_snap = db.collection('users').document(uid).get()
             referee_name = (user_snap.to_dict().get('username') if user_snap.exists else 'Your referral') or 'Your referral'
 
@@ -6513,7 +6554,7 @@ def psemine_verify_payment():
     return jsonify({
         "success": True,
         "orderId": order_id,
-        "paymentId": pay_ref.id,
+        "paymentId": pay_doc_id,
         "ownershipId": own_ref.id,
         "session": session_data,
     })
@@ -6601,7 +6642,7 @@ def psemine_sync_session():
             'campaignId': session['campaignId'],
             'totalMiningRateGbpPerHour': session['totalMiningRateGbpPerHour'],
             'accumulatedOutputGbp': output,
-            'event': 'CHECKPOINT_ACCQUAL',
+            'event': 'CHECKPOINT_ACCRUAL',
             'timestamp': firestore.SERVER_TIMESTAMP,
             'createdAt': firestore.SERVER_TIMESTAMP,
         })
@@ -6658,8 +6699,9 @@ def psemine_create_withdrawal():
             "message": f"Insufficient available mining balance (£{available_balance:.2f} GBP available)."
         }), 400
 
-    # Create Pending Withdrawal Record
-    wd_ref = db.collection('psemine_withdrawals').document()
+    # Create Pending Withdrawal Record with deterministic doc ID to prevent race conditions
+    wd_doc_id = f"pending_{uid}_{int(time.time())}"
+    wd_ref = db.collection('psemine_withdrawals').document(wd_doc_id)
     wd_payload = {
         'id': wd_ref.id,
         'userId': uid,
@@ -6669,7 +6711,20 @@ def psemine_create_withdrawal():
         'createdAt': firestore.SERVER_TIMESTAMP,
         'updatedAt': firestore.SERVER_TIMESTAMP,
     }
-    wd_ref.set(wd_payload)
+
+    @firestore.transactional
+    def process_withdrawal_creation(txn):
+        pending_check = db.collection('psemine_withdrawals').where('userId', '==', uid).where('status', '==', 'pending').get(transaction=txn)
+        if pending_check:
+            raise Exception("PENDING_WITHDRAWAL_EXISTS")
+        txn.set(wd_ref, wd_payload)
+
+    try:
+        process_withdrawal_creation(db.transaction())
+    except Exception as e:
+        if "PENDING_WITHDRAWAL_EXISTS" in str(e):
+            return jsonify({"success": False, "error": "PENDING_WITHDRAWAL_EXISTS", "message": "You already have a pending withdrawal request under review."}), 409
+        return jsonify({"success": False, "error": "WITHDRAWAL_FAILED", "message": str(e)}), 400
 
     # Record Activity & Notification
     act_ref = db.collection('psemine_activities').document()

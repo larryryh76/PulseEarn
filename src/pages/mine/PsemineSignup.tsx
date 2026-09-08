@@ -90,22 +90,22 @@ export const PsemineSignup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080A11] text-white flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans selection:bg-[#00F2FE]/30">
-      {/* Glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00F2FE]/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#0A0A0F] text-white flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
+      {/* Background Pulse Glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md bg-[#0B0E17] border border-white/10 rounded-3xl p-8 shadow-2xl relative z-10">
+      <div className="w-full max-w-md bg-[#12121A] border border-white/10 rounded-2xl p-8 shadow-2xl relative z-10">
         <div className="flex flex-col items-center text-center mb-8">
           <Link to="/mine" className="mb-4">
-            <PsemineLogo size="md" />
+            <PsemineLogo size="lg" />
           </Link>
-          <h2 className="text-xl font-bold text-white tracking-tight">Create PSEmine Account</h2>
-          <p className="text-xs text-gray-400 mt-1">Initialize your isolated mining identity</p>
+          <h2 className="text-xl font-extrabold text-white tracking-tight">Create PSEmine Account</h2>
+          <p className="text-xs text-zinc-400 mt-1">Initialize your mining identity & entitlement profile</p>
         </div>
 
         {errorMsg && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-3">
-            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-400" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -115,10 +115,10 @@ export const PsemineSignup: React.FC = () => {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={googleLoading || loading}
-          className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-3 transition-all mb-6 disabled:opacity-50"
+          className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-3 transition-all mb-6 disabled:opacity-50"
         >
           {googleLoading ? (
-            <Loader2 size={16} className="animate-spin text-[#00F2FE]" />
+            <Loader2 size={16} className="animate-spin text-emerald-400" />
           ) : (
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
@@ -146,76 +146,76 @@ export const PsemineSignup: React.FC = () => {
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-white/10" />
           </div>
-          <span className="relative bg-[#0B0E17] px-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+          <span className="relative bg-[#12121A] px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
             Or register with email
           </span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Username / Display Name
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Miner_01"
-                className="w-full bg-white/5 border border-white/10 focus:border-[#00F2FE] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#00F2FE] transition-all"
+                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
-                className="w-full bg-white/5 border border-white/10 focus:border-[#00F2FE] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#00F2FE] transition-all"
+                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Password (Min. 8 characters)
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 focus:border-[#00F2FE] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#00F2FE] transition-all"
+                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Confirm Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 focus:border-[#00F2FE] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-[#00F2FE] transition-all"
+                className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
               />
             </div>
           </div>
@@ -223,7 +223,7 @@ export const PsemineSignup: React.FC = () => {
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full mt-4 py-3.5 px-4 bg-[#00F2FE] hover:bg-[#00D2FF] text-[#080A11] rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(0,242,254,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-4 py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -239,9 +239,9 @@ export const PsemineSignup: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-white/5 text-center text-xs text-gray-400">
+        <div className="mt-8 pt-6 border-t border-white/5 text-center text-xs text-zinc-400">
           Already have a PSEmine account?{' '}
-          <Link to="/mine/login" className="text-[#00F2FE] font-bold hover:underline">
+          <Link to="/mine/login" className="text-emerald-400 font-bold hover:underline">
             Log In
           </Link>
         </div>

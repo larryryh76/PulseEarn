@@ -179,10 +179,23 @@ export const PsemineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   useEffect(() => {
+    if (currentUser) {
+      (window as any).psemineAuthToken = () => currentUser.getIdToken();
+    } else {
+      (window as any).psemineAuthToken = async () => null;
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        (window as any).psemineAuthToken = () => user.getIdToken();
+      } else {
+        (window as any).psemineAuthToken = async () => null;
+      }
 
       if (user) {
         const profileRef = doc(db, 'psemine_profiles', user.uid);

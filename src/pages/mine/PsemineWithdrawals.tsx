@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PsemineLayout from '../../components/mine/PsemineLayout';
 import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import { db } from '../../firebase/config';
@@ -17,7 +17,7 @@ export const PsemineWithdrawals: React.FC = () => {
   const [amountGbp, setAmountGbp] = useState('');
   const [payoutAddress, setPayoutAddress] = useState('');
 
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = useCallback(async () => {
     if (!currentUser?.uid) return;
     setLoading(true);
     setFetchError(null);
@@ -40,11 +40,11 @@ export const PsemineWithdrawals: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     fetchWithdrawals();
-  }, [currentUser?.uid]);
+  }, [fetchWithdrawals]);
 
   const handleWithdrawalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -52,6 +52,7 @@ import MainLayout from './components/layout/MainLayout'
 
 // PSEmine Clean Rebuild Imports
 import { PsemineAuthProvider } from './contexts/PsemineAuthContext'
+import { PsemineWalletProvider } from './contexts/PsemineWalletContext'
 import { PsemineProtectedRoute, PseminePublicRoute } from './components/mine/PsemineRoutes'
 import PsemineHome from './pages/mine/PsemineHome'
 import PsemineLogin from './pages/mine/PsemineLogin'
@@ -64,6 +65,7 @@ import PsemineDashboard from './pages/mine/PsemineDashboard'
 import PsemineModulePage from './pages/mine/PsemineModulePage'
 import PsemineSupportPage from './pages/mine/PsemineSupportPage'
 import PsemineWalletPage from './pages/mine/PsemineWalletPage'
+import PsemineWithdrawals from './pages/mine/PsemineWithdrawals'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -174,13 +176,19 @@ function App() {
               <Route path="/forgot-password" element={<PsemineForgotPassword />} />
               <Route path="/reset-password" element={<PsemineResetPassword />} />
               <Route path="/guide" element={<PsemineProtectedRoute><PsemineGuide /></PsemineProtectedRoute>} />
-              <Route path="/dashboard" element={<PsemineProtectedRoute><PsemineDashboard /></PsemineProtectedRoute>} />
-              <Route path="/activity" element={<PsemineProtectedRoute><PsemineModulePage module="activity" /></PsemineProtectedRoute>} />
-              <Route path="/referrals" element={<PsemineProtectedRoute><PsemineModulePage module="referrals" /></PsemineProtectedRoute>} />
-              <Route path="/account" element={<PsemineProtectedRoute><PsemineModulePage module="account" /></PsemineProtectedRoute>} />
-              <Route path="/support" element={<PsemineProtectedRoute><PsemineSupportPage /></PsemineProtectedRoute>} />
-              <Route path="/notifications" element={<PsemineProtectedRoute><PsemineModulePage module="notifications" /></PsemineProtectedRoute>} />
-              <Route path="/wallet" element={<PsemineProtectedRoute><PsemineWalletPage /></PsemineProtectedRoute>} />
+
+              {/* Authenticated PSEmine Application Routes with Wallet Context */}
+              <Route element={<PsemineProtectedRoute><PsemineWalletProvider><Outlet /></PsemineWalletProvider></PsemineProtectedRoute>}>
+                <Route path="/dashboard" element={<PsemineDashboard />} />
+                <Route path="/activity" element={<PsemineModulePage module="activity" />} />
+                <Route path="/referrals" element={<PsemineModulePage module="referrals" />} />
+                <Route path="/account" element={<PsemineModulePage module="account" />} />
+                <Route path="/support" element={<PsemineSupportPage />} />
+                <Route path="/notifications" element={<PsemineModulePage module="notifications" />} />
+                <Route path="/wallet" element={<PsemineWalletPage />} />
+                <Route path="/withdrawals" element={<PsemineWithdrawals />} />
+              </Route>
+
               <Route path="*" element={<Navigate to="/mine" replace />} />
             </Routes>
           </PsemineAuthProvider>

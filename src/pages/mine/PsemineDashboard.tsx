@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { usePsemineAuth } from '../../contexts/PsemineAuthContext';
 import { usePsemineWallet } from '../../contexts/PsemineWalletContext';
 import { PsemineLayout } from '../../components/mine/PsemineLayout';
@@ -23,7 +23,7 @@ export const PsemineDashboard: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<{
-    campaign: any;
+    campaign: unknown;
     ownedTools: PsemineToolOwnership[];
     session: PsemineMiningSession | null;
     referrals: { qualifiedCount: number; bonusRateGbpPerHour: number };
@@ -42,7 +42,7 @@ export const PsemineDashboard: React.FC = () => {
   const [selectedToolToBuy, setSelectedToolToBuy] = useState<PsemineTool | null>(null);
   const [liveOutput, setLiveOutput] = useState<number>(0);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
@@ -80,17 +80,17 @@ export const PsemineDashboard: React.FC = () => {
       } else if (!toolsRes.ok || !toolsData.success) {
         toast.error(toolsData.message || toolsData.error || 'Failed to fetch tools catalog.');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[PSEmine Dashboard] Error loading data:', err);
       toast.error('Unable to fetch live PSEmine data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     fetchDashboard();
-  }, [currentUser]);
+  }, [fetchDashboard]);
 
   // Real-time smooth local output interpolation ticker
   useEffect(() => {

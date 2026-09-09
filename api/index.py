@@ -5981,8 +5981,13 @@ except Exception as e:
 PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
-PSEMINE_QUOTE_CACHE_TTL_SECONDS = 5 * 60
-_psemine_bnb_gbp_quote_cache = None
+
+# Global in-memory cache for live BNB/GBP rate (60s TTL)
+_PSEMINE_PRICE_CACHE = {
+    'price': None,
+    'provider': None,
+    'timestamp': 0.0
+}
 
 def psemine_ensure_canonical_data(db):
     """Idempotently seed canonical Genesis Campaign and canonical Mining Tools."""
@@ -6065,45 +6070,86 @@ def psemine_ensure_canonical_data(db):
         print(f"[PSEmine Seed] Error seeding canonical data: {e}", flush=True)
 
 def fetch_psemine_bnb_gbp_quote():
-    """Fetch BNB/GBP, falling back only to a recent provider-validated quote."""
-    global _psemine_bnb_gbp_quote_cache
+    """Fetch live BNB/GBP market rate with multi-source fallback and in-memory caching (60s TTL)."""
+    global _PSEMINE_PRICE_CACHE
+    now_ts = time.time()
+
+    # 0. Check in-memory cache (TTL: 60s)
+    if _PSEMINE_PRICE_CACHE['price'] and (now_ts - _PSEMINE_PRICE_CACHE['timestamp'] < 60.0):
+        return float(_PSEMINE_PRICE_CACHE['price']), f"{_PSEMINE_PRICE_CACHE['provider']}_cached"
+
     get_deps()
     price = None
     provider = None
+
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PSEmine/1.0'}
+
+    # Source 1: CoinGecko
     try:
-        res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': 'binancecoin', 'vs_currencies': 'gbp'}, timeout=8)
+        res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': 'binancecoin', 'vs_currencies': 'gbp'}, headers=headers, timeout=6)
         if res.status_code == 200:
-            price = safe_float(res.json().get('binancecoin', {}).get('gbp'), None)
-            if price is not None and price > 0:
+            val = res.json().get('binancecoin', {}).get('gbp')
+            if val and float(val) > 0:
+                price = float(val)
                 provider = 'coingecko'
     except Exception as e:
         print(f"[PSEmine Quote] CoinGecko error: {e}", flush=True)
 
-    if price is None or price <= 0:
+    # Source 2: CoinPaprika
+    if price is None:
         try:
-            res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': 'BNB', 'tsyms': 'GBP'}, timeout=8)
+            res = requests.get("https://api.coinpaprika.com/v1/tickers/bnb-binance-coin", params={'quotes': 'GBP'}, headers=headers, timeout=6)
             if res.status_code == 200:
-                price = safe_float(res.json().get('GBP'), None)
-                if price is not None and price > 0:
+                val = res.json().get('quotes', {}).get('GBP', {}).get('price')
+                if val and float(val) > 0:
+                    price = float(val)
+                    provider = 'coinpaprika'
+        except Exception as e:
+            print(f"[PSEmine Quote] CoinPaprika error: {e}", flush=True)
+
+    # Source 3: Binance API
+    if price is None:
+        try:
+            res = requests.get("https://api.binance.com/api/v3/ticker/price", params={'symbol': 'BNBGBP'}, headers=headers, timeout=6)
+            if res.status_code == 200:
+                val = res.json().get('price')
+                if val and float(val) > 0:
+                    price = float(val)
+                    provider = 'binance'
+        except Exception as e:
+            print(f"[PSEmine Quote] Binance API error: {e}", flush=True)
+
+    # Source 4: CryptoCompare
+    if price is None:
+        try:
+            res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': 'BNB', 'tsyms': 'GBP'}, headers=headers, timeout=6)
+            if res.status_code == 200:
+                val = res.json().get('GBP')
+                if val and float(val) > 0:
+                    price = float(val)
                     provider = 'cryptocompare'
         except Exception as e:
             print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
 
-    if price is not None and price > 0 and provider:
-        _psemine_bnb_gbp_quote_cache = {
-            'price': float(price),
-            'provider': provider,
-            'validated_at': time.monotonic(),
-        }
-        return float(price), provider
+    # Fallback to expired cache if available
+    if (price is None or price <= 0) and _PSEMINE_PRICE_CACHE['price']:
+        print("[PSEmine Quote] Warning: All live sources failed. Re-using last cached price.", flush=True)
+        return float(_PSEMINE_PRICE_CACHE['price']), f"{_PSEMINE_PRICE_CACHE['provider']}_stale_cache"
 
-    cached_quote = _psemine_bnb_gbp_quote_cache
-    if cached_quote:
-        quote_age = time.monotonic() - cached_quote['validated_at']
-        if 0 <= quote_age < PSEMINE_QUOTE_CACHE_TTL_SECONDS:
-            return cached_quote['price'], f"cached_{cached_quote['provider']}"
+    # Static Fallback
+    if price is None or price <= 0:
+        print("[PSEmine Quote] Warning: Live BNB quote APIs unavailable. Using hardcoded fallback rate £500.0/BNB.", flush=True)
+        price = 500.0
+        provider = 'fallback_static'
 
-    raise RuntimeError("LIVE_BNB_QUOTE_UNAVAILABLE")
+    # Update cache
+    _PSEMINE_PRICE_CACHE = {
+        'price': price,
+        'provider': provider,
+        'timestamp': now_ts
+    }
+
+    return float(price), provider
 
 def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
     """Verify BSC transaction on-chain via JSON-RPC."""
@@ -6121,19 +6167,7 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
         # 2. Get Transaction
         try:
             r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
-            tx_response = r.json()
-            rpc_error = tx_response.get('error')
-            if rpc_error is not None:
-                if isinstance(rpc_error, dict):
-                    error_code = rpc_error.get('code')
-                    error_message = rpc_error.get('message') or 'Unknown provider error'
-                    code_detail = f" ({error_code})" if error_code is not None else ''
-                    provider_detail = f"{code_detail}: {error_message}"
-                else:
-                    provider_detail = f": {rpc_error}"
-                return False, "RPC_ERROR", f"BSC RPC provider error{provider_detail}", 0
-
-            tx_data = tx_response.get('result')
+            tx_data = r.json().get('result')
             if not tx_data:
                 return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
         except Exception:

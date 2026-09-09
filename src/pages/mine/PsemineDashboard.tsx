@@ -155,57 +155,83 @@ export const PsemineDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Real-time Mining Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Real-time Mining Metrics - Premium Fintech Glassmorphism Design */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Mining Output */}
-          <div className="bg-[#12121A] border border-emerald-500/30 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+          <div className="bg-[#12121A]/80 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-6 space-y-3 relative overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Accumulated Output</span>
-              <Zap size={16} className="text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400/90">Accumulated Output</span>
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Zap size={18} className="motion-safe:animate-pulse" />
+              </div>
             </div>
-            <p className="text-2xl font-black text-white font-mono">
-              £{liveOutput.toFixed(4)} <span className="text-xs text-zinc-400 font-sans">GBP</span>
-            </p>
-            <p className="text-[10px] text-emerald-400 font-medium">Server-Authoritative Output</p>
+            <div className="space-y-1">
+              <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight drop-shadow-[0_2px_10px_rgba(16,185,129,0.2)]">
+                £{liveOutput.toFixed(4)}
+              </p>
+              <p className="text-xs font-bold text-emerald-400 tracking-wide">GBP TOTAL YIELD</p>
+            </div>
+            <div className="pt-2 border-t border-emerald-500/20 flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 motion-safe:animate-ping inline-block" />
+              <span>Client-Side Estimate from Server Data</span>
+            </div>
           </div>
 
           {/* Mining Rate */}
-          <div className="bg-[#12121A] border border-white/10 rounded-2xl p-5 space-y-2">
+          <div className="bg-[#12121A]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Combined Mining Rate</span>
-              <TrendingUp size={16} className="text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Mining Rate</span>
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <TrendingUp size={18} />
+              </div>
             </div>
-            <p className="text-2xl font-black text-emerald-400 font-mono">
-              £{(dashboardData.session?.totalMiningRateGbpPerHour || 0).toFixed(2)} <span className="text-xs text-zinc-400 font-sans">/ hr</span>
-            </p>
-            <p className="text-[10px] text-zinc-400">
-              Base £{(dashboardData.session?.baseMiningRateGbpPerHour || 0).toFixed(2)} + Ref Bonus £{(dashboardData.session?.referralBonusGbpPerHour || 0).toFixed(2)}
+            <div className="space-y-1">
+              <p className="text-3xl sm:text-4xl font-black text-emerald-400 font-mono tracking-tight">
+                £{(dashboardData.session?.totalMiningRateGbpPerHour || 0).toFixed(2)}
+              </p>
+              <p className="text-xs font-bold text-zinc-400 tracking-wide">GBP / HOUR</p>
+            </div>
+            <p className="text-[11px] text-zinc-400 pt-2 border-t border-white/5">
+              Base £{(dashboardData.session?.baseMiningRateGbpPerHour || 0).toFixed(2)} + Ref £{(dashboardData.session?.referralBonusGbpPerHour || 0).toFixed(2)}
             </p>
           </div>
 
           {/* Active Tools */}
-          <div className="bg-[#12121A] border border-white/10 rounded-2xl p-5 space-y-2">
+          <div className="bg-[#12121A]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Active Owned Tools</span>
-              <Cpu size={16} className="text-amber-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Active Owned Tools</span>
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Cpu size={18} />
+              </div>
             </div>
-            <p className="text-2xl font-black text-white">
-              {dashboardData.ownedTools.length} <span className="text-xs text-zinc-400 font-normal">Active Tool{dashboardData.ownedTools.length === 1 ? '' : 's'}</span>
-            </p>
-            <p className="text-[10px] text-zinc-400">Genesis Campaign Entitlements</p>
+            <div className="space-y-1">
+              <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+                {dashboardData.ownedTools.length}
+              </p>
+              <p className="text-xs font-bold text-zinc-400 tracking-wide">
+                ACTIVE TOOL{dashboardData.ownedTools.length === 1 ? '' : 'S'}
+              </p>
+            </div>
+            <p className="text-[11px] text-zinc-400 pt-2 border-t border-white/5">Genesis Campaign Hardware Entitlements</p>
           </div>
 
           {/* Qualified Referrals */}
-          <div className="bg-[#12121A] border border-white/10 rounded-2xl p-5 space-y-2">
+          <div className="bg-[#12121A]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Qualified Referrals</span>
-              <UsersRound size={16} className="text-cyan-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Qualified Referrals</span>
+              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <UsersRound size={18} />
+              </div>
             </div>
-            <p className="text-2xl font-black text-white">
-              {dashboardData.referrals.qualifiedCount} <span className="text-xs text-zinc-400 font-normal">/ 5 Max</span>
-            </p>
-            <p className="text-[10px] text-cyan-400">
-              +£{(dashboardData.referrals.bonusRateGbpPerHour).toFixed(2)}/hr Mining Bonus
+            <div className="space-y-1">
+              <p className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+                {dashboardData.referrals.qualifiedCount} <span className="text-lg text-zinc-500 font-sans font-normal">/ 5 Max</span>
+              </p>
+              <p className="text-xs font-bold text-cyan-400 tracking-wide">QUALIFIED MEMBERS</p>
+            </div>
+            <p className="text-[11px] text-cyan-400 pt-2 border-t border-white/5">
+              +£{(dashboardData.referrals.bonusRateGbpPerHour).toFixed(2)}/hr Mining Speed Boost
             </p>
           </div>
         </div>
@@ -244,7 +270,7 @@ export const PsemineDashboard: React.FC = () => {
                     <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                       {tool.toolId}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
                   </div>
                   <div>
                     <p className="text-xs text-zinc-400">Mining Yield</p>

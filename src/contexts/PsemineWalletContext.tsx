@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useConnection, useTrustModal, useConnect } from '@trustwallet/connect-react';
 import { useSendTransaction } from '@trustwallet/connect-eip155-react';
@@ -34,19 +34,96 @@ interface PsemineWalletContextType {
 const PsemineWalletContext = createContext<PsemineWalletContextType | undefined>(undefined);
 
 export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isConnected, address } = useConnection({ namespaceId: 'eip155' });
+  const { isConnected: isTrustConnected, address: trustAddress, connection } = useConnection({ namespaceId: 'eip155' });
   const { open } = useTrustModal();
   const { disconnect } = useConnect();
   const { mutateAsync: sendTxAsync, isPending } = useSendTransaction();
 
   const [isWebView, setIsWebView] = useState(false);
   const [showWebViewModal, setShowWebViewModal] = useState(false);
+  const [detectedChainId, setDetectedChainId] = useState<number | null>(null);
+  const [activeAddress, setActiveAddress] = useState<string | null>(null);
 
   useEffect(() => {
     if (isInAppWebView()) {
       setIsWebView(true);
     }
   }, []);
+
+  // EIP-1193 Chain & Address Detection
+  const refreshNetworkAndAccounts = useCallback(async () => {
+    let currentChainId: number | null = null;
+    let currentAddress: string | null = trustAddress || null;
+
+    // 1. Check connection object from TrustConnect
+    if (connection?.chain) {
+      const rawChain = (connection.chain as any).reference ?? (connection.chain as any).id;
+      if (rawChain !== undefined && rawChain !== null) {
+        currentChainId = typeof rawChain === 'number' ? rawChain : parseInt(String(rawChain), 10);
+      }
+    }
+
+    // 2. Check window.ethereum for direct EIP-1193 provider state
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      try {
+        const ethereum = (window as any).ethereum;
+        const hexChainId = await ethereum.request({ method: 'eth_chainId' });
+        if (hexChainId) {
+          currentChainId = parseInt(hexChainId, 16);
+        }
+        const accounts = await ethereum.request({ method: 'eth_accounts' });
+        if (accounts && accounts.length > 0) {
+          currentAddress = accounts[0];
+        }
+      } catch (err) {
+        console.warn('Error querying window.ethereum state:', err);
+      }
+    }
+
+    setDetectedChainId(currentChainId);
+    setActiveAddress(currentAddress || trustAddress || null);
+  }, [connection, trustAddress]);
+
+  // Provider Listeners for EIP-1193
+  useEffect(() => {
+    refreshNetworkAndAccounts();
+
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      const ethereum = (window as any).ethereum;
+
+      const handleChainChanged = (hexChainId: string) => {
+        const newChainId = parseInt(hexChainId, 16);
+        setDetectedChainId(newChainId);
+      };
+
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setActiveAddress(accounts[0]);
+        } else {
+          setActiveAddress(null);
+        }
+      };
+
+      const handleDisconnect = () => {
+        setDetectedChainId(null);
+        setActiveAddress(null);
+      };
+
+      if (ethereum.on) {
+        ethereum.on('chainChanged', handleChainChanged);
+        ethereum.on('accountsChanged', handleAccountsChanged);
+        ethereum.on('disconnect', handleDisconnect);
+      }
+
+      return () => {
+        if (ethereum.removeListener) {
+          ethereum.removeListener('chainChanged', handleChainChanged);
+          ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          ethereum.removeListener('disconnect', handleDisconnect);
+        }
+      };
+    }
+  }, [refreshNetworkAndAccounts]);
 
   const connectWallet = async () => {
     if (isWebView) {
@@ -65,6 +142,8 @@ export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({
   const disconnectWallet = () => {
     try {
       disconnect();
+      setActiveAddress(null);
+      setDetectedChainId(null);
       toast.success('Wallet disconnected');
     } catch (err: any) {
       console.error('Wallet disconnect error:', err);
@@ -72,11 +151,69 @@ export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const switchToBscNetwork = async (): Promise<boolean> => {
-    return true;
+    if (detectedChainId === BSC_CHAIN_ID) {
+      return true;
+    }
+
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      const ethereum = (window as any).ethereum;
+      try {
+        await ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: BSC_CHAIN_ID_HEX }],
+        });
+        setDetectedChainId(BSC_CHAIN_ID);
+        toast.success('Switched to BNB Smart Chain');
+        return true;
+      } catch (switchError: any) {
+        // Error code 4902 indicates that the chain has not been added to wallet.
+        if (switchError?.code === 4902 || switchError?.message?.includes('4902')) {
+          try {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [
+                {
+                  chainId: BSC_CHAIN_ID_HEX,
+                  chainName: 'BNB Smart Chain',
+                  nativeCurrency: {
+                    name: 'BNB',
+                    symbol: 'BNB',
+                    decimals: 18,
+                  },
+                  rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                  blockExplorerUrls: ['https://bscscan.com/'],
+                },
+              ],
+            });
+            setDetectedChainId(BSC_CHAIN_ID);
+            toast.success('Added and switched to BNB Smart Chain');
+            return true;
+          } catch (addError: any) {
+            console.error('Failed to add BSC network:', addError);
+            toast.error('Failed to add BSC network to wallet');
+            return false;
+          }
+        }
+        console.error('Failed to switch to BSC network:', switchError);
+        toast.error(switchError?.message || 'User rejected network switch');
+        return false;
+      }
+    }
+
+    toast.error('Provider does not support automatic network switching. Please switch to BSC (Chain ID 56) in your wallet.');
+    return false;
   };
 
   const sendBnbPayment = async (params: { recipient: string; valueWeiHex: string }): Promise<string> => {
-    if (!address) throw new Error('Wallet not connected');
+    const isConnectedNow = !!activeAddress || !!isTrustConnected;
+    if (!isConnectedNow) throw new Error('Wallet not connected');
+
+    if (detectedChainId !== BSC_CHAIN_ID) {
+      const switched = await switchToBscNetwork();
+      if (!switched) {
+        throw new Error('Please switch to BNB Smart Chain (Chain ID 56) before sending payment.');
+      }
+    }
 
     const valueBigInt = BigInt(params.valueWeiHex);
 
@@ -93,14 +230,17 @@ export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({
     return hash;
   };
 
+  const finalConnected = (!!isTrustConnected && !!trustAddress) || !!activeAddress;
+  const isBscNetwork = finalConnected && detectedChainId === BSC_CHAIN_ID;
+
   return (
     <PsemineWalletContext.Provider
       value={{
-        address: address || null,
-        chainId: BSC_CHAIN_ID,
+        address: activeAddress || trustAddress || null,
+        chainId: detectedChainId,
         isConnecting: isPending,
-        isConnected: !!isConnected && !!address,
-        isBscNetwork: true,
+        isConnected: finalConnected,
+        isBscNetwork,
         isWebView,
         connectWallet,
         disconnectWallet,

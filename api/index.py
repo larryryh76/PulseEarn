@@ -5981,6 +5981,7 @@ except Exception as e:
 PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
+PSEMINE_MIN_CONFIRMATIONS = int(os.environ.get("PSEMINE_MIN_CONFIRMATIONS", "3"))
 
 # Global in-memory cache for live BNB/GBP rate (60s TTL)
 _PSEMINE_PRICE_CACHE = {
@@ -6070,7 +6071,11 @@ def psemine_ensure_canonical_data(db):
         print(f"[PSEmine Seed] Error seeding canonical data: {e}", flush=True)
 
 def fetch_psemine_bnb_gbp_quote():
-    """Fetch live BNB/GBP market rate with multi-source fallback and in-memory caching (60s TTL)."""
+    """Fetch live BNB/GBP market rate with multi-source fallback and in-memory caching (60s TTL).
+    If all live providers fail, returns cached price if less than 300s old.
+    If no fresh/bounded rate is available, returns (None, 'PRICE_UNAVAILABLE').
+    NO STATIC FALLBACK IS ALLOWED FOR NEW QUOTES.
+    """
     global _PSEMINE_PRICE_CACHE
     now_ts = time.time()
 
@@ -6131,29 +6136,35 @@ def fetch_psemine_bnb_gbp_quote():
         except Exception as e:
             print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
 
-    # Fallback to expired cache if available
-    if (price is None or price <= 0) and _PSEMINE_PRICE_CACHE['price']:
-        print("[PSEmine Quote] Warning: All live sources failed. Re-using last cached price.", flush=True)
+    # Sanity check: Reasonable BNB/GBP rate bounds (£50 - £10,000)
+    if price is not None and (price < 50.0 or price > 10000.0):
+        print(f"[PSEmine Quote] Warning: Provider returned out-of-bounds price £{price}/BNB. Rejecting.", flush=True)
+        price = None
+        provider = None
+
+    if price is not None:
+        _PSEMINE_PRICE_CACHE = {
+            'price': price,
+            'provider': provider,
+            'timestamp': now_ts
+        }
+        return float(price), provider
+
+    # Max allowed stale cache TTL: 300s (5 minutes)
+    if _PSEMINE_PRICE_CACHE['price'] and (now_ts - _PSEMINE_PRICE_CACHE['timestamp'] < 300.0):
+        print("[PSEmine Quote] Warning: Live sources failed. Using bounded stale cache (<300s old).", flush=True)
         return float(_PSEMINE_PRICE_CACHE['price']), f"{_PSEMINE_PRICE_CACHE['provider']}_stale_cache"
 
-    # Static Fallback
-    if price is None or price <= 0:
-        print("[PSEmine Quote] Warning: Live BNB quote APIs unavailable. Using hardcoded fallback rate £500.0/BNB.", flush=True)
-        price = 500.0
-        provider = 'fallback_static'
-
-    # Update cache
-    _PSEMINE_PRICE_CACHE = {
-        'price': price,
-        'provider': provider,
-        'timestamp': now_ts
-    }
-
-    return float(price), provider
+    print("[PSEmine Quote] Error: Live quote providers unavailable and no fresh cache present.", flush=True)
+    return None, "PRICE_UNAVAILABLE"
 
 def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, expected_sender=None):
-    """Verify BSC transaction on-chain via JSON-RPC."""
+    """Verify BSC transaction on-chain via JSON-RPC.
+    Validates chain ID, transaction existence, receipt status, recipient, sender binding, value, and block confirmation depth.
+    """
     rpc_url = os.environ.get('PSEMINE_BSC_RPC_URL') or 'https://bsc-dataseed.binance.org/'
+    min_confirmations = PSEMINE_MIN_CONFIRMATIONS
+
     try:
         # 1. Chain ID check
         r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}, timeout=8)
@@ -6191,14 +6202,25 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
         from_addr = (tx_data.get('from') or '').lower()
         if expected_sender and expected_sender.strip():
             if from_addr != expected_sender.strip().lower():
-                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) does not match order wallet ({expected_sender})", 0
+                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) on-chain does not match order payment wallet ({expected_sender.strip().lower()})", 0
 
         value_wei = int(tx_data.get('value', '0x0'), 16)
         if value_wei != int(expected_wei_amount):
             return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0
 
+        # 4. Check Block Confirmation Depth
         block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
-        return True, None, None, block_number
+
+        # Get latest block number
+        r_block = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 4}, timeout=8)
+        latest_block_hex = r_block.json().get('result')
+        latest_block = int(latest_block_hex, 16) if latest_block_hex else block_number
+
+        depth = max(1, latest_block - block_number + 1)
+        if depth < min_confirmations:
+            return False, "INSUFFICIENT_CONFIRMATIONS", f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) required.", depth
+
+        return True, None, None, depth
 
     except Exception as e:
         return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0
@@ -6338,6 +6360,7 @@ def psemine_create_order():
         uid = request.user['uid']
         data = request.json or {}
         tool_id = (data.get('toolId') or '').strip().lower()
+        payment_wallet = (data.get('paymentWallet') or data.get('paymentAddress') or '').strip().lower()
 
         if not tool_id:
             return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
@@ -6368,7 +6391,14 @@ def psemine_create_order():
         try:
             bnb_gbp_price, quote_provider = fetch_psemine_bnb_gbp_quote()
         except Exception as e:
-            return jsonify({"success": False, "error": "QUOTE_UNAVAILABLE", "message": str(e)}), 503
+            return jsonify({"success": False, "error": "PRICE_SERVICE_UNAVAILABLE", "message": str(e)}), 503
+
+        if bnb_gbp_price is None or bnb_gbp_price <= 0:
+            return jsonify({
+                "success": False,
+                "error": "PRICE_SERVICE_UNAVAILABLE",
+                "message": "Live BNB exchange rate service is temporarily unavailable. Please try again in a few moments."
+            }), 503
 
         gbp_price = float(tool['priceGbp'])
         bnb_amount = gbp_price / bnb_gbp_price
@@ -6392,6 +6422,7 @@ def psemine_create_order():
             'quoteTimestamp': now_dt.isoformat(),
             'quoteExpiry': expiry_dt.isoformat(),
             'destinationAddress': PSEMINE_PAYMENT_ADDRESS,
+            'intendedPaymentWallet': payment_wallet,
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'status': 'quoted',
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -6459,10 +6490,46 @@ def psemine_verify_payment():
         except Exception:
             pass
 
+    provided_wallet = (data.get('paymentWallet') or '').strip().lower()
+    expected_sender = (order.get('intendedPaymentWallet') or provided_wallet or '').strip().lower()
+
     # On-Chain Verification
-    verified, err_code, err_msg, block_num = verify_bsc_transaction(tx_hash, order['destinationAddress'], order['payableWeiAmount'])
+    verified, err_code, err_msg, block_depth = verify_bsc_transaction(
+        tx_hash,
+        order['destinationAddress'],
+        order['payableWeiAmount'],
+        expected_sender=expected_sender
+    )
+
     if not verified:
-        return jsonify({"success": False, "error": err_code or "VERIFICATION_FAILED", "message": err_msg or "On-chain verification failed."}), 422
+        if err_code == "SENDER_MISMATCH":
+            order_ref.update({
+                'status': 'manual_review',
+                'flaggedReason': err_msg,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+            pay_doc_id = f"pay_{tx_hash}"
+            db.collection('psemine_payments').document(pay_doc_id).set({
+                'id': pay_doc_id,
+                'orderId': order_id,
+                'userId': uid,
+                'txHash': tx_hash,
+                'status': 'flagged_mismatch',
+                'flaggedReason': err_msg,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+            return jsonify({
+                "success": False,
+                "error": "SENDER_MISMATCH",
+                "message": "Payment wallet on-chain does not match order payment wallet. Order flagged for manual review."
+            }), 422
+
+        return jsonify({
+            "success": False,
+            "error": err_code or "VERIFICATION_FAILED",
+            "message": err_msg or "On-chain verification failed.",
+            "confirmations": block_depth
+        }), 422
 
     # Fetch Tool Details
     tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
@@ -6693,26 +6760,38 @@ def psemine_dashboard_data():
 @verify_token
 @require_db
 def psemine_sync_session():
-    """Sync mining session checkpoint and write controlled accrual to ledger."""
+    """Sync mining session checkpoint and write controlled accrual to ledger with strict idempotency."""
     db = get_db()
     uid = request.user['uid']
 
     session = recalculate_psemine_user_mining_state(db, uid)
     output = session['accumulatedOutputGbp']
+    state = session['state']
 
-    # Record accrual checkpoint in psemine_mining_ledger if active and output > 0
-    if session['state'] == 'active' and output > 0:
-        ledger_ref = db.collection('psemine_mining_ledger').document()
-        ledger_ref.set({
-            'id': ledger_ref.id,
+    # Record accrual checkpoint in psemine_mining_ledger using deterministic hourly key
+    if state == 'active' and output > 0:
+        now_dt = datetime.now(timezone.utc)
+        hour_slot = now_dt.strftime('%Y%m%d_%H')
+        ledger_doc_id = f"accrual_{uid}_{hour_slot}"
+
+        ledger_ref = db.collection('psemine_mining_ledger').document(ledger_doc_id)
+        ledger_snap = ledger_ref.get()
+
+        ledger_payload = {
+            'id': ledger_doc_id,
             'userId': uid,
             'campaignId': session['campaignId'],
             'totalMiningRateGbpPerHour': session['totalMiningRateGbpPerHour'],
-            'accumulatedOutputGbp': output,
+            'accumulatedOutputGbp': round(output, 4),
             'event': 'CHECKPOINT_ACCRUAL',
-            'timestamp': firestore.SERVER_TIMESTAMP,
-            'createdAt': firestore.SERVER_TIMESTAMP,
-        })
+            'hourSlot': hour_slot,
+            'updatedAt': firestore.SERVER_TIMESTAMP,
+        }
+
+        if not ledger_snap.exists:
+            ledger_payload['createdAt'] = firestore.SERVER_TIMESTAMP
+
+        ledger_ref.set(ledger_payload, merge=True)
 
     return jsonify({"success": True, "session": session})
 

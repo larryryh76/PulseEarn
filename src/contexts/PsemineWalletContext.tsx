@@ -25,7 +25,7 @@ interface PsemineWalletContextType {
   isConnected: boolean;
   isBscNetwork: boolean;
   isWebView: boolean;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => void;
   disconnectWallet: () => void;
   switchToBscNetwork: () => Promise<boolean>;
   sendBnbPayment: (params: { recipient: string; valueWeiHex: string }) => Promise<string>;
@@ -48,13 +48,14 @@ export const PsemineWalletProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const connectWallet = async () => {
-    if (isWebView) {
+  const connectWallet = () => {
+    if (isInAppWebView()) {
       setShowWebViewModal(true);
       return;
     }
 
     try {
+      // Direct, synchronous invocation of modal open on user click event
       open({ type: 'namespace', namespaceId: 'eip155' });
     } catch (err: any) {
       console.error('Wallet connection error:', err);

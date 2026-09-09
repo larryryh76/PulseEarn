@@ -193,7 +193,7 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
               </div>
             )}
             <div className="flex justify-between text-[10px] text-zinc-500 pt-1 border-t border-white/5">
-              <span>Provider: {order.quoteProvider}</span>
+              <span>Price Source: <strong className="text-zinc-300 uppercase">{order.quoteProvider}</strong></span>
               <span>Quote Expires in 15 mins</span>
             </div>
           </div>

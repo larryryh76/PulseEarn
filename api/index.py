@@ -61,39 +61,40 @@ def _validate_launch_url(url):
         logging.warning(f"[URL Validation] Failed to parse URL: {e}")
         return None
 
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 # Lazy imports for stabilization
 requests = None
 firebase_admin = None
 firestore = None
 auth = None
-CORS = None
 
 def get_deps():
-    global requests, firebase_admin, firestore, auth, CORS
+    global requests, firebase_admin, firestore, auth
     if requests is not None: return
     try:
         import requests as req
         import firebase_admin as fa
         from firebase_admin import firestore as fs, auth as au
-        from flask_cors import CORS as cors
-        requests, firebase_admin, firestore, auth, CORS = req, fa, fs, au, cors
+        requests, firebase_admin, firestore, auth = req, fa, fs, au
     except Exception as e:
         print(f"BOOT_ERROR: Dependency loading failed: {str(e)}")
         sys.stdout.flush()
-
-from flask import Flask, request, jsonify
-app = Flask(__name__)
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     from werkzeug.exceptions import HTTPException
     if isinstance(e, HTTPException):
-        return jsonify({"success": False, "error": e.name.upper().replace(' ', '_'), "message": e.description}), e.code
+        return jsonify({"success": False, "error": e.name.upper().replace(' ', '_'), "message": "An internal server error occurred."}), e.code
     tb = traceback.format_exc()
     print(tb); sys.stdout.flush()
     return jsonify({
         "success": False, "error": "INTERNAL_SERVER_ERROR",
-        "message": str(e) if os.environ.get('VERCEL_ENV') != 'production' else "An internal server error occurred."
+        "message": "An internal server error occurred."
     }), 500
 
 def get_project_id():
@@ -195,7 +196,7 @@ def require_db(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         db = get_db()
-        if not db: return jsonify({"success": False, "error": "DATABASE_OFFLINE"}), 503
+        if not db: return jsonify({"success": False, "error": "DATABASE_UNAVAILABLE", "message": "Database unavailable, please try again later."}), 503
         return f(*args, **kwargs)
     return decorated_function
 
@@ -6964,5 +6965,4 @@ def admin_psemine_review_withdrawal(withdrawal_id):
 
     return jsonify({"success": True, "withdrawalId": withdrawal_id, "status": "completed" if action == 'APPROVE' else "rejected"})
 
-if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

@@ -55,7 +55,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
     }
   }, [isOpen, tool.id, isMaxReached]);
 
-  // 2. Quote timer countdown
+  // 2. Quote timer countdown with strict expiry invalidation
   useEffect(() => {
     if (!activeQuote) return;
 
@@ -67,14 +67,19 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
 
       if (diffSec <= 0) {
         toast('Quote expired. Refreshing BNB exchange rate...', { icon: '⏳' });
-        requestQuote(tool.id);
+        // Clear expired quote immediately to disable payment dispatch
+        clearQuote();
+        setQuoteLoading(true);
+        requestQuote(tool.id).finally(() => setQuoteLoading(false));
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeQuote, tool.id]);
+  }, [activeQuote, tool.id, clearQuote, requestQuote]);
 
   if (!isOpen) return null;
+
+  const isQuoteExpired = !activeQuote || new Date(activeQuote.expiresAt).getTime() <= Date.now() || quoteSecondsLeft <= 0;
 
   const copyToClipboard = (text: string, type: 'address' | 'amount') => {
     navigator.clipboard.writeText(text);
@@ -90,7 +95,13 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
 
   // Direct Web3 Send BNB Transaction via Connected Wallet
   const handleDirectWeb3Pay = async () => {
-    if (!activeQuote) return;
+    if (!activeQuote || isQuoteExpired) {
+      toast.error('Quote has expired. Refreshing exchange rate...');
+      clearQuote();
+      setQuoteLoading(true);
+      requestQuote(tool.id).finally(() => setQuoteLoading(false));
+      return;
+    }
     
     let walletAddr = connectedWallet;
     if (!walletAddr) {
@@ -102,7 +113,64 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
     try {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         const ethereum = (window as any).ethereum;
+
+        // Verify and enforce BNB Smart Chain (BSC Mainnet: 0x38 / 56) immediately before dispatch
+        const BSC_MAINNET_HEX = '0x38';
+        try {
+          const currentChainId = await ethereum.request({ method: 'eth_chainId' });
+          if (currentChainId !== BSC_MAINNET_HEX) {
+            toast.loading('Switching network to BNB Smart Chain...', { id: 'chain-switch' });
+            try {
+              await ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BSC_MAINNET_HEX }]
+              });
+            } catch (switchError: any) {
+              if (switchError.code === 4902) {
+                await ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [
+                    {
+                      chainId: BSC_MAINNET_HEX,
+                      chainName: 'BNB Smart Chain Mainnet',
+                      nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                      rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                      blockExplorerUrls: ['https://bscscan.com']
+                    }
+                  ]
+                });
+              } else {
+                toast.dismiss('chain-switch');
+                throw switchError;
+              }
+            }
+            toast.dismiss('chain-switch');
+
+            // Verify chain was successfully changed
+            const postSwitchChainId = await ethereum.request({ method: 'eth_chainId' });
+            if (postSwitchChainId !== BSC_MAINNET_HEX) {
+              toast.error('You must switch to BNB Smart Chain to dispatch payment.');
+              setIsSubmitting(false);
+              return;
+            }
+          }
+        } catch (chainErr: any) {
+          toast.dismiss('chain-switch');
+          toast.error(chainErr?.message || 'Network switch rejected. Payment dispatch aborted.');
+          setIsSubmitting(false);
+          return;
+        }
         
+        // Re-validate quote expiry after potential network switch delay
+        if (new Date(activeQuote.expiresAt).getTime() <= Date.now()) {
+          toast.error('Quote expired during wallet interaction. Refreshing...');
+          clearQuote();
+          setQuoteLoading(true);
+          requestQuote(tool.id).finally(() => setQuoteLoading(false));
+          setIsSubmitting(false);
+          return;
+        }
+
         // Convert BNB amount to Wei hex string
         const bnbAmountNum = activeQuote.bnbAmount;
         const weiValueBigInt = BigInt(Math.floor(bnbAmountNum * 1e18));
@@ -145,7 +213,13 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
   // Manual Tx Hash submission (e.g. from mobile Trust Wallet or external wallet)
   const handleManualHashSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeQuote) return;
+    if (!activeQuote || isQuoteExpired) {
+      toast.error('Quote has expired. Refreshing exchange rate...');
+      clearQuote();
+      setQuoteLoading(true);
+      requestQuote(tool.id).finally(() => setQuoteLoading(false));
+      return;
+    }
     if (!txHashInput.trim() || !txHashInput.startsWith('0x') || txHashInput.length < 64) {
       toast.error('Please enter a valid 66-character transaction hash starting with 0x');
       return;
@@ -299,13 +373,18 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                   <button
                     id="psemine-pay-web3-btn"
                     onClick={handleDirectWeb3Pay}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || quoteLoading || isQuoteExpired}
                     className="psemine-btn-primary w-full py-3.5 px-4 text-xs flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span>Verifying...</span>
+                      </>
+                    ) : quoteLoading || isQuoteExpired ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Refreshing Quote...</span>
                       </>
                     ) : (
                       <>
@@ -330,11 +409,12 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                         placeholder="0x..."
                         value={txHashInput}
                         onChange={(e) => setTxHashInput(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-surface-bright border border-border rounded-xl text-xs font-mono text-text-primary focus:outline-none focus:border-[#00E599] placeholder-text-tertiary"
+                        disabled={isSubmitting || quoteLoading || isQuoteExpired}
+                        className="flex-1 px-3 py-2 bg-surface-bright border border-border rounded-xl text-xs font-mono text-text-primary focus:outline-none focus:border-[#00E599] placeholder-text-tertiary disabled:opacity-50"
                       />
                       <button
                         type="submit"
-                        disabled={isSubmitting || !txHashInput.trim()}
+                        disabled={isSubmitting || quoteLoading || isQuoteExpired || !txHashInput.trim()}
                         className="px-4 py-2 bg-surface hover:bg-surface-bright border border-border rounded-xl text-xs font-bold text-[#00E599] uppercase tracking-wider disabled:opacity-50 transition-colors shadow-subtle"
                       >
                         Verify

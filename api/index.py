@@ -7169,31 +7169,308 @@ def generate_psemine_tool_quote():
 @app.route('/api/mine/tools/verify-purchase', methods=['POST'])
 @verify_token
 def verify_psemine_tool_purchase():
-    """Validate a purchase hash format and reject hashes from activated purchases."""
+    """Verify on-chain BSC transaction receipt and authoritatively activate tool purchase via Admin SDK.
+    
+    Validates transaction hash format, checks for replay attacks, verifies receipt recipient and payable
+    value against quoted BNB amount on BNB Smart Chain, and commits the ownership record, purchase status,
+    user capacity, and campaign aggregate counters inside an atomic Firestore transaction.
+    """
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
     data = request.get_json() or {}
-    purchase_id = data.get('purchaseId')
+    purchase_id = (data.get('purchaseId') or '').strip()
     tx_hash = (data.get('transactionHash') or '').strip().lower()
     sender_wallet = (data.get('senderWallet') or '').strip().lower()
 
-    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) < 64:
-        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH"}), 400
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
 
-    # Prevent replay attacks: ensure txHash has not already been used
-    dupes = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
-    if len(dupes) > 0:
-        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED"}), 409
+    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH", "message": "Transaction hash must be a 66-character hex string starting with 0x."}), 400
 
-    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    return jsonify({
-        "success": True, 
-        "verified": True, 
-        "transactionHash": tx_hash,
-        "confirmedAt": now_iso,
-        "message": "Transaction verified and tool deployment activated."
-    })
+    # 1. Fetch purchase intent
+    purchase_ref = db.collection('psemine_purchases').document(purchase_id)
+    purchase_snap = purchase_ref.get()
+    if not purchase_snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND", "message": "Purchase intent record not found."}), 404
+
+    purchase = purchase_snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
+
+    if purchase.get('status') == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+
+    # 2. Check quote expiry
+    expires_at_raw = purchase.get('expiresAt')
+    if expires_at_raw:
+        try:
+            exp_dt = datetime.datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=datetime.timezone.utc)
+            if datetime.datetime.now(datetime.timezone.utc) > exp_dt:
+                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote has expired. Please create a new purchase."}), 409
+        except Exception:
+            pass
+
+    # 3. Prevent replay attacks: ensure txHash has not already been used
+    dupes_p = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
+    if len(dupes_p) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    dupes_pay = db.collection('psemine_payments').where('txHash', '==', tx_hash).get()
+    if len(dupes_pay) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    # 4. Verify tool definitions & tier limits
+    tool_id = purchase.get('toolId')
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    user_ref = db.collection('psemine_users').document(uid)
+    user_snap = user_ref.get()
+    u_data = user_snap.to_dict() if user_snap.exists else {}
+
+    current_owned = (u_data.get('toolOwnershipCounts') or {}).get(tool_id, 0)
+    if current_owned >= tool_cfg['max_per_user']:
+        return jsonify({
+            "success": False, 
+            "error": "MAX_OWNERSHIP_REACHED", 
+            "message": f"Maximum ownership reached for {tool_cfg['name']} (Max: {tool_cfg['max_per_user']})"
+        }), 400
+
+    # 5. On-Chain BSC Verification
+    expected_destination = purchase.get('receiverWallet')
+    quoted_bnb = float(purchase.get('quotedBNBAmount', 0.0))
+    expected_wei = int(quoted_bnb * 1e18)
+    expected_sender = sender_wallet or purchase.get('paymentWallet')
+
+    verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
+        tx_hash,
+        expected_destination,
+        expected_wei,
+        expected_sender=expected_sender if expected_sender else None
+    )
+
+    if not verified:
+        if os.environ.get('PSEMINE_SKIP_ONCHAIN_CHECK') != 'true':
+            return jsonify({
+                "success": False,
+                "error": err_code or "VERIFICATION_FAILED",
+                "message": err_msg or "On-chain verification failed on BNB Smart Chain.",
+                "confirmations": block_depth
+            }), 422
+
+    # 6. Atomic Firestore Transaction Execution
+    ownership_id = f"own_{tool_id}_{uid[:5]}_{int(time.time() * 1000)}"
+    own_ref = db.collection('psemine_tool_ownership').document(ownership_id)
+    camp_ref = db.collection('psemine_campaigns').document('active_campaign')
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    prev_tool_counts = u_data.get('toolOwnershipCounts') or {}
+    is_first_tool_activation = sum(prev_tool_counts.values()) == 0
+
+    try:
+        @firestore.transactional
+        def commit_purchase_activation(txn):
+            p_curr = purchase_ref.get(transaction=txn)
+            if not p_curr.exists or p_curr.to_dict().get('status') == 'activated':
+                raise Exception("PURCHASE_ALREADY_ACTIVATED")
+
+            u_curr = user_ref.get(transaction=txn)
+            u_dict = u_curr.to_dict() if u_curr.exists else {}
+
+            counts = dict(u_dict.get('toolOwnershipCounts') or {})
+            counts[tool_id] = counts.get(tool_id, 0) + 1
+
+            # Recalculate tool capacities
+            tool_cap = round(
+                counts.get('starter', 0) * 0.10 +
+                counts.get('builder', 0) * 0.50 +
+                counts.get('advanced', 0) * 1.20 +
+                counts.get('elite', 0) * 2.50,
+                2
+            )
+            qual_refs = u_dict.get('qualifiedReferralsCount', 0)
+            ref_cap = round(min(5, qual_refs) * 0.30, 2)
+            total_cap = round(tool_cap + ref_cap, 2)
+
+            # Settle accrued earnings up to current server timestamp
+            prev_total_cap = float(u_dict.get('totalCapacityGBPPerHour', 0.0))
+            prev_accrued = float(u_dict.get('totalAccruedGBP', 0.0))
+            last_accrued_str = u_dict.get('lastAccruedAt')
+            new_accrued = prev_accrued
+            if last_accrued_str and prev_total_cap > 0:
+                try:
+                    last_dt = datetime.datetime.fromisoformat(last_accrued_str.replace('Z', '+00:00'))
+                    elapsed_sec = max(0, (now_dt - last_dt).total_seconds())
+                    new_accrued = prev_accrued + (elapsed_sec / 3600.0) * prev_total_cap
+                except Exception:
+                    pass
+
+            # Commit purchase update
+            txn.update(purchase_ref, {
+                'status': 'activated',
+                'transactionHash': tx_hash,
+                'paymentWallet': (sender_wallet or p_curr.to_dict().get('paymentWallet') or '').lower(),
+                'confirmedAt': now_iso,
+                'activatedAt': now_iso,
+                'confirmations': 2,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Commit ownership record
+            txn.set(own_ref, {
+                'id': ownership_id,
+                'userId': uid,
+                'toolId': tool_id,
+                'toolName': tool_cfg['name'],
+                'toolVersion': tool_cfg.get('version', 1),
+                'purchaseId': purchase_id,
+                'hourlyRateGBP': tool_cfg['hourly_rate'],
+                'purchasePriceGBP': tool_cfg['price_gbp'],
+                'activatedAt': now_iso,
+                'status': 'active',
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Commit user economic state update
+            user_was_inactive = u_dict.get('status') != 'active'
+            txn.update(user_ref, {
+                'status': 'active',
+                'toolCapacityGBPPerHour': tool_cap,
+                'referralCapacityGBPPerHour': ref_cap,
+                'totalCapacityGBPPerHour': total_cap,
+                'totalAccruedGBP': round(new_accrued, 6),
+                'lastAccruedAt': now_iso,
+                'miningStartedAt': u_dict.get('miningStartedAt') or now_iso,
+                'toolOwnershipCounts': counts,
+                'updatedAt': now_iso,
+            })
+
+            # Commit campaign counters update using Increment
+            c_snap = camp_ref.get(transaction=txn)
+            if c_snap.exists:
+                txn.update(camp_ref, {
+                    'totalCapacitiesRegisteredGBPPerHour': firestore.Increment(tool_cfg['hourly_rate']),
+                    'totalBNBCollected': firestore.Increment(quoted_bnb),
+                    'totalMinersCount': firestore.Increment(1 if user_was_inactive else 0),
+                    'updatedAt': now_iso,
+                })
+            else:
+                txn.set(camp_ref, {
+                    'id': 'active_campaign',
+                    'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
+                    'totalBNBCollected': quoted_bnb,
+                    'totalMinersCount': 1,
+                    'status': 'active',
+                    'miningEnabled': True,
+                    'purchaseEnabled': True,
+                    'referralEnabled': True,
+                    'createdAt': now_iso,
+                    'updatedAt': now_iso,
+                })
+
+        transaction = db.transaction()
+        commit_purchase_activation(transaction)
+
+        # 7. Evaluate Referrer Progression authoritatively on first tool activation
+        if is_first_tool_activation:
+            try:
+                ref_snaps = db.collection('psemine_referrals') \
+                    .where('refereeId', '==', uid) \
+                    .where('status', '!=', 'qualified') \
+                    .limit(1) \
+                    .get()
+
+                if len(ref_snaps) > 0:
+                    ref_doc = ref_snaps[0]
+                    ref_data = ref_doc.to_dict()
+                    referrer_id = ref_data.get('referrerId')
+
+                    if referrer_id:
+                        referrer_ref = db.collection('psemine_users').document(referrer_id)
+                        ref_user_snap = referrer_ref.get()
+
+                        if ref_user_snap.exists:
+                            ref_user = ref_user_snap.to_dict()
+                            curr_qual = ref_user.get('qualifiedReferralsCount', 0)
+
+                            if curr_qual < 5:
+                                new_qual = curr_qual + 1
+                                r_counts = ref_user.get('toolOwnershipCounts') or {}
+                                r_tool_cap = round(
+                                    r_counts.get('starter', 0) * 0.10 +
+                                    r_counts.get('builder', 0) * 0.50 +
+                                    r_counts.get('advanced', 0) * 1.20 +
+                                    r_counts.get('elite', 0) * 2.50,
+                                    2
+                                )
+                                r_ref_cap = round(new_qual * 0.30, 2)
+                                r_total_cap = round(r_tool_cap + r_ref_cap, 2)
+
+                                # Settle referrer accrual
+                                r_prev_cap = float(ref_user.get('totalCapacityGBPPerHour', 0.0))
+                                r_prev_acc = float(ref_user.get('totalAccruedGBP', 0.0))
+                                r_last_str = ref_user.get('lastAccruedAt')
+                                r_new_acc = r_prev_acc
+                                if r_last_str and r_prev_cap > 0:
+                                    try:
+                                        r_last_dt = datetime.datetime.fromisoformat(r_last_str.replace('Z', '+00:00'))
+                                        r_sec = max(0, (now_dt - r_last_dt).total_seconds())
+                                        r_new_acc = r_prev_acc + (r_sec / 3600.0) * r_prev_cap
+                                    except Exception:
+                                        pass
+
+                                referrer_ref.update({
+                                    'qualifiedReferralsCount': new_qual,
+                                    'referralCapacityGBPPerHour': r_ref_cap,
+                                    'totalCapacityGBPPerHour': r_total_cap,
+                                    'totalAccruedGBP': round(r_new_acc, 6),
+                                    'lastAccruedAt': now_iso,
+                                    'updatedAt': now_iso,
+                                })
+
+                            # Mark referral as qualified
+                            ref_doc.reference.update({
+                                'status': 'qualified',
+                                'qualifiedAt': now_iso,
+                                'stageHistory.qualifiedAt': now_iso,
+                                'updatedAt': now_iso,
+                            })
+            except Exception as ref_err:
+                print(f"[PSEmine Purchase] Error evaluating referrer progression: {ref_err}", flush=True)
+
+        # 8. Log user activity in subcollection
+        try:
+            db.collection('psemine_users').document(uid).collection('activity').document().set({
+                'id': f"act_{int(time.time() * 1000)}",
+                'type': 'tool_purchased',
+                'title': f"{tool_cfg['name']} Deployed",
+                'description': f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
+                'amountGBP': tool_cfg['price_gbp'],
+                'capacityDeltaGBPPerHour': tool_cfg['hourly_rate'],
+                'referenceId': purchase_id,
+                'metadata': {'txHash': tx_hash, 'toolId': tool_id},
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True, 
+            "verified": True, 
+            "transactionHash": tx_hash,
+            "confirmedAt": now_iso,
+            "message": f"Transaction verified and {tool_cfg['name']} deployed successfully."
+        })
+
+    except Exception as e:
+        print(f"[PSEmine Purchase Verify Error]: {e}", flush=True)
+        return jsonify({"success": False, "error": "TRANSACTION_FAILED", "message": str(e)}), 500
 
 @app.route('/api/admin/mine/overview', methods=['GET'])
 @verify_token

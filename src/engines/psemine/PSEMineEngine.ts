@@ -13,7 +13,6 @@ import { db } from '../../firebase/config';
 import { 
   PSEMineCampaign, 
   PSEMineUser, 
-  PSEMineToolOwnership, 
   PSEMinePurchase, 
   PSEMineReferral, 
   PSEMineActivity, 
@@ -209,7 +208,7 @@ export class PSEMineEngine {
   }
 
   /**
-   * Settles accrued earnings up to current server time and commits new capacity
+   * Calculates current accrued earnings up to current client/server time
    */
   public static async syncAccrual(uid: string): Promise<number> {
     const userRef = doc(db, 'psemine_users', uid);
@@ -218,18 +217,7 @@ export class PSEMineEngine {
 
     const user = snap.data() as PSEMineUser;
     const campaign = await this.getOrCreateActiveCampaign();
-    const currentAccrued = this.calculateLiveAccrued(user, campaign);
-    const nowIso = new Date().toISOString();
-
-    if (user.status === 'active' && user.totalCapacityGBPPerHour > 0) {
-      await updateDoc(userRef, {
-        totalAccruedGBP: currentAccrued,
-        lastAccruedAt: nowIso,
-        updatedAt: nowIso
-      });
-    }
-
-    return currentAccrued;
+    return this.calculateLiveAccrued(user, campaign);
   }
 
   /**
@@ -329,7 +317,7 @@ export class PSEMineEngine {
   }
 
   /**
-   * Authoritative Tool Purchase Activation & Capacity Recalculation
+   * Authoritative Tool Purchase Activation & Capacity Recalculation via Secure Backend API
    */
   public static async activateToolPurchase(
     purchaseId: string, 
@@ -348,210 +336,64 @@ export class PSEMineEngine {
       return { success: false, error: 'Purchase already activated' };
     }
 
-    // Check tx hash duplicate
-    const dupeQuery = query(
-      collection(db, 'psemine_purchases'),
-      where('transactionHash', '==', txHash),
-      where('status', '==', 'activated')
-    );
-    const dupeSnap = await getDocs(dupeQuery);
-    if (!dupeSnap.empty) {
-      return { success: false, error: 'Transaction hash has already been used' };
+    // Call authoritative server endpoint with user Firebase ID token
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+
+      if (!token) {
+        return { success: false, error: 'Authentication required. Please sign in.' };
+      }
+
+      const res = await fetch('/api/mine/tools/verify-purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          purchaseId: purchase.id,
+          transactionHash: txHash,
+          senderWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
+          toolId: purchase.toolId
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { 
+          success: false, 
+          error: data.message || data.error || 'On-chain transaction verification failed on BSC.' 
+        };
+      }
+
+      // Fetch fresh authoritative user record from Firestore
+      const userSnap = await getDoc(doc(db, 'psemine_users', purchase.userId));
+      const updatedUser = userSnap.exists() ? (userSnap.data() as PSEMineUser) : undefined;
+
+      return { success: true, user: updatedUser };
+    } catch (e: any) {
+      console.error('[PSEMineEngine] activateToolPurchase error:', e);
+      return { success: false, error: e.message || 'Server verification failed' };
     }
-
-    const tool = LOCKED_PSEMINE_TOOLS[purchase.toolId];
-    const userRef = doc(db, 'psemine_users', purchase.userId);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      return { success: false, error: 'Miner profile not found' };
-    }
-
-    const user = userSnap.data() as PSEMineUser;
-    const currentOwnershipCount = user.toolOwnershipCounts[purchase.toolId] || 0;
-
-    if (currentOwnershipCount >= tool.maxPerUser) {
-      return { 
-        success: false, 
-        error: `Maximum ownership reached for ${tool.name} (Max: ${tool.maxPerUser})` 
-      };
-    }
-
-    // 1. Settle existing accrued balance at the OLD capacity before modifying
-    const campaign = await this.getOrCreateActiveCampaign();
-    const currentAccrued = this.calculateLiveAccrued(user, campaign);
-    const nowIso = new Date().toISOString();
-
-    // 2. Increment tool ownership count
-    const updatedOwnershipCounts = {
-      ...user.toolOwnershipCounts,
-      [purchase.toolId]: currentOwnershipCount + 1
-    };
-
-    // 3. Recalculate new total capacities
-    const newCapacities = this.computeCapacities(
-      updatedOwnershipCounts,
-      user.qualifiedReferralsCount
-    );
-
-    // 4. Create tool ownership record
-    const ownershipId = `own_${purchase.toolId}_${purchase.userId.slice(0, 5)}_${Date.now()}`;
-    const ownershipRecord: PSEMineToolOwnership = {
-      id: ownershipId,
-      userId: purchase.userId,
-      toolId: purchase.toolId,
-      toolName: tool.name,
-      toolVersion: tool.version,
-      purchaseId: purchase.id,
-      hourlyRateGBP: tool.hourlyRateGBP,
-      purchasePriceGBP: tool.purchasePriceGBP,
-      activatedAt: nowIso,
-      status: 'active'
-    };
-
-    await setDoc(doc(db, 'psemine_tool_ownership', ownershipId), ownershipRecord);
-
-    // 5. Update purchase status
-    const updatedPurchase: Partial<PSEMinePurchase> = {
-      status: 'activated',
-      transactionHash: txHash,
-      paymentWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
-      confirmedAt: nowIso,
-      activatedAt: nowIso,
-      confirmations: 2
-    };
-    await updateDoc(purchaseRef, updatedPurchase);
-
-    // 6. Update user mining state atomically
-    const updatedUserData: Partial<PSEMineUser> = {
-      status: 'active',
-      toolCapacityGBPPerHour: newCapacities.toolCapacityGBPPerHour,
-      referralCapacityGBPPerHour: newCapacities.referralCapacityGBPPerHour,
-      totalCapacityGBPPerHour: newCapacities.totalCapacityGBPPerHour,
-      totalAccruedGBP: currentAccrued,
-      lastAccruedAt: nowIso,
-      miningStartedAt: user.miningStartedAt || nowIso,
-      toolOwnershipCounts: updatedOwnershipCounts,
-      updatedAt: nowIso
-    };
-
-    await updateDoc(userRef, updatedUserData);
-
-    // 7. Update Campaign aggregate stats
-    const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
-    await updateDoc(campaignRef, {
-      totalCapacitiesRegisteredGBPPerHour: (campaign.totalCapacitiesRegisteredGBPPerHour || 0) + tool.hourlyRateGBP,
-      totalBNBCollected: Number(((campaign.totalBNBCollected || 0) + purchase.quotedBNBAmount).toFixed(4)),
-      totalMinersCount: user.status === 'inactive' ? (campaign.totalMinersCount || 0) + 1 : campaign.totalMinersCount || 1,
-      updatedAt: nowIso
-    });
-
-    // 8. Log activity
-    await this.logActivity(purchase.userId, {
-      type: 'tool_purchased',
-      title: `${tool.name} Activated`,
-      description: `Deployed 1 unit of ${tool.name}. +£${tool.hourlyRateGBP.toFixed(2)}/hour capacity added.`,
-      capacityDeltaGBPPerHour: tool.hourlyRateGBP,
-      referenceId: purchase.id
-    });
-
-    // 9. Check if this user was referred by someone and trigger referral qualification check
-    await this.checkRefereeQualification(purchase.userId);
-
-    const updatedUser = { ...user, ...updatedUserData } as PSEMineUser;
-    return { success: true, user: updatedUser };
   }
 
   /**
    * Referral Qualification Engine:
-   * A referral qualifies when:
-   * 1. Valid account exists
-   * 2. Wallet connected
-   * 3. At least 1 tool purchased & activated
-   * 4. Active mining status
-   * 
-   * Referrer receives +£0.30/hr (max 5 qualified referrals = +£1.50/hr)
+   * Checked authoritatively on backend during tool verification.
    */
   public static async checkRefereeQualification(refereeId: string): Promise<boolean> {
     try {
-      // Find referral record where refereeId matches
       const refQuery = query(
         collection(db, 'psemine_referrals'),
         where('refereeId', '==', refereeId),
-        where('status', '!=', 'qualified'),
         limit(1)
       );
       const refSnap = await getDocs(refQuery);
       if (refSnap.empty) return false;
-
-      const referralDoc = refSnap.docs[0];
-      const referral = referralDoc.data() as PSEMineReferral;
-
-      // Verify referee has active tools
-      const refereeUserSnap = await getDoc(doc(db, 'psemine_users', refereeId));
-      if (!refereeUserSnap.exists()) return false;
-      const referee = refereeUserSnap.data() as PSEMineUser;
-
-      // Must have at least 1 tool and active status
-      const totalTools = Object.values(referee.toolOwnershipCounts || {}).reduce((a, b) => a + b, 0);
-      if (totalTools < 1 || referee.status !== 'active') return false;
-
-      // Get Referrer
-      const referrerUserRef = doc(db, 'psemine_users', referral.referrerId);
-      const referrerSnap = await getDoc(referrerUserRef);
-      if (!referrerSnap.exists()) return false;
-      const referrer = referrerSnap.data() as PSEMineUser;
-
-      const nowIso = new Date().toISOString();
-
-      // Check if referrer already has maximum 5 qualified referrals
-      if (referrer.qualifiedReferralsCount >= PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS) {
-        // Mark referral as qualified without adding extra capacity
-        await updateDoc(doc(db, 'psemine_referrals', referralDoc.id), {
-          status: 'qualified',
-          qualifiedAt: nowIso,
-          'stageHistory.qualifiedAt': nowIso
-        });
-        return true;
-      }
-
-      // Settle referrer's existing accrued earnings before changing capacity
-      const campaign = await this.getOrCreateActiveCampaign();
-      const currentAccrued = this.calculateLiveAccrued(referrer, campaign);
-
-      const newQualifiedCount = referrer.qualifiedReferralsCount + 1;
-      const newCapacities = this.computeCapacities(
-        referrer.toolOwnershipCounts,
-        newQualifiedCount
-      );
-
-      // Update referrer user document
-      await updateDoc(referrerUserRef, {
-        qualifiedReferralsCount: newQualifiedCount,
-        referralCapacityGBPPerHour: newCapacities.referralCapacityGBPPerHour,
-        totalCapacityGBPPerHour: newCapacities.totalCapacityGBPPerHour,
-        totalAccruedGBP: currentAccrued,
-        lastAccruedAt: nowIso,
-        updatedAt: nowIso
-      });
-
-      // Update referral record
-      await updateDoc(doc(db, 'psemine_referrals', referralDoc.id), {
-        status: 'qualified',
-        qualifiedAt: nowIso,
-        'stageHistory.qualifiedAt': nowIso
-      });
-
-      // Log activity for referrer
-      await this.logActivity(referral.referrerId, {
-        type: 'referral_qualified',
-        title: 'Referral Qualified',
-        description: `Miner ${referee.username} activated their first tool. +£0.30/hr capacity unlocked (${newQualifiedCount}/5).`,
-        capacityDeltaGBPPerHour: 0.30,
-        referenceId: referralDoc.id
-      });
-
-      return true;
+      const ref = refSnap.docs[0].data() as PSEMineReferral;
+      return ref.status === 'qualified';
     } catch (e) {
       console.error('[PSEMineEngine] checkRefereeQualification error:', e);
       return false;

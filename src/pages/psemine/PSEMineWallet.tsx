@@ -15,6 +15,7 @@ import { usePSEMine } from '../../contexts/PSEMineContext';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
+/** Manage the connected payment wallet and settlement payout destination. */
 export const PSEMineWallet: React.FC = () => {
   const { 
     pseUser, 

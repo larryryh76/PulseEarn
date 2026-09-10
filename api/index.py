@@ -7088,6 +7088,7 @@ LOCKED_PSEMINE_TOOLS_CONFIG = {
 }
 
 def get_current_bnb_gbp_price():
+    """Return the current BNB price in GBP, falling back to the legacy static rate."""
     try:
         import urllib.request
         req = urllib.request.Request(
@@ -7104,6 +7105,7 @@ def get_current_bnb_gbp_price():
 
 @app.route('/api/mine/campaign/status', methods=['GET'])
 def get_psemine_campaign_status():
+    """Return the active PSEmine campaign, or its default public configuration."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
@@ -7124,6 +7126,7 @@ def get_psemine_campaign_status():
 @app.route('/api/mine/tools/quote', methods=['POST'])
 @verify_token
 def generate_psemine_tool_quote():
+    """Create a ten-minute BNB-denominated purchase quote for a PSEmine tool tier."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
@@ -7166,6 +7169,7 @@ def generate_psemine_tool_quote():
 @app.route('/api/mine/tools/verify-purchase', methods=['POST'])
 @verify_token
 def verify_psemine_tool_purchase():
+    """Validate a purchase hash format and reject hashes from activated purchases."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
@@ -7194,6 +7198,7 @@ def verify_psemine_tool_purchase():
 @app.route('/api/admin/mine/overview', methods=['GET'])
 @verify_token
 def get_admin_mine_overview():
+    """Return aggregate PSEmine campaign metrics for authorized operations users."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
@@ -7228,6 +7233,7 @@ def get_admin_mine_overview():
 @app.route('/api/admin/mine/campaign/action', methods=['POST'])
 @verify_token
 def admin_campaign_action():
+    """Apply an authorized lifecycle action to the active PSEmine campaign."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']

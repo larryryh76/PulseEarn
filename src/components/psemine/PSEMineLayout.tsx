@@ -7,6 +7,7 @@ import { PSEMineBottomNav } from './PSEMineBottomNav';
 import { PSEMineLoader } from './PSEMineLoader';
 import { Archive } from 'lucide-react';
 
+/** Render the campaign shell content or its archived-campaign state. */
 const PSEMineLayoutContent: React.FC = () => {
   const { isCampaignArchived, campaign, loading } = usePSEMine();
 
@@ -73,6 +74,7 @@ const PSEMineLayoutContent: React.FC = () => {
   );
 };
 
+/** Provide campaign state to the shared PSEmine navigation and routed pages. */
 export const PSEMineLayout: React.FC = () => {
   return (
     <PSEMineProvider>
@@ -80,4 +82,3 @@ export const PSEMineLayout: React.FC = () => {
     </PSEMineProvider>
   );
 };
-

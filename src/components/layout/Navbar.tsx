@@ -9,6 +9,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useTasks } from '../../hooks/useTasks';
 import { useNotifications } from '../../hooks/useNotifications';
 
+/** Render the primary PulseEarn navigation and account controls. */
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

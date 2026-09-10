@@ -54,6 +54,7 @@ interface PSEMineContextType {
 
 const PSEMineContext = createContext<PSEMineContextType | undefined>(undefined);
 
+/** Coordinate campaign data, wallet state, quotes, and miner activity for descendants. */
 export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData } = useAuth();
   const [campaign, setCampaign] = useState<PSEMineCampaign | null>(null);
@@ -471,6 +472,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+/** Return the active PSEmine context and reject usage outside its provider. */
 export const usePSEMine = (): PSEMineContextType => {
   const context = useContext(PSEMineContext);
   if (!context) {

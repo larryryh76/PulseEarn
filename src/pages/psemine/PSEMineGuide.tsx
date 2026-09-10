@@ -11,6 +11,7 @@ import {
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
+/** Explain the PSEmine campaign lifecycle, tool economics, referrals, and settlement. */
 export const PSEMineGuide: React.FC = () => {
   return (
     <div className="pt-20 md:pt-24 pb-28 px-4 md:px-6 lg:px-8 max-w-4xl mx-auto space-y-8 md:space-y-10 transition-colors">

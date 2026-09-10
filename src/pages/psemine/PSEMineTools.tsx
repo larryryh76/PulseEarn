@@ -12,6 +12,7 @@ import { PSEMineToolDefinition } from '../../types/psemine';
 import { PSEMinePurchaseModal } from '../../components/psemine/PSEMinePurchaseModal';
 import { cn } from '../../utils';
 
+/** Render purchasable mining tiers and the campaign earnings simulator. */
 export const PSEMineTools: React.FC = () => {
   const { tools, pseUser } = usePSEMine();
   const [selectedTool, setSelectedTool] = useState<PSEMineToolDefinition | null>(null);

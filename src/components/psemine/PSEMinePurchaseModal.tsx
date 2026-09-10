@@ -23,6 +23,7 @@ interface Props {
   onClose: () => void;
 }
 
+/** Guide a miner through quoting, paying for, and verifying a tool purchase. */
 export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose }) => {
   const { 
     pseUser, 

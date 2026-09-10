@@ -12,6 +12,7 @@ import { usePSEMine } from '../../contexts/PSEMineContext';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
+/** Render campaign metrics and lifecycle controls for PSEmine administrators. */
 export const AdminPSEMine: React.FC = () => {
   const { campaign, isCampaignArchived, refreshData } = usePSEMine();
   const { currentUser } = useAuth();

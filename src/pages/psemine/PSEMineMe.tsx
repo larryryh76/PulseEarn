@@ -22,6 +22,7 @@ import { usePSEMine } from '../../contexts/PSEMineContext';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
+/** Render the miner's account summary, referral details, and wallet configuration. */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout } = useAuth();
   const { 

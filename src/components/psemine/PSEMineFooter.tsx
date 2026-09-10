@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { HelpCircle, CheckCircle2 } from 'lucide-react';
 import { PSEMineLogo } from './PSEMineLogo';
 
+/** Render campaign navigation, support links, and PSEmine legal context. */
 export const PSEMineFooter: React.FC = () => {
   return (
     <footer className="bg-surface/50 border-t border-border text-text-secondary text-xs mt-auto transition-colors">

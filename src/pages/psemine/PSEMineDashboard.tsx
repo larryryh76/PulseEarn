@@ -20,6 +20,7 @@ import { PSEMinePurchaseModal } from '../../components/psemine/PSEMinePurchaseMo
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
+/** Render live campaign earnings, owned tools, wallet actions, and recent activity. */
 export const PSEMineDashboard: React.FC = () => {
   const { 
     pseUser, 

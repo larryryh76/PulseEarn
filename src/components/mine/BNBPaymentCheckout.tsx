@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePsemineWallet, PSE_PAYMENT_ADDRESS } from '../../contexts/PsemineWalletContext';
 import { PsemineOrder, PsemineTool } from '../../types/psemine';
 import { Wallet, ShieldCheck, RefreshCw, AlertCircle, ArrowRight } from 'lucide-react';
@@ -10,8 +10,12 @@ interface BNBPaymentCheckoutProps {
   onCancel: () => void;
 }
 
+const WALLET_ADDRESS_WAIT_TIMEOUT_MS = 60_000;
+const WALLET_ADDRESS_POLL_INTERVAL_MS = 100;
+
 export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, onSuccess, onCancel }) => {
   const {
+    address,
     isConnected,
     isBscNetwork,
     connectWallet,
@@ -24,10 +28,30 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const addressRef = useRef(address);
+
+  useEffect(() => {
+    addressRef.current = address;
+  }, [address]);
+
+  const waitForWalletAddress = async (): Promise<string | null> => {
+    const deadline = Date.now() + WALLET_ADDRESS_WAIT_TIMEOUT_MS;
+    while (!addressRef.current && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, WALLET_ADDRESS_POLL_INTERVAL_MS));
+    }
+    return addressRef.current;
+  };
 
   const handleCreateOrder = async () => {
     setCreatingOrder(true);
     try {
+      let paymentWallet = addressRef.current;
+      if (!paymentWallet) {
+        await connectWallet();
+        paymentWallet = await waitForWalletAddress();
+        if (!paymentWallet) return;
+      }
+
       const token = await (window as any).psemineAuthToken?.();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -35,7 +59,7 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
       const res = await fetch('/api/psemine/orders/create', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ toolId: tool.id }),
+        body: JSON.stringify({ toolId: tool.id, paymentWallet }),
       });
 
       const data = await res.json();
@@ -69,6 +93,13 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
     try {
       const weiBigInt = BigInt(order.payableWeiAmount);
       const valueHex = '0x' + weiBigInt.toString(16);
+
+      const currentWallet = addressRef.current?.trim().toLowerCase() || '';
+      const intendedWallet = order.intendedPaymentWallet?.trim().toLowerCase() || '';
+      if (!currentWallet || !intendedWallet || currentWallet !== intendedWallet) {
+        toast.error('Switch to the wallet used to create this order, or create a new order before paying.');
+        return;
+      }
 
       const hash = await sendBnbPayment({
         recipient: order.destinationAddress || PSE_PAYMENT_ADDRESS,

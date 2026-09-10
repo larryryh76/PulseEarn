@@ -1,3 +1,11 @@
+"""
+DEPRECATED / LEGACY FILE - NON-PRODUCTION
+=========================================
+The single authoritative production backend for PSEmine is `api/index.py`.
+This file (`backend/main.py`) is preserved for historical reference only and is NOT deployed or active in production routing.
+All Vercel serverless routes point exclusively to `api/index.py`.
+"""
+
 from __future__ import annotations
 
 import json
@@ -27,7 +35,7 @@ except ValueError:
     initialize_app(credentials.Certificate(json.loads(service_account)))
 
 db = firestore.client()
-app = FastAPI(title="PSEmine payment service", version="0.1.0")
+app = FastAPI(title="PSEmine payment service (DEPRECATED - USE API/INDEX.PY)", version="0.1.0")
 
 class OrderRequest(BaseModel):
     tool_id: str = Field(min_length=1, max_length=120)
@@ -77,7 +85,7 @@ def order_ref(user_id: str, order_id: str):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "psemine-payment-service"}
+    return {"status": "ok", "service": "psemine-payment-service-deprecated"}
 
 @app.post("/orders")
 async def create_order(payload: OrderRequest, token: dict[str, Any] = Depends(current_user)):

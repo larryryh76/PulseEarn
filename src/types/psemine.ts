@@ -131,6 +131,7 @@ export interface PsemineOrder {
   quoteTimestamp: string;
   quoteExpiry: string;
   destinationAddress: string;
+  intendedPaymentWallet: string;
   chainId: number;
   status: 'pending' | 'quoted' | 'submitted' | 'confirming' | 'confirmed' | 'failed' | 'rejected' | 'expired';
   paymentTxHash?: string;
@@ -150,6 +151,7 @@ export interface PseminePayment {
   destinationAddress: string;
   txHash: string;
   blockNumber: number;
+  confirmationDepth: number;
   status: 'confirmed' | 'failed';
   createdAt: string;
   confirmedAt: string;

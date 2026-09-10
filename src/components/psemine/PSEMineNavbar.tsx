@@ -26,7 +26,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { PSEMineLogo } from './PSEMineLogo';
 import { cn } from '../../utils';
 
-/** Render responsive PSEmine navigation, wallet controls, and campaign status. */
 export const PSEMineNavbar: React.FC = () => {
   const location = useLocation();
   const { 

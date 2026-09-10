@@ -65,7 +65,6 @@ export const useAuth = () => {
   return context;
 };
 
-/** Manage the shared Firebase identity, profile, and session lifecycle. */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -196,7 +195,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
-  /** Create or repair the application profile associated with a Firebase user. */
   async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -387,7 +385,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  /** Register a Firebase user, send verification, and initialize their profile. */
   async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -415,7 +412,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
-  /** Sign in with Google and initialize the user's profile when necessary. */
   async function signInWithGoogle(referralCodeInput?: string) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);

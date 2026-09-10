@@ -19,7 +19,6 @@ import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import { PSEMineLogo } from '../../components/psemine/PSEMineLogo';
 import { cn } from '../../utils';
 
-/** Present the public PSEmine campaign overview, tool tiers, and enrollment actions. */
 export const PSEMineLanding: React.FC = () => {
   const { campaignDaysRemaining, liveAccruedGBP, pseUser } = usePSEMine();
   const { currentUser } = useAuth();

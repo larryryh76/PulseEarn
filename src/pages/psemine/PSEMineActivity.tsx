@@ -10,7 +10,6 @@ import { motion } from 'framer-motion';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { cn } from '../../utils';
 
-/** Render the miner's filterable PSEmine activity ledger. */
 export const PSEMineActivity: React.FC = () => {
   const { activities } = usePSEMine();
   const [filterType, setFilterType] = useState<string>('all');

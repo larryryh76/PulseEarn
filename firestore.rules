@@ -348,6 +348,17 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /psemine_quotes/{quoteId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isAuthenticated();
+      // Quotes are authoritatively generated and persisted by server backend
+      allow write: if isAdmin();
+    }
+
+    match /psemine_redeemed_hashes/{hashId} {
+      allow read, write: if isAdmin();
+    }
+
     match /psemine_referrals/{referralId} {
       allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
       allow list: if isAuthenticated();

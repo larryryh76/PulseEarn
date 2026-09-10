@@ -59,7 +59,6 @@ import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
 
-/** Require an authenticated, verified account before rendering protected content. */
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
 
@@ -121,7 +120,6 @@ const AppLayout: React.FC = () => {
   );
 };
 
-/** Define the application's public, authenticated, PSEmine, and operations routes. */
 function App() {
   return (
     <BrowserRouter>

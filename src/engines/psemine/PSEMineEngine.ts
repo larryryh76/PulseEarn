@@ -233,6 +233,31 @@ export class PSEMineEngine {
       throw new Error(`Invalid tool tier: ${toolId}`);
     }
 
+    // Attempt authoritative server-side quote generation
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (token) {
+        const response = await fetch('/api/mine/tools/quote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ toolId })
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.quote) {
+            return resData.quote as PSEMineQuote;
+          }
+        }
+      }
+    } catch (oracleErr) {
+      console.warn('[PSEMineEngine] Server quote endpoint unavailable, using direct oracle fallback:', oracleErr);
+    }
+
     // Retrieve or fallback BNB/GBP exchange rate
     let exchangeRate = exchangeRateOverride || PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
     try {
@@ -244,7 +269,7 @@ export class PSEMineEngine {
           exchangeRate = parseFloat(data.price);
         }
       }
-    } catch (e) {
+    } catch {
       // Fallback rate used
     }
 
@@ -336,7 +361,10 @@ export class PSEMineEngine {
       return { success: false, error: 'Purchase already activated' };
     }
 
-    // Call authoritative server endpoint with user Firebase ID token
+    // Call authoritative server endpoint with user Firebase ID token with 30s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
@@ -357,7 +385,8 @@ export class PSEMineEngine {
           transactionHash: txHash,
           senderWallet: (senderWallet || purchase.paymentWallet || '').toLowerCase(),
           toolId: purchase.toolId
-        })
+        }),
+        signal: controller.signal
       });
 
       const data = await res.json();
@@ -373,9 +402,17 @@ export class PSEMineEngine {
       const updatedUser = userSnap.exists() ? (userSnap.data() as PSEMineUser) : undefined;
 
       return { success: true, user: updatedUser };
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[PSEMineEngine] activateToolPurchase error:', e);
-      return { success: false, error: e.message || 'Server verification failed' };
+      const message =
+        e instanceof Error
+          ? (e.name === 'AbortError' ? 'Verification request timed out. Please verify on BSCScan or retry.' : e.message)
+          : typeof e === 'object' && e !== null && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+            ? (e as { message: string }).message
+            : 'Server verification failed';
+      return { success: false, error: message };
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

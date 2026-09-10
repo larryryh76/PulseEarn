@@ -17,6 +17,10 @@ import {
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import toast from 'react-hot-toast';
 
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
 interface Props {
   tool: PSEMineToolDefinition;
   isOpen: boolean;
@@ -53,7 +57,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
     } else {
       clearQuote();
     }
-  }, [isOpen, tool.id, isMaxReached]);
+  }, [isOpen, tool.id, isMaxReached, clearQuote, requestQuote]);
 
   // 2. Quote timer countdown with strict expiry invalidation
   useEffect(() => {
@@ -111,8 +115,9 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
 
     setIsSubmitting(true);
     try {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        const ethereum = (window as any).ethereum;
+      const winWithEth = typeof window !== 'undefined' ? (window as Window & { ethereum?: EthereumProvider }) : null;
+      if (winWithEth && winWithEth.ethereum) {
+        const ethereum = winWithEth.ethereum;
 
         // Verify and enforce BNB Smart Chain (BSC Mainnet: 0x38 / 56) immediately before dispatch
         const BSC_MAINNET_HEX = '0x38';
@@ -125,8 +130,15 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: BSC_MAINNET_HEX }]
               });
-            } catch (switchError: any) {
-              if (switchError.code === 4902) {
+            } catch (switchError: unknown) {
+              const errorCode =
+                typeof switchError === 'object' &&
+                switchError !== null &&
+                'code' in switchError &&
+                typeof (switchError as { code: unknown }).code === 'number'
+                  ? (switchError as { code: number }).code
+                  : undefined;
+              if (errorCode === 4902) {
                 await ethereum.request({
                   method: 'wallet_addEthereumChain',
                   params: [
@@ -154,9 +166,18 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
               return;
             }
           }
-        } catch (chainErr: any) {
+        } catch (chainErr: unknown) {
           toast.dismiss('chain-switch');
-          toast.error(chainErr?.message || 'Network switch rejected. Payment dispatch aborted.');
+          const errorMessage =
+            typeof chainErr === 'object' &&
+            chainErr !== null &&
+            'message' in chainErr &&
+            typeof (chainErr as { message: unknown }).message === 'string'
+              ? (chainErr as { message: string }).message
+              : chainErr instanceof Error
+                ? chainErr.message
+                : 'Network switch rejected. Payment dispatch aborted.';
+          toast.error(errorMessage);
           setIsSubmitting(false);
           return;
         }
@@ -178,7 +199,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
 
         toast.loading('Please confirm transaction in your wallet...', { id: 'web3-tx' });
 
-        const txHash = await ethereum.request({
+        const rawTxHash = await ethereum.request({
           method: 'eth_sendTransaction',
           params: [
             {
@@ -189,6 +210,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
             }
           ]
         });
+        const txHash = typeof rawTxHash === 'string' ? rawTxHash : String(rawTxHash);
 
         toast.dismiss('web3-tx');
         toast.success(`Transaction submitted: ${txHash.slice(0, 8)}...`);

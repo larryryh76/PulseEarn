@@ -13,7 +13,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
-/** Render referral progress, earning boosts, and the miner's shareable invite link. */
 export const PSEMineReferrals: React.FC = () => {
   const { pseUser, referrals } = usePSEMine();
   const { currentUser, userData } = useAuth();

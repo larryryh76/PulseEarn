@@ -12,6 +12,7 @@ interface BNBPaymentCheckoutProps {
 
 export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, onSuccess, onCancel }) => {
   const {
+    address,
     isConnected,
     isBscNetwork,
     connectWallet,
@@ -26,6 +27,11 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
   const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   const handleCreateOrder = async () => {
+    if (!address) {
+      await connectWallet();
+      return;
+    }
+
     setCreatingOrder(true);
     try {
       const token = await (window as any).psemineAuthToken?.();
@@ -35,7 +41,7 @@ export const BNBPaymentCheckout: React.FC<BNBPaymentCheckoutProps> = ({ tool, on
       const res = await fetch('/api/psemine/orders/create', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ toolId: tool.id }),
+        body: JSON.stringify({ toolId: tool.id, paymentWallet: address }),
       });
 
       const data = await res.json();

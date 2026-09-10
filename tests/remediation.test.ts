@@ -13,11 +13,9 @@ describe('PSEmine Authoritative Core Remediation Tests', () => {
     expect(fs.existsSync('src/components/mine/BNBPaymentButton.tsx')).toBe(false);
   });
 
-  test('2. Wallet context implements genuine EIP-1193 network detection and listeners', () => {
-    expect(walletCtx).toContain("ethereum.request({ method: 'eth_chainId' })");
-    expect(walletCtx).toContain("ethereum.on('chainChanged'");
-    expect(walletCtx).toContain("ethereum.on('accountsChanged'");
-    expect(walletCtx).toContain("ethereum.on('disconnect'");
+  test('2. Wallet context uses the selected TrustConnect provider for EIP-1193 state', () => {
+    expect(walletCtx).toContain("provider.request<string>({ method: 'eth_chainId' })");
+    expect(walletCtx).toContain('connection.wallet.getProvider()');
     expect(walletCtx).toContain("method: 'wallet_switchEthereumChain'");
     expect(walletCtx).not.toContain("isBscNetwork: true");
   });
@@ -31,9 +29,10 @@ describe('PSEmine Authoritative Core Remediation Tests', () => {
   });
 
   test('4. BSC confirmation depth is backend-configurable with safe default', () => {
-    expect(apiIndex).toContain("PSEMINE_MIN_CONFIRMATIONS = int(os.environ.get(");
+    expect(apiIndex).toContain("PSEMINE_MIN_CONFIRMATIONS = max(1, int(os.environ.get(");
     expect(apiIndex).toContain("INSUFFICIENT_CONFIRMATIONS");
     expect(apiIndex).toContain("eth_blockNumber");
+    expect(apiIndex).toContain("'confirmationDepth': block_depth");
   });
 
   test('5. Hardcoded £500/BNB fallback is completely removed', () => {
@@ -48,8 +47,8 @@ describe('PSEmine Authoritative Core Remediation Tests', () => {
   });
 
   test('7. Firestore index coverage includes psemine compound query collections', () => {
-    const json = JSON.parse(indexes);
-    const collections = json.indexes.map((idx: any) => idx.collectionGroup);
+    const json: { indexes: Array<{ collectionGroup: string }> } = JSON.parse(indexes);
+    const collections = json.indexes.map((idx) => idx.collectionGroup);
     expect(collections).toContain('psemine_orders');
     expect(collections).toContain('psemine_withdrawals');
     expect(collections).toContain('psemine_tool_ownership');

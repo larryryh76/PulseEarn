@@ -5981,7 +5981,10 @@ except Exception as e:
 PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
-PSEMINE_MIN_CONFIRMATIONS = int(os.environ.get("PSEMINE_MIN_CONFIRMATIONS", "3"))
+try:
+    PSEMINE_MIN_CONFIRMATIONS = max(1, int(os.environ.get("PSEMINE_MIN_CONFIRMATIONS", "3")))
+except (TypeError, ValueError):
+    PSEMINE_MIN_CONFIRMATIONS = 3
 
 # Global in-memory cache for live BNB/GBP rate (60s TTL)
 _PSEMINE_PRICE_CACHE = {
@@ -6094,9 +6097,12 @@ def fetch_psemine_bnb_gbp_quote():
         res = requests.get("https://api.coingecko.com/api/v3/simple/price", params={'ids': 'binancecoin', 'vs_currencies': 'gbp'}, headers=headers, timeout=6)
         if res.status_code == 200:
             val = res.json().get('binancecoin', {}).get('gbp')
-            if val and float(val) > 0:
-                price = float(val)
+            candidate_price = float(val) if val else None
+            if candidate_price is not None and 50.0 <= candidate_price <= 10000.0:
+                price = candidate_price
                 provider = 'coingecko'
+            elif candidate_price is not None:
+                print(f"[PSEmine Quote] Warning: CoinGecko returned out-of-bounds price £{candidate_price}/BNB. Trying next provider.", flush=True)
     except Exception as e:
         print(f"[PSEmine Quote] CoinGecko error: {e}", flush=True)
 
@@ -6106,9 +6112,12 @@ def fetch_psemine_bnb_gbp_quote():
             res = requests.get("https://api.coinpaprika.com/v1/tickers/bnb-binance-coin", params={'quotes': 'GBP'}, headers=headers, timeout=6)
             if res.status_code == 200:
                 val = res.json().get('quotes', {}).get('GBP', {}).get('price')
-                if val and float(val) > 0:
-                    price = float(val)
+                candidate_price = float(val) if val else None
+                if candidate_price is not None and 50.0 <= candidate_price <= 10000.0:
+                    price = candidate_price
                     provider = 'coinpaprika'
+                elif candidate_price is not None:
+                    print(f"[PSEmine Quote] Warning: CoinPaprika returned out-of-bounds price £{candidate_price}/BNB. Trying next provider.", flush=True)
         except Exception as e:
             print(f"[PSEmine Quote] CoinPaprika error: {e}", flush=True)
 
@@ -6118,9 +6127,12 @@ def fetch_psemine_bnb_gbp_quote():
             res = requests.get("https://api.binance.com/api/v3/ticker/price", params={'symbol': 'BNBGBP'}, headers=headers, timeout=6)
             if res.status_code == 200:
                 val = res.json().get('price')
-                if val and float(val) > 0:
-                    price = float(val)
+                candidate_price = float(val) if val else None
+                if candidate_price is not None and 50.0 <= candidate_price <= 10000.0:
+                    price = candidate_price
                     provider = 'binance'
+                elif candidate_price is not None:
+                    print(f"[PSEmine Quote] Warning: Binance returned out-of-bounds price £{candidate_price}/BNB. Trying next provider.", flush=True)
         except Exception as e:
             print(f"[PSEmine Quote] Binance API error: {e}", flush=True)
 
@@ -6130,9 +6142,12 @@ def fetch_psemine_bnb_gbp_quote():
             res = requests.get("https://min-api.cryptocompare.com/data/price", params={'fsym': 'BNB', 'tsyms': 'GBP'}, headers=headers, timeout=6)
             if res.status_code == 200:
                 val = res.json().get('GBP')
-                if val and float(val) > 0:
-                    price = float(val)
+                candidate_price = float(val) if val else None
+                if candidate_price is not None and 50.0 <= candidate_price <= 10000.0:
+                    price = candidate_price
                     provider = 'cryptocompare'
+                elif candidate_price is not None:
+                    print(f"[PSEmine Quote] Warning: CryptoCompare returned out-of-bounds price £{candidate_price}/BNB. Trying next provider.", flush=True)
         except Exception as e:
             print(f"[PSEmine Quote] CryptoCompare error: {e}", flush=True)
 
@@ -6170,47 +6185,46 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
         r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}, timeout=8)
         chain_res = r.json()
         if not chain_res.get('result'):
-            return False, "RPC_ERROR", "Could not verify BSC network chain ID", 0
+            return False, "RPC_ERROR", "Could not verify BSC network chain ID", 0, None
         chain_id = int(chain_res['result'], 16)
         if chain_id != PSEMINE_BSC_CHAIN_ID:
-            return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0
+            return False, "WRONG_NETWORK", f"Verifier is connected to chain {chain_id}, expected BSC (56)", 0, None
 
         # 2. Get Transaction
         try:
             r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionByHash", "params": [tx_hash], "id": 2}, timeout=8)
             tx_data = r.json().get('result')
             if not tx_data:
-                return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0
+                return False, "TRANSACTION_NOT_FOUND", "Transaction not found on BSC blockchain yet", 0, None
         except Exception:
-            return False, "RPC_ERROR", "Transaction verification failed, please try again later.", 0
+            return False, "RPC_ERROR", "Transaction verification failed, please try again later.", 0, None
 
         # 3. Get Receipt
         r = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_getTransactionReceipt", "params": [tx_hash], "id": 3}, timeout=8)
         receipt_data = r.json().get('result')
         if not receipt_data:
-            return False, "RECEIPT_NOT_FOUND", "Transaction receipt not available yet", 0
+            return False, "RECEIPT_NOT_FOUND", "Transaction receipt not available yet", 0, None
 
+        block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
         receipt_status = int(receipt_data.get('status', '0x0'), 16)
         if receipt_status != 1:
-            return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1)", 0
+            return False, "TRANSACTION_FAILED", "On-chain transaction execution failed (status != 1)", 0, block_number
 
         to_addr = (tx_data.get('to') or '').lower()
         exp_addr = expected_destination.lower()
         if to_addr != exp_addr:
-            return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0
+            return False, "DESTINATION_MISMATCH", f"Transaction recipient ({to_addr}) does not match destination ({exp_addr})", 0, block_number
 
         from_addr = (tx_data.get('from') or '').lower()
         if expected_sender and expected_sender.strip():
             if from_addr != expected_sender.strip().lower():
-                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) on-chain does not match order payment wallet ({expected_sender.strip().lower()})", 0
+                return False, "SENDER_MISMATCH", f"Transaction sender ({from_addr}) on-chain does not match order payment wallet ({expected_sender.strip().lower()})", 0, block_number
 
         value_wei = int(tx_data.get('value', '0x0'), 16)
         if value_wei != int(expected_wei_amount):
-            return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0
+            return False, "AMOUNT_MISMATCH", f"Transaction value ({value_wei} Wei) does not match order ({expected_wei_amount} Wei)", 0, block_number
 
         # 4. Check Block Confirmation Depth
-        block_number = int(receipt_data.get('blockNumber', '0x0'), 16)
-
         # Get latest block number
         r_block = requests.post(rpc_url, json={"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 4}, timeout=8)
         latest_block_hex = r_block.json().get('result')
@@ -6218,12 +6232,12 @@ def verify_bsc_transaction(tx_hash, expected_destination, expected_wei_amount, e
 
         depth = max(1, latest_block - block_number + 1)
         if depth < min_confirmations:
-            return False, "INSUFFICIENT_CONFIRMATIONS", f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) required.", depth
+            return False, "INSUFFICIENT_CONFIRMATIONS", f"Transaction depth is {depth} block(s), but {min_confirmations} confirmation(s) required.", depth, block_number
 
-        return True, None, None, depth
+        return True, None, None, depth, block_number
 
     except Exception as e:
-        return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0
+        return False, "VERIFICATION_ERROR", f"Error communicating with BSC network: {str(e)}", 0, None
 
 def recalculate_psemine_user_mining_state(db, user_id):
     """Authoritatively recalculate user's base rate, qualified referral bonus, total mining rate, and session state bounded by campaign expiry."""
@@ -6360,10 +6374,19 @@ def psemine_create_order():
         uid = request.user['uid']
         data = request.json or {}
         tool_id = (data.get('toolId') or '').strip().lower()
-        payment_wallet = (data.get('paymentWallet') or data.get('paymentAddress') or '').strip().lower()
+        payment_wallet_value = data.get('paymentWallet') or data.get('paymentAddress') or ''
+        payment_wallet = payment_wallet_value.strip().lower() if isinstance(payment_wallet_value, str) else ''
 
         if not tool_id:
             return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
+
+        if (len(payment_wallet) != 42 or not payment_wallet.startswith('0x') or
+                any(char not in '0123456789abcdef' for char in payment_wallet[2:])):
+            return jsonify({
+                "success": False,
+                "error": "INVALID_PAYMENT_WALLET",
+                "message": "A valid 42-character EVM payment wallet address is required."
+            }), 400
 
         tool_doc = db.collection('psemine_tools').document(tool_id).get()
         if not tool_doc.exists:
@@ -6494,7 +6517,7 @@ def psemine_verify_payment():
     expected_sender = (order.get('intendedPaymentWallet') or provided_wallet or '').strip().lower()
 
     # On-Chain Verification
-    verified, err_code, err_msg, block_depth = verify_bsc_transaction(
+    verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(
         tx_hash,
         order['destinationAddress'],
         order['payableWeiAmount'],
@@ -6576,7 +6599,8 @@ def psemine_verify_payment():
             'chainId': PSEMINE_BSC_CHAIN_ID,
             'destinationAddress': order['destinationAddress'],
             'txHash': tx_hash,
-            'blockNumber': block_num,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
             'status': 'confirmed',
             'createdAt': firestore.SERVER_TIMESTAMP,
             'confirmedAt': firestore.SERVER_TIMESTAMP,
@@ -6602,6 +6626,8 @@ def psemine_verify_payment():
         txn.update(order_ref, {
             'status': 'confirmed',
             'paymentTxHash': tx_hash,
+            'blockNumber': receipt_block_number,
+            'confirmationDepth': block_depth,
             'confirmedAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
         })
@@ -6690,6 +6716,8 @@ def psemine_verify_payment():
         "orderId": order_id,
         "paymentId": pay_doc_id,
         "ownershipId": own_ref.id,
+        "blockNumber": receipt_block_number,
+        "confirmations": block_depth,
         "session": session_data,
     })
 

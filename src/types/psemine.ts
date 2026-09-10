@@ -150,6 +150,7 @@ export interface PseminePayment {
   destinationAddress: string;
   txHash: string;
   blockNumber: number;
+  confirmationDepth: number;
   status: 'confirmed' | 'failed';
   createdAt: string;
   confirmedAt: string;

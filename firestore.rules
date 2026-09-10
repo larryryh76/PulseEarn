@@ -270,12 +270,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 12. PSEmine Profiles
+    // 12. PSEmine Ecosystem & Authoritative Security Rules
     match /psemine_profiles/{profileId} {
       allow read: if isOwner(profileId) || isAdmin();
-
-      // Client-created profiles are limited to the exact PSEmine schema. A missing
-      // profile may be created during normal initialization or onboarding completion.
       allow create: if isOwner(profileId)
         && request.resource.data.keys().hasOnly([
           'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
@@ -284,8 +281,6 @@ service cloud.firestore {
         && request.resource.data.hasCompletedGuide is bool
         && request.resource.data.createdAt != null
         && request.resource.data.updatedAt != null;
-
-      // uid and createdAt are immutable; no arbitrary fields can be added.
       allow update: if isOwner(profileId)
         && request.resource.data.keys().hasOnly([
           'uid', 'email', 'username', 'hasCompletedGuide', 'createdAt', 'updatedAt'
@@ -295,24 +290,55 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'email', 'username', 'hasCompletedGuide', 'updatedAt'
         ]);
-
       allow delete: if isAdmin();
     }
 
-    // PSEmine economic collections are backend-authoritative. Clients may read
-    // only their own scoped records; all writes require Admin SDK/server authority.
     match /psemine_campaigns/{campaignId} {
-      allow read: if isAuthenticated();
+      // Publicly readable so prospective miners can review status, duration & economic terms
+      allow read: if true;
+      allow list: if true;
       allow write: if isAdmin();
     }
 
     match /psemine_tools/{toolId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
+      allow list: if true;
       allow write: if isAdmin();
     }
 
+    match /psemine_users/{userId} {
+      allow read: if isOwner(userId) || isModerator();
+      allow list: if isModerator();
+      allow write: if isOwner(userId) || isAdmin();
+
+      match /activity/{activityId} {
+        allow read: if isOwner(userId) || isModerator();
+        allow list: if isOwner(userId) || isModerator();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
     match /psemine_tool_ownership/{ownershipId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /psemine_purchases/{purchaseId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    match /psemine_referrals/{referralId} {
+      allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
+      allow list: if isAuthenticated();
+      allow write: if isAuthenticated() || isAdmin();
+    }
+
+    match /psemine_payouts/{payoutId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
+      allow list: if isModerator();
       allow write: if isAdmin();
     }
 
@@ -333,11 +359,6 @@ service cloud.firestore {
 
     match /psemine_history/{historyId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    match /psemine_referrals/{referralId} {
-      allow read: if isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
 
@@ -380,3 +401,4 @@ service cloud.firestore {
     }
   }
 }
+

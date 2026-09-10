@@ -31,8 +31,7 @@ import {
   OpsHealth as AdminHealth,
   OpsModerators as AdminModerators,
   OpsOfferwalls as AdminOfferwalls,
-  OpsMarketplace as AdminMarketplace,
-  OpsPsemine as AdminPsemine
+  OpsMarketplace as AdminMarketplace
 } from './pages/admin/modules'
 import PrivacyPolicy from './pages/legal/PrivacyPolicy'
 import TermsOfService from './pages/legal/TermsOfService'
@@ -45,27 +44,20 @@ import ReferralPolicy from './pages/legal/ReferralPolicy'
 import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
+import { PSEMineLayout } from './components/psemine/PSEMineLayout'
+import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
+import { PSEMineDashboard } from './pages/psemine/PSEMineDashboard'
+import { PSEMineTools } from './pages/psemine/PSEMineTools'
+import { PSEMineWallet } from './pages/psemine/PSEMineWallet'
+import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
+import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
+import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
+import { PSEMineMe } from './pages/psemine/PSEMineMe'
+import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
-
-// PSEmine Clean Rebuild Imports
-import { PsemineAuthProvider } from './contexts/PsemineAuthContext'
-import { PsemineWalletProvider } from './contexts/PsemineWalletContext'
-import { PsemineProtectedRoute, PseminePublicRoute } from './components/mine/PsemineRoutes'
-import PsemineHome from './pages/mine/PsemineHome'
-import PsemineLogin from './pages/mine/PsemineLogin'
-import PsemineSignup from './pages/mine/PsemineSignup'
-import PsemineVerifyEmail from './pages/mine/PsemineVerifyEmail'
-import PsemineForgotPassword from './pages/mine/PsemineForgotPassword'
-import PsemineResetPassword from './pages/mine/PsemineResetPassword'
-import PsemineGuide from './pages/mine/PsemineGuide'
-import PsemineDashboard from './pages/mine/PsemineDashboard'
-import PsemineModulePage from './pages/mine/PsemineModulePage'
-import PsemineSupportPage from './pages/mine/PsemineSupportPage'
-import PsemineWalletPage from './pages/mine/PsemineWalletPage'
-import PsemineWithdrawals from './pages/mine/PsemineWithdrawals'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -78,9 +70,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator' || userData?.isRoot === true;
+  const isOpsUser = userData?.role === 'admin' || userData?.role === 'moderator';
 
-  const isTestBypass = import.meta.env.DEV && localStorage.getItem('pulseearn-test-bypass') === 'true';
+  const isTestBypass = localStorage.getItem('pulseearn-test-bypass') === 'true';
   // Fix #18: Google OAuth users (and others with verified emails) skip the /verify-email redirect
   if (!currentUser.emailVerified && !isOpsUser && !isTestBypass && window.location.pathname !== '/verify-email') {
     return <Navigate to="/verify-email" replace />;
@@ -165,35 +157,6 @@ function App() {
         }}
       />
       <Routes>
-        {/* PSEMINE CLEAN REBUILD ROUTES */}
-        <Route path="/mine/*" element={
-          <PsemineAuthProvider>
-            <Routes>
-              <Route path="/" element={<PsemineHome />} />
-              <Route path="/login" element={<PseminePublicRoute><PsemineLogin /></PseminePublicRoute>} />
-              <Route path="/signup" element={<PseminePublicRoute><PsemineSignup /></PseminePublicRoute>} />
-              <Route path="/verify-email" element={<PsemineProtectedRoute><PsemineVerifyEmail /></PsemineProtectedRoute>} />
-              <Route path="/forgot-password" element={<PsemineForgotPassword />} />
-              <Route path="/reset-password" element={<PsemineResetPassword />} />
-              <Route path="/guide" element={<PsemineProtectedRoute><PsemineGuide /></PsemineProtectedRoute>} />
-
-              {/* Authenticated PSEmine Application Routes with Wallet Context */}
-              <Route element={<PsemineProtectedRoute><PsemineWalletProvider><Outlet /></PsemineWalletProvider></PsemineProtectedRoute>}>
-                <Route path="/dashboard" element={<PsemineDashboard />} />
-                <Route path="/activity" element={<PsemineModulePage module="activity" />} />
-                <Route path="/referrals" element={<PsemineModulePage module="referrals" />} />
-                <Route path="/account" element={<PsemineModulePage module="account" />} />
-                <Route path="/support" element={<PsemineSupportPage />} />
-                <Route path="/notifications" element={<PsemineModulePage module="notifications" />} />
-                <Route path="/wallet" element={<PsemineWalletPage />} />
-                <Route path="/withdrawals" element={<PsemineWithdrawals />} />
-              </Route>
-
-              <Route path="*" element={<Navigate to="/mine" replace />} />
-            </Routes>
-          </PsemineAuthProvider>
-        } />
-
         <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -227,10 +190,23 @@ function App() {
         <Route path="/support-policy" element={<SupportPolicy />} />
         <Route path="/help" element={<HelpCenter />} />
 
+        {/* PSEMINE 90-DAY CAMPAIGN ECOSYSTEM */}
+        <Route path="/mine" element={<PSEMineLayout />}>
+          <Route index element={<PSEMineLanding />} />
+          <Route path="dashboard" element={<ProtectedRoute><PSEMineDashboard /></ProtectedRoute>} />
+          <Route path="tools" element={<PSEMineTools />} />
+          <Route path="wallet" element={<ProtectedRoute><PSEMineWallet /></ProtectedRoute>} />
+          <Route path="referrals" element={<ProtectedRoute><PSEMineReferrals /></ProtectedRoute>} />
+          <Route path="activity" element={<ProtectedRoute><PSEMineActivity /></ProtectedRoute>} />
+          <Route path="guide" element={<PSEMineGuide />} />
+          <Route path="me" element={<ProtectedRoute><PSEMineMe /></ProtectedRoute>} />
+        </Route>
+
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/mine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
 	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
-  <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPsemine /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
         <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
         <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />

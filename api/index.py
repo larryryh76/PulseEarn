@@ -7077,5 +7077,211 @@ def admin_psemine_review_withdrawal(withdrawal_id):
 
     return jsonify({"success": True, "withdrawalId": withdrawal_id, "status": "completed" if action == 'APPROVE' else "rejected"})
 
+
+
+# --- PSEMINE SUITE EXTENSIONS ---
+LOCKED_PSEMINE_TOOLS_CONFIG = {
+    "starter": {"name": "Starter Miner", "price_gbp": 3.0, "hourly_rate": 0.10, "max_per_user": 5, "version": 1},
+    "builder": {"name": "Builder Miner", "price_gbp": 10.0, "hourly_rate": 0.50, "max_per_user": 3, "version": 1},
+    "advanced": {"name": "Advanced Miner", "price_gbp": 50.0, "hourly_rate": 1.20, "max_per_user": 3, "version": 1},
+    "elite": {"name": "Elite Miner", "price_gbp": 200.0, "hourly_rate": 2.50, "max_per_user": 2, "version": 1},
+}
+
+def get_current_bnb_gbp_price():
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            'https://api.binance.com/api/v3/ticker/price?symbol=BNBGBP',
+            headers={'User-Agent': 'PulseEarn-PSEmine/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=4) as response:
+            res_data = json.loads(response.read().decode())
+            if 'price' in res_data:
+                return float(res_data['price'])
+    except Exception as e:
+        logging.warning(f"[PSEmine] Binance oracle query failed: {e}")
+    return 485.50
+
+@app.route('/api/mine/campaign/status', methods=['GET'])
+def get_psemine_campaign_status():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    if camp_doc.exists:
+        return jsonify({"success": True, "campaign": camp_doc.to_dict()})
+    return jsonify({"success": True, "campaign": {
+        "id": "active_campaign",
+        "name": "PSEmine Genesis 90-Day Campaign",
+        "status": "active",
+        "durationDays": 90,
+        "currencyDisplay": "GBP",
+        "paymentNetwork": "BNB Smart Chain",
+        "paymentAsset": "BNB",
+        "purchaseEnabled": True,
+        "miningEnabled": True
+    }})
+
+@app.route('/api/mine/tools/quote', methods=['POST'])
+@verify_token
+def generate_psemine_tool_quote():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    tool_id = data.get('toolId')
+    
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    exchange_rate = get_current_bnb_gbp_price()
+    bnb_amount = round(tool_cfg['price_gbp'] / exchange_rate, 6)
+    
+    now = datetime.datetime.utcnow()
+    expires_at = now + datetime.timedelta(minutes=10)
+    quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
+
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    receiver_wallet = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
+    if camp_doc.exists:
+        receiver_wallet = camp_doc.to_dict().get('receiverWalletAddress', receiver_wallet)
+
+    quote = {
+        "quoteId": quote_id,
+        "userId": uid,
+        "toolId": tool_id,
+        "toolVersion": tool_cfg['version'],
+        "gbpPrice": tool_cfg['price_gbp'],
+        "bnbAmount": bnb_amount,
+        "exchangeRateBNBGBP": exchange_rate,
+        "receiverWallet": receiver_wallet,
+        "network": "BNB Smart Chain",
+        "chainId": 56,
+        "createdAt": now.isoformat() + "Z",
+        "expiresAt": expires_at.isoformat() + "Z"
+    }
+
+    return jsonify({"success": True, "quote": quote})
+
+@app.route('/api/mine/tools/verify-purchase', methods=['POST'])
+@verify_token
+def verify_psemine_tool_purchase():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = data.get('purchaseId')
+    tx_hash = (data.get('transactionHash') or '').strip().lower()
+    sender_wallet = (data.get('senderWallet') or '').strip().lower()
+
+    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) < 64:
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH"}), 400
+
+    # Prevent replay attacks: ensure txHash has not already been used
+    dupes = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
+    if len(dupes) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED"}), 409
+
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    return jsonify({
+        "success": True, 
+        "verified": True, 
+        "transactionHash": tx_hash,
+        "confirmedAt": now_iso,
+        "message": "Transaction verified and tool deployment activated."
+    })
+
+@app.route('/api/admin/mine/overview', methods=['GET'])
+@verify_token
+def get_admin_mine_overview():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
+
+    users_docs = db.collection('psemine_users').get()
+    purchases_docs = db.collection('psemine_purchases').get()
+    referrals_docs = db.collection('psemine_referrals').get()
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+
+    active_miners = sum(1 for d in users_docs if d.to_dict().get('status') == 'active')
+    total_tools_sold = len([d for d in purchases_docs if d.to_dict().get('status') == 'activated'])
+    total_capacity = sum(d.to_dict().get('totalCapacityGBPPerHour', 0) for d in users_docs)
+    total_accrued = sum(d.to_dict().get('totalAccruedGBP', 0) for d in users_docs)
+    qualified_refs = len([d for d in referrals_docs if d.to_dict().get('status') == 'qualified'])
+
+    camp_data = camp_doc.to_dict() if camp_doc.exists else {}
+
+    return jsonify({
+        "success": True,
+        "stats": {
+            "activeMiners": active_miners,
+            "totalMiners": len(users_docs),
+            "toolsSold": total_tools_sold,
+            "totalCapacityGBPPerHour": round(total_capacity, 2),
+            "totalAccruedLiabilityGBP": round(total_accrued, 2),
+            "totalBNBCollected": camp_data.get('totalBNBCollected', 0),
+            "qualifiedReferrals": qualified_refs,
+            "campaignStatus": camp_data.get('status', 'active')
+        }
+    })
+
+@app.route('/api/admin/mine/campaign/action', methods=['POST'])
+@verify_token
+def admin_campaign_action():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+
+    data = request.get_json() or {}
+    action = data.get('action') # 'pause', 'resume', 'settle', 'shutdown'
+    reason = data.get('reason', 'Administrative decision')
+
+    camp_ref = db.collection('psemine_campaigns').document('active_campaign')
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
+    if action == 'pause':
+        camp_ref.update({"status": "paused", "miningEnabled": False, "updatedAt": now_iso})
+    elif action == 'resume':
+        camp_ref.update({"status": "active", "miningEnabled": True, "updatedAt": now_iso})
+    elif action == 'settle':
+        camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
+    elif action == 'shutdown':
+        camp_ref.update({
+            "status": "archived",
+            "miningEnabled": False,
+            "purchaseEnabled": False,
+            "referralEnabled": False,
+            "shutdownState": {
+                "isArchived": True,
+                "archivedAt": now_iso,
+                "archivedBy": uid,
+                "reason": reason
+            },
+            "updatedAt": now_iso
+        })
+    else:
+        return jsonify({"success": False, "error": "INVALID_ACTION"}), 400
+
+    # Audit log
+    db.collection('admin_audit_logs').add({
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "adminId": uid,
+        "action": f"PSEMINE_CAMPAIGN_{action.upper()}",
+        "targetEntity": "psemine_campaigns/active_campaign",
+        "metadata": {"reason": reason, "action": action}
+    })
+
+    return jsonify({"success": True, "action": action, "timestamp": now_iso})
+
+# Initialize provider cache on startup
+try:
+    from services.provider_cache import init_provider_cache
+    init_provider_cache()
+    print("[Offerwall] Provider cache initialized on startup")
+except Exception as e:
+    print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
+
+
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

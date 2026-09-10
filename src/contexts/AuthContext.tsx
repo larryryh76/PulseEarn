@@ -106,9 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   async function checkDailyReward(uid: string) {
-    // Strictly isolate: Do not trigger PulseEarn Daily Rewards on PSEmine routes
-    if (window.location.pathname.startsWith('/mine')) return;
-
     try {
       const config = await EconomyConfigEngine.getConfig();
 
@@ -198,11 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
-  async function initializeUserProfile(
-    user: User,
-    username: string,
-    referralCodeInput?: string
-  ) {
+  async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -229,7 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        return;
     }
 
-    // Create document FIRST
+    // PHASE 4: Create document FIRST
     const referralCode = generateReferralCode(user.uid);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -250,7 +243,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
-      productAccess: { pulseearn: true },
+      productAccess: {
+        pulseearn: true,
+        psemine: true
+      },
       isBanned: false,
       isFlagged: false,
       onboardingCompleted: false,
@@ -295,11 +291,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (res.success) {
             const referredBy = res.referrerId;
-
+            
             // Create referral record first
             const referralDocRef = doc(collection(db, 'referrals'));
             const referralDocId = referralDocRef.id;
-
+            
             await setDoc(referralDocRef, {
               referrerId: referredBy,
               refereeId: user.uid,
@@ -310,9 +306,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             // Update user with referral info
-            await updateDoc(userRef, {
+            await updateDoc(userRef, { 
               referredBy,
-              referralDocId
+              referralDocId 
             });
 
             // Immediately apply signup bonuses (30 PTS to referee, 50 PTS to referrer)
@@ -389,12 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(
-    email: string,
-    password: string,
-    username: string,
-    referralCodeInput?: string
-  ) {
+  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -421,9 +412,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await initializeUserProfile(user, username, referralCodeInput);
   }
 
-  async function signInWithGoogle(
-    referralCodeInput?: string
-  ) {
+  async function signInWithGoogle(referralCodeInput?: string) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
@@ -462,7 +451,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         level: 3,
         role: 'user',
         status: 'active',
-        productAccess: { pulseearn: true },
         onboardingCompleted: true,
         stats: {
           tasksCompleted: 15,
@@ -483,13 +471,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
 
       if (user) {
-        // If navigating under PSEmine (/mine/*), bypass PulseEarn user document listening/healing and daily rewards
-        if (window.location.pathname.startsWith('/mine')) {
-          setLoading(false);
-          setIsRestoring(false);
-          return;
-        }
-
         unsubscribeData = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
@@ -500,17 +481,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const resolvedData: UserData = {
               ...data,
               role: resolvedRole,
-              status: data.status || 'active',
-              productAccess: data.productAccess || {
-                pulseearn: true
-              }
+              status: data.status || 'active'
             };
 
             setUserData(resolvedData as UserData);
             setSystemError(null);
 
-            // Skip fingerprinting and daily reward checks for ops users (admin/moderator) or PSEmine routes
-            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator' && !window.location.pathname.startsWith('/mine')) {
+            // Skip fingerprinting and daily reward checks for ops users (admin/moderator)
+            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator') {
               UserEngine.recordFingerprint(user.uid);
               if (user.emailVerified) {
                 checkDailyReward(user.uid);
@@ -585,7 +563,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            />
         )}
 
-        {isRestoring && !systemError && !window.location.pathname.startsWith('/mine') ? (
+        {isRestoring && !systemError ? (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}

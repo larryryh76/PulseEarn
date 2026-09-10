@@ -323,6 +323,7 @@ export interface UserData {
   status?: 'active' | 'restricted' | 'frozen';
   productAccess?: {
     pulseearn: boolean;
+    psemine: boolean;
   };
   execution_lock?: boolean;
   execution_lock_at?: Timestamp | null;
@@ -713,4 +714,5 @@ export interface UserSystemTask {
   transactionReference?: string | null;
 }
 
+export * from './psemine';
 

@@ -6,16 +6,6 @@ import { AuthProvider } from './contexts/AuthContext'
 import { TaskProvider } from './contexts/TaskContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { TrustConnectProvider } from '@trustwallet/connect-react'
-import { createEIP155 } from '@trustwallet/connect-eip155-react'
-import { createWalletConnect } from '@trustwallet/connect-walletconnect'
-import { bsc } from 'viem/chains'
-
-const queryClient = new QueryClient()
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'c4f79cc821944d9680842e34466bfb00'
-const eip155 = createEIP155({ chains: [bsc] })
-const walletConnect = createWalletConnect({ projectId })
 
 // Global Handler for Chunk Load Errors (Deployment Refresh)
 window.addEventListener('error', (e) => {
@@ -40,28 +30,24 @@ if (import.meta.env.DEV) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary name="App Root">
-      <QueryClientProvider client={queryClient}>
-        <TrustConnectProvider config={{ namespaces: [eip155], services: [walletConnect] }}>
-          <ThemeProvider>
-            <AuthProvider>
-                <TaskProvider>
-                  <Suspense fallback={
-                  <div className="min-h-screen bg-background flex items-center justify-center">
-                    <div className="relative">
-                      <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                      </div>
-                    </div>
+      <ThemeProvider>
+        <AuthProvider>
+            <TaskProvider>
+              <Suspense fallback={
+              <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="relative">
+                  <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                   </div>
-                }>
-                  <App />
-                  </Suspense>
-                </TaskProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </TrustConnectProvider>
-      </QueryClientProvider>
+                </div>
+              </div>
+            }>
+              <App />
+              </Suspense>
+            </TaskProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

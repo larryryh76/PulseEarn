@@ -23,9 +23,18 @@ describe('PSEmine Authoritative Core Remediation Tests', () => {
   test('3. Payment verification enforces sender binding and flags mismatches', () => {
     expect(apiIndex).toContain("intendedPaymentWallet");
     expect(apiIndex).toContain("expected_sender");
+    expect(apiIndex).toContain("ORDER_PAYMENT_WALLET_MISSING");
+    expect(apiIndex).not.toContain("provided_wallet");
     expect(apiIndex).toContain("SENDER_MISMATCH");
     expect(apiIndex).toContain("status': 'manual_review'");
     expect(apiIndex).toContain("status': 'flagged_mismatch'");
+  });
+
+  test('3a. Checkout waits for and preserves the order wallet binding', () => {
+    expect(checkout).toContain('paymentWallet = await waitForWalletAddress()');
+    expect(checkout).toContain("order.intendedPaymentWallet?.trim().toLowerCase()");
+    expect(checkout).toContain('currentWallet !== intendedWallet');
+    expect(checkout.indexOf('currentWallet !== intendedWallet')).toBeLessThan(checkout.indexOf('await sendBnbPayment'));
   });
 
   test('4. BSC confirmation depth is backend-configurable with safe default', () => {

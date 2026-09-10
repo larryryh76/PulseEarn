@@ -6513,8 +6513,14 @@ def psemine_verify_payment():
         except Exception:
             pass
 
-    provided_wallet = (data.get('paymentWallet') or '').strip().lower()
-    expected_sender = (order.get('intendedPaymentWallet') or provided_wallet or '').strip().lower()
+    intended_payment_wallet = order.get('intendedPaymentWallet')
+    expected_sender = intended_payment_wallet.strip().lower() if isinstance(intended_payment_wallet, str) else ''
+    if not expected_sender:
+        return jsonify({
+            "success": False,
+            "error": "ORDER_PAYMENT_WALLET_MISSING",
+            "message": "This order is not bound to a payment wallet. Please create a new order."
+        }), 422
 
     # On-Chain Verification
     verified, err_code, err_msg, block_depth, receipt_block_number = verify_bsc_transaction(

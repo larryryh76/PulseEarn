@@ -192,9 +192,17 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
           return;
         }
 
-        // Convert BNB amount to Wei hex string
-        const bnbAmountNum = activeQuote.bnbAmount;
-        const weiValueBigInt = BigInt(Math.floor(bnbAmountNum * 1e18));
+        // Convert BNB amount to Wei hex string using exact integer math
+        let weiValueBigInt: bigint;
+        if (activeQuote.bnbAmountWei) {
+          weiValueBigInt = BigInt(activeQuote.bnbAmountWei);
+        } else {
+          // Exact decimal string splitting without floating point precision loss
+          const bnbStr = activeQuote.bnbAmount.toString();
+          const [intPart, fracPart = ''] = bnbStr.split('.');
+          const paddedFrac = fracPart.padEnd(18, '0').slice(0, 18);
+          weiValueBigInt = BigInt(intPart) * BigInt(10n ** 18n) + BigInt(paddedFrac);
+        }
         const hexValue = '0x' + weiValueBigInt.toString(16);
 
         toast.loading('Please confirm transaction in your wallet...', { id: 'web3-tx' });
@@ -205,8 +213,7 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
             {
               from: walletAddr,
               to: activeQuote.receiverWallet,
-              value: hexValue,
-              gas: '0x5208' // 21000 standard gas for BNB transfer
+              value: hexValue
             }
           ]
         });
@@ -242,8 +249,9 @@ export const PSEMinePurchaseModal: React.FC<Props> = ({ tool, isOpen, onClose })
       requestQuote(tool.id).finally(() => setQuoteLoading(false));
       return;
     }
-    if (!txHashInput.trim() || !txHashInput.startsWith('0x') || txHashInput.length < 64) {
-      toast.error('Please enter a valid 66-character transaction hash starting with 0x');
+    const TX_HASH_REGEX = /^0x[0-9a-fA-F]{64}$/;
+    if (!TX_HASH_REGEX.test(txHashInput.trim())) {
+      toast.error('Please enter a valid 66-character transaction hash (0x followed by 64 hexadecimal characters)');
       return;
     }
 

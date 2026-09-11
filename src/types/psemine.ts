@@ -218,6 +218,7 @@ export interface PSEMineQuote {
   toolVersion: number;
   gbpPrice: number;
   bnbAmount: number;
+  bnbAmountWei?: string;
   exchangeRateBNBGBP: number;
   receiverWallet: string;
   network: string;

@@ -332,14 +332,12 @@ service cloud.firestore {
 
     match /psemine_tool_ownership/{ownershipId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      allow list: if isAuthenticated();
       // Authoritative economic ledger: tool grants restricted to Admin SDK
       allow write: if isAdmin();
     }
 
     match /psemine_purchases/{purchaseId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      allow list: if isAuthenticated();
       // Users can register purchase intents (awaiting payment or pending), but cannot activate status
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
@@ -351,7 +349,6 @@ service cloud.firestore {
 
     match /psemine_quotes/{quoteId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      allow list: if isAuthenticated();
       // Quotes are authoritatively generated and persisted by server backend
       allow write: if isAdmin();
     }
@@ -362,7 +359,6 @@ service cloud.firestore {
 
     match /psemine_referrals/{referralId} {
       allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
-      allow list: if isAuthenticated();
       // Referees can register referral links, but qualification and bonuses are restricted to backend Admin SDK
       allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
       allow update, delete: if isAdmin();

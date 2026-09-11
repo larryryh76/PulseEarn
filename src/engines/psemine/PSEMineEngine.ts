@@ -42,6 +42,10 @@ export class PSEMineEngine {
       return user.totalAccruedGBP;
     }
 
+    if (campaign && (campaign.status === 'paused' || campaign.status === 'payout' || campaign.miningEnabled === false)) {
+      return user.totalAccruedGBP;
+    }
+
     if (campaign && (campaign.status === 'closed' || campaign.status === 'archived' || campaign.status === 'settling')) {
       // If campaign ended, accrual stops at campaign endAt
       const campaignEndMs = new Date(campaign.endAt).getTime();
@@ -103,50 +107,30 @@ export class PSEMineEngine {
   }
 
   /**
-   * Initializes or fetches default campaign document
+   * Fetches active campaign document from Firestore or authoritative backend endpoint
    */
-  public static async getOrCreateActiveCampaign(): Promise<PSEMineCampaign> {
-    const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
-    const snap = await getDoc(campaignRef);
-
-    if (snap.exists()) {
-      return snap.data() as PSEMineCampaign;
-    }
-
-    const now = new Date();
-    const end = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days
-
-    const initialCampaign: PSEMineCampaign = {
-      id: this.CAMPAIGN_DOC_ID,
-      name: 'PSEmine Genesis 90-Day Campaign',
-      status: 'active',
-      startAt: now.toISOString(),
-      endAt: end.toISOString(),
-      durationDays: 90,
-      currencyDisplay: 'GBP',
-      paymentNetwork: 'BNB Smart Chain',
-      paymentChainId: PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID,
-      paymentAsset: 'BNB',
-      receiverWalletAddress: PSEMINE_CONSTANTS.DEFAULT_RECEIVER_WALLET,
-      walletChangeDeadline: new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      purchaseEnabled: true,
-      miningEnabled: true,
-      referralEnabled: true,
-      totalCapacitiesRegisteredGBPPerHour: 0,
-      totalAccruedLiabilityGBP: 0,
-      totalBNBCollected: 0,
-      totalMinersCount: 0,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
-    };
-
+  public static async getOrCreateActiveCampaign(): Promise<PSEMineCampaign | null> {
     try {
-      await setDoc(campaignRef, initialCampaign);
+      const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
+      const snap = await getDoc(campaignRef);
+
+      if (snap.exists()) {
+        return snap.data() as PSEMineCampaign;
+      }
+
+      // Try fetching active campaign from backend status endpoint
+      const res = await fetch('/api/mine/campaign/status');
+      if (res.ok) {
+        const json = await res.json().catch(() => ({}));
+        if (json.success && json.campaign) {
+          return json.campaign as PSEMineCampaign;
+        }
+      }
     } catch (e) {
-      console.warn('[PSEMineEngine] Firestore setDoc failed, returning in-memory campaign:', e);
+      console.warn('[PSEMineEngine] getOrCreateActiveCampaign lookup notice:', e);
     }
 
-    return initialCampaign;
+    return null;
   }
 
   /**
@@ -221,89 +205,39 @@ export class PSEMineEngine {
   }
 
   /**
-   * Generates a validated 10-minute BNB/GBP purchase quote
+   * Generates an authoritative server-side 15-minute BNB/GBP purchase quote
    */
   public static async generatePurchaseQuote(
-    userId: string, 
-    toolId: PSEToolTierId,
-    exchangeRateOverride?: number
+    _userId: string, 
+    toolId: PSEToolTierId
   ): Promise<PSEMineQuote> {
     const tool = LOCKED_PSEMINE_TOOLS[toolId];
     if (!tool) {
       throw new Error(`Invalid tool tier: ${toolId}`);
     }
 
-    // Authoritative server-side quote generation
-    try {
-      const { getAuth } = await import('firebase/auth');
-      const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
-      if (token) {
-        const response = await fetch('/api/mine/tools/quote', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ toolId })
-        });
-        const resData = await response.json().catch(() => ({}));
-        if (response.ok && resData.success && resData.quote) {
-          return resData.quote as PSEMineQuote;
-        }
-        if (!response.ok) {
-          throw new Error(resData.message || resData.error || 'Failed to generate authoritative quote from server.');
-        }
-      }
-    } catch (oracleErr: unknown) {
-      if (oracleErr instanceof Error && !oracleErr.message.includes('fetch')) {
-        throw oracleErr;
-      }
-      console.warn('[PSEMineEngine] Server quote endpoint unavailable:', oracleErr);
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Authentication required to generate purchase quote.');
     }
 
-    // Retrieve or fallback BNB/GBP exchange rate
-    let exchangeRate = exchangeRateOverride || PSEMINE_CONSTANTS.FALLBACK_BNB_GBP_PRICE;
-    try {
-      // Check if server or public oracle has live BNB price
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBGBP');
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.price && !isNaN(parseFloat(data.price))) {
-          exchangeRate = parseFloat(data.price);
-        }
-      }
-    } catch {
-      // Fallback rate used
+    const response = await fetch('/api/mine/tools/quote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ toolId })
+    });
+
+    const resData = await response.json().catch(() => ({}));
+    if (response.ok && resData.success && resData.quote) {
+      return resData.quote as PSEMineQuote;
     }
 
-    // Required BNB = GBP price / exchange rate (e.g. £3 / 500 = 0.006 BNB)
-    const rawBnbAmount = tool.purchasePriceGBP / exchangeRate;
-    // Format to 6 decimal places with precision
-    const bnbAmount = parseFloat(rawBnbAmount.toFixed(6));
-
-    const campaign = await this.getOrCreateActiveCampaign();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + PSEMINE_CONSTANTS.QUOTE_EXPIRATION_MINUTES * 60 * 1000);
-
-    const quoteId = `quote_${toolId}_${userId.slice(0, 6)}_${Date.now()}`;
-
-    const quote: PSEMineQuote = {
-      quoteId,
-      userId,
-      toolId,
-      toolVersion: tool.version,
-      gbpPrice: tool.purchasePriceGBP,
-      bnbAmount,
-      exchangeRateBNBGBP: exchangeRate,
-      receiverWallet: campaign.receiverWalletAddress || PSEMINE_CONSTANTS.DEFAULT_RECEIVER_WALLET,
-      network: PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME,
-      chainId: PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString()
-    };
-
-    return quote;
+    throw new Error(resData.message || resData.error || 'Failed to generate authoritative quote from server.');
   }
 
   /**
@@ -450,16 +384,47 @@ export class PSEMineEngine {
     referralCodeInput: string
   ): Promise<boolean> {
     try {
-      // Find referrer by referral code
-      const usersQuery = query(
-        collection(db, 'users'),
-        where('referralCode', '==', referralCodeInput.toUpperCase().trim()),
-        limit(1)
-      );
-      const userSnap = await getDocs(usersQuery);
-      if (userSnap.empty) return false;
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      let referrerId: string | null = null;
 
-      const referrerId = userSnap.docs[0].id;
+      // 1. Try server-side lookup endpoint
+      if (token) {
+        try {
+          const resp = await fetch('/api/referrals/lookup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ referralCode: referralCodeInput.toUpperCase().trim() })
+          });
+          if (resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            if (data.success && data.referrerId) {
+              referrerId = data.referrerId;
+            }
+          }
+        } catch {
+          // Fallback to client query
+        }
+      }
+
+      // 2. Fallback query
+      if (!referrerId) {
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('referralCode', '==', referralCodeInput.toUpperCase().trim()),
+          limit(1)
+        );
+        const userSnap = await getDocs(usersQuery).catch(() => null);
+        if (userSnap && !userSnap.empty) {
+          referrerId = userSnap.docs[0].id;
+        }
+      }
+
+      if (!referrerId) return false;
       if (referrerId === refereeId) return false; // Prevent self-referral
 
       const refId = `pse_ref_${referrerId.slice(0, 5)}_${refereeId.slice(0, 5)}_${Date.now()}`;
@@ -503,24 +468,27 @@ export class PSEMineEngine {
     newWallet: string
   ): Promise<{ success: boolean; error?: string }> {
     const campaign = await this.getOrCreateActiveCampaign();
-    const now = new Date().getTime();
-    const deadline = new Date(campaign.walletChangeDeadline).getTime();
+    if (campaign?.walletChangeDeadline) {
+      const now = new Date().getTime();
+      const deadline = new Date(campaign.walletChangeDeadline).getTime();
 
-    if (now > deadline) {
-      return { 
-        success: false, 
-        error: 'Payout wallet modification cutoff has passed for this campaign.' 
-      };
+      if (now > deadline) {
+        return { 
+          success: false, 
+          error: 'Payout wallet modification cutoff has passed for this campaign.' 
+        };
+      }
     }
 
-    if (!newWallet.startsWith('0x') || newWallet.length !== 42) {
-      return { success: false, error: 'Invalid BNB Smart Chain wallet address.' };
+    const EVM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
+    if (!EVM_ADDRESS_REGEX.test(newWallet.trim())) {
+      return { success: false, error: 'Invalid BNB Smart Chain address format (must be 42-character hex starting with 0x).' };
     }
 
     const nowIso = new Date().toISOString();
     const userRef = doc(db, 'psemine_users', userId);
     await updateDoc(userRef, {
-      payoutWallet: newWallet.toLowerCase(),
+      payoutWallet: newWallet.trim().toLowerCase(),
       payoutWalletUpdatedAt: nowIso,
       updatedAt: nowIso
     });
@@ -541,24 +509,30 @@ export class PSEMineEngine {
     adminUid: string, 
     reason: string = 'Campaign Duration Reached & Settled'
   ): Promise<{ success: boolean; error?: string }> {
-    const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
-    const nowIso = new Date().toISOString();
-
-    await updateDoc(campaignRef, {
-      status: 'archived',
-      purchaseEnabled: false,
-      miningEnabled: false,
-      referralEnabled: false,
-      shutdownState: {
-        isArchived: true,
-        archivedAt: nowIso,
-        archivedBy: adminUid,
-        reason
-      },
-      updatedAt: nowIso
-    });
-
-    return { success: true };
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        return { success: false, error: 'Authentication required for campaign shutdown.' };
+      }
+      const response = await fetch('/api/admin/mine/campaign/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: 'shutdown', reason, adminUid })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.success) {
+        return { success: true };
+      }
+      return { success: false, error: data.message || data.error || 'Failed to trigger campaign shutdown.' };
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Server error during campaign shutdown.';
+      return { success: false, error: errMsg };
+    }
   }
 
   /**

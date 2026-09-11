@@ -5978,9 +5978,10 @@ except Exception as e:
 # PSEMINE BACKEND ENGINE & REAL ECONOMIC FOUNDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
+PSEMINE_PAYMENT_ADDRESS = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
+PSEMINE_CAMPAIGN_DOC_ID = "active_campaign"
 try:
     PSEMINE_MIN_CONFIRMATIONS = max(1, int(os.environ.get("PSEMINE_MIN_CONFIRMATIONS", "3")))
 except (TypeError, ValueError):
@@ -5996,22 +5997,36 @@ _PSEMINE_PRICE_CACHE = {
 def psemine_ensure_canonical_data(db):
     """Idempotently seed canonical Genesis Campaign and canonical Mining Tools."""
     try:
-        # 1. Genesis Campaign (doc ID: genesis_campaign_v1)
-        camp_ref = db.collection('psemine_campaigns').document('genesis_campaign_v1')
+        # 1. Active Campaign (doc ID: active_campaign)
+        camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
         if not camp_ref.get().exists:
             now_dt = datetime.now(timezone.utc)
             end_dt = now_dt + timedelta(days=90)
+            deadline_dt = end_dt - timedelta(days=3)
             camp_ref.set({
-                'id': 'genesis_campaign_v1',
-                'name': 'Genesis Campaign',
+                'id': PSEMINE_CAMPAIGN_DOC_ID,
+                'name': 'PSEmine Genesis 90-Day Campaign',
                 'type': 'genesis',
                 'status': 'active',
-                'startDate': now_dt.isoformat(),
-                'endDate': end_dt.isoformat(),
+                'startAt': now_dt.isoformat(),
+                'endAt': end_dt.isoformat(),
                 'durationDays': 90,
+                'currencyDisplay': 'GBP',
+                'paymentNetwork': 'BNB Smart Chain',
+                'paymentChainId': PSEMINE_BSC_CHAIN_ID,
+                'paymentAsset': 'BNB',
+                'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                'walletChangeDeadline': deadline_dt.isoformat(),
+                'purchaseEnabled': True,
+                'miningEnabled': True,
+                'referralEnabled': True,
+                'totalCapacitiesRegisteredGBPPerHour': 0.0,
+                'totalAccruedLiabilityGBP': 0.0,
+                'totalBNBCollected': 0.0,
+                'totalMinersCount': 0,
                 'description': 'PSEmine 90-day canonical Genesis Mining Campaign.',
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'createdAt': now_dt.isoformat(),
+                'updatedAt': now_dt.isoformat(),
             })
 
         # 2. Canonical Mining Tools (deterministic doc IDs: starter, growth, pro, elite)
@@ -6023,7 +6038,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 3.0,
                 'miningRateGbpPerHour': 0.10,
                 'maxCopiesPerUser': 5,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Starter mining tool - £3 GBP, £0.10/hour, maximum 5 copies per user.',
             },
@@ -6034,7 +6049,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 10.0,
                 'miningRateGbpPerHour': 0.50,
                 'maxCopiesPerUser': 3,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Growth mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
             },
@@ -6045,7 +6060,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 50.0,
                 'miningRateGbpPerHour': 1.20,
                 'maxCopiesPerUser': 3,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Pro mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
             },
@@ -6056,7 +6071,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 200.0,
                 'miningRateGbpPerHour': 2.50,
                 'maxCopiesPerUser': 2,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Elite mining tool - £200 GBP, £2.50/hour, maximum 2 copies per user.',
             },
@@ -6261,13 +6276,13 @@ def recalculate_psemine_user_mining_state(db, user_id):
     total_rate = round(min(12.10, base_rate + referral_bonus), 2)
 
     # 3. Campaign end date
-    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    camp_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
 
     campaign_end_dt = now_dt + timedelta(days=90)
     if camp_snap.exists:
-        end_raw = camp_snap.to_dict().get('endDate')
+        end_raw = camp_snap.to_dict().get('endAt') or camp_snap.to_dict().get('endDate')
         if end_raw:
             try:
                 if isinstance(end_raw, datetime):
@@ -6316,7 +6331,7 @@ def recalculate_psemine_user_mining_state(db, user_id):
     session_payload = {
         'id': user_id,
         'userId': user_id,
-        'campaignId': 'genesis_campaign_v1',
+        'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
         'state': session_state,
         'activeToolsCount': len(active_tools),
         'baseMiningRateGbpPerHour': round(base_rate, 2),
@@ -6435,7 +6450,7 @@ def psemine_create_order():
             'id': order_ref.id,
             'userId': uid,
             'toolId': tool_id,
-            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
             'priceGbp': gbp_price,
             'bnbGbpPrice': bnb_gbp_price,
             'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
@@ -6622,7 +6637,7 @@ def psemine_verify_payment():
             'txHash': tx_hash,
             'purchasePriceGbp': order['priceGbp'],
             'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
-            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
             'status': 'active',
             'acquiredAt': now_iso,
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -6737,7 +6752,7 @@ def psemine_dashboard_data():
     uid = request.user['uid']
 
     # 1. Active Campaign
-    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    camp_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     campaign = camp_snap.to_dict() if camp_snap.exists else None
 
     # 2. Owned Tools
@@ -7130,6 +7145,22 @@ def generate_psemine_tool_quote():
     if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
         return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
 
+    camp_doc = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+    if not camp_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_NOT_FOUND",
+            "message": "Active mining campaign is not currently configured."
+        }), 404
+
+    camp_data = camp_doc.to_dict() or {}
+    if camp_data.get('status') != 'active' or not camp_data.get('purchaseEnabled', True):
+        return jsonify({
+            "success": False,
+            "error": "PURCHASES_DISABLED",
+            "message": "Tool purchases are currently closed for this campaign."
+        }), 403
+
     tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
     exchange_rate = get_current_bnb_gbp_price()
     if not exchange_rate or exchange_rate <= 0:
@@ -7140,15 +7171,13 @@ def generate_psemine_tool_quote():
         }), 503
 
     bnb_amount = round(tool_cfg['price_gbp'] / exchange_rate, 6)
-    
+    expected_wei = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(minutes=10)
+    expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
     quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
 
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-    receiver_wallet = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
-    if camp_doc.exists:
-        receiver_wallet = camp_doc.to_dict().get('receiverWalletAddress', receiver_wallet)
+    receiver_wallet = (camp_data.get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip()
 
     quote = {
         "quoteId": quote_id,
@@ -7157,6 +7186,7 @@ def generate_psemine_tool_quote():
         "toolVersion": tool_cfg['version'],
         "gbpPrice": tool_cfg['price_gbp'],
         "bnbAmount": bnb_amount,
+        "bnbAmountWei": str(expected_wei),
         "exchangeRateBNBGBP": exchange_rate,
         "receiverWallet": receiver_wallet,
         "network": "BNB Smart Chain",
@@ -7472,12 +7502,24 @@ def verify_psemine_tool_purchase():
                     'updatedAt': now_iso,
                 })
             else:
+                end_dt = now_dt + timedelta(days=90)
+                deadline_dt = end_dt - timedelta(days=3)
                 txn.set(camp_ref, {
-                    'id': 'active_campaign',
+                    'id': PSEMINE_CAMPAIGN_DOC_ID,
+                    'name': 'PSEmine Genesis 90-Day Campaign',
+                    'status': 'active',
+                    'startAt': now_iso,
+                    'endAt': end_dt.isoformat(),
+                    'durationDays': 90,
+                    'currencyDisplay': 'GBP',
+                    'paymentNetwork': 'BNB Smart Chain',
+                    'paymentChainId': PSEMINE_BSC_CHAIN_ID,
+                    'paymentAsset': 'BNB',
+                    'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                    'walletChangeDeadline': deadline_dt.isoformat(),
                     'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
                     'totalBNBCollected': quoted_bnb,
                     'totalMinersCount': 1,
-                    'status': 'active',
                     'miningEnabled': True,
                     'purchaseEnabled': True,
                     'referralEnabled': True,
@@ -7641,7 +7683,7 @@ def admin_campaign_action():
     action = data.get('action') # 'pause', 'resume', 'settle', 'shutdown'
     reason = data.get('reason', 'Administrative decision')
 
-    camp_ref = db.collection('psemine_campaigns').document('active_campaign')
+    camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
     camp_snap = camp_ref.get()
     if not camp_snap.exists:
         return jsonify({
@@ -7649,6 +7691,35 @@ def admin_campaign_action():
             "error": "CAMPAIGN_NOT_INITIALIZED",
             "message": "Active campaign has not been initialized."
         }), 404
+
+    current_status = camp_snap.to_dict().get('status', 'active')
+    if current_status == 'archived':
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_ARCHIVED",
+            "message": "Archived campaign cannot be transitioned."
+        }), 400
+
+    if action == 'resume' and current_status != 'paused':
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Cannot resume campaign in '{current_status}' status."
+        }), 400
+
+    if action == 'pause' and current_status != 'active':
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Cannot pause campaign in '{current_status}' status."
+        }), 400
+
+    if action == 'settle' and current_status in ('archived', 'settling', 'payout'):
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Campaign is already in '{current_status}' status."
+        }), 400
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -7658,6 +7729,20 @@ def admin_campaign_action():
         camp_ref.update({"status": "active", "miningEnabled": True, "updatedAt": now_iso})
     elif action == 'settle':
         camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
+        # Create idempotent settlement job record
+        job_ref = db.collection('psemine_settlement_jobs').document(f"settlement_{PSEMINE_CAMPAIGN_DOC_ID}")
+        if not job_ref.get().exists:
+            job_ref.set({
+                "id": f"settlement_{PSEMINE_CAMPAIGN_DOC_ID}",
+                "campaignId": PSEMINE_CAMPAIGN_DOC_ID,
+                "status": "pending_audit",
+                "initiatedBy": uid,
+                "initiatedAt": now_iso,
+                "totalAccruedLiabilityGBP": camp_snap.to_dict().get('totalAccruedLiabilityGBP', 0),
+                "totalBNBCollected": camp_snap.to_dict().get('totalBNBCollected', 0),
+                "createdAt": now_iso,
+                "updatedAt": now_iso
+            })
     elif action == 'shutdown':
         camp_ref.update({
             "status": "archived",

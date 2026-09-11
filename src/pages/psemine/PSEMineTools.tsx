@@ -73,7 +73,7 @@ export const PSEMineTools: React.FC = () => {
           <div className="h-8 w-px bg-border" />
           <div>
             <div className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Tool Rate</div>
-            <div className="text-base font-bold text-[#00E599] font-mono tabular-nums mt-0.5">
+            <div className="text-base font-bold text-[#2bb39a] font-mono tabular-nums mt-0.5">
               £{(pseUser?.toolCapacityGBPPerHour || 0).toFixed(2)}/hr
             </div>
           </div>
@@ -94,7 +94,7 @@ export const PSEMineTools: React.FC = () => {
               className={cn(
                 "p-6 bg-surface border rounded-2xl md:rounded-3xl flex flex-col justify-between transition-all space-y-6",
                 owned > 0
-                  ? "border-[#00E599]/30 shadow-md shadow-[#00E599]/5"
+                  ? "border-[#2bb39a]/30 shadow-md shadow-[#2bb39a]/5"
                   : "border-border hover:border-border-bright"
               )}
             >
@@ -107,7 +107,7 @@ export const PSEMineTools: React.FC = () => {
                   </span>
                   <span className={cn(
                     "text-xs font-bold font-mono tabular-nums",
-                    owned > 0 ? "text-[#00E599]" : "text-text-tertiary"
+                    owned > 0 ? "text-[#2bb39a]" : "text-text-tertiary"
                   )}>
                     {owned} / {tool.maxPerUser} Owned
                   </span>
@@ -127,7 +127,7 @@ export const PSEMineTools: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-text-tertiary font-medium">Hourly Rate</span>
-                    <span className="font-bold text-[#00E599] font-mono text-sm tabular-nums">+£{tool.hourlyRateGBP.toFixed(2)}/hr</span>
+                    <span className="font-bold text-[#2bb39a] font-mono text-sm tabular-nums">+£{tool.hourlyRateGBP.toFixed(2)}/hr</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-border text-[11px]">
                     <span className="text-text-tertiary">Max Allowed</span>
@@ -135,7 +135,7 @@ export const PSEMineTools: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-text-tertiary">Your Hourly Output</span>
-                    <span className="text-[#00E599] font-mono font-bold tabular-nums">
+                    <span className="text-[#2bb39a] font-mono font-bold tabular-nums">
                       +£{(owned * tool.hourlyRateGBP).toFixed(2)}/hr
                     </span>
                   </div>
@@ -147,7 +147,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="pt-2">
                 {isMax ? (
                   <div className="w-full py-3 bg-surface-bright border border-border text-text-tertiary text-xs font-bold uppercase tracking-wider rounded-xl text-center flex items-center justify-center gap-1.5">
-                    <Check size={14} className="text-[#00E599]" />
+                    <Check size={14} className="text-[#2bb39a]" />
                     <span>Max Limit Reached</span>
                   </div>
                 ) : (
@@ -173,7 +173,7 @@ export const PSEMineTools: React.FC = () => {
           className="w-full p-6 flex items-center justify-between text-left hover:bg-surface-bright/50 transition-colors"
         >
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
               <Calculator size={18} />
             </div>
             <div>
@@ -186,7 +186,7 @@ export const PSEMineTools: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-bold text-[#00E599] uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#2bb39a] uppercase tracking-wider">
             <span>{isSimulatorOpen ? 'Hide' : 'Open Calculator'}</span>
             {isSimulatorOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
@@ -202,7 +202,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="p-4 bg-surface-bright/50 border border-border rounded-xl space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-primary">Starter (£3)</span>
-                  <span className="font-bold text-[#00E599] font-mono tabular-nums">{simStarter} / 5</span>
+                  <span className="font-bold text-[#2bb39a] font-mono tabular-nums">{simStarter} / 5</span>
                 </div>
                 <input 
                   type="range" 
@@ -210,7 +210,7 @@ export const PSEMineTools: React.FC = () => {
                   max="5" 
                   value={simStarter} 
                   onChange={(e) => setSimStarter(parseInt(e.target.value))}
-                  className="w-full accent-[#00E599] cursor-pointer"
+                  className="w-full accent-[#2bb39a] cursor-pointer"
                 />
                 <div className="text-[10px] text-text-tertiary text-right font-mono tabular-nums">
                   +£{(simStarter * 0.10).toFixed(2)}/hr
@@ -221,7 +221,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="p-4 bg-surface-bright/50 border border-border rounded-xl space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-primary">Builder (£10)</span>
-                  <span className="font-bold text-[#00E599] font-mono tabular-nums">{simBuilder} / 3</span>
+                  <span className="font-bold text-[#2bb39a] font-mono tabular-nums">{simBuilder} / 3</span>
                 </div>
                 <input 
                   type="range" 
@@ -229,7 +229,7 @@ export const PSEMineTools: React.FC = () => {
                   max="3" 
                   value={simBuilder} 
                   onChange={(e) => setSimBuilder(parseInt(e.target.value))}
-                  className="w-full accent-[#00E599] cursor-pointer"
+                  className="w-full accent-[#2bb39a] cursor-pointer"
                 />
                 <div className="text-[10px] text-text-tertiary text-right font-mono tabular-nums">
                   +£{(simBuilder * 0.50).toFixed(2)}/hr
@@ -240,7 +240,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="p-4 bg-surface-bright/50 border border-border rounded-xl space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-primary">Advanced (£50)</span>
-                  <span className="font-bold text-[#00E599] font-mono tabular-nums">{simAdvanced} / 3</span>
+                  <span className="font-bold text-[#2bb39a] font-mono tabular-nums">{simAdvanced} / 3</span>
                 </div>
                 <input 
                   type="range" 
@@ -248,7 +248,7 @@ export const PSEMineTools: React.FC = () => {
                   max="3" 
                   value={simAdvanced} 
                   onChange={(e) => setSimAdvanced(parseInt(e.target.value))}
-                  className="w-full accent-[#00E599] cursor-pointer"
+                  className="w-full accent-[#2bb39a] cursor-pointer"
                 />
                 <div className="text-[10px] text-text-tertiary text-right font-mono tabular-nums">
                   +£{(simAdvanced * 1.20).toFixed(2)}/hr
@@ -259,7 +259,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="p-4 bg-surface-bright/50 border border-border rounded-xl space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-primary">Elite (£200)</span>
-                  <span className="font-bold text-[#00E599] font-mono tabular-nums">{simElite} / 2</span>
+                  <span className="font-bold text-[#2bb39a] font-mono tabular-nums">{simElite} / 2</span>
                 </div>
                 <input 
                   type="range" 
@@ -267,7 +267,7 @@ export const PSEMineTools: React.FC = () => {
                   max="2" 
                   value={simElite} 
                   onChange={(e) => setSimElite(parseInt(e.target.value))}
-                  className="w-full accent-[#00E599] cursor-pointer"
+                  className="w-full accent-[#2bb39a] cursor-pointer"
                 />
                 <div className="text-[10px] text-text-tertiary text-right font-mono tabular-nums">
                   +£{(simElite * 2.50).toFixed(2)}/hr
@@ -278,7 +278,7 @@ export const PSEMineTools: React.FC = () => {
               <div className="p-4 bg-surface-bright/50 border border-border rounded-xl space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="font-bold text-text-primary">Referrals (+£0.30)</span>
-                  <span className="font-bold text-[#00E599] font-mono tabular-nums">{simReferrals} / 5</span>
+                  <span className="font-bold text-[#2bb39a] font-mono tabular-nums">{simReferrals} / 5</span>
                 </div>
                 <input 
                   type="range" 
@@ -286,7 +286,7 @@ export const PSEMineTools: React.FC = () => {
                   max="5" 
                   value={simReferrals} 
                   onChange={(e) => setSimReferrals(parseInt(e.target.value))}
-                  className="w-full accent-[#00E599] cursor-pointer"
+                  className="w-full accent-[#2bb39a] cursor-pointer"
                 />
                 <div className="text-[10px] text-text-tertiary text-right font-mono tabular-nums">
                   +£{(simReferrals * 0.30).toFixed(2)}/hr
@@ -305,7 +305,7 @@ export const PSEMineTools: React.FC = () => {
               </div>
               <div>
                 <span className="text-text-tertiary">Hourly Rate:</span>
-                <div className="text-base font-bold text-[#00E599] font-mono tabular-nums mt-0.5">
+                <div className="text-base font-bold text-[#2bb39a] font-mono tabular-nums mt-0.5">
                   +£{simTotalHourlyRate.toFixed(2)}/hr
                 </div>
               </div>
@@ -317,7 +317,7 @@ export const PSEMineTools: React.FC = () => {
               </div>
               <div>
                 <span className="text-text-tertiary">90-Day Campaign Return:</span>
-                <div className="text-base font-bold text-[#00E599] font-mono tabular-nums mt-0.5">
+                <div className="text-base font-bold text-[#2bb39a] font-mono tabular-nums mt-0.5">
                   £{simCampaignOutput.toFixed(2)}
                 </div>
               </div>

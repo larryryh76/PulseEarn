@@ -119,7 +119,7 @@ export const PSEMineWallet: React.FC = () => {
           </div>
 
           <p className="text-xs text-text-secondary">
-            Accruing at <strong className="text-[#00E599] font-mono font-bold">+£{(pseUser?.totalCapacityGBPPerHour || 0).toFixed(2)}/hour</strong>. Settled at the end of the 90-day campaign.
+            Accruing at <strong className="text-[#2bb39a] font-mono font-bold">+£{(pseUser?.totalCapacityGBPPerHour || 0).toFixed(2)}/hour</strong>. Settled at the end of the 90-day campaign.
           </p>
         </div>
 
@@ -145,7 +145,7 @@ export const PSEMineWallet: React.FC = () => {
 
           <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-tertiary">
             <span>Status:</span>
-            <span className="text-[#00E599] font-bold flex items-center gap-1">
+            <span className="text-[#2bb39a] font-bold flex items-center gap-1">
               <ShieldCheck size={14} />
               <span>Operational</span>
             </span>
@@ -162,13 +162,13 @@ export const PSEMineWallet: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Wallet size={16} className="text-[#00E599]" />
+                <Wallet size={16} className="text-[#2bb39a]" />
                 <h2 className="text-sm font-bold text-text-primary">Connected Wallet</h2>
               </div>
               <span className={cn(
                 "text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border",
                 connectedWallet 
-                  ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20" 
+                  ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20" 
                   : "bg-surface-bright text-text-tertiary border-border"
               )}>
                 {connectedWallet ? 'Connected' : 'Not Connected'}
@@ -192,13 +192,13 @@ export const PSEMineWallet: React.FC = () => {
                       className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
                       title="Copy Address"
                     >
-                      {copiedPayment ? <Check size={14} className="text-[#00E599]" /> : <Copy size={14} />}
+                      {copiedPayment ? <Check size={14} className="text-[#2bb39a]" /> : <Copy size={14} />}
                     </button>
                     <a
                       href={`https://bscscan.com/address/${connectedWallet}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 text-text-tertiary hover:text-[#00E599] transition-colors"
+                      className="p-1 text-text-tertiary hover:text-[#2bb39a] transition-colors"
                       title="View on BSCScan"
                     >
                       <ExternalLink size={14} />
@@ -238,13 +238,13 @@ export const PSEMineWallet: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Send size={16} className="text-[#00E599]" />
+                <Send size={16} className="text-[#2bb39a]" />
                 <h2 className="text-sm font-bold text-text-primary">Payout Destination</h2>
               </div>
               <span className={cn(
                 "text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border",
                 pseUser?.payoutWallet 
-                  ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20" 
+                  ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20" 
                   : "bg-warning/10 text-warning border-warning/20"
               )}>
                 {pseUser?.payoutWallet ? 'Configured' : 'Action Required'}
@@ -268,13 +268,13 @@ export const PSEMineWallet: React.FC = () => {
                       className="p-1 text-text-tertiary hover:text-text-primary transition-colors"
                       title="Copy Address"
                     >
-                      {copiedPayout ? <Check size={14} className="text-[#00E599]" /> : <Copy size={14} />}
+                      {copiedPayout ? <Check size={14} className="text-[#2bb39a]" /> : <Copy size={14} />}
                     </button>
                     <a
                       href={`https://bscscan.com/address/${pseUser.payoutWallet}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 text-text-tertiary hover:text-[#00E599] transition-colors"
+                      className="p-1 text-text-tertiary hover:text-[#2bb39a] transition-colors"
                       title="View on BSCScan"
                     >
                       <ExternalLink size={14} />
@@ -292,7 +292,7 @@ export const PSEMineWallet: React.FC = () => {
 
           <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-tertiary">
             <span>Status:</span>
-            <span className={cn("font-bold", isWalletLocked ? "text-warning" : "text-[#00E599]")}>
+            <span className={cn("font-bold", isWalletLocked ? "text-warning" : "text-[#2bb39a]")}>
               {isWalletLocked ? 'Locked for Settlement' : 'Editable'}
             </span>
           </div>
@@ -333,14 +333,14 @@ export const PSEMineWallet: React.FC = () => {
                   placeholder="0x1234567890abcdef1234567890abcdef12345678"
                   value={payoutInput}
                   onChange={(e) => setPayoutInput(e.target.value)}
-                  className="flex-1 px-4 py-2.5 bg-surface-bright border border-border rounded-xl text-xs font-mono text-text-primary focus:outline-none focus:border-[#00E599] placeholder-text-tertiary"
+                  className="flex-1 px-4 py-2.5 bg-surface-bright border border-border rounded-xl text-xs font-mono text-text-primary focus:outline-none focus:border-[#2bb39a] placeholder-text-tertiary"
                 />
                 
                 {connectedWallet && (
                   <button
                     type="button"
                     onClick={handleSetConnectedAsPayout}
-                    className="px-4 py-2.5 bg-surface-bright hover:bg-surface border border-border text-[#00E599] rounded-xl text-xs font-bold shrink-0 transition-colors"
+                    className="px-4 py-2.5 bg-surface-bright hover:bg-surface border border-border text-[#2bb39a] rounded-xl text-xs font-bold shrink-0 transition-colors"
                   >
                     Use Connected
                   </button>
@@ -362,19 +362,19 @@ export const PSEMineWallet: React.FC = () => {
       {/* Campaign Settlement Info */}
       <div className="p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-3 text-xs">
         <div className="flex items-center gap-2 text-text-primary font-bold">
-          <HelpCircle size={16} className="text-[#00E599]" />
+          <HelpCircle size={16} className="text-[#2bb39a]" />
           <span>Settlement Information</span>
         </div>
 
         <ul className="space-y-2 text-text-secondary">
           <li className="flex items-start gap-2">
-            <Check size={14} className="text-[#00E599] shrink-0 mt-0.5" />
+            <Check size={14} className="text-[#2bb39a] shrink-0 mt-0.5" />
             <span>
               <strong className="text-text-primary">Fixed GBP Value:</strong> Earnings accumulate in GBP (£) with no token price fluctuations during the campaign.
             </span>
           </li>
           <li className="flex items-start gap-2">
-            <Check size={14} className="text-[#00E599] shrink-0 mt-0.5" />
+            <Check size={14} className="text-[#2bb39a] shrink-0 mt-0.5" />
             <span>
               <strong className="text-text-primary">Automatic Disbursement:</strong> Upon campaign conclusion, your accumulated earnings are sent to your configured payout address.
             </span>

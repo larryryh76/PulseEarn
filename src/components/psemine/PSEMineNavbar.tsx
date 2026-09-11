@@ -19,7 +19,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { useTheme } from '../../contexts/ThemeContext';
 import { PSEMineLogo } from './PSEMineLogo';
 import { cn } from '../../utils';
@@ -36,7 +36,7 @@ export const PSEMineNavbar: React.FC = () => {
     campaignDaysRemaining,
     isCampaignArchived
   } = usePSEMine();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout } = usePSEMineAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
@@ -77,7 +77,7 @@ export const PSEMineNavbar: React.FC = () => {
             {/* Campaign Countdown Badge */}
             {!isCampaignArchived && (
               <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 bg-surface border border-border rounded-full text-[11px] text-text-secondary font-medium">
-                <Clock className="w-3.5 h-3.5 text-[#00E599]" />
+                <Clock className="w-3.5 h-3.5 text-[#2bb39a]" />
                 <span className="font-mono">{campaignDaysRemaining}d remaining</span>
               </div>
             )}
@@ -97,11 +97,11 @@ export const PSEMineNavbar: React.FC = () => {
                   className={cn(
                     "px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5",
                     isActive 
-                      ? "bg-[#00E599]/10 text-[#00E599] border border-[#00E599]/25 shadow-sm"
+                      ? "bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/25 shadow-sm"
                       : "text-text-secondary hover:text-text-primary hover:bg-surface-bright"
                   )}
                 >
-                  <Icon className={cn("w-3.5 h-3.5", isActive ? "text-[#00E599]" : "text-text-tertiary")} />
+                  <Icon className={cn("w-3.5 h-3.5", isActive ? "text-[#2bb39a]" : "text-text-tertiary")} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -119,7 +119,7 @@ export const PSEMineNavbar: React.FC = () => {
                 title="Live Estimated Accruals"
               >
                 <div className="text-[9px] uppercase font-bold text-text-tertiary flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00E599] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a] animate-pulse" />
                   <span>Accrued GBP</span>
                 </div>
                 <div className="text-xs font-bold font-mono text-text-primary tabular-nums">
@@ -137,8 +137,8 @@ export const PSEMineNavbar: React.FC = () => {
                 className={cn(
                   "px-3.5 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all duration-200",
                   connectedWallet
-                    ? "bg-surface border border-[#00E599]/30 text-[#00E599] hover:bg-surface-bright"
-                    : "bg-[#00E599] hover:bg-[#00D08A] text-[#070A0F] shadow-md shadow-[#00E599]/15"
+                    ? "bg-surface border border-[#2bb39a]/30 text-[#2bb39a] hover:bg-surface-bright"
+                    : "bg-[#2bb39a] hover:bg-[#258f7c] text-[#070A0F] shadow-md shadow-[#2bb39a]/15"
                 )}
               >
                 <Wallet className="w-3.5 h-3.5" />
@@ -159,7 +159,7 @@ export const PSEMineNavbar: React.FC = () => {
                   <div className="px-4 py-3">
                     <div className="text-[10px] text-text-tertiary uppercase font-bold tracking-widest">Connected Wallet</div>
                     <div className="text-xs text-text-secondary mt-0.5 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00E599]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a]" />
                       <span>BNB Smart Chain (BEP-20)</span>
                     </div>
                     <div className="font-mono text-xs text-text-primary font-bold truncate mt-1">
@@ -226,7 +226,7 @@ export const PSEMineNavbar: React.FC = () => {
               className="p-3 rounded-xl text-xs font-semibold flex items-center justify-between bg-surface border border-border text-text-primary hover:bg-surface-bright"
             >
               <div className="flex items-center gap-2.5">
-                <BookOpen className="w-4 h-4 text-[#00E599]" />
+                <BookOpen className="w-4 h-4 text-[#2bb39a]" />
                 <span>Campaign Guide & FAQ</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-text-tertiary" />
@@ -238,7 +238,7 @@ export const PSEMineNavbar: React.FC = () => {
               className="p-3 rounded-xl text-xs font-semibold flex items-center justify-between bg-surface border border-border text-text-primary hover:bg-surface-bright"
             >
               <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-[#00E599]" />
+                <ShieldCheck className="w-4 h-4 text-[#2bb39a]" />
                 <span>BNB Smart Chain Settlement</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-text-tertiary" />
@@ -250,7 +250,7 @@ export const PSEMineNavbar: React.FC = () => {
               className="p-3 rounded-xl text-xs font-semibold flex items-center justify-between bg-surface border border-border text-text-primary hover:bg-surface-bright"
             >
               <div className="flex items-center gap-2.5">
-                <History className="w-4 h-4 text-[#00E599]" />
+                <History className="w-4 h-4 text-[#2bb39a]" />
                 <span>Campaign Ledger & Activity</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-text-tertiary" />

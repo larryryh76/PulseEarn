@@ -16,13 +16,13 @@ import {
   Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
 export const PSEMineMe: React.FC = () => {
-  const { currentUser, userData, logout } = useAuth();
+  const { currentUser, userData, logout } = usePSEMineAuth();
   const { 
     pseUser, 
     connectedWallet, 
@@ -103,7 +103,7 @@ export const PSEMineMe: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] font-bold text-xl shrink-0 font-mono">
+            <div className="w-14 h-14 rounded-2xl bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] font-bold text-xl shrink-0 font-mono">
               {currentUser?.email ? currentUser.email.slice(0, 2).toUpperCase() : <User size={24} />}
             </div>
             
@@ -120,7 +120,7 @@ export const PSEMineMe: React.FC = () => {
                 {currentUser?.email}
               </p>
               <div className="flex items-center gap-2 text-[11px] text-text-tertiary pt-0.5">
-                <span className="inline-flex items-center text-[#00E599] font-medium">
+                <span className="inline-flex items-center text-[#2bb39a] font-medium">
                   <ShieldCheck size={14} className="mr-1" />
                   Authenticated
                 </span>
@@ -135,7 +135,7 @@ export const PSEMineMe: React.FC = () => {
             <div className="text-2xl md:text-3xl font-black text-text-primary font-mono tabular-nums tracking-tight mt-0.5">
               £{liveAccruedGBP.toFixed(2)}
             </div>
-            <div className="text-[11px] text-[#00E599] font-mono font-bold mt-0.5">
+            <div className="text-[11px] text-[#2bb39a] font-mono font-bold mt-0.5">
               +£{(pseUser?.totalCapacityGBPPerHour || 0).toFixed(2)}/hour rate
             </div>
           </div>
@@ -150,14 +150,14 @@ export const PSEMineMe: React.FC = () => {
           <div className="text-lg md:text-xl font-bold text-text-primary font-mono tabular-nums mt-1">
             {totalHardwareUnits} <span className="text-xs text-text-tertiary font-normal">Tools</span>
           </div>
-          <Link to="/mine/tools" className="text-[10px] text-[#00E599] hover:underline font-bold uppercase tracking-wider mt-2 inline-block">
+          <Link to="/mine/tools" className="text-[10px] text-[#2bb39a] hover:underline font-bold uppercase tracking-wider mt-2 inline-block">
             View Tools →
           </Link>
         </div>
 
         <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
           <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Tool Rate</div>
-          <div className="text-lg md:text-xl font-bold text-[#00E599] font-mono tabular-nums mt-1">
+          <div className="text-lg md:text-xl font-bold text-[#2bb39a] font-mono tabular-nums mt-1">
             £{(pseUser?.toolCapacityGBPPerHour || 0).toFixed(2)}<span className="text-xs text-text-tertiary font-normal">/hr</span>
           </div>
           <span className="text-[10px] text-text-tertiary mt-2 inline-block">Cap: £10.60/hr</span>
@@ -165,7 +165,7 @@ export const PSEMineMe: React.FC = () => {
 
         <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
           <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Referral Boost</div>
-          <div className="text-lg md:text-xl font-bold text-[#00E599] font-mono tabular-nums mt-1">
+          <div className="text-lg md:text-xl font-bold text-[#2bb39a] font-mono tabular-nums mt-1">
             +£{(pseUser?.referralCapacityGBPPerHour || 0).toFixed(2)}<span className="text-xs text-text-tertiary font-normal">/hr</span>
           </div>
           <span className="text-[10px] text-text-tertiary mt-2 inline-block">{pseUser?.qualifiedReferralsCount || 0}/5 Qualified</span>
@@ -193,7 +193,7 @@ export const PSEMineMe: React.FC = () => {
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599]">
+                  <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a]">
                     <Wallet size={16} />
                   </div>
                   <span className="font-bold text-text-primary text-sm">Payment Wallet</span>
@@ -219,7 +219,7 @@ export const PSEMineMe: React.FC = () => {
                       className="text-text-tertiary hover:text-text-primary p-1 transition-colors"
                       title="Copy Address"
                     >
-                      {copiedWallet ? <Check size={14} className="text-[#00E599]" /> : <Copy size={14} />}
+                      {copiedWallet ? <Check size={14} className="text-[#2bb39a]" /> : <Copy size={14} />}
                     </button>
                     <button
                       onClick={disconnectWallet}
@@ -232,7 +232,7 @@ export const PSEMineMe: React.FC = () => {
               ) : (
                 <>
                   <span className="text-text-tertiary">Not Connected</span>
-                  <Link to="/mine/wallet" className="text-[#00E599] hover:underline font-bold">
+                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold">
                     Connect Wallet →
                   </Link>
                 </>
@@ -245,7 +245,7 @@ export const PSEMineMe: React.FC = () => {
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599]">
+                  <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a]">
                     <Lock size={16} />
                   </div>
                   <span className="font-bold text-text-primary text-sm">Payout Settlement Address</span>
@@ -253,7 +253,7 @@ export const PSEMineMe: React.FC = () => {
                 <span className={cn(
                   "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
                   pseUser?.payoutWallet 
-                    ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20" 
+                    ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20" 
                     : "bg-warning/10 text-warning border-warning/20"
                 )}>
                   {pseUser?.payoutWallet ? 'Configured' : 'Action Required'}
@@ -267,17 +267,17 @@ export const PSEMineMe: React.FC = () => {
             <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
               {pseUser?.payoutWallet ? (
                 <>
-                  <span className="font-mono text-[#00E599] font-bold">
+                  <span className="font-mono text-[#2bb39a] font-bold">
                     {`${pseUser.payoutWallet.slice(0, 6)}...${pseUser.payoutWallet.slice(-4)}`}
                   </span>
-                  <Link to="/mine/wallet" className="text-[#00E599] hover:underline font-bold text-[11px]">
+                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold text-[11px]">
                     Change Address →
                   </Link>
                 </>
               ) : (
                 <>
                   <span className="text-warning text-[11px] font-medium">Payout address not set</span>
-                  <Link to="/mine/wallet" className="text-[#00E599] hover:underline font-bold text-[11px]">
+                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold text-[11px]">
                     Configure Payout →
                   </Link>
                 </>
@@ -293,7 +293,7 @@ export const PSEMineMe: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
-              <Users size={16} className="text-[#00E599]" />
+              <Users size={16} className="text-[#2bb39a]" />
               <h3 className="font-bold text-text-primary text-sm md:text-base">Referral Boost</h3>
             </div>
             <p className="text-xs text-text-secondary mt-1">
@@ -303,7 +303,7 @@ export const PSEMineMe: React.FC = () => {
 
           <Link
             to="/mine/referrals"
-            className="text-xs font-bold text-[#00E599] hover:underline flex items-center gap-1 uppercase tracking-wider"
+            className="text-xs font-bold text-[#2bb39a] hover:underline flex items-center gap-1 uppercase tracking-wider"
           >
             <span>View Referrals</span>
             <ChevronRight size={14} />
@@ -324,7 +324,7 @@ export const PSEMineMe: React.FC = () => {
         </div>
       </div>
 
-      {/* ── QUICK NAVIGATION LINKS ──────────────────────────────────────── */}
+      {/* ── QUICK NAVIGATION LINKS ─────────────────────────────��──────��─── */}
       <div className="bg-surface border border-border rounded-2xl md:rounded-3xl divide-y divide-border text-xs overflow-hidden shadow-subtle">
         
         <Link
@@ -332,7 +332,7 @@ export const PSEMineMe: React.FC = () => {
           className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
         >
           <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 flex items-center justify-center text-[#00E599]">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
               <BookOpen size={16} />
             </div>
             <span>Campaign Guide & FAQ</span>
@@ -345,7 +345,7 @@ export const PSEMineMe: React.FC = () => {
           className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
         >
           <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 flex items-center justify-center text-[#00E599]">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
               <History size={16} />
             </div>
             <span>Activity Ledger</span>
@@ -358,7 +358,7 @@ export const PSEMineMe: React.FC = () => {
           className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
         >
           <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 flex items-center justify-center text-[#00E599]">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
               <HelpCircle size={16} />
             </div>
             <span>Campaign FAQ & Troubleshooting</span>

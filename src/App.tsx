@@ -53,6 +53,8 @@ import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
 import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
 import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
+import { PSEmineAuth, PSEmineForgotPassword, PSEmineVerifyEmail, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
+import { PSEMineAuthProvider } from './contexts/PSEMineAuthContext'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -191,15 +193,19 @@ function App() {
         <Route path="/help" element={<HelpCenter />} />
 
         {/* PSEMINE 90-DAY CAMPAIGN ECOSYSTEM */}
-        <Route path="/mine" element={<PSEMineLayout />}>
+        <Route path="/mine/login" element={<PSEMineAuthProvider><PSEmineAuth /></PSEMineAuthProvider>} />
+        <Route path="/mine/signup" element={<PSEMineAuthProvider><PSEmineAuth mode="signup" /></PSEMineAuthProvider>} />
+        <Route path="/mine/forgot-password" element={<PSEMineAuthProvider><PSEmineForgotPassword /></PSEMineAuthProvider>} />
+        <Route path="/mine/verify-email" element={<PSEMineAuthProvider><PSEmineVerifyEmail /></PSEMineAuthProvider>} />
+        <Route path="/mine" element={<PSEMineAuthProvider><PSEMineLayout /></PSEMineAuthProvider>}>
           <Route index element={<PSEMineLanding />} />
-          <Route path="dashboard" element={<ProtectedRoute><PSEMineDashboard /></ProtectedRoute>} />
-          <Route path="tools" element={<PSEMineTools />} />
-          <Route path="wallet" element={<ProtectedRoute><PSEMineWallet /></ProtectedRoute>} />
-          <Route path="referrals" element={<ProtectedRoute><PSEMineReferrals /></ProtectedRoute>} />
-          <Route path="activity" element={<ProtectedRoute><PSEMineActivity /></ProtectedRoute>} />
+          <Route path="dashboard" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
+          <Route path="tools" element={<PSEmineProtectedRoute><PSEMineTools /></PSEmineProtectedRoute>} />
+          <Route path="wallet" element={<PSEmineProtectedRoute><PSEMineWallet /></PSEmineProtectedRoute>} />
+          <Route path="referrals" element={<PSEmineProtectedRoute><PSEMineReferrals /></PSEmineProtectedRoute>} />
+          <Route path="activity" element={<PSEmineProtectedRoute><PSEMineActivity /></PSEmineProtectedRoute>} />
           <Route path="guide" element={<PSEMineGuide />} />
-          <Route path="me" element={<ProtectedRoute><PSEMineMe /></ProtectedRoute>} />
+          <Route path="me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
         </Route>
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />

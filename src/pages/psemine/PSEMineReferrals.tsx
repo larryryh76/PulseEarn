@@ -9,13 +9,13 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
 export const PSEMineReferrals: React.FC = () => {
   const { pseUser, referrals } = usePSEMine();
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData } = usePSEMineAuth();
   const [copied, setCopied] = useState(false);
 
   const referralCode = userData?.referralCode || currentUser?.uid?.slice(0, 8).toUpperCase() || 'PSEMINE';
@@ -56,12 +56,12 @@ export const PSEMineReferrals: React.FC = () => {
 
         {/* Current Boost Badge */}
         <div className="p-4 bg-surface border border-border rounded-2xl flex items-center gap-4 shrink-0 shadow-subtle">
-          <div className="w-10 h-10 rounded-xl bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
             <TrendingUp size={18} />
           </div>
           <div>
             <div className="text-[10px] uppercase font-bold text-text-tertiary tracking-wider">Active Referral Boost</div>
-            <div className="text-base font-bold text-[#00E599] font-mono tabular-nums mt-0.5">
+            <div className="text-base font-bold text-[#2bb39a] font-mono tabular-nums mt-0.5">
               +£{currentBoost.toFixed(2)}/hour
             </div>
           </div>
@@ -94,7 +94,7 @@ export const PSEMineReferrals: React.FC = () => {
                 className={cn(
                   "p-4 rounded-xl md:rounded-2xl border text-center transition-all",
                   isQualified
-                    ? "bg-[#00E599]/5 border-[#00E599]/30 shadow-sm"
+                    ? "bg-[#2bb39a]/5 border-[#2bb39a]/30 shadow-sm"
                     : "bg-surface-bright/40 border-border opacity-70"
                 )}
               >
@@ -103,7 +103,7 @@ export const PSEMineReferrals: React.FC = () => {
                     Slot {slotNumber}
                   </span>
                   {isQualified ? (
-                    <CheckCircle2 size={14} className="text-[#00E599]" />
+                    <CheckCircle2 size={14} className="text-[#2bb39a]" />
                   ) : (
                     <Clock size={14} className="text-text-tertiary" />
                   )}
@@ -111,7 +111,7 @@ export const PSEMineReferrals: React.FC = () => {
 
                 <div className={cn(
                   "text-sm font-bold font-mono tabular-nums my-1",
-                  isQualified ? "text-[#00E599]" : "text-text-tertiary"
+                  isQualified ? "text-[#2bb39a]" : "text-text-tertiary"
                 )}>
                   +£0.30/hr
                 </div>
@@ -152,7 +152,7 @@ export const PSEMineReferrals: React.FC = () => {
       <div className="p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 shadow-subtle">
         <div className="flex items-center justify-between">
           <h3 className="text-sm md:text-base font-bold text-text-primary flex items-center gap-2">
-            <Users size={16} className="text-[#00E599]" />
+            <Users size={16} className="text-[#2bb39a]" />
             <span>Referrals ({referrals.length})</span>
           </h3>
         </div>
@@ -181,13 +181,13 @@ export const PSEMineReferrals: React.FC = () => {
                       <span className={cn(
                         "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
                         ref.status === 'qualified'
-                          ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20"
+                          ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20"
                           : "bg-surface-bright text-text-tertiary border-border"
                       )}>
                         {ref.status === 'qualified' ? 'Qualified' : 'Pending Purchase'}
                       </span>
                     </td>
-                    <td className="py-3 font-bold font-mono text-[#00E599] tabular-nums">
+                    <td className="py-3 font-bold font-mono text-[#2bb39a] tabular-nums">
                       {ref.status === 'qualified' ? `+£${(ref.capacityContributionGBPPerHour ?? 0.30).toFixed(2)}/hr` : '£0.00/hr'}
                     </td>
                   </tr>

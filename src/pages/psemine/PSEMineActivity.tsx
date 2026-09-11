@@ -56,7 +56,7 @@ export const PSEMineActivity: React.FC = () => {
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors",
                 filterType === tab.id
-                  ? "bg-[#00E599] text-[#070A0F] shadow-sm font-extrabold"
+                  ? "bg-[#2bb39a] text-[#070A0F] shadow-sm font-extrabold"
                   : "text-text-tertiary hover:text-text-primary"
               )}
             >
@@ -83,9 +83,9 @@ export const PSEMineActivity: React.FC = () => {
                     <div className={cn(
                       "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border",
                       isPurchase 
-                        ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20"
+                        ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20"
                         : isReferral
-                          ? "bg-[#00E599]/10 text-[#00E599] border-[#00E599]/20"
+                          ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20"
                           : "bg-surface-bright text-text-secondary border-border"
                     )}>
                       {isPurchase ? <Layers size={16} /> : isReferral ? <Users size={16} /> : <Wallet size={16} />}
@@ -111,7 +111,7 @@ export const PSEMineActivity: React.FC = () => {
                         href={`https://bscscan.com/tx/${act.metadata.txHash}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#00E599] hover:underline flex items-center gap-1 mt-0.5 text-[11px] font-bold"
+                        className="text-[#2bb39a] hover:underline flex items-center gap-1 mt-0.5 text-[11px] font-bold"
                       >
                         <span>View on BSCScan</span>
                         <ExternalLink size={12} />

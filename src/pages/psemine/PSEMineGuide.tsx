@@ -21,7 +21,7 @@ export const PSEMineGuide: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="text-center space-y-2"
       >
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E599]/10 border border-[#00E599]/25 text-[#00E599] text-xs font-bold uppercase tracking-wider">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2bb39a]/10 border border-[#2bb39a]/25 text-[#2bb39a] text-xs font-bold uppercase tracking-wider">
           <BookOpen size={14} />
           <span>Campaign Information</span>
         </div>
@@ -39,7 +39,7 @@ export const PSEMineGuide: React.FC = () => {
         {/* Section 1: Campaign Overview */}
         <div className="p-6 sm:p-7 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-3 shadow-subtle">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
               <Clock size={16} />
             </div>
             <span>1. Campaign Overview</span>
@@ -52,7 +52,7 @@ export const PSEMineGuide: React.FC = () => {
         {/* Section 2: Mining Tools & Tiers */}
         <div className="p-6 sm:p-7 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 shadow-subtle">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
               <Layers size={16} />
             </div>
             <span>2. Mining Tools & Pricing</span>
@@ -64,22 +64,22 @@ export const PSEMineGuide: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
             <div className="p-4 bg-surface-bright/50 border border-border rounded-xl md:rounded-2xl space-y-1.5">
               <div className="text-text-primary font-bold">Tier 1: Starter Miner</div>
-              <div className="text-[#00E599] font-mono font-bold tabular-nums">£3.00 • +£0.10/hour (Max: 5 Units)</div>
+              <div className="text-[#2bb39a] font-mono font-bold tabular-nums">£3.00 • +£0.10/hour (Max: 5 Units)</div>
               <div className="text-text-tertiary text-[11px]">Max Tier Output: £0.50/hr</div>
             </div>
             <div className="p-4 bg-surface-bright/50 border border-border rounded-xl md:rounded-2xl space-y-1.5">
               <div className="text-text-primary font-bold">Tier 2: Builder Miner</div>
-              <div className="text-[#00E599] font-mono font-bold tabular-nums">£10.00 • +£0.50/hour (Max: 3 Units)</div>
+              <div className="text-[#2bb39a] font-mono font-bold tabular-nums">£10.00 • +£0.50/hour (Max: 3 Units)</div>
               <div className="text-text-tertiary text-[11px]">Max Tier Output: £1.50/hr</div>
             </div>
             <div className="p-4 bg-surface-bright/50 border border-border rounded-xl md:rounded-2xl space-y-1.5">
               <div className="text-text-primary font-bold">Tier 3: Advanced Miner</div>
-              <div className="text-[#00E599] font-mono font-bold tabular-nums">£50.00 • +£1.20/hour (Max: 3 Units)</div>
+              <div className="text-[#2bb39a] font-mono font-bold tabular-nums">£50.00 • +£1.20/hour (Max: 3 Units)</div>
               <div className="text-text-tertiary text-[11px]">Max Tier Output: £3.60/hr</div>
             </div>
             <div className="p-4 bg-surface-bright/50 border border-border rounded-xl md:rounded-2xl space-y-1.5">
               <div className="text-text-primary font-bold">Tier 4: Elite Miner</div>
-              <div className="text-[#00E599] font-mono font-bold tabular-nums">£200.00 • +£2.50/hour (Max: 2 Units)</div>
+              <div className="text-[#2bb39a] font-mono font-bold tabular-nums">£200.00 • +£2.50/hour (Max: 2 Units)</div>
               <div className="text-text-tertiary text-[11px]">Max Tier Output: £5.00/hr</div>
             </div>
           </div>
@@ -91,7 +91,7 @@ export const PSEMineGuide: React.FC = () => {
         {/* Section 3: Referral Boost */}
         <div className="p-6 sm:p-7 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 shadow-subtle">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
               <Users size={16} />
             </div>
             <span>3. Referral Boost</span>
@@ -101,15 +101,15 @@ export const PSEMineGuide: React.FC = () => {
           </p>
           <ul className="space-y-2 text-xs sm:text-sm text-text-secondary">
             <li className="flex items-start gap-2.5">
-              <CheckCircle2 size={16} className="text-[#00E599] shrink-0 mt-0.5" />
+              <CheckCircle2 size={16} className="text-[#2bb39a] shrink-0 mt-0.5" />
               <span><strong className="text-text-primary">+£0.30/hr</strong> for each qualified referral who purchases at least one tool.</span>
             </li>
             <li className="flex items-start gap-2.5">
-              <CheckCircle2 size={16} className="text-[#00E599] shrink-0 mt-0.5" />
+              <CheckCircle2 size={16} className="text-[#2bb39a] shrink-0 mt-0.5" />
               <span>Maximum of <strong className="text-text-primary">5 qualified referrals</strong> (+£1.50/hr boost cap).</span>
             </li>
             <li className="flex items-start gap-2.5">
-              <CheckCircle2 size={16} className="text-[#00E599] shrink-0 mt-0.5" />
+              <CheckCircle2 size={16} className="text-[#2bb39a] shrink-0 mt-0.5" />
               <span>Peak achievable rate with all tools and 5 referrals: <strong className="text-text-primary font-mono">£12.10/hour</strong>.</span>
             </li>
           </ul>
@@ -118,7 +118,7 @@ export const PSEMineGuide: React.FC = () => {
         {/* Section 4: Settlement */}
         <div className="p-6 sm:p-7 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-3 shadow-subtle">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 border border-[#00E599]/20 flex items-center justify-center text-[#00E599] shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] shrink-0">
               <Coins size={16} />
             </div>
             <span>4. Settlement & Disbursement</span>

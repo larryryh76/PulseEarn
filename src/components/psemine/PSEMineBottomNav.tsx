@@ -8,7 +8,7 @@ import {
   User,
   ArrowRight
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { cn } from '../../utils';
 
 /**
@@ -29,7 +29,7 @@ import { cn } from '../../utils';
  */
 export const PSEMineBottomNav: React.FC = () => {
   const location = useLocation();
-  const { currentUser } = useAuth();
+  const { currentUser } = usePSEMineAuth();
   
   const isLandingPage = location.pathname === '/mine';
 
@@ -40,7 +40,7 @@ export const PSEMineBottomNav: React.FC = () => {
         <div className="max-w-md mx-auto flex items-center gap-3">
           <Link
             to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-            className="w-full flex items-center justify-center gap-2 bg-[#00E599] hover:bg-[#00D08A] text-[#070A0F] font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-[#00E599]/20 active:scale-[0.98] transition-all"
+            className="w-full flex items-center justify-center gap-2 bg-[#2bb39a] hover:bg-[#258f7c] text-[#070A0F] font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-[#2bb39a]/20 active:scale-[0.98] transition-all"
           >
             <span>{currentUser ? "Open Mining Console" : "Start Mining Campaign"}</span>
             <ArrowRight size={14} />
@@ -95,13 +95,13 @@ export const PSEMineBottomNav: React.FC = () => {
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-1.5 transition-all duration-150 relative group",
                 isActive
-                  ? "text-[#00E599]"
+                  ? "text-[#2bb39a]"
                   : "text-text-tertiary hover:text-text-primary"
               )}
             >
               {/* Active top glow indicator */}
               {isActive && (
-                <div className="absolute top-0 w-8 h-0.5 bg-[#00E599] rounded-full shadow-[0_0_8px_rgba(0,229,153,0.8)]" />
+                <div className="absolute top-0 w-8 h-0.5 bg-[#2bb39a] rounded-full shadow-[0_0_8px_rgba(0,229,153,0.8)]" />
               )}
 
               <Icon className={cn(

@@ -91,7 +91,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           console.warn('[PSEMineContext] Campaign listener fallback:', err);
           PSEMineEngine.getOrCreateActiveCampaign().then(setCampaign);
         });
-      } catch (e) {
+      } catch {
         PSEMineEngine.getOrCreateActiveCampaign().then(setCampaign);
       }
     };
@@ -136,8 +136,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (snap.exists()) {
             const data = snap.data() as PSEMineUser;
             setPseUser(data);
-            if (data.connectedWallet && !connectedWallet) {
-              setConnectedWallet(data.connectedWallet);
+            if (data.connectedWallet) {
+              setConnectedWallet(prev => prev || data.connectedWallet);
             }
           }
           setLoading(false);
@@ -233,13 +233,14 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const connectWallet = useCallback(async (): Promise<string | null> => {
     setIsConnectingWallet(true);
     try {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        const ethereum = (window as any).ethereum;
+      const ethWindow = typeof window !== 'undefined' ? (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }) : null;
+      if (ethWindow && ethWindow.ethereum) {
+        const ethereum = ethWindow.ethereum;
         
         // Request accounts
-        const accounts: string[] = await ethereum.request({
+        const accounts = (await ethereum.request({
           method: 'eth_requestAccounts'
-        });
+        })) as string[];
 
         if (accounts && accounts.length > 0) {
           const address = accounts[0].toLowerCase();
@@ -252,9 +253,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: '0x38' }]
             });
-          } catch (switchError: any) {
+          } catch (switchError: unknown) {
             // This error code indicates that the chain has not been added to MetaMask.
-            if (switchError.code === 4902) {
+            const sErr = switchError as { code?: number };
+            if (sErr && sErr.code === 4902) {
               try {
                 await ethereum.request({
                   method: 'wallet_addEthereumChain',
@@ -317,9 +319,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toast.success(`Wallet Linked: ${mockAddress.slice(0, 6)}...${mockAddress.slice(-4)}`);
         return mockAddress;
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[PSEMineContext] Wallet connect error:', e);
-      toast.error(e.message || 'Failed to connect wallet');
+      const errMsg = e instanceof Error ? e.message : 'Failed to connect wallet';
+      toast.error(errMsg);
       return null;
     } finally {
       setIsConnectingWallet(false);
@@ -344,8 +347,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const quote = await PSEMineEngine.generatePurchaseQuote(currentUser.uid, toolId);
       setActiveQuote(quote);
       return quote;
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to generate payment quote');
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to generate payment quote';
+      toast.error(errMsg);
       return null;
     } finally {
       setIsRequestingQuote(false);
@@ -390,9 +394,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       return result;
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[PSEMineContext] submitPurchaseTx error:', e);
-      return { success: false, error: e.message || 'Purchase processing error' };
+      const errMsg = e instanceof Error ? e.message : 'Purchase processing error';
+      return { success: false, error: errMsg };
     }
   }, [currentUser, connectedWallet]);
 
@@ -410,8 +415,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toast.error(res.error || 'Could not update payout address');
       }
       return res;
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Network error' };
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Network error';
+      return { success: false, error: errMsg };
     }
   }, [currentUser]);
 
@@ -471,6 +477,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePSEMine = (): PSEMineContextType => {
   const context = useContext(PSEMineContext);
   if (!context) {

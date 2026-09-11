@@ -343,6 +343,7 @@ service cloud.firestore {
       // Users can register purchase intents (awaiting payment or pending), but cannot activate status
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
+        && request.resource.data.quoteId is string
         && (request.resource.data.status == 'pending' || request.resource.data.status == 'awaiting_payment');
       // Activation and updates strictly restricted to backend Admin SDK
       allow update, delete: if isAdmin();

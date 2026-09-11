@@ -233,7 +233,7 @@ export class PSEMineEngine {
       throw new Error(`Invalid tool tier: ${toolId}`);
     }
 
-    // Attempt authoritative server-side quote generation
+    // Authoritative server-side quote generation
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
@@ -247,15 +247,19 @@ export class PSEMineEngine {
           },
           body: JSON.stringify({ toolId })
         });
-        if (response.ok) {
-          const resData = await response.json();
-          if (resData.success && resData.quote) {
-            return resData.quote as PSEMineQuote;
-          }
+        const resData = await response.json().catch(() => ({}));
+        if (response.ok && resData.success && resData.quote) {
+          return resData.quote as PSEMineQuote;
+        }
+        if (!response.ok) {
+          throw new Error(resData.message || resData.error || 'Failed to generate authoritative quote from server.');
         }
       }
-    } catch (oracleErr) {
-      console.warn('[PSEMineEngine] Server quote endpoint unavailable, using direct oracle fallback:', oracleErr);
+    } catch (oracleErr: unknown) {
+      if (oracleErr instanceof Error && !oracleErr.message.includes('fetch')) {
+        throw oracleErr;
+      }
+      console.warn('[PSEMineEngine] Server quote endpoint unavailable:', oracleErr);
     }
 
     // Retrieve or fallback BNB/GBP exchange rate

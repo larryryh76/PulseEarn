@@ -7169,7 +7169,12 @@ def generate_psemine_tool_quote():
     try:
         db.collection('psemine_quotes').document(quote_id).set(quote)
     except Exception as q_err:
-        logging.warning(f"[PSEmine] Could not persist quote {quote_id}: {q_err}")
+        logging.error(f"[PSEmine] Could not persist quote {quote_id}: {q_err}")
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_PERSISTENCE_FAILED",
+            "message": "Failed to persist quote record. Please try again."
+        }), 500
 
     return jsonify({"success": True, "quote": quote})
 
@@ -7252,38 +7257,74 @@ def verify_psemine_tool_purchase():
             "message": f"Maximum ownership reached for {tool_cfg['name']} (Max: {tool_cfg['max_per_user']})"
         }), 400
 
-    # 5. Bind on-chain verification terms to server-owned parameters
+    # 5. Bind on-chain verification terms strictly to server-owned quote and campaign parameters
     camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
     campaign_receiver = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
     if camp_doc.exists:
         campaign_receiver = camp_doc.to_dict().get('receiverWalletAddress', campaign_receiver)
 
+    quote_id = (purchase.get('quoteId') or data.get('quoteId') or '').strip()
+    if not quote_id:
+        return jsonify({
+            "success": False,
+            "error": "MISSING_QUOTE",
+            "message": "Purchase record is missing required server quoteId."
+        }), 400
+
+    quote_doc = db.collection('psemine_quotes').document(quote_id).get()
+    if not quote_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Referenced server quote does not exist or has expired."
+        }), 400
+
+    q_data = quote_doc.to_dict() or {}
+    if q_data.get('userId') != uid or q_data.get('toolId') != tool_id:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Quote terms do not match authenticated user and tool tier."
+        }), 400
+
+    # Ensure quote matches server configuration for tool tier
+    if float(q_data.get('gbpPrice', 0.0)) != float(tool_cfg['price_gbp']):
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_CONFIG_MISMATCH",
+            "message": "Quote GBP price does not match canonical tool tier configuration."
+        }), 400
+
+    q_exp = q_data.get('expiresAt')
+    if q_exp:
+        try:
+            q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
+            if q_exp_dt.tzinfo is None:
+                q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > q_exp_dt:
+                return jsonify({
+                    "success": False,
+                    "error": "QUOTE_EXPIRED",
+                    "message": "Server quote has expired. Please request a new quote."
+                }), 409
+        except Exception:
+            return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+
+    # Derive expected destination and amount strictly from server-owned data
     expected_destination = campaign_receiver
-    quoted_bnb = float(purchase.get('quotedBNBAmount', 0.0))
+    if q_data.get('receiverWallet'):
+        expected_destination = q_data.get('receiverWallet')
 
-    quote_id = purchase.get('quoteId')
-    if quote_id:
-        quote_doc = db.collection('psemine_quotes').document(quote_id).get()
-        if quote_doc.exists:
-            q_data = quote_doc.to_dict() or {}
-            if q_data.get('userId') != uid or q_data.get('toolId') != tool_id:
-                return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote does not match purchase terms."}), 400
-            quoted_bnb = float(q_data.get('bnbAmount', quoted_bnb))
-            if q_data.get('receiverWallet'):
-                expected_destination = q_data.get('receiverWallet')
-            q_exp = q_data.get('expiresAt')
-            if q_exp:
-                try:
-                    q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
-                    if q_exp_dt.tzinfo is None:
-                        q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
-                    if datetime.now(timezone.utc) > q_exp_dt:
-                        return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Server quote has expired."}), 409
-                except Exception:
-                    pass
+    server_quoted_bnb = q_data.get('bnbAmount')
+    if not server_quoted_bnb or float(server_quoted_bnb) <= 0:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE_AMOUNT",
+            "message": "Server quote contains invalid BNB amount."
+        }), 400
 
-    # Exact wei conversion using Decimal to prevent binary float representation truncation
-    quoted_bnb_str = str(purchase.get('quotedBNBAmount') or quoted_bnb)
+    quoted_bnb = float(server_quoted_bnb)
+    quoted_bnb_str = str(server_quoted_bnb)
     expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
     expected_sender = sender_wallet or purchase.get('paymentWallet')
 
@@ -7378,6 +7419,9 @@ def verify_psemine_tool_purchase():
             txn.update(purchase_ref, {
                 'status': 'activated',
                 'transactionHash': tx_hash,
+                'quoteId': quote_id,
+                'quotedBNBAmount': quoted_bnb,
+                'receiverWallet': expected_destination,
                 'paymentWallet': (sender_wallet or p_curr.to_dict().get('paymentWallet') or '').lower(),
                 'confirmedAt': now_iso,
                 'activatedAt': now_iso,
@@ -7404,6 +7448,8 @@ def verify_psemine_tool_purchase():
             user_was_inactive = u_dict.get('status') != 'active'
             txn.set(user_ref, {
                 'id': uid,
+                'uid': uid,
+                'userId': uid,
                 'status': 'active',
                 'toolCapacityGBPPerHour': tool_cap,
                 'referralCapacityGBPPerHour': ref_cap,

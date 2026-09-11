@@ -45,7 +45,7 @@ export const PSEMineGuide: React.FC = () => {
             <span>1. Campaign Overview</span>
           </h2>
           <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-            PSEmine is a 90-day mining campaign within PulseEarn. It allows participants to build hourly earning capacity denominated in Great British Pounds (GBP £). Earnings accumulate continuously throughout the 90 days and are disbursed in cryptocurrency at the end of the campaign.
+            PSEmine is a dedicated 90-day Web3 cloud mining campaign. It allows participants to build hourly earning capacity denominated in Great British Pounds (GBP £). Earnings accumulate continuously throughout the 90 days and are disbursed in cryptocurrency at the end of the campaign to configured BNB Smart Chain wallets.
           </p>
         </div>
 

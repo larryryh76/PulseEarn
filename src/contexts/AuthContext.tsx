@@ -34,6 +34,7 @@ import { PointTransactionEngine } from '../engines/points/PointTransactionEngine
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
+import { PSEMineLoader } from '../components/psemine/PSEMineLoader';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { UserEngine } from '../engines/system/UserEngine';
@@ -564,26 +565,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         )}
 
         {isRestoring && !systemError ? (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
-          >
-             <div className="scale-150 mb-4">
-                <Logo />
-             </div>
-             <div className="flex flex-col items-center gap-3">
-                <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
-                   <motion.div
-                     initial={{ left: '-100%' }}
-                     animate={{ left: '100%' }}
-                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                     className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
-                   />
-                </div>
-                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
-             </div>
-          </motion.div>
+          typeof window !== 'undefined' && window.location.pathname.startsWith('/mine') ? (
+            <PSEMineLoader label="Initializing Mining Session" fullScreen={true} />
+          ) : (
+            <motion.div
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
+            >
+               <div className="scale-150 mb-4">
+                  <Logo />
+               </div>
+               <div className="flex flex-col items-center gap-3">
+                  <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
+                     <motion.div
+                       initial={{ left: '-100%' }}
+                       animate={{ left: '100%' }}
+                       transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                       className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                     />
+                  </div>
+                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
+               </div>
+            </motion.div>
+          )
         ) : null}
       </AnimatePresence>
       {!loading && !systemError && children}

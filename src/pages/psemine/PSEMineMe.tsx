@@ -8,7 +8,6 @@ import {
   BookOpen, 
   History, 
   HelpCircle, 
-  ExternalLink, 
   LogOut, 
   Copy, 
   Check, 
@@ -91,11 +90,11 @@ export const PSEMineMe: React.FC = () => {
         </div>
 
         <Link
-          to="/dashboard"
+          to="/mine/dashboard"
           className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-bright border border-border rounded-xl text-xs font-bold text-text-secondary hover:text-text-primary transition-all shadow-subtle shrink-0"
         >
           <ArrowLeft size={14} />
-          <span>PulseEarn Hub</span>
+          <span>Mining Overview</span>
         </Link>
       </motion.div>
 
@@ -355,16 +354,16 @@ export const PSEMineMe: React.FC = () => {
         </Link>
 
         <Link
-          to="/support"
+          to="/mine/guide"
           className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
         >
           <div className="flex items-center gap-3 text-text-primary font-medium">
             <div className="w-8 h-8 rounded-lg bg-[#00E599]/10 flex items-center justify-center text-[#00E599]">
               <HelpCircle size={16} />
             </div>
-            <span>Support & Help</span>
+            <span>Campaign FAQ & Troubleshooting</span>
           </div>
-          <ExternalLink size={14} className="text-text-tertiary" />
+          <ChevronRight size={16} className="text-text-tertiary" />
         </Link>
 
       </div>

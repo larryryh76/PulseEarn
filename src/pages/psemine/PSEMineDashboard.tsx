@@ -58,17 +58,20 @@ export const PSEMineDashboard: React.FC = () => {
     elite: 0
   };
 
-  const totalToolsCount = Object.values(toolCounts).reduce((a, b) => a + b, 0);
-  const toolRate = pseUser?.toolCapacityGBPPerHour || 0;
-  const referralRate = pseUser?.referralCapacityGBPPerHour || 0;
-  const totalRate = pseUser?.totalCapacityGBPPerHour || 0;
+  const totalToolsCount = Object.values(toolCounts).reduce((a, b) => a + (Number(b) || 0), 0);
+  const toolRate = Number(pseUser?.toolCapacityGBPPerHour) || 0;
+  const referralRate = Number(pseUser?.referralCapacityGBPPerHour) || 0;
+  const totalRate = Number(pseUser?.totalCapacityGBPPerHour) || 0;
+  const safeLiveAccrued = isNaN(liveAccruedGBP) ? 0 : Math.max(0, liveAccruedGBP);
   const maxCapacity = 12.10; // Peak achievable rate: £10.60 tool + £1.50 referral
   const capacityUtilization = Math.min(100, Math.max(0, (totalRate / maxCapacity) * 100));
 
-  // Calculate campaign day progress
-  const totalDays = campaign?.durationDays || 90;
-  const currentDay = Math.max(1, Math.min(totalDays, totalDays - campaignDaysRemaining));
-  const progressPercent = Math.min(100, Math.max(0, (currentDay / totalDays) * 100));
+  // Calculate campaign day progress safely
+  const totalDays = Number(campaign?.durationDays) > 0 ? Number(campaign?.durationDays) : 90;
+  const safeRemaining = isNaN(campaignDaysRemaining) ? 90 : Math.max(0, campaignDaysRemaining);
+  const currentDay = Math.max(1, Math.min(totalDays, totalDays - safeRemaining));
+  const rawProgress = (currentDay / totalDays) * 100;
+  const progressPercent = isNaN(rawProgress) ? 0 : Math.min(100, Math.max(0, rawProgress));
 
   const recentActivities = activities.slice(0, 4);
 
@@ -128,7 +131,7 @@ export const PSEMineDashboard: React.FC = () => {
 
               {/* High-Impact Numerical Balance */}
               <div className="text-4xl sm:text-5xl md:text-6xl font-black text-text-primary tracking-tight font-mono tabular-nums">
-                £{liveAccruedGBP.toFixed(2)}
+                £{safeLiveAccrued.toFixed(2)}
               </div>
 
               <p className="text-xs text-text-tertiary max-w-lg">
@@ -160,7 +163,7 @@ export const PSEMineDashboard: React.FC = () => {
                 <span className="font-bold text-text-primary">Day {currentDay} of {totalDays}</span>
                 <span className="text-text-tertiary">·</span>
                 <span className="text-text-secondary">
-                  {isCampaignArchived ? 'Concluded' : `${campaignDaysRemaining} days remaining`}
+                  {isCampaignArchived ? 'Concluded' : `${safeRemaining} days remaining`}
                 </span>
               </div>
               <span className="font-mono text-text-tertiary text-[11px]">

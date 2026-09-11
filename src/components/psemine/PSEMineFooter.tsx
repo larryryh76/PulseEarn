@@ -13,7 +13,7 @@ export const PSEMineFooter: React.FC = () => {
           <div className="space-y-3">
             <PSEMineLogo size={32} showWordmark={true} />
             <p className="text-text-tertiary text-xs leading-relaxed">
-              90-day mining campaign within PulseEarn. Purchase mining tools, build your hourly earning capacity, and track your estimated earnings.
+              Standalone 90-day Web3 mining campaign. Activate cloud mining tools, build fixed hourly GBP earning capacity, and track live accruals with BEP-20 settlement.
             </p>
           </div>
 
@@ -94,7 +94,7 @@ export const PSEMineFooter: React.FC = () => {
 
         <div className="pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-text-tertiary">
           <div>
-            © {new Date().getFullYear()} PulseEarn. All rights reserved.
+            © {new Date().getFullYear()} PSEmine Campaign. All rights reserved.
           </div>
           <div className="flex items-center gap-4">
             <Link to="/mine/guide" className="hover:text-text-primary transition-colors">Guide</Link>

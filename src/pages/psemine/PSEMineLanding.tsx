@@ -29,7 +29,7 @@ export const PSEMineLanding: React.FC = () => {
   const faqs = [
     {
       q: 'What is the PSEmine Campaign?',
-      a: 'PSEmine is an official 90-day cloud mining campaign integrated into the PulseEarn ecosystem. Participants activate cloud mining tools to build a fixed hourly earning capacity denominated in Great British Pounds (GBP £).'
+      a: 'PSEmine is an official 90-day Web3 cloud mining campaign. Participants activate cloud mining tools to build a fixed hourly earning capacity denominated in Great British Pounds (GBP £) with automated BEP-20 settlement.'
     },
     {
       q: 'Do I need physical mining rigs or hardware?',

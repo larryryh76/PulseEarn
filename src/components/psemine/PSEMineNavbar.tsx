@@ -16,9 +16,7 @@ import {
   Moon,
   LogOut,
   ArrowUpRight,
-  ShieldCheck,
-  HelpCircle,
-  ArrowLeft
+  ShieldCheck
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -247,26 +245,15 @@ export const PSEMineNavbar: React.FC = () => {
             </Link>
 
             <Link
-              to="/support"
+              to="/mine/activity"
               onClick={() => setMobileMenuOpen(false)}
               className="p-3 rounded-xl text-xs font-semibold flex items-center justify-between bg-surface border border-border text-text-primary hover:bg-surface-bright"
             >
               <div className="flex items-center gap-2.5">
-                <HelpCircle className="w-4 h-4 text-text-secondary" />
-                <span>PulseEarn Support Center</span>
+                <History className="w-4 h-4 text-[#00E599]" />
+                <span>Campaign Ledger & Activity</span>
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-text-tertiary" />
-            </Link>
-
-            <Link
-              to="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-3 rounded-xl text-xs font-semibold flex items-center justify-between bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-surface-bright"
-            >
-              <div className="flex items-center gap-2.5">
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to PulseEarn Rewards Hub</span>
-              </div>
             </Link>
           </div>
 

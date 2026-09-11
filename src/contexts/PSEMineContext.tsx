@@ -414,13 +414,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [currentUser]);
 
-  // Calculate days remaining
+  // Calculate days remaining with full resilience against undefined or invalid date strings
   const campaignDaysRemaining = React.useMemo(() => {
-    if (!campaign) return 90;
+    if (!campaign || !campaign.endAt) return 90;
     const endMs = new Date(campaign.endAt).getTime();
+    if (isNaN(endMs)) return 90;
     const nowMs = Date.now();
     const diffMs = endMs - nowMs;
-    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    const calculated = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return isNaN(calculated) ? 90 : Math.max(0, calculated);
   }, [campaign]);
 
   const isCampaignArchived = Boolean(

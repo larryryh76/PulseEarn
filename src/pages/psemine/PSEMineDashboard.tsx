@@ -85,7 +85,7 @@ export const PSEMineDashboard: React.FC = () => {
             <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">
               PSEmine Console
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00E599]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a]" />
             <span className="text-[11px] font-mono text-text-secondary font-semibold">BNB Smart Chain</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
@@ -101,7 +101,7 @@ export const PSEMineDashboard: React.FC = () => {
             title="Refresh Live Balances"
             aria-label="Refresh earnings balance"
           >
-            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin text-[#00E599]")} />
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin text-[#2bb39a]")} />
           </button>
 
           <Link
@@ -144,7 +144,7 @@ export const PSEMineDashboard: React.FC = () => {
               <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
                 Current Output Rate
               </span>
-              <div className="text-2xl font-extrabold text-[#00E599] font-mono tabular-nums flex items-baseline gap-1">
+              <div className="text-2xl font-extrabold text-[#2bb39a] font-mono tabular-nums flex items-baseline gap-1">
                 +{totalRate > 0 ? `£${totalRate.toFixed(2)}` : '£0.00'}
                 <span className="text-xs font-normal text-text-tertiary">/hr</span>
               </div>
@@ -159,7 +159,7 @@ export const PSEMineDashboard: React.FC = () => {
           <div className="pt-4 border-t border-border space-y-2">
             <div className="flex flex-wrap items-center justify-between text-xs gap-2">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-[#00E599]" />
+                <Clock size={14} className="text-[#2bb39a]" />
                 <span className="font-bold text-text-primary">Day {currentDay} of {totalDays}</span>
                 <span className="text-text-tertiary">·</span>
                 <span className="text-text-secondary">
@@ -174,7 +174,7 @@ export const PSEMineDashboard: React.FC = () => {
             <div className="w-full h-2 bg-surface-bright rounded-full overflow-hidden border border-border">
               <div 
                 style={{ width: `${progressPercent}%` }}
-                className="h-full bg-[#00E599] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(0,229,153,0.5)]"
+                className="h-full bg-[#2bb39a] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(0,229,153,0.5)]"
               />
             </div>
           </div>
@@ -221,9 +221,9 @@ export const PSEMineDashboard: React.FC = () => {
               <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
                 Referral Boost
               </span>
-              <Users size={14} className="text-[#00E599]" />
+              <Users size={14} className="text-[#2bb39a]" />
             </div>
-            <div className="text-xl font-bold font-mono text-[#00E599] tabular-nums">
+            <div className="text-xl font-bold font-mono text-[#2bb39a] tabular-nums">
               +£{referralRate.toFixed(2)}/hr
             </div>
             <div className="text-[11px] text-text-tertiary flex justify-between">
@@ -237,14 +237,14 @@ export const PSEMineDashboard: React.FC = () => {
               <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
                 Max Utilization
               </span>
-              <TrendingUp size={14} className="text-[#00E599]" />
+              <TrendingUp size={14} className="text-[#2bb39a]" />
             </div>
             <div className="text-xl font-bold font-mono text-text-primary tabular-nums">
               {capacityUtilization.toFixed(1)}%
             </div>
             <div className="text-[11px] text-text-tertiary flex justify-between">
               <span>Ceiling: £12.10/hr</span>
-              <span className="text-[#00E599]">Peak Achievable</span>
+              <span className="text-[#2bb39a]">Peak Achievable</span>
             </div>
           </div>
         </div>
@@ -258,7 +258,7 @@ export const PSEMineDashboard: React.FC = () => {
           <div className="w-full h-1.5 bg-surface-bright rounded-full overflow-hidden border border-border">
             <div 
               style={{ width: `${capacityUtilization}%` }}
-              className="h-full bg-gradient-to-r from-[#00E599] to-[#00B4D8] rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-[#2bb39a] to-[#00B4D8] rounded-full transition-all duration-500"
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ export const PSEMineDashboard: React.FC = () => {
         <div className="p-5 rounded-2xl bg-surface border border-border flex flex-col justify-between space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wallet size={16} className="text-[#00E599]" />
+              <Wallet size={16} className="text-[#2bb39a]" />
               <span className="text-xs font-bold text-text-primary uppercase tracking-wider">
                 Settlement Wallet
               </span>
@@ -292,15 +292,15 @@ export const PSEMineDashboard: React.FC = () => {
                   className="p-1.5 hover:bg-surface rounded-lg text-text-secondary hover:text-text-primary transition-colors shrink-0"
                   title="Copy Wallet Address"
                 >
-                  {copiedWallet ? <Check size={14} className="text-[#00E599]" /> : <Copy size={14} />}
+                  {copiedWallet ? <Check size={14} className="text-[#2bb39a]" /> : <Copy size={14} />}
                 </button>
               </div>
               <div className="flex items-center justify-between text-[11px] text-text-tertiary">
-                <span className="flex items-center gap-1 text-[#00E599]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00E599]" />
+                <span className="flex items-center gap-1 text-[#2bb39a]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a]" />
                   Connected & Verified
                 </span>
-                <Link to="/mine/wallet" className="text-[#00E599] hover:underline font-bold">
+                <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold">
                   Wallet Settings
                 </Link>
               </div>
@@ -312,7 +312,7 @@ export const PSEMineDashboard: React.FC = () => {
               </p>
               <button
                 onClick={connectWallet}
-                className="w-full py-2.5 bg-[#00E599] hover:bg-[#00D08A] text-[#070A0F] rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                className="w-full py-2.5 bg-[#2bb39a] hover:bg-[#00D08A] text-[#070A0F] rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
               >
                 <Wallet size={14} />
                 <span>Connect Payout Wallet</span>
@@ -332,7 +332,7 @@ export const PSEMineDashboard: React.FC = () => {
               to="/mine/tools"
               className="p-3 bg-surface-bright/50 hover:bg-surface-bright border border-border rounded-xl text-center space-y-1 transition-all group"
             >
-              <Layers size={18} className="mx-auto text-[#00E599] group-hover:scale-110 transition-transform" />
+              <Layers size={18} className="mx-auto text-[#2bb39a] group-hover:scale-110 transition-transform" />
               <div className="text-[11px] font-bold text-text-primary">Acquire Tools</div>
             </Link>
 
@@ -340,7 +340,7 @@ export const PSEMineDashboard: React.FC = () => {
               to="/mine/referrals"
               className="p-3 bg-surface-bright/50 hover:bg-surface-bright border border-border rounded-xl text-center space-y-1 transition-all group"
             >
-              <Users size={18} className="mx-auto text-[#00E599] group-hover:scale-110 transition-transform" />
+              <Users size={18} className="mx-auto text-[#2bb39a] group-hover:scale-110 transition-transform" />
               <div className="text-[11px] font-bold text-text-primary">Boost Slots</div>
             </Link>
 
@@ -348,7 +348,7 @@ export const PSEMineDashboard: React.FC = () => {
               to="/mine/guide"
               className="p-3 bg-surface-bright/50 hover:bg-surface-bright border border-border rounded-xl text-center space-y-1 transition-all group"
             >
-              <BookOpen size={18} className="mx-auto text-[#00E599] group-hover:scale-110 transition-transform" />
+              <BookOpen size={18} className="mx-auto text-[#2bb39a] group-hover:scale-110 transition-transform" />
               <div className="text-[11px] font-bold text-text-primary">Guide & FAQ</div>
             </Link>
           </div>
@@ -365,7 +365,7 @@ export const PSEMineDashboard: React.FC = () => {
           </div>
           <Link
             to="/mine/tools"
-            className="text-xs font-bold text-[#00E599] hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-[#2bb39a] hover:underline flex items-center gap-1"
           >
             <span>All 4 Tiers</span>
             <ChevronRight size={14} />
@@ -382,7 +382,7 @@ export const PSEMineDashboard: React.FC = () => {
                 key={tool.id}
                 className={cn(
                   "p-4 rounded-2xl bg-surface border flex flex-col justify-between space-y-3 transition-all",
-                  count > 0 ? "border-[#00E599]/30" : "border-border hover:border-border-bright"
+                  count > 0 ? "border-[#2bb39a]/30" : "border-border hover:border-border-bright"
                 )}
               >
                 <div className="space-y-2">
@@ -392,7 +392,7 @@ export const PSEMineDashboard: React.FC = () => {
                     </span>
                     <span className={cn(
                       "text-xs font-mono font-bold tabular-nums",
-                      count > 0 ? "text-[#00E599]" : "text-text-tertiary"
+                      count > 0 ? "text-[#2bb39a]" : "text-text-tertiary"
                     )}>
                       {count} / {tool.maxPerUser} Owned
                     </span>
@@ -400,7 +400,7 @@ export const PSEMineDashboard: React.FC = () => {
 
                   <div>
                     <h3 className="text-sm font-bold text-text-primary">{tool.name}</h3>
-                    <p className="text-xs text-[#00E599] font-mono font-bold mt-0.5">+£{tool.hourlyRateGBP.toFixed(2)}/hr</p>
+                    <p className="text-xs text-[#2bb39a] font-mono font-bold mt-0.5">+£{tool.hourlyRateGBP.toFixed(2)}/hr</p>
                   </div>
                 </div>
 
@@ -413,7 +413,7 @@ export const PSEMineDashboard: React.FC = () => {
                       "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
                       isMax
                         ? "bg-surface-bright text-text-tertiary cursor-not-allowed"
-                        : "bg-[#00E599] hover:bg-[#00D08A] text-[#070A0F] shadow-sm"
+                        : "bg-[#2bb39a] hover:bg-[#00D08A] text-[#070A0F] shadow-sm"
                     )}
                   >
                     {isMax ? 'Max' : '+ Deploy'}
@@ -429,12 +429,12 @@ export const PSEMineDashboard: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <History size={16} className="text-[#00E599]" />
+            <History size={16} className="text-[#2bb39a]" />
             <h2 className="text-base font-bold text-text-primary">Recent Activity</h2>
           </div>
           <Link
             to="/mine/activity"
-            className="text-xs font-bold text-[#00E599] hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-[#2bb39a] hover:underline flex items-center gap-1"
           >
             <span>Full Ledger</span>
             <ChevronRight size={14} />

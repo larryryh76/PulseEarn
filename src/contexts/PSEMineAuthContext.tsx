@@ -4,6 +4,7 @@ import { User } from 'firebase/auth';
 
 interface PSEMineAuthContextType {
   currentUser: User | null;
+  userData: ReturnType<typeof useAuth>['userData'];
   loading: boolean;
   isVerified: boolean;
   login: (email: string, password: string) => Promise<unknown>;
@@ -24,7 +25,7 @@ export const usePSEMineAuth = () => {
 };
 
 export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, loading, login, signup, logout, sendVerification, resetPassword } = useAuth();
+  const { currentUser, userData, loading, login, signup, logout, sendVerification, resetPassword } = useAuth();
 
   const isVerified = currentUser?.emailVerified ?? false;
 
@@ -32,6 +33,7 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     <PSEMineAuthContext.Provider
       value={{
         currentUser,
+        userData,
         loading,
         isVerified,
         login,

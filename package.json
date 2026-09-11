@@ -10,9 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.102.8",
-    "@trustwallet/connect-eip155-react": "^0.0.0",
-    "@trustwallet/connect-react": "^0.0.0",
     "axios": "^1.18.1",
     "clsx": "^2.1.1",
     "firebase": "^12.16.0",
@@ -23,8 +20,7 @@
     "react-dom": "^19.2.7",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.18.1",
-    "tailwind-merge": "^3.6.0",
-    "viem": "^2.56.3"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

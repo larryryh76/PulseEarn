@@ -5978,9 +5978,10 @@ except Exception as e:
 # PSEMINE BACKEND ENGINE & REAL ECONOMIC FOUNDATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PSEMINE_PAYMENT_ADDRESS = "0xAE909dDcf7e38F7Ed866c17D7245b36E8077dc77"
+PSEMINE_PAYMENT_ADDRESS = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
 PSEMINE_BSC_CHAIN_ID = 56
 PSEMINE_QUOTE_TTL_MINUTES = 15
+PSEMINE_CAMPAIGN_DOC_ID = "active_campaign"
 try:
     PSEMINE_MIN_CONFIRMATIONS = max(1, int(os.environ.get("PSEMINE_MIN_CONFIRMATIONS", "3")))
 except (TypeError, ValueError):
@@ -5996,22 +5997,36 @@ _PSEMINE_PRICE_CACHE = {
 def psemine_ensure_canonical_data(db):
     """Idempotently seed canonical Genesis Campaign and canonical Mining Tools."""
     try:
-        # 1. Genesis Campaign (doc ID: genesis_campaign_v1)
-        camp_ref = db.collection('psemine_campaigns').document('genesis_campaign_v1')
+        # 1. Active Campaign (doc ID: active_campaign)
+        camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
         if not camp_ref.get().exists:
             now_dt = datetime.now(timezone.utc)
             end_dt = now_dt + timedelta(days=90)
+            deadline_dt = end_dt - timedelta(days=3)
             camp_ref.set({
-                'id': 'genesis_campaign_v1',
-                'name': 'Genesis Campaign',
+                'id': PSEMINE_CAMPAIGN_DOC_ID,
+                'name': 'PSEmine Genesis 90-Day Campaign',
                 'type': 'genesis',
                 'status': 'active',
-                'startDate': now_dt.isoformat(),
-                'endDate': end_dt.isoformat(),
+                'startAt': now_dt.isoformat(),
+                'endAt': end_dt.isoformat(),
                 'durationDays': 90,
+                'currencyDisplay': 'GBP',
+                'paymentNetwork': 'BNB Smart Chain',
+                'paymentChainId': PSEMINE_BSC_CHAIN_ID,
+                'paymentAsset': 'BNB',
+                'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                'walletChangeDeadline': deadline_dt.isoformat(),
+                'purchaseEnabled': True,
+                'miningEnabled': True,
+                'referralEnabled': True,
+                'totalCapacitiesRegisteredGBPPerHour': 0.0,
+                'totalAccruedLiabilityGBP': 0.0,
+                'totalBNBCollected': 0.0,
+                'totalMinersCount': 0,
                 'description': 'PSEmine 90-day canonical Genesis Mining Campaign.',
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'createdAt': now_dt.isoformat(),
+                'updatedAt': now_dt.isoformat(),
             })
 
         # 2. Canonical Mining Tools (deterministic doc IDs: starter, growth, pro, elite)
@@ -6023,7 +6038,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 3.0,
                 'miningRateGbpPerHour': 0.10,
                 'maxCopiesPerUser': 5,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Starter mining tool - £3 GBP, £0.10/hour, maximum 5 copies per user.',
             },
@@ -6034,7 +6049,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 10.0,
                 'miningRateGbpPerHour': 0.50,
                 'maxCopiesPerUser': 3,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Growth mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
             },
@@ -6045,7 +6060,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 50.0,
                 'miningRateGbpPerHour': 1.20,
                 'maxCopiesPerUser': 3,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Pro mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
             },
@@ -6056,7 +6071,7 @@ def psemine_ensure_canonical_data(db):
                 'priceGbp': 200.0,
                 'miningRateGbpPerHour': 2.50,
                 'maxCopiesPerUser': 2,
-                'campaignId': 'genesis_campaign_v1',
+                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
                 'description': 'Elite mining tool - £200 GBP, £2.50/hour, maximum 2 copies per user.',
             },
@@ -6261,13 +6276,13 @@ def recalculate_psemine_user_mining_state(db, user_id):
     total_rate = round(min(12.10, base_rate + referral_bonus), 2)
 
     # 3. Campaign end date
-    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    camp_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
 
     campaign_end_dt = now_dt + timedelta(days=90)
     if camp_snap.exists:
-        end_raw = camp_snap.to_dict().get('endDate')
+        end_raw = camp_snap.to_dict().get('endAt') or camp_snap.to_dict().get('endDate')
         if end_raw:
             try:
                 if isinstance(end_raw, datetime):
@@ -6316,7 +6331,7 @@ def recalculate_psemine_user_mining_state(db, user_id):
     session_payload = {
         'id': user_id,
         'userId': user_id,
-        'campaignId': 'genesis_campaign_v1',
+        'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
         'state': session_state,
         'activeToolsCount': len(active_tools),
         'baseMiningRateGbpPerHour': round(base_rate, 2),
@@ -6435,7 +6450,7 @@ def psemine_create_order():
             'id': order_ref.id,
             'userId': uid,
             'toolId': tool_id,
-            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
             'priceGbp': gbp_price,
             'bnbGbpPrice': bnb_gbp_price,
             'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
@@ -6622,7 +6637,7 @@ def psemine_verify_payment():
             'txHash': tx_hash,
             'purchasePriceGbp': order['priceGbp'],
             'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
-            'campaignId': tool.get('campaignId', 'genesis_campaign_v1'),
+            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
             'status': 'active',
             'acquiredAt': now_iso,
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -6737,7 +6752,7 @@ def psemine_dashboard_data():
     uid = request.user['uid']
 
     # 1. Active Campaign
-    camp_snap = db.collection('psemine_campaigns').document('genesis_campaign_v1').get()
+    camp_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
     campaign = camp_snap.to_dict() if camp_snap.exists else None
 
     # 2. Owned Tools
@@ -7076,6 +7091,694 @@ def admin_psemine_review_withdrawal(withdrawal_id):
         })
 
     return jsonify({"success": True, "withdrawalId": withdrawal_id, "status": "completed" if action == 'APPROVE' else "rejected"})
+
+
+
+# --- PSEMINE SUITE EXTENSIONS ---
+LOCKED_PSEMINE_TOOLS_CONFIG = {
+    "starter": {"name": "Starter Miner", "price_gbp": 3.0, "hourly_rate": 0.10, "max_per_user": 5, "version": 1},
+    "builder": {"name": "Builder Miner", "price_gbp": 10.0, "hourly_rate": 0.50, "max_per_user": 3, "version": 1},
+    "advanced": {"name": "Advanced Miner", "price_gbp": 50.0, "hourly_rate": 1.20, "max_per_user": 3, "version": 1},
+    "elite": {"name": "Elite Miner", "price_gbp": 200.0, "hourly_rate": 2.50, "max_per_user": 2, "version": 1},
+}
+
+def get_current_bnb_gbp_price():
+    """Return the bounded live or cached BNB price in GBP using fetch_psemine_bnb_gbp_quote."""
+    try:
+        rate, _ = fetch_psemine_bnb_gbp_quote()
+        if rate and rate > 0:
+            return float(rate)
+    except Exception as e:
+        logging.warning(f"[PSEmine] Quote fetch error: {e}")
+    return None
+
+@app.route('/api/mine/campaign/status', methods=['GET'])
+def get_psemine_campaign_status():
+    """Return the active PSEmine campaign, or its default public configuration."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    if camp_doc.exists:
+        return jsonify({"success": True, "campaign": camp_doc.to_dict()})
+    return jsonify({"success": True, "campaign": {
+        "id": "active_campaign",
+        "name": "PSEmine Genesis 90-Day Campaign",
+        "status": "active",
+        "durationDays": 90,
+        "currencyDisplay": "GBP",
+        "paymentNetwork": "BNB Smart Chain",
+        "paymentAsset": "BNB",
+        "purchaseEnabled": True,
+        "miningEnabled": True
+    }})
+
+@app.route('/api/mine/tools/quote', methods=['POST'])
+@verify_token
+def generate_psemine_tool_quote():
+    """Create a ten-minute BNB-denominated purchase quote for a PSEmine tool tier."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    tool_id = data.get('toolId')
+    
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    camp_doc = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
+    if not camp_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_NOT_FOUND",
+            "message": "Active mining campaign is not currently configured."
+        }), 404
+
+    camp_data = camp_doc.to_dict() or {}
+    if camp_data.get('status') != 'active' or not camp_data.get('purchaseEnabled', True):
+        return jsonify({
+            "success": False,
+            "error": "PURCHASES_DISABLED",
+            "message": "Tool purchases are currently closed for this campaign."
+        }), 403
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    exchange_rate = get_current_bnb_gbp_price()
+    if not exchange_rate or exchange_rate <= 0:
+        return jsonify({
+            "success": False,
+            "error": "PRICE_SERVICE_UNAVAILABLE",
+            "message": "Live BNB/GBP exchange rate is currently unavailable. Please try again in a moment."
+        }), 503
+
+    bnb_amount = round(tool_cfg['price_gbp'] / exchange_rate, 6)
+    expected_wei = int((Decimal(str(bnb_amount)) * Decimal('1000000000000000000')).to_integral_value())
+
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=PSEMINE_QUOTE_TTL_MINUTES)
+    quote_id = f"quote_{tool_id}_{uid[:6]}_{int(now.timestamp() * 1000)}"
+
+    receiver_wallet = (camp_data.get('receiverWalletAddress') or PSEMINE_PAYMENT_ADDRESS).strip()
+
+    quote = {
+        "quoteId": quote_id,
+        "userId": uid,
+        "toolId": tool_id,
+        "toolVersion": tool_cfg['version'],
+        "gbpPrice": tool_cfg['price_gbp'],
+        "bnbAmount": bnb_amount,
+        "bnbAmountWei": str(expected_wei),
+        "exchangeRateBNBGBP": exchange_rate,
+        "receiverWallet": receiver_wallet,
+        "network": "BNB Smart Chain",
+        "chainId": 56,
+        "createdAt": now.isoformat(),
+        "expiresAt": expires_at.isoformat()
+    }
+
+    # Persist quote server-side by quoteId for authoritative purchase verification
+    try:
+        db.collection('psemine_quotes').document(quote_id).set(quote)
+    except Exception as q_err:
+        logging.error(f"[PSEmine] Could not persist quote {quote_id}: {q_err}")
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_PERSISTENCE_FAILED",
+            "message": "Failed to persist quote record. Please try again."
+        }), 500
+
+    return jsonify({"success": True, "quote": quote})
+
+@app.route('/api/mine/tools/verify-purchase', methods=['POST'])
+@verify_token
+def verify_psemine_tool_purchase():
+    """Verify on-chain BSC transaction receipt and authoritatively activate tool purchase via Admin SDK.
+    
+    Validates transaction hash format, checks for replay attacks, verifies receipt recipient and payable
+    value against quoted BNB amount on BNB Smart Chain, and commits the ownership record, purchase status,
+    user capacity, and campaign aggregate counters inside an atomic Firestore transaction.
+    """
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    purchase_id = (data.get('purchaseId') or '').strip()
+    tx_hash = (data.get('transactionHash') or '').strip().lower()
+    sender_wallet = (data.get('senderWallet') or '').strip().lower()
+
+    if not purchase_id:
+        return jsonify({"success": False, "error": "MISSING_PURCHASE_ID"}), 400
+
+    if not tx_hash or not tx_hash.startswith('0x') or len(tx_hash) != 66:
+        return jsonify({"success": False, "error": "INVALID_TRANSACTION_HASH", "message": "Transaction hash must be a 66-character hex string starting with 0x."}), 400
+
+    # 1. Fetch purchase intent
+    purchase_ref = db.collection('psemine_purchases').document(purchase_id)
+    purchase_snap = purchase_ref.get()
+    if not purchase_snap.exists:
+        return jsonify({"success": False, "error": "PURCHASE_NOT_FOUND", "message": "Purchase intent record not found."}), 404
+
+    purchase = purchase_snap.to_dict() or {}
+    if purchase.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN", "message": "This purchase does not belong to your account."}), 403
+
+    if purchase.get('status') == 'activated':
+        return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+
+    # 2. Check quote expiry
+    expires_at_raw = purchase.get('expiresAt')
+    if expires_at_raw:
+        try:
+            exp_dt = datetime.fromisoformat(str(expires_at_raw).replace('Z', '+00:00'))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > exp_dt:
+                return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote has expired. Please create a new purchase."}), 409
+        except Exception:
+            pass
+
+    # 3. Prevent replay attacks: check prior redemption before attempting verification
+    dupes_p = db.collection('psemine_purchases').where('transactionHash', '==', tx_hash).where('status', '==', 'activated').get()
+    if len(dupes_p) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    dupes_pay = db.collection('psemine_payments').where('txHash', '==', tx_hash).get()
+    if len(dupes_pay) > 0:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    dupe_redeemed = db.collection('psemine_redeemed_hashes').document(tx_hash).get()
+    if dupe_redeemed.exists:
+        return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+
+    # 4. Verify tool definitions & tier limits
+    tool_id = purchase.get('toolId')
+    if tool_id not in LOCKED_PSEMINE_TOOLS_CONFIG:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG[tool_id]
+    user_ref = db.collection('psemine_users').document(uid)
+    user_snap = user_ref.get()
+    u_data = user_snap.to_dict() if user_snap.exists else {}
+
+    current_owned = (u_data.get('toolOwnershipCounts') or {}).get(tool_id, 0)
+    if current_owned >= tool_cfg['max_per_user']:
+        return jsonify({
+            "success": False, 
+            "error": "MAX_OWNERSHIP_REACHED", 
+            "message": f"Maximum ownership reached for {tool_cfg['name']} (Max: {tool_cfg['max_per_user']})"
+        }), 400
+
+    # 5. Bind on-chain verification terms strictly to server-owned quote and campaign parameters
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+    campaign_receiver = "0x8b32A461d3106B3356e9A389DfeB74aC084c8F33"
+    if camp_doc.exists:
+        campaign_receiver = camp_doc.to_dict().get('receiverWalletAddress', campaign_receiver)
+
+    quote_id = (purchase.get('quoteId') or data.get('quoteId') or '').strip()
+    if not quote_id:
+        return jsonify({
+            "success": False,
+            "error": "MISSING_QUOTE",
+            "message": "Purchase record is missing required server quoteId."
+        }), 400
+
+    quote_doc = db.collection('psemine_quotes').document(quote_id).get()
+    if not quote_doc.exists:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Referenced server quote does not exist or has expired."
+        }), 400
+
+    q_data = quote_doc.to_dict() or {}
+    if q_data.get('userId') != uid or q_data.get('toolId') != tool_id:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE",
+            "message": "Quote terms do not match authenticated user and tool tier."
+        }), 400
+
+    # Ensure quote matches server configuration for tool tier
+    if float(q_data.get('gbpPrice', 0.0)) != float(tool_cfg['price_gbp']):
+        return jsonify({
+            "success": False,
+            "error": "QUOTE_CONFIG_MISMATCH",
+            "message": "Quote GBP price does not match canonical tool tier configuration."
+        }), 400
+
+    q_exp = q_data.get('expiresAt')
+    if q_exp:
+        try:
+            q_exp_dt = datetime.fromisoformat(str(q_exp).replace('Z', '+00:00'))
+            if q_exp_dt.tzinfo is None:
+                q_exp_dt = q_exp_dt.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > q_exp_dt:
+                return jsonify({
+                    "success": False,
+                    "error": "QUOTE_EXPIRED",
+                    "message": "Server quote has expired. Please request a new quote."
+                }), 409
+        except Exception:
+            return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+
+    # Derive expected destination and amount strictly from server-owned data
+    expected_destination = campaign_receiver
+    if q_data.get('receiverWallet'):
+        expected_destination = q_data.get('receiverWallet')
+
+    server_quoted_bnb = q_data.get('bnbAmount')
+    if not server_quoted_bnb or float(server_quoted_bnb) <= 0:
+        return jsonify({
+            "success": False,
+            "error": "INVALID_QUOTE_AMOUNT",
+            "message": "Server quote contains invalid BNB amount."
+        }), 400
+
+    quoted_bnb = float(server_quoted_bnb)
+    quoted_bnb_str = str(server_quoted_bnb)
+    expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
+    expected_sender = sender_wallet or purchase.get('paymentWallet')
+
+    verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
+        tx_hash,
+        expected_destination,
+        expected_wei,
+        expected_sender=expected_sender if expected_sender else None
+    )
+
+    if not verified:
+        allow_skip = (
+            os.environ.get('PSEMINE_SKIP_ONCHAIN_CHECK') == 'true'
+            and os.environ.get('APP_ENV', 'production') != 'production'
+            and os.environ.get('NODE_ENV', 'production') != 'production'
+        )
+        if not allow_skip:
+            return jsonify({
+                "success": False,
+                "error": err_code or "VERIFICATION_FAILED",
+                "message": err_msg or "On-chain verification failed on BNB Smart Chain.",
+                "confirmations": block_depth
+            }), 422
+        logging.warning(f"[PSEmine] Non-production on-chain check bypassed for {tx_hash}: {err_code}")
+
+    # 6. Atomic Firestore Transaction Execution
+    ownership_id = f"own_{tool_id}_{uid[:5]}_{int(time.time() * 1000)}"
+    own_ref = db.collection('psemine_tool_ownership').document(ownership_id)
+    camp_ref = db.collection('psemine_campaigns').document('active_campaign')
+    redeemed_ref = db.collection('psemine_redeemed_hashes').document(tx_hash)
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+
+    prev_tool_counts = u_data.get('toolOwnershipCounts') or {}
+    is_first_tool_activation = sum(prev_tool_counts.values()) == 0
+
+    try:
+        @firestore.transactional
+        def commit_purchase_activation(txn):
+            # Atomic transaction-hash replay prevention
+            h_curr = redeemed_ref.get(transaction=txn)
+            if h_curr.exists:
+                raise Exception("TRANSACTION_ALREADY_REDEEMED")
+
+            p_curr = purchase_ref.get(transaction=txn)
+            if not p_curr.exists or p_curr.to_dict().get('status') == 'activated':
+                raise Exception("PURCHASE_ALREADY_ACTIVATED")
+
+            u_curr = user_ref.get(transaction=txn)
+            u_dict = u_curr.to_dict() if u_curr.exists else {}
+
+            counts = dict(u_dict.get('toolOwnershipCounts') or {})
+            counts[tool_id] = counts.get(tool_id, 0) + 1
+
+            # Recalculate tool capacities
+            tool_cap = round(
+                counts.get('starter', 0) * 0.10 +
+                counts.get('builder', 0) * 0.50 +
+                counts.get('advanced', 0) * 1.20 +
+                counts.get('elite', 0) * 2.50,
+                2
+            )
+            qual_refs = u_dict.get('qualifiedReferralsCount', 0)
+            ref_cap = round(min(5, qual_refs) * 0.30, 2)
+            total_cap = round(tool_cap + ref_cap, 2)
+
+            # Settle accrued earnings up to current server timestamp
+            prev_total_cap = float(u_dict.get('totalCapacityGBPPerHour', 0.0))
+            prev_accrued = float(u_dict.get('totalAccruedGBP', 0.0))
+            last_accrued_str = u_dict.get('lastAccruedAt')
+            new_accrued = prev_accrued
+            if last_accrued_str and prev_total_cap > 0:
+                try:
+                    last_dt = datetime.fromisoformat(last_accrued_str.replace('Z', '+00:00'))
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=timezone.utc)
+                    elapsed_sec = max(0, (now_dt - last_dt).total_seconds())
+                    new_accrued = prev_accrued + (elapsed_sec / 3600.0) * prev_total_cap
+                except Exception:
+                    pass
+
+            # Record redeemed hash atomically
+            txn.set(redeemed_ref, {
+                'txHash': tx_hash,
+                'purchaseId': purchase_id,
+                'userId': uid,
+                'toolId': tool_id,
+                'redeemedAt': now_iso
+            })
+
+            # Commit purchase update
+            txn.update(purchase_ref, {
+                'status': 'activated',
+                'transactionHash': tx_hash,
+                'quoteId': quote_id,
+                'quotedBNBAmount': quoted_bnb,
+                'receiverWallet': expected_destination,
+                'paymentWallet': (sender_wallet or p_curr.to_dict().get('paymentWallet') or '').lower(),
+                'confirmedAt': now_iso,
+                'activatedAt': now_iso,
+                'confirmations': 2,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Commit ownership record
+            txn.set(own_ref, {
+                'id': ownership_id,
+                'userId': uid,
+                'toolId': tool_id,
+                'toolName': tool_cfg['name'],
+                'toolVersion': tool_cfg.get('version', 1),
+                'purchaseId': purchase_id,
+                'hourlyRateGBP': tool_cfg['hourly_rate'],
+                'purchasePriceGBP': tool_cfg['price_gbp'],
+                'activatedAt': now_iso,
+                'status': 'active',
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+
+            # Commit user economic state update using merge=True so missing user profiles are created cleanly
+            user_was_inactive = u_dict.get('status') != 'active'
+            txn.set(user_ref, {
+                'id': uid,
+                'uid': uid,
+                'userId': uid,
+                'status': 'active',
+                'toolCapacityGBPPerHour': tool_cap,
+                'referralCapacityGBPPerHour': ref_cap,
+                'totalCapacityGBPPerHour': total_cap,
+                'totalAccruedGBP': round(new_accrued, 6),
+                'lastAccruedAt': now_iso,
+                'miningStartedAt': u_dict.get('miningStartedAt') or now_iso,
+                'toolOwnershipCounts': counts,
+                'qualifiedReferralsCount': qual_refs,
+                'updatedAt': now_iso,
+            }, merge=True)
+
+            # Commit campaign counters update using Increment
+            c_snap = camp_ref.get(transaction=txn)
+            if c_snap.exists:
+                txn.update(camp_ref, {
+                    'totalCapacitiesRegisteredGBPPerHour': firestore.Increment(tool_cfg['hourly_rate']),
+                    'totalBNBCollected': firestore.Increment(quoted_bnb),
+                    'totalMinersCount': firestore.Increment(1 if user_was_inactive else 0),
+                    'updatedAt': now_iso,
+                })
+            else:
+                end_dt = now_dt + timedelta(days=90)
+                deadline_dt = end_dt - timedelta(days=3)
+                txn.set(camp_ref, {
+                    'id': PSEMINE_CAMPAIGN_DOC_ID,
+                    'name': 'PSEmine Genesis 90-Day Campaign',
+                    'status': 'active',
+                    'startAt': now_iso,
+                    'endAt': end_dt.isoformat(),
+                    'durationDays': 90,
+                    'currencyDisplay': 'GBP',
+                    'paymentNetwork': 'BNB Smart Chain',
+                    'paymentChainId': PSEMINE_BSC_CHAIN_ID,
+                    'paymentAsset': 'BNB',
+                    'receiverWalletAddress': PSEMINE_PAYMENT_ADDRESS,
+                    'walletChangeDeadline': deadline_dt.isoformat(),
+                    'totalCapacitiesRegisteredGBPPerHour': tool_cfg['hourly_rate'],
+                    'totalBNBCollected': quoted_bnb,
+                    'totalMinersCount': 1,
+                    'miningEnabled': True,
+                    'purchaseEnabled': True,
+                    'referralEnabled': True,
+                    'createdAt': now_iso,
+                    'updatedAt': now_iso,
+                })
+
+        transaction = db.transaction()
+        commit_purchase_activation(transaction)
+
+        # 7. Evaluate Referrer Progression authoritatively on first tool activation
+        if is_first_tool_activation:
+            try:
+                all_refs = db.collection('psemine_referrals') \
+                    .where('refereeId', '==', uid) \
+                    .get()
+                unqualified_refs = [r for r in all_refs if r.to_dict().get('status') != 'qualified']
+
+                if len(unqualified_refs) > 0:
+                    ref_doc = unqualified_refs[0]
+                    ref_data = ref_doc.to_dict()
+                    referrer_id = ref_data.get('referrerId')
+
+                    if referrer_id:
+                        referrer_ref = db.collection('psemine_users').document(referrer_id)
+                        ref_user_snap = referrer_ref.get()
+
+                        if ref_user_snap.exists:
+                            ref_user = ref_user_snap.to_dict()
+                            curr_qual = ref_user.get('qualifiedReferralsCount', 0)
+
+                            if curr_qual < 5:
+                                new_qual = curr_qual + 1
+                                r_counts = ref_user.get('toolOwnershipCounts') or {}
+                                r_tool_cap = round(
+                                    r_counts.get('starter', 0) * 0.10 +
+                                    r_counts.get('builder', 0) * 0.50 +
+                                    r_counts.get('advanced', 0) * 1.20 +
+                                    r_counts.get('elite', 0) * 2.50,
+                                    2
+                                )
+                                r_ref_cap = round(new_qual * 0.30, 2)
+                                r_total_cap = round(r_tool_cap + r_ref_cap, 2)
+
+                                # Settle referrer accrual
+                                r_prev_cap = float(ref_user.get('totalCapacityGBPPerHour', 0.0))
+                                r_prev_acc = float(ref_user.get('totalAccruedGBP', 0.0))
+                                r_last_str = ref_user.get('lastAccruedAt')
+                                r_new_acc = r_prev_acc
+                                if r_last_str and r_prev_cap > 0:
+                                    try:
+                                        r_last_dt = datetime.fromisoformat(r_last_str.replace('Z', '+00:00'))
+                                        if r_last_dt.tzinfo is None:
+                                            r_last_dt = r_last_dt.replace(tzinfo=timezone.utc)
+                                        r_sec = max(0, (now_dt - r_last_dt).total_seconds())
+                                        r_new_acc = r_prev_acc + (r_sec / 3600.0) * r_prev_cap
+                                    except Exception:
+                                        pass
+
+                                referrer_ref.update({
+                                    'qualifiedReferralsCount': new_qual,
+                                    'referralCapacityGBPPerHour': r_ref_cap,
+                                    'totalCapacityGBPPerHour': r_total_cap,
+                                    'totalAccruedGBP': round(r_new_acc, 6),
+                                    'lastAccruedAt': now_iso,
+                                    'updatedAt': now_iso,
+                                })
+
+                            # Mark referral as qualified
+                            ref_doc.reference.update({
+                                'status': 'qualified',
+                                'qualifiedAt': now_iso,
+                                'stageHistory.qualifiedAt': now_iso,
+                                'updatedAt': now_iso,
+                            })
+            except Exception as ref_err:
+                logging.warning(f"[PSEmine Purchase] Error evaluating referrer progression: {ref_err}")
+
+        # 8. Log user activity in subcollection
+        try:
+            db.collection('psemine_users').document(uid).collection('activity').document().set({
+                'id': f"act_{int(time.time() * 1000)}",
+                'type': 'tool_purchased',
+                'title': f"{tool_cfg['name']} Deployed",
+                'description': f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
+                'amountGBP': tool_cfg['price_gbp'],
+                'capacityDeltaGBPPerHour': tool_cfg['hourly_rate'],
+                'referenceId': purchase_id,
+                'metadata': {'txHash': tx_hash, 'toolId': tool_id},
+                'createdAt': firestore.SERVER_TIMESTAMP,
+            })
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True, 
+            "verified": True, 
+            "transactionHash": tx_hash,
+            "confirmedAt": now_iso,
+            "message": f"Transaction verified and {tool_cfg['name']} deployed successfully."
+        })
+
+    except Exception as e:
+        err_str = str(e)
+        if err_str == "TRANSACTION_ALREADY_REDEEMED":
+            return jsonify({"success": False, "error": "TRANSACTION_ALREADY_REDEEMED", "message": "Transaction hash has already been redeemed."}), 409
+        if err_str == "PURCHASE_ALREADY_ACTIVATED":
+            return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+        logging.exception(f"[PSEmine Purchase Verify Error]: {e}")
+        return jsonify({
+            "success": False, 
+            "error": "TRANSACTION_FAILED", 
+            "message": "Activation could not be completed. Contact support with your transaction hash."
+        }), 500
+
+@app.route('/api/admin/mine/overview', methods=['GET'])
+@verify_token
+def get_admin_mine_overview():
+    """Return aggregate PSEmine campaign metrics for authorized operations users."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
+
+    users_docs = db.collection('psemine_users').get()
+    purchases_docs = db.collection('psemine_purchases').get()
+    referrals_docs = db.collection('psemine_referrals').get()
+    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
+
+    active_miners = sum(1 for d in users_docs if d.to_dict().get('status') == 'active')
+    total_tools_sold = len([d for d in purchases_docs if d.to_dict().get('status') == 'activated'])
+    total_capacity = sum(d.to_dict().get('totalCapacityGBPPerHour', 0) for d in users_docs)
+    total_accrued = sum(d.to_dict().get('totalAccruedGBP', 0) for d in users_docs)
+    qualified_refs = len([d for d in referrals_docs if d.to_dict().get('status') == 'qualified'])
+
+    camp_data = camp_doc.to_dict() if camp_doc.exists else {}
+
+    return jsonify({
+        "success": True,
+        "stats": {
+            "activeMiners": active_miners,
+            "totalMiners": len(users_docs),
+            "toolsSold": total_tools_sold,
+            "totalCapacityGBPPerHour": round(total_capacity, 2),
+            "totalAccruedLiabilityGBP": round(total_accrued, 2),
+            "totalBNBCollected": camp_data.get('totalBNBCollected', 0),
+            "qualifiedReferrals": qualified_refs,
+            "campaignStatus": camp_data.get('status', 'active')
+        }
+    })
+
+@app.route('/api/admin/mine/campaign/action', methods=['POST'])
+@verify_token
+def admin_campaign_action():
+    """Apply an authorized lifecycle action to the active PSEmine campaign."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+
+    data = request.get_json() or {}
+    action = data.get('action') # 'pause', 'resume', 'settle', 'shutdown'
+    reason = data.get('reason', 'Administrative decision')
+
+    camp_ref = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID)
+    camp_snap = camp_ref.get()
+    if not camp_snap.exists:
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_NOT_INITIALIZED",
+            "message": "Active campaign has not been initialized."
+        }), 404
+
+    current_status = camp_snap.to_dict().get('status', 'active')
+    if current_status == 'archived':
+        return jsonify({
+            "success": False,
+            "error": "CAMPAIGN_ARCHIVED",
+            "message": "Archived campaign cannot be transitioned."
+        }), 400
+
+    if action == 'resume' and current_status != 'paused':
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Cannot resume campaign in '{current_status}' status."
+        }), 400
+
+    if action == 'pause' and current_status != 'active':
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Cannot pause campaign in '{current_status}' status."
+        }), 400
+
+    if action == 'settle' and current_status in ('archived', 'settling', 'payout'):
+        return jsonify({
+            "success": False,
+            "error": "INVALID_TRANSITION",
+            "message": f"Campaign is already in '{current_status}' status."
+        }), 400
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    if action == 'pause':
+        camp_ref.update({"status": "paused", "miningEnabled": False, "updatedAt": now_iso})
+    elif action == 'resume':
+        camp_ref.update({"status": "active", "miningEnabled": True, "updatedAt": now_iso})
+    elif action == 'settle':
+        camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
+        # Create idempotent settlement job record
+        job_ref = db.collection('psemine_settlement_jobs').document(f"settlement_{PSEMINE_CAMPAIGN_DOC_ID}")
+        if not job_ref.get().exists:
+            job_ref.set({
+                "id": f"settlement_{PSEMINE_CAMPAIGN_DOC_ID}",
+                "campaignId": PSEMINE_CAMPAIGN_DOC_ID,
+                "status": "pending_audit",
+                "initiatedBy": uid,
+                "initiatedAt": now_iso,
+                "totalAccruedLiabilityGBP": camp_snap.to_dict().get('totalAccruedLiabilityGBP', 0),
+                "totalBNBCollected": camp_snap.to_dict().get('totalBNBCollected', 0),
+                "createdAt": now_iso,
+                "updatedAt": now_iso
+            })
+    elif action == 'shutdown':
+        camp_ref.update({
+            "status": "archived",
+            "miningEnabled": False,
+            "purchaseEnabled": False,
+            "referralEnabled": False,
+            "shutdownState": {
+                "isArchived": True,
+                "archivedAt": now_iso,
+                "archivedBy": uid,
+                "reason": reason
+            },
+            "updatedAt": now_iso
+        })
+    else:
+        return jsonify({"success": False, "error": "INVALID_ACTION"}), 400
+
+    # Audit log
+    db.collection('admin_audit_logs').add({
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "adminId": uid,
+        "action": f"PSEMINE_CAMPAIGN_{action.upper()}",
+        "targetEntity": "psemine_campaigns/active_campaign",
+        "metadata": {"reason": reason, "action": action}
+    })
+
+    return jsonify({"success": True, "action": action, "timestamp": now_iso})
+
+# Initialize provider cache on startup
+try:
+    from services.provider_cache import init_provider_cache
+    init_provider_cache()
+    print("[Offerwall] Provider cache initialized on startup")
+except Exception as e:
+    print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
+
 
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)

@@ -8,7 +8,7 @@ import {
   User,
   ArrowRight
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
 import { cn } from '../../utils';
 
 /**
@@ -29,7 +29,7 @@ import { cn } from '../../utils';
  */
 export const PSEMineBottomNav: React.FC = () => {
   const location = useLocation();
-  const { currentUser } = useAuth();
+  const { currentUser } = usePSEMineAuth();
   
   const isLandingPage = location.pathname === '/mine';
 

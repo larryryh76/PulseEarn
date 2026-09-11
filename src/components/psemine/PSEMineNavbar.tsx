@@ -19,7 +19,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { PSEMineLogo } from './PSEMineLogo';
 import { cn } from '../../utils';
@@ -36,7 +36,7 @@ export const PSEMineNavbar: React.FC = () => {
     campaignDaysRemaining,
     isCampaignArchived
   } = usePSEMine();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout } = usePSEMineAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);

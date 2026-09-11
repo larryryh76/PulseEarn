@@ -16,7 +16,7 @@ import {
   Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
@@ -324,7 +324,7 @@ export const PSEMineMe: React.FC = () => {
         </div>
       </div>
 
-      {/* ── QUICK NAVIGATION LINKS ────────────────────────────────────��─── */}
+      {/* ── QUICK NAVIGATION LINKS ─────────────────────────────��──────��─── */}
       <div className="bg-surface border border-border rounded-2xl md:rounded-3xl divide-y divide-border text-xs overflow-hidden shadow-subtle">
         
         <Link

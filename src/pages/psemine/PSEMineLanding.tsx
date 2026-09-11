@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import { PSEMineLogo } from '../../components/psemine/PSEMineLogo';
 import { cn } from '../../utils';

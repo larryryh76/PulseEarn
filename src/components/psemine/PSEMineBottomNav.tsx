@@ -8,7 +8,7 @@ import {
   User,
   ArrowRight
 } from 'lucide-react';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { cn } from '../../utils';
 
 /**

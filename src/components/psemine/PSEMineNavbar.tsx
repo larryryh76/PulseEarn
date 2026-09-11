@@ -19,7 +19,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { useTheme } from '../../contexts/ThemeContext';
 import { PSEMineLogo } from './PSEMineLogo';
 import { cn } from '../../utils';

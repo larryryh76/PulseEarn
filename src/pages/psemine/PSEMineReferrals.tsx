@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 

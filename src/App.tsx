@@ -53,7 +53,7 @@ import { PSEMineReferrals } from './pages/psemine/PSEMineReferrals'
 import { PSEMineActivity } from './pages/psemine/PSEMineActivity'
 import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
-import { PSEmineAuth, PSEmineForgotPassword, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
+import { PSEmineAuth, PSEmineForgotPassword, PSEmineVerifyEmail, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
 import { PSEMineAuthProvider } from './contexts/PSEMineAuthContext'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
@@ -196,6 +196,7 @@ function App() {
         <Route path="/mine/login" element={<PSEMineAuthProvider><PSEmineAuth /></PSEMineAuthProvider>} />
         <Route path="/mine/signup" element={<PSEMineAuthProvider><PSEmineAuth mode="signup" /></PSEMineAuthProvider>} />
         <Route path="/mine/forgot-password" element={<PSEMineAuthProvider><PSEmineForgotPassword /></PSEMineAuthProvider>} />
+        <Route path="/mine/verify-email" element={<PSEMineAuthProvider><PSEmineVerifyEmail /></PSEMineAuthProvider>} />
         <Route path="/mine" element={<PSEMineAuthProvider><PSEMineLayout /></PSEMineAuthProvider>}>
           <Route index element={<PSEMineLanding />} />
           <Route path="dashboard" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />

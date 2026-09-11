@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
-import { usePSEMineAuth } from '../../contexts/PSEMineAuthContext';
+import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMineLogo } from '../../components/psemine/PSEMineLogo';
 import { mapAuthError } from '../../utils/errors';
 import toast from 'react-hot-toast';
@@ -57,9 +57,47 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
 export const PSEmineForgotPassword: React.FC = () => {
   const { resetPassword } = usePSEMineAuth(); const [email, setEmail] = useState(''); const [sent, setSent] = useState(false);
-  return <main className="psemine-auth flex min-h-screen items-center justify-center px-5"><section className="w-full max-w-md border border-border bg-surface p-7 sm:p-9"><PSEMineLogo size={38} /><h1 className="mt-10 text-2xl font-semibold text-text-primary">Reset your password</h1><p className="mt-2 text-sm leading-6 text-text-secondary">We will send a secure reset link to your account email.</p>{sent ? <div className="mt-6 border border-success/30 bg-success/10 p-4 text-sm text-success">Check your inbox for the reset link.</div> : <form className="mt-7 flex flex-col gap-4" onSubmit={async e => { e.preventDefault(); await resetPassword(email); setSent(true); }}><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="psemine-input" placeholder="you@example.com" /><button className="psemine-btn-primary py-3">Send reset link</button></form>}<Link className="mt-7 inline-block text-xs text-primary hover:underline" to="/mine/login">Back to sign in</Link></section></main>;
+  return <main className="psemine-auth flex min-h-screen items-center justify-center px-5"><section className="w-full max-w-md border border-border bg-surface p-7 sm:p-9"><PSEMineLogo size={38} /><h1 className="mt-10 text-2xl font-semibold text-text-primary">Reset your password</h1><p className="mt-2 text-sm leading-6 text-text-secondary">We will send a secure reset link to your account email.</p>{sent ? <div className="mt-6 border border-success/30 bg-success/10 p-4 text-sm text-success">Check your inbox for the reset link.</div> : <form className="mt-7 flex flex-col gap-4" onSubmit={async e => { e.preventDefault(); try { await resetPassword(email); setSent(true); } catch (error) { toast.error(mapAuthError(error)); } }}><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="psemine-input" placeholder="you@example.com" /><button className="psemine-btn-primary py-3">Send reset link</button></form>}<Link className="mt-7 inline-block text-xs text-primary hover:underline" to="/mine/login">Back to sign in</Link></section></main>;
 };
 
-export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => { const { currentUser, loading } = usePSEMineAuth(); if (loading) return <div className="psemine-loader-screen"><PSEMineLogo size={48} /><span>Restoring secure session…</span></div>; if (!currentUser) return <NavigateToLogin />; return <>{children}</>; };
+export const PSEmineVerifyEmail: React.FC = () => {
+  const { currentUser, isVerified, sendVerification, logout } = usePSEMineAuth();
+  const navigate = useNavigate();
+  const [pending, setPending] = useState(false);
+
+  const resend = async () => {
+    setPending(true);
+    try {
+      await sendVerification();
+      toast.success('Verification email sent.');
+    } catch (error) {
+      toast.error(mapAuthError(error));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  if (isVerified) {
+    navigate('/mine/dashboard', { replace: true });
+    return null;
+  }
+
+  return <main className="psemine-auth flex min-h-screen items-center justify-center px-5 py-8">
+    <section className="w-full max-w-md border border-border bg-surface p-7 shadow-2xl sm:p-9">
+      <PSEMineLogo size={40} />
+      <p className="mt-10 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Secure account setup</p>
+      <h1 className="mt-2 text-2xl font-semibold text-text-primary">Verify your email</h1>
+      <p className="mt-3 text-sm leading-6 text-text-secondary">We sent a verification link to <span className="font-medium text-text-primary">{currentUser?.email || 'your email address'}</span>. Verify it, then return here to enter your PSEmine console.</p>
+      <div className="mt-7 flex flex-col gap-3">
+        <button type="button" disabled={pending} onClick={resend} className="psemine-btn-primary w-full py-3">{pending ? 'Sending…' : 'Resend verification email'}</button>
+        <button type="button" onClick={() => window.location.reload()} className="psemine-btn-secondary w-full py-3">I have verified my email</button>
+      </div>
+      <button type="button" onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }} className="mt-7 text-xs font-semibold text-text-tertiary hover:text-text-primary">Sign out</button>
+    </section>
+  </main>;
+};
+
+export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => { const { currentUser, userData, loading, isVerified } = usePSEMineAuth(); if (loading) return <div className="psemine-loader-screen"><PSEMineLogo size={48} /><span>Restoring secure session…</span></div>; if (!currentUser) return <NavigateToLogin />; if (!isVerified) return <NavigateToVerification />; if (userData?.productAccess?.psemine !== true) return <NavigateToLogin />; return <>{children}</>; };
 const NavigateToLogin = () => { const navigate = useNavigate(); React.useEffect(() => { navigate('/mine/login', { replace: true }); }, [navigate]); return null; };
+const NavigateToVerification = () => { const navigate = useNavigate(); React.useEffect(() => { navigate('/mine/verify-email', { replace: true, state: { from: '/mine/dashboard' } }); }, [navigate]); return null; };
 export default PSEmineAuth;

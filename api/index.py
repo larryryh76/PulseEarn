@@ -261,18 +261,24 @@ def has_psemine_access(uid):
     try:
         _ps = db.collection('psemine_users').document(uid).get()
         if _ps.exists:
-            db.collection('users').document(uid).set(
-                {'productAccess': {**(pa if isinstance(pa, dict) else {}), 'psemine': True},
-                 'psemineAccessGrantedAt': firestore.SERVER_TIMESTAMP,
-                 'psemineAccessGrantReason': 'legacy_backfill'},
-                merge=True)
-            db.collection('admin_audit_logs').add({
+            # Grant + audit are committed ATOMICALLY: a failed audit write
+            # must never leave a grant whose backfill can no longer be audited
+            # (the flag check would skip it on the next call).
+            _batch = db.batch()
+            _batch.set(db.collection('users').document(uid),
+                       {'productAccess': {**(pa if isinstance(pa, dict) else {}), 'psemine': True},
+                        'psemineAccessGrantedAt': firestore.SERVER_TIMESTAMP,
+                        'psemineAccessGrantReason': 'legacy_backfill'},
+                       merge=True)
+            _audit_ref = db.collection('admin_audit_logs').document()
+            _batch.set(_audit_ref, {
                 'timestamp': firestore.SERVER_TIMESTAMP,
                 'action': 'PSEMINE_ACCESS_LEGACY_BACKFILL',
                 'targetUserId': uid,
                 'actor': 'system:require_psemine_access',
                 'metadata': {'rule': 'psemine_users doc existed without productAccess flag'},
             })
+            _batch.commit()
             return True
     except Exception:
         pass
@@ -7153,6 +7159,9 @@ def admin_psemine_review_withdrawal(withdrawal_id):
 
         @firestore.transactional
         def _complete_with_hash(txn):
+            # Firestore transactions reject reads that follow writes: the
+            # withdrawal doc must be READ before the reservation txn.set.
+            wd_snap_t = wd_ref.get(transaction=txn)
             if _norm:
                 res_snap = _tx_doc.get(transaction=txn)
                 if res_snap.exists:
@@ -7161,7 +7170,6 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                         return False
                 txn.set(_tx_doc, {'withdrawalId': withdrawal_id, 'payoutTxHash': _norm,
                                   'reservedAt': firestore.SERVER_TIMESTAMP})
-            wd_snap_t = wd_ref.get(transaction=txn)
             if not wd_snap_t.exists:
                 return None
             if (wd_snap_t.to_dict() or {}).get('status') not in ('pending', 'under_review'):
@@ -7176,7 +7184,25 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             })
             return True
 
+        # Historical duplicate detection (pre-reservation records): the
+        # atomic reservation only covers hashes reserved from now on. Legacy
+        # completed withdrawals carry payoutTxHash without a reservation doc,
+        # so this complementary query MUST stay until a one-time backfill has
+        # materialized reservations for every historical completed payout.
+        if _norm:
+            # Equality-only query: Firestore rejects `!= null` inequality
+            # filters, and docs without processedAt cannot match a completed
+            # payout hash anyway.
+            _hist = [h for h in db.collection('psemine_withdrawals')
+                     .where('status', '==', 'completed')
+                     .where('payoutTxHash', '==', _norm)
+                     .limit(5).get() if h.id != withdrawal_id]
+        else:
+            _hist = []
         _outcome = _complete_with_hash(db.transaction())
+        if _hist:
+            return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
+                            "message": "This transaction hash is already attached to another completed payout."}), 409
         if _outcome is False:
             return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
                             "message": "This transaction hash is already attached to another completed payout."}), 409
@@ -7609,7 +7635,8 @@ def verify_psemine_tool_purchase():
     try:
         @firestore.transactional
         def commit_purchase_activation(txn):
-            # Atomic transaction-hash replay prevention
+            # ALL transaction reads happen before the FIRST txn write —
+            # Firestore transactions reject reads that follow writes.
             h_curr = redeemed_ref.get(transaction=txn)
             if h_curr.exists:
                 raise Exception("TRANSACTION_ALREADY_REDEEMED")
@@ -7620,6 +7647,12 @@ def verify_psemine_tool_purchase():
 
             u_curr = user_ref.get(transaction=txn)
             u_dict = u_curr.to_dict() if u_curr.exists else {}
+
+            # Read-ahead for the legacy-balance migration branch (R2): the
+            # outer-scope read above cannot run inside the transaction.
+            _mig_exists = _mig_ref.get(transaction=txn).exists
+            # Read-ahead for the campaign counters block.
+            c_snap = camp_ref.get(transaction=txn)
 
             counts = dict(u_dict.get('toolOwnershipCounts') or {})
             counts[tool_id] = counts.get(tool_id, 0) + 1
@@ -7693,7 +7726,7 @@ def verify_psemine_tool_purchase():
             legacy_minor = _pse_engine._legacy_balance_minor(u_dict)
             if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
                 # one-time absorption of pre-ledger balance into the ledger (auditable entry)
-                if not _mig_ref.get(transaction=txn).exists:
+                if not _mig_exists:
                     txn.set(_mig_ref, {
                         'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                         'kind': 'migration', 'amountMinor': int(legacy_minor),
@@ -7719,7 +7752,7 @@ def verify_psemine_tool_purchase():
             }, merge=True)
 
             # Commit campaign counters update using Increment
-            c_snap = camp_ref.get(transaction=txn)
+            # (c_snap was read at the top of the transaction — read-before-write)
             if c_snap.exists:
                 txn.update(camp_ref, {
                     'totalCapacitiesRegisteredGBPPerHour': firestore.Increment(tool_cfg['hourly_rate']),

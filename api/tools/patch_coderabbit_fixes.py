@@ -10,6 +10,7 @@ Fix list:
   F04 v1 verify-payment: shared terminal-campaign gate
   F05 payout completion: atomic txHash reservation inside the update transaction
   F06 v2 activation txn: migration-ledger read hoisted before first txn write
+      (outer declaration + in-transaction read-ahead _mig_exists)
   F07 v1 + F08 v2 referral settle: persist idempotent repair record on failure
   F09 has_psemine_access: grant-only legacy backfill (audited, idempotent)
   F10 cron: sweep referral repair queue
@@ -33,19 +34,26 @@ engine_bak = "/tmp/psemine_engine.py.pre_coderabbit.bak"
 tests_bak = "/tmp/test_payout_composition.py.pre_coderabbit.bak"
 
 
-def apply(path, hunks, backup):
-    with open(path, "r", encoding="utf-8") as f:
-        src = f.read()
-    for i, (old, new) in enumerate(hunks):
-        if src.count(old) != 1:
-            print(f"ABORT: {path} hunk #{i + 1} matched {src.count(old)} times (need exactly 1)")
-            sys.exit(1)
-    shutil.copyfile(path, backup)
-    for old, new in hunks:
-        src = src.replace(old, new, 1)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(src)
-    print(f"OK: {path} — {len(hunks)} hunks applied (backup: {backup})")
+def apply_all(plans):
+    """All-or-nothing: validate EVERY hunk of EVERY target first; write the
+    target files only after every validation succeeds."""
+    prepared = []
+    for path, hunks, backup in plans:
+        with open(path, "r", encoding="utf-8") as f:
+            src = f.read()
+        for i, (old, new) in enumerate(hunks):
+            if src.count(old) != 1:
+                print(f"ABORT: {path} hunk #{i + 1} matched {src.count(old)} times (need exactly 1)")
+                return False
+        prepared.append((path, src, hunks, backup))
+    for path, src, hunks, backup in prepared:
+        shutil.copyfile(path, backup)
+        for old, new in hunks:
+            src = src.replace(old, new, 1)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(src)
+        print(f"OK: {path} — {len(hunks)} hunks applied (backup: {backup})")
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +247,10 @@ index_hunks = [
             prev_accrued_minor = int(u_dict.get('accruedMinor') or 0)
             legacy_minor = _pse_engine._legacy_balance_minor(u_dict)
             if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
-                # one-time absorption of pre-ledger balance into the ledger (auditable entry)
-                if not _mig_ref.get(transaction=txn).exists:
+                # one-time absorption of pre-ledger balance into the ledger
+                # (auditable entry) — _mig_exists was read BEFORE the first
+                # transaction write (Firestore read-before-write rule)
+                if not _mig_exists:
                     txn.set(_mig_ref, {
                         'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                         'kind': 'migration', 'amountMinor': int(legacy_minor),
@@ -248,6 +258,18 @@ index_hunks = [
                         'createdAt': firestore.SERVER_TIMESTAMP,
                     })
                 prev_accrued_minor += int(legacy_minor)"""),
+
+    # --- F06c: in-transaction read-ahead, before the first txn write --------
+    ("""            u_curr = user_ref.get(transaction=txn)
+            u_dict = u_curr.to_dict() if u_curr.exists else {}
+""",
+     """            u_curr = user_ref.get(transaction=txn)
+            u_dict = u_curr.to_dict() if u_curr.exists else {}
+
+            # Read-ahead for the legacy-balance migration branch (F06): ALL
+            # transaction reads must precede the first transaction write.
+            _mig_exists = _mig_ref.get(transaction=txn).exists
+"""),
 
     # --- F06b: hoisted read inserted right after u_dict is loaded -----------
     ("""    redeemed_ref = db.collection('psemine_redeemed_hashes').document(tx_hash)""",
@@ -453,7 +475,10 @@ tests_hunks = [
         psemine_engine.campaign_lifecycle_state = self._orig_camp"""),
 ]
 
-apply(INDEX, index_hunks, index_bak)
-apply(ENGINE, engine_hunks, engine_bak)
-apply(TESTS, tests_hunks, tests_bak)
+if not apply_all([
+    (INDEX, index_hunks, index_bak),
+    (ENGINE, engine_hunks, engine_bak),
+    (TESTS, tests_hunks, tests_bak),
+]):
+    sys.exit(1)
 print("ALL PATCHES APPLIED")

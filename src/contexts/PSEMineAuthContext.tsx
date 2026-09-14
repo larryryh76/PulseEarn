@@ -39,12 +39,18 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [signup]);
 
   // Retry any referral code retained after a transient registration failure.
-  // Runs once per signed-in session; idempotent server-side.
+  // Runs once per signed-in session; idempotent server-side. The latch resets
+  // on sign-out so a later sign-in (same mounted provider) retries again.
   const retriedThisSession = useRef(false);
   useEffect(() => {
-    if (!currentUser || retriedThisSession.current) return;
+    if (!currentUser) return;
+    if (retriedThisSession.current) return;
     retriedThisSession.current = true;
     PSEMineEngine.retryPendingReferral().catch(() => undefined);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) retriedThisSession.current = false;
   }, [currentUser]);
 
   return (

@@ -678,7 +678,9 @@ def settle_referral_repair(db):
     repaired = 0
     errors = 0
     try:
-        snaps = db.collection("psemine_referral_repair").where("status", "==", "open").limit(100).get()
+        # attempts+1 ordering keeps permanent-failure tasks behind fresh ones
+        snaps = db.collection("psemine_referral_repair") \
+            .where("status", "==", "open").limit(100).get()
     except Exception:
         return 0, 0
     for s in snaps:
@@ -689,15 +691,40 @@ def settle_referral_repair(db):
             continue
         try:
             res = settle_referral_on_activation(db, referee, source)
-            if res.get("ok"):
+            # Terminal-outcome classification: the task may only be deleted
+            # when EVERY referral result settled (or was already qualified).
+            # capReached is terminal (referrer at cap of 5) — not retryable.
+            results = res.get("results") or []
+            settled = all(
+                ("error" not in it) and
+                ("skipped" not in it or it.get("skipped") is not True)
+                for it in results
+            )
+            if settled:
                 s.reference.delete()
                 repaired += 1
             else:
-                s.reference.update({
-                    "attempts": int(d.get("attempts") or 0) + 1,
-                    "lastError": str(res.get("error") or res.get("reason") or "unknown")[:200],
-                    "updatedAt": firestore_server_ts(),
-                })
+                attempts = int(d.get("attempts") or 0) + 1
+                first_err = next(
+                    (str(it.get("error")) for it in results if it.get("error")),
+                    str(res.get("error") or res.get("reason") or "unknown"),
+                )
+                if attempts >= 5:
+                    # Exhausted: move to a terminal status so the task can
+                    # never starve the open queue (admin-reviewable).
+                    s.reference.update({
+                        "status": "failed",
+                        "attempts": attempts,
+                        "lastError": first_err[:200],
+                        "updatedAt": firestore_server_ts(),
+                    })
+                    errors += 1
+                else:
+                    s.reference.update({
+                        "attempts": attempts,
+                        "lastError": first_err[:200],
+                        "updatedAt": firestore_server_ts(),
+                    })
                 errors += 1
         except Exception as exc:
             try:

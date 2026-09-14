@@ -2,7 +2,6 @@ import {
   doc, 
   getDoc, 
   setDoc, 
-  updateDoc, 
   collection, 
   query, 
   where, 
@@ -192,16 +191,53 @@ export class PSEMineEngine {
   }
 
   /**
-   * Calculates current accrued earnings up to current client/server time
+   * Phase 2: triggers the CANONICAL server-side accrual checkpoint via
+   * GET /api/mine/state. Frontend timing is never authoritative; this call
+   * lets the backend settle eligible operating time and returns the current
+   * ledger-backed accrued balance.
    */
   public static async syncAccrual(uid: string): Promise<number> {
-    const userRef = doc(db, 'psemine_users', uid);
-    const snap = await getDoc(userRef);
-    if (!snap.exists()) return 0;
+    void uid; // uid implied by the Firebase token
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return 0;
+      const res = await fetch('/api/mine/state', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return typeof data?.user?.accruedGBP === 'number' ? data.user.accruedGBP : 0;
+    } catch {
+      return 0;
+    }
+  }
 
-    const user = snap.data() as PSEMineUser;
-    const campaign = await this.getOrCreateActiveCampaign();
-    return this.calculateLiveAccrued(user, campaign);
+  /**
+   * Phase 2: free operating-cycle maintenance via
+   * POST /api/mine/tools/{ownershipId}/maintain. Restores future earning
+   * eligibility; no reward is minted by maintenance itself.
+   */
+  public static async maintainTool(ownershipId: string): Promise<{ success: boolean; error?: string; cycleIndex?: number; settledMinor?: number }> {
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return { success: false, error: 'Authentication required.' };
+      const res = await fetch(`/api/mine/tools/${encodeURIComponent(ownershipId)}/maintain`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.message || data.error || 'Maintenance failed.' };
+      }
+      return { success: true, cycleIndex: data.cycleIndex, settledMinor: data.settledMinor };
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Maintenance error.';
+      return { success: false, error: errMsg };
+    }
   }
 
   /**
@@ -241,20 +277,40 @@ export class PSEMineEngine {
   }
 
   /**
-   * Creates a purchase intent in Firestore
+   * Creates a backend-authoritative purchase intent bound to a persisted server quote.
+   * (Phase 1: clients no longer write psemine_purchases directly.)
    */
   public static async createPurchaseIntent(
     quote: PSEMineQuote, 
     paymentWallet: string
   ): Promise<PSEMinePurchase> {
     const tool = LOCKED_PSEMINE_TOOLS[quote.toolId];
-    const purchaseId = `pse_pur_${quote.toolId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Authentication required to create purchase intent.');
+    }
 
-    const purchase: PSEMinePurchase = {
-      id: purchaseId,
+    const res = await fetch('/api/mine/purchases/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ quoteId: quote.quoteId, paymentWallet })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success || !data.purchaseId) {
+      throw new Error(data.message || data.error || 'Failed to create purchase intent.');
+    }
+
+    return {
+      id: data.purchaseId,
       userId: quote.userId,
       toolId: quote.toolId,
-      toolName: tool.name,
+      toolName: tool?.name || quote.toolId,
       toolVersion: quote.toolVersion,
       quoteId: quote.quoteId,
       quotedGBPAmount: quote.gbpPrice,
@@ -266,17 +322,12 @@ export class PSEMineEngine {
       network: quote.network,
       status: 'awaiting_payment',
       confirmations: 0,
-      requiredConfirmations: 2,
+      requiredConfirmations: 3,
       createdAt: new Date().toISOString(),
       expiresAt: quote.expiresAt,
       confirmedAt: null,
       activatedAt: null
-    };
-
-    const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
-    await setDoc(purchaseRef, purchase);
-
-    return purchase;
+    } as PSEMinePurchase;
   }
 
   /**
@@ -376,108 +427,104 @@ export class PSEMineEngine {
   }
 
   /**
-   * Links a new miner to a referrer via referral code
+   * Links a new miner to a referrer via the canonical backend registration endpoint.
+   * (Phase 1: referral records are created server-side with deterministic identity.)
+   */
+  /**
+   * Result of a referral registration attempt. `retryable` distinguishes
+   * transient failures (network/server) from permanent validation failures
+   * (self-referral, unknown referrer) so callers only persist retryable ones.
    */
   public static async registerReferral(
-    refereeId: string, 
-    refereeUsername: string, 
+    refereeId: string,
+    _refereeUsername: string,
     referralCodeInput: string
-  ): Promise<boolean> {
+  ): Promise<{ ok: boolean; retryable: boolean }> {
+    void refereeId;
+    let code = '';
+    let result: { ok: boolean; retryable: boolean } = { ok: false, retryable: true };
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
       const token = await auth.currentUser?.getIdToken();
-      let referrerId: string | null = null;
+      if (!token) return result;
 
-      // 1. Try server-side lookup endpoint
-      if (token) {
-        try {
-          const resp = await fetch('/api/referrals/lookup', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ referralCode: referralCodeInput.toUpperCase().trim() })
-          });
-          if (resp.ok) {
-            const data = await resp.json().catch(() => ({}));
-            if (data.success && data.referrerId) {
-              referrerId = data.referrerId;
-            }
-          }
-        } catch {
-          // Fallback to client query
-        }
-      }
-
-      // 2. Fallback query
-      if (!referrerId) {
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('referralCode', '==', referralCodeInput.toUpperCase().trim()),
-          limit(1)
-        );
-        const userSnap = await getDocs(usersQuery).catch(() => null);
-        if (userSnap && !userSnap.empty) {
-          referrerId = userSnap.docs[0].id;
-        }
-      }
-
-      if (!referrerId) return false;
-      if (referrerId === refereeId) return false; // Prevent self-referral
-
-      const refId = `pse_ref_${referrerId.slice(0, 5)}_${refereeId.slice(0, 5)}_${Date.now()}`;
-      const nowIso = new Date().toISOString();
-
-      const referralRecord: PSEMineReferral = {
-        id: refId,
-        referrerId,
-        refereeId,
-        refereeUsername,
-        status: 'registered',
-        bonusHourlyRate: PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR,
-        stageHistory: {
-          registeredAt: nowIso
+      code = referralCodeInput.trim();
+      const res = await fetch('/api/mine/referrals/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        createdAt: nowIso,
-        qualifiedAt: null
-      };
-
-      await setDoc(doc(db, 'psemine_referrals', refId), referralRecord);
-
-      await this.logActivity(referrerId, {
-        type: 'referral_registered',
-        title: 'New Miner Invited',
-        description: `${refereeUsername} registered with your referral code. Awaiting wallet connection and tool deployment.`,
-        referenceId: refId
+        body: JSON.stringify({ referralCode: code })
       });
-
-      return true;
+      const data = await res.json().catch(() => ({}));
+      result = (res.ok && data.success)
+        ? { ok: true, retryable: false }
+        : { ok: false, retryable: res.status >= 500 || res.status === 429 };
+      return result;
     } catch (e) {
       console.error('[PSEMineEngine] registerReferral error:', e);
+      return result;
+    } finally {
+      // Retain retryable failures in localStorage so the next PSEmine session
+      // can re-submit the attribution — signup success never loses the code.
+      if (code) {
+        try {
+          if (result.ok || !result.retryable) {
+            localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+          } else {
+            localStorage.setItem(
+              PSEMineEngine.PENDING_REFERRAL_KEY,
+              JSON.stringify({ code, savedAt: Date.now() })
+            );
+          }
+        } catch {
+          /* storage unavailable — best effort */
+        }
+      }
+    }
+  }
+
+  private static readonly PENDING_REFERRAL_KEY = 'psemine_pending_referral_code';
+
+  /**
+   * Re-submits a referral code retained after a transient registration
+   * failure. Idempotent server-side (deterministic referral identity), so
+   * re-submission is safe. Clears the retained code on success or on a
+   * permanent rejection (no point retrying validation failures).
+   */
+  public static async retryPendingReferral(): Promise<boolean> {
+    try {
+      const raw = localStorage.getItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      if (!raw) return false;
+      const { code } = JSON.parse(raw) as { code?: string };
+      if (!code) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+        return false;
+      }
+      const result = await PSEMineEngine.registerReferral('', '', code);
+      if (result.ok || !result.retryable) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      }
+      return result.ok;
+    } catch {
       return false;
     }
   }
 
   /**
-   * Updates user payout wallet before settlement cutoff
+   * Updates user payout wallet via the backend (server-controlled, cutoff enforced
+   * server-side per campaign state — frontend values are never authoritative).
    */
   public static async updatePayoutWallet(
-    userId: string, 
     newWallet: string
   ): Promise<{ success: boolean; error?: string }> {
-    const campaign = await this.getOrCreateActiveCampaign();
-    if (campaign?.walletChangeDeadline) {
-      const now = new Date().getTime();
-      const deadline = new Date(campaign.walletChangeDeadline).getTime();
-
-      if (now > deadline) {
-        return { 
-          success: false, 
-          error: 'Payout wallet modification cutoff has passed for this campaign.' 
-        };
-      }
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      return { success: false, error: 'Authentication required. Please sign in.' };
     }
 
     const EVM_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
@@ -485,21 +532,49 @@ export class PSEMineEngine {
       return { success: false, error: 'Invalid BNB Smart Chain address format (must be 42-character hex starting with 0x).' };
     }
 
-    const nowIso = new Date().toISOString();
-    const userRef = doc(db, 'psemine_users', userId);
-    await updateDoc(userRef, {
-      payoutWallet: newWallet.trim().toLowerCase(),
-      payoutWalletUpdatedAt: nowIso,
-      updatedAt: nowIso
+    const res = await fetch('/api/mine/wallet', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ wallet: newWallet.trim() })
     });
 
-    await this.logActivity(userId, {
-      type: 'wallet_updated',
-      title: 'Payout Wallet Updated',
-      description: `Settlement crypto payout destination locked to ${newWallet.slice(0, 6)}...${newWallet.slice(-4)}`
-    });
-
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.message || data.error || 'Could not update payout wallet.' };
+    }
     return { success: true };
+  }
+
+  /**
+   * Records the connected wallet server-side without changing the payout destination.
+   */
+  public static async setConnectedWallet(
+    wallet: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return { success: false, error: 'Authentication required.' };
+    try {
+      const res = await fetch('/api/mine/wallet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ wallet, updatePayout: false })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.message || data.error || 'Could not record wallet.' };
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error recording wallet.' };
+    }
   }
 
   /**
@@ -536,23 +611,15 @@ export class PSEMineEngine {
   }
 
   /**
-   * Logs a structured event in PSEmine user activity collection
+   * DEPRECATED client activity write (Phase 1): activity is server-authoritative
+   * (psemine_activities written by the backend). Kept as a no-op for signature
+   * compatibility with existing call sites.
    */
   public static async logActivity(
     userId: string, 
     data: Omit<PSEMineActivity, 'id' | 'userId' | 'createdAt'>
   ): Promise<void> {
-    try {
-      const actId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const activity: PSEMineActivity = {
-        id: actId,
-        userId,
-        ...data,
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'psemine_users', userId, 'activity', actId), activity);
-    } catch (e) {
-      console.warn('[PSEMineEngine] Activity log write notice:', e);
-    }
+    void userId;
+    void data;
   }
 }

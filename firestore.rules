@@ -316,17 +316,16 @@ service cloud.firestore {
         && request.resource.data.referralCapacityGBPPerHour == 0
         && request.resource.data.totalCapacityGBPPerHour == 0
         && request.resource.data.qualifiedReferralsCount == 0;
-      // Allow users to update ONLY non-economic profile and wallet destination fields
-      allow update: if (isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'payoutWallet', 'intendedPaymentWallet', 'payoutWalletUpdatedAt', 'connectedWallet', 'onboardingCompleted', 'updatedAt'
-        ])) || isAdmin();
+      // Allow initial zeroed-profile creation (client bootstrap); ALL updates are
+      // backend-authoritative (wallet, balances, capacities are Admin SDK writes).
+      allow update: if isAdmin();
       allow delete: if isAdmin();
 
       match /activity/{activityId} {
         allow read: if isOwner(userId) || isModerator();
         allow list: if isOwner(userId) || isModerator();
-        allow write: if isOwner(userId) || isAdmin();
+        // Phase 1: activity is server-authoritative (psemine_activities + Admin SDK).
+        allow write: if isAdmin();
       }
     }
 
@@ -338,13 +337,9 @@ service cloud.firestore {
 
     match /psemine_purchases/{purchaseId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isModerator();
-      // Users can register purchase intents (awaiting payment or pending), but cannot activate status
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.quoteId is string
-        && (request.resource.data.status == 'pending' || request.resource.data.status == 'awaiting_payment');
-      // Activation and updates strictly restricted to backend Admin SDK
-      allow update, delete: if isAdmin();
+      // Phase 1: purchase intents are created ONLY by the backend
+      // (/api/mine/purchases/create binds them to persisted server quotes).
+      allow create, update, delete: if false;
     }
 
     match /psemine_quotes/{quoteId} {
@@ -359,9 +354,9 @@ service cloud.firestore {
 
     match /psemine_referrals/{referralId} {
       allow read: if (isAuthenticated() && (resource.data.referrerId == request.auth.uid || resource.data.refereeId == request.auth.uid)) || isModerator();
-      // Referees can register referral links, but qualification and bonuses are restricted to backend Admin SDK
-      allow create: if isAuthenticated() && request.resource.data.refereeId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      // Phase 1: referral records are created ONLY by the backend
+      // (/api/mine/referrals/register with deterministic identity + anti-abuse checks).
+      allow create, update, delete: if false;
     }
 
     match /psemine_payouts/{payoutId} {
@@ -424,6 +419,12 @@ service cloud.firestore {
     }
 
     match /psemine_fraud_flags/{flagId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /psemine_payment_recovery/{recoveryId} {
+      // Payment recovery evidence: server-written, admin-only access.
       allow read: if isAdmin();
       allow write: if isAdmin();
     }

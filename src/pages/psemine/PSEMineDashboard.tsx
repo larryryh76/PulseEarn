@@ -30,6 +30,8 @@ export const PSEMineDashboard: React.FC = () => {
     connectedWallet,
     connectWallet,
     activities,
+    ownerships,
+    maintainTool,
     refreshData,
     isCampaignArchived
   } = usePSEMine();
@@ -56,6 +58,32 @@ export const PSEMineDashboard: React.FC = () => {
     builder: 0,
     advanced: 0,
     elite: 0
+  };
+
+  // Phase 2: tools whose operating cycle has completed require free maintenance
+  // before they resume accruing. Display-only derivation; the backend endpoint
+  // is authoritative and re-validates cycle state on every maintenance call.
+  const [maintainingIds, setMaintainingIds] = useState<Set<string>>(new Set());
+  const toolsNeedingMaintenance = ownerships.filter((o) => {
+    if ((o as unknown as { status?: string }).status && (o as unknown as { status: string }).status !== 'active') return false;
+    const startedRaw = (o as unknown as { cycleStartedAt?: string }).cycleStartedAt || o.activatedAt;
+    if (!startedRaw) return false;
+    const startedMs = new Date(startedRaw).getTime();
+    if (isNaN(startedMs)) return false;
+    return Date.now() - startedMs >= 24 * 60 * 60 * 1000;
+  });
+
+  const handleMaintain = async (ownershipId: string) => {
+    setMaintainingIds((prev) => new Set(prev).add(ownershipId));
+    try {
+      await maintainTool(ownershipId);
+    } finally {
+      setMaintainingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(ownershipId);
+        return next;
+      });
+    }
   };
 
   const totalToolsCount = Object.values(toolCounts).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -424,6 +452,35 @@ export const PSEMineDashboard: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* ── 4b. OPERATING CYCLE MAINTENANCE (Phase 2) ────────────────────────── */}
+      {toolsNeedingMaintenance.length > 0 && (
+        <div className="p-4 rounded-2xl bg-surface border border-amber-500/30 space-y-3">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={16} className="text-amber-400" />
+            <h2 className="text-base font-bold text-text-primary">Maintenance Required</h2>
+          </div>
+          <p className="text-xs text-text-secondary">
+            Operating cycle complete. Run free maintenance to restart accrual — no fee, ownership is never affected.
+          </p>
+          <div className="space-y-2">
+            {toolsNeedingMaintenance.map((o) => (
+              <div key={o.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-surface-bright border border-border">
+                <span className="text-xs font-bold text-text-primary truncate">
+                  {(o as unknown as { toolName?: string }).toolName || o.toolId}
+                </span>
+                <button
+                  onClick={() => handleMaintain(o.id)}
+                  disabled={maintainingIds.has(o.id)}
+                  className="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#2bb39a] hover:bg-[#00D08A] text-[#070A0F] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {maintainingIds.has(o.id) ? 'Working…' : 'Maintain'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 5. RECENT ACTIVITY LEDGER MINI-FEED ───────────────────────────── */}
       <div className="space-y-3">

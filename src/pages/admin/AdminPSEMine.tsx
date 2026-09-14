@@ -29,6 +29,8 @@ export const AdminPSEMine: React.FC = () => {
   });
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
+  const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -43,6 +45,20 @@ export const AdminPSEMine: React.FC = () => {
           if (data.stats) {
             setStats(data.stats);
           }
+        }
+        // Real-data operational queues (moderator-readable, admin-resolvable)
+        const [recRes, wdRes] = await Promise.all([
+          fetch('/api/admin/mine/payment-recovery?status=open', { headers: { 'Authorization': `Bearer ${idToken}` } }),
+          fetch('/api/admin/psemine/withdrawals', { headers: { 'Authorization': `Bearer ${idToken}` } }),
+        ]);
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          setRecoveryCases(Array.isArray(recData.cases) ? recData.cases : []);
+        }
+        if (wdRes.ok) {
+          const wdData = await wdRes.json();
+          const all: Array<Record<string, unknown>> = Array.isArray(wdData.withdrawals) ? wdData.withdrawals : [];
+          setWithdrawalQueue(all.filter((w) => ['pending', 'under_review', 'processing'].includes(String(w.status))));
         }
       }
     } catch (e) {
@@ -223,11 +239,142 @@ export const AdminPSEMine: React.FC = () => {
         </div>
       </div>
 
+      {/* Payment Recovery Queue (real backend data) */}
+      <div className="p-6 bg-[#0c1426] border border-amber-900/40 rounded-3xl space-y-4">
+        <h2 className="text-base font-bold text-white">Payment Recovery Cases ({recoveryCases.length})</h2>
+        {recoveryCases.length === 0 ? (
+          <p className="text-xs text-gray-500">No open recovery cases.</p>
+        ) : (
+          <div className="space-y-2">
+            {recoveryCases.map((c, i) => (
+              <div key={String(c.id ?? i)} className="p-3 rounded-xl bg-[#0a1122] border border-slate-800 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono text-amber-300">{String(c.reason || 'UNKNOWN_REASON')}</span>
+                  <span className="text-gray-500">tx: {String(c.txHash || '—').slice(0, 18)}…</span>
+                  <span className="text-gray-500">observed: {String(c.observedAmountWei ?? '—')} wei</span>
+                  <span className="text-gray-500">sender: {String(c.sender || '—').slice(0, 10)}…</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      const notes = window.prompt('Review notes (required):') || '';
+                      if (!notes) return;
+                      const idToken = await currentUser.getIdToken();
+                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ action: 'mark_reviewed', notes })
+                      });
+                      if (res.ok) { toast.success('Marked reviewed'); fetchAdminData(); } else { toast.error('Failed'); }
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-gray-200"
+                  >
+                    Mark Reviewed
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      const purchaseId = window.prompt('Purchase ID to attach (from verify-purchase retry):') || '';
+                      if (!purchaseId) return;
+                      const idToken = await currentUser.getIdToken();
+                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ action: 'attach_to_purchase', purchaseId, notes: 'Linked after verified re-activation' })
+                      });
+                      if (res.ok) { toast.success('Attached'); fetchAdminData(); } else { toast.error('Failed'); }
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-700 hover:bg-blue-600 text-white"
+                  >
+                    Attach To Purchase
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      if (!window.confirm('Reject this recovery case? Evidence is retained.')) return;
+                      const idToken = await currentUser.getIdToken();
+                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ action: 'reject', notes: 'Rejected during review' })
+                      });
+                      if (res.ok) { toast.success('Rejected'); fetchAdminData(); } else { toast.error('Failed'); }
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-700 text-white"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Payout Review Queue (real backend data) */}
+      <div className="p-6 bg-[#0c1426] border border-emerald-900/40 rounded-3xl space-y-4">
+        <h2 className="text-base font-bold text-white">Payout Review Queue ({withdrawalQueue.length})</h2>
+        {withdrawalQueue.length === 0 ? (
+          <p className="text-xs text-gray-500">No pending payout requests.</p>
+        ) : (
+          <div className="space-y-2">
+            {withdrawalQueue.map((w, i) => (
+              <div key={String(w.id ?? i)} className="p-3 rounded-xl bg-[#0a1122] border border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs space-y-0.5">
+                  <div className="font-mono font-bold text-emerald-300">£{String(w.amountGbp ?? '—')}</div>
+                  <div className="text-gray-500">to {String(w.payoutAddress || '—').slice(0, 10)}…{String(w.payoutAddress || '').slice(-4)}</div>
+                  <div className="text-gray-600">user {String(w.userId || '—').slice(0, 10)}… · status {String(w.status || '—')}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      const txHash = window.prompt('Payout transaction hash (required to approve):') || '';
+                      if (!txHash) return;
+                      const idToken = await currentUser.getIdToken();
+                      const res = await fetch(`/api/admin/psemine/withdrawals/${String(w.id)}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ action: 'APPROVE', txHash, adminNotes: 'Approved with on-chain tx' })
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (res.ok && data.success) { toast.success('Payout completed'); fetchAdminData(); } else { toast.error(data.error || 'Failed'); }
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
+                  >
+                    Approve (tx)
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      const notes = window.prompt('Rejection reason:') || '';
+                      if (!notes) return;
+                      const idToken = await currentUser.getIdToken();
+                      const res = await fetch(`/api/admin/psemine/withdrawals/${String(w.id)}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ action: 'REJECT', adminNotes: notes })
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (res.ok && data.success) { toast.success('Rejected'); fetchAdminData(); } else { toast.error(data.error || 'Failed'); }
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-gray-200"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Protocol Verification & Architecture Info */}
       <div className="p-6 bg-[#080d19] border border-slate-800 rounded-3xl space-y-3 text-xs text-gray-400">
         <h3 className="text-sm font-bold text-white">PSEmine Accounting Safeguards</h3>
         <p>
-          All mining capacity transactions require 2 BSC block confirmations. Quotes expire after 10 minutes to prevent exchange rate arbitrage. Referral boosts are capped at +£1.50/hr per user. Accruals calculate dynamically against Firestore atomic server timestamps.
+          All mining capacity transactions require 3 BSC block confirmations (the ACTUAL observed depth is stored on each purchase). Quotes expire after 15 minutes to prevent exchange rate arbitrage. Referral boosts are capped at +£1.50/hr per user. Accrual is written ONLY by the canonical backend ledger (psemine_mining_ledger) with deterministic idempotent entries — frontend timers are never authoritative.
         </p>
       </div>
 

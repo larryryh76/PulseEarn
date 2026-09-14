@@ -376,7 +376,7 @@ export const PSEMineWallet: React.FC = () => {
           <li className="flex items-start gap-2">
             <Check size={14} className="text-[#2bb39a] shrink-0 mt-0.5" />
             <span>
-              <strong className="text-text-primary">Automatic Disbursement:</strong> Upon campaign conclusion, your accumulated earnings are sent to your configured payout address.
+              <strong className="text-text-primary">Settlement Payout:</strong> Payout requests open after the campaign ends and balances are finalized. Each request is reviewed before funds are sent to your configured payout address.
             </span>
           </li>
         </ul>

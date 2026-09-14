@@ -240,6 +240,33 @@ def is_admin(uid):
         return d.get('role') in ['admin', 'ADMIN'] or d.get('isRoot') == True
     return False
 
+def has_psemine_access(uid):
+    """B5: backend PSEmine entitlement check — THE authoritative source is the
+    same users/{uid}.productAccess.psemine boolean the frontend gate reads.
+    Admin/root users are not exempt: PSEmine is a product, not a role.
+    Returns True only on an explicit true flag; missing docs/fields deny."""
+    db = get_db()
+    if not db:
+        return False
+    user_doc = db.collection('users').document(uid).get()
+    if not user_doc.exists:
+        return False
+    pa = user_doc.to_dict().get('productAccess') or {}
+    return pa.get('psemine') is True
+
+
+def require_psemine_access(f):
+    """Centralized entitlement decorator for every /api/mine/* money endpoint.
+    Must run AFTER verify_token (reads request.user['uid'])."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not has_psemine_access(request.user['uid']):
+            return jsonify({"success": False, "error": "PSEMINE_ACCESS_DENIED",
+                            "message": "PSEmine access is not enabled for this account."}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def is_moderator(uid):
     db = get_db()
     if not db: return False
@@ -6029,11 +6056,11 @@ def psemine_ensure_canonical_data(db):
                 'updatedAt': now_dt.isoformat(),
             })
 
-        # 2. Canonical Mining Tools (deterministic doc IDs: starter, growth, pro, elite)
+        # 2. Canonical Mining Tools (deterministic doc IDs: starter, builder, advanced, elite)
         canonical_tools = {
             'starter': {
                 'id': 'starter',
-                'name': 'Starter',
+                'name': 'Starter Miner',
                 'tier': 'starter',
                 'priceGbp': 3.0,
                 'miningRateGbpPerHour': 0.10,
@@ -6042,27 +6069,27 @@ def psemine_ensure_canonical_data(db):
                 'isActive': True,
                 'description': 'Starter mining tool - £3 GBP, £0.10/hour, maximum 5 copies per user.',
             },
-            'growth': {
-                'id': 'growth',
-                'name': 'Growth',
-                'tier': 'growth',
+            'builder': {
+                'id': 'builder',
+                'name': 'Builder Miner',
+                'tier': 'builder',
                 'priceGbp': 10.0,
                 'miningRateGbpPerHour': 0.50,
                 'maxCopiesPerUser': 3,
                 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
-                'description': 'Growth mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
+                'description': 'Builder mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
             },
-            'pro': {
-                'id': 'pro',
-                'name': 'Pro',
-                'tier': 'pro',
+            'advanced': {
+                'id': 'advanced',
+                'name': 'Advanced Miner',
+                'tier': 'advanced',
                 'priceGbp': 50.0,
                 'miningRateGbpPerHour': 1.20,
                 'maxCopiesPerUser': 3,
                 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
-                'description': 'Pro mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
+                'description': 'Advanced mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
             },
             'elite': {
                 'id': 'elite',
@@ -6085,6 +6112,23 @@ def psemine_ensure_canonical_data(db):
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP,
                 })
+
+        # 3. Safely deprecate legacy seeded tool ids (growth/pro). Historical docs are
+        # never deleted; they become inactive read-model projections that can no longer
+        # be quoted or purchased. Canonical economics live in psemine_core.
+        try:
+            import psemine_engine as _pse_engine
+            for legacy_id in ('growth', 'pro'):
+                legacy_snap = db.collection('psemine_tools').document(legacy_id).get()
+                if legacy_snap.exists:
+                    legacy_doc = legacy_snap.to_dict() or {}
+                    if not legacy_doc.get('deprecated'):
+                        _pse_engine.admin_deprecate_tool(
+                            db, legacy_id, 'system:seed',
+                            'Superseded by canonical builder/advanced tool catalog'
+                        )
+        except Exception as dep_err:
+            print(f"[PSEmine Seed] Legacy tool deprecation skipped: {dep_err}", flush=True)
     except Exception as e:
         print(f"[PSEmine Seed] Error seeding canonical data: {e}", flush=True)
 
@@ -6308,24 +6352,19 @@ def recalculate_psemine_user_mining_state(db, user_id):
         s_data = session_snap.to_dict() or {}
         started_at = s_data.get('startedAt') or now_iso
         prev_output = safe_float(s_data.get('accumulatedOutputGbp'), 0.0)
-        prev_rate = safe_float(s_data.get('totalMiningRateGbpPerHour'), 0.0)
-        last_calc = s_data.get('lastCalculatedAt')
 
-        if s_data.get('state') == 'active' and last_calc:
-            try:
-                if isinstance(last_calc, datetime):
-                    last_dt = last_calc
-                else:
-                    last_dt = datetime.fromisoformat(str(last_calc).replace('Z', '+00:00'))
-                if last_dt.tzinfo is None:
-                    last_dt = last_dt.replace(tzinfo=timezone.utc)
-
-                bounded_now = min(now_dt, campaign_end_dt)
-                elapsed_hours = max(0.0, (bounded_now - last_dt).total_seconds() / 3600.0)
-                accumulated_output = prev_output + (elapsed_hours * prev_rate)
-            except Exception:
-                accumulated_output = prev_output
-        else:
+        # (Phase 2) SINGLE SOURCE OF TRUTH: this legacy read-model used to
+        # self-accumulate accumulatedOutputGbp = prev + elapsed * rate, which
+        # competed with the canonical ledger. It now only ever READS the
+        # canonical balance (psemine_users.accruedMinor + legacy read-model)
+        # and never advances its own economics.
+        try:
+            import psemine_engine as _pse_engine
+            _u = db.collection('psemine_users').document(user_id).get().to_dict() or {}
+            _ledger_minor = int(_u.get('accruedMinor') or 0)
+            _legacy_minor = _pse_engine._legacy_balance_minor(_u)
+            accumulated_output = max(prev_output, (_ledger_minor + _legacy_minor) / 100.0)
+        except Exception:
             accumulated_output = prev_output
 
     session_payload = {
@@ -6391,6 +6430,14 @@ def psemine_create_order():
         tool_id = (data.get('toolId') or '').strip().lower()
         payment_wallet_value = data.get('paymentWallet') or data.get('paymentAddress') or ''
         payment_wallet = payment_wallet_value.strip().lower() if isinstance(payment_wallet_value, str) else ''
+
+        # (B3) Legacy purchase path respects the canonical campaign lifecycle.
+        import psemine_engine as _pse_engine
+        _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+        if _eff == 'ended':
+            return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended."}), 409
+        if _eff != 'active' or _camp.get('purchaseEnabled') is False:
+            return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
         if not tool_id:
             return jsonify({"success": False, "error": "MISSING_TOOL_ID", "message": "Please specify a tool ID."}), 400
@@ -6511,6 +6558,18 @@ def psemine_verify_payment():
 
     if order.get('status') == 'confirmed':
         return jsonify({"success": False, "error": "ORDER_ALREADY_CONFIRMED", "message": "This order has already been verified and paid."}), 409
+
+    # (B3) Campaign lifecycle gate at verification time. NO activation after end.
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff == 'ended':
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='CAMPAIGN_ENDED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended; this payment was recorded for manual review."}), 409
+    if _camp.get('purchaseEnabled') is False:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=order_id, reason='PURCHASES_DISABLED_AT_VERIFICATION_LEGACY')
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
     # Quote Expiry Check
     expiry_raw = order.get('quoteExpiry')
@@ -6640,6 +6699,13 @@ def psemine_verify_payment():
             'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
             'status': 'active',
             'acquiredAt': now_iso,
+            # (B1/B2) canonical balance anchor + cycle fields so v1-created
+            # ownerships never become anchor-less and never double-count the
+            # legacy balance at first checkpoint.
+            'accruedBalanceAbsorbed': True,
+            'cycleIndex': 0,
+            'cycleStartedAt': now_iso,
+            'lastAccruedAt': now_iso,
             'createdAt': firestore.SERVER_TIMESTAMP,
         }
         txn.set(own_ref, own_payload)
@@ -6688,49 +6754,14 @@ def psemine_verify_payment():
         'createdAt': firestore.SERVER_TIMESTAMP,
     })
 
-    # 6. Referral Qualification Check
-    ref_snaps = db.collection('psemine_referrals') \
-        .where('refereeId', '==', uid) \
-        .where('status', '==', 'pending') \
-        .get()
-
-    for ref_doc in ref_snaps:
-        r_data = ref_doc.to_dict() or {}
-        referrer_id = r_data.get('referrerId')
-        if referrer_id and referrer_id != uid:
-            ref_doc.reference.update({
-                'status': 'qualified',
-                'bonusRateGbpPerHour': 0.30,
-                'qualifiedAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP,
-            })
-
-            ref_session = recalculate_psemine_user_mining_state(db, referrer_id)
-
-            user_snap = db.collection('users').document(uid).get()
-            referee_name = (user_snap.to_dict().get('username') if user_snap.exists else 'Your referral') or 'Your referral'
-
-            ref_act = db.collection('psemine_activities').document()
-            ref_act.set({
-                'id': ref_act.id,
-                'userId': referrer_id,
-                'type': 'REFERRAL_QUALIFIED',
-                'title': 'Referral Qualified!',
-                'description': f"{referee_name} purchased a mining tool. Your mining bonus increased by +£0.30/hr!",
-                'metadata': {'refereeId': uid, 'referralDocId': ref_doc.id},
-                'createdAt': firestore.SERVER_TIMESTAMP,
-            })
-
-            ref_notif = db.collection('psemine_notifications').document()
-            ref_notif.set({
-                'id': ref_notif.id,
-                'userId': referrer_id,
-                'type': 'referral',
-                'title': 'Mining Bonus Active',
-                'message': f"{referee_name} qualified! Bonus rate is now +£{ref_session['referralBonusGbpPerHour']:.2f}/hr.",
-                'read': False,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-            })
+    # 6. Referral Qualification — (Phase 2) delegates to the ONE canonical
+    # qualification path (settle_referral_on_activation). The previous manual
+    # 'pending'->'qualified' block was a second, competing qualification path.
+    try:
+        import psemine_engine as _pse_engine
+        _pse_engine.settle_referral_on_activation(db, uid, order_id)
+    except Exception as _ref_err:
+        logging.warning(f"[PSEmine v1] canonical referral settle failed for {uid}: {_ref_err}")
 
     return jsonify({
         "success": True,
@@ -6763,8 +6794,26 @@ def psemine_dashboard_data():
 
     owned_tools = [{**s.to_dict(), 'id': s.id} for s in owned_snaps]
 
-    # 3. Recalculate & fetch Mining Session
-    session = recalculate_psemine_user_mining_state(db, uid)
+    # 3. Canonical accrual checkpoint + authoritative session view
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff in ('settling', 'ended', 'payout', 'closed', 'archived'):
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Mining accrual is closed."}), 409
+    _pse_engine.accrual_checkpoint(db, uid, source='dashboard')
+    _u = db.collection('psemine_users').document(uid).get().to_dict() or {}
+    _counts = _u.get('toolOwnershipCounts') or {}
+    _qual = int(_u.get('qualifiedReferralsCount') or 0)
+    _accrued_minor = int(_u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(_u)
+    _tool_rate = round(0.10 * int(_counts.get('starter', 0) or 0) + 0.50 * int(_counts.get('builder', 0) or 0) + 1.20 * int(_counts.get('advanced', 0) or 0) + 2.50 * int(_counts.get('elite', 0) or 0), 2)
+    session = {
+        'campaignId': 'active_campaign',
+        'state': 'active' if (_u.get('status') == 'active') else 'inactive',
+        'activeToolsCount': sum(int(v or 0) for v in _counts.values()),
+        'baseMiningRateGbpPerHour': _tool_rate,
+        'referralBonusGbpPerHour': round(min(5, _qual) * 0.30, 2),
+        'totalMiningRateGbpPerHour': round(_tool_rate + min(5, _qual) * 0.30, 2),
+        'accumulatedOutputGbp': round(_accrued_minor / 100.0, 4),
+    }
 
     # 4. Qualified Referrals
     ref_snaps = db.collection('psemine_referrals') \
@@ -6809,39 +6858,37 @@ def psemine_dashboard_data():
 @verify_token
 @require_db
 def psemine_sync_session():
-    """Sync mining session checkpoint and write controlled accrual to ledger with strict idempotency."""
+    """DEPRECATED legacy endpoint. Now delegates to the canonical accrual checkpoint.
+    Kept only so older clients do not hard-fail; response shape is preserved."""
     db = get_db()
     uid = request.user['uid']
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff in ('settling', 'ended', 'payout', 'closed', 'archived'):
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Mining accrual is closed."}), 409
 
-    session = recalculate_psemine_user_mining_state(db, uid)
+    import psemine_engine as _pse_engine
+    result = _pse_engine.accrual_checkpoint(db, uid, source='legacy_sync')
+    user_doc = db.collection('psemine_users').document(uid).get()
+    u = user_doc.to_dict() or {}
+    counts = u.get('toolOwnershipCounts') or {}
+    qual = int(u.get('qualifiedReferralsCount') or 0)
+    accrued_minor = int(u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(u)
+    session = {
+        'campaignId': 'active_campaign',
+        'state': 'active' if (u.get('status') == 'active') else 'inactive',
+        'activeToolsCount': sum(int(v or 0) for v in counts.values()),
+        'baseMiningRateGbpPerHour': round(sum(0.10 * int(counts.get('starter', 0) or 0) + 0.50 * int(counts.get('builder', 0) or 0) + 1.20 * int(counts.get('advanced', 0) or 0) + 2.50 * int(counts.get('elite', 0) or 0) for _ in [0]), 2),
+        'referralBonusGbpPerHour': round(min(5, qual) * 0.30, 2),
+        'totalMiningRateGbpPerHour': round(sum(0.10 * int(counts.get('starter', 0) or 0) + 0.50 * int(counts.get('builder', 0) or 0) + 1.20 * int(counts.get('advanced', 0) or 0) + 2.50 * int(counts.get('elite', 0) or 0) for _ in [0]) + min(5, qual) * 0.30, 2),
+        'accumulatedOutputGbp': round(accrued_minor / 100.0, 4),
+        'lastCalculatedAt': __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),
+    }
     output = session['accumulatedOutputGbp']
     state = session['state']
 
-    # Record accrual checkpoint in psemine_mining_ledger using deterministic hourly key
-    if state == 'active' and output > 0:
-        now_dt = datetime.now(timezone.utc)
-        hour_slot = now_dt.strftime('%Y%m%d_%H')
-        ledger_doc_id = f"accrual_{uid}_{hour_slot}"
-
-        ledger_ref = db.collection('psemine_mining_ledger').document(ledger_doc_id)
-        ledger_snap = ledger_ref.get()
-
-        ledger_payload = {
-            'id': ledger_doc_id,
-            'userId': uid,
-            'campaignId': session['campaignId'],
-            'totalMiningRateGbpPerHour': session['totalMiningRateGbpPerHour'],
-            'accumulatedOutputGbp': round(output, 4),
-            'event': 'CHECKPOINT_ACCRUAL',
-            'hourSlot': hour_slot,
-            'updatedAt': firestore.SERVER_TIMESTAMP,
-        }
-
-        if not ledger_snap.exists:
-            ledger_payload['createdAt'] = firestore.SERVER_TIMESTAMP
-
-        ledger_ref.set(ledger_payload, merge=True)
-
+    # (Phase 1) The legacy hourly-slot ledger writer was REMOVED: the canonical
+    # accrual writer in psemine_engine.accrual_checkpoint is the only ledger writer.
     return jsonify({"success": True, "session": session})
 
 @app.route('/api/psemine/withdrawals/create', methods=['POST'])
@@ -6862,9 +6909,27 @@ def psemine_create_withdrawal():
     if not payout_address or not payout_address.startswith('0x') or len(payout_address) != 42:
         return jsonify({"success": False, "error": "INVALID_ADDRESS", "message": "Valid BEP-20 address (0x...) required."}), 400
 
-    # 1. Calculate user's authoritative total accumulated output
-    session = recalculate_psemine_user_mining_state(db, uid)
-    accumulated_output = safe_float(session.get('accumulatedOutputGbp'), 0.0)
+    # Campaign gating: user payout requests are blocked while the campaign is live.
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff in ('active', 'paused'):
+        return jsonify({"success": False, "error": "CAMPAIGN_ACTIVE", "message": "Withdrawals open after the campaign ends and balances are finalized."}), 403
+
+    # 1. Canonical ledger balance (accruedMinor) + legacy read-model, minus payouts.
+    # (B1) _legacy_balance_minor returns 0 once absorbed — legacy counted EXACTLY ONCE.
+    _u = db.collection('psemine_users').document(uid).get().to_dict() or {}
+    _ledger_rows = [r.to_dict() for r in db.collection("psemine_mining_ledger").where("userId", "==", uid).get()]
+    _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
+    accumulated_output = _pse_engine.available_balance_minor(
+        int(_u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
+        legacy_accrued_minor=_pse_engine._legacy_balance_minor(_u),
+    ) / 100.0
+
+    # 1b. Balance gate: payout requests require an operating mining tool
+    # (canonical rule: ownership persists, but payouts require active mining state).
+    _op = db.collection('psemine_tool_ownership').where('userId', '==', uid).where('status', '==', 'active').limit(1).get()
+    if not list(_op):
+        return jsonify({"success": False, "error": "NO_OPERATING_TOOL", "message": "An operating mining tool is required."}), 403
 
     # 2. Sum existing pending / approved / processing / completed withdrawals
     wd_snaps = db.collection('psemine_withdrawals') \
@@ -6900,6 +6965,7 @@ def psemine_create_withdrawal():
         'id': wd_ref.id,
         'userId': uid,
         'amountGbp': round(amount_gbp, 2),
+        'amountMinor': int(round(amount_gbp * 100)),
         'payoutAddress': payout_address,
         'status': 'pending',
         'createdAt': firestore.SERVER_TIMESTAMP,
@@ -7027,6 +7093,17 @@ def admin_psemine_review_withdrawal(withdrawal_id):
     if action == 'APPROVE' and not tx_hash:
         return jsonify({"success": False, "error": "MISSING_TX_HASH", "message": "Valid payout txHash is required to approve withdrawal."}), 400
 
+    # (B6) duplicate payout txHash protection — normalized comparison.
+    if action == 'APPROVE':
+        import psemine_core as _pse_core
+        _norm = _pse_core.normalize_tx_hash(tx_hash)
+        _dup = db.collection('psemine_withdrawals') \
+            .where('status', '==', 'completed') \
+            .where('payoutTxHash', '==', _norm).limit(1).get()
+        if list(_dup):
+            return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
+                            "message": "This transaction hash is already attached to another completed payout."}), 409
+
     wd_ref = db.collection('psemine_withdrawals').document(withdrawal_id)
     wd_snap = wd_ref.get()
     if not wd_snap.exists:
@@ -7040,10 +7117,12 @@ def admin_psemine_review_withdrawal(withdrawal_id):
     amount_gbp = safe_float(wd.get('amountGbp'), 0.0)
 
     if action == 'APPROVE':
+        import psemine_core as _pse_core
+        _norm = _pse_core.normalize_tx_hash(tx_hash)
         wd_ref.update({
             'status': 'completed',
             'adminNotes': admin_notes,
-            'payoutTxHash': tx_hash or None,
+            'payoutTxHash': _norm or None,
             'reviewedBy': admin_id,
             'processedAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
@@ -7078,6 +7157,43 @@ def admin_psemine_review_withdrawal(withdrawal_id):
             'processedAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP,
         })
+
+        # (Phase 2) Canonical payout requests (source == 'user') debit the ledger
+        # at request time; rejection MUST reverse that debit or the user's
+        # balance is permanently reduced. Idempotent via deterministic entry id.
+        if wd.get('source') == 'user' and wd.get('amountMinor'):
+            amount_minor = int(wd.get('amountMinor') or 0)
+            user_ref_rev = db.collection('psemine_users').document(user_id)
+
+            @firestore.transactional
+            def _reverse_payout_debit(txn):
+                rev_ref = db.collection('psemine_mining_ledger').document(f"payout_reversal_{withdrawal_id}")
+                if rev_ref.get(transaction=txn).exists:
+                    return False
+                u_snap = user_ref_rev.get(transaction=txn)
+                if not u_snap.exists:
+                    return False
+                u_d = u_snap.to_dict() or {}
+                txn.set(rev_ref, {
+                    "id": f"payout_reversal_{withdrawal_id}",
+                    "userId": user_id,
+                    "campaignId": wd.get('campaignId', 'active_campaign'),
+                    "kind": "payout_reversal",
+                    "amountMinor": amount_minor,
+                    "source": "payout_rejected",
+                    "withdrawalId": withdrawal_id,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                })
+                txn.update(user_ref_rev, {
+                    "payoutDebitedMinor": max(0, int(u_d.get('payoutDebitedMinor') or 0) - amount_minor),
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                })
+                return True
+
+            try:
+                _reverse_payout_debit(db.transaction())
+            except Exception as _rev_err:
+                logging.warning(f"[PSEmine] payout reversal failed for {withdrawal_id}: {_rev_err}")
 
         notif_ref = db.collection('psemine_notifications').document()
         notif_ref.set({
@@ -7134,8 +7250,10 @@ def get_psemine_campaign_status():
 
 @app.route('/api/mine/tools/quote', methods=['POST'])
 @verify_token
+@require_psemine_access
 def generate_psemine_tool_quote():
-    """Create a ten-minute BNB-denominated purchase quote for a PSEmine tool tier."""
+    """Create an authoritative BNB-denominated purchase quote for a PSEmine tool tier.
+    Quote TTL is the canonical backend value PSEMINE_QUOTE_TTL_MINUTES (15 minutes)."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
@@ -7210,6 +7328,7 @@ def generate_psemine_tool_quote():
 
 @app.route('/api/mine/tools/verify-purchase', methods=['POST'])
 @verify_token
+@require_psemine_access
 def verify_psemine_tool_purchase():
     """Verify on-chain BSC transaction receipt and authoritatively activate tool purchase via Admin SDK.
     
@@ -7243,6 +7362,20 @@ def verify_psemine_tool_purchase():
 
     if purchase.get('status') == 'activated':
         return jsonify({"success": False, "error": "PURCHASE_ALREADY_ACTIVATED", "message": "This purchase has already been activated."}), 409
+
+    # 1b. Campaign lifecycle gate at verification time (server clock is the authority).
+    import psemine_engine as _pse_engine
+    _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if _eff == 'ended':
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=purchase.get('quoteId'), purchase_id=purchase_id,
+            reason='CAMPAIGN_ENDED_AT_VERIFICATION')
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended; this payment was recorded for manual review."}), 409
+    if _camp.get('purchaseEnabled') is False:
+        _pse_engine.create_payment_recovery(db, uid, tx_hash=tx_hash,
+            quote_id=purchase.get('quoteId'), purchase_id=purchase_id,
+            reason='PURCHASES_DISABLED_AT_VERIFICATION')
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
 
     # 2. Check quote expiry
     expires_at_raw = purchase.get('expiresAt')
@@ -7355,7 +7488,12 @@ def verify_psemine_tool_purchase():
 
     quoted_bnb = float(server_quoted_bnb)
     quoted_bnb_str = str(server_quoted_bnb)
-    expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
+    # Exact wei: prefer the quote's persisted wei string; derive via Decimal only as fallback.
+    _quoted_wei_raw = q_data.get('bnbAmountWei')
+    if _quoted_wei_raw:
+        expected_wei = int(str(_quoted_wei_raw))
+    else:
+        expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
     expected_sender = sender_wallet or purchase.get('paymentWallet')
 
     verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
@@ -7372,6 +7510,21 @@ def verify_psemine_tool_purchase():
             and os.environ.get('NODE_ENV', 'production') != 'production'
         )
         if not allow_skip:
+            # Persist evidence for administrator review. Never auto-assign, never refund.
+            try:
+                _pse_engine.create_payment_recovery(db, uid,
+                    tx_hash=tx_hash,
+                    quote_id=quote_id,
+                    purchase_id=purchase_id,
+                    sender=expected_sender,
+                    recipient=expected_destination,
+                    observed_wei=None,
+                    chain_id=PSEMINE_BSC_CHAIN_ID,
+                    block_number=receipt_block,
+                    reason=err_code or 'VERIFICATION_FAILED',
+                    extra={'message': err_msg})
+            except Exception:
+                logging.warning('[PSEmine] recovery record failed', exc_info=True)
             return jsonify({
                 "success": False,
                 "error": err_code or "VERIFICATION_FAILED",
@@ -7455,37 +7608,47 @@ def verify_psemine_tool_purchase():
                 'paymentWallet': (sender_wallet or p_curr.to_dict().get('paymentWallet') or '').lower(),
                 'confirmedAt': now_iso,
                 'activatedAt': now_iso,
-                'confirmations': 2,
+                'confirmations': block_depth,  # actual observed depth (0 in dev bypass) — never fabricated
+                'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
                 'updatedAt': firestore.SERVER_TIMESTAMP,
             })
 
-            # Commit ownership record
-            txn.set(own_ref, {
-                'id': ownership_id,
-                'userId': uid,
-                'toolId': tool_id,
-                'toolName': tool_cfg['name'],
-                'toolVersion': tool_cfg.get('version', 1),
-                'purchaseId': purchase_id,
-                'hourlyRateGBP': tool_cfg['hourly_rate'],
-                'purchasePriceGBP': tool_cfg['price_gbp'],
-                'activatedAt': now_iso,
-                'status': 'active',
-                'createdAt': firestore.SERVER_TIMESTAMP,
-            })
+            # Commit ownership record (canonical cycle + minor-unit accrual anchor fields)
+            txn.set(own_ref, _pse_engine.hydrate_ownership_for_activation(
+                ownership_id, uid, tool_id,
+                {'name': tool_cfg['name'], 'version': tool_cfg.get('version', 1),
+                 'hourly_rate_minor': int(round(tool_cfg['hourly_rate'] * 100)),
+                 'price_minor_units': int(round(tool_cfg['price_gbp'] * 100))},
+                purchase_id, now_dt
+            ))
 
-            # Commit user economic state update using merge=True so missing user profiles are created cleanly
+            # Commit user economic state (canonical minor-unit balance; capacities additive).
             user_was_inactive = u_dict.get('status') != 'active'
+            prev_accrued_minor = int(u_dict.get('accruedMinor') or 0)
+            legacy_minor = _pse_engine._legacy_balance_minor(u_dict)
+            if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
+                # one-time absorption of pre-ledger balance into the ledger (auditable entry)
+                _mig_id = f"migration_{uid}"
+                _mig_ref = db.collection('psemine_mining_ledger').document(_mig_id)
+                if not _mig_ref.get(transaction=txn).exists:
+                    txn.set(_mig_ref, {
+                        'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
+                        'kind': 'migration', 'amountMinor': int(legacy_minor),
+                        'source': 'migration', 'note': 'pre-ledger totalAccruedGBP absorption',
+                        'createdAt': firestore.SERVER_TIMESTAMP,
+                    })
+                prev_accrued_minor += int(legacy_minor)
             txn.set(user_ref, {
                 'id': uid,
                 'uid': uid,
                 'userId': uid,
                 'status': 'active',
+                'accruedMinor': prev_accrued_minor,
+                'legacyBalanceAbsorbedMinor': int(legacy_minor),
                 'toolCapacityGBPPerHour': tool_cap,
                 'referralCapacityGBPPerHour': ref_cap,
                 'totalCapacityGBPPerHour': total_cap,
-                'totalAccruedGBP': round(new_accrued, 6),
-                'lastAccruedAt': now_iso,
+                'totalAccruedGBP': round(prev_accrued_minor / 100.0, 6),
                 'miningStartedAt': u_dict.get('miningStartedAt') or now_iso,
                 'toolOwnershipCounts': counts,
                 'qualifiedReferralsCount': qual_refs,
@@ -7530,73 +7693,11 @@ def verify_psemine_tool_purchase():
         transaction = db.transaction()
         commit_purchase_activation(transaction)
 
-        # 7. Evaluate Referrer Progression authoritatively on first tool activation
-        if is_first_tool_activation:
-            try:
-                all_refs = db.collection('psemine_referrals') \
-                    .where('refereeId', '==', uid) \
-                    .get()
-                unqualified_refs = [r for r in all_refs if r.to_dict().get('status') != 'qualified']
-
-                if len(unqualified_refs) > 0:
-                    ref_doc = unqualified_refs[0]
-                    ref_data = ref_doc.to_dict()
-                    referrer_id = ref_data.get('referrerId')
-
-                    if referrer_id:
-                        referrer_ref = db.collection('psemine_users').document(referrer_id)
-                        ref_user_snap = referrer_ref.get()
-
-                        if ref_user_snap.exists:
-                            ref_user = ref_user_snap.to_dict()
-                            curr_qual = ref_user.get('qualifiedReferralsCount', 0)
-
-                            if curr_qual < 5:
-                                new_qual = curr_qual + 1
-                                r_counts = ref_user.get('toolOwnershipCounts') or {}
-                                r_tool_cap = round(
-                                    r_counts.get('starter', 0) * 0.10 +
-                                    r_counts.get('builder', 0) * 0.50 +
-                                    r_counts.get('advanced', 0) * 1.20 +
-                                    r_counts.get('elite', 0) * 2.50,
-                                    2
-                                )
-                                r_ref_cap = round(new_qual * 0.30, 2)
-                                r_total_cap = round(r_tool_cap + r_ref_cap, 2)
-
-                                # Settle referrer accrual
-                                r_prev_cap = float(ref_user.get('totalCapacityGBPPerHour', 0.0))
-                                r_prev_acc = float(ref_user.get('totalAccruedGBP', 0.0))
-                                r_last_str = ref_user.get('lastAccruedAt')
-                                r_new_acc = r_prev_acc
-                                if r_last_str and r_prev_cap > 0:
-                                    try:
-                                        r_last_dt = datetime.fromisoformat(r_last_str.replace('Z', '+00:00'))
-                                        if r_last_dt.tzinfo is None:
-                                            r_last_dt = r_last_dt.replace(tzinfo=timezone.utc)
-                                        r_sec = max(0, (now_dt - r_last_dt).total_seconds())
-                                        r_new_acc = r_prev_acc + (r_sec / 3600.0) * r_prev_cap
-                                    except Exception:
-                                        pass
-
-                                referrer_ref.update({
-                                    'qualifiedReferralsCount': new_qual,
-                                    'referralCapacityGBPPerHour': r_ref_cap,
-                                    'totalCapacityGBPPerHour': r_total_cap,
-                                    'totalAccruedGBP': round(r_new_acc, 6),
-                                    'lastAccruedAt': now_iso,
-                                    'updatedAt': now_iso,
-                                })
-
-                            # Mark referral as qualified
-                            ref_doc.reference.update({
-                                'status': 'qualified',
-                                'qualifiedAt': now_iso,
-                                'stageHistory.qualifiedAt': now_iso,
-                                'updatedAt': now_iso,
-                            })
-            except Exception as ref_err:
-                logging.warning(f"[PSEmine Purchase] Error evaluating referrer progression: {ref_err}")
+        # 7. Canonical referral qualification (single backend-authoritative path).
+        try:
+            _pse_engine.settle_referral_on_activation(db, uid, purchase_id)
+        except Exception as ref_err:
+            logging.warning(f"[PSEmine Purchase] Referral qualification notice: {ref_err}")
 
         # 8. Log user activity in subcollection
         try:
@@ -7643,30 +7744,26 @@ def get_admin_mine_overview():
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
 
-    users_docs = db.collection('psemine_users').get()
-    purchases_docs = db.collection('psemine_purchases').get()
-    referrals_docs = db.collection('psemine_referrals').get()
-    camp_doc = db.collection('psemine_campaigns').document('active_campaign').get()
-
-    active_miners = sum(1 for d in users_docs if d.to_dict().get('status') == 'active')
-    total_tools_sold = len([d for d in purchases_docs if d.to_dict().get('status') == 'activated'])
-    total_capacity = sum(d.to_dict().get('totalCapacityGBPPerHour', 0) for d in users_docs)
-    total_accrued = sum(d.to_dict().get('totalAccruedGBP', 0) for d in users_docs)
-    qualified_refs = len([d for d in referrals_docs if d.to_dict().get('status') == 'qualified'])
-
-    camp_data = camp_doc.to_dict() if camp_doc.exists else {}
-
+    # (Phase 2) Delegate to the ONE canonical aggregator (count() queries,
+    # integer minor-unit math). UI-compatible keys are preserved by the engine.
+    import psemine_engine as _pse_engine
+    ov = _pse_engine.admin_overview(db)
+    camp_data = ov.get("campaign") or {}
     return jsonify({
         "success": True,
         "stats": {
-            "activeMiners": active_miners,
-            "totalMiners": len(users_docs),
-            "toolsSold": total_tools_sold,
-            "totalCapacityGBPPerHour": round(total_capacity, 2),
-            "totalAccruedLiabilityGBP": round(total_accrued, 2),
+            "activeMiners": ov.get("activeMiners", 0),
+            "totalMiners": ov.get("totalMiners", 0),
+            "toolsSold": ov.get("toolsSold", 0),
+            "totalCapacityGBPPerHour": ov.get("totalCapacityGBPPerHour", 0),
+            "totalAccruedLiabilityGBP": ov.get("totalAccruedLiabilityGBP", 0),
             "totalBNBCollected": camp_data.get('totalBNBCollected', 0),
-            "qualifiedReferrals": qualified_refs,
-            "campaignStatus": camp_data.get('status', 'active')
+            "qualifiedReferrals": ov.get("qualifiedReferrals", 0),
+            "campaignStatus": ov.get("campaignStatus", "active"),
+            # canonical extras (integer minor units)
+            "totalAccruedMinor": ov.get("totalAccruedMinor", 0),
+            "totalDebitedMinor": ov.get("totalDebitedMinor", 0),
+            "openRecoveryCases": ov.get("openRecoveryCases", 0),
         }
     })
 
@@ -7724,9 +7821,21 @@ def admin_campaign_action():
     now_iso = datetime.now(timezone.utc).isoformat()
 
     if action == 'pause':
-        camp_ref.update({"status": "paused", "miningEnabled": False, "updatedAt": now_iso})
+        camp_ref.update({
+            "status": "paused", "miningEnabled": False, "updatedAt": now_iso,
+            "pauseWindows": firestore.ArrayUnion([{"startedAt": now_iso, "endedAt": None}]),
+        })
     elif action == 'resume':
-        camp_ref.update({"status": "active", "miningEnabled": True, "updatedAt": now_iso})
+        # close any open pause window so paused time is excluded from eligible accrual
+        camp_data_now = camp_ref.get().to_dict() or {}
+        pause_windows = list(camp_data_now.get('pauseWindows') or [])
+        for pw in pause_windows:
+            if pw.get('endedAt') is None:
+                pw['endedAt'] = now_iso
+        camp_ref.update({
+            "status": "active", "miningEnabled": True, "updatedAt": now_iso,
+            "pauseWindows": pause_windows,
+        })
     elif action == 'settle':
         camp_ref.update({"status": "settling", "miningEnabled": False, "purchaseEnabled": False, "updatedAt": now_iso})
         # Create idempotent settlement job record
@@ -7771,14 +7880,342 @@ def admin_campaign_action():
 
     return jsonify({"success": True, "action": action, "timestamp": now_iso})
 
-# Initialize provider cache on startup
-try:
-    from services.provider_cache import init_provider_cache
-    init_provider_cache()
-    print("[Offerwall] Provider cache initialized on startup")
-except Exception as e:
-    print(f"[Offerwall] WARNING: Failed to initialize provider cache: {str(e)}")
-
-
 if CORS: CORS(app, resources={r"/api/*": {"origins": "*"}})
 if __name__ == '__main__': app.run(debug=True, port=5000)
+
+
+# ============================================================================
+# CANONICAL PSEMINE ENDPOINTS (Phase 1)
+# Single accrual writer, single referral qualification path, server-controlled
+# wallet, backend purchase intents, operating cycles + maintenance, recovery,
+# and the cron lifecycle accelerator. Appended at module EOF; all routes are
+# registered before the __main__ guard.
+# ============================================================================
+
+@app.route('/api/mine/state', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_state():
+    """Canonical user state + accrual checkpoint. THE balance source for the UI."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    import psemine_engine as _pse_engine
+    _pse_engine.ensure_psemine_user(db, uid)
+    ck = _pse_engine.accrual_checkpoint(db, uid, source='state')
+    u = db.collection('psemine_users').document(uid).get().to_dict() or {}
+    owns = db.collection('psemine_tool_ownership').where('userId', '==', uid).get()
+    now = _pse_engine.utcnow()
+    tools = []
+    for s in owns:
+        d = {**(s.to_dict() or {}), 'id': s.id}
+        c = _pse_engine.derive_cycle(d, now)
+        d['cycleState'] = c.state
+        d['maintenanceRequired'] = c.maintenance_required
+        d['cycleEndsAt'] = c.cycle_end_iso
+        tools.append(d)
+    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db, force_write=False)
+    _ledger_rows = [r.to_dict() for r in db.collection("psemine_mining_ledger").where("userId", "==", uid).get()]
+    _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
+    # (B-F1 composition) accruedMinor = GROSS earned (canonical accrual + legacy
+    # exactly once) — matches the v1 dashboard semantics. availableMinor is the
+    # single canonical net equation; debits are applied EXACTLY ONCE there and
+    # never again for display.
+    accrued_minor = int(u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(u)
+    debited = _pse_engine._paid_out_minor(db, uid) + _pse_engine._legacy_paid_out_minor(db, uid)
+    available_minor = _pse_engine.available_balance_minor(
+        int(u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
+        legacy_accrued_minor=_pse_engine._legacy_balance_minor(u),
+    )
+    counts = u.get('toolOwnershipCounts') or {}
+    qual = int(u.get('qualifiedReferralsCount') or 0)
+    from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
+    return jsonify({
+        "success": True,
+        "user": {
+            "accruedMinor": accrued_minor,
+            "accruedGBP": round(accrued_minor / 100.0, 6),
+            "debitedMinor": debited,
+            "availableMinor": max(0, available_minor),
+            "toolCapacityGBPPerHour": round(compute_tool_capacity_minor(counts) / 100.0, 2),
+            "referralCapacityGBPPerHour": round(compute_referral_capacity_minor(qual) / 100.0, 2),
+            "totalCapacityGBPPerHour": round(compute_total_capacity_minor(counts, qual) / 100.0, 2),
+            "qualifiedReferralsCount": qual,
+            "payoutWallet": u.get('payoutWallet'),
+            "connectedWallet": u.get('connectedWallet'),
+            "status": u.get('status'),
+        },
+        "tools": tools,
+        "campaign": {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None,
+        "effectiveCampaignStatus": eff,
+        "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},
+    })
+
+@app.route('/api/mine/tools/<ownership_id>/maintain', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_maintain(ownership_id):
+    """Canonical maintenance: settle eligible time, advance the operating cycle.
+    Free, idempotent per cycle; no reward is minted by maintenance."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    import psemine_engine as _pse_engine
+    result = _pse_engine.maintain_ownership(db, uid, ownership_id)
+    if not result.get("ok"):
+        code = result.get("error", "MAINTENANCE_FAILED")
+        status = 404 if code == "OWNERSHIP_NOT_FOUND" else 403 if code == "FORBIDDEN" else 409
+        return jsonify({"success": False, "error": code, "message": code.replace('_', ' ').title()}), status
+    return jsonify({"success": True, **result})
+
+@app.route('/api/mine/purchases/create', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_create_purchase():
+    """Backend-authoritative purchase intent bound to a persisted server quote."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    quote_id = (data.get('quoteId') or '').strip()
+    payment_wallet = (data.get('paymentWallet') or '').strip().lower()
+
+    import re as _re
+    if not _re.match(r'^0x[0-9a-fA-F]{40}$', payment_wallet or ''):
+        return jsonify({"success": False, "error": "INVALID_PAYMENT_WALLET"}), 400
+
+    import psemine_engine as _pse_engine
+    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if eff == 'ended':
+        return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Campaign has ended."}), 409
+    if eff != 'active' or camp.get('purchaseEnabled') is False:
+        return jsonify({"success": False, "error": "PURCHASES_DISABLED", "message": "Tool purchases are currently closed."}), 403
+
+    q_ref = db.collection('psemine_quotes').document(quote_id)
+    q_snap = q_ref.get()
+    if not q_snap.exists:
+        return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote not found. Generate a new quote."}), 404
+    q = q_snap.to_dict() or {}
+    if q.get('userId') != uid:
+        return jsonify({"success": False, "error": "INVALID_QUOTE", "message": "Quote terms do not match this account."}), 403
+    try:
+        exp = datetime.fromisoformat(str(q.get('expiresAt')).replace('Z', '+00:00'))
+        if exp.tzinfo is None: exp = exp.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > exp:
+            return jsonify({"success": False, "error": "QUOTE_EXPIRED", "message": "Quote expired. Request a new quote."}), 409
+    except Exception:
+        return jsonify({"success": False, "error": "INVALID_QUOTE_EXPIRY"}), 400
+
+    tool_id = q.get('toolId')
+    tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
+    if not tool_cfg:
+        return jsonify({"success": False, "error": "INVALID_TOOL_TIER"}), 400
+
+    user_ref = db.collection('psemine_users').document(uid)
+    u_snap = user_ref.get()
+    u = u_snap.to_dict() if u_snap.exists else {}
+    counts = dict(u.get('toolOwnershipCounts') or {})
+    if counts.get(tool_id, 0) >= tool_cfg['max_per_user']:
+        return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
+
+    # One active intent per (user, tool): return the existing one idempotently
+    existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
+    for e in existing:
+        return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": e.to_dict()})
+
+    now_dt = datetime.now(timezone.utc)
+    purchase_id = f"pse_pur_{tool_id}_{int(now_dt.timestamp() * 1000)}_{uid[:6]}"
+    payload = {
+        'id': purchase_id,
+        'userId': uid,
+        'toolId': tool_id,
+        'toolName': tool_cfg['name'],
+        'toolVersion': tool_cfg['version'],
+        'quoteId': quote_id,
+        'quotedGBPAmount': tool_cfg['price_gbp'],
+        'quotedBNBAmount': q.get('bnbAmount'),
+        'quotedBNBWei': q.get('bnbAmountWei'),
+        'exchangeRateBNBGBP': q.get('exchangeRateBNBGBP'),
+        'receiverWallet': q.get('receiverWallet'),
+        'paymentWallet': payment_wallet,
+        'transactionHash': None,
+        'network': 'BNB Smart Chain',
+        'chainId': PSEMINE_BSC_CHAIN_ID,
+        'status': 'awaiting_payment',
+        'confirmations': 0,
+        'requiredConfirmations': PSEMINE_MIN_CONFIRMATIONS,
+        'createdAt': firestore.SERVER_TIMESTAMP,
+        'expiresAt': q.get('expiresAt'),
+        'confirmedAt': None,
+        'activatedAt': None,
+    }
+    db.collection('psemine_purchases').document(purchase_id).set(payload)
+    return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": payload})
+
+@app.route('/api/mine/wallet', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_set_wallet():
+    """Server-controlled wallet write (payout + connected) with campaign cutoff."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    wallet = (data.get('wallet') or '').strip()
+    update_payout = bool(data.get('updatePayout', True))
+    import psemine_engine as _pse_engine
+    if not update_payout:
+        # Recording a connected viewing wallet must never silently change the
+        # settlement payout destination.
+        if not _pse_engine._valid_evm(wallet):
+            return jsonify({"success": False, "error": "INVALID_ADDRESS",
+                            "message": "Invalid Address"}), 400
+        import psemine_core as _pse_core
+        _wl = wallet.strip().lower()
+        _u_ref = db.collection('psemine_users').document(uid)
+        _u_ref.set({"id": uid, "uid": uid, "userId": uid}, merge=True)
+        _u_ref.update({
+            "connectedWallet": _wl,
+            "connectedWalletUpdatedAt": datetime.now(timezone.utc).isoformat(),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        _u_now = _u_ref.get().to_dict() or {}
+        return jsonify({
+            "success": True,
+            "payoutWallet": _u_now.get("payoutWallet"),
+            "connectedWallet": _u_now.get("connectedWallet"),
+        })
+
+    result = _pse_engine.update_payout_wallet(db, uid, wallet)
+    if not result.get("ok"):
+        code = result.get("error", "WALLET_UPDATE_FAILED")
+        status = 400 if code == "INVALID_ADDRESS" else 409
+        return jsonify({"success": False, "error": code, "message": code.replace('_', ' ').title()}), status
+    return jsonify({"success": True, "payoutWallet": result.get("payoutWallet")})
+
+@app.route('/api/mine/referrals/register', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_register_referral():
+    """Backend referral registration (deterministic identity, self/circular/dup safe)."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    code = (data.get('referralCode') or '').strip()
+    if not code:
+        return jsonify({"success": False, "error": "MISSING_REFERRAL_CODE"}), 400
+    import psemine_engine as _pse_engine
+    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    if eff in ('settling', 'ended', 'payout', 'closed', 'archived') or camp.get('referralEnabled') is False:
+        return jsonify({"success": False, "error": "REFERRALS_DISABLED"}), 403
+    result = _pse_engine.register_referral(db, uid, code)
+    if not result.get("ok"):
+        code_map = {"REFERRER_NOT_FOUND": 404, "SELF_REFERRAL": 409, "CIRCULAR_REFERRAL": 409}
+        return jsonify({"success": False, "error": result.get("error")}), code_map.get(result.get("error"), 400)
+    return jsonify({"success": True, "referralId": result.get("referralId"), "existing": result.get("existing", False)})
+
+@app.route('/api/mine/withdrawals/request', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_create_withdrawal():
+    """Canonical payout request path (blocked during active campaign; min £10).
+    Uses /request to avoid Flask route collision with the v1 legacy /create."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    # (Phase 8) Money-out path requires a verified email (backend-enforced).
+    if not request.user.get('email_verified', False):
+        return jsonify({"success": False, "error": "EMAIL_NOT_VERIFIED",
+                        "message": "Verify your email address before requesting a payout."}), 403
+    uid = request.user['uid']
+    data = request.get_json() or {}
+    amount = data.get('amountGbp')
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "INVALID_AMOUNT"}), 400
+    import psemine_engine as _pse_engine
+    result = _pse_engine.create_payout_request(db, uid, amount)
+    if not result.get("ok"):
+        status = {"BELOW_MINIMUM": 400, "CAMPAIGN_ACTIVE": 403, "NO_PAYOUT_WALLET": 400,
+                  "INSUFFICIENT_BALANCE": 400, "PENDING_PAYOUT_EXISTS": 409}.get(result.get("error"), 400)
+        return jsonify({"success": False, "error": result.get("error"), "message": result.get("message", str(result.get("error", "")).replace('_', ' ').title())}), status
+    return jsonify({"success": True, "withdrawalId": result.get("withdrawalId")})
+
+@app.route('/api/mine/cron/lifecycle', methods=['POST', 'GET'])
+def mine_cron_lifecycle():
+    """Lifecycle accelerator: enforces endAt, settles all active ownerships.
+    Protected by CRON_SECRET header/query. Idempotent; lazily enforced anywhere."""
+    import psemine_engine as _pse_engine
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    secret = os.environ.get('CRON_SECRET')
+    provided = request.headers.get('X-Cron-Secret') or request.args.get('secret')
+    if not provided:
+        _authz = (request.headers.get('Authorization') or '')
+        if _authz.startswith('Bearer '):
+            provided = _authz.split(' ', 1)[1].strip()
+    if secret:
+        if not provided or not hmac.compare_digest(str(provided), str(secret)):
+            return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    camp, eff, ended_now = _pse_engine.campaign_lifecycle_state(db)
+    checked = 0
+    if eff in ('ended', 'settling'):
+        end_at = _pse_engine._parse(camp['endAt']) if camp.get('endAt') else _pse_engine.utcnow()
+        owns = db.collection('psemine_tool_ownership').where('status', 'in', ['active', 'cycle_complete', 'maintenance_required']).get()
+        for s in owns:
+            d = s.to_dict() or {}
+            uid_o = d.get('userId')
+            if not uid_o: continue
+            checked += 1
+            # (B2) no activatedAt fallback: anchor-less legacy ownerships are
+            # reconciled by the engine at reconciliation time, not by cron.
+            anchor_raw = d.get('lastAccruedAt') or d.get('cycleStartedAt')
+            if anchor_raw:
+                anchor = _pse_engine._parse(anchor_raw)
+                if anchor < end_at:
+                    _pse_engine.accrual_checkpoint(db, uid_o, source='cron_settle')
+            s.reference.update({"status": "settling", "settledAt": firestore.SERVER_TIMESTAMP})
+    return jsonify({"success": True, "effectiveStatus": eff, "campaignEndedNow": ended_now, "ownershipsChecked": checked})
+
+@app.route('/api/admin/mine/payment-recovery', methods=['GET'])
+@verify_token
+def admin_mine_payment_recovery():
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
+    import psemine_engine as _pse_engine
+    status = (request.args.get('status') or 'open').strip()
+    return jsonify({"success": True, "cases": _pse_engine.admin_list_payment_recovery(db, status=status)})
+
+@app.route('/api/admin/mine/payment-recovery/<recovery_id>/resolve', methods=['POST'])
+@verify_token
+def admin_mine_payment_recovery_resolve(recovery_id):
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+    data = request.get_json() or {}
+    import psemine_engine as _pse_engine
+    result = _pse_engine.admin_resolve_payment_recovery(
+        db, recovery_id, uid,
+        action=(data.get('action') or '').strip(),
+        notes=(data.get('notes') or '').strip(),
+        purchase_id=(data.get('purchaseId') or '').strip() or None)
+    if not result.get("ok"):
+        return jsonify({"success": False, "error": result.get("error")}), 404 if result.get("error") == "NOT_FOUND" else 400
+    return jsonify({"success": True})
+
+@app.route('/api/admin/mine/tools/<tool_id>/deprecate', methods=['POST'])
+@verify_token
+def admin_mine_deprecate_tool(tool_id):
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    if not is_admin(uid): return jsonify({"error": "SUPER_ADMIN_REQUIRED"}), 403
+    data = request.get_json() or {}
+    import psemine_engine as _pse_engine
+    result = _pse_engine.admin_deprecate_tool(db, tool_id, uid, reason=(data.get('reason') or '').strip())
+    if not result.get("ok"):
+        return jsonify({"success": False, "error": result.get("error")}), 404 if result.get("error") == "NOT_FOUND" else 400
+    return jsonify({"success": True})

@@ -5,8 +5,7 @@ import {
   collection, 
   query, 
   where, 
-  limit, 
-  updateDoc 
+  limit
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -47,6 +46,7 @@ interface PSEMineContextType {
   clearQuote: () => void;
   submitPurchaseTx: (quote: PSEMineQuote, txHash: string) => Promise<{ success: boolean; error?: string }>;
   updatePayoutWallet: (newAddress: string) => Promise<{ success: boolean; error?: string }>;
+  maintainTool: (ownershipId: string) => Promise<{ success: boolean; error?: string }>;
   refreshData: () => Promise<void>;
   isCampaignArchived: boolean;
   campaignDaysRemaining: number;
@@ -280,20 +280,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           }
 
-          // Update user record in Firestore if logged in
+          // Record the wallet server-side (Phase 1: no direct client writes to psemine_users)
           if (currentUser) {
-            const userRef = doc(db, 'psemine_users', currentUser.uid);
-            await updateDoc(userRef, {
-              connectedWallet: address,
-              payoutWallet: pseUser?.payoutWallet || address, // Default payout to connected wallet
-              updatedAt: new Date().toISOString()
-            });
-
-            await PSEMineEngine.logActivity(currentUser.uid, {
-              type: 'wallet_updated',
-              title: 'Wallet Connected',
-              description: `Connected BNB Smart Chain wallet ${address.slice(0, 6)}...${address.slice(-4)}`
-            });
+            await PSEMineEngine.setConnectedWallet(address);
           }
 
           toast.success(`Connected: ${address.slice(0, 6)}...${address.slice(-4)}`, {
@@ -395,7 +384,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
-      const res = await PSEMineEngine.updatePayoutWallet(currentUser.uid, newAddress);
+      const res = await PSEMineEngine.updatePayoutWallet(newAddress);
       if (res.success) {
         toast.success('Settlement payout address updated');
       } else {
@@ -410,8 +399,25 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const refreshData = useCallback(async () => {
     if (currentUser) {
+      // Phase 2: refresh now triggers the canonical backend accrual checkpoint
+      // (GET /api/mine/state) instead of client-side arithmetic.
       await PSEMineEngine.syncAccrual(currentUser.uid);
     }
+  }, [currentUser]);
+
+  // 8. Free operating-cycle maintenance (backend-authoritative, idempotent)
+  const maintainTool = useCallback(async (ownershipId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'User not authenticated' };
+    }
+    const res = await PSEMineEngine.maintainTool(ownershipId);
+    if (res.success) {
+      toast.success('Maintenance completed — operating cycle restarted.');
+      await PSEMineEngine.syncAccrual(currentUser.uid);
+    } else {
+      toast.error(res.error || 'Maintenance failed');
+    }
+    return res;
   }, [currentUser]);
 
   // Calculate days remaining with full resilience against undefined or invalid date strings
@@ -456,6 +462,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         clearQuote,
         submitPurchaseTx,
         updatePayoutWallet,
+        maintainTool,
         refreshData,
         isCampaignArchived,
         campaignDaysRemaining

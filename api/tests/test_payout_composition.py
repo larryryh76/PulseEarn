@@ -359,6 +359,12 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
     def setUp(self):
         """Create shared test fixtures and deterministic dependencies."""
         self.db = FakeDB()
+        # Force the NON-SDK transaction path so these composed tests are
+        # deterministic in every environment: wherever firebase_admin happens
+        # to be installed, _run_transaction would otherwise wrap _MultiTxn in
+        # the real firestore.transactional (which _MultiTxn cannot satisfy).
+        self._orig_fs = psemine_engine._firestore
+        psemine_engine._firestore = None
         self._orig_camp = psemine_engine.campaign_lifecycle_state
         psemine_engine.campaign_lifecycle_state = (
             lambda db, force_write=True: ({"status": "ended"}, "ended", False)
@@ -368,6 +374,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     def tearDown(self):
         """Restore dependencies replaced by the test fixture."""
+        psemine_engine._firestore = self._orig_fs
         psemine_engine.campaign_lifecycle_state = self._orig_camp
         psemine_engine.firestore_server_ts = self._orig_ts
 

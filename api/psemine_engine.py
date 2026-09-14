@@ -344,7 +344,11 @@ def accrual_checkpoint(db, uid, source="auto"):
 
         owns = ownership_ref.where("userId", "==", uid).where("status", "==", "active").get(transaction=txn)
 
+        # Reset ALL accumulators inside the transaction body: _run_transaction
+        # may re-run _txn on contention — stale values from a previous attempt
+        # must never leak into this attempt's ledger entry.
         earned_by_tool = []
+        referral_minor = 0
         total_tool_minor = 0
         anchor_parts = []
         operating_now = False
@@ -645,6 +649,67 @@ def register_referral(db, uid, referral_code_or_referrer):
         "createdAt": firestore_server_ts(),
     })
     return {"ok": True, "referralId": doc_id, "existing": False}
+
+
+TERMINAL_CAMPAIGN_STATUSES = ('settling', 'ended', 'payout', 'closed', 'archived')
+def record_referral_repair(db, referee_id, source_id, reason, detail=""):
+    """Persist an idempotent repair task when referral settlement fails AFTER
+    a successful tool activation. Deterministic ID => repeated failures of the
+    same activation never duplicate the task. Read-only for clients."""
+    task_id = f"repair_{referee_id}_{source_id}"
+    db.collection("psemine_referral_repair").document(task_id).set({
+        "id": task_id,
+        "refereeId": referee_id,
+        "sourceId": source_id,
+        "reason": reason,
+        "detail": detail,
+        "status": "open",
+        "attempts": 0,
+        "createdAt": firestore_server_ts(),
+        "updatedAt": firestore_server_ts(),
+    }, merge=True)
+
+
+def settle_referral_repair(db):
+    """Cron sweep: retry open repair tasks. set_referral_qualified-on-activation
+    is idempotent and capped, so a retry can never double-qualify. A task is
+    deleted ONLY on success; permanent failures (self-referral, unknown code)
+    stay open for admin review with attempts incremented."""
+    repaired = 0
+    errors = 0
+    try:
+        snaps = db.collection("psemine_referral_repair").where("status", "==", "open").limit(100).get()
+    except Exception:
+        return 0, 0
+    for s in snaps:
+        d = s.to_dict() or {}
+        referee = d.get("refereeId")
+        source = d.get("sourceId")
+        if not referee or not source:
+            continue
+        try:
+            res = settle_referral_on_activation(db, referee, source)
+            if res.get("ok"):
+                s.reference.delete()
+                repaired += 1
+            else:
+                s.reference.update({
+                    "attempts": int(d.get("attempts") or 0) + 1,
+                    "lastError": str(res.get("error") or res.get("reason") or "unknown")[:200],
+                    "updatedAt": firestore_server_ts(),
+                })
+                errors += 1
+        except Exception as exc:
+            try:
+                s.reference.update({
+                    "attempts": int(d.get("attempts") or 0) + 1,
+                    "lastError": str(exc)[:200],
+                    "updatedAt": firestore_server_ts(),
+                })
+            except Exception:
+                pass
+            errors += 1
+    return repaired, errors
 
 
 def settle_referral_on_activation(db, uid, purchase_id):

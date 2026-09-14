@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { PSEMineAuthContext } from './PSEMineAuthContextValue';
 import { PSEMineEngine } from '../engines/psemine/PSEMineEngine';
@@ -25,14 +25,27 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const { getAuth } = await import('firebase/auth');
         const auth = getAuth();
         if (auth.currentUser) {
+          // Result is persisted by the engine: retryable failures are retained
+          // for re-submission on the next session; permanent validation
+          // failures (self-referral, unknown referrer) are not retried.
           await PSEMineEngine.registerReferral(auth.currentUser.uid, username, referralCode);
         }
       } catch (e) {
-        // Attribution failure must not block signup; backend can reconcile later.
+        // Attribution failure must not block signup; the code is retained for
+        // the next-session retry and the backend can reconcile later.
         console.warn('[PSEMineAuth] referral attribution notice:', e);
       }
     }
   }, [signup]);
+
+  // Retry any referral code retained after a transient registration failure.
+  // Runs once per signed-in session; idempotent server-side.
+  const retriedThisSession = useRef(false);
+  useEffect(() => {
+    if (!currentUser || retriedThisSession.current) return;
+    retriedThisSession.current = true;
+    PSEMineEngine.retryPendingReferral().catch(() => undefined);
+  }, [currentUser]);
 
   return (
     <PSEMineAuthContext.Provider

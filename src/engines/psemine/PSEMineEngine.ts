@@ -430,30 +430,85 @@ export class PSEMineEngine {
    * Links a new miner to a referrer via the canonical backend registration endpoint.
    * (Phase 1: referral records are created server-side with deterministic identity.)
    */
+  /**
+   * Result of a referral registration attempt. `retryable` distinguishes
+   * transient failures (network/server) from permanent validation failures
+   * (self-referral, unknown referrer) so callers only persist retryable ones.
+   */
   public static async registerReferral(
-    refereeId: string, 
-    _refereeUsername: string, 
+    refereeId: string,
+    _refereeUsername: string,
     referralCodeInput: string
-  ): Promise<boolean> {
+  ): Promise<{ ok: boolean; retryable: boolean }> {
     void refereeId;
+    let code = '';
+    let result: { ok: boolean; retryable: boolean } = { ok: false, retryable: true };
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
       const token = await auth.currentUser?.getIdToken();
-      if (!token) return false;
+      if (!token) return result;
 
+      code = referralCodeInput.trim();
       const res = await fetch('/api/mine/referrals/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ referralCode: referralCodeInput.trim() })
+        body: JSON.stringify({ referralCode: code })
       });
       const data = await res.json().catch(() => ({}));
-      return Boolean(res.ok && data.success);
+      result = (res.ok && data.success)
+        ? { ok: true, retryable: false }
+        : { ok: false, retryable: res.status >= 500 || res.status === 429 };
+      return result;
     } catch (e) {
       console.error('[PSEMineEngine] registerReferral error:', e);
+      return result;
+    } finally {
+      // Retain retryable failures in localStorage so the next PSEmine session
+      // can re-submit the attribution — signup success never loses the code.
+      if (code) {
+        try {
+          if (result.ok || !result.retryable) {
+            localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+          } else {
+            localStorage.setItem(
+              PSEMineEngine.PENDING_REFERRAL_KEY,
+              JSON.stringify({ code, savedAt: Date.now() })
+            );
+          }
+        } catch {
+          /* storage unavailable — best effort */
+        }
+      }
+    }
+  }
+
+  private static readonly PENDING_REFERRAL_KEY = 'psemine_pending_referral_code';
+
+  /**
+   * Re-submits a referral code retained after a transient registration
+   * failure. Idempotent server-side (deterministic referral identity), so
+   * re-submission is safe. Clears the retained code on success or on a
+   * permanent rejection (no point retrying validation failures).
+   */
+  public static async retryPendingReferral(): Promise<boolean> {
+    try {
+      const raw = localStorage.getItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      if (!raw) return false;
+      const { code } = JSON.parse(raw) as { code?: string };
+      if (!code) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+        return false;
+      }
+      const result = await PSEMineEngine.registerReferral('', '', code);
+      if (result.ok || !result.retryable) {
+        localStorage.removeItem(PSEMineEngine.PENDING_REFERRAL_KEY);
+      }
+      return result.ok;
+    } catch {
       return false;
     }
   }

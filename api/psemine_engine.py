@@ -695,7 +695,7 @@ def settle_referral_repair(db):
             # when EVERY referral result settled (or was already qualified).
             # capReached is terminal (referrer at cap of 5) — not retryable.
             results = res.get("results") or []
-            settled = all(
+            settled = bool(results) and all(
                 ("error" not in it) and
                 ("skipped" not in it or it.get("skipped") is not True)
                 for it in results

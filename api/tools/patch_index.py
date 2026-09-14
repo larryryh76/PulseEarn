@@ -13,6 +13,7 @@ BACKUP = "/tmp/index.py.pre_phase1.bak"
 HUNKS = []
 
 def h(old, new):
+    """Register an exact source-replacement hunk."""
     HUNKS.append((old, new))
 
 # ---------------------------------------------------------------- A. seed tools
@@ -85,6 +86,7 @@ h("    if action == 'pause':\n        camp_ref.update({\"status\": \"paused\", \
   "    if action == 'pause':\n        camp_ref.update({\n            \"status\": \"paused\", \"miningEnabled\": False, \"updatedAt\": now_iso,\n            \"pauseWindows\": firestore.ArrayUnion([{\"startedAt\": now_iso, \"endedAt\": None}]),\n        })\n    elif action == 'resume':\n        # close any open pause window so paused time is excluded from eligible accrual\n        camp_data_now = camp_ref.get().to_dict() or {}\n        pause_windows = list(camp_data_now.get('pauseWindows') or [])\n        for pw in pause_windows:\n            if pw.get('endedAt') is None:\n                pw['endedAt'] = now_iso\n        camp_ref.update({\n            \"status\": \"active\", \"miningEnabled\": True, \"updatedAt\": now_iso,\n            \"pauseWindows\": pause_windows,\n        })")
 
 def main():
+    """Apply the asserted source replacements and write a backup."""
     with open(TARGET, "r", encoding="utf-8") as f:
         src = f.read()
     out = src

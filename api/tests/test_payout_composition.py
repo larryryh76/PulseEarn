@@ -32,17 +32,21 @@ from psemine_core import (  # noqa: E402
 
 class _Query:
     def __init__(self, store, name, filters=None):
+        """Initialize the query test double."""
         self._store = store
         self._name = name  # collection NAME: transactional lookups resolve by name
         self._filters = filters or []
 
     def where(self, field, op, value):
+        """Return a query with the requested filter appended."""
         return _Query(self._store, self._name, self._filters + [(field, op, value)])
 
     def limit(self, _n):
+        """Return this query because the test double does not enforce limits."""
         return self
 
     def get(self, transaction=None):
+        """Read documents from the current committed or transactional view."""
         rows = self._store.current() if transaction is None else transaction.table(self._name).current()
         out = []
         for doc in rows.values():
@@ -53,6 +57,7 @@ class _Query:
 
     @staticmethod
     def _match(data, field, op, value):
+        """Return whether a document satisfies one query predicate."""
         actual = data.get(field)
         if op == "==":
             return actual == value
@@ -63,14 +68,17 @@ class _Query:
 
 class _Snap:
     def __init__(self, doc_id, data):
+        """Initialize the snap test double."""
         self.id = doc_id
         self._data = data
 
     def to_dict(self):
+        """Return a copy of the snapshot data."""
         return dict(self._data)
 
     @property
     def exists(self):
+        """Return whether the snapshot represents an existing document."""
         return True
 
 
@@ -78,24 +86,30 @@ class _Txn:
     """Transactional view: buffered writes, reads see them after commit-on-success."""
 
     def __init__(self, store):
+        """Initialize the txn test double."""
         self._store = store
         self._ops = []
 
     def table(self, name):
+        """Return the collection store used by this transaction."""
         return self._store
 
     # reads reflect committed state (no intermediate visibility)
     def get(self, doc_ref):
+        """Read documents from the current committed or transactional view."""
         data, exists = self._store.read(doc_ref.id)
         return _MaybeSnap(doc_ref.id, data if exists else None, exists)
 
     def set(self, doc_ref, payload, merge=False):
+        """Buffer or apply a document set operation."""
         self._ops.append(("set", doc_ref.id, dict(payload), merge))
 
     def update(self, doc_ref, updates):
+        """Buffer or apply a document update operation."""
         self._ops.append(("update", doc_ref.id, dict(updates), False))
 
     def commit(self):
+        """Apply all buffered transaction operations."""
         for kind, doc_id, payload, merge in self._ops:
             if kind == "set":
                 self._store.set(doc_id, payload, merge)
@@ -105,39 +119,47 @@ class _Txn:
 
 class _DocRef:
     def __init__(self, store, collection, doc_id):
+        """Initialize the docref test double."""
         self._store = store
         self.collection = collection
         self.id = doc_id
 
     def get(self, transaction=None):
+        """Read documents from the current committed or transactional view."""
         if transaction is not None:
             return transaction.get(self)
         data, exists = self._store.read(self.id)
         return _MaybeSnap(self.id, data if exists else None, exists)
 
     def set(self, payload, merge=False):
+        """Buffer or apply a document set operation."""
         self._store.set(self.id, payload, merge)
 
     def update(self, payload):
+        """Buffer or apply a document update operation."""
         self._store.update(self.id, payload)
 
 
 class _MaybeSnap(_Snap):
     def __init__(self, doc_id, data, exists):
+        """Initialize the maybesnap test double."""
         super().__init__(doc_id, data or {})
         self._exists = exists
 
     @property
     def exists(self):
+        """Return whether the snapshot represents an existing document."""
         return self._exists
 
 
 class _Collection:
     def __init__(self, store, name):
+        """Initialize the collection test double."""
         self._store = store
         self.name = name
 
     def document(self, doc_id=None):
+        """Return a document reference, generating an identifier when needed."""
         if doc_id is None:
             doc_id = f"{self.name}_{len(self._store.current()) + 1}"
             while doc_id in self._store.current():
@@ -145,9 +167,11 @@ class _Collection:
         return _DocRef(self._store, self.name, doc_id)
 
     def where(self, field, op, value):
+        """Return a query with the requested filter appended."""
         return _Query(self._store, self.name, [(field, op, value)])
 
     def get(self):
+        """Read documents from the current committed or transactional view."""
         snaps = []
         for doc_id, doc in self._store.current().items():
             snaps.append(_Snap(doc_id, doc["data"]))
@@ -158,40 +182,49 @@ class FakeStore:
     """One namespace = one collection. current() returns committed docs."""
 
     def __init__(self):
+        """Initialize the fakestore test double."""
         self._committed = {}
         self._seq = 0
 
     def current(self):
+        """Return the currently committed documents."""
         return self._committed
 
     def read(self, doc_id):
+        """Read a committed document and its existence state."""
         doc = self._committed.get(doc_id)
         return (dict(doc["data"]), True) if doc else ({}, False)
 
     def set(self, doc_id, payload, merge=False):
+        """Buffer or apply a document set operation."""
         if merge and doc_id in self._committed:
             self._committed[doc_id]["data"].update(payload)
         else:
             self._committed[doc_id] = {"id": doc_id, "data": dict(payload)}
 
     def update(self, doc_id, payload):
+        """Buffer or apply a document update operation."""
         if doc_id in self._committed:
             self._committed[doc_id]["data"].update(payload)
 
     def transaction(self):
+        """Create a transaction over the fake database state."""
         return _Txn(self)
 
 
 class FakeDB:
     def __init__(self):
+        """Initialize the fakedb test double."""
         self._namespaces = {}
 
     def collection(self, name):
+        """Return a named collection from the fake database."""
         if name not in self._namespaces:
             self._namespaces[name] = FakeStore()
         return _Collection(self._namespaces[name], name)
 
     def transaction(self):
+        """Create a transaction over the fake database state."""
         return _MultiTxn(self._namespaces)
 
     def coll(self, name):
@@ -203,24 +236,30 @@ class _MultiTxn:
     """Cross-collection transaction with commit-on-success."""
 
     def __init__(self, namespaces):
+        """Initialize the multitxn test double."""
         self._namespaces = namespaces
         self._ops = []
 
     def table(self, name):
+        """Return the collection store used by this transaction."""
         return self._namespaces.setdefault(name, FakeStore())
 
     def get(self, doc_ref):
+        """Read documents from the current committed or transactional view."""
         store = self._namespaces.setdefault(doc_ref.collection, FakeStore())
         data, exists = store.read(doc_ref.id)
         return _MaybeSnap(doc_ref.id, data if exists else None, exists)
 
     def set(self, doc_ref, payload, merge=False):
+        """Buffer or apply a document set operation."""
         self._ops.append((doc_ref.collection, doc_ref.id, dict(payload), "set", merge))
 
     def update(self, doc_ref, updates):
+        """Buffer or apply a document update operation."""
         self._ops.append((doc_ref.collection, doc_ref.id, dict(updates), "update", False))
 
     def commit(self):
+        """Apply all buffered transaction operations."""
         for coll, doc_id, payload, kind, merge in self._ops:
             store = self._namespaces.setdefault(coll, FakeStore())
             if kind == "set":
@@ -230,6 +269,7 @@ class _MultiTxn:
 
 
 def _query_rows(multi_txn, collection, filters):
+    """Return rows matching the fake transaction query filters."""
     rows = multi_txn.table(collection)
     out = []
     for doc in rows.values():
@@ -255,6 +295,7 @@ TS = datetime(2026, 9, 13, tzinfo=timezone.utc)
 
 
 def _make_user(db, uid="u1", accrued_minor=2000, legacy_gbp=0.0, wallet="0x" + "a" * 40):
+    """Seed a canonical user with optional legacy balance state."""
     db.collection("psemine_users").document(uid).set({
         "id": uid, "uid": uid, "userId": uid,
         "accruedMinor": accrued_minor,
@@ -270,6 +311,7 @@ def _make_user(db, uid="u1", accrued_minor=2000, legacy_gbp=0.0, wallet="0x" + "
 
 
 def _ended_campaign(db):
+    """Seed the canonical campaign in its ended state."""
     db.collection("psemine_campaigns").document("active_campaign").set({
         "id": "active_campaign", "status": "ended",
         "startAt": TS.isoformat(),
@@ -287,6 +329,7 @@ def _ledger(db, uid, entries):
 
 
 def _withdrawal(db, uid, wd_id, amount_gbp, status, source=None):
+    """Seed a withdrawal row with the requested lifecycle state."""
     payload = {
         "id": wd_id, "userId": uid, "amountGbp": amount_gbp,
         "amountMinor": int(round(amount_gbp * 100)),
@@ -314,6 +357,7 @@ def _available(db, uid="u1"):
 
 class TestPayoutLifecycleComposition(unittest.TestCase):
     def setUp(self):
+        """Create shared test fixtures and deterministic dependencies."""
         self.db = FakeDB()
         self._orig_camp = psemine_engine.campaign_lifecycle_state
         psemine_engine.campaign_lifecycle_state = (
@@ -323,11 +367,13 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
         psemine_engine.firestore_server_ts = lambda: TS
 
     def tearDown(self):
+        """Restore dependencies replaced by the test fixture."""
         psemine_engine.campaign_lifecycle_state = self._orig_camp
         psemine_engine.firestore_server_ts = self._orig_ts
 
     # -- TEST 1: REQUEST — available drops by exactly the amount --------------
     def test_1_request_decreases_available_by_exactly_once(self):
+        """Verify request decreases available by exactly once."""
         db = self.db
         _make_user(db, accrued_minor=2000)  # £20 canonical, no legacy
         self.assertEqual(_available(db), 2000)
@@ -350,6 +396,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- TEST 2: REJECT — reversal restores exactly once ----------------------
     def test_2_rejection_reverses_debit_exactly_once(self):
+        """Verify rejection reverses debit exactly once."""
         db = self.db
         _make_user(db, accrued_minor=2000)
         result = psemine_engine.create_payout_request(db, "u1", 10.0)
@@ -380,6 +427,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- TEST 3: APPROVED/PROCESSING — no second subtraction ------------------
     def test_3_status_changes_never_double_subtract(self):
+        """Verify status changes never double subtract."""
         db = self.db
         _make_user(db, accrued_minor=2000)
         result = psemine_engine.create_payout_request(db, "u1", 10.0)
@@ -395,6 +443,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- TEST 4: COMPLETED — still represented exactly once -------------------
     def test_4_completion_keeps_single_representation(self):
+        """Verify completion keeps single representation."""
         db = self.db
         _make_user(db, accrued_minor=2000)
         result = psemine_engine.create_payout_request(db, "u1", 10.0)
@@ -410,6 +459,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- TEST 5: REPEATED REQUEST — duplicate rejected, no second debit -------
     def test_5_duplicate_request_rejected_no_second_debit(self):
+        """Verify duplicate request rejected no second debit."""
         db = self.db
         _make_user(db, accrued_minor=2000)
         first = psemine_engine.create_payout_request(db, "u1", 10.0)
@@ -425,6 +475,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- mixed canonical + legacy rows: the historical-compatibility case ------
     def test_6_legacy_rows_still_counted(self):
+        """Verify legacy rows still counted."""
         db = self.db
         _make_user(db, accrued_minor=2000)
         # genuine v1 legacy withdrawal (no source field) — must still count
@@ -439,6 +490,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- pre-absorption legacy accrual counted exactly once --------------------
     def test_7_legacy_accrued_counted_once_before_absorption(self):
+        """Verify legacy accrued counted once before absorption."""
         db = self.db
         _make_user(db, accrued_minor=0, legacy_gbp=5.0)  # legacy £5, no ledger
         self.assertEqual(_available(db), 500)  # exactly once
@@ -446,6 +498,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- absorption flag zeroes the legacy contribution ------------------------
     def test_8_absorbed_legacy_not_recounted(self):
+        """Verify absorbed legacy not recounted."""
         db = self.db
         _make_user(db, accrued_minor=750, legacy_gbp=7.50)
         u_ref = db.collection("psemine_users").document("u1")
@@ -454,6 +507,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
     # -- malformed rows are safe ------------------------------------------------
     def test_9_malformed_rows_are_safe(self):
+        """Verify malformed rows are safe."""
         self.assertEqual(legacy_withdrawal_paid_minor(None), 0)
         self.assertEqual(legacy_withdrawal_paid_minor([None, 42, "x"]), 0)
         self.assertEqual(canonical_net_paid_minor(None), 0)
@@ -464,6 +518,7 @@ class TestPayoutLifecycleComposition(unittest.TestCase):
 
 class TestNetPaidEquation(unittest.TestCase):
     def test_debit_and_reversal_net_to_zero(self):
+        """Verify debit and reversal net to zero."""
         rows = [
             {"kind": "payout_debit", "amountMinor": -1000},
             {"kind": "payout_reversal", "amountMinor": 1000},
@@ -471,9 +526,11 @@ class TestNetPaidEquation(unittest.TestCase):
         self.assertEqual(canonical_net_paid_minor(rows), 0)
 
     def test_debit_alone(self):
+        """Verify debit alone."""
         self.assertEqual(canonical_net_paid_minor([{"kind": "payout_debit", "amountMinor": -1000}]), 1000)
 
     def test_irrelevant_kinds_ignored(self):
+        """Verify irrelevant kinds ignored."""
         rows = [
             {"kind": "accrual", "amountMinor": 123},
             {"kind": "migration", "amountMinor": 500},
@@ -482,6 +539,7 @@ class TestNetPaidEquation(unittest.TestCase):
         self.assertEqual(canonical_net_paid_minor(rows), 1000)
 
     def test_multiple_payouts_accumulate(self):
+        """Verify multiple payouts accumulate."""
         rows = [
             {"kind": "payout_debit", "amountMinor": -1000},
             {"kind": "payout_debit", "amountMinor": -500},

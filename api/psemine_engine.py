@@ -60,6 +60,7 @@ except Exception:  # pragma: no cover
 
 # --- Environment-tunable (non-economic) settings -------------------------------
 def _env_int(name, default):
+    """Read a positive integer setting from the environment."""
     try:
         return max(1, int(os.environ.get(name, str(default))))
     except (TypeError, ValueError):
@@ -96,14 +97,17 @@ EVM_ADDRESS = "^0x[0-9a-fA-F]{40}$"
 
 
 def utcnow():
+    """Return the current timezone-aware UTC timestamp."""
     return datetime.now(timezone.utc)
 
 
 def _iso(dt):
+    """Serialize a timestamp to ISO format when present."""
     return dt.isoformat() if dt else None
 
 
 def _parse(v):
+    """Parse a timestamp value and normalize it to UTC."""
     if isinstance(v, datetime):
         dt = v
     else:
@@ -114,11 +118,13 @@ def _parse(v):
 
 
 def _valid_evm(addr):
+    """Return whether a value is a valid EVM wallet address."""
     import re
     return isinstance(addr, str) and bool(re.match(EVM_ADDRESS, addr or ""))
 
 
 def _checkpoint_digest(parts):
+    """Build a stable short digest for an accrual checkpoint."""
     raw = "|".join(str(p) for p in parts)
     return hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
 
@@ -217,6 +223,7 @@ def is_campaign_earning_open(db):
 
 
 def firestore_server_ts():
+    """Return a Firestore server timestamp or a UTC fallback."""
     return _firestore.SERVER_TIMESTAMP if _firestore else utcnow()
 
 
@@ -225,6 +232,7 @@ def firestore_server_ts():
 # ----------------------------------------------------------------------------
 
 def ensure_psemine_user(db, uid, email=None, username=None):
+    """Return the canonical PSEMine user, creating it when absent."""
     ref = db.collection("psemine_users").document(uid)
     snap = ref.get()
     if snap.exists:
@@ -301,6 +309,7 @@ def accrual_checkpoint(db, uid, source="auto"):
     max_anchor = None
 
     def _txn(txn):
+        """Apply an idempotent accrual checkpoint within a transaction."""
         nonlocal earned_by_tool, referral_minor, max_anchor
         user_snap = user_ref.get(transaction=txn)
         user = user_snap.to_dict() or {}
@@ -446,6 +455,7 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
     own_ref = db.collection("psemine_tool_ownership").document(ownership_id)
 
     def _txn(txn):
+        """Renew an eligible ownership cycle within a transaction."""
         snap = own_ref.get(transaction=txn)
         if not snap.exists:
             return {"ok": False, "error": "OWNERSHIP_NOT_FOUND"}
@@ -568,6 +578,7 @@ def hydrate_ownership_for_activation(ownership_id, uid, tool_id, tool_cfg, purch
 # ----------------------------------------------------------------------------
 
 def _resolve_referrer(db, referral_code):
+    """Resolve a referral code or user identifier to a referrer."""
     snap = db.collection("users").where("referralCode", "==", (referral_code or "").upper().strip()).limit(1).get()
     if snap:
         return snap[0].id
@@ -662,6 +673,7 @@ def settle_referral_on_activation(db, uid, purchase_id):
         referrer_ref = db.collection("psemine_users").document(referrer_id)
 
         def _txn(txn, referrer_ref=referrer_ref, r=r, d=d, referrer_id=referrer_id):
+            """Qualify a referral after activation within a transaction."""
             rs = r.reference.get(transaction=txn)
             rd = rs.to_dict() or {}
             if rd.get("status") == "qualified":
@@ -738,6 +750,7 @@ def settle_referral_on_activation(db, uid, purchase_id):
 # ----------------------------------------------------------------------------
 
 def update_payout_wallet(db, uid, new_wallet):
+    """Validate and update a user's payout wallet."""
     if not _valid_evm(new_wallet):
         return {"ok": False, "error": "INVALID_ADDRESS"}
     camp, effective, _ = campaign_lifecycle_state(db)
@@ -803,6 +816,7 @@ def create_payout_request(db, uid, amount_gbp, source="user"):
         return {"ok": False, "error": "NO_PAYOUT_WALLET", "message": "Set a valid payout wallet first."}
 
     def _txn(txn):
+        """Create the payout debit and request within a transaction."""
         u = user_ref.get(transaction=txn).to_dict() or {}
         ledger_rows = db.collection("psemine_mining_ledger").where("userId", "==", uid).get(transaction=txn)
         withdrawal_rows = db.collection("psemine_withdrawals").where("userId", "==", uid).get(transaction=txn)
@@ -890,6 +904,7 @@ def create_payment_recovery(db, uid, *, tx_hash, quote_id=None, purchase_id=None
 # ----------------------------------------------------------------------------
 
 def admin_overview(db):
+    """Aggregate canonical PSEMine statistics for administrators."""
     camp, effective, _ = campaign_lifecycle_state(db, force_write=False)
     users = db.collection("psemine_users").get()
     total_accrued_minor = 0
@@ -945,6 +960,7 @@ def admin_overview(db):
 
 
 def admin_list_payment_recovery(db, status="open", limit=100):
+    """List payment-recovery records filtered by status."""
     snaps = db.collection("psemine_payment_recovery").where("status", "==", status).limit(limit).get()
     return [{**s.to_dict(), "id": s.id} for s in snaps]
 

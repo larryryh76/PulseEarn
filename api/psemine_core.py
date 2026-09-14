@@ -91,6 +91,7 @@ def is_legal_ownership_transition(old: Optional[str], new: str) -> bool:
 
 
 def illegal_transition_error(old: Optional[str], new: str) -> str:
+    """Build the canonical error code for an illegal ownership transition."""
     return f"ILLEGAL_OWNERSHIP_TRANSITION:{old or 'NONE'}->{new}"
 
 
@@ -99,14 +100,17 @@ def illegal_transition_error(old: Optional[str], new: str) -> str:
 # ----------------------------------------------------------------------------
 
 def gbp_minor_to_major(minor: int) -> float:
+    """Convert integer pence to a GBP major-unit float."""
     return float(Decimal(minor) / Decimal(100))
 
 
 def gbp_major_to_minor(major) -> int:
+    """Convert a GBP major-unit value to integer pence with half-up rounding."""
     return int((Decimal(str(major)) * 100).to_integral_value(rounding=ROUND_HALF_UP))
 
 
 def wei_to_bnb_float(wei: int) -> float:
+    """Convert integer wei to a BNB float for display."""
     return float(Decimal(wei) / Decimal(10) ** 18)
 
 
@@ -130,11 +134,13 @@ def compute_tool_capacity_minor(tool_counts: Dict[str, int]) -> int:
 
 
 def compute_referral_capacity_minor(qualified_count: int) -> int:
+    """Calculate capped referral capacity in minor units per hour."""
     n = max(0, min(int(qualified_count or 0), MAX_QUALIFIED_REFERRALS))
     return n * REFERRAL_BONUS_MINOR_PER_HOUR
 
 
 def compute_total_capacity_minor(tool_counts: Dict[str, int], qualified_count: int) -> int:
+    """Calculate capped combined tool and referral capacity."""
     tool_cap = compute_tool_capacity_minor(tool_counts)
     ref_cap = compute_referral_capacity_minor(qualified_count)
     total = tool_cap + ref_cap  # ADDITIVE: tool + referral
@@ -205,6 +211,7 @@ def derive_cycle(ownership: dict, now: datetime) -> OwnershipCycle:
 
 
 def maintenance_window_open(ownership: dict, now: datetime) -> bool:
+    """Return whether an ownership is currently awaiting maintenance."""
     c = derive_cycle(ownership, now)
     return c.maintenance_required
 
@@ -458,10 +465,12 @@ LEGACY_REFERRAL_STAGE_ALIASES = {"pending": "registered"}
 
 
 def _canonical_referral_stage(stage: str) -> str:
+    """Map a legacy referral stage to its canonical stage."""
     return LEGACY_REFERRAL_STAGE_ALIASES.get(stage, stage)
 
 
 def referral_stage_rank(stage: str) -> int:
+    """Return the ordering rank for a referral stage."""
     try:
         return REFERRAL_STAGES.index(_canonical_referral_stage(stage))
     except ValueError:
@@ -482,6 +491,7 @@ def is_valid_referral_progression(current: str, new: str) -> bool:
 # ----------------------------------------------------------------------------
 
 def _parse_iso(v) -> datetime:
+    """Parse an ISO timestamp and normalize it to UTC."""
     if isinstance(v, datetime):
         dt = v
     else:

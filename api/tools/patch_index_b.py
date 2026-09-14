@@ -17,6 +17,7 @@ TEMPLATE = os.path.join(HERE, "_suite_template.py")
 HUNKS = []
 
 def h(old, new):
+    """Register an exact source-replacement hunk."""
     HUNKS.append((old, new))
 
 # -------------------------------------------------- 0. v1 sessions/sync: campaign gate
@@ -69,6 +70,7 @@ h('''    # 2. Sum existing pending / approved / processing / completed withdrawa
 ''')
 
 def main():
+    """Apply the asserted source replacements and write a backup."""
     with open(TARGET, "r", encoding="utf-8") as f:
         src = f.read()
     out = src

@@ -26,6 +26,7 @@ HUNKS = []
 
 
 def h(old, new):
+    """Register an exact source-replacement hunk."""
     HUNKS.append((old, new))
 
 
@@ -102,6 +103,7 @@ def mine_create_withdrawal():""")
 
 
 def main():
+    """Apply the asserted source replacements and write a backup."""
     with open(TARGET, "r", encoding="utf-8") as f:
         out = f.read()
 

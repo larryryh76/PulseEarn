@@ -245,6 +245,7 @@ def mine_cron_lifecycle():
 @app.route('/api/admin/mine/payment-recovery', methods=['GET'])
 @verify_token
 def admin_mine_payment_recovery():
+    """List payment-recovery records for administrators."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     if not is_moderator(request.user['uid']): return jsonify({"error": "UNAUTHORIZED"}), 403
@@ -255,6 +256,7 @@ def admin_mine_payment_recovery():
 @app.route('/api/admin/mine/payment-recovery/<recovery_id>/resolve', methods=['POST'])
 @verify_token
 def admin_mine_payment_recovery_resolve(recovery_id):
+    """Resolve a payment-recovery record as an administrator."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']
@@ -273,6 +275,7 @@ def admin_mine_payment_recovery_resolve(recovery_id):
 @app.route('/api/admin/mine/tools/<tool_id>/deprecate', methods=['POST'])
 @verify_token
 def admin_mine_deprecate_tool(tool_id):
+    """Deprecate a mining tool through the canonical engine."""
     db = get_db()
     if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
     uid = request.user['uid']

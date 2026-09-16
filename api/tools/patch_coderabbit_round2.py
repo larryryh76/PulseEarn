@@ -13,8 +13,6 @@ ALL targets are validated BEFORE ANY file is written (truly all-or-nothing).
   R4 payout completion: retain the historical completed-withdrawal txHash
       duplicate query alongside the atomic reservation
   R5 has_psemine_access: grant + audit committed atomically via one batch
-  R6 patch_coderabbit_fixes.py: fix the defective F06 hunk (keeps a live
-      transactional read) + make apply() all-or-nothing
   R7 firestore.indexes.json: composite index for the historical
       (status, processedAt DESC) duplicate-txHash query
   R8 PSEMineAuthContext: reset retriedThisSession on sign-out
@@ -29,7 +27,6 @@ TARGETS = [
     "api/index.py",
     "api/psemine_engine.py",
     "firestore.indexes.json",
-    "api/tools/patch_coderabbit_fixes.py",
     "src/contexts/PSEMineAuthContext.tsx",
 ]
 
@@ -85,10 +82,10 @@ HUNKS.append((TARGETS[0], """        _outcome = _complete_with_hash(db.transacti
                      .limit(5).get() if h.id != withdrawal_id]
         else:
             _hist = []
-        _outcome = _complete_with_hash(db.transaction())
         if _hist:
             return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
                             "message": "This transaction hash is already attached to another completed payout."}), 409
+        _outcome = _complete_with_hash(db.transaction())
         if _outcome is False:
             return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
                             "message": "This transaction hash is already attached to another completed payout."}), 409"""))
@@ -234,7 +231,7 @@ HUNKS.append((TARGETS[1], """    try:
             # when EVERY referral result settled (or was already qualified).
             # capReached is terminal (referrer at cap of 5) — not retryable.
             results = res.get("results") or []
-            settled = all(
+            settled = bool(results) and all(
                 ("error" not in it) and
                 ("skipped" not in it or it.get("skipped") is not True)
                 for it in results
@@ -279,94 +276,11 @@ _NEW_INDEX = {
 }
 
 # ===========================================================================
-# api/tools/patch_coderabbit_fixes.py (the F06 hunk + all-or-nothing apply)
-# ===========================================================================
-
-# --- R6a: the defective F06 replacement keeps a live transactional read ---
-HUNKS.append((TARGETS[3], """            if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
-                # one-time absorption of pre-ledger balance into the ledger (auditable entry)
-                if not _mig_ref.get(transaction=txn).exists:
-                    txn.set(_mig_ref, {
-                        'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
-                        'kind': 'migration', 'amountMinor': int(legacy_minor),
-                        'source': 'migration', 'note': 'pre-ledger totalAccruedGBP absorption',
-                        'createdAt': firestore.SERVER_TIMESTAMP,
-                    })
-                prev_accrued_minor += int(legacy_minor)""",
-"""            if legacy_minor and not u_dict.get('legacyBalanceAbsorbedMinor'):
-                # one-time absorption of pre-ledger balance into the ledger
-                # (auditable entry) — _mig_read was taken BEFORE the first
-                # transaction write (Firestore read-before-write rule)
-                if not _mig_read.exists:
-                    txn.set(_mig_ref, {
-                        'id': _mig_id, 'userId': uid, 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
-                        'kind': 'migration', 'amountMinor': int(legacy_minor),
-                        'source': 'migration', 'note': 'pre-ledger totalAccruedGBP absorption',
-                        'createdAt': firestore.SERVER_TIMESTAMP,
-                    })
-                prev_accrued_minor += int(legacy_minor)"""))
-
-HUNKS.append((TARGETS[3], """                _mig_id = f"migration_{uid}"
-                _mig_ref = db.collection('psemine_mining_ledger').document(_mig_id)
-""",
-"""                _mig_id = f"migration_{uid}"
-                _mig_ref = db.collection('psemine_mining_ledger').document(_mig_id)
-                _mig_read = _mig_ref.get(transaction=txn)  # BEFORE first write
-"""))
-
-# --- R6b: validate every target before writing any target -----------------
-HUNKS.append((TARGETS[3], """def apply(path, hunks, backup):
-    with open(path, "r", encoding="utf-8") as f:
-        src = f.read()
-    for i, (old, new) in enumerate(hunks):
-        if src.count(old) != 1:
-            print(f"ABORT: {path} hunk #{i + 1} matched {src.count(old)} times (need exactly 1)")
-            sys.exit(1)
-    shutil.copyfile(path, backup)
-    for old, new in hunks:
-        src = src.replace(old, new, 1)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(src)
-    print(f"OK: {path} — {len(hunks)} hunks applied (backup: {backup})")""",
-"""def apply_all(plans):
-    \"\"\"All-or-nothing: validate EVERY hunk of EVERY target first; write the
-    target files only after every validation succeeds.\"\"\"
-    prepared = []
-    for path, hunks, backup in plans:
-        with open(path, "r", encoding="utf-8") as f:
-            src = f.read()
-        for i, (old, new) in enumerate(hunks):
-            if src.count(old) != 1:
-                print(f"ABORT: {path} hunk #{i + 1} matched {src.count(old)} times (need exactly 1)")
-                return False
-        prepared.append((path, src, hunks, backup))
-    for path, src, hunks, backup in prepared:
-        shutil.copyfile(path, backup)
-        for old, new in hunks:
-            src = src.replace(old, new, 1)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(src)
-        print(f"OK: {path} — {len(hunks)} hunks applied (backup: {backup})")
-    return True"""))
-
-HUNKS.append((TARGETS[3], """apply(INDEX, index_hunks, index_bak)
-apply(ENGINE, engine_hunks, engine_bak)
-apply(TESTS, tests_hunks, tests_bak)
-print("ALL PATCHES APPLIED")""",
-"""if not apply_all([
-    (INDEX, index_hunks, index_bak),
-    (ENGINE, engine_hunks, engine_bak),
-    (TESTS, tests_hunks, tests_bak),
-]):
-    sys.exit(1)
-print("ALL PATCHES APPLIED")"""))
-
-# ===========================================================================
 # src/contexts/PSEMineAuthContext.tsx
 # ===========================================================================
 
 # --- R8: reset retry latch on sign-out -------------------------------------
-HUNKS.append((TARGETS[4], """  // Retry any referral code retained after a transient registration failure.
+HUNKS.append((TARGETS[3], """  // Retry any referral code retained after a transient registration failure.
   // Runs once per signed-in session; idempotent server-side.
   const retriedThisSession = useRef(false);
   useEffect(() => {

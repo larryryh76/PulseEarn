@@ -7199,10 +7199,10 @@ def admin_psemine_review_withdrawal(withdrawal_id):
                      .limit(5).get() if h.id != withdrawal_id]
         else:
             _hist = []
-        _outcome = _complete_with_hash(db.transaction())
         if _hist:
             return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
                             "message": "This transaction hash is already attached to another completed payout."}), 409
+        _outcome = _complete_with_hash(db.transaction())
         if _outcome is False:
             return jsonify({"success": False, "error": "DUPLICATE_PAYOUT_TX",
                             "message": "This transaction hash is already attached to another completed payout."}), 409

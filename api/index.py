@@ -12,6 +12,45 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from functools import wraps
 
+def mine_record_activity(uid, *, _type, title, description, metadata=None):
+    """Canonical top-level psemine_activities write for /api/mine/* flows
+    (Phase 3 completion). Fire-and-forget: an activity failure must never
+    roll back an economic transition. Owner-scoped by userId; consumed by
+    GET /api/mine/activities -> /mine/activity page.
+    """
+    try:
+        _db = get_db()
+        if not _db:
+            return
+        act_ref = _db.collection('psemine_activities').document()
+        act_ref.set({
+            'id': act_ref.id, 'userId': uid, 'type': _type,
+            'title': title, 'description': description,
+            'metadata': metadata or {},
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+    except Exception:
+        logging.warning('[PSEmine] activity record failed', exc_info=True)
+
+
+def mine_notify(uid, *, notif_id, type, title, message, related=None):
+    """Canonical notification write for /api/mine/* flows (Phase 3 completion).
+    Delegates to the engine's idempotent writer: deterministic notif_id means
+    .set() overwrites instead of duplicating, so retried flows and repair
+    sweeps can never create duplicate notifications. Fire-and-forget.
+    """
+    try:
+        _db = get_db()
+        if not _db:
+            return
+        import psemine_engine as _pse_engine
+        _pse_engine.record_notification(
+            _db, uid, notif_id=notif_id, type=type, title=title,
+            message=message, related=related)
+    except Exception:
+        logging.warning('[PSEmine] notification write failed', exc_info=True)
+
+
 def compute_account_age_days(created_at):
     if not created_at:
         return 0
@@ -7802,21 +7841,27 @@ def verify_psemine_tool_purchase():
                 logging.error(f"[PSEmine] referral repair record failed for {uid}", exc_info=True)
             logging.warning(f"[PSEmine Purchase] Referral qualification notice: {ref_err}")
 
-        # 8. Log user activity in subcollection
+        # 8. Canonical activity + notification (Phase 3 completion). The
+        # previous writer here created documents in the
+        # psemine_users/{uid}/activity SUBCOLLECTION, in-place replacement.
+        # No reader consumes that subcollection (the Phase-1 context listener
+        # was deliberately removed in favor of the canonical top-level feed).
         try:
-            db.collection('psemine_users').document(uid).collection('activity').document().set({
-                'id': f"act_{int(time.time() * 1000)}",
-                'type': 'tool_purchased',
-                'title': f"{tool_cfg['name']} Deployed",
-                'description': f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
-                'amountGBP': tool_cfg['price_gbp'],
-                'capacityDeltaGBPPerHour': tool_cfg['hourly_rate'],
-                'referenceId': purchase_id,
-                'metadata': {'txHash': tx_hash, 'toolId': tool_id},
-                'createdAt': firestore.SERVER_TIMESTAMP,
-            })
+            mine_record_activity(uid,
+                _type='TOOL_PURCHASED',
+                title=f"{tool_cfg['name']} Deployed",
+                description=f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
+                metadata={'txHash': tx_hash, 'toolId': tool_id, 'purchaseId': purchase_id},
+            )
+            mine_notify(uid,
+                notif_id=f"notif_purchase_{purchase_id}",
+                type='purchase',
+                title=f"{tool_cfg['name']} Deployed",
+                message=f"Payment verified on BNB Smart Chain. {tool_cfg['name']} is now mining at £{tool_cfg['hourly_rate']:.2f}/hr.",
+                related={'source': 'verify_psemine_tool_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'txHash': tx_hash},
+            )
         except Exception:
-            pass
+            logging.warning('[PSEmine Purchase] canonical activity/notification notice', exc_info=True)
 
         return jsonify({
             "success": True, 

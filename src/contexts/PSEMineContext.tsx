@@ -4,8 +4,7 @@ import {
   onSnapshot, 
   collection, 
   query, 
-  where, 
-  limit
+  where
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
@@ -120,7 +119,6 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let unsubOwnerships: (() => void) | undefined;
     let unsubPurchases: (() => void) | undefined;
     let unsubReferrals: (() => void) | undefined;
-    let unsubActivities: (() => void) | undefined;
 
     const setupUserListeners = async () => {
       try {
@@ -180,17 +178,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setReferrals(list);
         });
 
-        // Activities
-        const actQuery = query(
-          collection(db, 'psemine_users', currentUser.uid, 'activity'),
-          limit(30)
-        );
-        unsubActivities = onSnapshot(actQuery, (snap) => {
-          const list: PSEMineActivity[] = [];
-          snap.forEach(d => list.push(d.data() as PSEMineActivity));
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          setActivities(list);
-        });
+        // D1 remediation: the legacy psemine_users/{uid}/activity subcollection
+        // is NOT the canonical source — the backend writes real records to the
+        // top-level psemine_activities collection, exposed via /api/mine/activities.
+        // Subscribing to the dead subcollection here would surface empty/ghost
+        // data, so this listener is intentionally omitted. Consumers read the
+        // canonical feed from PseStateProvider (usePseState).activities.
 
       } catch (e) {
         console.error('[PSEMineContext] User listeners initialization error:', e);
@@ -205,7 +198,6 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (unsubOwnerships) unsubOwnerships();
       if (unsubPurchases) unsubPurchases();
       if (unsubReferrals) unsubReferrals();
-      if (unsubActivities) unsubActivities();
     };
   }, [currentUser, userData?.username]);
 

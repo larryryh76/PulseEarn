@@ -119,13 +119,13 @@ export const useCryptoData = () => {
           setError(null);
           return;
         }
-      } catch (cgError) {
+      } catch {
         console.warn('CoinGecko failed, attempting CryptoCompare fallback...');
       }
 
       await fetchFromCryptoCompare();
       setError(null);
-    } catch (err) {
+    } catch {
       console.warn('External crypto data unavailable, using fallback dataset.');
       if (marketData.length === 0) {
         setMarketData(FALLBACK_MARKET_DATA);

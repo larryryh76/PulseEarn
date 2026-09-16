@@ -128,7 +128,7 @@ const OpsSupport: React.FC = () => {
       } else {
         toast.error('Dispatch Failure');
       }
-    } catch (err) {
+    } catch {
       toast.error('System Failure');
     }
   };
@@ -139,7 +139,7 @@ const OpsSupport: React.FC = () => {
       await SupportEngine.updateStatus(selectedTicket.id, status);
       toast.success(`Ticket Status: ${status}`);
       fetchTickets();
-    } catch (err) {
+    } catch {
       toast.error('Adjustment Failed');
     }
   };

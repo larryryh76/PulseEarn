@@ -51,7 +51,7 @@ export class MarketResolutionEngine {
             timeout: 10000
           });
           prices = priceRes.data;
-        } catch (cgError) {
+        } catch {
           console.warn('[MarketResolver] CoinGecko failed, falling back to CryptoCompare...');
           // Fallback: CryptoCompare
           const symbols = chunk.map(id => SYMBOL_MAP[id]).filter(Boolean);

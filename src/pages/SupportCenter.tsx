@@ -111,7 +111,7 @@ const SupportCenter: React.FC = () => {
       } else {
         toast.error(result.error || 'Failed to create ticket');
       }
-    } catch (err) {
+    } catch {
       toast.error('System error');
     } finally {
       setIsSubmitting(false);
@@ -137,7 +137,7 @@ const SupportCenter: React.FC = () => {
       } else {
         toast.error('Failed to send reply');
       }
-    } catch (err) {
+    } catch {
       toast.error('System error');
     }
   };

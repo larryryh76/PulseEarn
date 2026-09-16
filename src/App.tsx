@@ -44,7 +44,8 @@ import ReferralPolicy from './pages/legal/ReferralPolicy'
 import CommunityGuidelines from './pages/legal/CommunityGuidelines'
 import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
-import { PSEMineLayout } from './components/psemine/PSEMineLayout'
+import { PSEMineShell } from './components/psemine/PSEMineShell'
+import { PseStateProvider } from './components/psemine/PseStateProvider'
 import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
 import { PSEMineDashboard } from './pages/psemine/PSEMineDashboard'
 import { PSEMineTools } from './pages/psemine/PSEMineTools'
@@ -55,6 +56,7 @@ import { PSEMineGuide } from './pages/psemine/PSEMineGuide'
 import { PSEMineMe } from './pages/psemine/PSEMineMe'
 import { PSEmineAuth, PSEmineForgotPassword, PSEmineVerifyEmail, PSEmineProtectedRoute } from './pages/psemine/PSEmineAuth'
 import { PSEMineAuthProvider } from './contexts/PSEMineAuthContext'
+import { PSEMineProvider } from './contexts/PSEMineContext'
 import { AdminPSEMine } from './pages/admin/AdminPSEMine'
 import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
@@ -197,7 +199,15 @@ function App() {
         <Route path="/mine/signup" element={<PSEMineAuthProvider><PSEmineAuth mode="signup" /></PSEMineAuthProvider>} />
         <Route path="/mine/forgot-password" element={<PSEMineAuthProvider><PSEmineForgotPassword /></PSEMineAuthProvider>} />
         <Route path="/mine/verify-email" element={<PSEMineAuthProvider><PSEmineVerifyEmail /></PSEMineAuthProvider>} />
-        <Route path="/mine" element={<PSEMineAuthProvider><PSEMineLayout /></PSEMineAuthProvider>}>
+        <Route path="/mine" element={
+          <PSEMineAuthProvider>
+            <PSEMineProvider>
+              <PseStateProvider>
+                <PSEMineShell />
+              </PseStateProvider>
+            </PSEMineProvider>
+          </PSEMineAuthProvider>
+        }>
           <Route index element={<PSEMineLanding />} />
           <Route path="dashboard" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
           <Route path="tools" element={<PSEmineProtectedRoute><PSEMineTools /></PSEmineProtectedRoute>} />
@@ -205,6 +215,7 @@ function App() {
           <Route path="referrals" element={<PSEmineProtectedRoute><PSEMineReferrals /></PSEmineProtectedRoute>} />
           <Route path="activity" element={<PSEmineProtectedRoute><PSEMineActivity /></PSEmineProtectedRoute>} />
           <Route path="guide" element={<PSEMineGuide />} />
+          <Route path="guide/onboarding" element={<PSEmineProtectedRoute><PSEMineGuide onboarding /></PSEmineProtectedRoute>} />
           <Route path="me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
         </Route>
 

@@ -66,7 +66,7 @@ const EditTaskModal: React.FC<{ task: Task; onClose: () => void }> = ({ task, on
       } else {
         toast.error(res.error || res.message || 'Update failed.');
       }
-    } catch (err) {
+    } catch {
       toast.error('Network error.');
     } finally {
       setSaving(false);
@@ -292,7 +292,7 @@ const CreateTaskModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       } else {
         toast.error(res.error || res.message || 'Create failed.');
       }
-    } catch (err) {
+    } catch {
       toast.error('Network error.');
     } finally {
       setSaving(false);

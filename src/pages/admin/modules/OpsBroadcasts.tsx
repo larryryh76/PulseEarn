@@ -85,7 +85,7 @@ const OpsBroadcasts: React.FC = () => {
       setIsModalOpen(false);
       setFormData({ title: '', description: '', type: 'system' });
       fetchBroadcasts(); // Refresh
-    } catch (err) {
+    } catch {
       toast.error("Deployment sequence failure");
     } finally {
       setSubmitting(false);

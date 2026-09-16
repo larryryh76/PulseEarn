@@ -776,7 +776,7 @@ const OpsOfferwalls: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.success) setAnalytics(res);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load analytics');
     } finally {
       setAnalyticsLoading(false);
@@ -792,7 +792,7 @@ const OpsOfferwalls: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.success) setCallbacks(res.callbacks || []);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load callbacks');
     } finally {
       setCallbacksLoading(false);

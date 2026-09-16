@@ -303,7 +303,7 @@ const OpsMarketplace: React.FC = () => {
       } else {
         toast.error(res.error || res.reason || "Wipe failed", { id: loadToast });
       }
-    } catch (err) {
+    } catch {
       toast.error("System connection error during rebuild", { id: loadToast });
     } finally {
       setIsWiping(false);

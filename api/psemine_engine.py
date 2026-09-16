@@ -606,6 +606,17 @@ def _has_referral_cycle(db, start_uid, target_uid, max_depth=10):
     return False
 
 
+def referral_code_for(db, uid):
+    """The referrer's shareable code (the PulseEarn users.referralCode identity,
+    which _resolve_referrer resolves). Read-side helper for the rebuilt UI."""
+    snap = db.collection("users").document(uid).get()
+    if snap.exists:
+        code = (snap.to_dict() or {}).get("referralCode")
+        if code:
+            return str(code)
+    return None
+
+
 def register_referral(db, uid, referral_code_or_referrer):
     """Backend-side referral record creation with deterministic identity.
     Idempotent: re-registration returns the existing record."""

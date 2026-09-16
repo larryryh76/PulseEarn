@@ -34,7 +34,7 @@ import { PointTransactionEngine } from '../engines/points/PointTransactionEngine
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
-import { PSEMineLoader } from '../components/psemine/PSEMineLoader';
+import { PSELogo } from '../components/psemine/pse';
 import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
 import { NotificationEngine } from '../engines/system/NotificationEngine';
 import { UserEngine } from '../engines/system/UserEngine';
@@ -566,7 +566,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         {isRestoring && !systemError ? (
           typeof window !== 'undefined' && window.location.pathname.startsWith('/mine') ? (
-            <PSEMineLoader label="Initializing Mining Session" fullScreen={true} />
+            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4" style={{ background: '#0A0E14' }}>
+              <PSELogo size={40} />
+              <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: 'rgba(255,255,255,0.13)', borderTopColor: '#2E90FA' }} />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: '#5B6472' }}>Initializing mining session</p>
+            </div>
           ) : (
             <motion.div
               initial={{ opacity: 1 }}

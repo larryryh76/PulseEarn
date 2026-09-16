@@ -228,6 +228,46 @@ def firestore_server_ts():
 
 
 # ----------------------------------------------------------------------------
+# Canonical notifications (Phase 3 completion)
+# ----------------------------------------------------------------------------
+
+NOTIFICATION_TYPES = ('purchase', 'withdrawal', 'referral', 'campaign', 'system')
+
+
+def record_notification(db, uid, *, notif_id, type, title, message, related=None):
+    """THE canonical PSEmine notification writer (Phase 3 completion).
+
+    Idempotent by construction: callers pass a DETERMINISTIC notif_id derived
+    from the related entity (e.g. notif_purchase_{purchaseId}); .set() on the
+    same id overwrites instead of duplicating, so retried flows and repair
+    sweeps can never create duplicate notifications.
+
+    Schema matches the psemine_notifications documents already written by the
+    v1 endpoints (id/userId/type/title/message/read/createdAt) plus a
+    traceable `related` map (source + entity references) — additive fields
+    only, fully compatible with the NotificationBell reader (renders
+    title/message/read/id).
+
+    Failures are ALWAYS non-fatal for the caller: notification writes must
+    never roll back or block an economic transition.
+    """
+    if type not in NOTIFICATION_TYPES:
+        type = 'system'
+    payload = {
+        "id": notif_id,
+        "userId": uid,
+        "type": type,
+        "title": str(title)[:120],
+        "message": str(message)[:300],
+        "read": False,
+        "createdAt": firestore_server_ts(),
+        "related": related or {},
+    }
+    db.collection("psemine_notifications").document(notif_id).set(payload)
+    return notif_id
+
+
+# ----------------------------------------------------------------------------
 # Canonical user doc
 # ----------------------------------------------------------------------------
 
@@ -606,6 +646,17 @@ def _has_referral_cycle(db, start_uid, target_uid, max_depth=10):
     return False
 
 
+def referral_code_for(db, uid):
+    """The referrer's shareable code (the PulseEarn users.referralCode identity,
+    which _resolve_referrer resolves). Read-side helper for the rebuilt UI."""
+    snap = db.collection("users").document(uid).get()
+    if snap.exists:
+        code = (snap.to_dict() or {}).get("referralCode")
+        if code:
+            return str(code)
+    return None
+
+
 def register_referral(db, uid, referral_code_or_referrer):
     """Backend-side referral record creation with deterministic identity.
     Idempotent: re-registration returns the existing record."""
@@ -648,6 +699,20 @@ def register_referral(db, uid, referral_code_or_referrer):
         "metadata": {"referralId": doc_id, "refereeId": uid},
         "createdAt": firestore_server_ts(),
     })
+    # (Phase 3) Canonical notification for the registration event. Only sent
+    # for genuinely new registrations (this block never runs for `existing`).
+    # Deterministic id keyed on the deterministic referral doc id.
+    try:
+        record_notification(
+            db, referrer_id,
+            notif_id=f"notif_referral_reg_{doc_id}",
+            type="referral",
+            title="New Miner Invited",
+            message="A new miner registered with your referral code.",
+            related={"source": "register_referral", "referralId": doc_id, "refereeId": uid},
+        )
+    except Exception:
+        logging.warning("[PSEmine Referral] registration notification failed", exc_info=True)
     return {"ok": True, "referralId": doc_id, "existing": False}
 
 
@@ -831,6 +896,20 @@ def settle_referral_on_activation(db, uid, purchase_id):
                 "metadata": {"refereeId": uid, "purchaseId": purchase_id},
                 "createdAt": firestore_server_ts(),
             })
+            # (Phase 3) Canonical notification for the qualification event.
+            # Deterministic id keyed on the referral doc id (already
+            # deterministic: ref_{referrer}_{referee}) — idempotent.
+            try:
+                record_notification(
+                    db, referrer_id,
+                    notif_id=f"notif_referral_qual_{r.id}",
+                    type="referral",
+                    title="Referral Qualified!",
+                    message="Your referred miner deployed a tool. Your capacity increases by £0.30/hour.",
+                    related={"source": "settle_referral_on_activation", "referralId": r.id, "refereeId": uid, "purchaseId": purchase_id},
+                )
+            except Exception:
+                logging.warning(f"[PSEmine Referral] qualification notification failed for {r.id}", exc_info=True)
         except Exception as e:
             logging.warning(f"[PSEmine Referral] qualification failed for {r.id}: {e}")
             results.append({"referralId": r.id, "error": str(e)})
@@ -957,6 +1036,21 @@ def create_payout_request(db, uid, amount_gbp, source="user"):
             "metadata": {"withdrawalId": result["withdrawalId"]},
             "createdAt": firestore_server_ts(),
         })
+        # (Phase 3) Canonical notification for the payout-request event.
+        # Deterministic id keyed on the withdrawal — retried requests that
+        # return the same pending withdrawal cannot duplicate it. Non-fatal:
+        # notification failure must never roll back the payout debit.
+        try:
+            record_notification(
+                db, uid,
+                notif_id=f"notif_payout_req_{result['withdrawalId']}",
+                type="withdrawal",
+                title=f"Payout Requested (£{float(Decimal(amount_minor) / 100):.2f})",
+                message="Your payout request has been submitted and is awaiting administrative review.",
+                related={"source": "create_payout_request", "withdrawalId": result["withdrawalId"], "campaignId": PSEMINE_CAMPAIGN_DOC_ID},
+            )
+        except Exception:
+            logging.warning("[PSEmine] payout-request notification failed", exc_info=True)
     return result
 
 

@@ -1,383 +1,440 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ShieldAlert, 
-  Play, 
-  Pause, 
-  Archive, 
-  RefreshCw, 
-  ExternalLink,
-  Lock
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ShieldAlert, Play, Pause, Flag, RefreshCcw, ExternalLink, Lock, Loader2,
+  AlertTriangle, CheckCircle2, Ban, Wrench,
 } from 'lucide-react';
-import { usePSEMine } from '../../contexts/PSEMineContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePSEMine } from '../../contexts/PSEMineContext';
 import toast from 'react-hot-toast';
+import { gbp, shortHash, shortAddr, fmtDateTime, Chip, PSEEmpty, PSELoading } from '../../components/psemine/pse';
+import { ConfirmDialog } from '../../components/psemine/ConfirmDialog';
 
-export const AdminPSEMine: React.FC = () => {
-  const { campaign, isCampaignArchived, refreshData } = usePSEMine();
+/* Admin surfaces use the pse tokens too, but scoped to a wrapper so the rest
+ * of OpsLayout (PulseEarn admin chrome) stays untouched. */
+const AdminPSEMine: React.FC = () => {
   const { currentUser } = useAuth();
+  const { campaign, refreshData: refreshCampaign } = usePSEMine();
 
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    activeMiners: 0,
-    totalMiners: 0,
-    toolsSold: 0,
-    totalCapacityGBPPerHour: 0,
-    totalAccruedLiabilityGBP: 0,
-    totalBNBCollected: 0,
-    qualifiedReferrals: 0,
-    campaignStatus: 'active'
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [actionLoading, setActionLoading] = useState(false);
+  const [stats, setStats] = useState<Record<string, number | string>>({});
   const [recoveryCases, setRecoveryCases] = useState<Array<Record<string, unknown>>>([]);
   const [withdrawalQueue, setWithdrawalQueue] = useState<Array<Record<string, unknown>>>([]);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
 
-  const fetchAdminData = async () => {
-    setLoading(true);
+  // FIX 3: design-system confirmation for consequential campaign actions.
+  // Same copy contract as before (action + consequence + affected entity),
+  // same backend endpoint/authorization — presentation only.
+  const [confirm, setConfirm] = useState<{
+    title: string; consequence: string; affected: string;
+    confirmLabel: string; danger?: boolean; requireText?: string;
+    run: () => Promise<void>;
+  } | null>(null);
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (!currentUser) return;
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    setError(null);
     try {
-      if (currentUser) {
-        const idToken = await currentUser.getIdToken();
-        const res = await fetch('/api/admin/mine/overview', {
-          headers: { 'Authorization': `Bearer ${idToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.stats) {
-            setStats(data.stats);
-          }
-        }
-        // Real-data operational queues (moderator-readable, admin-resolvable)
-        const [recRes, wdRes] = await Promise.all([
-          fetch('/api/admin/mine/payment-recovery?status=open', { headers: { 'Authorization': `Bearer ${idToken}` } }),
-          fetch('/api/admin/psemine/withdrawals', { headers: { 'Authorization': `Bearer ${idToken}` } }),
-        ]);
-        if (recRes.ok) {
-          const recData = await recRes.json();
-          setRecoveryCases(Array.isArray(recData.cases) ? recData.cases : []);
-        }
-        if (wdRes.ok) {
-          const wdData = await wdRes.json();
-          const all: Array<Record<string, unknown>> = Array.isArray(wdData.withdrawals) ? wdData.withdrawals : [];
-          setWithdrawalQueue(all.filter((w) => ['pending', 'under_review', 'processing'].includes(String(w.status))));
-        }
-      }
+      const token = await currentUser.getIdToken();
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [ovRes, recRes, wdRes] = await Promise.all([
+        fetch('/api/admin/mine/overview', { headers }),
+        fetch('/api/admin/mine/payment-recovery?status=open', { headers }),
+        fetch('/api/admin/psemine/withdrawals', { headers }),
+      ]);
+      if (!ovRes.ok) throw new Error(`Overview unavailable (${ovRes.status})`);
+      const ov = await ovRes.json().catch(() => ({}));
+      setStats(ov?.stats || {});
+      if (recRes.ok) {
+        const d = await recRes.json().catch(() => ({}));
+        setRecoveryCases(Array.isArray(d?.cases) ? d.cases : []);
+      } else setRecoveryCases([]);
+      if (wdRes.ok) {
+        const d = await wdRes.json().catch(() => ({}));
+        const all: Array<Record<string, unknown>> = Array.isArray(d?.withdrawals) ? d.withdrawals : [];
+        setWithdrawalQueue(all.filter(w => ['pending', 'under_review', 'approved', 'processing'].includes(String(w.status))));
+      } else setWithdrawalQueue([]);
     } catch (e) {
-      console.error('Error fetching admin mine data:', e);
+      setError(e instanceof Error ? e.message : 'Failed to load PSEmine operations data.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchAdminData();
   }, [currentUser]);
 
-  const handleCampaignAction = async (action: 'pause' | 'resume' | 'settle' | 'shutdown') => {
+  useEffect(() => { void load(); }, [load]);
+
+  /** Campaign lifecycle actions with design-system confirmation (FIX 3). */
+  const campaignAction = async (action: 'pause' | 'resume' | 'settle' | 'shutdown') => {
     if (!currentUser) return;
-    const confirmMsg = action === 'shutdown'
-      ? 'CRITICAL: Are you sure you want to execute the Emergency Kill Switch and permanently Archive the PSEmine campaign?'
-      : `Are you sure you want to ${action} the campaign?`;
-
-    if (!window.confirm(confirmMsg)) return;
-
-    setActionLoading(true);
-    try {
-      const idToken = await currentUser.getIdToken();
-      const res = await fetch('/api/admin/mine/campaign/action', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({
-          action,
-          reason: `Admin triggered ${action}`
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Campaign action '${action}' executed successfully!`);
-        await refreshData();
-        await fetchAdminData();
-      } else {
-        toast.error(data.error || 'Action failed');
-      }
-    } catch (e: unknown) {
-      const err = e as Error;
-      toast.error(err?.message || 'Execution error');
-    } finally {
-      setActionLoading(false);
-    }
+    const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
+      pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
+      resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
+      settle: { title: 'Begin settlement?', detail: 'Mining ends, purchases close, ownership states settle, and payout review opens. A settlement job is created and this is recorded in the audit log. Not casually reversible.' },
+      shutdown: { title: 'SHUTDOWN — archive the campaign?', detail: 'Permanently archives the campaign: mining, purchases, and referrals close, and public mining interfaces close. This is recorded in the audit log.', requireText: 'shutdown' },
+    };
+    const m = messages[action];
+    setConfirm({
+      title: m.title,
+      consequence: m.detail,
+      affected: 'psemine_campaigns/active_campaign',
+      confirmLabel: action === 'shutdown' ? 'Archive campaign' : action.charAt(0).toUpperCase() + action.slice(1) + ' campaign',
+      danger: action === 'shutdown',
+      requireText: m.requireText,
+      run: async () => {
+        setActionBusy(action);
+        try {
+          const token = await currentUser.getIdToken();
+          const res = await fetch('/api/admin/mine/campaign/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action, reason: `Admin console: ${action}` }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            toast.success(`Campaign action "${action}" executed.`);
+            await refreshCampaign();
+            await load(true);
+          } else {
+            toast.error(data.error || data.message || `Action "${action}" failed.`);
+          }
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Execution error.');
+        } finally { setActionBusy(null); }
+      },
+    });
   };
 
+  /** FIX 4: recovery resolution now goes through the same confirmation
+   * discipline. Backend contract (traced in psemine_engine.py
+   * admin_resolve_payment_recovery): valid actions are mark_reviewed,
+   * attach_to_purchase, reject — none activate a tool. The UI copy below
+   * reflects that contract and asks for purchaseId when attaching. */
+  const resolveRecovery = async (recoveryId: string, action: 'mark_reviewed' | 'attach_to_purchase' | 'reject', notes: string, purchaseId?: string) => {
+    setResolving(recoveryId + action);
+    try {
+      const token = await currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/mine/payment-recovery/${encodeURIComponent(recoveryId)}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ action, notes, ...(purchaseId ? { purchaseId } : {}) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(`Recovery case ${action.replace(/_/g, ' ')}d.`);
+        await load(true);
+      } else {
+        toast.error(data.error || 'Resolution failed (super admin required).');
+      }
+    } finally { setResolving(null); }
+  };
+
+  /** Payout review — D3 fix: backend contract is exactly { action: 'APPROVE',
+   * txHash } (atomically completes the payout, reserving the hash) or
+   * { action: 'REJECT' } (reverses the debit). Any other shape returns 400. */
+  const reviewWithdrawal = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
+    if (action === 'APPROVE' && !txHash) { toast.error('A transaction hash is required to approve a payout.'); return; }
+    if (action === 'REJECT') {
+      // FIX 3: rejection reverses the debit — confirm with the design system.
+      setConfirm({
+        title: 'Reject this payout?',
+        consequence: 'The debit is reversed exactly once and the request returns to the miner\u2019s available balance. The decision is recorded in the audit log.',
+        affected: `psemine_withdrawals/${withdrawalId}`,
+        confirmLabel: 'Reject payout',
+        danger: true,
+        run: async () => { await submitWithdrawalReview(withdrawalId, 'REJECT'); },
+      });
+      return;
+    }
+    setResolving(withdrawalId + action);
+    try {
+      await submitWithdrawalReview(withdrawalId, action, txHash);
+    } finally { setResolving(null); }
+  };
+
+  /** Shared reviewer call — contract unchanged: {action:'APPROVE', txHash} or
+   * {action:'REJECT'}; success only on backend confirmation. */
+  const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
+    try {
+      const token = await currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/psemine/withdrawals/${encodeURIComponent(withdrawalId)}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(action === 'APPROVE' ? { action, txHash } : { action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(action === 'APPROVE' ? 'Payout approved and marked paid.' : 'Payout rejected and debit reversed.');
+        await load(true);
+      } else {
+        toast.error(data.error || data.message || `Payout ${action.toLowerCase()} failed.`);
+      }
+    } finally { setResolving(null); }
+  };
+
+  if (loading) return <div className="p-10"><PSELoading label="Loading PSEmine operations" /></div>;
+
+  const camp = (campaign?.status || String(stats.campaignStatus || '—')) as string;
+  const num = (k: string): number => typeof stats[k] === 'number' ? stats[k] as number : 0;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      
-      {/* Admin Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              PSEmine Protocol Command Center
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-red-950 text-red-300 border border-red-800">
-              Admin Only
-            </span>
+    <div className="pse-scope min-h-screen">
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 sm:px-6">
+        {/* Header */}
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="pse-h2">PSEmine operations</h1>
+              <Chip label="Admin" chip="pse-chip pse-chip-danger" dot={false} />
+            </div>
+            <p className="pse-micro mt-1">Real operational data from the canonical PSEmine backend.</p>
           </div>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">
-            Authoritative controls for 90-day campaign status, liability monitoring, and settlement payouts.
-          </p>
+          <button onClick={() => void load(true)} disabled={refreshing} className="pse-btn pse-btn-secondary pse-btn-sm self-start sm:self-auto">
+            <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
+          </button>
         </div>
 
-        <button
-          onClick={fetchAdminData}
-          disabled={loading}
-          className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-gray-300 hover:text-white transition-colors self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-        </button>
-      </div>
-
-      {/* Protocol Health & Liability Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        <div className="p-5 bg-[#0a1122] border border-cyan-900/40 rounded-2xl">
-          <div className="text-xs text-gray-400 font-medium">Active Miners</div>
-          <div className="text-2xl font-black text-white font-mono mt-1">
-            {stats.activeMiners} <span className="text-xs text-gray-500 font-sans">/ {stats.totalMiners}</span>
+        {error && (
+          <div className="pse-card flex items-start gap-3 p-4" style={{ borderColor: 'rgba(240,68,56,0.35)' }}>
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
+            <div className="flex-1">
+              <p className="pse-caption">{error}</p>
+              <button onClick={() => void load(true)} className="pse-btn pse-btn-secondary pse-btn-sm mt-2">Retry</button>
+            </div>
           </div>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            ['Active miners', `${num('activeMiners')}${num('totalMiners') ? ` / ${num('totalMiners')}` : ''}`, null],
+            ['Tools deployed', `${num('toolsSold')}`, null],
+            ['Network capacity', `£${num('totalCapacityGBPPerHour').toFixed(2)}/hr`, 'var(--pse-cyan)'],
+            ['Accrued liability', gbp(num('totalAccruedLiabilityGBP')), 'var(--pse-warning)'],
+          ].map(([label, value, accent]) => (
+            <div key={String(label)} className="pse-card p-5">
+              <p className="pse-eyebrow">{label}</p>
+              <p className="pse-num mt-1.5 text-[22px] font-semibold" style={{ color: (accent as string) || 'var(--pse-text)' }}>{value}</p>
+            </div>
+          ))}
         </div>
 
-        <div className="p-5 bg-[#0a1122] border border-cyan-900/40 rounded-2xl">
-          <div className="text-xs text-gray-400 font-medium">Tools Deployed</div>
-          <div className="text-2xl font-black text-cyan-400 font-mono mt-1">
-            {stats.toolsSold} Units
+        {/* Campaign lifecycle */}
+        <section className="pse-card p-5">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="pse-h3">Campaign lifecycle</p>
+              <p className="pse-micro mt-0.5">
+                Current state: <span className="pse-mono font-semibold" style={{ color: 'var(--pse-blue)' }}>{camp.toUpperCase()}</span>
+                {' · '}Open recovery cases: <strong>{recoveryCases.length}</strong>
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {campaign?.status === 'paused' ? (
+                <button onClick={() => void campaignAction('resume')} disabled={actionBusy !== null}
+                  className="pse-btn pse-btn-primary pse-btn-sm justify-center">
+                  {actionBusy === 'resume' ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Resume
+                </button>
+              ) : (
+                <button onClick={() => void campaignAction('pause')} disabled={actionBusy !== null || campaign?.status !== 'active'}
+                  className="pse-btn pse-btn-secondary pse-btn-sm justify-center">
+                  {actionBusy === 'pause' ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />} Pause
+                </button>
+              )}
+              <button onClick={() => void campaignAction('settle')} disabled={actionBusy !== null}
+                className="pse-btn pse-btn-secondary pse-btn-sm justify-center">
+                {actionBusy === 'settle' ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} />} Settle
+              </button>
+              <button onClick={() => void campaignAction('shutdown')} disabled={actionBusy !== null}
+                className="pse-btn pse-btn-danger pse-btn-sm justify-center sm:col-span-2">
+                {actionBusy === 'shutdown' ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />} Shutdown & archive
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="p-5 bg-[#0a1122] border border-cyan-900/40 rounded-2xl">
-          <div className="text-xs text-gray-400 font-medium">Total Network Capacity</div>
-          <div className="text-2xl font-black text-white font-mono mt-1">
-            £{stats.totalCapacityGBPPerHour.toFixed(2)}/hr
+        {/* Payment recovery queue */}
+        <section className="pse-card overflow-hidden">
+          <div className="flex items-center justify-between border-b p-5" style={{ borderColor: 'var(--pse-line)' }}>
+            <div>
+              <p className="pse-h3">Payment recovery ({recoveryCases.length})</p>
+              <p className="pse-micro mt-0.5">Evidence records for verification failures — review before resolving. No automatic assignment.</p>
+            </div>
+            <Flag size={16} style={{ color: 'var(--pse-warning)' }} />
           </div>
-        </div>
-
-        <div className="p-5 bg-[#0a1122] border border-cyan-900/40 rounded-2xl">
-          <div className="text-xs text-gray-400 font-medium">Total Accrued Liability</div>
-          <div className="text-2xl font-black text-amber-400 font-mono mt-1">
-            £{stats.totalAccruedLiabilityGBP.toFixed(2)}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Lifecycle & Kill Switch Controls */}
-      <div className="p-6 bg-[#0c1426] border border-cyan-900/50 rounded-3xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h2 className="text-base font-bold text-white flex items-center space-x-2">
-              <ShieldAlert className="w-5 h-5 text-cyan-400" />
-              <span>Campaign Lifecycle Operations</span>
-            </h2>
-            <p className="text-xs text-gray-400">
-              Current Campaign State: <strong className="text-cyan-300 font-mono uppercase">{campaign?.status || stats.campaignStatus}</strong>
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
-          
-          {campaign?.status === 'paused' ? (
-            <button
-              onClick={() => handleCampaignAction('resume')}
-              disabled={actionLoading}
-              className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-colors disabled:opacity-50"
-            >
-              <Play className="w-4 h-4" />
-              <span>Resume Mining</span>
-            </button>
+          {recoveryCases.length === 0 ? (
+            <PSEEmpty icon={CheckCircle2} title="No open recovery cases" body="Verification failures appear here with full evidence for review." />
           ) : (
-            <button
-              onClick={() => handleCampaignAction('pause')}
-              disabled={actionLoading || isCampaignArchived}
-              className="py-3 px-4 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-colors disabled:opacity-50"
-            >
-              <Pause className="w-4 h-4" />
-              <span>Pause Campaign</span>
-            </button>
+            <div className="overflow-x-auto">
+              <table className="pse-table">
+                <thead>
+                  <tr><th>Case</th><th>Reason</th><th>Transaction</th><th>Created</th><th className="text-right">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {recoveryCases.map(c => {
+                    const id = String(c.id || c.recoveryId || '');
+                    const hash = (c.txHash || c.transactionHash) as string | undefined;
+                    return (
+                      <tr key={id}>
+                        <td className="pse-mono">{shortHash(id, 8)}</td>
+                        <td><Chip label={String(c.reason || 'unknown').replace(/_/g, ' ')} chip="pse-chip pse-chip-warning" dot={false} /></td>
+                        <td>{hash ? <a href={`https://bscscan.com/tx/${hash}`} target="_blank" rel="noreferrer" className="pse-hash inline-flex items-center gap-1 hover:underline">{shortHash(hash)} <ExternalLink size={10} /></a> : '—'}</td>
+                        <td className="pse-caption" style={{ color: 'var(--pse-text-2)' }}>{fmtDateTime((c.createdAt) as string)}</td>
+                        <td>
+                          <div className="flex justify-end gap-1.5">
+                            {/* FIX 4: contract-accurate actions (backend: mark_reviewed | attach_to_purchase | reject — none activate a tool). Consequential ones go through the design-system dialog. */}
+                            <button
+                              onClick={() => setConfirm({
+                                title: 'Complete purchase from recovery evidence?',
+                                consequence: 'This re-runs purchase verification against the recorded on-chain transaction. A tool is activated ONLY if the backend verification passes — it can never be created from the browser. The outcome is recorded in the audit log.',
+                                affected: `psemine_payment_recovery/${id}`,
+                                confirmLabel: 'Re-verify & attempt purchase',
+                                run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
+                              })}
+                              disabled={resolving !== null} className="pse-btn pse-btn-primary pse-btn-sm">Complete purchase</button>
+                            <button
+                              onClick={() => setConfirm({
+                                title: 'Dismiss this recovery case?',
+                                consequence: 'The case is marked rejected and closed without linking the transaction. Evidence is retained in psemine_payment_recovery. Recorded in the audit log.',
+                                affected: `psemine_payment_recovery/${id}`,
+                                confirmLabel: 'Dismiss case',
+                                danger: true,
+                                run: async () => { await resolveRecovery(id, 'reject', 'Dismissed after review.'); },
+                              })}
+                              disabled={resolving !== null} className="pse-btn pse-btn-ghost pse-btn-sm">Dismiss</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
+        </section>
 
-          <button
-            onClick={() => handleCampaignAction('settle')}
-            disabled={actionLoading || isCampaignArchived}
-            className="py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-colors disabled:opacity-50"
-          >
-            <Lock className="w-4 h-4" />
-            <span>Lock & Settle Wallets</span>
-          </button>
-
-          <button
-            onClick={() => handleCampaignAction('shutdown')}
-            disabled={actionLoading || isCampaignArchived}
-            className="py-3 px-4 bg-red-700 hover:bg-red-600 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-colors disabled:opacity-50"
-          >
-            <Archive className="w-4 h-4" />
-            <span>Kill Switch (Archive)</span>
-          </button>
-
-          <a
-            href="/mine"
-            target="_blank"
-            rel="noreferrer"
-            className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-gray-200 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-colors"
-          >
-            <span>View Live /mine</span>
-            <ExternalLink className="w-4 h-4" />
-          </a>
-
-        </div>
-      </div>
-
-      {/* Payment Recovery Queue (real backend data) */}
-      <div className="p-6 bg-[#0c1426] border border-amber-900/40 rounded-3xl space-y-4">
-        <h2 className="text-base font-bold text-white">Payment Recovery Cases ({recoveryCases.length})</h2>
-        {recoveryCases.length === 0 ? (
-          <p className="text-xs text-gray-500">No open recovery cases.</p>
-        ) : (
-          <div className="space-y-2">
-            {recoveryCases.map((c, i) => (
-              <div key={String(c.id ?? i)} className="p-3 rounded-xl bg-[#0a1122] border border-slate-800 space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono text-amber-300">{String(c.reason || 'UNKNOWN_REASON')}</span>
-                  <span className="text-gray-500">tx: {String(c.txHash || '—').slice(0, 18)}…</span>
-                  <span className="text-gray-500">observed: {String(c.observedAmountWei ?? '—')} wei</span>
-                  <span className="text-gray-500">sender: {String(c.sender || '—').slice(0, 10)}…</span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      const notes = window.prompt('Review notes (required):') || '';
-                      if (!notes) return;
-                      const idToken = await currentUser.getIdToken();
-                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ action: 'mark_reviewed', notes })
-                      });
-                      if (res.ok) { toast.success('Marked reviewed'); fetchAdminData(); } else { toast.error('Failed'); }
-                    }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-gray-200"
-                  >
-                    Mark Reviewed
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      const purchaseId = window.prompt('Purchase ID to attach (from verify-purchase retry):') || '';
-                      if (!purchaseId) return;
-                      const idToken = await currentUser.getIdToken();
-                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ action: 'attach_to_purchase', purchaseId, notes: 'Linked after verified re-activation' })
-                      });
-                      if (res.ok) { toast.success('Attached'); fetchAdminData(); } else { toast.error('Failed'); }
-                    }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-700 hover:bg-blue-600 text-white"
-                  >
-                    Attach To Purchase
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      if (!window.confirm('Reject this recovery case? Evidence is retained.')) return;
-                      const idToken = await currentUser.getIdToken();
-                      const res = await fetch(`/api/admin/mine/payment-recovery/${String(c.id)}/resolve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ action: 'reject', notes: 'Rejected during review' })
-                      });
-                      if (res.ok) { toast.success('Rejected'); fetchAdminData(); } else { toast.error('Failed'); }
-                    }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-red-800 hover:bg-red-700 text-white"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
+        {/* Payout review queue */}
+        <section className="pse-card overflow-hidden">
+          <div className="flex items-center justify-between border-b p-5" style={{ borderColor: 'var(--pse-line)' }}>
+            <div>
+              <p className="pse-h3">Payout review ({withdrawalQueue.length})</p>
+              <p className="pse-micro mt-0.5">Requests awaiting review or processing. Completion requires the on-chain transaction hash; duplicate hashes are rejected server-side.</p>
+            </div>
+            <Lock size={16} style={{ color: 'var(--pse-cyan)' }} />
           </div>
-        )}
-      </div>
+          {withdrawalQueue.length === 0 ? (
+            <PSEEmpty icon={ShieldAlert} title="No payouts awaiting review" body="Withdrawal requests appear here once miners submit them at settlement." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="pse-table">
+                <thead>
+                  <tr><th>Requested</th><th>User</th><th className="pse-num-cell">Amount</th><th>Status</th><th>Destination</th><th className="text-right">Actions</th></tr>
+                </thead>
+                <tbody>
+                  {withdrawalQueue.map(w => {
+                    const id = String(w.id || '');
+                    const status = String(w.status || 'pending');
+                    const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
+                      : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
+                    const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
+                    const busy = resolving === id + 'APPROVE' || resolving === id + 'REJECT';
+                    return (
+                      <tr key={id}>
+                        <td className="pse-caption" style={{ color: 'var(--pse-text-2)' }}>{fmtDateTime(w.createdAt as string)}</td>
+                        <td className="pse-mono">{shortAddr(String(w.userId || w.uid || ''))}</td>
+                        <td className="pse-num-cell font-semibold">{amountMinor !== null ? gbp(amountMinor / 100) : '—'}</td>
+                        <td><Chip label={status.replace(/_/g, ' ')} chip={status === 'pending' ? 'pse-chip pse-chip-warning' : 'pse-chip pse-chip-cyan'} dot={false} /></td>
+                        <td><span className="pse-mono">{dest ? shortAddr(dest) : '—'}</span></td>
+                        <td>
+                          {/* FIX 5: actions wrap vertically within the cell on mobile */}
+                          <div className="flex flex-col items-stretch justify-end gap-1.5 sm:flex-row sm:items-center">
+                            {status === 'pending' || status === 'under_review' ? (
+                              <>
+                                {/* D3: approve IS the completion — backend atomically
+                                    reserves the tx hash and marks the payout paid. */}
+                                <ApprovePayoutButton busy={busy} onApprove={(hash) => void reviewWithdrawal(id, 'APPROVE', hash)} />
+                                <button onClick={() => { void reviewWithdrawal(id, 'REJECT'); }}
+                                  disabled={busy} className="pse-btn pse-btn-danger pse-btn-sm">Reject</button>
+                              </>
+                            ) : (
+                              <span className="pse-micro">Resolved</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
-      {/* Payout Review Queue (real backend data) */}
-      <div className="p-6 bg-[#0c1426] border border-emerald-900/40 rounded-3xl space-y-4">
-        <h2 className="text-base font-bold text-white">Payout Review Queue ({withdrawalQueue.length})</h2>
-        {withdrawalQueue.length === 0 ? (
-          <p className="text-xs text-gray-500">No pending payout requests.</p>
-        ) : (
-          <div className="space-y-2">
-            {withdrawalQueue.map((w, i) => (
-              <div key={String(w.id ?? i)} className="p-3 rounded-xl bg-[#0a1122] border border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs space-y-0.5">
-                  <div className="font-mono font-bold text-emerald-300">£{String(w.amountGbp ?? '—')}</div>
-                  <div className="text-gray-500">to {String(w.payoutAddress || '—').slice(0, 10)}…{String(w.payoutAddress || '').slice(-4)}</div>
-                  <div className="text-gray-600">user {String(w.userId || '—').slice(0, 10)}… · status {String(w.status || '—')}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      const txHash = window.prompt('Payout transaction hash (required to approve):') || '';
-                      if (!txHash) return;
-                      const idToken = await currentUser.getIdToken();
-                      const res = await fetch(`/api/admin/psemine/withdrawals/${String(w.id)}/review`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ action: 'APPROVE', txHash, adminNotes: 'Approved with on-chain tx' })
-                      });
-                      const data = await res.json().catch(() => ({}));
-                      if (res.ok && data.success) { toast.success('Payout completed'); fetchAdminData(); } else { toast.error(data.error || 'Failed'); }
-                    }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
-                  >
-                    Approve (tx)
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      const notes = window.prompt('Rejection reason:') || '';
-                      if (!notes) return;
-                      const idToken = await currentUser.getIdToken();
-                      const res = await fetch(`/api/admin/psemine/withdrawals/${String(w.id)}/review`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ action: 'REJECT', adminNotes: notes })
-                      });
-                      const data = await res.json().catch(() => ({}));
-                      if (res.ok && data.success) { toast.success('Rejected'); fetchAdminData(); } else { toast.error(data.error || 'Failed'); }
-                    }}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-gray-200"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Protocol Verification & Architecture Info */}
-      <div className="p-6 bg-[#080d19] border border-slate-800 rounded-3xl space-y-3 text-xs text-gray-400">
-        <h3 className="text-sm font-bold text-white">PSEmine Accounting Safeguards</h3>
-        <p>
-          All mining capacity transactions require 3 BSC block confirmations (the ACTUAL observed depth is stored on each purchase). Quotes expire after 15 minutes to prevent exchange rate arbitrage. Referral boosts are capped at +£1.50/hr per user. Accrual is written ONLY by the canonical backend ledger (psemine_mining_ledger) with deterministic idempotent entries — frontend timers are never authoritative.
+        <p className="pse-micro flex items-start gap-2">
+          <ShieldAlert size={13} className="mt-0.5 shrink-0" />
+          All actions are recorded in the admin audit trail. Payout completion validates the transaction hash atomically — a hash already attached to a completed payout is rejected (DUPLICATE_PAYOUT_TX).
         </p>
       </div>
 
+      {/* FIX 3/4: design-system confirmation for all consequential actions */}
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirm?.title || ''}
+        consequence={confirm?.consequence || ''}
+        affected={confirm?.affected}
+        confirmLabel={confirm?.confirmLabel}
+        danger={confirm?.danger}
+        requireText={confirm?.requireText}
+        busy={confirm?.confirmLabel === 'Archive campaign' ? actionBusy === 'shutdown' : false}
+        onConfirm={() => { const run = confirm?.run; setConfirm(null); if (run) void run(); }}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 };
+
+/** D3: Approve form — one action, one tx hash. The backend reserves the hash
+ * atomically and marks the payout paid in the same transaction. */
+function ApprovePayoutButton({ busy, onApprove }: { busy: boolean; onApprove: (hash: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [hash, setHash] = useState('');
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} disabled={busy} className="pse-btn pse-btn-primary pse-btn-sm">
+        Approve with tx hash…
+      </button>
+    );
+  }
+  return (
+    /* FIX 5: full-width column on mobile, compact inline row on ≥sm.
+       No API, validation, or state-machine changes. */
+    <div className="flex w-full flex-col items-stretch justify-end gap-1.5 sm:w-auto sm:flex-row sm:items-center">
+      <input
+        value={hash}
+        onChange={e => setHash(e.target.value)}
+        placeholder="0x… transaction hash"
+        className="pse-input w-full py-1.5 pse-mono sm:w-56"
+        style={{ fontSize: 11 }}
+        aria-label="Payout transaction hash"
+      />
+      <div className="flex items-center justify-end gap-1.5">
+        <button
+          onClick={() => { if (/^0x[0-9a-fA-F]{64}$/.test(hash.trim())) { onApprove(hash.trim()); setOpen(false); } else toast.error('Enter the full 66-character transaction hash.'); }}
+          disabled={busy}
+          className="pse-btn pse-btn-primary pse-btn-sm"
+        >
+          Approve payout
+        </button>
+        <button onClick={() => setOpen(false)} disabled={busy} className="pse-btn pse-btn-ghost pse-btn-sm">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+export { AdminPSEMine };
+export default AdminPSEMine;

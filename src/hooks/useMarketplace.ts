@@ -252,7 +252,7 @@ export function useMarketplace(): UseMarketplaceReturn {
             userId: currentUser?.uid,
           }),
         });
-      } catch (e) {
+      } catch {
         // Non-critical, don't block opening
       }
       

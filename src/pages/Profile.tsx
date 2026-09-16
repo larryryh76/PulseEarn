@@ -129,7 +129,7 @@ const Profile: React.FC = () => {
         [`preferences.${key}`]: value
       });
       toast.success('Settings updated');
-    } catch (err) {
+    } catch {
       toast.error('Failed to sync settings');
     }
   };
@@ -148,7 +148,7 @@ const Profile: React.FC = () => {
   };
 
   const xpStats = getXpProgress(userData?.xp || 0);
-  const memberSince = (userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || "N/A") || 'Recent';
+  const memberSince = userData?.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || 'N/A';
 
   if (txLoading && !userData) return (
     <div className="pt-32 px-6 max-w-5xl mx-auto space-y-12">

@@ -102,7 +102,7 @@ const OpsUsers: React.FC = () => {
           if (config.thresholds?.xpPerLevel) {
              setXpPerLevel(config.thresholds.xpPerLevel);
           }
-       } catch (err) {
+       } catch {
           console.warn("[OpsUsers] Failed to fetch economy config, using default thresholds.");
        }
     };
@@ -266,7 +266,7 @@ const OpsUsers: React.FC = () => {
             toast.dismiss(loadingToast);
             toast.error(result.error);
          }
-      } catch (err) {
+      } catch {
          toast.dismiss(loadingToast);
          toast.error('Failed to update ledger');
       }
@@ -293,10 +293,9 @@ const OpsUsers: React.FC = () => {
         toast.success(`Account status updated`);
         if (selectedUser?.id === user.id) {
            setSelectedUser({...selectedUser, isBanned, status: isBanned ? 'restricted' : 'active'});
-        }
-     } catch (err) {
+        }    } catch {
         toast.error("Account status update failed");
-     }
+    }
   };
 
    const handleSyncUserLevel = async () => {
@@ -328,11 +327,10 @@ const OpsUsers: React.FC = () => {
 
          toast.dismiss(load);
          toast.success(`Level synchronized to ${expectedLevel}`);
-         setSelectedUser({ ...selectedUser, level: expectedLevel });
-      } catch (err) {
+         setSelectedUser({ ...selectedUser, level: expectedLevel });    } catch {
          toast.dismiss(load);
          toast.error("Reconciliation failed");
-      }
+    }
    };
 
   const handleUpdateProfile = async () => {
@@ -410,7 +408,7 @@ const OpsUsers: React.FC = () => {
           const unique = Array.from(new Map(results.map(u => [u.id, u])).values());
           setUsers(unique.filter((u: any) => u.status !== 'archived'));
           setHasMore(false); // Search results are not paginated here
-       } catch (err) {
+       } catch {
           toast.error("Search failed");
        } finally {
           setLoading(false);

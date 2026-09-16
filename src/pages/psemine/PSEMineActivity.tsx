@@ -1,135 +1,119 @@
-import React, { useState } from 'react';
-import { 
-  Layers, 
-  Users, 
-  Wallet, 
-  ExternalLink,
-  History
-} from 'lucide-react';
-import { motion } from 'framer-motion';
-import { usePSEMine } from '../../contexts/PSEMineContext';
+import React, { useMemo, useState } from 'react';
+import { Activity as ActivityIcon, History, RefreshCcw } from 'lucide-react';
+import { usePseState } from '../../components/psemine/PseStateProvider';
+import {
+  PageHeader, PSEEmpty, gbp, timeAgo, ACTIVITY_ICONS,
+} from '../../components/psemine/pse';
 import { cn } from '../../utils';
 
-export const PSEMineActivity: React.FC = () => {
-  const { activities } = usePSEMine();
-  const [filterType, setFilterType] = useState<string>('all');
+const FILTERS: Array<{ id: string; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'purchase', label: 'Purchases' },
+  { id: 'maintenance', label: 'Maintenance' },
+  { id: 'referral', label: 'Referrals' },
+  { id: 'wallet', label: 'Wallet' },
+  { id: 'campaign', label: 'Campaign' },
+];
 
-  const filteredActivities = activities.filter((act) => {
-    if (filterType === 'all') return true;
-    return act.type === filterType;
-  });
+function matchesFilter(type: string, filter: string): boolean {
+  if (filter === 'all') return true;
+  const t = (type || '').toLowerCase();
+  switch (filter) {
+    case 'purchase': return t.includes('purchase') || t.includes('payment');
+    case 'maintenance': return t.includes('maintenance');
+    case 'referral': return t.includes('referral');
+    case 'wallet': return t.includes('wallet');
+    case 'campaign': return t.includes('campaign') || t.includes('settlement') || t.includes('payout') || t.includes('accrual');
+    default: return true;
+  }
+}
+
+export const PSEMineActivity: React.FC = () => {
+  const { activities, refresh, refreshing, error } = usePseState();
+  const [filter, setFilter] = useState('all');
+
+  const filtered = useMemo(
+    () => activities.filter(a => matchesFilter(a.type || '', filter)),
+    [activities, filter],
+  );
 
   return (
-    <div className="pt-20 md:pt-24 pb-28 px-4 md:px-6 lg:px-8 max-w-5xl mx-auto space-y-6 md:space-y-8 transition-colors">
-      
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-end justify-between gap-4"
-      >
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">
-              PSEmine Records
-            </span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-            Activity Ledger
-          </h1>
-          <p className="text-xs md:text-sm text-text-secondary">
-            View transaction history for tool purchases, referral activations, and wallet updates.
-          </p>
+    <div className="pse-section space-y-4 pb-24 pt-6 md:pt-8">
+      <PageHeader
+        eyebrow="Activity"
+        title="Account ledger"
+        sub="Every recorded event for your account — purchases, maintenance, qualifications, and campaign milestones."
+      />
+
+      {error && (
+        <div className="pse-card flex items-center justify-between gap-3 p-4" style={{ borderColor: 'rgba(240,68,56,0.3)' }}>
+          <p className="pse-caption">{error}</p>
+          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-secondary pse-btn-sm shrink-0">
+            <RefreshCcw size={12} className={refreshing ? 'animate-spin' : ''} /> Retry
+          </button>
         </div>
+      )}
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-surface border border-border rounded-xl">
-          {[
-            { id: 'all', label: 'All' },
-            { id: 'TOOL_PURCHASE', label: 'Tools' },
-            { id: 'REFERRAL_QUALIFIED', label: 'Referrals' },
-            { id: 'WALLET_UPDATE', label: 'Wallet' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setFilterType(tab.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors",
-                filterType === tab.id
-                  ? "bg-[#2bb39a] text-[#070A0F] shadow-sm font-extrabold"
-                  : "text-text-tertiary hover:text-text-primary"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── LEDGER LIST ─────────────────────────────────────────────────── */}
-      <div className="p-5 sm:p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-3 shadow-subtle">
-        {filteredActivities.length > 0 ? (
-          <div className="space-y-2.5">
-            {filteredActivities.map((act) => {
-              const isPurchase = act.type === 'TOOL_PURCHASE' || act.type === 'tool_purchased';
-              const isReferral = act.type === 'REFERRAL_QUALIFIED' || act.type === 'referral_qualified';
-
-              return (
-                <div
-                  key={act.id}
-                  className="p-4 bg-surface-bright/40 border border-border rounded-xl md:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-surface-bright/70 transition-colors"
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className={cn(
-                      "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border",
-                      isPurchase 
-                        ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20"
-                        : isReferral
-                          ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20"
-                          : "bg-surface-bright text-text-secondary border-border"
-                    )}>
-                      {isPurchase ? <Layers size={16} /> : isReferral ? <Users size={16} /> : <Wallet size={16} />}
-                    </div>
-
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-text-primary text-xs sm:text-sm">{act.title}</span>
-                        <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-surface-bright text-text-tertiary border border-border font-bold">
-                          {act.type.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <p className="text-text-secondary text-xs">{act.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex sm:flex-col sm:items-end justify-between sm:justify-center font-mono text-xs shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
-                    <span className="text-text-tertiary tabular-nums">
-                      {new Date(act.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                    </span>
-                    {typeof act.metadata?.txHash === 'string' && (
-                      <a
-                        href={`https://bscscan.com/tx/${act.metadata.txHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[#2bb39a] hover:underline flex items-center gap-1 mt-0.5 text-[11px] font-bold"
-                      >
-                        <span>View on BSCScan</span>
-                        <ExternalLink size={12} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="py-12 text-center text-xs text-text-tertiary space-y-2">
-            <History size={24} className="mx-auto text-text-tertiary" />
-            <p>No activity records found.</p>
-          </div>
-        )}
+      {/* FIX 9: these are filter toggles, not tab panels — use buttons with
+          aria-pressed. Filtering logic itself is unchanged. */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1" role="group" aria-label="Filter activity by type">
+        {FILTERS.map(f => (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={filter === f.id}
+            onClick={() => setFilter(f.id)}
+            className={cn('pse-btn pse-btn-sm shrink-0', filter === f.id ? 'pse-btn-primary' : 'pse-btn-secondary')}
+            style={{ minHeight: 44 }}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
+      {/* Ledger */}
+      <section className="pse-card overflow-hidden">
+        {filtered.length === 0 ? (
+          <PSEEmpty
+            icon={activities.length === 0 ? History : ActivityIcon}
+            title={activities.length === 0 ? 'No activity yet' : 'Nothing in this category'}
+            body={activities.length === 0
+              ? 'Purchases, maintenance events, referral qualifications, and campaign updates will appear here as they happen.'
+              : 'Try a different filter to see other recorded events.'}
+          />
+        ) : (
+          <ul className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
+            {filtered.map(a => {
+              const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
+              const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+              const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+              const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+              return (
+                <li key={a.id} className="flex items-center gap-3.5 px-5 py-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                    style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+                    <Icon size={15} style={{ color: 'var(--pse-text-2)' }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>{a.title}</p>
+                    {a.description && <p className="pse-micro mt-0.5 line-clamp-2">{a.description}</p>}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {displayAmount !== null && displayAmount !== 0 && (
+                      <p className="pse-num pse-caption font-semibold" style={{ color: displayAmount > 0 ? 'var(--pse-success)' : 'var(--pse-text)' }}>
+                        {displayAmount > 0 ? '+' : ''}{gbp(displayAmount)}
+                      </p>
+                    )}
+                    <p className="pse-micro">{timeAgo(a.createdAt)}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };
+
+export default PSEMineActivity;

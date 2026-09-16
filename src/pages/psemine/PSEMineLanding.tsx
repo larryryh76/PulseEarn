@@ -1,464 +1,398 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Layers, 
-  ArrowRight, 
-  CheckCircle2, 
-  HelpCircle,
-  Clock,
-  ShieldCheck,
-  Zap,
-  Cpu,
-  ChevronDown,
-  ChevronRight
+import {
+  Layers, ArrowRight, ShieldCheck, Clock, Wallet, Cog, Users, Check,
+  ChevronDown, CircleDot, Landmark, LineChart, Lock, Repeat, Wrench,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
-import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
-import { PSEMineLogo } from '../../components/psemine/PSEMineLogo';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
+import { gbp, gbpHour, Chip } from '../../components/psemine/pse';
 import { cn } from '../../utils';
 
+const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
+
+const HOW_IT_WORKS = [
+  { icon: Wallet, title: 'Purchase a tool with BNB', body: 'Pick a mining tool and pay its fixed GBP price in BNB on BNB Smart Chain. Every payment is verified on-chain before a tool is activated.' },
+  { icon: LineChart, title: 'Capacity starts accruing', body: 'Each tool adds a fixed hourly rate to your capacity, denominated in GBP. Earnings accrue from server-verified operating time — never from estimates.' },
+  { icon: Repeat, title: 'Keep tools in cycle', body: 'Tools run 24-hour operating cycles. When a cycle completes, one free maintenance action restarts it. Maintenance is always free.' },
+  { icon: Landmark, title: 'Settlement after day 90', body: 'When the campaign ends, accrued balances are finalized and paid out to the BNB Smart Chain wallet you configured. Balances are not withdrawable mid-campaign.' },
+];
+
+const FAQS = [
+  { q: 'What exactly is PSEmine?', a: 'PSEmine is a 90-day, campaign-based mining product. You buy mining tools with BNB, the tools provide hourly capacity denominated in GBP, and the campaign settles accrued earnings after it ends.' },
+  { q: 'Do I need to run hardware?', a: 'No. Tools represent capacity operated by PSEmine. You never manage hardware, electricity, or hosting.' },
+  { q: 'Why are prices fixed in GBP?', a: 'Tool prices and hourly rates are fixed in GBP so your capacity is predictable. You pay the fixed GBP price in BNB at the live exchange rate at the moment you request a quote.' },
+  { q: 'How big can my capacity get?', a: 'Tool capacity is capped at £10.60/hour. Each qualified referral adds +£0.30/hour, up to 5 referrals (+£1.50/hour). The maximum total capacity is £12.10/hour.' },
+  { q: 'When can I withdraw earnings?', a: 'Accrued earnings are campaign earnings: they settle after the campaign ends. Payout requests open at settlement and are paid to your configured BNB Smart Chain wallet after review.' },
+  { q: 'What does maintenance cost?', a: 'Nothing. Maintenance is a free action that restarts a completed operating cycle. If a tool sits too long after its cycle completes, it needs the same free maintenance before it resumes accruing.' },
+  { q: 'How are payments verified?', a: 'Every purchase is a server-generated quote bound to your account. After you send BNB, the backend verifies the transaction on BNB Smart Chain — sender, recipient, exact amount, and confirmation depth — before the tool activates.' },
+  { q: 'Can I change my payout wallet?', a: 'Yes, before the campaign\u2019s wallet-change cutoff. Payout wallets are stored server-side and are separate from the wallet you connect to view the app.' },
+];
+
 export const PSEMineLanding: React.FC = () => {
-  const { campaignDaysRemaining, liveAccruedGBP, pseUser } = usePSEMine();
+  const { campaign } = usePSEMine();
   const { currentUser } = usePSEMineAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const toolList = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-
-  const faqs = [
-    {
-      q: 'What is the PSEmine Campaign?',
-      a: 'PSEmine is an official 90-day Web3 cloud mining campaign. Participants activate cloud mining tools to build a fixed hourly earning capacity denominated in Great British Pounds (GBP £) with automated BEP-20 settlement.'
-    },
-    {
-      q: 'Do I need physical mining rigs or hardware?',
-      a: 'No. All mining capacity operates 100% in the cloud. You do not incur electricity expenses, hardware wear, or maintenance requirements. Your hourly capacity accrues continuously 24/7 once activated.'
-    },
-    {
-      q: 'How are tool purchases paid for?',
-      a: 'Mining tools are priced in fixed GBP (£3, £10, £50, £200) to protect against crypto rate fluctuations during the campaign. Purchases are executed with live BNB on the BNB Smart Chain (BEP-20).'
-    },
-    {
-      q: 'What is the peak achievable hourly mining rate?',
-      a: 'Across all 4 tool tiers, you can accumulate up to £10.60/hour in base capacity. By activating all 5 referral boost slots (+£0.30/hr each), your peak achievable rate reaches £12.10/hour.'
-    },
-    {
-      q: 'When and how are accumulated earnings disbursed?',
-      a: 'Estimated earnings accrue continuously every second throughout the 90-day campaign window. At day 90, the campaign transitions to settlement, and finalized balances are disbursed to your configured BNB Smart Chain address.'
-    },
-    {
-      q: 'Can I change my payout wallet address during the campaign?',
-      a: 'Yes. You can configure and update your BEP-20 settlement address at any time from your Wallet dashboard before the final settlement phase begins.'
-    }
-  ];
+  const status = campaign?.status ?? 'scheduled';
+  const purchaseEnabled = campaign?.purchaseEnabled !== false;
 
   return (
-    <div className="pt-8 md:pt-14 pb-28 space-y-16 md:space-y-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-colors">
-      
-      {/* ── 1. HERO SECTION ─────────────────────────────────────────────── */}
-      <section className="py-6 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-          
-          {/* Left Column: Headline & Messaging */}
-          <div className="lg:col-span-7 space-y-6 text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2bb39a]/10 border border-[#2bb39a]/25 text-[#2bb39a] text-[11px] font-bold uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a] animate-ping" />
-              <span>90-Day Web3 Cloud Mining Campaign</span>
+    <div className="pb-24">
+      {/* ═══════════ HERO ═══════════ */}
+      <section className="pse-hero-surface border-b" style={{ borderColor: 'var(--pse-line)' }}>
+        <div className="pse-section py-16 md:py-24">
+          <div className="mx-auto max-w-3xl text-center">
+            {/* FIX 6: wrap cleanly at 320–430px instead of overflowing */}
+            <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+              <Chip label={`Campaign ${status}`} chip={status === 'active' ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-purple'} pulse={status === 'active'} />
+              <Chip label="90 days" chip="pse-chip pse-chip-neutral" dot={false} />
+              <Chip label="BNB Smart Chain" chip="pse-chip pse-chip-neutral" dot={false} />
             </div>
-
-            <div className="space-y-3">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-text-primary leading-[1.1]">
-                Build Your Mining <span className="text-[#2bb39a]">Capacity.</span>
-              </h1>
-              <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-xl">
-                Activate cloud mining tools, lock in fixed GBP hourly output rates, and earn 24/7 with non-custodial BNB Smart Chain settlement.
-              </p>
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-1">
-              <Link
-                to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-                className="psemine-btn-primary py-3.5 px-8 flex items-center justify-center gap-2 text-xs font-bold"
-              >
-                <span>{currentUser ? "Open Mining Console" : "Enter PSEmine"}</span>
-                <ArrowRight size={16} />
+            <h1 className="pse-h1">
+              Campaign-based mining,<br />
+              <span style={{ color: 'var(--pse-blue)' }} className="pse-num">measured in GBP.</span>
+            </h1>
+            <p className="pse-lead mx-auto mt-5 max-w-2xl">
+              PSEmine is a 90-day mining campaign. Purchase mining tools with BNB, build hourly
+              GBP capacity, and let the campaign settle your accrued earnings when it ends.
+              Fixed rates. On-chain verification. Server-authoritative accounting.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link to={currentUser ? '/mine/dashboard' : '/mine/signup'} className="pse-btn pse-btn-primary pse-btn-lg w-full sm:w-auto">
+                {currentUser ? 'Open your console' : 'Start the campaign'} <ArrowRight size={15} />
               </Link>
-
-              <Link
-                to="/mine/tools"
-                className="psemine-btn-secondary py-3.5 px-7 flex items-center justify-center gap-2 text-xs font-bold"
-              >
-                <Layers size={16} className="text-[#2bb39a]" />
-                <span>Explore Tools</span>
+              <Link to="/mine/guide" className="pse-btn pse-btn-secondary pse-btn-lg w-full sm:w-auto">
+                Read the guide
               </Link>
             </div>
-
-            {/* Key Trust Checkmarks */}
-            <div className="pt-2 flex flex-wrap gap-x-6 gap-y-2 text-xs text-text-secondary">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={15} className="text-[#2bb39a]" />
-                <span className="font-medium">Fixed GBP Rate Accounting</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={15} className="text-[#2bb39a]" />
-                <span className="font-medium">24/7 Continuous Accrual</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={15} className="text-[#2bb39a]" />
-                <span className="font-medium">BEP-20 Settlement</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: High-Craft Web3 Campaign Visual Preview */}
-          <div className="lg:col-span-5">
-            <div className="relative">
-              {/* Subtle ambient accent glow */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-[#2bb39a]/20 to-[#00B4D8]/20 rounded-3xl blur-xl opacity-60 -z-10" />
-
-              <div className="bg-[#0D1420] border border-white/10 rounded-3xl p-6 sm:p-7 space-y-6 shadow-2xl text-white">
-                
-                {/* Visual Header */}
-                <div className="flex items-center justify-between border-b border-white/8 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <PSEMineLogo size={26} showWordmark={false} />
-                    <div>
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-tertiary">Campaign Node</span>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>BNB Smart Chain</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#2bb39a]" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-3 py-1 bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/30 rounded-full text-xs font-mono font-bold tabular-nums">
-                    {campaignDaysRemaining}d remaining
-                  </div>
-                </div>
-
-                {/* Accrual Card Simulator / Live View */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/8 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs text-text-tertiary">
-                    <span className="uppercase text-[10px] font-bold tracking-wider">Estimated Campaign Earnings</span>
-                    <span className="text-[#2bb39a] font-mono text-[11px] font-bold">24/7 Active</span>
-                  </div>
-                  <div className="text-3xl sm:text-4xl font-black tracking-tight font-mono text-white tabular-nums">
-                    £{(liveAccruedGBP || 0).toFixed(2)}
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-white/8 text-[11px]">
-                    <span className="text-text-tertiary">Hourly Output</span>
-                    <span className="text-[#2bb39a] font-bold font-mono">
-                      +£{(pseUser?.totalCapacityGBPPerHour || 0).toFixed(2)}/hr
-                    </span>
-                  </div>
-                </div>
-
-                {/* Capacity Tiers Matrix Preview */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[11px] text-text-tertiary font-bold uppercase tracking-wider">
-                    <span>Tool Capacity Spectrum</span>
-                    <span className="text-white">£0.10 — £2.50/hr</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {toolList.map((tool) => (
-                      <div key={tool.id} className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-                        <div className="text-[9px] font-bold text-text-tertiary uppercase">T{tool.tier}</div>
-                        <div className="text-xs font-bold font-mono text-white mt-0.5">£{tool.purchasePriceGBP}</div>
-                        <div className="text-[10px] font-bold text-[#2bb39a] font-mono">+£{tool.hourlyRateGBP}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Fast Action */}
-                <Link
-                  to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-                  className="w-full py-3 bg-[#2bb39a] hover:bg-[#258f7c] text-[#080b10] rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
-                >
-                  <span>Launch Mining Dashboard</span>
-                  <ArrowRight size={14} />
-                </Link>
-
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ── 2. CAMPAIGN CONCEPT ─────────────────────────────────────────── */}
-      <section className="p-8 md:p-10 bg-surface border border-border rounded-3xl space-y-6">
-        <div className="max-w-3xl space-y-2">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#2bb39a]">The Campaign Concept</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-            Cloud Mining Mechanics Built for Certainty
-          </h2>
-          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-            PSEmine removes the complexity, hardware overhead, and unpredictable gas costs of traditional mining. Over a dedicated 90-day event window, users deploy cloud mining tools with guaranteed hourly GBP yield rates, verified on-chain at completion.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-          <div className="p-4 rounded-2xl bg-surface-bright/50 border border-border space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/20 flex items-center justify-center font-bold">
-              <Clock size={16} />
-            </div>
-            <h3 className="text-sm font-bold text-text-primary">90-Day Fixed Window</h3>
-            <p className="text-xs text-text-secondary">Strictly time-bounded campaign period ensuring transparent settlement.</p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-surface-bright/50 border border-border space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/20 flex items-center justify-center font-bold">
-              <ShieldCheck size={16} />
-            </div>
-            <h3 className="text-sm font-bold text-text-primary">GBP Rate Protection</h3>
-            <p className="text-xs text-text-secondary">Fixed GBP hourly accruals protect your earnings from token market volatility.</p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-surface-bright/50 border border-border space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/20 flex items-center justify-center font-bold">
-              <Cpu size={16} />
-            </div>
-            <h3 className="text-sm font-bold text-text-primary">Zero Hardware Setup</h3>
-            <p className="text-xs text-text-secondary">100% cloud-hosted capacity nodes running non-stop without physical rigs.</p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-surface-bright/50 border border-border space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/20 flex items-center justify-center font-bold">
-              <Zap size={16} />
-            </div>
-            <h3 className="text-sm font-bold text-text-primary">BEP-20 Payout</h3>
-            <p className="text-xs text-text-secondary">Direct settlement to your non-custodial BNB Smart Chain address.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 3. FOUR SPECIALIZED TOOL TIERS ──────────────────────────────── */}
-      <section className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#2bb39a]">Mining Tools</span>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-              Four Specialized Capacity Tiers
-            </h2>
-            <p className="text-xs sm:text-sm text-text-secondary">
-              Acquire any combination of tools within allowed limits to scale your hourly rate.
+            <p className="pse-micro mt-6">
+              Tools from {gbp(3)} · Capacity up to {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} · Settlement in BNB
             </p>
           </div>
 
-          <Link
-            to="/mine/tools"
-            className="text-xs font-bold text-[#2bb39a] hover:underline flex items-center gap-1 shrink-0"
-          >
-            <span>View Full Specifications</span>
-            <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {toolList.map((tool) => (
-            <div
-              key={tool.id}
-              className="psemine-card flex flex-col justify-between space-y-5 group hover:border-[#2bb39a]/30"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-surface-bright border border-border text-text-secondary">
-                    Tier {tool.tier}
-                  </span>
-                  <span className="text-xs text-text-tertiary font-mono">
-                    Max: {tool.maxPerUser}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-text-primary group-hover:text-[#2bb39a] transition-colors">
-                    {tool.name}
-                  </h3>
-                  <p className="text-xs text-text-secondary mt-1 line-clamp-2 leading-relaxed">
-                    {tool.description}
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-surface-bright/50 border border-border rounded-xl space-y-1.5 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-text-tertiary">Price:</span>
-                    <span className="font-bold text-text-primary font-mono text-sm">£{tool.purchasePriceGBP.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-text-tertiary">Hourly Yield:</span>
-                    <span className="font-bold text-[#2bb39a] font-mono">+£{tool.hourlyRateGBP.toFixed(2)}/hr</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-border">
-                    <span className="text-text-tertiary">Max Tier Output:</span>
-                    <span className="font-mono text-text-primary font-semibold">
-                      £{(tool.hourlyRateGBP * tool.maxPerUser).toFixed(2)}/hr
-                    </span>
-                  </div>
-                </div>
+          {/* Verdict row: the three structural facts */}
+          <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              { k: 'Campaign', v: '90 days', s: 'Fixed duration, then settlement' },
+              { k: 'Accounting', v: 'GBP (£)', s: 'Fixed hourly capacity rates' },
+              { k: 'Payment', v: 'BNB', s: 'Verified on BNB Smart Chain' },
+            ].map(x => (
+              <div key={x.k} className="pse-card p-5 text-center">
+                <p className="pse-eyebrow">{x.k}</p>
+                <p className="pse-num mt-1.5 text-[22px] font-semibold">{x.v}</p>
+                <p className="pse-micro mt-1">{x.s}</p>
               </div>
-
-              <Link
-                to="/mine/tools"
-                className="w-full py-2.5 bg-surface-bright hover:bg-[#2bb39a] hover:text-[#080b10] text-text-primary rounded-xl text-xs font-bold text-center border border-border transition-all"
-              >
-                Inspect Tool
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── 4. HOW CAPACITY CONVERTS TO EARNINGS ─────────────────────────── */}
-      <section className="p-8 md:p-10 bg-surface border border-border rounded-3xl space-y-6">
-        <div className="max-w-3xl space-y-2">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#2bb39a]">Transparent Progression</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-            How Mining Capacity Works
-          </h2>
-          <p className="text-xs sm:text-sm text-text-secondary">
-            Your earnings grow predictably across three core mechanics throughout the campaign.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="p-5 rounded-2xl bg-surface-bright/40 border border-border space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/25 flex items-center justify-center font-bold text-sm">
-              01
-            </div>
-            <h3 className="text-base font-bold text-text-primary">Tool Deployment</h3>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              Acquiring mining tools immediately adds permanent base hourly capacity (up to £10.60/hr across all tiers).
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-surface-bright/40 border border-border space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/25 flex items-center justify-center font-bold text-sm">
-              02
-            </div>
-            <h3 className="text-base font-bold text-text-primary">Referral Capacity Boost</h3>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              Invite friends using your referral code. Each qualified friend adds +£0.30/hr up to 5 slots (+£1.50/hr total boost).
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-surface-bright/40 border border-border space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#2bb39a]/10 text-[#2bb39a] border border-[#2bb39a]/25 flex items-center justify-center font-bold text-sm">
-              03
-            </div>
-            <h3 className="text-base font-bold text-text-primary">Settlement & Payout</h3>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              On day 90, cumulative balances are converted and disbursed directly to your connected BNB Smart Chain wallet address.
-            </p>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── 5. CAMPAIGN NUMBERS & METRICS ────────────────────────────────── */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-5 bg-surface border border-border rounded-2xl text-center space-y-1">
-          <div className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Duration</div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-text-primary font-mono">90 Days</div>
-          <div className="text-[11px] text-[#2bb39a] font-medium">{campaignDaysRemaining}d remaining</div>
+      {/* ═══════════ HOW PSEMINE WORKS ═══════════ */}
+      <section className="pse-section py-16 md:py-20">
+        <div className="mb-10 max-w-2xl">
+          <p className="pse-eyebrow">How PSEmine works</p>
+          <h2 className="pse-h2 mt-2">Four steps from purchase to settlement</h2>
         </div>
-
-        <div className="p-5 bg-surface border border-border rounded-2xl text-center space-y-1">
-          <div className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Tool Tiers</div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-text-primary font-mono">4 Tiers</div>
-          <div className="text-[11px] text-text-secondary">£3.00 to £200.00</div>
-        </div>
-
-        <div className="p-5 bg-surface border border-border rounded-2xl text-center space-y-1">
-          <div className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Base Capacity</div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-[#2bb39a] font-mono">£10.60/hr</div>
-          <div className="text-[11px] text-text-secondary">Maximum tool output</div>
-        </div>
-
-        <div className="p-5 bg-surface border border-border rounded-2xl text-center space-y-1">
-          <div className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Peak Rate</div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-text-primary font-mono">£12.10/hr</div>
-          <div className="text-[11px] text-[#2bb39a]">Tools + 5 Referrals</div>
-        </div>
-      </section>
-
-      {/* ── 6. FAQ SECTION ──────────────────────────────────────────────── */}
-      <section className="space-y-6 max-w-4xl mx-auto">
-        <div className="text-center space-y-2">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-[#2bb39a]">Frequently Asked Questions</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-            Everything You Need to Know
-          </h2>
-          <p className="text-xs sm:text-sm text-text-secondary">
-            Clear, transparent answers about the campaign mechanics, tools, and payouts.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {faqs.map((faq, idx) => {
-            const isOpen = openFaq === idx;
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {HOW_IT_WORKS.map((s, i) => {
+            const Icon = s.icon;
             return (
-              <div 
-                key={idx}
-                className="bg-surface border border-border rounded-2xl overflow-hidden transition-colors"
-              >
-                <button
-                  onClick={() => setOpenFaq(isOpen ? null : idx)}
-                  className="w-full p-5 text-left flex items-center justify-between gap-4"
-                >
-                  <span className="text-sm font-bold text-text-primary flex items-center gap-2.5">
-                    <HelpCircle size={16} className="text-[#2bb39a] shrink-0" />
-                    <span>{faq.q}</span>
-                  </span>
-                  <ChevronDown className={cn("w-4 h-4 text-text-tertiary transition-transform duration-200", isOpen && "rotate-180")} />
-                </button>
-
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="px-5 pb-5 pt-0 text-xs sm:text-sm text-text-secondary leading-relaxed border-t border-border/50">
-                        {faq.a}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              <div key={s.title} className="pse-card pse-card-hover flex gap-4 p-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: 'rgba(46,144,250,0.10)', border: '1px solid rgba(46,144,250,0.25)' }}>
+                  <Icon size={17} style={{ color: 'var(--pse-blue)' }} />
+                </div>
+                <div>
+                  <p className="pse-micro mb-1">Step {i + 1}</p>
+                  <p className="pse-h3">{s.title}</p>
+                  <p className="pse-caption mt-1.5">{s.body}</p>
+                </div>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* ── 7. FINAL HIGH-CONVERSION CTA ─────────────────────────────────── */}
-      <section className="p-8 sm:p-10 bg-gradient-to-br from-[#0D1420] to-[#080C14] border border-[#2bb39a]/20 rounded-3xl text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="space-y-2 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#2bb39a]/10 text-[#2bb39a] text-[10px] font-bold uppercase tracking-wider border border-[#2bb39a]/25">
-            <span>Event In Progress</span>
+      {/* ═══════════ MINING TOOLS ═══════════ */}
+      <section className="border-y py-16 md:py-20" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+        <div className="pse-section">
+          <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div className="max-w-2xl">
+              <p className="pse-eyebrow">Mining tools</p>
+              <h2 className="pse-h2 mt-2">Four tools. Fixed rates. Owned outright for the campaign.</h2>
+              <p className="pse-caption mt-3">
+                Every tool runs the same operating cycle: 24 hours of accrual, a completed-cycle window, and one free maintenance action to restart.
+              </p>
+            </div>
+            <Link to="/mine/tools" className="pse-btn pse-btn-secondary shrink-0">
+              Open marketplace <ArrowRight size={14} />
+            </Link>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Ready to Build Your Hourly Mining Rate?
-          </h2>
-          <p className="text-xs sm:text-sm text-text-secondary max-w-xl">
-            Join the 90-day campaign today. Establish your capacity nodes and start accruing GBP value around the clock.
-          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {TOOLS.map(t => (
+              <div key={t.id} className="pse-card pse-card-hover flex flex-col p-6">
+                <div className="flex items-center justify-between">
+                  <span className="pse-eyebrow">Tier {t.tier}</span>
+                  <Chip label={`Max ${t.maxPerUser}`} chip="pse-chip pse-chip-neutral" dot={false} />
+                </div>
+                <p className="pse-h3 mt-3">{t.name}</p>
+                <p className="pse-micro mt-1.5 min-h-[32px]">{t.tagline}</p>
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span className="pse-num text-[26px] font-semibold" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</span>
+                </div>
+                <div className="pse-micro mt-3 space-y-1.5" style={{ color: 'var(--pse-text-2)' }}>
+                  <div className="flex justify-between"><span>Price</span><span className="pse-num font-semibold">{gbp(t.purchasePriceGBP)}</span></div>
+                  <div className="flex justify-between"><span>Cycle</span><span>24h operating</span></div>
+                  <div className="flex justify-between"><span>Maintenance</span><span>Free</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-
-        <Link
-          to={currentUser ? "/mine/dashboard" : "/signup?redirect=/mine/dashboard"}
-          className="psemine-btn-primary py-4 px-9 text-xs font-bold shrink-0 flex items-center gap-2 shadow-lg shadow-[#2bb39a]/25"
-        >
-          <span>{currentUser ? "Open Mining Console" : "Join PSEmine"}</span>
-          <ArrowRight size={16} />
-        </Link>
       </section>
 
+      {/* ═══════════ CAPACITY SYSTEM ═══════════ */}
+      <section className="pse-section py-16 md:py-20">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
+          <div>
+            <p className="pse-eyebrow">Capacity system</p>
+            <h2 className="pse-h2 mt-2">Additive capacity, capped and predictable</h2>
+            <p className="pse-caption mt-4">
+              Your hourly capacity is the sum of your tools plus your qualified referrals — nothing else.
+              The backend calculates every figure; the app only displays what the server reports.
+            </p>
+            <ul className="mt-6 space-y-3">
+              {[
+                'Tool capacity: capped at £10.60/hour across all four tool tiers.',
+                'Referral capacity: +£0.30/hour per qualified referral, up to 5.',
+                'Total capacity: capped at £12.10/hour.',
+              ].map(x => (
+                <li key={x} className="flex items-start gap-2.5 text-[14px]" style={{ color: 'var(--pse-text-2)' }}>
+                  <Check size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
+                  {x}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="pse-card p-6 md:p-8">
+            <p className="pse-eyebrow mb-5">Peak capacity composition</p>
+            <div className="space-y-3">
+              <CompositionRow label="Tools (all tiers)" value="£10.60/hour" pct={87.6} color="var(--pse-blue)" />
+              <CompositionRow label="Referrals (5 qualified)" value="+£1.50/hour" pct={12.4} color="var(--pse-purple)" />
+              <div className="pse-divider my-4" />
+              <div className="flex items-baseline justify-between">
+                <span className="pse-body font-semibold" style={{ color: 'var(--pse-text)' }}>Maximum total capacity</span>
+                <span className="pse-num text-[24px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>£12.10/hour</span>
+              </div>
+            </div>
+            <p className="pse-micro mt-5">
+              Accrual depends on active operating cycles — a tool between cycles does not accrue until maintenance restarts it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ REFERRAL CAPACITY ═══════════ */}
+      <section className="border-y py-16 md:py-20" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+        <div className="pse-section grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
+          <div className="order-2 lg:order-1">
+            <div className="pse-card p-6 md:p-8">
+              <p className="pse-eyebrow mb-5">Referral qualification path</p>
+              <ol className="space-y-4">
+                {[
+                  ['Registered', 'Your invite signs up with your code.'],
+                  ['Wallet Connected', 'They connect a BNB Smart Chain wallet.'],
+                  ['Tool Purchased', 'They buy their first mining tool.'],
+                  ['Mining Active', 'Their tool activates and starts operating.'],
+                  ['Qualified', '+£0.30/hour is added to your capacity.'],
+                ].map(([t, d], i, arr) => (
+                  <li key={t} className="flex gap-3.5">
+                    <div className="flex flex-col items-center">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-bold"
+                        style={i === arr.length - 1
+                          ? { borderColor: 'var(--pse-success)', color: 'var(--pse-success)', background: 'rgba(46,206,132,0.1)' }
+                          : { borderColor: 'var(--pse-line-strong)', color: 'var(--pse-text-3)' }}>
+                        {i + 1}
+                      </span>
+                      {i < arr.length - 1 && <span className="mt-1 w-px flex-1" style={{ background: 'var(--pse-line)' }} />}
+                    </div>
+                    <div className="pb-1">
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--pse-text)' }}>{t}</p>
+                      <p className="pse-micro">{d}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+          <div className="order-1 lg:order-2">
+            <p className="pse-eyebrow">Referral capacity</p>
+            <h2 className="pse-h2 mt-2">+£0.30/hour per qualified referral</h2>
+            <p className="pse-caption mt-4">
+              A referral only counts once it is qualified on the backend — after your invite registers, connects a wallet,
+              and activates their first tool. Five referral slots maximum, worth +£1.50/hour at full capacity.
+              Capacity changes always apply from the qualification time forward, never retroactively.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ CAMPAIGN TIMELINE ═══════════ */}
+      <section className="pse-section py-16 md:py-20">
+        <div className="mb-10 max-w-2xl">
+          <p className="pse-eyebrow">Campaign timeline</p>
+          <h2 className="pse-h2 mt-2">One 90-day arc, four phases</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          {[
+            { icon: Clock, t: 'Day 0', h: 'Campaign start', d: 'Purchases open and tools begin their operating cycles.' },
+            { icon: Cog, t: 'Days 1–90', h: 'Operations', d: 'Cycles run, maintenance keeps tools active, capacity accrues hourly.' },
+            { icon: Repeat, t: 'Day 90', h: 'Settlement', d: 'Accrual stops. Final balances are calculated from the mining ledger.' },
+            { icon: Landmark, t: 'After day 90', h: 'Payout', d: 'Reviewed payouts are sent to configured BNB Smart Chain wallets.' },
+          ].map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <div key={p.h} className="pse-card relative p-6">
+                <span className="pse-eyebrow">{p.t}</span>
+                <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-xl"
+                  style={{ background: 'rgba(139,124,246,0.10)', border: '1px solid rgba(139,124,246,0.25)' }}>
+                  <Icon size={16} style={{ color: 'var(--pse-purple)' }} />
+                </div>
+                <p className="pse-h3 mt-3">{p.h}</p>
+                <p className="pse-caption mt-1.5">{p.d}</p>
+                {i < 3 && <CircleDot size={12} className="absolute right-4 top-6 hidden md:block" style={{ color: 'var(--pse-text-3)' }} />}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ═══════════ WALLET / BNB PAYMENT ═══════════ */}
+      <section className="border-y py-16 md:py-20" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+        <div className="pse-section">
+          <div className="mb-10 max-w-2xl">
+            <p className="pse-eyebrow">Paying with BNB</p>
+            <h2 className="pse-h2 mt-2">Quotes, exact amounts, on-chain verification</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              { icon: Wallet, h: 'Live quote', d: 'Every purchase starts with a server-generated quote: the fixed GBP price converted to an exact BNB amount at the live rate. Quotes expire in 15 minutes.' },
+              { icon: Layers, h: 'Exact transfer', d: 'You send the quoted BNB amount to the campaign\u2019s receiving wallet on BNB Smart Chain from your connected wallet. Underpayments are caught by verification.' },
+              { icon: ShieldCheck, h: 'Backend verification', d: 'The backend verifies the transaction hash on-chain — sender, recipient, amount, and confirmation depth — before activating anything. The app never self-confirms a payment.' },
+            ].map(x => {
+              const Icon = x.icon;
+              return (
+                <div key={x.h} className="pse-card p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{ background: 'rgba(34,211,238,0.09)', border: '1px solid rgba(34,211,238,0.25)' }}>
+                    <Icon size={17} style={{ color: 'var(--pse-cyan)' }} />
+                  </div>
+                  <p className="pse-h3 mt-4">{x.h}</p>
+                  <p className="pse-caption mt-1.5">{x.d}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ SECURITY / VERIFICATION ═══════════ */}
+      <section className="pse-section py-16 md:py-20">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
+          <div>
+            <p className="pse-eyebrow">Security & verification</p>
+            <h2 className="pse-h2 mt-2">Server-authoritative by design</h2>
+            <p className="pse-caption mt-4">
+              PSEmine is built so that no value in the app can be claimed, forged, or double-counted from the client side.
+              The browser displays state; the backend computes it.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {[
+              { icon: Lock, t: 'Ledger-based balances', d: 'Earnings live in an append-only mining ledger with deterministic entries — not in editable client fields.' },
+              { icon: ShieldCheck, t: 'On-chain payment proofs', d: 'Purchases activate only after the backend verifies the BNB transaction on BNB Smart Chain, with replay protection.' },
+              { icon: Wrench, t: 'Enforced operating cycles', d: 'Cycle state, maintenance, and accrual windows are derived and validated on the server at every step.' },
+              { icon: Users, t: 'Single qualification path', d: 'Referrals qualify once, through one auditable backend path, with anti-abuse checks.' },
+            ].map(x => {
+              const Icon = x.icon;
+              return (
+                <div key={x.t} className="pse-card flex gap-4 p-5">
+                  <Icon size={17} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-blue)' }} />
+                  <div>
+                    <p className="text-[14px] font-semibold" style={{ color: 'var(--pse-text)' }}>{x.t}</p>
+                    <p className="pse-caption mt-0.5">{x.d}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ FAQ ═══════════ */}
+      <section className="border-t py-16 md:py-20" style={{ borderColor: 'var(--pse-line)' }}>
+        <div className="pse-section max-w-3xl">
+          <div className="mb-10">
+            <p className="pse-eyebrow">FAQ</p>
+            <h2 className="pse-h2 mt-2">Frequently asked questions</h2>
+          </div>
+          <div className="space-y-2.5">
+            {FAQS.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <div key={f.q} className="pse-card overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(open ? null : i)}
+                    className="flex w-full items-center justify-between gap-4 p-5 text-left"
+                    aria-expanded={open}
+                  >
+                    <span className="text-[14px] font-semibold" style={{ color: 'var(--pse-text)' }}>{f.q}</span>
+                    <ChevronDown size={16} className={cn('shrink-0 transition-transform', open && 'rotate-180')} style={{ color: 'var(--pse-text-3)' }} />
+                  </button>
+                  {open && <p className="pse-caption px-5 pb-5">{f.a}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ FINAL CTA ═══════════ */}
+      <section className="pse-hero-surface border-t" style={{ borderColor: 'var(--pse-line)' }}>
+        <div className="pse-section py-16 text-center md:py-20">
+          <h2 className="pse-h2 mx-auto max-w-xl">The campaign runs for 90 days. Capacity accrues every operating hour.</h2>
+          <p className="pse-caption mx-auto mt-3 max-w-md">
+            {purchaseEnabled
+              ? 'Purchase a tool, keep it in cycle, and let the campaign settle your earnings at the end.'
+              : 'Purchases are currently closed. The guide explains how the campaign works while you wait.'}
+          </p>
+          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link to={currentUser ? '/mine/dashboard' : '/mine/signup'} className="pse-btn pse-btn-primary pse-btn-lg w-full sm:w-auto">
+              {currentUser ? 'Open your console' : 'Create your account'} <ArrowRight size={15} />
+            </Link>
+            <Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-lg w-full sm:w-auto">Browse tools</Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
+
+function CompositionRow({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <span className="pse-caption">{label}</span>
+        <span className="pse-num text-[14px] font-semibold">{value}</span>
+      </div>
+      <div className="pse-meter">
+        <div className="pse-meter-fill" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
 
 export default PSEMineLanding;

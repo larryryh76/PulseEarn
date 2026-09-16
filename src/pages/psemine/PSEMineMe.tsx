@@ -1,384 +1,207 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  User, 
-  ShieldCheck, 
-  Wallet, 
-  Users, 
-  BookOpen, 
-  History, 
-  HelpCircle, 
-  LogOut, 
-  Copy, 
-  Check, 
-  ChevronRight, 
-  ArrowLeft,
-  Lock
+import {
+  Wallet, ShieldCheck, ChevronRight, LogOut, KeyRound, Eye, EyeOff,
+  CheckCircle2, AlertCircle, BookOpen, LifeBuoy, Lock,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
-import { usePSEMine } from '../../contexts/PSEMineContext';
-import { cn } from '../../utils';
+import { usePseState } from '../../components/psemine/PseStateProvider';
+import {
+  PageHeader, shortAddr, fmtDateTime, Chip, gbpHour, campaignStatusView,
+} from '../../components/psemine/pse';
+import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { auth } from '../../firebase/config';
 import toast from 'react-hot-toast';
+import { mapAuthError } from '../../utils/errors';
 
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout } = usePSEMineAuth();
-  const { 
-    pseUser, 
-    connectedWallet, 
-    disconnectWallet, 
-    campaignDaysRemaining, 
-    liveAccruedGBP 
-  } = usePSEMine();
+  const { state, campaignStatus } = usePseState();
   const navigate = useNavigate();
 
-  const [copiedRef, setCopiedRef] = useState(false);
-  const [copiedWallet, setCopiedWallet] = useState(false);
+  // Password change (requires reauthentication — Firebase security requirement)
+  const [pwOpen, setPwOpen] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwDone, setPwDone] = useState(false);
 
-  const referralCode = userData?.referralCode || currentUser?.uid?.slice(0, 8).toUpperCase() || 'MINER';
-  const referralLink = `${window.location.origin}/signup?ref=${referralCode}&redirect=/mine/dashboard`;
-
-  const copyReferral = () => {
-    navigator.clipboard.writeText(referralLink);
-    setCopiedRef(true);
-    toast.success('Referral link copied');
-    setTimeout(() => setCopiedRef(false), 2000);
-  };
-
-  const copyAddress = (addr: string) => {
-    navigator.clipboard.writeText(addr);
-    setCopiedWallet(true);
-    toast.success('Address copied');
-    setTimeout(() => setCopiedWallet(false), 2000);
-  };
+  const campaignView = campaignStatusView(campaignStatus);
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (e: unknown) {
-      const err = e as Error;
-      toast.error(err?.message || 'Logout failed');
-    }
+    try { await logout(); navigate('/mine/login', { replace: true }); }
+    catch { toast.error('Sign out failed. Please try again.'); }
   };
 
-  const totalHardwareUnits = pseUser?.toolOwnershipCounts 
-    ? Object.values(pseUser.toolOwnershipCounts).reduce((a, b) => a + b, 0)
-    : 0;
+  const changePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPw.length < 8) { toast.error('New password must be at least 8 characters.'); return; }
+    if (newPw !== confirmPw) { toast.error('New passwords don\u2019t match.'); return; }
+    setPwBusy(true);
+    try {
+      const user = auth.currentUser;
+      if (!user?.email) throw new Error('Not signed in.');
+      const cred = EmailAuthProvider.credential(user.email, currentPw);
+      await reauthenticateWithCredential(user, cred);
+      await firebaseUpdatePassword(user, newPw);
+      setPwDone(true);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      toast.success('Password updated.');
+    } catch (error) {
+      toast.error(mapAuthError(error));
+    } finally { setPwBusy(false); }
+  };
 
   return (
-    <div className="pt-20 md:pt-24 pb-28 px-4 md:px-6 lg:px-8 max-w-4xl mx-auto space-y-6 md:space-y-8 transition-colors">
-      
-      {/* ── TOP HEADER ─────────────────────────────────────────────────── */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between gap-4"
-      >
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.2em]">
-              PSEmine Account
-            </span>
+    <div className="pse-section max-w-3xl space-y-4 pb-24 pt-6 md:pt-8">
+      <PageHeader eyebrow="Account" title="Account & settings" sub="Your PSEmine identity, security, and campaign information." />
+
+      {/* Account */}
+      <section className="pse-card p-5">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full text-[15px] font-bold"
+            style={{ background: 'rgba(46,144,250,0.12)', color: 'var(--pse-blue)', border: '1px solid rgba(46,144,250,0.3)' }}>
+            {(currentUser?.email || '?').slice(0, 1).toUpperCase()}
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-            Account & Settings
-          </h1>
-          <p className="text-xs md:text-sm text-text-secondary">
-            Manage your mining identity, connected wallets, and settlement preferences.
-          </p>
+          <div className="min-w-0">
+            <p className="pse-h3 truncate">{userData?.username || 'PSEmine miner'}</p>
+            <p className="pse-micro truncate">{currentUser?.email}</p>
+          </div>
         </div>
-
-        <Link
-          to="/mine/dashboard"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-bright border border-border rounded-xl text-xs font-bold text-text-secondary hover:text-text-primary transition-all shadow-subtle shrink-0"
-        >
-          <ArrowLeft size={14} />
-          <span>Mining Overview</span>
-        </Link>
-      </motion.div>
-
-      {/* ── PROFILE OVERVIEW CARD ───────────────────────────────────────── */}
-      <div className="p-6 md:p-7 bg-surface border border-border rounded-2xl md:rounded-3xl shadow-subtle relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-          
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a] font-bold text-xl shrink-0 font-mono">
-              {currentUser?.email ? currentUser.email.slice(0, 2).toUpperCase() : <User size={24} />}
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-text-primary text-base md:text-lg">
-                  {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Miner'}
-                </span>
-                <span className="psemine-badge-emerald">
-                  PSEmine 90D
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary font-mono">
-                {currentUser?.email}
-              </p>
-              <div className="flex items-center gap-2 text-[11px] text-text-tertiary pt-0.5">
-                <span className="inline-flex items-center text-[#2bb39a] font-medium">
-                  <ShieldCheck size={14} className="mr-1" />
-                  Authenticated
-                </span>
-                <span>•</span>
-                <span className="font-mono">UID: {currentUser?.uid ? `${currentUser.uid.slice(0, 8)}...` : 'N/A'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="sm:text-right border-t sm:border-t-0 pt-4 sm:pt-0 border-border">
-            <div className="text-xs text-text-tertiary font-medium">Estimated Earnings</div>
-            <div className="text-2xl md:text-3xl font-black text-text-primary font-mono tabular-nums tracking-tight mt-0.5">
-              £{liveAccruedGBP.toFixed(2)}
-            </div>
-            <div className="text-[11px] text-[#2bb39a] font-mono font-bold mt-0.5">
-              +£{(pseUser?.totalCapacityGBPPerHour || 0).toFixed(2)}/hour rate
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── QUICK METRICS ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
-          <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Active Tools</div>
-          <div className="text-lg md:text-xl font-bold text-text-primary font-mono tabular-nums mt-1">
-            {totalHardwareUnits} <span className="text-xs text-text-tertiary font-normal">Tools</span>
-          </div>
-          <Link to="/mine/tools" className="text-[10px] text-[#2bb39a] hover:underline font-bold uppercase tracking-wider mt-2 inline-block">
-            View Tools →
-          </Link>
-        </div>
-
-        <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
-          <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Tool Rate</div>
-          <div className="text-lg md:text-xl font-bold text-[#2bb39a] font-mono tabular-nums mt-1">
-            £{(pseUser?.toolCapacityGBPPerHour || 0).toFixed(2)}<span className="text-xs text-text-tertiary font-normal">/hr</span>
-          </div>
-          <span className="text-[10px] text-text-tertiary mt-2 inline-block">Cap: £10.60/hr</span>
-        </div>
-
-        <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
-          <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Referral Boost</div>
-          <div className="text-lg md:text-xl font-bold text-[#2bb39a] font-mono tabular-nums mt-1">
-            +£{(pseUser?.referralCapacityGBPPerHour || 0).toFixed(2)}<span className="text-xs text-text-tertiary font-normal">/hr</span>
-          </div>
-          <span className="text-[10px] text-text-tertiary mt-2 inline-block">{pseUser?.qualifiedReferralsCount || 0}/5 Qualified</span>
-        </div>
-
-        <div className="p-4 md:p-5 bg-surface border border-border rounded-xl md:rounded-2xl">
-          <div className="text-[11px] text-text-tertiary font-bold uppercase tracking-wider">Campaign Window</div>
-          <div className="text-lg md:text-xl font-bold text-text-primary font-mono tabular-nums mt-1">
-            {campaignDaysRemaining} <span className="text-xs text-text-tertiary font-normal">Days</span>
-          </div>
-          <span className="text-[10px] text-text-tertiary mt-2 inline-block">90-Day Campaign</span>
-        </div>
-      </div>
-
-      {/* ── WALLET CONFIGURATIONS SECTION ───────────────────────────────── */}
-      <div className="space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-text-tertiary px-1">
-          Wallets
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* 1. Connected Wallet */}
-          <div className="p-5 md:p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 flex flex-col justify-between shadow-subtle">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a]">
-                    <Wallet size={16} />
-                  </div>
-                  <span className="font-bold text-text-primary text-sm">Payment Wallet</span>
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-surface-bright text-text-secondary border border-border">
-                  BNB Smart Chain
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary mt-2">
-                Used to authorize BNB payments when purchasing mining tools.
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
-              {connectedWallet ? (
-                <>
-                  <span className="font-mono text-text-primary">
-                    {`${connectedWallet.slice(0, 6)}...${connectedWallet.slice(-4)}`}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => copyAddress(connectedWallet)}
-                      className="text-text-tertiary hover:text-text-primary p-1 transition-colors"
-                      title="Copy Address"
-                    >
-                      {copiedWallet ? <Check size={14} className="text-[#2bb39a]" /> : <Copy size={14} />}
-                    </button>
-                    <button
-                      onClick={disconnectWallet}
-                      className="text-danger hover:opacity-80 font-bold text-[11px] transition-opacity"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <span className="text-text-tertiary">Not Connected</span>
-                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold">
-                    Connect Wallet →
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* 2. Payout Wallet */}
-          <div className="p-5 md:p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 flex flex-col justify-between shadow-subtle">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 border border-[#2bb39a]/20 flex items-center justify-center text-[#2bb39a]">
-                    <Lock size={16} />
-                  </div>
-                  <span className="font-bold text-text-primary text-sm">Payout Settlement Address</span>
-                </div>
-                <span className={cn(
-                  "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
-                  pseUser?.payoutWallet 
-                    ? "bg-[#2bb39a]/10 text-[#2bb39a] border-[#2bb39a]/20" 
-                    : "bg-warning/10 text-warning border-warning/20"
-                )}>
-                  {pseUser?.payoutWallet ? 'Configured' : 'Action Required'}
-                </span>
-              </div>
-              <p className="text-xs text-text-secondary mt-2">
-                Destination address where finalized campaign earnings will be disbursed.
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
-              {pseUser?.payoutWallet ? (
-                <>
-                  <span className="font-mono text-[#2bb39a] font-bold">
-                    {`${pseUser.payoutWallet.slice(0, 6)}...${pseUser.payoutWallet.slice(-4)}`}
-                  </span>
-                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold text-[11px]">
-                    Change Address →
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <span className="text-warning text-[11px] font-medium">Payout address not set</span>
-                  <Link to="/mine/wallet" className="text-[#2bb39a] hover:underline font-bold text-[11px]">
-                    Configure Payout →
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── REFERRAL PROGRAM CARD ───────────────────────────────────────── */}
-      <div className="p-5 md:p-6 bg-surface border border-border rounded-2xl md:rounded-3xl space-y-4 shadow-subtle">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <Users size={16} className="text-[#2bb39a]" />
-              <h3 className="font-bold text-text-primary text-sm md:text-base">Referral Boost</h3>
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              Earn +£0.30/hr per qualified friend up to 5 referrals (+£1.50/hr permanent boost).
+        <div className="pse-divider my-4" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="pse-inset p-3.5">
+            <p className="pse-eyebrow">Email status</p>
+            <p className="pse-caption mt-1 flex items-center gap-1.5 font-medium" style={{ color: currentUser?.emailVerified ? 'var(--pse-success)' : 'var(--pse-warning)' }}>
+              {currentUser?.emailVerified ? <><CheckCircle2 size={13} /> Verified</> : <><AlertCircle size={13} /> Not verified</>}
             </p>
           </div>
-
-          <Link
-            to="/mine/referrals"
-            className="text-xs font-bold text-[#2bb39a] hover:underline flex items-center gap-1 uppercase tracking-wider"
-          >
-            <span>View Referrals</span>
-            <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        <div className="p-3.5 bg-surface-bright/50 border border-border rounded-xl flex items-center justify-between gap-2">
-          <div className="font-mono text-xs text-text-primary truncate max-w-[240px] sm:max-w-md">
-            {referralLink}
+          <div className="pse-inset p-3.5">
+            <p className="pse-eyebrow">Member since</p>
+            <p className="pse-caption mt-1 font-medium">{fmtDateTime(userData?.createdAt) || '—'}</p>
           </div>
-          <button
-            onClick={copyReferral}
-            className="psemine-btn-primary px-4 py-2 text-xs flex items-center gap-1.5 shrink-0"
-          >
-            {copiedRef ? <Check size={14} /> : <Copy size={14} />}
-            <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+        </div>
+      </section>
+
+      {/* Wallet summary */}
+      <Link to="/mine/wallet" className="pse-card pse-card-hover p-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+            <Wallet size={16} style={{ color: 'var(--pse-blue)' }} />
+          </div>
+          <div>
+            <p className="pse-h3">Wallet & payouts</p>
+            <p className="pse-micro mt-0.5">
+              {state?.user?.payoutWallet ? `Payout to ${shortAddr(state.user.payoutWallet)}` : 'Payout wallet not yet set'}
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: 'var(--pse-text-3)' }} />
+      </Link>
+
+      {/* Security */}
+      <section className="pse-card p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+              style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+              <ShieldCheck size={16} style={{ color: 'var(--pse-success)' }} />
+            </div>
+            <div>
+              <p className="pse-h3">Security</p>
+              <p className="pse-micro mt-0.5">Password changes require reauthentication.</p>
+            </div>
+          </div>
+          <button onClick={() => setPwOpen(v => !v)} className="pse-btn pse-btn-secondary pse-btn-sm shrink-0">
+            <KeyRound size={13} /> {pwOpen ? 'Close' : 'Change password'}
           </button>
         </div>
-      </div>
 
-      {/* ── QUICK NAVIGATION LINKS ─────────────────────────────��──────��─── */}
-      <div className="bg-surface border border-border rounded-2xl md:rounded-3xl divide-y divide-border text-xs overflow-hidden shadow-subtle">
-        
-        <Link
-          to="/mine/guide"
-          className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
-        >
-          <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
-              <BookOpen size={16} />
+        {pwOpen && (
+          pwDone ? (
+            <div className="pse-inset mt-4 flex items-center gap-2.5 p-3.5">
+              <CheckCircle2 size={15} style={{ color: 'var(--pse-success)' }} />
+              <p className="pse-caption">Password updated. Use it next time you sign in.</p>
             </div>
-            <span>Campaign Guide & FAQ</span>
+          ) : (
+            <form onSubmit={changePassword} className="mt-4 space-y-3">
+              <label className="block">
+                <span className="pse-caption mb-1.5 block font-medium" style={{ color: 'var(--pse-text-2)' }}>Current password</span>
+                <div className="relative">
+                  <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
+                  <input type={showPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)}
+                    className="pse-input pl-10" autoComplete="current-password" required />
+                </div>
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="pse-caption mb-1.5 block font-medium" style={{ color: 'var(--pse-text-2)' }}>New password</span>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)}
+                      className="pse-input pr-10" autoComplete="new-password" minLength={8} required />
+                    <button type="button" onClick={() => setShowPw(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }}
+                      aria-label={showPw ? 'Hide passwords' : 'Show passwords'}>
+                      {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="pse-caption mb-1.5 block font-medium" style={{ color: 'var(--pse-text-2)' }}>Confirm new password</span>
+                  <input type={showPw ? 'text' : 'password'} value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+                    className="pse-input" autoComplete="new-password" minLength={8} required />
+                </label>
+              </div>
+              <button type="submit" disabled={pwBusy} className="pse-btn pse-btn-primary pse-btn-sm">
+                {pwBusy ? 'Updating…' : 'Update password'}
+              </button>
+            </form>
+          )
+        )}
+      </section>
+
+      {/* Campaign information */}
+      <section className="pse-card p-5">
+        <p className="pse-h3">Campaign information</p>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="pse-inset p-3.5">
+            <p className="pse-eyebrow">Campaign status</p>
+            <div className="mt-1.5"><Chip label={campaignView.label} chip={campaignView.chip} pulse={campaignView.live} /></div>
           </div>
-          <ChevronRight size={16} className="text-text-tertiary" />
-        </Link>
-
-        <Link
-          to="/mine/activity"
-          className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
-        >
-          <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
-              <History size={16} />
-            </div>
-            <span>Activity Ledger</span>
+          <div className="pse-inset p-3.5">
+            <p className="pse-eyebrow">Your capacity</p>
+            <p className="pse-num pse-caption mt-1.5 font-semibold">{gbpHour(state?.user?.totalCapacityGBPPerHour)}</p>
           </div>
-          <ChevronRight size={16} className="text-text-tertiary" />
+        </div>
+        <Link to="/mine/guide" className="pse-caption mt-4 inline-flex items-center gap-1.5 font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+          <BookOpen size={13} /> Campaign guide
         </Link>
+      </section>
 
-        <Link
-          to="/mine/guide"
-          className="p-4 flex items-center justify-between hover:bg-surface-bright/60 transition-colors"
-        >
-          <div className="flex items-center gap-3 text-text-primary font-medium">
-            <div className="w-8 h-8 rounded-lg bg-[#2bb39a]/10 flex items-center justify-center text-[#2bb39a]">
-              <HelpCircle size={16} />
-            </div>
-            <span>Campaign FAQ & Troubleshooting</span>
+      {/* Support */}
+      <Link to="/help" className="pse-card pse-card-hover p-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+            <LifeBuoy size={16} style={{ color: 'var(--pse-cyan)' }} />
           </div>
-          <ChevronRight size={16} className="text-text-tertiary" />
-        </Link>
+          <div>
+            <p className="pse-h3">Support</p>
+            <p className="pse-micro mt-0.5">Questions about tools, payments, or settlement.</p>
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: 'var(--pse-text-3)' }} />
+      </Link>
 
-      </div>
-
-      {/* ── LOGOUT ACTION ───────────────────────────────────────────────── */}
-      <div className="pt-2">
-        <button
-          onClick={handleLogout}
-          className="w-full py-3.5 bg-surface hover:bg-danger/10 border border-border hover:border-danger/30 rounded-xl md:rounded-2xl text-text-secondary hover:text-danger text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-subtle"
-        >
-          <LogOut size={16} className="text-danger" />
-          <span>Sign Out</span>
-        </button>
-      </div>
-
+      {/* Sign out */}
+      <button onClick={() => void handleLogout()} className="pse-btn pse-btn-danger w-full justify-center py-3">
+        <LogOut size={14} /> Sign out of PSEmine
+      </button>
     </div>
   );
 };
+
+export default PSEMineMe;

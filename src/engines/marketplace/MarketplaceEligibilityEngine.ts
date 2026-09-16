@@ -215,7 +215,7 @@ export class MarketplaceEligibilityEngine {
     const visibility = eligible ? 'visible' : (reasons.includes('Hidden by user preferences') ? 'hidden' : 'locked');
 
     // Priority Scoring Algorithm
-    let priorityScore = calculatePriorityScore(opportunity, userData, profile, eligible);
+    const priorityScore = calculatePriorityScore(opportunity, userData, profile, eligible);
 
     return {
       eligible,

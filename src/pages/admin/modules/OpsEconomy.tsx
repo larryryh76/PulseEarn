@@ -117,7 +117,9 @@ const OpsEconomy: React.FC = () => {
       try {
         const snap = await getCountFromServer(collection(db, 'users'));
         setStats(prev => ({ ...prev, totalUsers: snap.data().count }));
-      } catch (err) {}
+      } catch {
+        // Count is best-effort; the fallback stats stand.
+      }
     })();
 
     const activePredUnsub = onSnapshot(query(collection(db, 'user_predictions'), where('status', '==', 'ACTIVE')), (snap) => {
@@ -147,7 +149,7 @@ const OpsEconomy: React.FC = () => {
         setEconomyConfig(newConfig);
         toast.success('Global Economy Configuration Updated');
         setIsConfiguring(false);
-     } catch (err) {
+     } catch {
         toast.error('Config Update Failure');
      } finally {
         setIsSubmitting(false);
@@ -180,7 +182,7 @@ const OpsEconomy: React.FC = () => {
         } else {
            toast.error(result.error);
         }
-     } catch (err) {
+     } catch {
         toast.error('Transaction Authority Failure');
      } finally {
         setIsSubmitting(false);

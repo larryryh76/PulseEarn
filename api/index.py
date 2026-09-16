@@ -12,6 +12,45 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from functools import wraps
 
+def mine_record_activity(uid, *, _type, title, description, metadata=None):
+    """Canonical top-level psemine_activities write for /api/mine/* flows
+    (Phase 3 completion). Fire-and-forget: an activity failure must never
+    roll back an economic transition. Owner-scoped by userId; consumed by
+    GET /api/mine/activities -> /mine/activity page.
+    """
+    try:
+        _db = get_db()
+        if not _db:
+            return
+        act_ref = _db.collection('psemine_activities').document()
+        act_ref.set({
+            'id': act_ref.id, 'userId': uid, 'type': _type,
+            'title': title, 'description': description,
+            'metadata': metadata or {},
+            'createdAt': firestore.SERVER_TIMESTAMP,
+        })
+    except Exception:
+        logging.warning('[PSEmine] activity record failed', exc_info=True)
+
+
+def mine_notify(uid, *, notif_id, type, title, message, related=None):
+    """Canonical notification write for /api/mine/* flows (Phase 3 completion).
+    Delegates to the engine's idempotent writer: deterministic notif_id means
+    .set() overwrites instead of duplicating, so retried flows and repair
+    sweeps can never create duplicate notifications. Fire-and-forget.
+    """
+    try:
+        _db = get_db()
+        if not _db:
+            return
+        import psemine_engine as _pse_engine
+        _pse_engine.record_notification(
+            _db, uid, notif_id=notif_id, type=type, title=title,
+            message=message, related=related)
+    except Exception:
+        logging.warning('[PSEmine] notification write failed', exc_info=True)
+
+
 def compute_account_age_days(created_at):
     if not created_at:
         return 0
@@ -7802,21 +7841,27 @@ def verify_psemine_tool_purchase():
                 logging.error(f"[PSEmine] referral repair record failed for {uid}", exc_info=True)
             logging.warning(f"[PSEmine Purchase] Referral qualification notice: {ref_err}")
 
-        # 8. Log user activity in subcollection
+        # 8. Canonical activity + notification (Phase 3 completion). The
+        # previous writer here created documents in the
+        # psemine_users/{uid}/activity SUBCOLLECTION, in-place replacement.
+        # No reader consumes that subcollection (the Phase-1 context listener
+        # was deliberately removed in favor of the canonical top-level feed).
         try:
-            db.collection('psemine_users').document(uid).collection('activity').document().set({
-                'id': f"act_{int(time.time() * 1000)}",
-                'type': 'tool_purchased',
-                'title': f"{tool_cfg['name']} Deployed",
-                'description': f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
-                'amountGBP': tool_cfg['price_gbp'],
-                'capacityDeltaGBPPerHour': tool_cfg['hourly_rate'],
-                'referenceId': purchase_id,
-                'metadata': {'txHash': tx_hash, 'toolId': tool_id},
-                'createdAt': firestore.SERVER_TIMESTAMP,
-            })
+            mine_record_activity(uid,
+                _type='TOOL_PURCHASED',
+                title=f"{tool_cfg['name']} Deployed",
+                description=f"Activated {tool_cfg['name']} (+£{tool_cfg['hourly_rate']:.2f}/hr). Transaction: {tx_hash[:10]}...",
+                metadata={'txHash': tx_hash, 'toolId': tool_id, 'purchaseId': purchase_id},
+            )
+            mine_notify(uid,
+                notif_id=f"notif_purchase_{purchase_id}",
+                type='purchase',
+                title=f"{tool_cfg['name']} Deployed",
+                message=f"Payment verified on BNB Smart Chain. {tool_cfg['name']} is now mining at £{tool_cfg['hourly_rate']:.2f}/hr.",
+                related={'source': 'verify_psemine_tool_purchase', 'purchaseId': purchase_id, 'toolId': tool_id, 'txHash': tx_hash},
+            )
         except Exception:
-            pass
+            logging.warning('[PSEmine Purchase] canonical activity/notification notice', exc_info=True)
 
         return jsonify({
             "success": True, 
@@ -8052,7 +8097,110 @@ def mine_state():
         "campaign": {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},
+        # (Frontend rebuild) server-anchored clock: the UI interpolates between
+        # checkpoints but never treats local time as authoritative.
+        "serverTimeMs": int(time.time() * 1000),
     })
+
+
+@app.route('/api/mine/withdrawals', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_list_withdrawals():
+    """Payout history for the signed-in miner (owner-read only, display data)."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    rows = db.collection('psemine_withdrawals').where('userId', '==', uid).get()
+    items = []
+    for s in rows:
+        d = s.to_dict() or {}
+        d['id'] = s.id
+        items.append(d)
+    items.sort(key=lambda x: str(x.get('createdAt') or ''), reverse=True)
+    return jsonify({"success": True, "withdrawals": items})
+
+
+@app.route('/api/mine/referrals', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_list_referrals():
+    """Referral rows for the signed-in referrer + the backend-derived code."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    import psemine_engine as _pse_engine
+    rows = db.collection('psemine_referrals').where('referrerId', '==', uid).get()
+    items = []
+    for s in rows:
+        d = s.to_dict() or {}
+        d['id'] = s.id
+        items.append(d)
+    items.sort(key=lambda x: str(x.get('createdAt') or ''), reverse=True)
+    return jsonify({"success": True, "referrals": items,
+                    "referralCode": _pse_engine.referral_code_for(db, uid)})
+
+
+@app.route('/api/mine/activities', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_list_activities():
+    """Canonical activity feed for the signed-in miner (owner-read only).
+    Reads the top-level psemine_activities collection written by the engine —
+    the single activity source (no subcollection, no client writes)."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    rows = db.collection('psemine_activities').where('userId', '==', uid).limit(50).get()
+    items = []
+    for doc_snap in rows:
+        d = doc_snap.to_dict() or {}
+        d['id'] = doc_snap.id
+        items.append(d)
+    items.sort(key=lambda x: str(x.get('createdAt') or ''), reverse=True)
+    return jsonify({"success": True, "activities": items})
+
+
+@app.route('/api/mine/notifications', methods=['GET'])
+@verify_token
+@require_psemine_access
+def mine_list_notifications():
+    """Notification records for the signed-in miner. Reads the canonical
+    psemine_notifications collection (backend-written); client marking-read is
+    permitted by Firestore rules but routed here for consistency."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    rows = db.collection('psemine_notifications').where('userId', '==', uid).limit(50).get()
+    items = []
+    for doc_snap in rows:
+        d = doc_snap.to_dict() or {}
+        d['id'] = doc_snap.id
+        items.append(d)
+    items.sort(key=lambda x: str(x.get('createdAt') or ''), reverse=True)
+    return jsonify({"success": True, "notifications": items,
+                    "unreadCount": sum(1 for n in items if not n.get('read'))})
+
+
+@app.route('/api/mine/notifications/<notification_id>/read', methods=['POST'])
+@verify_token
+@require_psemine_access
+def mine_mark_notification_read(notification_id):
+    """Mark one notification read (owner-only). Uses the same read-flag-only
+    semantic the Firestore rules define for this collection."""
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    ref = db.collection('psemine_notifications').document(notification_id)
+    snap = ref.get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "NOT_FOUND"}), 404
+    d = snap.to_dict() or {}
+    if d.get('userId') != uid:
+        return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    if not d.get('read'):
+        ref.update({'read': True, 'readAt': datetime.now(timezone.utc).isoformat()})
+    return jsonify({"success": True})
 
 @app.route('/api/mine/tools/<ownership_id>/maintain', methods=['POST'])
 @verify_token
@@ -8279,6 +8427,37 @@ def mine_cron_lifecycle():
                 if anchor < end_at:
                     _pse_engine.accrual_checkpoint(db, uid_o, source='cron_settle')
             s.reference.update({"status": "settling", "settledAt": firestore.SERVER_TIMESTAMP})
+    # Settlement job finalization (D5): the settle action writes
+    # psemine_settlement_jobs/{id} with status "pending_audit". The intended
+    # model is: final earnings settle lazily per user via accrual_checkpoint
+    # (anchors clip to endAt), ownerships flip to "settling" above, users
+    # request payouts, and admins review + record external tx hashes. Nothing
+    # here sends crypto. This only completes the audit marker once the sweep
+    # has run in a terminal state — idempotent, no financial effect.
+    settlement_finalized = False
+    if eff in ('settling', 'ended'):
+        try:
+            job_ref = db.collection('psemine_settlement_jobs').document(f"settlement_{PSEMINE_CAMPAIGN_DOC_ID}")
+            job_snap = job_ref.get()
+            if job_snap.exists and (job_snap.to_dict() or {}).get('status') == 'pending_audit':
+                job_ref.update({
+                    "status": "processed_audit",
+                    "processedAt": firestore.SERVER_TIMESTAMP,
+                    "processedBy": "system:cron",
+                    "ownershipsSettled": checked,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                })
+                db.collection('admin_audit_logs').add({
+                    "timestamp": firestore.SERVER_TIMESTAMP,
+                    "adminId": "system:cron",
+                    "action": "PSEMINE_SETTLEMENT_AUDIT_COMPLETE",
+                    "targetEntity": f"psemine_settlement_jobs/settlement_{PSEMINE_CAMPAIGN_DOC_ID}",
+                    "metadata": {"ownershipsSettled": checked, "effectiveStatus": eff},
+                })
+                settlement_finalized = True
+        except Exception:
+            logging.warning("[PSEmine Cron] Settlement job finalization notice", exc_info=True)
+
     # Repair sweep: qualification failures recorded during activation are
     # retried here, exactly once per record (settle is idempotent; the record
     # is deleted only on success). Permanent failures stay visible for admin
@@ -8286,7 +8465,8 @@ def mine_cron_lifecycle():
     repaired, repair_errors = _pse_engine.settle_referral_repair(db)
     return jsonify({"success": True, "effectiveStatus": eff, "campaignEndedNow": ended_now,
                     "ownershipsChecked": checked, "referralRepairs": repaired,
-                    "referralRepairErrors": repair_errors})
+                    "referralRepairErrors": repair_errors,
+                    "settlementFinalized": settlement_finalized})
 
 @app.route('/api/admin/mine/payment-recovery', methods=['GET'])
 @verify_token

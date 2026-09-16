@@ -58,7 +58,7 @@ export class FraudEngine {
       }
 
       return true;
-    } catch (err) {
+    } catch {
       return true; // Default to pass on error to avoid blocking legitimate users
     }
   }

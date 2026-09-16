@@ -108,7 +108,7 @@ const Tasks: React.FC = () => {
       } else {
         toast.error(data.message || data.error || 'Submission failed');
       }
-    } catch (err) {
+    } catch {
       toast.error('System error');
     } finally {
       setIsSubmitting(false);

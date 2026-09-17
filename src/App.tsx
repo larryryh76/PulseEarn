@@ -62,6 +62,8 @@ import { useAuth } from './contexts/AuthContext'
 import { Toaster } from 'react-hot-toast'
 import { CheckCircle2, AlertCircle, Zap } from 'lucide-react'
 import MainLayout from './components/layout/MainLayout'
+import { PulseEarnProductProvider } from './contexts/PulseEarnProductContext'
+import { TaskProvider } from './contexts/TaskContext'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData, loading } = useAuth();
@@ -116,11 +118,29 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+/**
+ * PulseEarn product scope.
+ *
+ * Every PulseEarn route renders inside these providers, and no other route
+ * does. They own PulseEarn-only behaviour (daily reward claim + reward toasts +
+ * fingerprinting, and the tasks/activities/predictions listeners). PSEmine
+ * routes mount their own providers and never inherit these.
+ */
+const PulseEarnRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <PulseEarnProductProvider>
+    <TaskProvider>
+      {children}
+    </TaskProvider>
+  </PulseEarnProductProvider>
+);
+
 const AppLayout: React.FC = () => {
   return (
-    <MainLayout>
-       <Outlet />
-    </MainLayout>
+    <PulseEarnRoute>
+      <MainLayout>
+         <Outlet />
+      </MainLayout>
+    </PulseEarnRoute>
   );
 };
 
@@ -161,11 +181,11 @@ function App() {
         }}
       />
       <Routes>
-        <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
-        <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/verify-email" element={<ProtectedRoute><VerifyEmail /></ProtectedRoute>} />
-        <Route path="/auth/action" element={<AuthAction />} />
+        <Route path="/" element={<PulseEarnRoute><PublicRoute><Home /></PublicRoute></PulseEarnRoute>} />
+        <Route path="/signup" element={<PulseEarnRoute><PublicRoute><Signup /></PublicRoute></PulseEarnRoute>} />
+        <Route path="/login" element={<PulseEarnRoute><PublicRoute><Login /></PublicRoute></PulseEarnRoute>} />
+        <Route path="/verify-email" element={<PulseEarnRoute><ProtectedRoute><VerifyEmail /></ProtectedRoute></PulseEarnRoute>} />
+        <Route path="/auth/action" element={<PulseEarnRoute><AuthAction /></PulseEarnRoute>} />
 
         {/* PERSISTENT APP ARCHITECTURE */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

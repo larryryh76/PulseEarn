@@ -20,7 +20,6 @@ import {
   doc,
   setDoc,
   getDoc,
-  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp,
@@ -28,24 +27,61 @@ import {
   addDoc
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import toast from 'react-hot-toast';
 import { UserData } from '../types';
-import { PointTransactionEngine } from '../engines/points/PointTransactionEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
 import { PSELogo } from '../components/psemine/pse';
-import { EconomyConfigEngine } from '../engines/system/EconomyConfigEngine';
-import { NotificationEngine } from '../engines/system/NotificationEngine';
-import { UserEngine } from '../engines/system/UserEngine';
+import {
+  PULSE_EARN_PRODUCT,
+  repairWelcomeBonusIfMissing,
+  runPulseEarnOnboarding,
+} from '../engines/product/pulseEarnProduct';
 
+/**
+ * Which product an account is being created for. Entitlement is explicit:
+ * a signup grants the product that was actually chosen, never both.
+ */
+export type ProductId = 'pulseearn' | 'psemine';
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * AuthContext — SHARED IDENTITY & SESSION INFRASTRUCTURE. NOT product behaviour.
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * This provider is mounted above the router (src/main.tsx), so whatever runs
+ * here runs for EVERY route, in every product. It is therefore limited to:
+ *
+ *   • Firebase authentication (signup / login / Google / logout)
+ *   • session restoration + identity (`currentUser`, `users/{uid}` snapshot)
+ *   • role resolution (admin / moderator / user)
+ *   • generic account security (email verification, password reset, activity log)
+ *
+ * It deliberately contains NO product economy. PulseEarn's daily reward,
+ * welcome bonus, referral bonuses and reward toasts live in
+ * src/engines/product/pulseEarnProduct.ts and are only invoked from
+ * PulseEarn-scoped signup or from PulseEarnProductProvider (mounted on
+ * PulseEarn routes only). PSEmine's economy lives entirely on the PSEmine
+ * backend (/api/mine/*).
+ *
+ * The old behaviour — a global `users/{uid}` listener that claimed the
+ * PulseEarn daily reward for any authenticated, email-verified, non-ops user —
+ * meant a PSEmine-only miner on /mine/dashboard triggered a PulseEarn points
+ * mutation and a PulseEarn toast. Shared infrastructure, not shared product
+ * behaviour: the rule this file now enforces.
+ */
 interface AuthContextType {
   currentUser: User | null;
   userData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, username: string, referralCode?: string) => Promise<void>;
+  /**
+   * Creates the account for one explicit product. The entitlement written to
+   * `users/{uid}.productAccess` matches the chosen product and never grants
+   * the other one implicitly.
+   */
+  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<void>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string) => Promise<void>;
+  signInWithGoogle: (referralCode?: string, product?: ProductId) => Promise<void>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -106,44 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function checkDailyReward(uid: string) {
-    try {
-      const config = await EconomyConfigEngine.getConfig();
-
-      // Calculate local date string for the claim ID
-      const utcOffset = -new Date().getTimezoneOffset();
-      const now = new Date();
-      const localDate = new Date(now.getTime() + utcOffset * 60000);
-      const localDayStr = localDate.toISOString().split('T')[0];
-
-      const claimId = `daily_${localDayStr}_${uid}`;
-
-      const result = await PointTransactionEngine.execute({
-        userId: uid,
-        amount: config.rewards.dailyLoginPoints,
-        type: 'daily_reward',
-        source: 'Daily Login Bonus',
-        claimId,
-        xpReward: config.rewards.dailyLoginXP,
-        metadata: { localDay: localDayStr }
-      });
-
-      if (result.success) {
-        toast.success('Daily Reward Claimed!', {
-           icon: '🎁',
-           duration: 5000,
-           position: 'top-center'
-        });
-      } else if (result.error !== 'DAILY_REWARD_COOLDOWN' && result.error !== 'REWARD_ALREADY_CLAIMED') {
-         // Show visible error toast for legitimate failures
-         toast.error(`Daily Reward Error: ${result.error}`, { position: 'top-center' });
-      }
-    } catch (error: any) {
-      console.error("[AuthContext] Daily Reward Sync Failed:", error.message);
-      toast.error(`System Error: Daily reward check failed`, { position: 'top-center' });
-    }
-  }
-
   async function sendVerification() {
     if (auth.currentUser) {
       await sendEmailVerification(auth.currentUser);
@@ -196,34 +194,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await reauthenticateWithCredential(auth.currentUser, credential);
   }
 
-  async function initializeUserProfile(user: User, username: string, referralCodeInput?: string) {
+  /**
+   * Creates the shared identity profile for a new account.
+   *
+   * `product` is the product the user actually signed up for:
+   *   • 'pulseearn' → productAccess { pulseearn: true, psemine: false }
+   *   • 'psemine'   → productAccess { pulseearn: false, psemine: true }
+   *   • null        → no product grant (identity self-healing only)
+   *
+   * The account is the SAME Firebase identity across products. Only the
+   * entitlement differs — which is the distinction the old default
+   * `{ pulseearn: true, psemine: true }` erased.
+   */
+  async function initializeUserProfile(
+    user: User,
+    username: string,
+    product: ProductId | null,
+    referralCodeInput?: string
+  ) {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
-       // Repair path for welcome bonus
-       try {
-          const claimRef = doc(db, 'system_claims', `welcome_${user.uid}`);
-          const claimSnap = await getDoc(claimRef);
-          if (!claimSnap.exists()) {
-             if (import.meta.env.DEV) console.log("[AuthContext] Repairing Welcome Bonus...");
-             const config = await EconomyConfigEngine.getConfig();
-             await PointTransactionEngine.execute({
-               userId: user.uid,
-               amount: config.rewards.welcomeBonusPoints ?? 30,
-               type: 'welcome_bonus',
-               source: 'Welcome Bonus (Repair)',
-               claimId: `welcome_${user.uid}`,
-               xpReward: config.rewards.welcomeBonusXP ?? 50
-             });
-          }
-       } catch (err) {
-          console.error("[AuthContext] Welcome Bonus Repair Failed:", err);
-       }
-       return;
+      // Existing identity: entitlement is never upgraded or downgraded here.
+      // PulseEarn's missing-welcome-bonus repair is a PulseEarn-only concern.
+      if (product === PULSE_EARN_PRODUCT) {
+        await repairWelcomeBonusIfMissing(user.uid);
+      }
+      return;
     }
 
-    // PHASE 4: Create document FIRST
     const referralCode = generateReferralCode(user.uid);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -244,9 +244,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
+      // EXPLICIT ENTITLEMENT — exactly one product on signup.
       productAccess: {
-        pulseearn: true,
-        psemine: true
+        pulseearn: product === PULSE_EARN_PRODUCT,
+        psemine: product === 'psemine'
       },
       isBanned: false,
       isFlagged: false,
@@ -275,118 +276,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: serverTimestamp()
     });
 
-    // Everything after this is wrapped in its own try/catch to isolate failures
-
-    // 1. Referral Linkage - SEC-001: Backend-authoritative lookup + immediate bonus distribution
-    if (referralCodeInput) {
-       try {
-          const idToken = await user.getIdToken();
-          const res = await safeFetch('/api/referrals/lookup', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ referralCode: referralCodeInput })
-          });
-
-          if (res.success) {
-            const referredBy = res.referrerId;
-            
-            // Create referral record first
-            const referralDocRef = doc(collection(db, 'referrals'));
-            const referralDocId = referralDocRef.id;
-            
-            await setDoc(referralDocRef, {
-              referrerId: referredBy,
-              refereeId: user.uid,
-              refereeUsername: username,
-              status: 'REGISTERED',
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-
-            // Update user with referral info
-            await updateDoc(userRef, { 
-              referredBy,
-              referralDocId 
-            });
-
-            // Immediately apply signup bonuses (30 PTS to referee, 50 PTS to referrer)
-            const bonusRes = await safeFetch('/api/referrals/apply-signup-bonus', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${idToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                referrerId: referredBy,
-                referralDocId: referralDocId
-              })
-            });
-
-            if (bonusRes.success) {
-              // Show toasts for both users if in same session
-              toast.success(`Referral Bonus: +${bonusRes.refereeBonusPoints} PTS`, {
-                icon: '🎁',
-                duration: 6000,
-                position: 'top-center'
-              });
-
-              // Notify referrer about the bonus and new member
-              await NotificationEngine.send({
-                userId: referredBy,
-                title: 'Referral Bonus Earned',
-                description: `${username} joined using your code. You earned ${bonusRes.referrerBonusPoints} PTS!`,
-                type: 'referral_joined'
-              });
-            }
-          }
-       } catch (err) {
-          console.error("[AuthContext] Referral Linkage Failure (Isolated):", err);
-       }
-    }
-
-    // 2. Welcome Bonus
-    try {
-      const config = await EconomyConfigEngine.getConfig();
-      const amount = config.rewards.welcomeBonusPoints ?? 30;
-      const xpReward = config.rewards.welcomeBonusXP ?? 50;
-
-      const result = await PointTransactionEngine.execute({
-        userId: user.uid,
-        amount,
-        type: 'welcome_bonus',
-        source: 'Welcome Bonus',
-        claimId: `welcome_${user.uid}`,
-        xpReward
-      });
-
-      if (result.success && amount > 0) {
-        toast.success(`Welcome Bonus Credited: +${amount} PTS`, {
-          icon: '🎁',
-          duration: 6000,
-          position: 'top-center'
-        });
-      }
-    } catch (err) {
-      console.error("[AuthContext] Welcome Bonus Dispatch Failed (Isolated):", err);
-    }
-
-    // 3. New Identity Notification
-    try {
-      await NotificationEngine.send({
-         userId: user.uid,
-         title: 'Identity Synchronized',
-         description: 'Your PulseEarn profile has been established. Welcome to the network.',
-         type: 'system'
-      });
-    } catch (err) {
-      console.error("[AuthContext] Profile Notification Failed (Isolated):", err);
+    // PulseEarn-only post-signup economy. PSEmine's onboarding is entirely
+    // backend-owned (/api/mine/enroll + /api/mine/referrals/register), so there
+    // is nothing to run here for a PSEmine signup — and definitely no
+    // PulseEarn points, XP or toasts.
+    if (product === PULSE_EARN_PRODUCT) {
+      await runPulseEarnOnboarding(user, username, referralCodeInput);
     }
   }
 
-  async function signup(email: string, password: string, username: string, referralCodeInput?: string) {
+  async function signup(
+    email: string,
+    password: string,
+    username: string,
+    referralCodeInput?: string,
+    product: ProductId = PULSE_EARN_PRODUCT
+  ) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -410,15 +315,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    await initializeUserProfile(user, username, referralCodeInput);
+    await initializeUserProfile(user, username, product, referralCodeInput);
   }
 
-  async function signInWithGoogle(referralCodeInput?: string) {
+  async function signInWithGoogle(
+    referralCodeInput?: string,
+    product: ProductId = PULSE_EARN_PRODUCT
+  ) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, referralCodeInput);
+    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput);
   }
 
   function login(email: string, password: string) {
@@ -453,6 +361,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'user',
         status: 'active',
         onboardingCompleted: true,
+        productAccess: { pulseearn: true, psemine: false },
         stats: {
           tasksCompleted: 15,
           referralsCount: 3,
@@ -488,20 +397,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserData(resolvedData as UserData);
             setSystemError(null);
 
-            // Skip fingerprinting and daily reward checks for ops users (admin/moderator)
-            if (resolvedData.role !== 'admin' && resolvedData.role !== 'moderator') {
-              UserEngine.recordFingerprint(user.uid);
-              if (user.emailVerified) {
-                checkDailyReward(user.uid);
-              }
-            }
+            // IDENTITY ONLY. No product economy runs here — see the header
+            // comment: a global listener must never mutate a product's economy
+            // or raise a product toast on another product's routes.
           } else {
              // Priority 5: Resilience - Auto-Healing Identity Sync
              // Auth exists but profile doesn't? Attempt to re-initialize profile to prevent 'IDENTITY_NOT_FOUND' shell.
              console.warn("[AuthContext] Identity Drift Detected: Attempting Self-Healing...");
              try {
-                // Re-run initialization using current auth metadata
-                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`);
+                // Re-run initialization using current auth metadata. `null`
+                // product: self-healing repairs the identity record only and
+                // never grants a product entitlement.
+                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);
                 if (import.meta.env.DEV) console.log("[AuthContext] Identity Refreshed Successfully.");
              } catch (healError) {
                 console.error("[AuthContext] Self-Healing Failed:", healError);

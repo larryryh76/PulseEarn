@@ -5,18 +5,22 @@
  * - The server clock is authoritative: countdowns anchor to serverTimeMs.
  * - Color only ever encodes state (never decoration).
  * - Every map below mirrors the actual backend state machines.
+ * - Composition before decoration: `Panel` + `DataRow` + `Verdict` exist so a
+ *   page can present one coherent workspace instead of a wall of equal cards.
  */
 import React, { useState } from 'react';
 import {
   Clock, Pause, Ban, Loader, Cog, Wrench, CheckCircle2, Circle,
   XCircle, Hourglass, Wallet, RefreshCcw, HelpCircle, Archive, PlayCircle,
   ServerCog, ShieldAlert, Inbox, AlertTriangle, Copy as CopyIcon, Check,
+  Lock, WifiOff, LogIn, ShieldX, LineChart,
 } from 'lucide-react';
+import type { PseErrorInfo, PseErrorKind } from '../../engines/psemine/pseErrors';
 
 /* ── Server-anchored clock ────────────────────────────────────────────
- * Phase 2 contract: server time is the only authority for cycles and
- * countdowns. We anchor to the backend's serverTimeMs from /api/mine/state
- * and interpolate locally between checkpoints. */
+ * Server time is the only authority for cycles and countdowns. We anchor to
+ * the backend's serverTimeMs from /api/mine/state and interpolate locally
+ * between checkpoints. */
 let serverAnchor: { serverMs: number; localMs: number } | null = null;
 export function anchorServerTime(serverMs?: number) {
   if (typeof serverMs === 'number' && Number.isFinite(serverMs) && serverMs > 0) {
@@ -50,6 +54,8 @@ export function campaignStatusView(status?: string | null) {
 export const CAMPAIGN_BANNER_STATES = new Set(['scheduled', 'paused', 'settling', 'payout', 'closed', 'archived']);
 
 /* ── Tool operating cycle (backend derive_cycle state machine) ──────── */
+type ChipIcon = React.ComponentType<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
+
 export const CYCLE_STATE_MAP: Record<string, {
   label: string; chip: string; icon: ChipIcon;
   description: string; live: boolean;
@@ -105,6 +111,14 @@ export function referralStageView(stage?: string | null) {
   return REFERRAL_STAGE_MAP[stage || ''] || REFERRAL_STAGE_MAP.registered;
 }
 
+export const REFERRAL_STAGES = [
+  { id: 'registered', label: 'Registered' },
+  { id: 'wallet_connected', label: 'Wallet connected' },
+  { id: 'tool_purchased', label: 'Tool purchased' },
+  { id: 'mining_active', label: 'Mining active' },
+  { id: 'qualified', label: 'Qualified' },
+] as const;
+
 /* ── Payout status ──────────────────────────────────────────────────── */
 export const PAYOUT_STATUS_MAP: Record<string, { label: string; chip: string }> = {
   pending:      { label: 'Pending',      chip: 'pse-chip pse-chip-warning' },
@@ -128,6 +142,10 @@ export function gbp(value: number | null | undefined): string {
 export function gbpHour(v?: number | null): string {
   const x = typeof v === 'number' && Number.isFinite(v) ? v : 0;
   return `£${x.toFixed(2)}/hour`;
+}
+export function gbpRate(v?: number | null): string {
+  const x = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  return `£${x.toFixed(2)}/hr`;
 }
 export function shortHash(h?: string | null, size = 6): string {
   if (!h) return '—';
@@ -215,8 +233,6 @@ export const ACTIVITY_ICONS: Record<string, ChipIcon> = {
 
 /* ════════════════════════════ React primitives ═══════════════════════ */
 
-type ChipIcon = React.ComponentType<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
-
 export function Chip({ label, chip, dot, pulse, icon: Icon }: { label: string; chip: string; dot?: boolean; pulse?: boolean; icon?: ChipIcon }) {
   return (
     <span className={chip}>
@@ -261,17 +277,113 @@ export function PSELogo({ size = 32, withWordmark = false }: { size?: number; wi
   );
 }
 
-export function PageHeader({ eyebrow, title, sub, right }: {
-  eyebrow: string; title: string; sub?: string; right?: React.ReactNode;
+/**
+ * PageHeader — the single title block for every console page.
+ * `nav` renders a secondary in-page navigation (used by the guide).
+ */
+export function PageHeader({ eyebrow, title, sub, right, nav }: {
+  eyebrow: string; title: string; sub?: string; right?: React.ReactNode; nav?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div className="space-y-1.5">
-        <p className="pse-eyebrow">{eyebrow}</p>
-        <h1 className="pse-h2">{title}</h1>
-        {sub && <p className="pse-caption max-w-xl">{sub}</p>}
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-1.5">
+          <p className="pse-eyebrow">{eyebrow}</p>
+          <h1 className="pse-h2">{title}</h1>
+          {sub && <p className="pse-caption max-w-2xl">{sub}</p>}
+        </div>
+        {right && <div className="shrink-0">{right}</div>}
       </div>
-      {right && <div className="shrink-0">{right}</div>}
+      {nav}
+    </div>
+  );
+}
+
+/**
+ * Panel — one bordered surface with an optional header row.
+ * The console composes few panels with many rows (instead of many cards) so a
+ * page reads as one workspace with clear grouping.
+ */
+export function Panel({ title, meta, action, children, tone, className, bodyClassName }: {
+  title?: string; meta?: string; action?: React.ReactNode; children: React.ReactNode;
+  tone?: 'default' | 'warning' | 'danger' | 'success';
+  className?: string; bodyClassName?: string;
+}) {
+  const border =
+    tone === 'warning' ? 'rgba(245,165,36,0.32)' :
+    tone === 'danger' ? 'rgba(240,68,56,0.32)' :
+    tone === 'success' ? 'rgba(46,206,132,0.30)' : undefined;
+  return (
+    <section className={`pse-card overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>
+      {(title || action) && (
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
+          <div className="min-w-0">
+            {title && <h2 className="pse-h3">{title}</h2>}
+            {meta && <p className="pse-micro mt-0.5">{meta}</p>}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </header>
+      )}
+      <div className={bodyClassName}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * Verdict — the headline financial figure of a page.
+ * Deliberately the largest type on screen: what the account is worth right now,
+ * what it is accruing, and in which accounting state.
+ */
+export function Verdict({ label, value, status, sub, footnote, accent = 'var(--pse-text)', children }: {
+  label: string; value: string; status?: React.ReactNode; sub?: string;
+  footnote?: React.ReactNode; accent?: string; children?: React.ReactNode;
+}) {
+  return (
+    <div className="pse-card p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="pse-eyebrow">{label}</p>
+        {status}
+      </div>
+      <p className="pse-num mt-2.5 text-[34px] font-semibold leading-none sm:text-[42px]" style={{ color: accent }}>{value}</p>
+      {sub && <p className="pse-caption mt-2.5">{sub}</p>}
+      {footnote}
+      {children}
+    </div>
+  );
+}
+
+/** DataRow — a hairline-separated label/value row inside a Panel. */
+export function DataRow({ label, value, hint, mono, emphasis, right }: {
+  label: string; value: React.ReactNode; hint?: string; mono?: boolean;
+  emphasis?: boolean; right?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+      <div className="min-w-0">
+        <p className="pse-caption" style={{ color: emphasis ? 'var(--pse-text)' : 'var(--pse-text-2)' }}>{label}</p>
+        {hint && <p className="pse-micro mt-0.5">{hint}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className={mono ? 'pse-mono' : `pse-num ${emphasis ? 'pse-h3' : 'pse-caption font-semibold'}`}
+          style={{ color: 'var(--pse-text)' }}>{value}</span>
+        {right}
+      </div>
+    </div>
+  );
+}
+
+/** Meter — thin progress track. `value` is a 0–100 percentage. */
+export function Meter({ value, tone = 'blue', label }: { value: number; tone?: 'blue' | 'warning' | 'purple'; label?: string }) {
+  const pct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+  const bg = tone === 'warning'
+    ? 'linear-gradient(90deg, #B45309, var(--pse-warning))'
+    : tone === 'purple'
+      ? 'linear-gradient(90deg, var(--pse-blue), var(--pse-purple))'
+      : undefined;
+  return (
+    <div className="pse-meter" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
+      aria-label={label}>
+      <div className="pse-meter-fill" style={{ width: `${pct}%`, background: bg }} />
     </div>
   );
 }
@@ -292,25 +404,81 @@ export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
   );
 }
 
-export function PSEError({ message, onRetry, retrying }: { message: string; onRetry?: () => void; retrying?: boolean }) {
+/* ── Error states, by kind ──────────────────────────────────────────────
+ * A generic error screen is only correct when the failure is genuinely
+ * unknown. Everything we can identify gets its own icon, copy and action. */
+const ERROR_PRESENTATION: Record<PseErrorKind, { icon: ChipIcon; tone: string; accent: string }> = {
+  auth:       { icon: LogIn,         tone: 'rgba(76,158,248,0.30)',  accent: 'var(--pse-blue)' },
+  permission: { icon: ShieldX,       tone: 'rgba(139,124,246,0.30)', accent: 'var(--pse-purple)' },
+  backend:    { icon: ServerCog,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  network:    { icon: WifiOff,       tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
+  data:       { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  unknown:    { icon: AlertTriangle, tone: 'rgba(240,68,56,0.30)',   accent: 'var(--pse-danger)' },
+};
+
+export function PSEError({ error, onRetry, retrying, action, compact }: {
+  error: PseErrorInfo;
+  onRetry?: () => void;
+  retrying?: boolean;
+  action?: React.ReactNode;
+  compact?: boolean;
+}) {
+  const view = ERROR_PRESENTATION[error.kind] || ERROR_PRESENTATION.unknown;
+  const Icon = view.icon;
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+    <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-2 px-4 py-6' : 'gap-3 px-6 py-12'}`}>
       <div className="flex h-11 w-11 items-center justify-center rounded-xl border"
-        style={{ borderColor: 'rgba(240,68,56,0.3)', background: 'rgba(240,68,56,0.08)' }}>
-        <AlertTriangle size={19} style={{ color: 'var(--pse-danger)' }} />
+        style={{ borderColor: view.tone, background: 'var(--pse-inset)' }}>
+        <Icon size={19} style={{ color: view.accent }} />
       </div>
-      <p className="pse-h3">Something went wrong</p>
-      <p className="pse-micro max-w-sm">{message}</p>
+      <p className="pse-h3">{error.title}</p>
+      <p className="pse-micro max-w-md">{error.message}</p>
+      <div className="mt-1 flex flex-col items-center gap-2 sm:flex-row">
+        {error.retryable && onRetry && (
+          <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-secondary pse-btn-sm">
+            <RefreshCcw size={13} className={retrying ? 'animate-spin' : ''} /> Try again
+          </button>
+        )}
+        {action}
+      </div>
+      {error.operation && (
+        <p className="pse-micro mt-1 font-mono" style={{ color: 'var(--pse-text-3)' }}>
+          {error.operation}{error.status ? ` · ${error.status}` : ''}{error.code ? ` · ${error.code}` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Inline, non-blocking notice for a degraded (secondary) data feed. */
+export function FeedNotice({ message, onRetry, retrying }: { message: string; onRetry?: () => void; retrying?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3" style={{ background: 'rgba(245,165,36,0.06)' }}>
+      <p className="pse-micro flex items-center gap-2" style={{ color: 'var(--pse-warning)' }}>
+        <AlertTriangle size={12} className="shrink-0" /> {message}
+      </p>
       {onRetry && (
-        <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-secondary pse-btn-sm mt-1">
-          <RefreshCcw size={13} className={retrying ? 'animate-spin' : ''} /> Try again
+        <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-ghost pse-btn-sm shrink-0">
+          <RefreshCcw size={11} className={retrying ? 'animate-spin' : ''} /> Retry
         </button>
       )}
     </div>
   );
 }
 
-export function PSELoading({ label = 'Loading' }: { label?: string }) {
+export function PSELoading({ label = 'Loading', skeleton = false }: { label?: string; skeleton?: boolean }) {
+  if (skeleton) {
+    return (
+      <div className="space-y-3" role="status" aria-live="polite" aria-label={label}>
+        <div className="pse-skeleton h-[118px]" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="pse-skeleton h-[86px]" />
+          <div className="pse-skeleton h-[86px]" />
+        </div>
+        <div className="pse-skeleton h-[220px]" />
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-center gap-2.5 py-14" role="status" aria-live="polite">
       <span className="h-4 w-4 animate-spin rounded-full border-2"
@@ -320,14 +488,17 @@ export function PSELoading({ label = 'Loading' }: { label?: string }) {
   );
 }
 
-/** Stat block: label + big tabular figure + optional footnote. */
-export function Stat({ label, value, sub, accent }: {
-  label: string; value: string; sub?: React.ReactNode; accent?: string;
+/** Compact stat block for secondary figures (kept out of the main verdict). */
+export function Stat({ label, value, sub, accent, icon: Icon }: {
+  label: string; value: string; sub?: React.ReactNode; accent?: string; icon?: ChipIcon;
 }) {
   return (
-    <div className="pse-card pse-card-hover p-5">
-      <p className="pse-eyebrow mb-2">{label}</p>
-      <p className="pse-num text-[26px] font-semibold leading-tight md:text-[30px]"
+    <div className="pse-card p-5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="pse-eyebrow">{label}</p>
+        {Icon && <Icon size={14} style={{ color: 'var(--pse-text-3)' }} />}
+      </div>
+      <p className="pse-num mt-2 text-[24px] font-semibold leading-tight md:text-[28px]"
         style={{ color: accent || 'var(--pse-text)' }}>{value}</p>
       {sub && <p className="pse-micro mt-1.5">{sub}</p>}
     </div>
@@ -335,13 +506,15 @@ export function Stat({ label, value, sub, accent }: {
 }
 
 /** Copyable mono field with a transient copied state. */
-export function CopyField({ value, display, label }: { value: string; display?: string; label?: string }) {
+export function CopyField({ value, display, label, fullWidth }: {
+  value: string; display?: string; label?: string; fullWidth?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
       onClick={async () => { if (await copyText(value)) { setCopied(true); setTimeout(() => setCopied(false), 1600); } }}
-      className="group inline-flex max-w-full items-center gap-2 rounded-lg border py-2.5 pl-2.5 pr-3 transition-colors"
+      className={`group inline-flex max-w-full items-center gap-2 rounded-lg border py-2.5 pl-2.5 pr-3 transition-colors ${fullWidth ? 'w-full justify-between' : ''}`}
       style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-inset)', minHeight: 44 }}
       aria-label={label ? `Copy ${label}` : 'Copy to clipboard'}
     >
@@ -353,7 +526,22 @@ export function CopyField({ value, display, label }: { value: string; display?: 
   );
 }
 
-/** Tool spec grid used by marketplace cards and the dashboard. */
+/** Labelled control wrapper used by every form in the console. */
+export function Field({ label, hint, children, htmlFor }: {
+  label: string; hint?: string; children: React.ReactNode; htmlFor?: string;
+}) {
+  return (
+    <label className="block" htmlFor={htmlFor}>
+      <span className="pse-caption mb-1.5 flex items-baseline justify-between font-medium" style={{ color: 'var(--pse-text-2)' }}>
+        {label}
+        {hint && <span className="pse-micro">{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+/** Tool spec grid used by the marketplace and the landing page. */
 export function ToolGrid({ tools, ownedCounts }: {
   tools: Array<{ id: string; name: string; tagline?: string; hourlyRateGBP: number; purchasePriceGBP: number; maxPerUser: number }>;
   ownedCounts?: Record<string, number>;
@@ -402,4 +590,39 @@ export function CampaignBanner({ status }: { status?: string | null }) {
   );
 }
 
-export { HelpCircle };
+/** Activity row — shared by the dashboard feed, the ledger page and tool lists. */
+export function ActivityRow({ icon: Icon, title, description, amount, time, tone }: {
+  icon: ChipIcon; title: string; description?: string; amount?: React.ReactNode; time: string; tone?: string;
+}) {
+  return (
+    <li className="flex items-center gap-3.5 px-5 py-3.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+        style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+        <Icon size={15} style={{ color: tone || 'var(--pse-text-2)' }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>{title}</p>
+        {description && <p className="pse-micro mt-0.5 line-clamp-2">{description}</p>}
+      </div>
+      <div className="shrink-0 text-right">
+        {amount}
+        <p className="pse-micro">{time}</p>
+      </div>
+    </li>
+  );
+}
+
+/** Section heading used between panels (no card, no border). */
+export function SectionHeading({ title, meta, right }: { title: string; meta?: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <p className="pse-eyebrow">{title}</p>
+        {meta && <p className="pse-micro mt-0.5">{meta}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+export { Lock, LineChart, HelpCircle };

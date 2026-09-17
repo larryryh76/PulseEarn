@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Check, X, Wallet, ShieldCheck, Loader2, Clock, ChevronRight, ExternalLink,
+  Layers, Gauge, AlertTriangle, Info,
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
-import { PSEMineToolDefinition } from '../../types/psemine';
+import { PSEMineToolDefinition, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
-  Chip, PageHeader, gbp, shortAddr, shortHash, nowMs, CopyField,
+  Chip, PageHeader, Panel, DataRow, Meter, gbp, gbpHour, shortAddr, shortHash, nowMs,
+  CopyField, PSEEmpty, PSELoading, PSEError,
 } from '../../components/psemine/pse';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
@@ -16,126 +18,212 @@ const EVM = /^0x[0-9a-fA-F]{40}$/;
 
 export const PSEMineTools: React.FC = () => {
   const { tools, pseUser, campaign } = usePSEMine();
-  const { state, refresh } = usePseState();
+  const { state, refresh, loading, error, refreshing } = usePseState();
   const [purchasing, setPurchasing] = useState<PSEMineToolDefinition | null>(null);
 
   const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
   const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
-  const ownedTools = (state?.tools ?? []).filter(t => t.status === 'active' || t.status === 'cycle_complete' || t.status === 'maintenance_required');
+  const ownedTools = useMemo(
+    () => (state?.tools ?? []).filter(t => ['active', 'cycle_complete', 'maintenance_required'].includes(String(t.status))),
+    [state?.tools],
+  );
+
+  const toolCapacity = state?.user?.toolCapacityGBPPerHour ?? pseUser?.toolCapacityGBPPerHour ?? 0;
+  const headroom = Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity);
+
+  if (loading && !state) {
+    return <div className="pse-section pt-6 md:pt-8"><PSELoading skeleton label="Loading the marketplace" /></div>;
+  }
+  if (error && !state) {
+    return (
+      <div className="pse-section py-8">
+        <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
+      </div>
+    );
+  }
 
   return (
-    <div className="pse-section space-y-5 pb-24 pt-6 md:pt-8">
+    <div className="pse-section space-y-4 pb-24 pt-5 md:pt-7">
       <PageHeader
         eyebrow="Marketplace"
         title="Mining tools"
-        sub="Fixed GBP prices, paid in BNB at the live rate. Every purchase is quoted and verified by the backend."
+        sub="Fixed GBP prices, paid in BNB at the live rate. Every purchase is quoted, paid on-chain and verified by the backend before a tool activates."
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip
+              label={purchaseOpen ? 'Purchases open' : `Purchases ${campaign?.status === 'active' ? 'closed' : String(campaign?.status || 'unavailable')}`}
+              chip={purchaseOpen ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-neutral'}
+              pulse={purchaseOpen}
+            />
+          </div>
+        }
       />
+
+      {/* Capacity position — where you are and what headroom remains */}
+      <Panel title="Your capacity position" meta="Tool capacity is capped at £10.60/hour across all tiers">
+        <div className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
+          <div className="px-5 py-4">
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="pse-caption">Tool capacity deployed</span>
+              <span className="pse-num pse-h3">{gbpHour(toolCapacity)}</span>
+            </div>
+            <div className="mt-3">
+              <Meter
+                value={(toolCapacity / PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR) * 100}
+                label="Tool capacity against the campaign cap"
+              />
+            </div>
+            <p className="pse-micro mt-2">
+              {headroom > 0
+                ? `${gbpHour(headroom)} of tool capacity headroom remains (cap ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}).`
+                : 'Tool capacity is at the campaign maximum. Referral capacity can still add +£0.30/hour per qualified referral.'}
+            </p>
+          </div>
+          <DataRow label="Operating tools" value={String(ownedTools.length)} hint="Active, completed-cycle or awaiting maintenance" />
+          <DataRow label="Marketplace status" value={purchaseOpen ? 'Open' : 'Closed'} hint={campaign?.status ? `Campaign ${campaign.status}` : 'Campaign state unavailable'} />
+        </div>
+      </Panel>
 
       {campaign && campaign.status !== 'active' && (
         <div className="pse-card flex items-start gap-3 p-4" style={{ borderColor: 'rgba(245,165,36,0.3)' }}>
           <Clock size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-warning)' }} />
           <p className="pse-caption">
             {campaign.status === 'scheduled'
-              ? 'Purchases are not open yet — the campaign has not started.'
-              : `Purchases are closed — the campaign is ${campaign.status}.`}
+              ? 'Purchases are not open yet — the campaign has not started. Tool economics are fixed and displayed in full below.'
+              : `Purchases are closed — the campaign is ${campaign.status}. Existing tools continue to follow their operating cycles.`}
           </p>
         </div>
       )}
 
-      {/* Ownership strip */}
-      {ownedTools.length > 0 && (
-        <section className="pse-card overflow-hidden">
-          <div className="border-b p-5" style={{ borderColor: 'var(--pse-line)' }}>
-            <p className="pse-h3">Your operating tools</p>
-            <p className="pse-micro mt-0.5">Cycle state is derived by the backend; maintenance is always free.</p>
-          </div>
-          <ul className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
-            {ownedTools.slice(0, 6).map(t => (
-              <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                <div className="min-w-0">
-                  <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>
-                    {t.toolName || t.toolId}
-                  </p>
-                  <p className="pse-micro">
-                    {t.cycleState === 'active'
-                      ? 'Operating'
-                      : t.cycleState === 'cycle_complete'
-                        ? 'Cycle complete — maintenance available'
-                        : t.cycleState === 'maintenance_required'
-                          ? 'Maintenance required'
-                          : (t.status || '—')}
-                  </p>
-                </div>
-                {t.maintenanceRequired || t.cycleState === 'cycle_complete' ? (
-                  <Chip label="Maintain on dashboard" chip="pse-chip pse-chip-warning" dot={false} />
-                ) : (
-                  <Chip label={t.cycleState === 'active' ? 'Active' : (t.status || '—')} chip="pse-chip pse-chip-success" dot={false} />
-                )}
-              </li>
-            ))}
-          </ul>
-          {ownedTools.length > 6 && (
-            <div className="border-t p-3 text-center" style={{ borderColor: 'var(--pse-line)' }}>
-              <LinkToDash />
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Tool grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* ═══ EQUIPMENT MARKETPLACE ═══ */}
+      <Panel
+        title="Equipment"
+        meta="Four tiers. Fixed price, fixed hourly capacity, fixed ownership limit per account."
+        bodyClassName="divide-y"
+      >
         {tools.map(tool => {
           const owned = counts[tool.id] || 0;
           const isMax = owned >= tool.maxPerUser;
-          const canBuy = purchaseOpen && !isMax && tool.enabled;
+          const remaining = Math.max(0, tool.maxPerUser - owned);
+          const contribution = owned * tool.hourlyRateGBP;
+
           return (
-            <div key={tool.id} className={cn('pse-card flex flex-col p-6', canBuy && 'pse-card-hover')}>
-              <div className="flex items-center justify-between">
-                <span className="pse-eyebrow">Tier {tool.tier}</span>
-                <Chip label={`${owned}/${tool.maxPerUser}`} chip={owned > 0 ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-neutral'} dot={false} />
-              </div>
-              <p className="pse-h3 mt-3">{tool.name}</p>
-              <p className="pse-micro mt-1.5 min-h-[32px]">{tool.tagline}</p>
+            <div key={tool.id} className="px-4 py-4 sm:px-5 sm:py-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                {/* Identity */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="pse-step">{tool.tier}</span>
+                    <p className="pse-h3">{tool.name}</p>
+                    {owned > 0 && <Chip label={`${owned} owned`} chip="pse-chip pse-chip-success" dot={false} />}
+                    {isMax && <Chip label="Limit reached" chip="pse-chip pse-chip-neutral" dot={false} />}
+                  </div>
+                  <p className="pse-micro mt-1.5 max-w-lg">{tool.tagline}</p>
+                </div>
 
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="pse-num text-[24px] font-semibold" style={{ color: 'var(--pse-blue)' }}>
-                  {gbp(tool.purchasePriceGBP)}
-                </span>
-                <span className="pse-micro">one-time</span>
-              </div>
-              <p className="pse-caption mt-1">
-                <span className="pse-num font-semibold" style={{ color: 'var(--pse-cyan)' }}>+{gbp(tool.hourlyRateGBP).replace('£', '£')}</span>
-                <span style={{ color: 'var(--pse-text-2)' }}>/hour capacity</span>
-              </p>
+                {/* Specs */}
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 lg:w-[440px] lg:shrink-0">
+                  <SpecCell label="Price" value={gbp(tool.purchasePriceGBP)} sub="one-time" />
+                  <SpecCell label="Capacity" value={gbpHour(tool.hourlyRateGBP)} sub="while active" accent="var(--pse-blue)" />
+                  <SpecCell label="Ownership" value={`${owned} / ${tool.maxPerUser}`} sub={`${remaining} remaining`} />
+                  <SpecCell label="Your rate" value={gbpRate(contribution)} sub="from this tier" accent={contribution > 0 ? 'var(--pse-cyan)' : undefined} />
+                </dl>
 
-              <div className="pse-inset mt-4 space-y-2 p-3.5 pse-micro">
-                <div className="flex justify-between"><span style={{ color: 'var(--pse-text-3)' }}>Operating cycle</span><span>24 hours</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--pse-text-3)' }}>Maintenance</span><span>Free</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--pse-text-3)' }}>Ownership limit</span><span>{tool.maxPerUser} per account</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--pse-text-3)' }}>Your rate from this tool</span><span className="pse-num">+£{(owned * tool.hourlyRateGBP).toFixed(2)}/hr</span></div>
+                {/* Action */}
+                <div className="lg:w-[168px] lg:shrink-0">
+                  {!tool.enabled ? (
+                    <button disabled className="pse-btn pse-btn-secondary w-full justify-center">Unavailable</button>
+                  ) : isMax ? (
+                    <button disabled className="pse-btn pse-btn-secondary w-full justify-center">
+                      <Check size={14} style={{ color: 'var(--pse-success)' }} /> Maximum owned
+                    </button>
+                  ) : !purchaseOpen ? (
+                    <button disabled className="pse-btn pse-btn-secondary w-full justify-center">
+                      {campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'inactive'}`}
+                    </button>
+                  ) : (
+                    <button onClick={() => setPurchasing(tool)} className="pse-btn pse-btn-primary w-full justify-center">
+                      Purchase with BNB <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-5">
-                {!tool.enabled ? (
-                  <button disabled className="pse-btn pse-btn-secondary w-full justify-center">Unavailable</button>
-                ) : isMax ? (
-                  <button disabled className="pse-btn pse-btn-secondary w-full justify-center">
-                    <Check size={14} style={{ color: 'var(--pse-success)' }} /> Maximum owned
-                  </button>
-                ) : !purchaseOpen ? (
-                  <button disabled className="pse-btn pse-btn-secondary w-full justify-center">
-                    {campaign?.status === 'active' ? 'Purchases closed' : 'Campaign ' + (campaign?.status || 'inactive')}
-                  </button>
-                ) : (
-                  <button onClick={() => setPurchasing(tool)} className="pse-btn pse-btn-primary w-full justify-center">
-                    Purchase with BNB <ChevronRight size={14} />
-                  </button>
-                )}
+              {/* Cycle mechanics — same for every tier, shown once per row for scanability */}
+              <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <span className="pse-micro">24-hour operating cycle</span>
+                <span className="pse-micro">Free maintenance</span>
+                <span className="pse-micro">Ownership limit {tool.maxPerUser}/account</span>
+                <span className="pse-micro">Activated only after on-chain verification</span>
               </div>
             </div>
           );
         })}
-      </div>
+      </Panel>
+
+      {/* ═══ YOUR OPERATING TOOLS ═══ */}
+      <Panel
+        title="Your operating tools"
+        meta="Cycle state is derived by the backend. Maintenance is always free."
+        action={<Link to="/mine/dashboard" className="pse-btn pse-btn-secondary pse-btn-sm">Maintenance queue</Link>}
+        bodyClassName={ownedTools.length === 0 ? '' : 'divide-y'}
+      >
+        {ownedTools.length === 0 ? (
+          <PSEEmpty
+            icon={Layers}
+            title="No tools operating yet"
+            body="Once a purchase is verified on BNB Smart Chain, the tool appears here with its live operating cycle."
+          />
+        ) : (
+          ownedTools.map(t => (
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+              <div className="min-w-0">
+                <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>
+                  {t.toolName || (t.toolId && LOCKED_PSEMINE_TOOLS[t.toolId as keyof typeof LOCKED_PSEMINE_TOOLS]?.name) || 'Mining tool'}
+                </p>
+                <p className="pse-micro mt-0.5">
+                  {t.cycleState === 'active'
+                    ? 'Operating — accruing hourly'
+                    : t.cycleState === 'cycle_complete'
+                      ? 'Cycle complete — maintenance available'
+                      : t.cycleState === 'maintenance_required'
+                        ? 'Maintenance required — accrual paused'
+                        : (t.status || '—')}
+                </p>
+              </div>
+              {t.maintenanceRequired || t.cycleState === 'cycle_complete' ? (
+                <Link to="/mine/dashboard" className="pse-btn pse-btn-secondary pse-btn-sm shrink-0">Maintain</Link>
+              ) : (
+                <Chip
+                  label={t.cycleState === 'active' ? 'Active' : (t.status || '—')}
+                  chip={t.cycleState === 'active' ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-neutral'}
+                  dot={false}
+                />
+              )}
+            </div>
+          ))
+        )}
+      </Panel>
+
+      <Panel title="How a purchase works" meta="Five ordered steps — nothing activates before verification">
+        <ol className="space-y-3 px-5 py-5">
+          {[
+            ['Quote', 'The backend converts the fixed GBP price to an exact BNB amount at the live rate and binds it to your account.'],
+            ['Payment', 'You send exactly that amount to the campaign receiving wallet on BNB Smart Chain (chain 56).'],
+            ['On-chain verification', 'The backend checks sender, recipient, amount and confirmation depth. The app never self-confirms.'],
+            ['Activation', 'A verified purchase activates the tool and adds its hourly capacity to your account.'],
+            ['Operating cycles', 'The tool accrues for 24-hour cycles; free maintenance restarts each cycle.'],
+          ].map(([title, body], i) => (
+            <li key={title} className="flex items-start gap-3">
+              <span className="pse-step pse-step-active">{i + 1}</span>
+              <div>
+                <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{title}</p>
+                <p className="pse-micro mt-0.5">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Panel>
 
       {purchasing && (
         <PurchaseFlow tool={purchasing} onClose={() => { setPurchasing(null); void refresh(); }} />
@@ -144,19 +232,31 @@ export const PSEMineTools: React.FC = () => {
   );
 };
 
-function LinkToDash() {
-  // FIX 10: SPA navigation instead of a full page reload.
+function SpecCell({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <Link to="/mine/dashboard" className="pse-micro font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
-      Manage all tools on the dashboard →
-    </Link>
+    <div>
+      <dt className="pse-eyebrow">{label}</dt>
+      <dd className="pse-num mt-1 text-[15px] font-semibold" style={{ color: accent || 'var(--pse-text)' }}>{value}</dd>
+      {sub && <p className="pse-micro mt-0.5">{sub}</p>}
+    </div>
   );
 }
 
-/* ═══════════════════════════ PURCHASE FLOW ═══════════════════════════ */
-/* States mirror the backend purchase lifecycle — success is never shown
+function gbpRate(v: number): string {
+  return `£${v.toFixed(2)}/hr`;
+}
+
+/* ═══════════════════════════ PURCHASE FLOW ═══════════════════════════
+ * States mirror the backend purchase lifecycle — success is never shown
  * before the backend verifies the transaction on-chain. */
 type FlowStep = 'quote' | 'pay' | 'verifying' | 'result';
+
+const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
+  { id: 'quote', label: 'Quote' },
+  { id: 'pay', label: 'Pay in BNB' },
+  { id: 'verifying', label: 'Verify' },
+  { id: 'result', label: 'Activate' },
+];
 
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void }> = ({ tool, onClose }) => {
   const {
@@ -197,11 +297,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
     }
   }, [secondsLeft, activeQuote, step, clearQuote, requestQuote, tool.id]);
 
-  const owned = pseUserCount(tool.id);
-  function pseUserCount(id: string) {
-    const counts = pseUser?.toolOwnershipCounts;
-    return counts ? (counts as Record<string, number>)[id] || 0 : 0;
-  }
+  const counts = pseUser?.toolOwnershipCounts;
+  const owned = counts ? (counts as Record<string, number>)[tool.id] || 0 : 0;
 
   const sendPayment = async () => {
     if (!activeQuote) return;
@@ -211,7 +308,6 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
     }
     setStep('verifying');
     try {
-      // eth_sendTransaction via the injected provider
       const eth = (window as unknown as {
         ethereum?: { request: (args: { method: string; params?: Array<Record<string, unknown>> }) => Promise<string> };
       }).ethereum;
@@ -225,7 +321,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
       // Backend verifies on-chain; activation is server-authoritative.
       const res = await submitPurchaseTx(activeQuote, txHash);
       if (res.success) {
-        setResult({ ok: true, message: `${tool.name} activated. Capacity is now live in your dashboard.`, hash: txHash });
+        setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
       } else {
         setResult({
           ok: false,
@@ -236,7 +332,6 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
       setStep('result');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
-      // User rejection returns to the pay step; genuine failures show a result.
       if (/user rejected|user denied|4001/i.test(msg)) {
         setStep('pay');
         toast('Payment cancelled in your wallet.');
@@ -250,9 +345,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
-  /* FIX 12: derive the meter denominator from the SERVER-issued quote window
-   * (createdAt → expiresAt). The 15-minute fallback only applies if the
-   * backend quote predates createdAt; the server remains authoritative. */
+  /* Meter denominator comes from the SERVER-issued quote window
+   * (createdAt → expiresAt); the fallback only applies when the backend quote
+   * omits createdAt. */
   const quoteDurationSec = (() => {
     if (!activeQuote) return 900;
     const exp = new Date(activeQuote.expiresAt).getTime();
@@ -261,6 +356,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
     return 900;
   })();
   const meterPct = Math.min(100, Math.max(0, (secondsLeft / quoteDurationSec) * 100));
+  const stepIndex = STEP_ORDER.findIndex(s => s.id === step);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Purchase ${tool.name}`}>
@@ -268,16 +364,30 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
       <div className="pse-scope relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border sm:rounded-2xl"
         style={{ background: 'var(--pse-surface)', borderColor: 'var(--pse-line-strong)' }}>
 
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b p-5"
-          style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
-          <div>
-            <p className="pse-eyebrow">Purchase</p>
-            <p className="pse-h3 mt-0.5">{tool.name}</p>
+        {/* Header + stepper */}
+        <div className="sticky top-0 z-10 border-b" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+          <div className="flex items-center justify-between gap-3 p-5 pb-3">
+            <div>
+              <p className="pse-eyebrow">Purchase</p>
+              <p className="pse-h3 mt-0.5">{tool.name} · <span className="pse-num">{gbp(tool.purchasePriceGBP)}</span></p>
+            </div>
+            <button onClick={onClose} disabled={step === 'verifying'} className="pse-btn pse-btn-ghost pse-btn-sm" aria-label="Close">
+              <X size={16} />
+            </button>
           </div>
-          <button onClick={onClose} disabled={step === 'verifying'} className="pse-btn pse-btn-ghost pse-btn-sm" aria-label="Close">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1.5 px-5 pb-4">
+            {STEP_ORDER.map((s, i) => (
+              <React.Fragment key={s.id}>
+                <span className={cn('pse-step', i < stepIndex ? 'pse-step-done' : i === stepIndex ? 'pse-step-active' : '')}>
+                  {i < stepIndex ? '✓' : i + 1}
+                </span>
+                <span className="pse-micro hidden sm:inline" style={{ color: i === stepIndex ? 'var(--pse-text)' : 'var(--pse-text-3)' }}>
+                  {s.label}
+                </span>
+                {i < STEP_ORDER.length - 1 && <span className="h-px flex-1" style={{ background: 'var(--pse-line)' }} />}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
 
         <div className="p-5">
@@ -290,15 +400,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="pse-card p-5">
+                <div className="pse-inset p-5">
                   <div className="flex items-baseline justify-between">
                     <span className="pse-caption">Fixed price</span>
-                    <span className="pse-num text-[22px] font-semibold">{gbp(activeQuote.gbpPrice)}</span>
+                    <span className="pse-num text-[20px] font-semibold">{gbp(activeQuote.gbpPrice)}</span>
                   </div>
                   <div className="pse-divider my-3.5" />
                   <div className="flex items-baseline justify-between">
                     <span className="pse-caption">You pay (exact amount)</span>
-                    <span className="pse-num text-[22px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>
+                    <span className="pse-num text-[20px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>
                       {Number(activeQuote.bnbAmount).toFixed(6)} BNB
                     </span>
                   </div>
@@ -307,16 +417,27 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between pse-caption">
-                  <span style={{ color: 'var(--pse-text-2)' }}>Quote expires in</span>
-                  <span className="pse-mono pse-num" style={{ color: secondsLeft < 120 ? 'var(--pse-warning)' : 'var(--pse-text)' }}>{mm}:{ss}</span>
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between pse-caption">
+                    <span style={{ color: 'var(--pse-text-2)' }}>Quote expires in</span>
+                    <span className="pse-mono pse-num" style={{ color: secondsLeft < 120 ? 'var(--pse-warning)' : 'var(--pse-text)' }}>{mm}:{ss}</span>
+                  </div>
+                  <Meter value={meterPct} tone={secondsLeft < 120 ? 'warning' : 'blue'} label="Quote validity" />
+                  <p className="pse-micro mt-2">
+                    The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
+                  </p>
                 </div>
-                <div className="pse-meter">
-                  <div className="pse-meter-fill" style={{ width: `${meterPct}%` }} />
+
+                <div className="pse-inset flex items-start gap-2.5 p-3.5">
+                  <Gauge size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-cyan)' }} />
+                  <p className="pse-micro">
+                    Adds <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(tool.hourlyRateGBP)}</span> of capacity.
+                    You will own {owned} of {tool.maxPerUser} after this purchase.
+                  </p>
                 </div>
 
                 {owned >= tool.maxPerUser ? (
-                  <p className="pse-caption p-3 rounded-xl text-center" style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+                  <p className="pse-caption rounded-xl p-3 text-center" style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
                     Maximum ownership for this tool reached.
                   </p>
                 ) : !connectedWallet ? (
@@ -328,7 +449,6 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                     Continue to payment <ChevronRight size={15} />
                   </button>
                 )}
-                {/* Expiry meter + caption are rendered above this block; FIX 12 keeps them server-derived. */}
                 {connectedWallet && (
                   <p className="pse-micro text-center">Paying from <span className="pse-mono">{shortAddr(connectedWallet)}</span></p>
                 )}
@@ -339,25 +459,35 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
           {/* STEP: pay */}
           {step === 'pay' && activeQuote && (
             <div className="space-y-4">
-              <div className="pse-card p-5 space-y-3.5">
+              <div className="pse-inset p-5 space-y-4">
                 <div>
                   <p className="pse-eyebrow mb-1.5">Send exactly</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="pse-num text-[24px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="pse-num text-[22px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>
                       {Number(activeQuote.bnbAmount).toFixed(6)} BNB
                     </span>
-                    <CopyField value={String(activeQuote.bnbAmount)} display={`${Number(activeQuote.bnbAmount).toFixed(6)} BNB`} label="BNB amount" />
+                    <CopyField value={String(activeQuote.bnbAmount)} display="Copy amount" label="BNB amount" />
                   </div>
-                  <p className="pse-micro mt-1" style={{ color: 'var(--pse-warning)' }}>
+                  <p className="pse-micro mt-2" style={{ color: 'var(--pse-warning)' }}>
                     Send the exact amount — underpayments are detected and will not activate a tool.
                   </p>
                 </div>
                 <div className="pse-divider" />
                 <div>
-                  <p className="pse-eyebrow mb-1.5">To the campaign receiving wallet</p>
-                  <CopyField value={activeQuote.receiverWallet} display={shortAddr(activeQuote.receiverWallet)} label="receiving wallet" />
-                  <p className="pse-micro mt-2">Verify the full address in your wallet before sending. Network: BNB Smart Chain (chain {activeQuote.chainId}).</p>
+                  <p className="pse-eyebrow mb-1.5">Campaign receiving wallet</p>
+                  <CopyField value={activeQuote.receiverWallet} display={shortAddr(activeQuote.receiverWallet)} label="receiving wallet" fullWidth />
+                  <p className="pse-micro mt-2">
+                    Verify the full address in your wallet before sending. Network: BNB Smart Chain (chain {activeQuote.chainId}).
+                  </p>
                 </div>
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex items-center justify-between pse-caption">
+                  <span style={{ color: 'var(--pse-text-2)' }}>Quote expires in</span>
+                  <span className="pse-mono pse-num" style={{ color: secondsLeft < 120 ? 'var(--pse-warning)' : 'var(--pse-text)' }}>{mm}:{ss}</span>
+                </div>
+                <Meter value={meterPct} tone={secondsLeft < 120 ? 'warning' : 'blue'} label="Quote validity" />
               </div>
 
               <button onClick={() => void sendPayment()} className="pse-btn pse-btn-primary w-full justify-center py-3.5">
@@ -365,11 +495,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
               </button>
               <button onClick={() => setStep('quote')} className="pse-btn pse-btn-ghost w-full justify-center">Back to quote</button>
 
-              <div className="flex items-start gap-2.5 p-3.5 rounded-xl" style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
+              <div className="pse-inset flex items-start gap-2.5 p-3.5">
                 <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-cyan)' }} />
                 <p className="pse-micro">
-                  After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount, and confirmations —
-                  before the tool activates. This usually takes under a minute.
+                  After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount, and
+                  confirmation depth — before the tool activates. This usually takes under a minute.
                 </p>
               </div>
             </div>
@@ -381,7 +511,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
               <Loader2 size={26} className="animate-spin" style={{ color: 'var(--pse-blue)' }} />
               <p className="pse-h3">Verifying on BNB Smart Chain</p>
               <p className="pse-micro max-w-xs text-center">
-                Confirming your transaction — sender, recipient, amount, and network confirmations. Don't close this window.
+                Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
               </p>
             </div>
           )}
@@ -401,13 +531,33 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                 {result.hash && (
                   <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer"
                     className="pse-micro inline-flex items-center gap-1.5 font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
-                    <ExternalLink size={12} /> View transaction {shortHash(result.hash)} on BscScan
+                    <ExternalLink size={12} /> View {shortHash(result.hash)} on BscScan
                   </a>
                 )}
+                {!result.ok && (
+                  <div className="pse-inset flex items-start gap-2.5 p-3.5 text-left">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-warning)' }} />
+                    <p className="pse-micro">
+                      Nothing was activated and nothing was lost: unverified payments are recorded as recovery
+                      evidence for manual review.
+                    </p>
+                  </div>
+                )}
+                {result.ok && (
+                  <div className="pse-inset flex items-start gap-2.5 p-3.5 text-left">
+                    <Info size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-blue)' }} />
+                    <p className="pse-micro">
+                      The tool starts its first 24-hour operating cycle immediately. Keep an eye on the dashboard —
+                      each completed cycle needs one free maintenance action.
+                    </p>
+                  </div>
+                )}
               </div>
-              <button onClick={onClose} className="pse-btn pse-btn-primary w-full justify-center py-3">
-                {result.ok ? 'Go to dashboard' : 'Close'}
-              </button>
+              <div className="flex flex-col gap-2.5 sm:flex-row">
+                <button onClick={onClose} className="pse-btn pse-btn-primary flex-1 justify-center py-3">
+                  {result.ok ? 'Go to dashboard' : 'Close'}
+                </button>
+              </div>
             </div>
           )}
         </div>

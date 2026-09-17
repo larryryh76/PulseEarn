@@ -1,16 +1,69 @@
 /**
- * PSEmine backend client (frontend read surface).
+ * PSEmine backend client — the frontend surface for /api/mine/*.
  *
- * Wraps ONLY the existing backend endpoints. No economic values are computed
- * or written here — the backend is the single source of truth.
+ * Contract rules enforced here:
+ *   • The backend is the ONLY source of economic truth. Nothing in this file
+ *     computes, infers or caches a balance, capacity or entitlement.
+ *   • Every failure is classified (see pseErrors.ts) instead of collapsing into
+ *     one generic message, so the UI can distinguish "session expired" from
+ *     "not enabled for this account" from "backend unavailable".
+ *   • Every request carries an operation label ("GET /api/mine/state") so
+ *     diagnostics identify the failing call, and a correlation id when the
+ *     backend echoes one.
  */
 import { auth } from '../../firebase/config';
 import { anchorServerTime } from '../../components/psemine/pse';
+import {
+  PseApiError, pseDataError, pseHttpError, pseNetworkError,
+} from './pseErrors';
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const token = await auth.currentUser?.getIdToken();
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  const operation = `${init?.method || 'GET'} ${path}`;
+  const user = auth.currentUser;
+  if (!user) {
+    throw new PseApiError({
+      kind: 'auth',
+      title: 'Your session has expired',
+      message: 'Please sign in again to continue to your mining console.',
+      retryable: false,
+      operation,
+      status: 401,
+    });
+  }
+  const token = await user.getIdToken();
+  try {
+    const res = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = pseHttpError(operation, res.status, body);
+      const correlation = res.headers.get('x-request-id') || res.headers.get('x-correlation-id');
+      throw correlation
+        ? new PseApiError({ ...err.toInfo(), correlationId: correlation })
+        : err;
+    }
+    return res;
+  } catch (e) {
+    if (e instanceof PseApiError) throw e;
+    throw pseNetworkError(operation, e);
+  }
 }
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await request(path, init);
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw pseDataError(`${init?.method || 'GET'} ${path}`, 200);
+  }
+}
+
+/* ── Canonical state ─────────────────────────────────────────────────── */
 
 export interface PseStateUser {
   accruedMinor: number; accruedGBP: number; debitedMinor: number; availableMinor: number;
@@ -38,19 +91,23 @@ export interface PseState {
   serverTimeMs: number;
 }
 
-/** Canonical state: triggers the backend accrual checkpoint and anchors the UI clock. */
+const OPERATION_STATE = 'GET /api/mine/state';
+
+/**
+ * Canonical state: triggers the backend accrual checkpoint and anchors the UI
+ * clock. This is the only call whose failure blocks the console — everything
+ * else degrades to a named feed error.
+ */
 export async function fetchPseState(): Promise<PseState> {
-  const res = await fetch('/api/mine/state', { headers: await authHeaders() });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data?.message || data?.error || `State unavailable (${res.status})`);
+  const data = await requestJson<PseState>('/api/mine/state');
+  if (!data || typeof data !== 'object' || !data.user || !Array.isArray(data.tools)) {
+    throw pseDataError(OPERATION_STATE);
   }
-  const data = await res.json() as PseState;
-  if (typeof data?.serverTimeMs === 'number') {
-    anchorServerTime(data.serverTimeMs);
-  }
+  if (typeof data.serverTimeMs === 'number') anchorServerTime(data.serverTimeMs);
   return data;
 }
+
+/* ── Payout history ──────────────────────────────────────────────────── */
 
 export interface PseWithdrawal {
   id: string; status?: string; amountGBP?: number; amountMinor?: number; requestedAmountGBP?: number;
@@ -58,13 +115,11 @@ export interface PseWithdrawal {
   createdAt?: string; updatedAt?: string; processedAt?: string | null; reviewNotes?: string | null;
 }
 export async function fetchMyWithdrawals(): Promise<PseWithdrawal[]> {
-  try {
-    const res = await fetch('/api/mine/withdrawals', { headers: await authHeaders() });
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => ({}));
-    return Array.isArray(data?.withdrawals) ? data.withdrawals as PseWithdrawal[] : [];
-  } catch { return []; }
+  const data = await requestJson<{ withdrawals?: PseWithdrawal[] }>('/api/mine/withdrawals');
+  return Array.isArray(data?.withdrawals) ? data.withdrawals : [];
 }
+
+/* ── Referrals ───────────────────────────────────────────────────────── */
 
 export interface PseReferral {
   id: string; status?: string; refereeId?: string; refereeUsername?: string; refereeEmailMasked?: string;
@@ -72,70 +127,72 @@ export interface PseReferral {
 }
 /** Referral rows for the current referrer, including the backend-derived code. */
 export async function fetchMyReferrals(): Promise<{ referrals: PseReferral[]; referralCode?: string | null }> {
-  try {
-    const res = await fetch('/api/mine/referrals', { headers: await authHeaders() });
-    if (!res.ok) return { referrals: [] };
-    const data = await res.json().catch(() => ({}));
-    return {
-      referrals: Array.isArray(data?.referrals) ? data.referrals as PseReferral[] : [],
-      referralCode: data?.referralCode ?? null,
-    };
-  } catch { return { referrals: [] }; }
+  const data = await requestJson<{ referrals?: PseReferral[]; referralCode?: string | null }>('/api/mine/referrals');
+  return {
+    referrals: Array.isArray(data?.referrals) ? data.referrals : [],
+    referralCode: data?.referralCode ?? null,
+  };
 }
 
-/* ── Payout request (D4). Backend gate: POST /api/mine/withdrawals/request →
- * create_payout_request — blocked while campaign is active/paused, min £10,
- * requires a configured payout wallet, exactly-one pending request.
- * The backend re-validates every condition; the UI treats it as authoritative. */
-export async function requestPayout(amountGbp: number, payoutAddress: string): Promise<{ success: boolean; error?: string; message?: string }> {
+/* ── Payout request (backend re-validates every condition) ───────────── */
+
+export async function requestPayout(
+  amountGbp: number,
+  payoutAddress: string,
+): Promise<{ success: boolean; error?: string; message?: string }> {
   const res = await fetch('/api/mine/withdrawals/request', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {}),
+    },
     body: JSON.stringify({ amountGbp, payoutAddress }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.success) {
-    return { success: false, error: data?.error, message: data?.message || 'Payout request could not be submitted.' };
+    return {
+      success: false,
+      error: data?.error,
+      message: data?.message || 'Payout request could not be submitted.',
+    };
   }
   return { success: true };
 }
 
-/* ── Canonical activity feed (top-level psemine_activities, engine-written) ── */
+/* ── Canonical activity feed (top-level psemine_activities) ──────────── */
+
 export interface PseActivity {
   id: string; type?: string; title?: string; description?: string;
   amountGBP?: number; amountMinor?: number; metadata?: Record<string, unknown>;
   createdAt?: unknown;
 }
 export async function fetchMyActivities(): Promise<PseActivity[]> {
-  try {
-    const res = await fetch('/api/mine/activities', { headers: await authHeaders() });
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => ({}));
-    return Array.isArray(data?.activities) ? data.activities as PseActivity[] : [];
-  } catch { return [];
-  }
+  const data = await requestJson<{ activities?: PseActivity[] }>('/api/mine/activities');
+  return Array.isArray(data?.activities) ? data.activities : [];
 }
 
-/* ── Notification records (psemine_notifications; rules-sanctioned client read) ── */
+/* ── Notification records (psemine_notifications only) ───────────────── */
+
 export interface PseNotification {
   id: string; type?: string; title?: string; message?: string;
   read?: boolean; createdAt?: unknown;
 }
 export async function fetchMyNotifications(): Promise<PseNotification[]> {
-  try {
-    const res = await fetch('/api/mine/notifications', { headers: await authHeaders() });
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => ({}));
-    return Array.isArray(data?.notifications) ? data.notifications as PseNotification[] : [];
-  } catch { return [];
-  }
+  const data = await requestJson<{ notifications?: PseNotification[] }>('/api/mine/notifications');
+  return Array.isArray(data?.notifications) ? data.notifications : [];
 }
 export async function markNotificationRead(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/mine/notifications/${encodeURIComponent(id)}/read`, {
-      method: 'POST', headers: await authHeaders(),
-    });
-    return res.ok;
-  } catch { return false; }
+    await request(`/api/mine/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
+/* ── Explicit enrollment (see PSEMineEngine.enroll) ──────────────────── */
+
+export async function enrollInPSEmine(): Promise<boolean> {
+  const data = await requestJson<{ success?: boolean }>('/api/mine/enroll', { method: 'POST' });
+  return data?.success === true;
+}

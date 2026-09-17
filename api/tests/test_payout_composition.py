@@ -47,7 +47,17 @@ class _Query:
 
     def get(self, transaction=None):
         """Read documents from the current committed or transactional view."""
-        rows = self._store.current() if transaction is None else transaction.table(self._name).current()
+        if transaction is not None:
+            # Firestore ordering rule: a transactional query read after a
+            # buffered write is invalid and fails server-side.
+            if getattr(transaction, "_ops", None):
+                raise AssertionError(
+                    "Firestore transaction violation: query read executed after "
+                    "a buffered write. All transaction reads must precede all writes."
+                )
+            rows = transaction.table(self._name).current()
+        else:
+            rows = self._store.current()
         out = []
         for doc in rows.values():
             data = doc["data"] if transaction is None else dict(doc["data"])
@@ -83,7 +93,15 @@ class _Snap:
 
 
 class _Txn:
-    """Transactional view: buffered writes, reads see them after commit-on-success."""
+    """Transactional view: buffered writes, reads see them after commit-on-success.
+
+    PRODUCTION RULE ENFORCED: real Firestore transactions require ALL reads to
+    execute before ANY write; a read-after-write fails the whole transaction
+    server-side (FAILED_PRECONDITION). The fake previously tolerated that
+    ordering violation, which let accrual_checkpoint/maintain_ownership pass
+    tests while throwing 500s in production. Reads after a buffered write now
+    raise immediately, mirroring the server.
+    """
 
     def __init__(self, store):
         """Initialize the txn test double."""
@@ -94,9 +112,18 @@ class _Txn:
         """Return the collection store used by this transaction."""
         return self._store
 
+    def _guard_read_order(self):
+        """Raise if any write was already buffered (Firestore read/write rule)."""
+        if self._ops:
+            raise AssertionError(
+                "Firestore transaction violation: read executed after a buffered "
+                "write. All transaction reads must precede all writes."
+            )
+
     # reads reflect committed state (no intermediate visibility)
     def get(self, doc_ref):
         """Read documents from the current committed or transactional view."""
+        self._guard_read_order()
         data, exists = self._store.read(doc_ref.id)
         return _MaybeSnap(doc_ref.id, data if exists else None, exists)
 

@@ -1,17 +1,31 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { PSEMineAuthContext } from './PSEMineAuthContextValue';
 import { PSEMineEngine } from '../engines/psemine/PSEMineEngine';
 
 export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userData, loading, login, signup, logout, sendVerification, resetPassword } = useAuth();
+  const {
+    currentUser, userData, loading,
+    login, signup: identitySignup, signInWithGoogle: identityGoogleSignIn,
+    logout, sendVerification, resetPassword,
+  } = useAuth();
 
   const isVerified = currentUser?.emailVerified ?? false;
 
   /**
-   * PSEmine signup: reuses the PulseEarn Firebase identity, then attributes the
-   * referral via the canonical backend endpoint (deterministic psemine_referrals
-   * record). No duplicate account is created; PSEmine economics stay separate.
+   * PSEmine entitlement comes from the shared identity document. Signup writes
+   * it explicitly for the chosen product (see AuthContext.initializeUserProfile)
+   * and enrollment writes it server-side — it is never inferred from the fact
+   * that a user is authenticated.
+   */
+  const hasPSEmineAccess = userData?.productAccess?.psemine === true;
+
+  /**
+   * PSEmine signup: reuses the shared Firebase identity, then attributes the
+   * referral via the canonical backend endpoint (deterministic
+   * psemine_referrals record). No duplicate account is created, and the
+   * identity is created with `productAccess { pulseearn: false, psemine: true }`
+   * — a PSEmine signup never grants, or triggers, the PulseEarn economy.
    */
   const signupWithReferral = useCallback(async (
     email: string,
@@ -19,7 +33,7 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     username: string,
     referralCode?: string
   ): Promise<void> => {
-    await signup(email, password, username, referralCode);
+    await identitySignup(email, password, username, referralCode, 'psemine');
     if (referralCode) {
       try {
         const { getAuth } = await import('firebase/auth');
@@ -36,37 +50,95 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         console.warn('[PSEMineAuth] referral attribution notice:', e);
       }
     }
-  }, [signup]);
+  }, [identitySignup]);
+
+  /**
+   * PSEmine Google sign-in: delegates to the ONE shared Firebase Google
+   * identity (AuthContext.signInWithGoogle). A brand-new Google account created
+   * here is enrolled in PSEmine; an EXISTING account keeps whatever
+   * entitlement it already has — Google sign-in never silently upgrades an
+   * account (the console offers explicit enrollment instead).
+   */
+  const googleSignIn = useCallback(async (referralCode?: string): Promise<void> => {
+    await identityGoogleSignIn(referralCode, 'psemine');
+    if (referralCode) {
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const fbAuth = getAuth();
+        if (fbAuth.currentUser) {
+          await PSEMineEngine.registerReferral(
+            fbAuth.currentUser.uid,
+            fbAuth.currentUser.displayName || 'Miner',
+            referralCode
+          );
+        }
+      } catch (e) {
+        // Attribution failure must not block Google sign-in; retained for the
+        // next-session retry (same policy as the email signup path).
+        console.warn('[PSEMineAuth] Google referral attribution notice:', e);
+      }
+    }
+  }, [identityGoogleSignIn]);
+
+  /**
+   * Explicit enrollment for an existing signed-in account. Backend-authoritative
+   * and audited; the AuthContext users/{uid} listener propagates the new
+   * entitlement live, so the console unlocks without a reload or a second
+   * identity.
+   */
+  const [enrolling, setEnrolling] = useState(false);
+  const enablePSEmine = useCallback(async () => {
+    if (!currentUser) {
+      return { success: false, error: 'NOT_AUTHENTICATED', message: 'Please sign in again.' };
+    }
+    setEnrolling(true);
+    try {
+      return await PSEMineEngine.enroll();
+    } finally {
+      setEnrolling(false);
+    }
+  }, [currentUser]);
 
   // Retry any referral code retained after a transient registration failure.
-  // Runs once per signed-in session; idempotent server-side. The latch resets
-  // on sign-out so a later sign-in (same mounted provider) retries again.
+  // Runs once per signed-in ENROLLED session; idempotent server-side. The latch
+  // resets on sign-out so a later sign-in (same mounted provider) retries again.
+  // Gated on entitlement so a PulseEarn-only session never touches PSEmine.
   const retriedThisSession = useRef(false);
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !hasPSEmineAccess) return;
     if (retriedThisSession.current) return;
     retriedThisSession.current = true;
     PSEMineEngine.retryPendingReferral().catch(() => undefined);
-  }, [currentUser]);
+  }, [currentUser, hasPSEmineAccess]);
 
   useEffect(() => {
     if (!currentUser) retriedThisSession.current = false;
   }, [currentUser]);
 
+  const value = useMemo(() => ({
+    currentUser,
+    userData,
+    loading,
+    isVerified,
+    hasPSEmineAccess,
+    enablePSEmine,
+    login,
+    signup: signupWithReferral,
+    signInWithGoogle: googleSignIn,
+    logout,
+    sendVerification,
+    resetPassword,
+  }), [
+    currentUser, userData, loading, isVerified, hasPSEmineAccess, enablePSEmine,
+    login, signupWithReferral, googleSignIn, logout, sendVerification, resetPassword,
+  ]);
+
+  // `enrolling` is intentionally not surfaced: enrollment state is local to the
+  // component that triggers it, and the context value stays referentially stable.
+  void enrolling;
+
   return (
-    <PSEMineAuthContext.Provider
-      value={{
-        currentUser,
-        userData,
-        loading,
-        isVerified,
-        login,
-        signup: signupWithReferral,
-        logout,
-        sendVerification,
-        resetPassword,
-      }}
-    >
+    <PSEMineAuthContext.Provider value={value}>
       {children}
     </PSEMineAuthContext.Provider>
   );

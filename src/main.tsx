@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
-import { TaskProvider } from './contexts/TaskContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
@@ -32,8 +31,7 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary name="App Root">
       <ThemeProvider>
         <AuthProvider>
-            <TaskProvider>
-              <Suspense fallback={
+            <Suspense fallback={
               <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="relative">
                   <div className="w-12 h-12 border-2 border-primary/10 border-t-primary rounded-full animate-spin" />
@@ -45,7 +43,6 @@ createRoot(document.getElementById('root')!).render(
             }>
               <App />
               </Suspense>
-            </TaskProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

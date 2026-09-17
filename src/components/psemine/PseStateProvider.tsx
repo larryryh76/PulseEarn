@@ -4,18 +4,27 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import {
   PseState, PseStateTool, fetchPseState, fetchMyWithdrawals, fetchMyReferrals,
   fetchMyActivities, fetchMyNotifications, PseWithdrawal, PseReferral,
-  PseActivity, PseNotification,
+  PseActivity, PseNotification, markNotificationRead as markNotificationReadApi,
 } from '../../engines/psemine/pseMineApi';
+import {
+  PseErrorInfo, toPseErrorInfo, logPseDiagnostic,
+} from '../../engines/psemine/pseErrors';
 import { gbp } from './pse';
-import { markNotificationRead as markNotificationReadApi } from '../../engines/psemine/pseMineApi';
+
+/** Secondary (non-blocking) data feeds. */
+export type PseFeed = 'withdrawals' | 'referrals' | 'activities' | 'notifications';
 
 interface PseStateCtx {
   state: PseState | null;
   campaignStatus: string | null;
   loading: boolean;
-  error: string | null;
+  /** Blocking failure: the canonical mining state could not be established. */
+  error: PseErrorInfo | null;
   refreshing: boolean;
   refresh: () => Promise<void>;
+  /** Per-feed failures, so an empty list is never confused with a failed load. */
+  feedErrors: Partial<Record<PseFeed, PseErrorInfo>>;
+  refreshFeed: (feed: PseFeed) => Promise<void>;
   withdrawals: PseWithdrawal[];
   referrals: PseReferral[];
   referralCode: string | null;
@@ -28,7 +37,7 @@ interface PseStateCtx {
 const Ctx = createContext<PseStateCtx | undefined>(undefined);
 
 export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = usePSEMineAuth();
+  const { currentUser, hasPSEmineAccess } = usePSEMineAuth();
   const { campaign } = usePSEMine();
   const [state, setState] = useState<PseState | null>(null);
   const [withdrawals, setWithdrawals] = useState<PseWithdrawal[]>([]);
@@ -37,15 +46,62 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activities, setActivities] = useState<PseActivity[]>([]);
   const [notifications, setNotifications] = useState<PseNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PseErrorInfo | null>(null);
+  const [feedErrors, setFeedErrors] = useState<Partial<Record<PseFeed, PseErrorInfo>>>({});
   const [refreshing, setRefreshing] = useState(false);
   const inFlight = useRef(false);
 
+  /**
+   * Identity-only reset. Called on sign-out AND when the account has no
+   * PSEmine entitlement: we must never call /api/mine/* (or show stale PSEmine
+   * figures) for an account that isn't enrolled. The console renders the
+   * entitlement state from PSEMineAuth instead of a generic failure.
+   */
+  const clearAll = useCallback(() => {
+    setState(null); setWithdrawals([]); setReferrals([]); setReferralCode(null);
+    setActivities([]); setNotifications([]); setFeedErrors({});
+  }, []);
+
+  const loadFeeds = useCallback(async () => {
+    const feeds: Array<[PseFeed, () => Promise<void>]> = [
+      ['withdrawals', async () => setWithdrawals(await fetchMyWithdrawals())],
+      ['referrals', async () => {
+        const r = await fetchMyReferrals();
+        setReferrals(r.referrals);
+        setReferralCode(r.referralCode ?? null);
+      }],
+      ['activities', async () => setActivities(await fetchMyActivities())],
+      ['notifications', async () => setNotifications(await fetchMyNotifications())],
+    ];
+    const results = await Promise.allSettled(feeds.map(([, run]) => run()));
+    const next: Partial<Record<PseFeed, PseErrorInfo>> = {};
+    results.forEach((res, i) => {
+      if (res.status === 'rejected') {
+        const info = toPseErrorInfo(res.reason, feeds[i][0]);
+        logPseDiagnostic(`feed ${feeds[i][0]}`, info);
+        next[feeds[i][0]] = info;
+      }
+    });
+    setFeedErrors(next);
+  }, []);
+
   const load = useCallback(async (isRefresh: boolean) => {
     if (!currentUser) {
-      setState(null); setWithdrawals([]); setReferrals([]); setReferralCode(null);
-      setActivities([]); setNotifications([]);
-      setLoading(false); setError(null);
+      clearAll();
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    // Entitlement gate: no PSEmine access ⇒ no PSEmine API calls at all.
+    if (!hasPSEmineAccess) {
+      clearAll();
+      setLoading(false);
+      setError({
+        kind: 'permission',
+        title: "PSEmine isn't enabled for this account",
+        message: 'This account does not have PSEmine access. Enable PSEmine for this account from the console, or sign in with the enrolled account.',
+        retryable: false,
+      });
       return;
     }
     if (inFlight.current) return;
@@ -55,38 +111,32 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const s = await fetchPseState();
       setState(s);
-      const [w, r, acts, notifs] = await Promise.all([
-        fetchMyWithdrawals(), fetchMyReferrals(), fetchMyActivities(), fetchMyNotifications(),
-      ]);
-      setWithdrawals(w);
-      setReferrals(r.referrals);
-      setReferralCode(r.referralCode ?? null);
-      setActivities(acts);
-      setNotifications(notifs);
+      await loadFeeds();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Could not reach the mining network.';
-      setError(msg);
-      if (!isRefresh) setState(null);
+      const info = toPseErrorInfo(e, 'GET /api/mine/state');
+      logPseDiagnostic('canonical state', info);
+      setError(info);
+      if (!isRefresh) clearAll();
     } finally {
       inFlight.current = false;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentUser]);
+  }, [currentUser, hasPSEmineAccess, clearAll, loadFeeds]);
 
   useEffect(() => { void load(false); }, [load]);
 
   // Periodic re-checkpoint while visible: accrual continues server-side; this
   // only refreshes the displayed figure and keeps the clock anchored.
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !hasPSEmineAccess) return;
     const id = window.setInterval(() => {
       if (document.visibilityState === 'visible') void load(true);
     }, 60_000);
     const onVis = () => { if (document.visibilityState === 'visible') void load(true); };
     document.addEventListener('visibilitychange', onVis);
     return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
-  }, [currentUser, load]);
+  }, [currentUser, hasPSEmineAccess, load]);
 
   const campaignStatus = useMemo(() => {
     if (state?.effectiveCampaignStatus) return state.effectiveCampaignStatus;
@@ -99,6 +149,24 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     await markNotificationReadApi(id);
   }, []);
 
+  const refreshFeed = useCallback(async (feed: PseFeed) => {
+    try {
+      if (feed === 'withdrawals') setWithdrawals(await fetchMyWithdrawals());
+      if (feed === 'referrals') {
+        const r = await fetchMyReferrals();
+        setReferrals(r.referrals);
+        setReferralCode(r.referralCode ?? null);
+      }
+      if (feed === 'activities') setActivities(await fetchMyActivities());
+      if (feed === 'notifications') setNotifications(await fetchMyNotifications());
+      setFeedErrors(prev => { const n = { ...prev }; delete n[feed]; return n; });
+    } catch (e) {
+      const info = toPseErrorInfo(e, feed);
+      logPseDiagnostic(`feed ${feed}`, info);
+      setFeedErrors(prev => ({ ...prev, [feed]: info }));
+    }
+  }, []);
+
   const value: PseStateCtx = {
     state,
     campaignStatus,
@@ -106,6 +174,8 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     error,
     refreshing,
     refresh: () => load(true),
+    feedErrors,
+    refreshFeed,
     withdrawals,
     referrals,
     referralCode,

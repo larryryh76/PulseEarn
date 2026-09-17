@@ -349,7 +349,15 @@ def accrual_checkpoint(db, uid, source="auto"):
     max_anchor = None
 
     def _txn(txn):
-        """Apply an idempotent accrual checkpoint within a transaction."""
+        """Apply an idempotent accrual checkpoint within a transaction.
+
+        Firestore transaction ordering rule: ALL reads must execute before ANY
+        write ("Read operations must be executed before write operations" —
+        firebase.google.com/docs/firestore/manage-data/transactions). The real
+        SDK enforces this server-side and a read-after-write fails the whole
+        transaction, so this body is strictly two-phase: every get()/query
+        happens first, every txn.set()/txn.update() is buffered last.
+        """
         nonlocal earned_by_tool, referral_minor, max_anchor
         user_snap = user_ref.get(transaction=txn)
         user = user_snap.to_dict() or {}
@@ -360,10 +368,89 @@ def accrual_checkpoint(db, uid, source="auto"):
         # and the legacy balance is destroyed from every read path. The flag
         # makes this idempotent and mutually safe with the activation-time
         # absorption (whichever runs first wins; both check the same flag).
+        # (Read phase: the migration-doc lookup is a read and must precede all
+        # buffered writes; the writes themselves are applied in the write phase.)
         legacy_minor_now = legacy_balance_minor(user)
-        if legacy_minor_now > 0 and user.get("legacyBalanceAbsorbedMinor") is None:
-            mig_ref = db.collection("psemine_mining_ledger").document(f"migration_{uid}")
-            if not mig_ref.get(transaction=txn).exists:
+        needs_absorption = legacy_minor_now > 0 and user.get("legacyBalanceAbsorbedMinor") is None
+        mig_ref = db.collection("psemine_mining_ledger").document(f"migration_{uid}")
+        mig_exists = True
+        if needs_absorption:
+            mig_exists = mig_ref.get(transaction=txn).exists
+
+        # (Read phase) active ownerships — must run before any buffered write.
+        owns = ownership_ref.where("userId", "==", uid).where("status", "==", "active").get(transaction=txn)
+
+        # Reset ALL accumulators inside the transaction body: _run_transaction
+        # may re-run _txn on contention — stale values from a previous attempt
+        # must never leak into this attempt's ledger entry.
+        earned_by_tool = []
+        referral_minor = 0
+        total_tool_minor = 0
+        anchor_parts = []
+        operating_now = False
+        anchor_updates = []      # buffered (ref, payload) anchor advances
+        reconcile_updates = []   # buffered (ref, payload) anchorless-legacy reconciliation
+
+        for own in owns:
+            d = own.to_dict() or {}
+            # B2: anchor-less legacy ownerships (activatedAt but no canonical
+            # anchors) reconcile HERE at current server time — no historical
+            # accrual for a period the legacy balance already represented.
+            if is_anchorless_legacy_ownership(d):
+                reconcile_updates.append((own.reference, {
+                    "lastAccruedAt": _iso(window_end),
+                    "cycleStartedAt": _iso(window_end),
+                    "accrualAnchorReconciledAt": firestore_server_ts(),
+                    "accrualAnchorReconciled": True,
+                    "updatedAt": firestore_server_ts(),
+                }))
+                continue
+            anchor_raw = d.get("lastAccruedAt") or d.get("cycleStartedAt")
+            if not anchor_raw:
+                continue
+            anchor = _parse(anchor_raw)
+            if anchor >= window_end:
+                continue
+            earned_i, eff_end = accrue_ownership(d, anchor, window_end, windows)
+            if eff_end > anchor:
+                anchor_updates.append((own.reference, {
+                    "lastAccruedAt": _iso(eff_end),
+                    "accrualAnchorUpdatedAt": firestore_server_ts(),
+                }))
+                anchor_parts.append(f"{own.id}:{int(eff_end.timestamp())}")
+            if earned_i > 0:
+                earned_by_tool.append({"ownershipId": own.id, "toolId": d.get("toolId"), "minor": earned_i})
+                total_tool_minor += earned_i
+            # operating NOW = within current operating cycle
+            c = derive_cycle(d, now)
+            if c.state == "active":
+                operating_now = True
+
+        # Referral capacity accrual (requires >=1 tool operating now).
+        # (Read phase: anchor and count come from the user snapshot; the anchor
+        # write itself is deferred to the write phase.)
+        ref_anchor_raw = user.get("lastReferralAccruedAt")
+        ref_anchor = _parse(ref_anchor_raw) if ref_anchor_raw else window_end
+        referral_due = ref_anchor < window_end
+        if referral_due:
+            qual = int(user.get("qualifiedReferralsCount") or 0)
+            referral_minor = accrue_referral_capacity(
+                qual, ref_anchor, window_end, windows, has_operating_tool=operating_now
+            )
+
+        total_minor = total_tool_minor + referral_minor
+
+        # deterministic ledger id from the exact anchor transition
+        digest = _checkpoint_digest([uid, window_end.isoformat(), *sorted(anchor_parts), referral_minor])
+        entry_id = f"accrual_{uid[:28]}_{digest}"
+
+        # (Read phase) ledger duplicate detection — still zero buffered writes.
+        entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
+        entry_exists = bool(total_minor > 0 and entry_ref.get(transaction=txn).exists)
+
+        # ------------------------- write phase (last) -------------------------
+        if needs_absorption:
+            if not mig_exists:
                 txn.set(mig_ref, {
                     "id": f"migration_{uid}", "userId": uid,
                     "campaignId": PSEMINE_CAMPAIGN_DOC_ID,
@@ -382,73 +469,19 @@ def accrual_checkpoint(db, uid, source="auto"):
                 "updatedAt": firestore_server_ts(),
             })
 
-        owns = ownership_ref.where("userId", "==", uid).where("status", "==", "active").get(transaction=txn)
-
-        # Reset ALL accumulators inside the transaction body: _run_transaction
-        # may re-run _txn on contention — stale values from a previous attempt
-        # must never leak into this attempt's ledger entry.
-        earned_by_tool = []
-        referral_minor = 0
-        total_tool_minor = 0
-        anchor_parts = []
-        operating_now = False
-
-        for own in owns:
-            d = own.to_dict() or {}
-            # B2: anchor-less legacy ownerships (activatedAt but no canonical
-            # anchors) reconcile HERE at current server time — no historical
-            # accrual for a period the legacy balance already represented.
-            if is_anchorless_legacy_ownership(d):
-                txn.update(own.reference, {
-                    "lastAccruedAt": _iso(window_end),
-                    "cycleStartedAt": _iso(window_end),
-                    "accrualAnchorReconciledAt": firestore_server_ts(),
-                    "accrualAnchorReconciled": True,
-                    "updatedAt": firestore_server_ts(),
-                })
-                continue
-            anchor_raw = d.get("lastAccruedAt") or d.get("cycleStartedAt")
-            if not anchor_raw:
-                continue
-            anchor = _parse(anchor_raw)
-            if anchor >= window_end:
-                continue
-            earned_i, eff_end = accrue_ownership(d, anchor, window_end, windows)
-            if eff_end > anchor:
-                txn.update(own.reference, {
-                    "lastAccruedAt": _iso(eff_end),
-                    "accrualAnchorUpdatedAt": firestore_server_ts(),
-                })
-                anchor_parts.append(f"{own.id}:{int(eff_end.timestamp())}")
-            if earned_i > 0:
-                earned_by_tool.append({"ownershipId": own.id, "toolId": d.get("toolId"), "minor": earned_i})
-                total_tool_minor += earned_i
-            # operating NOW = within current operating cycle
-            c = derive_cycle(d, now)
-            if c.state == "active":
-                operating_now = True
-
-        # Referral capacity accrual (requires >=1 tool operating now)
-        ref_anchor_raw = user.get("lastReferralAccruedAt")
-        ref_anchor = _parse(ref_anchor_raw) if ref_anchor_raw else window_end
-        if ref_anchor < window_end:
-            qual = int(user.get("qualifiedReferralsCount") or 0)
-            referral_minor = accrue_referral_capacity(
-                qual, ref_anchor, window_end, windows, has_operating_tool=operating_now
-            )
+        for _ref, _payload in reconcile_updates:
+            txn.update(_ref, _payload)
+        for _ref, _payload in anchor_updates:
+            txn.update(_ref, _payload)
+        if referral_due:
             txn.update(user_ref, {"lastReferralAccruedAt": _iso(window_end)})
-
-        total_minor = total_tool_minor + referral_minor
-
-        # deterministic ledger id from the exact anchor transition
-        digest = _checkpoint_digest([uid, window_end.isoformat(), *sorted(anchor_parts), referral_minor])
-        entry_id = f"accrual_{uid[:28]}_{digest}"
 
         updates = {"updatedAt": firestore_server_ts()}
         if total_minor > 0:
-            entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
-            entry = entry_ref.get(transaction=txn)
-            if entry.exists:
+            if entry_exists:
+                # Ledger entry already committed by an earlier attempt: buffered
+                # anchor advances above still commit (idempotent), but the
+                # balance must not change twice.
                 return {"earnedMinor": 0, "duplicate": True, "entryId": entry_id}
             txn.set(entry_ref, {
                 "id": entry_id,
@@ -510,11 +543,18 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             return {"ok": False, "error": "INVALID_STATE"}
 
         now = utcnow()
+        # Firestore transaction ordering rule: ALL reads must execute before ANY
+        # write. Read/decide first; buffer every write last.
+
         # B2: reconcile anchor-less legacy ownerships at first canonical touch.
         # This starts their first canonical cycle WITHOUT granting any historical
         # earnings, and unblocks the maintenance path (no anchor -> no cycle ->
-        # CYCLE_NOT_COMPLETE forever).
-        if is_anchorless_legacy_ownership(d):
+        # CYCLE_NOT_COMPLETE forever). The reconciliation write is buffered
+        # immediately (preserving the original commit-on-early-return semantics);
+        # the anchorless path can never reach the later settle reads because its
+        # fresh anchor makes derive_cycle report an active cycle.
+        anchorless = is_anchorless_legacy_ownership(d)
+        if anchorless:
             txn.update(own_ref, {
                 "cycleStartedAt": _iso(now),
                 "lastAccruedAt": _iso(now),
@@ -531,33 +571,43 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
         windows = campaign_operating_windows_for(db, camp, now)
 
         # settle any uncheckpointed eligible time for THIS tool (anchor -> cycle_end)
+        # (read phase: the settle amount is computed WITHOUT buffered writes;
+        # user/ledger reads happen below only when a settle is actually due)
         anchor_raw = d.get("lastAccruedAt") or d.get("cycleStartedAt")
         settle_minor = 0
         if anchor_raw:
             anchor = _parse(anchor_raw)
             if anchor < cycle_end:
                 settle_minor, _eff = accrue_ownership(d, anchor, cycle_end, windows)
-                if settle_minor > 0:
-                    user_ref = db.collection("psemine_users").document(uid)
-                    user_snap = user_ref.get(transaction=txn)
-                    user = user_snap.to_dict() or {}
-                    new_accrued = int(user.get("accruedMinor") or 0) + settle_minor
-                    digest = _checkpoint_digest([uid, "maintenance_settle", ownership_id, _iso(cycle_end)])
-                    entry_id = f"accrual_{uid[:28]}_{digest}"
-                    entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
-                    if not entry_ref.get(transaction=txn).exists:
-                        txn.set(entry_ref, {
-                            "id": entry_id, "userId": uid, "campaignId": PSEMINE_CAMPAIGN_DOC_ID,
-                            "kind": "accrual", "amountMinor": int(settle_minor), "source": "maintenance",
-                            "ownershipId": ownership_id, "anchorTo": _iso(cycle_end),
-                            "createdAt": firestore_server_ts(),
-                        })
-                        txn.update(user_ref, {
-                            "accruedMinor": new_accrued,
-                            "totalAccruedGBP": float(Decimal(new_accrued) / 100),
-                            "updatedAt": firestore_server_ts(),
-                        })
-                    txn.update(own_ref, {"lastAccruedAt": _iso(cycle_end)})
+
+        # (read phase, continued) reads needed for the settle write — still zero
+        # buffered writes at this point on this path.
+        user_ref = db.collection("psemine_users").document(uid)
+        entry_ref = None
+        new_accrued = 0
+        if settle_minor > 0:
+            user = user_ref.get(transaction=txn).to_dict() or {}
+            new_accrued = int(user.get("accruedMinor") or 0) + settle_minor
+            digest = _checkpoint_digest([uid, "maintenance_settle", ownership_id, _iso(cycle_end)])
+            entry_id = f"accrual_{uid[:28]}_{digest}"
+            entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
+            entry_exists = entry_ref.get(transaction=txn).exists
+
+        # ------------------------- write phase (last) -------------------------
+        if settle_minor > 0:
+            if not entry_exists:
+                txn.set(entry_ref, {
+                    "id": entry_ref.id, "userId": uid, "campaignId": PSEMINE_CAMPAIGN_DOC_ID,
+                    "kind": "accrual", "amountMinor": int(settle_minor), "source": "maintenance",
+                    "ownershipId": ownership_id, "anchorTo": _iso(cycle_end),
+                    "createdAt": firestore_server_ts(),
+                })
+                txn.update(user_ref, {
+                    "accruedMinor": new_accrued,
+                    "totalAccruedGBP": float(Decimal(new_accrued) / 100),
+                    "updatedAt": firestore_server_ts(),
+                })
+            txn.update(own_ref, {"lastAccruedAt": _iso(cycle_end)})
 
         # cycle advancement: within grace -> next cycle starts at cycle_end (full time kept);
         # after grace -> lost time is lost, next cycle starts now.

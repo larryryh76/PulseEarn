@@ -55,6 +55,7 @@ const PSEMineContext = createContext<PSEMineContextType | undefined>(undefined);
 
 export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData } = useAuth();
+  const hasPSEmineAccess = userData?.productAccess?.psemine === true;
   const [campaign, setCampaign] = useState<PSEMineCampaign | null>(null);
   const [pseUser, setPseUser] = useState<PSEMineUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -103,7 +104,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // 2. Subscribe to PSE User Data and Subcollections
   useEffect(() => {
-    if (!currentUser) {
+    // ENTITLEMENT GATE. Bootstrapping psemine_users/{uid} is an enrollment act:
+    // firestore.rules allow the owner to create that zeroed document, so doing
+    // it for any authenticated visitor let a PulseEarn account silently acquire
+    // a PSEmine footprint. Product access is explicit now — an account without
+    // productAccess.psemine gets no PSEmine listeners and no PSEmine writes.
+    if (!currentUser || !hasPSEmineAccess) {
       setPseUser(null);
       setOwnerships([]);
       setPurchases([]);
@@ -199,7 +205,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (unsubPurchases) unsubPurchases();
       if (unsubReferrals) unsubReferrals();
     };
-  }, [currentUser, userData?.username]);
+  }, [currentUser, userData?.username, hasPSEmineAccess]);
 
   // 3. High-Frequency Visual Accrual Animation (Server-Anchored)
   useEffect(() => {

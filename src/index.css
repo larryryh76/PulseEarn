@@ -586,3 +586,103 @@
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
+/* ── Skeletons: loading must never be an indefinite spinner ── */
+.pse-scope .pse-skeleton {
+  border-radius: 16px;
+  border: 1px solid var(--pse-line);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.025) 0%,
+    rgba(255, 255, 255, 0.055) 50%,
+    rgba(255, 255, 255, 0.025) 100%
+  );
+  background-size: 200% 100%;
+  animation: pseShimmer 1.6s ease-in-out infinite;
+}
+@keyframes pseShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Horizontal scrollers (guide rail, filters) without visible bars ── */
+.pse-scope .pse-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.pse-scope .pse-no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Timeline rail (activity ledger + guide progression) ── */
+.pse-scope .pse-rail {
+  position: relative;
+  padding-left: 22px;
+}
+.pse-scope .pse-rail::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--pse-line);
+}
+.pse-scope .pse-rail-node {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 1px solid var(--pse-line-strong);
+  background: var(--pse-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Sticky in-page navigation (guide + console sections) ── */
+.pse-scope .pse-sticky-nav {
+  position: sticky;
+  top: 56px;
+  z-index: 20;
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--pse-bg) 88%, transparent);
+  border-bottom: 1px solid var(--pse-line);
+}
+
+/* ── Numbered step markers (guide, purchase flow) ── */
+.pse-scope .pse-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--pse-line-strong);
+  color: var(--pse-text-3);
+  flex-shrink: 0;
+}
+.pse-scope .pse-step-active {
+  border-color: rgba(76, 158, 248, 0.45);
+  background: rgba(76, 158, 248, 0.12);
+  color: var(--pse-blue);
+}
+.pse-scope .pse-step-done {
+  border-color: rgba(46, 206, 132, 0.45);
+  background: rgba(46, 206, 132, 0.12);
+  color: var(--pse-success);
+}
+
+/* ── Definition list used by account/campaign summaries ── */
+.pse-scope .pse-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 16px;
+}
+.pse-scope .pse-dl dt { font-size: 12px; color: var(--pse-text-2); }
+.pse-scope .pse-dl dd {
+  font-size: 13px;
+  text-align: right;
+  color: var(--pse-text);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+

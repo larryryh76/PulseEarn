@@ -191,6 +191,42 @@ export class PSEMineEngine {
   }
 
   /**
+   * Explicit PSEmine enrollment — POST /api/mine/enroll.
+   *
+   * Entitlement is opt-in and backend-authoritative: the client cannot write
+   * users/{uid}.productAccess (firestore.rules permit only a fixed field
+   * whitelist on owner updates), and simply browsing /mine must never grant
+   * product access. A signed-in user who is not enrolled calls this once; the
+   * backend sets productAccess.psemine, writes the audit record, and creates
+   * the zeroed bootstrap profile. AuthContext's users/{uid} listener then
+   * propagates the entitlement live — no reload, no second identity.
+   */
+  public static async enroll(): Promise<{ success: boolean; error?: string; message?: string }> {
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        return { success: false, error: 'NOT_AUTHENTICATED', message: 'Your session has expired. Please sign in again.' };
+      }
+      const response = await fetch('/api/mine/enroll', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.success) return { success: true };
+      return {
+        success: false,
+        error: data.error || 'ENROLLMENT_FAILED',
+        message: data.message || 'PSEmine could not be enabled for this account.',
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Network error';
+      return { success: false, error: 'NETWORK', message };
+    }
+  }
+
+  /**
    * Phase 2: triggers the CANONICAL server-side accrual checkpoint via
    * GET /api/mine/state. Frontend timing is never authoritative; this call
    * lets the backend settle eligible operating time and returns the current

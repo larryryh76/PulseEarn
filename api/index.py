@@ -129,6 +129,21 @@ def handle_exception(e):
     if isinstance(e, HTTPException):
         return jsonify({"success": False, "error": e.name.upper().replace(' ', '_'), "message": e.description}), e.code
     tb = traceback.format_exc()
+    # Structured diagnostics BEFORE the traceback: the client only ever sees a
+    # clean message, so operators need endpoint + identity context in the logs
+    # to find the failing operation. No tokens, bodies or balances are logged.
+    try:
+        _req_user = getattr(request, 'user', None)
+        _uid = _req_user.get('uid') if isinstance(_req_user, dict) else None
+        print(json.dumps({
+            "at": datetime.now(timezone.utc).isoformat(),
+            "operation": f"{request.method} {request.path}",
+            "status": 500,
+            "uid": _uid,
+            "exception": type(e).__name__,
+        }))
+    except Exception:
+        pass
     print(tb); sys.stdout.flush()
     return jsonify({
         "success": False, "error": "INTERNAL_SERVER_ERROR",
@@ -298,8 +313,9 @@ def has_psemine_access(uid):
     # once, audited. Never blocks; only ever grants. Absence of any PSEmine
     # footprint still denies (no speculative access).
     try:
-        _ps = db.collection('psemine_users').document(uid).get()
-        if _ps.exists:
+        _own = (db.collection('psemine_tool_ownership')
+                  .where('userId', '==', uid).limit(1).get())
+        if len(_own) > 0:
             # Grant + audit are committed ATOMICALLY: a failed audit write
             # must never leave a grant whose backfill can no longer be audited
             # (the flag check would skip it on the next call).
@@ -315,7 +331,7 @@ def has_psemine_access(uid):
                 'action': 'PSEMINE_ACCESS_LEGACY_BACKFILL',
                 'targetUserId': uid,
                 'actor': 'system:require_psemine_access',
-                'metadata': {'rule': 'psemine_users doc existed without productAccess flag'},
+                'metadata': {'rule': 'psemine tool ownership existed without productAccess flag'},
             })
             _batch.commit()
             return True
@@ -344,6 +360,71 @@ def is_moderator(uid):
         d = user_doc.to_dict()
         return d.get('role') in ['admin', 'ADMIN', 'moderator'] or d.get('isRoot') == True
     return False
+
+@app.route('/api/mine/enroll', methods=['POST'])
+@verify_token
+def mine_enroll():
+    """Explicit, user-initiated PSEmine enrollment.
+
+    Entitlement is opt-in and backend-authoritative: productAccess.psemine is
+    NEVER granted by merely browsing /mine. Owners cannot write productAccess
+    (firestore.rules), and the legacy backfill only reacts to unforgeable
+    Admin-SDK economic records — so this endpoint is the one explicit opt-in
+    path. The grant and its audit record commit together. Self-enrollment only
+    grants access to the caller's OWN PSEmine account; it is not a role change.
+
+    Defined next to the entitlement helpers (rather than with the other
+    /api/mine/* handlers) so the grant path and the gate it feeds stay together.
+    """
+    db = get_db()
+    if not db: return jsonify({"success": False, "error": "SERVICE_UNAVAILABLE"}), 503
+    uid = request.user['uid']
+    user_ref = db.collection('users').document(uid)
+    snap = user_ref.get()
+    if not snap.exists:
+        return jsonify({"success": False, "error": "IDENTITY_NOT_FOUND",
+                        "message": "Your account profile was not found."}), 404
+    data = snap.to_dict() or {}
+    pa = data.get('productAccess')
+    if not isinstance(pa, dict):
+        pa = {}
+    if pa.get('psemine') is not True:
+        batch = db.batch()
+        batch.set(user_ref, {
+            'productAccess': {**pa, 'psemine': True},
+            'psemineAccessGrantedAt': firestore.SERVER_TIMESTAMP,
+            'psemineAccessGrantReason': 'self_enrollment',
+        }, merge=True)
+        pse_ref = db.collection('psemine_users').document(uid)
+        if not pse_ref.get().exists:
+            batch.set(pse_ref, {
+                'uid': uid,
+                'email': data.get('email'),
+                'username': data.get('username'),
+                'campaignId': 'active_campaign',
+                'status': 'inactive',
+                'toolCapacityGBPPerHour': 0,
+                'referralCapacityGBPPerHour': 0,
+                'totalCapacityGBPPerHour': 0,
+                'totalAccruedGBP': 0,
+                'qualifiedReferralsCount': 0,
+                'toolOwnershipCounts': {'starter': 0, 'builder': 0,
+                                        'advanced': 0, 'elite': 0},
+                'connectedWallet': None,
+                'payoutWallet': None,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+            })
+        batch.set(db.collection('admin_audit_logs').document(), {
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'action': 'PSEMINE_ACCESS_SELF_ENROLLED',
+            'targetUserId': uid,
+            'actor': f'user:{uid}',
+            'metadata': {'source': 'POST /api/mine/enroll'},
+        })
+        batch.commit()
+    return jsonify({'success': True, 'productAccess': {**pa, 'psemine': True}})
+
 
 def fetch_market_price(asset_id):
     SYMBOL_MAP = {'bitcoin':'BTC','ethereum':'ETH','solana':'SOL','binancecoin':'BNB','ripple':'XRP','cardano':'ADA','dogecoin':'DOGE','the-open-network':'TON','avalanche-2':'AVAX','chainlink':'LINK','sui':'SUI','tron':'TRX','shiba-inu':'SHIB','pepe':'PEPE','litecoin':'LTC','polkadot':'DOT','cosmos':'ATOM','arbitrum':'ARB','optimism':'OP','near':'NEAR'}

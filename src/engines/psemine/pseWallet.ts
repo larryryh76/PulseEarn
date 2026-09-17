@@ -358,16 +358,35 @@ export interface PsePaymentTx {
  * one code path. Resolves with the transaction hash once the wallet has signed
  * and broadcast. Nothing here interprets the hash — the backend owns
  * verification (recipient/sender/amount/chain/confirmations).
+ *
+ * Fallback: ethers probes auxiliary RPC methods (eth_blockNumber, …) that some
+ * minimal in-app dapp browsers do not implement. If the ethers path fails
+ * BEFORE the wallet shows an approval (any error that is not a 4001
+ * rejection), the raw EIP-1193 eth_sendTransaction is used instead — the one
+ * method every conforming wallet implements. A user rejection is always
+ * final and never retried through the fallback.
  */
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
 ): Promise<string> => {
-  const { BrowserProvider } = await import('ethers');
-  // EIP-1193 providers conform to ethers' Eip1193RequestFn; the structural cast
-  // keeps this module free of a static ethers type dependency.
-  const web3Provider = new BrowserProvider(provider as unknown as ConstructorParameters<typeof BrowserProvider>[0]);
-  const signer = await web3Provider.getSigner();
-  const response = await signer.sendTransaction({ from: tx.from, to: tx.to, value: tx.value });
-  return response.hash;
+  try {
+    const { BrowserProvider } = await import('ethers');
+    // EIP-1193 providers conform to ethers' Eip1193RequestFn; the structural cast
+    // keeps this module free of a static ethers type dependency.
+    const web3Provider = new BrowserProvider(provider as unknown as ConstructorParameters<typeof BrowserProvider>[0]);
+    const signer = await web3Provider.getSigner();
+    const response = await signer.sendTransaction({ from: tx.from, to: tx.to, value: tx.value });
+    return response.hash;
+  } catch (e) {
+    if (isWalletRejection(e)) throw e; // user said no — done, no fallback.
+    const hash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: tx.from, to: tx.to, value: tx.value }],
+    });
+    if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+      throw new Error('The wallet did not return a valid transaction hash.');
+    }
+    return hash;
+  }
 };

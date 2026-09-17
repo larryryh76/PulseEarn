@@ -32,12 +32,28 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isModerator();
       allow list: if isModerator();
 
-      // CRITICAL: Prevent initial account escalation
+      // CRITICAL: Prevent initial account escalation.
+      //
+      // ENTITLEMENT IS SERVER-GRANTED. A client may never claim PSEmine access
+      // by creating its own profile: productAccess is either absent, or limited
+      // to known keys with `psemine` NOT true. PSEmine entitlement therefore has
+      // exactly two provenance paths, both trusted:
+      //   1. POST /api/mine/enroll          (user-initiated, audited, Admin SDK)
+      //   2. legacy backfill in require_psemine_access (Admin SDK, audited)
+      // PulseEarn's own grant keeps its existing client-side create path, so
+      // PulseEarn signup is unaffected by this rule.
       allow create: if isOwner(userId) &&
                       request.resource.data.role == 'user' &&
                       request.resource.data.points == 0 &&
                       request.resource.data.xp == 0 &&
-                      request.resource.data.isBanned == false;
+                      request.resource.data.isBanned == false &&
+                      (
+                        !request.resource.data.keys().hasAny(['productAccess']) ||
+                        (
+                          request.resource.data.productAccess.keys().hasOnly(['pulseearn', 'psemine']) &&
+                          request.resource.data.productAccess.get('psemine', false) != true
+                        )
+                      );
 
       // CRITICAL: Field-restricted updates (Phase A)
       allow update: if isAdmin() || (

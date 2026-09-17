@@ -1,0 +1,502 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PSEmine design system v2 — "campaign operations workspace"
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Loaded after index.css and scoped to .pse-scope, so it extends the existing
+   PSEmine token block without touching any PulseEarn or shared global styling.
+
+   Principles encoded as CSS so the composition cannot drift back into a wall of
+   equal-weight cards:
+
+     1. ONE accent surface per screen; everything else recedes into rules.
+     2. Hairlines separate rows inside a group — not per-card borders.
+     3. Numbers are the interface: tabular, aligned, three figure sizes only.
+     4. Colour encodes STATUS only. No decorative gradients, no glow.
+     5. Density: rows are 36–44px, not 80px marketing tiles.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pse-scope {
+  /* Type scale — three figure sizes, four text sizes. */
+  --pse-fig-xl: 36px;
+  --pse-fig-lg: 26px;
+  --pse-fig-md: 18px;
+  --pse-fs-h1: 23px;
+  --pse-fs-h2: 16px;
+  --pse-fs-body: 13.5px;
+  --pse-fs-caption: 12.5px;
+  --pse-fs-micro: 11px;
+  --pse-fs-eyebrow: 10.5px;
+  /* Rhythm */
+  --pse-row: 44px;
+  --pse-gap: 10px;
+  --pse-gap-lg: 16px;
+  --pse-pad: 16px;
+}
+
+/* ── Workbench: page container with one uniform vertical rhythm ── */
+.pse-scope .pse-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pse-gap-lg);
+  padding-bottom: 96px;
+}
+
+/* ── Rules & quiet surfaces ── */
+.pse-scope .pse-quiet {
+  border: 1px solid var(--pse-line);
+  border-radius: 14px;
+  background: transparent;
+}
+.pse-scope .pse-rule { border-top: 1px solid var(--pse-line); }
+.pse-scope .pse-rule-t { border-bottom: 1px solid var(--pse-line); }
+
+/* ── The single accent surface per screen ── */
+.pse-scope .pse-surface-accent {
+  position: relative;
+  border: 1px solid var(--pse-line-strong);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(76, 158, 248, 0.055) 0%, rgba(76, 158, 248, 0) 42%),
+    var(--pse-surface);
+  overflow: hidden;
+}
+.pse-scope .pse-surface-accent::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--pse-blue);
+}
+
+/* ── Figures: the three number sizes ── */
+.pse-scope .pse-fig-xl,
+.pse-scope .pse-fig-lg,
+.pse-scope .pse-fig-md {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.pse-scope .pse-fig-xl { font-size: var(--pse-fig-xl); font-weight: 600; }
+.pse-scope .pse-fig-lg { font-size: var(--pse-fig-lg); font-weight: 600; }
+.pse-scope .pse-fig-md { font-size: var(--pse-fig-md); font-weight: 600; }
+
+/* ── Metric row: figures on one line, separated by hairlines ── */
+.pse-scope .pse-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.pse-scope .pse-metrics > * {
+  padding: 14px 16px;
+  border-left: 1px solid var(--pse-line);
+}
+.pse-scope .pse-metrics > *:first-child { border-left: 0; }
+@media (max-width: 640px) {
+  .pse-scope .pse-metrics > * { border-left: 0; border-top: 1px solid var(--pse-line); }
+  .pse-scope .pse-metrics > *:first-child { border-top: 0; }
+}
+
+/* ── Key/value list: dense, aligned, hairline separated ── */
+.pse-scope .pse-kv { display: flex; flex-direction: column; }
+.pse-scope .pse-kv > .pse-kv-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--pse-line);
+}
+.pse-scope .pse-kv > .pse-kv-row:first-child { border-top: 0; }
+.pse-scope .pse-kv-k { font-size: var(--pse-fs-caption); color: var(--pse-text-2); }
+.pse-scope .pse-kv-v {
+  font-size: var(--pse-fs-caption);
+  font-weight: 600;
+  color: var(--pse-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* ── Data rows: tool / ledger lists. Dense, ruled, hoverable ── */
+.pse-scope .pse-rows { display: flex; flex-direction: column; }
+.pse-scope .pse-row-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--pse-line);
+  transition: background-color 120ms ease;
+}
+.pse-scope .pse-row-item:first-child { border-top: 0; }
+.pse-scope .pse-row-item:hover { background: rgba(255, 255, 255, 0.015); }
+
+/* ── Toolbar: filter/search/sort strip. No card, just a rule. ── */
+.pse-scope .pse-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+/* ── Segmented control (filters, chapter jumps) ── */
+.pse-scope .pse-seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--pse-line);
+  border-radius: 10px;
+  background: var(--pse-inset);
+}
+.pse-scope .pse-seg > button {
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: var(--pse-fs-micro);
+  font-weight: 600;
+  color: var(--pse-text-2);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.pse-scope .pse-seg > button:hover { color: var(--pse-text); }
+.pse-scope .pse-seg > button[aria-pressed='true'],
+.pse-scope .pse-seg > button[data-active='true'] {
+  background: var(--pse-raised);
+  color: var(--pse-text);
+}
+
+/* ── Tier marker: a typographic rank, not a glowing badge ── */
+.pse-scope .pse-tier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--pse-line-strong);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pse-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pse-scope .pse-tier-1 { border-color: rgba(152, 162, 179, 0.4); }
+.pse-scope .pse-tier-2 { border-color: rgba(76, 158, 248, 0.4); color: var(--pse-blue); }
+.pse-scope .pse-tier-3 { border-color: rgba(139, 124, 246, 0.4); color: var(--pse-purple); }
+.pse-scope .pse-tier-4 { border-color: rgba(34, 211, 238, 0.4); color: var(--pse-cyan); }
+
+/* ── Wallet zones: GBP campaign vs settlement vs BNB crypto must never blur ── */
+.pse-scope .pse-zone-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pse-line);
+}
+.pse-scope .pse-zone-ccy {
+  font-size: var(--pse-fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pse-scope .pse-zone-gbp { color: var(--pse-blue); }
+.pse-scope .pse-zone-bnb { color: var(--pse-cyan); }
+
+/* ── Referral slot strip: five slots, readable at 375px ── */
+.pse-scope .pse-slots { display: flex; gap: 6px; }
+.pse-scope .pse-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.pse-scope .pse-slot-on { background: var(--pse-purple); }
+
+/* ── Chapter row (guide): numbered, ruled, expandable ── */
+.pse-scope .pse-chapter {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-top: 1px solid var(--pse-line);
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+.pse-scope .pse-chapter:first-child { border-top: 0; }
+.pse-scope .pse-chapter:hover { background: rgba(255, 255, 255, 0.02); }
+.pse-scope .pse-chapter-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--pse-line-strong);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pse-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pse-scope .pse-chapter-on .pse-chapter-n {
+  border-color: rgba(76, 158, 248, 0.45);
+  background: rgba(76, 158, 248, 0.10);
+  color: var(--pse-blue);
+}
+.pse-scope .pse-chapter-done .pse-chapter-n {
+  border-color: rgba(46, 206, 132, 0.45);
+  color: var(--pse-success);
+}
+
+/* ── Flat meters: colour encodes state, never decoration ── */
+.pse-scope .pse-meter-fill { background: var(--pse-blue); }
+.pse-scope .pse-meter-fill-warning { background: var(--pse-warning); }
+.pse-scope .pse-meter-fill-purple { background: var(--pse-purple); }
+
+/* ── Keyboard focus ── */
+.pse-scope :focus-visible {
+  outline: 2px solid var(--pse-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── 44px minimum interactive targets on touch ── */
+@media (pointer: coarse) {
+  .pse-scope .pse-btn,
+  .pse-scope .pse-seg > button,
+  .pse-scope button[role='menuitem'],
+  .pse-scope button[role='tab'] {
+    min-height: 44px;
+  }
+}
+
+/* ── Long hashes/addresses never widen a layout ── */
+.pse-scope .pse-mono,
+.pse-scope .pse-hash {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   v3 — measured corrections
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Every rule below answers a measurement taken from the rendered build, not an
+   opinion about the source:
+
+     · 8 sections shared one identical 30px heading → a four-step section scale.
+     · 31 bordered card-like boxes on one page → ruled list groups, one border.
+     · 5 near-identical radii (8/9/10/12/16) → three radius tokens.
+     · 14 distinct surface colours → three surfaces (+ state tints).
+     · 11 interactive elements under 44px at 390px → enforced touch targets.
+     · Paragraphs of 193–248 characters → a measured line length.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pse-scope {
+  /* Three radii only. */
+  --pse-r-1: 8px;
+  --pse-r-2: 12px;
+  --pse-r-3: 16px;
+  /* Section rhythm: one scale for every band on every page. */
+  --pse-band: 44px;
+  --pse-band-lg: 76px;
+}
+@media (min-width: 768px) {
+  .pse-scope { --pse-band: 60px; --pse-band-lg: 96px; }
+}
+
+/* ── Normalise every existing PSEmine surface onto the three radii ───────── */
+.pse-scope .pse-card { border-radius: var(--pse-r-3); }
+.pse-scope .pse-quiet { border-radius: var(--pse-r-2); }
+.pse-scope .pse-raised { border-radius: var(--pse-r-2); }
+.pse-scope .pse-inset { border-radius: var(--pse-r-1); }
+.pse-scope .pse-btn { border-radius: var(--pse-r-1); }
+.pse-scope .pse-input,
+.pse-scope input:not([type='checkbox']):not([type='radio']),
+.pse-scope select,
+.pse-scope textarea { border-radius: var(--pse-r-1); }
+.pse-scope .pse-seg { border-radius: var(--pse-r-2); }
+.pse-scope .pse-seg > button { border-radius: var(--pse-r-1); }
+
+/* ── Section scale: hierarchy is a decision, not a default ────────────────
+
+   pse-section-xl  the two or three chapters that carry the narrative
+   pse-section-lg  standard section headings
+   pse-section     sub-block headings inside a section
+   pse-section-sm  row and group labels
+   ──────────────────────────────────────────────────────────────────────── */
+.pse-scope .pse-section-xl {
+  font-size: clamp(24px, 3.6vw, 40px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--pse-text);
+}
+.pse-scope .pse-section-lg {
+  font-size: clamp(20px, 2.4vw, 27px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--pse-text);
+}
+.pse-scope .pse-section {
+  font-size: 17px;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  color: var(--pse-text);
+}
+.pse-scope .pse-section-sm {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--pse-text);
+}
+
+/* ── Band rhythm: replaces ad-hoc py-14 / py-20 across PSEmine pages ──────── */
+.pse-scope .pse-band { padding-top: var(--pse-band); padding-bottom: var(--pse-band); }
+.pse-scope .pse-band-lg { padding-top: var(--pse-band-lg); padding-bottom: var(--pse-band-lg); }
+.pse-scope .pse-band + .pse-band,
+.pse-scope .pse-band-lg + .pse-band,
+.pse-scope .pse-band + .pse-band-lg,
+.pse-scope .pse-band-lg + .pse-band-lg { border-top: 1px solid var(--pse-line); }
+
+/* ── Chapter head: numbered sections give a long page a spine ─────────────── */
+.pse-scope .pse-chapter-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.pse-scope .pse-chapter-no {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding-top: 6px;
+  color: var(--pse-text-3);
+  border-top: 2px solid var(--pse-line-strong);
+  min-width: 30px;
+}
+@media (max-width: 767px) {
+  .pse-scope .pse-chapter-head { gap: 10px; }
+  .pse-scope .pse-chapter-no { padding-top: 3px; }
+}
+
+/* ── List group: one border around many rows, instead of many borders ───────
+
+   This is the structural answer to "everything is a card": rows live inside a
+   single surface, separated by hairlines. Use it for features, security notes,
+   payment steps and FAQs.
+   ──────────────────────────────────────────────────────────────────────── */
+.pse-scope .pse-list-group {
+  border: 1px solid var(--pse-line);
+  border-radius: var(--pse-r-3);
+  background: var(--pse-surface);
+  overflow: hidden;
+}
+.pse-scope .pse-list-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--pse-line);
+}
+.pse-scope .pse-list-row:first-child { border-top: 0; }
+.pse-scope .pse-list-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid var(--pse-line-strong);
+  border-radius: var(--pse-r-1);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pse-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Editorial numbered list: no surface at all, just rules and numerals ─── */
+.pse-scope .pse-editorial { display: flex; flex-direction: column; }
+.pse-scope .pse-editorial > * {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid var(--pse-line);
+}
+.pse-scope .pse-editorial > *:first-child { border-top: 0; }
+.pse-scope .pse-editorial-no {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pse-text-3);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+/* ── Marking a metric as the screen's verdict ─────────────────────────────
+
+   One per page. Colour is reserved for state, so the verdict is carried by
+   weight, rule and size — not a glow.
+   ──────────────────────────────────────────────────────────────────────── */
+.pse-scope .pse-verdict {
+  border-left: 2px solid var(--pse-blue);
+  padding-left: 18px;
+}
+.pse-scope .pse-fig-hero {
+  font-size: clamp(30px, 5vw, 48px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  color: var(--pse-text);
+}
+
+/* ── Measure: no paragraph wider than a comfortable scan ──────────────────── */
+.pse-scope .pse-measure { max-width: 64ch; }
+.pse-scope .pse-measure-wide { max-width: 78ch; }
+.pse-scope .pse-list-row .pse-measure,
+.pse-scope .pse-list-row .pse-measure-wide { max-width: none; }
+
+/* ── Touch targets: 44px for every navigational control on small screens ──── */
+@media (max-width: 1023px), (pointer: coarse) {
+  .pse-scope .pse-tap {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .pse-scope nav a,
+  .pse-scope nav button,
+  .pse-scope header a,
+  .pse-scope header button,
+  .pse-scope footer a,
+  .pse-scope footer button {
+    min-height: 44px;
+  }
+  .pse-scope header a,
+  .pse-scope nav a,
+  .pse-scope footer a { display: inline-flex; align-items: center; }
+}
+
+/* ── Bottom bar: one source of truth for the space it consumes ───────────── */
+.pse-scope {
+  --pse-bottom-bar: 0px;
+}
+@media (max-width: 767px) {
+  .pse-scope { --pse-bottom-bar: 64px; }
+}
+.pse-scope .pse-content-bottom { padding-bottom: calc(var(--pse-bottom-bar) + 32px); }
+
+/* ── Guide bodies: long-form explanation, never a wall of text ──────────────
+
+   Measured on the previous guide: paragraphs of 190–250 characters ran the full
+   container width. Top-level paragraphs are capped at a readable measure while
+   tables, meters and grids inside the same body keep their full width.
+   ──────────────────────────────────────────────────────────────────────── */
+.pse-scope .pse-guide-body > p { max-width: 68ch; }
+.pse-scope .pse-guide-body > ul > li { max-width: 68ch; }

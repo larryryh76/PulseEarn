@@ -62,7 +62,7 @@ class _Query:
         for doc in rows.values():
             data = doc["data"] if transaction is None else dict(doc["data"])
             if all(self._match(data, f, op, v) for f, op, v in self._filters):
-                out.append(_Snap(doc["id"], data))
+                out.append(_Snap(doc["id"], data, self._name))
         return out
 
     @staticmethod
@@ -76,11 +76,32 @@ class _Query:
         return False
 
 
+class _RowRef:
+    """Minimal document reference for snapshots returned by a QUERY.
+
+    The engine advances per-document anchors from query results
+    (ownership.lastAccruedAt during accrual checkpoints), so a query snapshot
+    must expose `.reference` with the collection name and document id — exactly
+    what the transactional test double needs to buffer an update.
+    """
+
+    def __init__(self, collection, doc_id):
+        """Capture the owning collection name and document id."""
+        self.collection = collection
+        self.id = doc_id
+
+
 class _Snap:
-    def __init__(self, doc_id, data):
+    def __init__(self, doc_id, data, collection=None):
         """Initialize the snap test double."""
         self.id = doc_id
         self._data = data
+        self._collection = collection
+
+    @property
+    def reference(self):
+        """Return a document reference usable inside a transaction."""
+        return _RowRef(self._collection, self.id)
 
     def to_dict(self):
         """Return a copy of the snapshot data."""
@@ -271,8 +292,21 @@ class _MultiTxn:
         """Return the collection store used by this transaction."""
         return self._namespaces.setdefault(name, FakeStore())
 
+    def _guard_read_order(self):
+        """Raise if any write was already buffered (Firestore read/write rule).
+
+        Mirrors the production server, which fails the whole transaction with
+        FAILED_PRECONDITION when a read follows a write.
+        """
+        if self._ops:
+            raise AssertionError(
+                "Firestore transaction violation: read executed after a buffered "
+                "write. All transaction reads must precede all writes."
+            )
+
     def get(self, doc_ref):
         """Read documents from the current committed or transactional view."""
+        self._guard_read_order()
         store = self._namespaces.setdefault(doc_ref.collection, FakeStore())
         data, exists = store.read(doc_ref.id)
         return _MaybeSnap(doc_ref.id, data if exists else None, exists)
@@ -310,7 +344,7 @@ def _query_rows(multi_txn, collection, filters):
                 ok = False
                 break
         if ok:
-            out.append(_Snap(doc["id"], data))
+            out.append(_Snap(doc["id"], data, collection))
     return out
 
 

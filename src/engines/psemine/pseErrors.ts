@@ -6,21 +6,37 @@
  * generic "Something went wrong / An internal server error occurred" screen.
  * That is both unhelpful to the user and misleading to operators.
  *
- * Every failure class now carries:
- *   • a kind (so the UI can render the right message and the right action)
- *   • an operation + endpoint (so logs identify WHERE it failed)
- *   • a correlation id (so a support ticket can be matched to a request)
+ * Every failure class carries:
+ *   • a kind    — so the UI renders the right message and the right action
+ *   • operation — which call failed ("GET /api/mine/state")
+ *   • code      — the backend's machine-readable error (e.g. INSUFFICIENT_BALANCE)
+ *   • requestId — correlation id echoed by the backend, so a user report can be
+ *                 matched to exactly one structured server log line
  *
- * Kinds are deliberately narrow and mutually exclusive:
- *   auth       — session missing/expired  → sign in again (not retryable here)
- *   permission — not entitled to PSEmine  → explain entitlement (not retryable)
- *   backend    — server-side failure      → retry; service unavailable copy
- *   network    — request never landed     → retry; connectivity copy
- *   data       — landed but unusable      → retry; account-loading copy
- *   unknown    — anything else            → retry with generic copy
+ * Kinds are narrow and mutually exclusive:
+ *   auth        — session missing/expired        → sign in again (not retryable here)
+ *   permission  — not entitled to this product   → explain entitlement (not retryable)
+ *   validation  — the request was rejected       → show the backend's own reason
+ *   conflict    — state conflict (409)           → explain the current state
+ *   rate_limit  — too many requests (429)        → wait, then retry
+ *   unavailable — service down/overloaded (5xx)  → retry shortly
+ *   backend     — server-side failure (500)      → retry
+ *   network     — request never landed           → retry; connectivity copy
+ *   data        — landed but unusable            → retry; account-loading copy
+ *   unknown     — anything else                  → retry with generic copy
  */
 
-export type PseErrorKind = 'auth' | 'permission' | 'backend' | 'network' | 'data' | 'unknown';
+export type PseErrorKind =
+  | 'auth'
+  | 'permission'
+  | 'validation'
+  | 'conflict'
+  | 'rate_limit'
+  | 'unavailable'
+  | 'backend'
+  | 'network'
+  | 'data'
+  | 'unknown';
 
 export interface PseErrorInfo {
   kind: PseErrorKind;
@@ -51,6 +67,27 @@ const COPY: Record<PseErrorKind, { title: string; message: string; retryable: bo
     message:
       'This account does not have PSEmine access. PSEmine is a separate product entitlement — you can enable it for this account, or sign in with the account that created it.',
     retryable: false,
+  },
+  validation: {
+    title: 'That request was rejected',
+    message: 'The mining backend rejected this request. Review the details and try again.',
+    retryable: false,
+  },
+  conflict: {
+    title: 'This action conflicts with your current state',
+    message:
+      'Something about your account already changed — for example a request is already in progress. Refresh to see the current state, then try again.',
+    retryable: true,
+  },
+  rate_limit: {
+    title: 'Too many requests',
+    message: 'You are sending requests faster than the mining backend allows. Wait a moment and try again.',
+    retryable: true,
+  },
+  unavailable: {
+    title: 'PSEmine services are temporarily unavailable',
+    message: 'The mining backend is not responding right now. Nothing was changed — please try again shortly.',
+    retryable: true,
   },
   backend: {
     title: 'PSEmine services are temporarily unavailable',
@@ -96,7 +133,7 @@ export class PseApiError extends Error {
     return {
       kind: this.kind,
       title: COPY[this.kind].title,
-      message: COPY[this.kind].message,
+      message: this.message || COPY[this.kind].message,
       retryable: COPY[this.kind].retryable,
       status: this.status,
       code: this.code,
@@ -110,23 +147,47 @@ function info(kind: PseErrorKind, extra: Partial<PseErrorInfo> = {}): PseErrorIn
   return { kind, ...COPY[kind], ...extra };
 }
 
-/** Build an error for a failed HTTP response. */
+/**
+ * Map one HTTP failure to its error class.
+ *
+ * 401 auth · 403 permission · 400/404/422 validation · 409 conflict ·
+ * 429 rate_limit · 502/503/504 unavailable · 500 backend · otherwise unknown.
+ *
+ * A rejection the backend explains (validation/conflict) keeps the backend's own
+ * message, because "this quote expired" is more useful than a generic sentence.
+ */
 export function pseHttpError(
   operation: string,
   status: number,
-  body?: { error?: string; message?: string } | null,
+  body?: { error?: string; message?: string; requestId?: string } | null,
 ): PseApiError {
   const code = body?.error;
-  if (status === 401) return new PseApiError(info('auth', { status, code, operation }));
-  if (status === 403) return new PseApiError(info('permission', { status, code, operation }));
-  if (status === 400 || status === 404 || status === 409) {
-    // A rejected request (bad quote, no purchase, etc.) is a real, specific
-    // failure — surface the backend's own message rather than a generic one.
-    return new PseApiError(
-      info('backend', { status, code, operation, message: body?.message || COPY.backend.message }),
-    );
+  const correlationId = body?.requestId;
+  const detail = body?.message;
+  const base = { status, code, operation, correlationId };
+
+  if (status === 401) return new PseApiError(info('auth', base));
+  if (status === 403) {
+    // A rejected email-verification gate is an *entitlement-ish* state the user
+    // can act on, so keep the backend's explanation verbatim.
+    return new PseApiError(info('permission', { ...base, message: detail || COPY.permission.message }));
   }
-  return new PseApiError(info('backend', { status, code, operation }));
+  if (status === 400 || status === 404 || status === 422) {
+    return new PseApiError(info('validation', { ...base, message: detail || COPY.validation.message }));
+  }
+  if (status === 409) {
+    return new PseApiError(info('conflict', { ...base, message: detail || COPY.conflict.message }));
+  }
+  if (status === 429) {
+    return new PseApiError(info('rate_limit', { ...base, message: detail || COPY.rate_limit.message }));
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return new PseApiError(info('unavailable', { ...base, message: detail || COPY.unavailable.message }));
+  }
+  if (status === 500) {
+    return new PseApiError(info('backend', base));
+  }
+  return new PseApiError(info('unknown', { ...base, message: detail || COPY.unknown.message }));
 }
 
 /** Build an error for a request that never produced a response. */
@@ -155,6 +216,9 @@ export function toPseErrorInfo(error: unknown, operation?: string): PseErrorInfo
     if (name === 'TypeError' && /fetch|network/i.test(message)) {
       return info('network', { operation, message });
     }
+    if (/abort/i.test(name) || /timeout/i.test(message)) {
+      return info('unavailable', { operation, message, code: 'TIMEOUT' });
+    }
   }
   return info('unknown', { operation, message: error instanceof Error ? error.message : undefined });
 }
@@ -173,7 +237,7 @@ export function logPseDiagnostic(context: string, err: PseErrorInfo): void {
     correlationId: err.correlationId,
     at: new Date().toISOString(),
   };
-  if (err.kind === 'permission' || err.kind === 'auth') {
+  if (err.kind === 'permission' || err.kind === 'auth' || err.kind === 'validation' || err.kind === 'conflict') {
     console.warn(`[PSEmine] ${context}`, payload);
   } else {
     console.error(`[PSEmine] ${context}`, payload);

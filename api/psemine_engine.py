@@ -21,6 +21,7 @@ Ledger model (append-only):
 """
 
 import hashlib
+import hmac
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -93,6 +94,37 @@ def _run_transaction(db, txn_fn):
     if callable(commit):
         commit()
     return result
+# ----------------------------------------------------------------------------
+# Lifecycle (cron) authorization
+# ----------------------------------------------------------------------------
+
+CRON_NOT_CONFIGURED = "CRON_NOT_CONFIGURED"
+
+
+def cron_lifecycle_authorized(provided, configured):
+    """FAIL-CLOSED authorization for the lifecycle (cron) endpoint.
+
+    The endpoint settles ownerships and enforces campaign end, so it must never
+    be callable by accident. Three outcomes, in order:
+
+      1. no CRON_SECRET configured  -> DENIED (CRON_NOT_CONFIGURED, HTTP 503).
+         Silently open would expose a money-path mutation to anonymous callers,
+         so an unconfigured deployment refuses instead of allowing.
+      2. secret configured, no/incorrect credential -> DENIED (FORBIDDEN, 403).
+      3. secret configured and matching (constant-time) -> ALLOWED.
+
+    Returns (allowed: bool, error_code: str | None).
+    """
+    if not configured:
+        return False, CRON_NOT_CONFIGURED
+    if not provided:
+        return False, "FORBIDDEN"
+    try:
+        return bool(hmac.compare_digest(str(provided), str(configured))), "FORBIDDEN"
+    except Exception:
+        return False, "FORBIDDEN"
+
+
 EVM_ADDRESS = "^0x[0-9a-fA-F]{40}$"
 
 
@@ -543,28 +575,38 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             return {"ok": False, "error": "INVALID_STATE"}
 
         now = utcnow()
-        # Firestore transaction ordering rule: ALL reads must execute before ANY
-        # write. Read/decide first; buffer every write last.
+        # ------------------------------------------------------------------
+        # Firestore transaction ordering rule (enforced server-side):
+        #   READS  →  VALIDATE  →  CALCULATE  →  BUFFER WRITES
+        # This body obeys it STRUCTURALLY. No write is buffered before the last
+        # read, and the two exit paths below are arranged so that a buffered
+        # write is always the final operation before returning. Earlier revisions
+        # buffered the B2 reconciliation update first and relied on derive_cycle
+        # early-returning before the settle reads — safe by control flow only.
+        # ------------------------------------------------------------------
 
         # B2: reconcile anchor-less legacy ownerships at first canonical touch.
         # This starts their first canonical cycle WITHOUT granting any historical
         # earnings, and unblocks the maintenance path (no anchor -> no cycle ->
-        # CYCLE_NOT_COMPLETE forever). The reconciliation write is buffered
-        # immediately (preserving the original commit-on-early-return semantics);
-        # the anchorless path can never reach the later settle reads because its
-        # fresh anchor makes derive_cycle report an active cycle.
-        anchorless = is_anchorless_legacy_ownership(d)
-        if anchorless:
-            txn.update(own_ref, {
+        # CYCLE_NOT_COMPLETE forever). The reconciliation is CALCULATED here and
+        # BUFFERED in the write phase (or immediately before the early return,
+        # which is still write-last).
+        reconcile_payload = None
+        if is_anchorless_legacy_ownership(d):
+            reconcile_payload = {
                 "cycleStartedAt": _iso(now),
                 "lastAccruedAt": _iso(now),
                 "accrualAnchorReconciledAt": firestore_server_ts(),
                 "accrualAnchorReconciled": True,
                 "updatedAt": firestore_server_ts(),
-            })
+            }
             d = {**d, "cycleStartedAt": _iso(now), "lastAccruedAt": _iso(now)}
         c = derive_cycle(d, now)
         if not c.maintenance_required:
+            # Exit path 1: nothing to settle. The reconciliation (if any) still
+            # commits — it is the LAST operation, with no read after it.
+            if reconcile_payload is not None:
+                txn.update(own_ref, reconcile_payload)
             return {"ok": False, "error": "CYCLE_NOT_COMPLETE", "state": c.state}
 
         cycle_end = _parse(c.cycle_end_iso)
@@ -594,6 +636,8 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             entry_exists = entry_ref.get(transaction=txn).exists
 
         # ------------------------- write phase (last) -------------------------
+        if reconcile_payload is not None:
+            txn.update(own_ref, reconcile_payload)
         if settle_minor > 0:
             if not entry_exists:
                 txn.set(entry_ref, {

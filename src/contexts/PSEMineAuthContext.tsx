@@ -33,7 +33,22 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     username: string,
     referralCode?: string
   ): Promise<void> => {
-    await identitySignup(email, password, username, referralCode, 'psemine');
+    const profile = await identitySignup(email, password, username, referralCode, 'psemine');
+    // Entitlement is SERVER-GRANTED. The shared identity layer never claims
+    // productAccess.psemine (the Firestore create rule forbids it), so a newly
+    // created identity asks the backend for the grant + audit entry exactly
+    // once, here. An existing identity is left untouched — it keeps whatever
+    // access it already has and sees the explicit enable path instead.
+    if (profile.created) {
+      try {
+        await PSEMineEngine.enroll();
+      } catch (e) {
+        // Enrollment failure must not block account creation: the signed-in
+        // user lands on the entitlement gate, which offers the same enable
+        // action explicitly and shows the backend's own message.
+        console.warn('[PSEMineAuth] enrollment notice:', e);
+      }
+    }
     if (referralCode) {
       try {
         const { getAuth } = await import('firebase/auth');
@@ -60,7 +75,17 @@ export const PSEMineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * account (the console offers explicit enrollment instead).
    */
   const googleSignIn = useCallback(async (referralCode?: string): Promise<void> => {
-    await identityGoogleSignIn(referralCode, 'psemine');
+    const profile = await identityGoogleSignIn(referralCode, 'psemine');
+    // Same server-granted entitlement rule as the email path: only a BRAND-NEW
+    // identity is enrolled. Signing in with Google on an existing account never
+    // silently upgrades it to dual access.
+    if (profile.created) {
+      try {
+        await PSEMineEngine.enroll();
+      } catch (e) {
+        console.warn('[PSEMineAuth] Google enrollment notice:', e);
+      }
+    }
     if (referralCode) {
       try {
         const { getAuth } = await import('firebase/auth');

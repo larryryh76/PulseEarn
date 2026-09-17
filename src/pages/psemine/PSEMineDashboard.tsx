@@ -1,32 +1,40 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  RefreshCcw, Wrench, Layers, ArrowRight, Activity as ActivityIcon, Info,
-  Wallet, ShieldCheck, PlayCircle, Pause, AlertTriangle, Gauge, Landmark,
-} from 'lucide-react';
+import { RefreshCcw, Wrench, Layers, Activity as ActivityIcon } from 'lucide-react';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
-  gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe, campaignStatusView,
-  cycleStateView, purchaseStatusView, Chip, PageHeader, Verdict, Panel, DataRow, Meter,
-  PSEEmpty, PSEError, PSELoading, FeedNotice, ActivityRow,
-  ACTIVITY_ICONS, shortHash, CampaignBanner,
+  gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe,
+  campaignStatusView, cycleStateView, purchaseStatusView,
+  Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow,
+  RowItem, Meter, TierMark, PSEEmpty, PSEError, PSELoading, FeedNotice,
+  ActivityRow, ACTIVITY_ICONS, shortHash, CampaignBanner, Slots, ActionLink,
 } from '../../components/psemine/pse';
-import { LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 
-/** Tool name resolution that never invents a tier. */
+/** Tool name/rate resolution that never invents a tier. */
+function toolDef(tool: PseStateTool) {
+  const id = (tool.toolId || '') as keyof typeof LOCKED_PSEMINE_TOOLS;
+  return LOCKED_PSEMINE_TOOLS[id] || null;
+}
 function toolName(tool: PseStateTool): string {
-  if (tool.toolName) return tool.toolName;
-  const def = tool.toolId ? LOCKED_PSEMINE_TOOLS[tool.toolId as keyof typeof LOCKED_PSEMINE_TOOLS] : null;
-  return def?.name || 'Mining tool';
+  return tool.toolName || toolDef(tool)?.name || 'Mining tool';
 }
 function toolRate(tool: PseStateTool): number {
   if (typeof tool.hourlyRateGBP === 'number') return tool.hourlyRateGBP;
-  const def = tool.toolId ? LOCKED_PSEMINE_TOOLS[tool.toolId as keyof typeof LOCKED_PSEMINE_TOOLS] : null;
-  return def?.hourlyRateGBP ?? 0;
+  return toolDef(tool)?.hourlyRateGBP ?? 0;
 }
 
+/**
+ * The mining console.
+ *
+ * Composition rule (design system v2): exactly ONE accent surface carries the
+ * financial verdict — is mining running, what has it earned, at what rate, and
+ * how much campaign is left. Everything after it is a ruled, quieter group, so
+ * the first viewport answers the six operational questions in order:
+ *   mining active? → earning? → capacity? → what do I own? → attention? → when does it end?
+ */
 export const PSEMineDashboard: React.FC = () => {
   const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
   const { maintainTool } = usePSEMine();
@@ -84,415 +92,333 @@ export const PSEMineDashboard: React.FC = () => {
   }
 
   const isMiningLive = campaignStatus === 'active';
-  const referralCapacity = user.referralCapacityGBPPerHour ?? 0;
   const toolCapacity = user.toolCapacityGBPPerHour ?? 0;
+  const referralCapacity = user.referralCapacityGBPPerHour ?? 0;
   const totalCapacity = user.totalCapacityGBPPerHour ?? 0;
-  const toolShare = totalCapacity > 0 ? (toolCapacity / totalCapacity) * 100 : 0;
+  const capacityShare = (totalCapacity / PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) * 100;
+  const view = campaignStatusView(campaignStatus);
+
+  // Campaign clock (backend campaign document only — never local dates).
+  const c = state.campaign;
+  const totalDays = c?.durationDays && c.durationDays > 0 ? c.durationDays : 90;
+  const startMs = toDateSafe(c?.startAt)?.getTime();
+  const endMs = toDateSafe(c?.endAt)?.getTime();
+  const now = nowMs();
+  const dayNumber = typeof startMs === 'number'
+    ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
+    : null;
+  const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
+
+  // The single answer to "is mining active?" — derived from backend state only.
+  const miningState = (() => {
+    if (isMiningLive && tools.length === 0) {
+      return { label: 'No capacity yet', tone: 'var(--pse-text-2)', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.' };
+    }
+    if (isMiningLive && needsMaintenance.length > 0) {
+      return {
+        label: 'Partially interrupted', tone: 'var(--pse-warning)',
+        detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} stopped accruing and need maintenance.`,
+      };
+    }
+    if (isMiningLive && activeTools.length > 0) {
+      return { label: 'Mining active', tone: 'var(--pse-success)', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
+    }
+    if (isMiningLive) {
+      return { label: 'Mining idle', tone: 'var(--pse-warning)', detail: 'No tool is currently inside an active operating cycle.' };
+    }
+    return { label: view.label.trim(), tone: view.tone, detail: view.detail };
+  })();
+
+  const checkpointEarned = typeof state.checkpoint?.earnedMinor === 'number' ? state.checkpoint.earnedMinor : 0;
+  const recentTools = tools.slice(0, 6);
 
   return (
-    <div className="pse-section space-y-4 pb-24 pt-5 md:pt-7">
+    <div className="pse-section pse-workbench pt-5 md:pt-7">
       <CampaignBanner status={campaignStatus} />
 
-      <PageHeader
-        eyebrow="Mining console"
-        title="Campaign overview"
-        sub="Balances, capacity and tool operations — computed by the backend, displayed here."
-        right={
+      <WorkbenchHeader
+        title="Mining console"
+        purpose="Campaign status, earnings and equipment — every figure below is reported by the mining backend."
+        status={<Chip label={view.label.trim()} chip={view.chip} pulse={view.live} />}
+        actions={
           <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-secondary pse-btn-sm">
             <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Syncing…' : 'Sync now'}
           </button>
         }
       />
 
-      {/* ═══ 1–3 · EARNINGS · MINING STATUS · CAPACITY ═══ */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Verdict
-            label="Accrued campaign earnings"
-            value={gbp(user.accruedGBP)}
-            status={
-              <Chip
-                label={isMiningLive ? 'Accruing now' : campaignStatusView(campaignStatus).label}
-                chip={isMiningLive ? 'pse-chip pse-chip-success' : campaignStatusView(campaignStatus).chip}
-                pulse={isMiningLive}
-              />
-            }
-            sub={
-              isMiningLive
-                ? `Accruing at ${gbpHour(totalCapacity)} from trained capacity. Settles after the campaign ends — accrued earnings are not withdrawable mid-campaign.`
-                : 'Accrual is not running. Earnings settle after the campaign ends.'
-            }
-            footnote={state.checkpoint && typeof state.checkpoint.earnedMinor === 'number' && state.checkpoint.earnedMinor > 0 ? (
-              <p className="pse-micro mt-1.5" style={{ color: 'var(--pse-success)' }}>
-                +{gbp(state.checkpoint.earnedMinor / 100)} settled at this checkpoint
-              </p>
-            ) : null}
-          >
-            {/* Capacity composition — the reason the number moves */}
-            <div className="mt-5 space-y-3">
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="pse-micro">Capacity composition</span>
-                <span className="pse-num pse-caption font-semibold">{gbpHour(totalCapacity)}</span>
-              </div>
-              <Meter value={toolShare} label="Tool share of total capacity" />
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-                <span className="pse-micro flex items-center gap-1.5">
-                  <span className="pse-dot" style={{ background: 'var(--pse-blue)' }} />
-                  Tools <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolCapacity)}</span>
-                </span>
-                <span className="pse-micro flex items-center gap-1.5">
-                  <span className="pse-dot" style={{ background: 'var(--pse-purple)' }} />
-                  Referrals <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(referralCapacity)}</span>
-                </span>
-                <Link to="/mine/tools" className="pse-micro font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
-                  Add capacity →
-                </Link>
-              </div>
-            </div>
-          </Verdict>
+      {/* ══ THE PRIMARY SURFACE ══════════════════════════════════════════
+          Mining state, earnings, rate, capacity and the campaign clock in one
+          coherent block — the reason the rest of the page exists. */}
+      <AccentSurface>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pt-4">
+          <span className="pse-dot" style={{ background: miningState.tone, width: 7, height: 7 }} />
+          <p className="pse-caption font-semibold" style={{ color: miningState.tone }}>{miningState.label}</p>
+          <span className="pse-micro">·</span>
+          <p className="pse-micro">{miningState.detail}</p>
         </div>
 
-        <MiningStatusCard
-          campaignStatus={campaignStatus}
-          activeTools={activeTools.length}
-          totalTools={tools.length}
-          maintenanceDue={needsMaintenance.length}
-        />
-      </div>
+        <div className="mt-3 grid grid-cols-1 gap-y-4 px-4 pb-4 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] sm:gap-x-8">
+          <div>
+            <p className="pse-eyebrow">Accrued campaign earnings</p>
+            <p className="pse-fig-xl mt-2" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
+            <p className="pse-micro mt-2">
+              {isMiningLive
+                ? `Accruing at ${gbpHour(totalCapacity)}. Settles after the campaign ends — accrued earnings are not withdrawable mid-campaign.`
+                : 'Accrual is not running. Earnings settle after the campaign ends.'}
+            </p>
+            {checkpointEarned > 0 && (
+              <p className="pse-micro mt-1.5" style={{ color: 'var(--pse-success)' }}>
+                +{gbp(checkpointEarned / 100)} settled at this checkpoint
+              </p>
+            )}
+          </div>
 
-      {/* ═══ 4 · MAINTENANCE QUEUE (exception-first) ═══ */}
+          <div className="min-w-0">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="pse-eyebrow">Capacity composition</p>
+              <p className="pse-fig-md" style={{ color: 'var(--pse-text)' }}>{gbpHour(totalCapacity)}</p>
+            </div>
+            <div className="mt-2.5"><Meter value={capacityShare} label="Capacity against the campaign maximum" /></div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="pse-micro">Tools <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolCapacity)}</span></span>
+              <span className="pse-micro">Referrals <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(referralCapacity)}</span></span>
+            </div>
+            <div className="mt-2.5">
+              <ActionLink to="/mine/tools">Add capacity</ActionLink>
+            </div>
+          </div>
+        </div>
+
+        <div className="pse-rule">
+          <MetricRow items={[
+            {
+              label: 'Settlement-available',
+              value: availableStr,
+              tone: 'var(--pse-cyan)',
+              sub: 'Backend-reported · opens at settlement',
+            },
+            {
+              label: 'Operating tools',
+              value: `${activeTools.length} / ${tools.length}`,
+              sub: tools.length === 0 ? 'No equipment purchased' : `${needsMaintenance.length} needing attention`,
+            },
+            {
+              label: 'Qualified referrals',
+              value: `${user.qualifiedReferralsCount ?? 0} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}`,
+              sub: `+${gbpHour(referralCapacity)} of capacity`,
+            },
+            {
+              label: 'Campaign',
+              value: dayNumber !== null ? `Day ${dayNumber}` : '—',
+              sub: dayNumber !== null ? `of ${totalDays}${daysLeft !== null ? ` · ${daysLeft}d left` : ''}` : 'Schedule pending',
+            },
+          ]} />
+        </div>
+      </AccentSurface>
+
+      {/* ══ ATTENTION (exception-first) ══ */}
       {isMiningLive && needsMaintenance.length > 0 && (
-        <Panel
+        <Surface
           tone="warning"
-          title={needsMaintenance.length === 1 ? '1 tool needs attention' : `${needsMaintenance.length} tools need attention`}
+          title={needsMaintenance.length === 1 ? '1 tool needs maintenance' : `${needsMaintenance.length} tools need maintenance`}
           meta="Maintenance is free and restarts accrual for the next 24-hour cycle."
           action={<Chip label="Action required" chip="pse-chip pse-chip-warning" dot={false} />}
-          bodyClassName="divide-y"
+          bodyClassName="pse-rows"
         >
           {needsMaintenance.map(t => (
-            <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
-              style={{ borderColor: 'var(--pse-line)' }}>
-              <div className="min-w-0">
+            <RowItem key={t.id} className="flex-wrap sm:flex-nowrap">
+              <div className="min-w-0 flex-1">
                 <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(t)}</p>
                 <p className="pse-micro mt-0.5">
-                  {cycleStateView(t.cycleState || t.status).description}
-                  {' · '}
-                  <span className="pse-num">{gbpRate(toolRate(t))}</span>
+                  {cycleStateView(t.cycleState || t.status).description} · <span className="pse-num">{gbpRate(toolRate(t))}</span>
                 </p>
               </div>
-              <button onClick={() => void handleMaintain(t.id)} disabled={maintaining.has(t.id)}
-                className="pse-btn pse-btn-primary pse-btn-sm shrink-0">
+              <button
+                onClick={() => void handleMaintain(t.id)}
+                disabled={maintaining.has(t.id)}
+                className="pse-btn pse-btn-primary pse-btn-sm shrink-0"
+              >
                 <Wrench size={12} /> {maintaining.has(t.id) ? 'Maintaining…' : 'Run maintenance'}
               </button>
-            </div>
+            </RowItem>
           ))}
-        </Panel>
+        </Surface>
       )}
 
-      {/* ═══ 5 · CAMPAIGN TIMELINE ═══ */}
-      <CampaignTimeline status={campaignStatus} campaign={state.campaign} />
+      {/* ══ EQUIPMENT + SIDE RAIL ══ */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <Surface
+          title="Equipment"
+          meta="Live operating cycles, derived by the backend"
+          action={<Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-sm">Browse tools</Link>}
+          bodyClassName={recentTools.length === 0 ? '' : 'pse-rows'}
+        >
+          {recentTools.length === 0 ? (
+            <PSEEmpty
+              icon={Layers}
+              title="No mining tools yet"
+              body="Purchase a tool to start building hourly capacity. Tools run 24-hour cycles and accrue their rate while active."
+              action={<Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-sm">Open the marketplace</Link>}
+            />
+          ) : (
+            recentTools.map(t => <ToolRow key={t.id} tool={t} miningLive={isMiningLive} onMaintain={handleMaintain} maintaining={maintaining.has(t.id)} />)
+          )}
+        </Surface>
 
-      {/* ═══ 6–9 · OPERATIONS, REFERRALS, PAYOUT, PURCHASES ═══ */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Panel
-            title="Tool operations"
-            meta="Live operating cycles, derived by the backend."
-            action={<Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-sm">Browse tools</Link>}
-            bodyClassName={tools.length === 0 ? '' : 'divide-y'}
-          >
-            {tools.length === 0 ? (
-              <PSEEmpty
-                icon={Layers}
-                title="No mining tools yet"
-                body="Purchase a tool to start building hourly capacity for this campaign. Tools run 24-hour cycles and accrue their rate while active."
-                action={<Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-sm">Open the marketplace</Link>}
-              />
+        <div className="flex flex-col gap-4">
+          <Surface title="Campaign timeline" meta={state.campaign?.name || 'PSEmine 90-day campaign'}>
+            {view.live && dayNumber !== null ? (
+              <>
+                <div className="px-4 pt-4"><Meter value={(dayNumber / totalDays) * 100} label="Campaign progress" /></div>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-2 pb-4">
+                  <p className="pse-caption">Day <span className="pse-num font-semibold" style={{ color: 'var(--pse-text)' }}>{dayNumber}</span> of {totalDays}</p>
+                  {daysLeft !== null && <p className="pse-micro">{daysLeft} day{daysLeft === 1 ? '' : 's'} remaining</p>}
+                </div>
+              </>
             ) : (
-              tools.map(t => <ToolOpsRow key={t.id} tool={t} miningLive={isMiningLive} />)
+              <p className="px-4 py-4 pse-caption">{view.detail}</p>
             )}
-          </Panel>
-        </div>
+            <KeyValue className="pse-rule-t">
+              <KVRow k="Phase" v={view.label.trim()} />
+              <KVRow k="Duration" v={`${totalDays} days`} hint="Fixed, then settlement" />
+              <KVRow k="Accounting" v="GBP" hint="Fixed hourly rates" />
+            </KeyValue>
+          </Surface>
 
-        <div className="space-y-3">
-          {/* Payout state */}
-          <Panel title="Payout state">
-            <div className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
-              <DataRow label="Settlement-available" value={availableStr} emphasis hint="Backend-reported figure only" />
-              <DataRow
-                label="Payout wallet"
-                value={user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}…${user.payoutWallet.slice(-4)}` : 'Not set'}
+          <Surface title="Payout state" action={<ActionLink to="/mine/wallet">Wallet</ActionLink>}>
+            <KeyValue>
+              <KVRow k="Settlement-available" v={availableStr} emphasis hint="Backend-reported figure only" />
+              <KVRow
+                k="Payout wallet"
+                v={user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}…${user.payoutWallet.slice(-4)}` : 'Not set'}
                 mono={Boolean(user.payoutWallet)}
                 hint={user.payoutWallet ? 'Receives settlement' : 'Required before settlement'}
-                right={<Chip
-                  label={user.payoutWallet ? 'Configured' : 'Required'}
-                  chip={user.payoutWallet ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-warning'}
-                  dot={false} />}
               />
-            </div>
-            <div className="border-t px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-              <Link to="/mine/wallet" className="pse-caption inline-flex items-center gap-1.5 font-medium hover:underline"
-                style={{ color: 'var(--pse-blue)' }}>
-                <Wallet size={13} /> Wallet & payouts <ArrowRight size={12} />
-              </Link>
-            </div>
-          </Panel>
+            </KeyValue>
+          </Surface>
 
-          {/* Referrals snapshot */}
-          <Panel
-            title="Referral capacity"
-            action={<Link to="/mine/referrals" className="pse-micro font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>Manage</Link>}
-          >
-            <div className="px-5 py-4">
-              <div className="flex items-baseline gap-2">
-                <span className="pse-num text-[26px] font-semibold leading-none">{user.qualifiedReferralsCount ?? 0}</span>
-                <span className="pse-caption" style={{ color: 'var(--pse-text-3)' }}>/ 5 qualified</span>
+          <Surface title="Referral capacity" action={<ActionLink to="/mine/referrals">Manage</ActionLink>}>
+            <div className="space-y-3 px-4 py-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="pse-fig-md">{user.qualifiedReferralsCount ?? 0}<span className="pse-caption" style={{ color: 'var(--pse-text-3)' }}> / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span></p>
+                <p className="pse-caption pse-num" style={{ color: 'var(--pse-text-2)' }}>+{gbpHour(referralCapacity)}</p>
               </div>
-              <Meter value={((user.qualifiedReferralsCount ?? 0) / 5) * 100} tone="purple" label="Referral slots used" />
-              <p className="pse-micro mt-2.5">
-                Each qualified referral adds +£0.30/hour. Currently contributing +{gbpHour(referralCapacity)}.
-              </p>
+              <Slots filled={user.qualifiedReferralsCount ?? 0} total={PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} />
+              <p className="pse-micro">Each qualified referral adds +£0.30/hour, applied from qualification forward.</p>
             </div>
-          </Panel>
+          </Surface>
 
           <RecentPurchases />
         </div>
       </div>
 
-      {/* ═══ 10 · ACTIVITY ═══ */}
       <RecentActivity />
     </div>
   );
 };
 
-/* ── Mining status component (state comes from backend data only) ────── */
-function MiningStatusCard({ campaignStatus, activeTools, totalTools, maintenanceDue }: {
-  campaignStatus: string | null; activeTools: number; totalTools: number; maintenanceDue: number;
+/* ── Tool row: dense, with its own action when the backend says it needs one ── */
+function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
+  tool: PseStateTool; miningLive: boolean; onMaintain: (id: string) => void; maintaining: boolean;
 }) {
-  const view = campaignStatusView(campaignStatus);
-
-  const status = (() => {
-    if (campaignStatus === 'active') {
-      if (totalTools === 0) return { icon: Gauge, label: 'No capacity yet', tone: 'var(--pse-text-2)', body: 'No tools are operating. Purchase a tool to begin accruing.' };
-      if (maintenanceDue > 0) return { icon: AlertTriangle, label: 'Mining partially interrupted', tone: 'var(--pse-warning)', body: `${maintenanceDue} tool${maintenanceDue === 1 ? '' : 's'} stopped accruing and need maintenance.` };
-      if (activeTools > 0) return { icon: PlayCircle, label: 'Mining active', tone: 'var(--pse-success)', body: `${activeTools} tool${activeTools === 1 ? '' : 's'} operating and accruing on schedule.` };
-      return { icon: Pause, label: 'Mining idle', tone: 'var(--pse-warning)', body: 'No tool is currently inside an active operating cycle.' };
-    }
-    if (campaignStatus === 'scheduled') return { icon: Gauge, label: 'Scheduled', tone: 'var(--pse-purple)', body: view.detail };
-    if (campaignStatus === 'paused') return { icon: Pause, label: 'Mining paused', tone: 'var(--pse-warning)', body: view.detail };
-    if (campaignStatus === 'settling') return { icon: Landmark, label: 'Campaign settling', tone: 'var(--pse-cyan)', body: view.detail };
-    return { icon: ShieldCheck, label: view.label.trim(), tone: 'var(--pse-text-2)', body: view.detail };
-  })();
-
-  const Icon = status.icon;
-  return (
-    <Panel title="Mining status" meta="Derived from backend campaign and cycle state">
-      <div className="px-5 py-5">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border"
-            style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-inset)' }}>
-            <Icon size={17} style={{ color: status.tone }} />
-          </span>
-          <div>
-            <p className="pse-h3" style={{ color: status.tone }}>{status.label}</p>
-            <p className="pse-micro mt-0.5">Campaign {view.label.trim().toLowerCase()}</p>
-          </div>
-        </div>
-        <p className="pse-caption mt-3.5">{status.body}</p>
-      </div>
-      <div className="divide-y border-t" style={{ borderColor: 'var(--pse-line)' }}>
-        <DataRow label="Operating tools" value={`${activeTools} / ${totalTools}`} />
-        <DataRow label="Maintenance due" value={String(maintenanceDue)} />
-      </div>
-    </Panel>
-  );
-}
-
-/* ── Campaign timeline ───────────────────────────────────────────────── */
-function CampaignTimeline({ status, campaign }: {
-  status: string | null; campaign: { name?: string; startAt?: string; endAt?: string; durationDays?: number } | null;
-}) {
-  const view = campaignStatusView(status);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const totalDays = campaign?.durationDays && campaign.durationDays > 0 ? campaign.durationDays : 90;
-  const startMs = toDateSafe(campaign?.startAt)?.getTime();
-  const endMs = toDateSafe(campaign?.endAt)?.getTime();
-  const now = nowMs();
-  const dayNumber = typeof startMs === 'number'
-    ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
-    : null;
-  const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
-  const progress = dayNumber !== null ? (dayNumber / totalDays) * 100 : 0;
-
-  const phases = [
-    { id: 'scheduled', label: 'Start', detail: 'Purchases open' },
-    { id: 'active', label: 'Operations', detail: 'Cycles accrue hourly' },
-    { id: 'settling', label: 'Settlement', detail: 'Balances finalised' },
-    { id: 'payout', label: 'Payout', detail: 'Reviewed and paid' },
-  ];
-  const currentPhase =
-    status === 'scheduled' ? 0 :
-    status === 'active' || status === 'paused' ? 1 :
-    status === 'settling' || status === 'closed' || status === 'archived' ? 2 : 3;
-  const index = status === 'payout' ? 3 : currentPhase;
-
-  return (
-    <Panel title="Campaign timeline" meta={campaign?.name || 'PSEmine 90-day campaign'}
-      action={<Chip label={view.label} chip={view.chip} pulse={view.live} />}>
-      <div className="space-y-4 px-5 py-5">
-        {view.live && dayNumber !== null ? (
-          <>
-            <Meter value={progress} label="Campaign progress" />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="pse-caption">
-                Day <span className="pse-num font-semibold" style={{ color: 'var(--pse-text)' }}>{dayNumber}</span> of {totalDays}
-              </p>
-              {daysLeft !== null && (
-                <p className="pse-micro">{daysLeft} day{daysLeft === 1 ? '' : 's'} remaining</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <p className="pse-caption">{view.detail}</p>
-        )}
-
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          {phases.map((p, i) => {
-            const done = i < index;
-            const current = i === index;
-            return (
-              <div key={p.id} className="pse-inset p-3">
-                <div className="flex items-center gap-2">
-                  <span className={done ? 'pse-step pse-step-done' : current ? 'pse-step pse-step-active' : 'pse-step'}>
-                    {done ? '✓' : i + 1}
-                  </span>
-                  <span className="pse-caption font-semibold" style={{ color: current ? 'var(--pse-text)' : 'var(--pse-text-2)' }}>
-                    {p.label}
-                  </span>
-                </div>
-                <p className="pse-micro mt-1.5">{p.detail}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-/* ── Tool operations row ─────────────────────────────────────────────── */
-function ToolOpsRow({ tool, miningLive }: { tool: PseStateTool; miningLive: boolean }) {
   const cycle = cycleStateView(tool.cycleState || tool.status);
-  const Icon = cycle.icon;
+  const def = toolDef(tool);
+  const rank = def?.displayOrder ?? 1;
+  const running = tool.cycleState === 'active' && miningLive;
+  const remaining = running ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
+  const needsAction = miningLive && (
+    tool.maintenanceRequired === true ||
+    tool.cycleState === 'cycle_complete' ||
+    tool.cycleState === 'maintenance_required'
+  );
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => setTick(t => t + 1), 15_000);
     return () => window.clearInterval(id);
   }, []);
 
-  const running = tool.cycleState === 'active' && miningLive;
-  const remaining = running ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
-
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'var(--pse-line)' }}>
-      <div className="flex min-w-0 items-start gap-3.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-          style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
-          <Icon size={17} style={{ color: cycle.live ? 'var(--pse-success)' : 'var(--pse-text-2)' }} />
+    <RowItem className="flex-wrap sm:flex-nowrap">
+      <TierMark rank={rank} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(tool)}</p>
+          <Chip label={cycle.label} chip={cycle.chip} dot={false} />
+          {typeof tool.cycleIndex === 'number' && <span className="pse-micro">Cycle #{tool.cycleIndex + 1}</span>}
         </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="pse-h3 truncate">{toolName(tool)}</p>
-            <Chip label={cycle.label} chip={cycle.chip} pulse={cycle.live && miningLive} dot={!cycle.live} />
-            {typeof tool.cycleIndex === 'number' && <span className="pse-micro">Cycle #{tool.cycleIndex + 1}</span>}
-          </div>
-          <p className="pse-micro mt-1">
-            {remaining
-              ? remaining.text
-              : cycle.live
-                ? miningLive ? 'Operating — accruing hourly' : 'Idle — campaign not active'
-                : cycle.description}
-            {' · '}
-            <span className="pse-num">{gbpHour(toolRate(tool))}</span>
-          </p>
-        </div>
+        <p className="pse-micro mt-0.5">
+          {remaining
+            ? remaining.text
+            : cycle.live
+              ? (miningLive ? 'Operating — accruing hourly' : 'Idle — campaign not active')
+              : cycle.description}
+        </p>
       </div>
-    </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolRate(tool))}</span>
+        {needsAction && (
+          <button onClick={() => onMaintain(tool.id)} disabled={maintaining} className="pse-btn pse-btn-secondary pse-btn-sm">
+            <Wrench size={12} /> {maintaining ? 'Maintaining…' : 'Maintain'}
+          </button>
+        )}
+      </div>
+    </RowItem>
   );
 }
 
-/* ── Recent purchases ────────────────────────────────────────────────── */
+/* ── Purchases (real records only) ── */
 function RecentPurchases() {
-  const { state, purchases } = usePSEMineStateSafe();
+  const { state } = usePseState();
+  const { purchases } = usePSEMine();
   const recent = purchases.slice(0, 3);
   const purchaseOpen = state?.campaign?.purchaseEnabled !== false;
 
   return (
-    <Panel
-      title="Purchases"
-      meta="On-chain verified activations"
-      action={<Link to="/mine/activity" className="pse-micro font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>History</Link>}
-    >
+    <Surface title="Purchases" meta="On-chain verified activations" action={<ActionLink to="/mine/activity">Ledger</ActionLink>}
+      bodyClassName={recent.length === 0 ? '' : 'pse-rows'}>
       {recent.length === 0 ? (
-        <div className="px-5 py-4">
-          <p className="pse-micro">
-            No purchases yet. Each purchase is quoted, paid in BNB, verified on BNB Smart Chain, then activated.
-          </p>
-        </div>
+        <p className="px-4 py-4 pse-micro">
+          No purchases yet. Each purchase is quoted, paid in BNB, verified on BNB Smart Chain, then activated.
+        </p>
       ) : (
-        <ul className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
-          {recent.map(p => {
-            const view = purchaseStatusView(p.status);
-            return (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                <div className="min-w-0">
-                  <p className="pse-caption truncate font-medium" style={{ color: 'var(--pse-text)' }}>
-                    {p.toolName || p.toolId} · <span className="pse-num">{gbp(p.quotedGBPAmount)}</span>
-                  </p>
-                  <p className="pse-micro mt-0.5">
-                    {p.transactionHash ? shortHash(p.transactionHash) : 'No transaction yet'} · {timeAgo(p.createdAt)}
-                  </p>
-                </div>
-                <Chip label={view.label} chip={view.chip} dot={false} />
-              </li>
-            );
-          })}
-        </ul>
+        recent.map(p => {
+          const v = purchaseStatusView(p.status);
+          return (
+            <RowItem key={p.id}>
+              <div className="min-w-0 flex-1">
+                <p className="pse-caption font-medium truncate" style={{ color: 'var(--pse-text)' }}>
+                  {p.toolName || p.toolId} · <span className="pse-num">{gbp(p.quotedGBPAmount)}</span>
+                </p>
+                <p className="pse-micro mt-0.5">
+                  {p.transactionHash ? shortHash(p.transactionHash) : 'No transaction yet'} · {timeAgo(p.createdAt)}
+                </p>
+              </div>
+              <Chip label={v.label} chip={v.chip} dot={false} />
+            </RowItem>
+          );
+        })
       )}
       {!purchaseOpen && (
-        <div className="border-t px-5 py-3" style={{ borderColor: 'var(--pse-line)' }}>
-          <p className="pse-micro flex items-center gap-1.5" style={{ color: 'var(--pse-warning)' }}>
-            <Info size={12} /> Tool purchases are currently closed.
-          </p>
-        </div>
+        <p className="pse-rule px-4 py-3 pse-micro" style={{ color: 'var(--pse-warning)' }}>
+          Tool purchases are currently closed for this campaign.
+        </p>
       )}
-    </Panel>
+    </Surface>
   );
 }
 
-/** Local hook so tool/purchase context is read once per component. */
-function usePSEMineStateSafe() {
-  const { state } = usePseState();
-  const { purchases } = usePSEMine();
-  return { state, purchases };
-}
-
-/* ── Recent activity ─────────────────────────────────────────────────── */
+/* ── Ledger preview ── */
 function RecentActivity() {
   const { activities, feedErrors, refreshing, refreshFeed } = usePseState();
   const recent = activities.slice(0, 6);
 
   return (
-    <Panel
+    <Surface
       title="Recent activity"
       meta="Canonical backend ledger"
-      action={<Link to="/mine/activity" className="pse-micro font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>View all</Link>}
-      bodyClassName={recent.length === 0 ? '' : 'divide-y'}
+      action={<ActionLink to="/mine/activity">Full ledger</ActionLink>}
+      bodyClassName={recent.length === 0 ? '' : 'pse-rows'}
     >
       {feedErrors.activities ? (
         <FeedNotice
@@ -504,10 +430,10 @@ function RecentActivity() {
         <PSEEmpty
           icon={ActivityIcon}
           title="No activity yet"
-          body="Tool purchases, maintenance events, referral qualifications and campaign milestones will appear here."
+          body="Tool purchases, maintenance events, referral qualifications and campaign milestones appear here."
         />
       ) : (
-        <ul className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
+        <ul>
           {recent.map(a => {
             const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
             const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
@@ -530,7 +456,7 @@ function RecentActivity() {
           })}
         </ul>
       )}
-    </Panel>
+    </Surface>
   );
 }
 

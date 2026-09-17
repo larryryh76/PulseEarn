@@ -1,6 +1,9 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+// PSEmine design system v2 (scoped to .pse-scope) — loaded after the global
+// stylesheet so the product's own token scale and primitives layer on top of it.
+import './styles/psemine-v2.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

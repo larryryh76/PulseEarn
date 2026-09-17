@@ -14,7 +14,7 @@
 import { auth } from '../../firebase/config';
 import { anchorServerTime } from '../../components/psemine/pse';
 import {
-  PseApiError, pseDataError, pseHttpError, pseNetworkError,
+  PseApiError, pseDataError, pseHttpError, pseNetworkError, toPseErrorInfo,
 } from './pseErrors';
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
@@ -40,9 +40,13 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
       },
     });
     if (!res.ok) {
+      // Prefer the structured body (and its requestId); fall back to the
+      // response header. Either way the failure is classified, never generic.
       const body = await res.json().catch(() => null);
       const err = pseHttpError(operation, res.status, body);
-      const correlation = res.headers.get('x-request-id') || res.headers.get('x-correlation-id');
+      const correlation = body?.requestId
+        || res.headers.get('x-request-id')
+        || res.headers.get('x-correlation-id');
       throw correlation
         ? new PseApiError({ ...err.toInfo(), correlationId: correlation })
         : err;
@@ -138,25 +142,27 @@ export async function fetchMyReferrals(): Promise<{ referrals: PseReferral[]; re
 
 export async function requestPayout(
   amountGbp: number,
-  payoutAddress: string,
 ): Promise<{ success: boolean; error?: string; message?: string }> {
-  const res = await fetch('/api/mine/withdrawals/request', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(auth.currentUser ? { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` } : {}),
-    },
-    body: JSON.stringify({ amountGbp, payoutAddress }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.success) {
-    return {
-      success: false,
-      error: data?.error,
-      message: data?.message || 'Payout request could not be submitted.',
-    };
+  // Goes through the SAME classified request path as every other call, so an
+  // expired session or a 409 (payout already pending) surfaces its real reason
+  // instead of a single generic failure sentence.
+  const OPERATION = 'POST /api/mine/withdrawals/request';
+  try {
+    const res = await request('/api/mine/withdrawals/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amountGbp }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.success !== true) {
+      const err = pseDataError(OPERATION, res.status);
+      return { success: false, error: err.code, message: err.toInfo().message };
+    }
+    return { success: true };
+  } catch (e) {
+    const info = toPseErrorInfo(e, OPERATION);
+    return { success: false, error: info.code || info.kind, message: info.message };
   }
-  return { success: true };
 }
 
 /* ── Canonical activity feed (top-level psemine_activities) ──────────── */

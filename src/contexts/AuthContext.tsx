@@ -29,9 +29,7 @@ import {
 import { auth, db } from '../firebase/config';
 import { UserData } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import Logo from '../components/ui/Logo';
 import MaintenanceOverlay, { MaintenanceType } from '../components/ui/MaintenanceOverlay';
-import { PSELogo } from '../components/psemine/pse';
 import {
   PULSE_EARN_PRODUCT,
   repairWelcomeBonusIfMissing,
@@ -43,6 +41,16 @@ import {
  * a signup grants the product that was actually chosen, never both.
  */
 export type ProductId = 'pulseearn' | 'psemine';
+
+/**
+ * Result of identity provisioning. `created` tells the caller whether this
+ * sign-in CREATED the profile (as opposed to joining an existing identity), so a
+ * product can run its own first-time onboarding — e.g. PSEmine asks the backend
+ * for its entitlement exactly once, at the moment the account is created.
+ */
+export interface IdentityProfileResult {
+  created: boolean;
+}
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -79,9 +87,9 @@ interface AuthContextType {
    * `users/{uid}.productAccess` matches the chosen product and never grants
    * the other one implicitly.
    */
-  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<void>;
+  signup: (email: string, password: string, username: string, referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
   login: (email: string, password: string) => Promise<UserCredential>;
-  signInWithGoogle: (referralCode?: string, product?: ProductId) => Promise<void>;
+  signInWithGoogle: (referralCode?: string, product?: ProductId) => Promise<IdentityProfileResult>;
   logout: () => Promise<void>;
   logActivity: (type: string, points: number, description: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -198,9 +206,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Creates the shared identity profile for a new account.
    *
    * `product` is the product the user actually signed up for:
-   *   • 'pulseearn' → productAccess { pulseearn: true, psemine: false }
-   *   • 'psemine'   → productAccess { pulseearn: false, psemine: true }
+   *   • 'pulseearn' → productAccess { pulseearn: true,  psemine: false }
+   *   • 'psemine'   → productAccess { pulseearn: false, psemine: false }
    *   • null        → no product grant (identity self-healing only)
+   *
+   * PSEmine entitlement is NEVER claimed here, even for a PSEmine signup. The
+   * Firestore create rule forbids a client from writing `productAccess.psemine`, and
+   * the entitlement is granted by the backend (POST /api/mine/enroll, audited) as
+   * soon as this call reports `created: true`. PulseEarn keeps its existing
+   * client-side grant so its signup path is unchanged.
    *
    * The account is the SAME Firebase identity across products. Only the
    * entitlement differs — which is the distinction the old default
@@ -211,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     username: string,
     product: ProductId | null,
     referralCodeInput?: string
-  ) {
+  ): Promise<IdentityProfileResult> {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -221,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (product === PULSE_EARN_PRODUCT) {
         await repairWelcomeBonusIfMissing(user.uid);
       }
-      return;
+      return { created: false };
     }
 
     const referralCode = generateReferralCode(user.uid);
@@ -244,10 +258,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Timestamp.now(),
       role: 'user',
       status: 'active',
-      // EXPLICIT ENTITLEMENT — exactly one product on signup.
+      // EXPLICIT ENTITLEMENT — exactly one product on signup, and PSEmine is
+      // never self-claimed (the rule above forbids it; the backend grants it).
       productAccess: {
         pulseearn: product === PULSE_EARN_PRODUCT,
-        psemine: product === 'psemine'
+        psemine: false
       },
       isBanned: false,
       isFlagged: false,
@@ -283,6 +298,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (product === PULSE_EARN_PRODUCT) {
       await runPulseEarnOnboarding(user, username, referralCodeInput);
     }
+
+    return { created: true };
   }
 
   async function signup(
@@ -291,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     username: string,
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT
-  ) {
+  ): Promise<IdentityProfileResult> {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -315,18 +332,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    await initializeUserProfile(user, username, product, referralCodeInput);
+    return await initializeUserProfile(user, username, product, referralCodeInput);
   }
 
   async function signInWithGoogle(
     referralCodeInput?: string,
     product: ProductId = PULSE_EARN_PRODUCT
-  ) {
+  ): Promise<IdentityProfileResult> {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput);
+    return await initializeUserProfile(
+      user, user.displayName || `User_${user.uid.slice(0, 5)}`, product, referralCodeInput
+    );
   }
 
   function login(email: string, password: string) {
@@ -408,7 +427,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Re-run initialization using current auth metadata. `null`
                 // product: self-healing repairs the identity record only and
                 // never grants a product entitlement.
-                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);
+                await initializeUserProfile(user, user.displayName || `User_${user.uid.slice(0, 5)}`, null);  // identity repair only — never grants a product
                 if (import.meta.env.DEV) console.log("[AuthContext] Identity Refreshed Successfully.");
              } catch (healError) {
                 console.error("[AuthContext] Self-Healing Failed:", healError);
@@ -471,35 +490,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            />
         )}
 
+        {/* Session-restoration splash. Deliberately PRODUCT-NEUTRAL: the shared
+            identity layer must not know which product a route belongs to, so it
+            renders one unbranded loading state. Product-branded loading belongs
+            to each product's own provider (e.g. PSEMineAuthProvider). */}
         {isRestoring && !systemError ? (
-          typeof window !== 'undefined' && window.location.pathname.startsWith('/mine') ? (
-            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4" style={{ background: '#0A0E14' }}>
-              <PSELogo size={40} />
-              <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: 'rgba(255,255,255,0.13)', borderTopColor: '#2E90FA' }} />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: '#5B6472' }}>Initializing mining session</p>
-            </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
-            >
-               <div className="scale-150 mb-4">
-                  <Logo />
-               </div>
-               <div className="flex flex-col items-center gap-3">
-                  <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
-                     <motion.div
-                       initial={{ left: '-100%' }}
-                       animate={{ left: '100%' }}
-                       transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                       className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
-                     />
-                  </div>
-                  <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
-               </div>
-            </motion.div>
-          )
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            data-testid="identity-restore"
+            className="fixed inset-0 z-[100] bg-[#050507] flex flex-col items-center justify-center gap-6"
+          >
+             <div className="flex flex-col items-center gap-3">
+                <div className="w-48 h-1 bg-surface-glass rounded-full overflow-hidden relative">
+                   <motion.div
+                     initial={{ left: '-100%' }}
+                     animate={{ left: '100%' }}
+                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                     className="absolute inset-0 w-1/2 bg-primary rounded-full shadow-[0_0_15px_rgba(0,112,255,0.5)]"
+                   />
+                </div>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Loading Account</p>
+             </div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
       {!loading && !systemError && children}

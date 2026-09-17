@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
-import { PSELogo, Chip, CampaignBanner, campaignStatusView, Meter, nowMs, toDateSafe, gbpHour } from './pse';
+import { PSELogo, Chip, CampaignBanner, campaignStatusView, Meter, nowMs, toDateSafe, gbpHour, usePseDocumentTitle } from './pse';
 import { NotificationBell } from './NotificationBell';
 import { cn } from '../../utils';
 
@@ -28,12 +28,41 @@ const MOBILE_NAV = [
   { to: '/mine/me', label: 'Account', icon: User },
 ];
 
+/**
+ * PSEmine owns the document title on every one of its routes.
+ *
+ * Verified defect: /mine/* previously reported "PulseEarn | Professional Crypto
+ * Rewards & Forecasting Hub" in the tab, browser history and bookmarks, so a
+ * PSEmine session presented itself as the other product.
+ */
+const ROUTE_TITLES: Array<[RegExp, string]> = [
+  [/^\/mine\/dashboard/, 'Mining console'],
+  [/^\/mine\/tools/, 'Mining tools'],
+  [/^\/mine\/wallet/, 'Wallet & payouts'],
+  [/^\/mine\/referrals/, 'Referrals'],
+  [/^\/mine\/activity/, 'Activity'],
+  [/^\/mine\/guide\/onboarding/, 'Onboarding'],
+  [/^\/mine\/guide/, 'Campaign guide'],
+  [/^\/mine\/me/, 'Account'],
+  [/^\/mine\/login/, 'Sign in'],
+  [/^\/mine\/signup/, 'Create account'],
+  [/^\/mine\/forgot-password/, 'Reset password'],
+  [/^\/mine\/verify-email/, 'Verify email'],
+  [/^\/mine/, '90-day mining campaign'],
+];
+
+function titleForPath(pathname: string): string {
+  return ROUTE_TITLES.find(([re]) => re.test(pathname))?.[1] ?? '90-day mining campaign';
+}
+
 export const PSEMineShell: React.FC = () => {
   const location = useLocation();
   const { currentUser, logout, hasPSEmineAccess } = usePSEMineAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+
+  usePseDocumentTitle(titleForPath(location.pathname));
 
   useEffect(() => { setMenuOpen(false); setAccountOpen(false); }, [location.pathname]);
 
@@ -93,12 +122,12 @@ export const PSEMineShell: React.FC = () => {
               </>
             ) : (
               <>
-                <Link to="/mine/guide" className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#98A2B3] transition-colors hover:text-[#F2F4F7]">
+                <Link to="/mine/guide" className="pse-tap text-[13px] font-medium text-[#98A2B3] transition-colors hover:text-[#F2F4F7]">
                   How it works
                 </Link>
                 {isAuthed ? (
                   <button type="button" onClick={() => void logout()}
-                    className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#98A2B3] transition-colors hover:text-[#F2F4F7]">
+                    className="pse-tap text-[13px] font-medium text-[#98A2B3] transition-colors hover:text-[#F2F4F7]">
                     Sign out
                   </button>
                 ) : (
@@ -172,18 +201,18 @@ export const PSEMineShell: React.FC = () => {
       {/* Campaign-state banner for every non-active state */}
       <ShellBanner />
 
-      <main className="flex-1">
+      <main className="pse-content-bottom flex-1">
         <Outlet />
       </main>
 
-      <footer className="mt-16 border-t pb-20 md:pb-0" style={{ borderColor: 'var(--pse-line)' }}>
+      <footer className="mt-16 border-t" style={{ borderColor: 'var(--pse-line)' }}>
         <div className="pse-section flex flex-col items-center justify-between gap-4 py-8 md:flex-row">
           <PSELogo size={24} withWordmark />
-          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2" aria-label="Footer">
-            <Link to="/mine/guide" className="pse-micro hover:text-[#F2F4F7]">Guide</Link>
-            <Link to="/terms" className="pse-micro hover:text-[#F2F4F7]">Terms</Link>
-            <Link to="/privacy" className="pse-micro hover:text-[#F2F4F7]">Privacy</Link>
-            <Link to="/help" className="pse-micro hover:text-[#F2F4F7]">Support</Link>
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1" aria-label="Footer">
+            <Link to="/mine/guide" className="pse-micro pse-tap hover:text-[#F2F4F7]">Guide</Link>
+            <Link to="/terms" className="pse-micro pse-tap hover:text-[#F2F4F7]">Terms</Link>
+            <Link to="/privacy" className="pse-micro pse-tap hover:text-[#F2F4F7]">Privacy</Link>
+            <Link to="/help" className="pse-micro pse-tap hover:text-[#F2F4F7]">Support</Link>
           </nav>
           <p className="pse-micro">© {new Date().getFullYear()} PSEmine · 90-day campaign mining</p>
         </div>

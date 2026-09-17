@@ -5,7 +5,7 @@ import {
   LogOut, CheckCircle2, AlertTriangle, ShieldX, LifeBuoy, KeyRound, Wand2,
 } from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
-import { PSELogo, Field, PSELoading } from '../../components/psemine/pse';
+import { PSELogo, Field, PSELoading, usePseDocumentTitle } from '../../components/psemine/pse';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { gbp, gbpHour } from '../../components/psemine/pse';
 import { mapAuthError } from '../../utils/errors';
@@ -197,6 +197,10 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   const location = useLocation();
   const { login, signup, signInWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
 
+  // PSEmine owns the document title on its own auth routes too (they render
+  // outside PSEMineShell, which sets it for the rest of the product).
+  usePseDocumentTitle(isSignup ? 'Create account' : 'Sign in');
+
   const params = new URLSearchParams(location.search);
   const refFromQuery = params.get('ref') || undefined;
   const returnTo = params.get('returnTo') || undefined;
@@ -363,6 +367,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
 /* ═══════════════════ FORGOT PASSWORD ═══════════════════ */
 export const PSEmineForgotPassword: React.FC = () => {
+  usePseDocumentTitle('Reset password');
   const { resetPassword } = usePSEMineAuth();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -425,6 +430,7 @@ export const PSEmineForgotPassword: React.FC = () => {
 
 /* ═══════════════════ VERIFY EMAIL ═══════════════════ */
 export const PSEmineVerifyEmail: React.FC = () => {
+  usePseDocumentTitle('Verify email');
   const { currentUser, isVerified, sendVerification, logout } = usePSEMineAuth();
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);

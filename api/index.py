@@ -8,6 +8,7 @@ import urllib.parse
 import logging
 import traceback
 import hmac
+import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from functools import wraps
@@ -123,11 +124,109 @@ def get_deps():
 from flask import Flask, request, jsonify
 app = Flask(__name__)
 
+# ---------------------------------------------------------------------------
+# PUBLIC CAMPAIGN PROJECTION
+# ---------------------------------------------------------------------------
+# Fields the UNAUTHENTICATED campaign endpoint may expose. The landing page
+# needs the campaign's schedule, phase and payment terms — nothing else.
+# Internal accounting/operations fields (collected BNB, shutdown state, admin
+# metadata, anything underscore-prefixed) are never published here; enrolled
+# users receive the full document from the entitlement-gated /api/mine/state.
+PUBLIC_CAMPAIGN_FIELDS = (
+    'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
+    'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentNetworkId',
+    'receiverWalletAddress', 'purchaseEnabled', 'miningEnabled', 'referralEnabled',
+)
+
+
+def _public_campaign_view(camp):
+    """Whitelist one campaign document down to its public projection."""
+    if not camp:
+        return None
+    return {k: camp[k] for k in PUBLIC_CAMPAIGN_FIELDS if k in camp}
+
+
+def _request_id():
+    """Per-request correlation id. Echoed on every response as X-Request-Id and
+    inside every JSON error body as `requestId`, so a user-visible failure can be
+    matched to one structured server log line without exposing internals."""
+    rid = request.environ.get('pse.request_id')
+    return rid or 'unknown'
+
+
+@app.before_request
+def _pse_before_request():
+    """Attach the correlation id, then enforce lifecycle (cron) authorization.
+
+    The lifecycle endpoint settles ownerships and enforces campaign end, so its
+    credential is validated BEFORE routing: the handler can never be reached
+    without a configured, matching secret. Fail-closed in three outcomes:
+
+      1. CRON_SECRET not configured -> 503 CRON_NOT_CONFIGURED (never allowed)
+      2. missing/incorrect credential -> 403 FORBIDDEN
+      3. matching credential (constant-time) -> proceed
+
+    The route-level check further down is retained as defence in depth and is
+    unreachable when the secret is unset, because this hook denies first.
+    """
+    supplied = (request.headers.get('X-Request-Id') or '').strip()
+    request.environ['pse.request_id'] = supplied or uuid.uuid4().hex[:16]
+
+    if request.path.rstrip('/') == '/api/mine/cron/lifecycle':
+        secret = os.environ.get('CRON_SECRET')
+        provided = request.headers.get('X-Cron-Secret') or request.args.get('secret')
+        if not provided:
+            _authz = request.headers.get('Authorization') or ''
+            if _authz.startswith('Bearer '):
+                provided = _authz.split(' ', 1)[1].strip()
+        import psemine_engine as _pse_cron_engine
+        allowed, deny_code = _pse_cron_engine.cron_lifecycle_authorized(provided, secret)
+        if not allowed:
+            if deny_code == _pse_cron_engine.CRON_NOT_CONFIGURED:
+                return jsonify({
+                    "success": False, "error": "CRON_NOT_CONFIGURED",
+                    "message": "Lifecycle execution is disabled: no cron credential is configured.",
+                    "requestId": _request_id(),
+                }), 503
+            return jsonify({"success": False, "error": "FORBIDDEN",
+                            "message": "Invalid lifecycle credential.",
+                            "requestId": _request_id()}), 403
+    return None
+
+
+@app.after_request
+def _pse_after_request(response):
+    """Stamp the correlation id and enforce the public campaign projection.
+
+    The projection is applied centrally (not in the route) so the public surface
+    cannot start leaking a new internal field just because the campaign document
+    gained one.
+    """
+    rid = request.environ.get('pse.request_id')
+    if rid:
+        response.headers['X-Request-Id'] = rid
+    try:
+        if request.path.rstrip('/') == '/api/mine/campaign/status' and response.is_json:
+            body = response.get_json(silent=True)
+            if isinstance(body, dict) and isinstance(body.get('campaign'), dict):
+                body['campaign'] = _public_campaign_view(body['campaign'])
+                response.set_data(json.dumps(body))
+                response.content_type = 'application/json'
+    except Exception:
+        pass
+    return response
+
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     from werkzeug.exceptions import HTTPException
     if isinstance(e, HTTPException):
-        return jsonify({"success": False, "error": e.name.upper().replace(' ', '_'), "message": e.description}), e.code
+        return jsonify({
+            "success": False,
+            "error": e.name.upper().replace(' ', '_'),
+            "message": e.description,
+            "requestId": _request_id(),
+        }), e.code
     tb = traceback.format_exc()
     # Structured diagnostics BEFORE the traceback: the client only ever sees a
     # clean message, so operators need endpoint + identity context in the logs
@@ -140,6 +239,7 @@ def handle_exception(e):
             "operation": f"{request.method} {request.path}",
             "status": 500,
             "uid": _uid,
+            "requestId": _request_id(),
             "exception": type(e).__name__,
         }))
     except Exception:
@@ -147,7 +247,8 @@ def handle_exception(e):
     print(tb); sys.stdout.flush()
     return jsonify({
         "success": False, "error": "INTERNAL_SERVER_ERROR",
-        "message": str(e) if os.environ.get('VERCEL_ENV') != 'production' else "An internal server error occurred."
+        "message": str(e) if os.environ.get('VERCEL_ENV') != 'production' else "An internal server error occurred.",
+        "requestId": _request_id(),
     }), 500
 
 def get_project_id():

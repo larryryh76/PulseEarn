@@ -8,7 +8,7 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { db } from '../../firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import { gbp, gbpHour, Chip, Meter, Panel, SectionHeading } from '../../components/psemine/pse';
+import { gbp, gbpHour, Chip, Meter, Panel, usePseDocumentTitle } from '../../components/psemine/pse';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils';
 
@@ -280,6 +280,7 @@ const SECTIONS: Section[] = [
 ];
 
 export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = false }) => {
+  usePseDocumentTitle(onboarding ? 'Onboarding' : 'Campaign guide');
   const { currentUser, userData } = usePSEMineAuth();
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -364,15 +365,14 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
 
   return (
     <div className="pse-section pb-24 pt-5 md:pt-7">
-      {/* Header */}
-      <SectionHeading
-        title={onboarding ? 'Welcome to PSEmine' : 'Campaign guide'}
-        meta={onboarding ? 'A guided walkthrough of the 90-day campaign' : 'Reference documentation for tools, capacity, payments and settlement'}
-      />
-      <h1 className="pse-h2 mt-2">
+      {/* Header — a guide gets the section scale, not a documentation heading. */}
+      <p className="pse-eyebrow">
+        {onboarding ? 'Welcome to PSEmine' : 'Campaign guide'}
+      </p>
+      <h1 className="pse-section-xl mt-3">
         {onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}
       </h1>
-      <p className="pse-caption mt-2 max-w-2xl">
+      <p className="pse-caption pse-measure mt-3">
         Everything you need to understand tools, operating cycles, referrals, payments and settlement. Read it once — the
         console always shows the live state.
       </p>
@@ -444,15 +444,20 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           </div>
         </aside>
 
-        {/* Sections */}
-        <div className="space-y-3">
+        {/* Sections — one surface, ruled into chapters.
+            A guide reads as a document with sections, not as nine separate cards,
+            so the chapters share a single container and are separated by
+            hairlines (measured: 21 card-like boxes before this change). */}
+        <div>
+          <div className="pse-list-group">
           {SECTIONS.map((s, idx) => {
             const Icon = s.icon;
             const open = openSections.has(s.id);
             return (
               <section key={s.id} data-section-id={s.id}
                 ref={el => { sectionRefs.current[s.id] = el; }}
-                className="pse-card scroll-mt-32 overflow-hidden">
+                className="scroll-mt-32 border-t first:border-t-0"
+                style={{ borderColor: 'var(--pse-line)' }}>
                 <div className="flex items-start gap-3.5 p-5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                     style={{ background: 'rgba(76,158,248,0.10)', border: '1px solid rgba(76,158,248,0.25)' }}>
@@ -460,14 +465,20 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open}
-                        className="min-w-0 flex-1 text-left">
-                        <p className="pse-h3 flex items-center gap-2">
-                          <span className="pse-step">{idx + 1}</span>
-                          {s.title}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        {/* Chapter titles are real headings: the guide previously exposed only
+                            two heading elements, so chapters could not be reached by heading
+                            navigation (screen readers) or indexed as structure. The toggle is a
+                            button inside the heading, which is the accessible accordion pattern. */}
+                        <h2 className="pse-section-sm m-0">
+                          <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open}
+                            className="flex w-full items-center gap-2 text-left">
+                            <span className="pse-step">{idx + 1}</span>
+                            {s.title}
+                          </button>
+                        </h2>
                         <p className="pse-micro mt-1">{s.summary}</p>
-                      </button>
+                      </div>
                       <div className="flex shrink-0 items-center gap-2">
                         {onboarding && (
                           <button type="button" onClick={() => markRead(s.id, true)}
@@ -485,20 +496,20 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                         </button>
                       </div>
                     </div>
-                    {open && <div className="mt-4">{s.body}</div>}
+                    {open && <div className="pse-guide-body mt-4">{s.body}</div>}
                   </div>
                 </div>
               </section>
             );
           })}
 
-          {/* FAQ */}
-          <section className="pse-card overflow-hidden">
+          {/* FAQ — same surface, so the guide stays one continuous document. */}
+          <section className="border-t" style={{ borderColor: 'var(--pse-line)' }}>
             <div className="border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
-              <h2 className="pse-h3">Frequently asked questions</h2>
+              <h2 className="pse-section-sm">Frequently asked questions</h2>
               <p className="pse-micro mt-0.5">Operational questions in the order they usually come up.</p>
             </div>
-            <div className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
+            <div>
               {FAQS.map((f, i) => {
                 const open = openFaq === i;
                 return (
@@ -514,10 +525,11 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
               })}
             </div>
           </section>
+          </div>
 
           {/* Onboarding CTA */}
           {onboarding && (
-            <Panel bodyClassName="p-6 text-center">
+            <Panel className="mt-3" bodyClassName="p-6 text-center">
               <CheckCircle2 size={22} className="mx-auto" style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-success)' : 'var(--pse-text-3)' }} />
               <p className="pse-h3 mt-3">Ready to open your console?</p>
               <p className="pse-caption mt-1.5">
@@ -536,7 +548,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
 
           {/* Non-onboarding closing CTA */}
           {!onboarding && (
-            <Panel bodyClassName="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <Panel className="mt-3" bodyClassName="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
               <div>
                 <p className="pse-h3">Understand it? Put capacity to work.</p>
                 <p className="pse-micro mt-1">Tools start at {gbp(TOOLS[0]?.purchasePriceGBP ?? 3)} and accrue hourly while active.</p>

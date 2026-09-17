@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:isolation": "bun scripts/check-product-isolation.mjs",
+    "verify:visual": "bun scripts/pse-visual-check.mjs",
+    "audit:design": "bun scripts/pse-design-audit.mjs",
+    "probe:route": "bun scripts/pse-probe.mjs"
   },
   "dependencies": {
     "axios": "^1.18.1",

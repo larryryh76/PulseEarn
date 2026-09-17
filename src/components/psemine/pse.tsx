@@ -8,12 +8,14 @@
  * - Composition before decoration: `Panel` + `DataRow` + `Verdict` exist so a
  *   page can present one coherent workspace instead of a wall of equal cards.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Clock, Pause, Ban, Loader, Cog, Wrench, CheckCircle2, Circle,
   XCircle, Hourglass, Wallet, RefreshCcw, HelpCircle, Archive, PlayCircle,
   ServerCog, ShieldAlert, Inbox, AlertTriangle, Copy as CopyIcon, Check,
-  Lock, WifiOff, LogIn, ShieldX, LineChart,
+  Lock, WifiOff, LogIn, ShieldX, LineChart, ServerOff, Gauge as GaugeIcon,
+  ChevronRight, ExternalLink,
 } from 'lucide-react';
 import type { PseErrorInfo, PseErrorKind } from '../../engines/psemine/pseErrors';
 
@@ -373,17 +375,17 @@ export function DataRow({ label, value, hint, mono, emphasis, right }: {
 }
 
 /** Meter — thin progress track. `value` is a 0–100 percentage. */
+/** Meter — thin progress track. `value` is a 0–100 percentage.
+ *  Flat colour only: the tone encodes state, it is never decoration. */
 export function Meter({ value, tone = 'blue', label }: { value: number; tone?: 'blue' | 'warning' | 'purple'; label?: string }) {
   const pct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
-  const bg = tone === 'warning'
-    ? 'linear-gradient(90deg, #B45309, var(--pse-warning))'
-    : tone === 'purple'
-      ? 'linear-gradient(90deg, var(--pse-blue), var(--pse-purple))'
-      : undefined;
+  const fill = tone === 'warning' ? 'pse-meter-fill pse-meter-fill-warning'
+    : tone === 'purple' ? 'pse-meter-fill pse-meter-fill-purple'
+    : 'pse-meter-fill';
   return (
     <div className="pse-meter" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
       aria-label={label}>
-      <div className="pse-meter-fill" style={{ width: `${pct}%`, background: bg }} />
+      <div className={fill} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -408,12 +410,16 @@ export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
  * A generic error screen is only correct when the failure is genuinely
  * unknown. Everything we can identify gets its own icon, copy and action. */
 const ERROR_PRESENTATION: Record<PseErrorKind, { icon: ChipIcon; tone: string; accent: string }> = {
-  auth:       { icon: LogIn,         tone: 'rgba(76,158,248,0.30)',  accent: 'var(--pse-blue)' },
-  permission: { icon: ShieldX,       tone: 'rgba(139,124,246,0.30)', accent: 'var(--pse-purple)' },
-  backend:    { icon: ServerCog,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  network:    { icon: WifiOff,       tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
-  data:       { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  unknown:    { icon: AlertTriangle, tone: 'rgba(240,68,56,0.30)',   accent: 'var(--pse-danger)' },
+  auth:        { icon: LogIn,         tone: 'rgba(76,158,248,0.30)',  accent: 'var(--pse-blue)' },
+  permission:  { icon: ShieldX,       tone: 'rgba(139,124,246,0.30)', accent: 'var(--pse-purple)' },
+  validation:  { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  conflict:    { icon: RefreshCcw,    tone: 'rgba(34,211,238,0.30)',  accent: 'var(--pse-cyan)' },
+  rate_limit:  { icon: Hourglass,     tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
+  unavailable: { icon: ServerOff,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  backend:     { icon: ServerCog,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  network:     { icon: WifiOff,       tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
+  data:        { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
+  unknown:     { icon: AlertTriangle, tone: 'rgba(240,68,56,0.30)',   accent: 'var(--pse-danger)' },
 };
 
 export function PSEError({ error, onRetry, retrying, action, compact }: {
@@ -625,4 +631,321 @@ export function SectionHeading({ title, meta, right }: { title: string; meta?: s
   );
 }
 
-export { Lock, LineChart, HelpCircle };
+/* ════════════════════ v2 composition primitives ══════════════════════════
+ * These exist so a page composes ONE accent surface plus ruled, dense groups —
+ * instead of a stack of equal-weight cards. See src/styles/psemine-v2.css for
+ * the layout contract they enforce.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * WorkbenchHeader — the opening block of every console page.
+ * Title + purpose + the page's single state chip on the left, actions right.
+ * It carries no surface: hierarchy comes from type, not a container.
+ */
+export function WorkbenchHeader({ title, purpose, status, actions, tabs }: {
+  title: string; purpose?: string; status?: React.ReactNode;
+  actions?: React.ReactNode; tabs?: React.ReactNode;
+}) {
+  return (
+    <header className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="pse-h1" style={{ fontSize: 'var(--pse-fs-h1)' }}>{title}</h1>
+            {status}
+          </div>
+          {purpose && <p className="pse-caption max-w-2xl">{purpose}</p>}
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      </div>
+      {tabs}
+    </header>
+  );
+}
+
+/**
+ * AccentSurface — THE primary surface of a screen (one per page, by convention).
+ * The only container that carries colour weight, so the eye lands on the
+ * financial verdict before anything else.
+ */
+export function AccentSurface({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <section className={`pse-surface-accent ${className || ''}`}>{children}</section>;
+}
+
+/**
+ * Surface — a quiet grouped container (no colour weight).
+ * Use many rows inside one Surface; do not nest Surfaces.
+ */
+export function Surface({ title, meta, action, children, tone, className, bodyClassName, as }: {
+  title?: React.ReactNode; meta?: string; action?: React.ReactNode; children: React.ReactNode;
+  tone?: 'default' | 'warning' | 'danger' | 'success';
+  className?: string; bodyClassName?: string; as?: 'section' | 'div';
+}) {
+  const border =
+    tone === 'warning' ? 'rgba(245,165,36,0.32)' :
+    tone === 'danger' ? 'rgba(240,68,56,0.32)' :
+    tone === 'success' ? 'rgba(46,206,132,0.30)' : undefined;
+  const Tag = (as || 'section') as 'section';
+  return (
+    <Tag className={`pse-quiet overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>
+      {(title || action) && (
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 pse-rule-t" style={{ borderTop: 0 }}>
+          <div className="min-w-0">
+            {title && <h2 className="pse-h2" style={{ fontSize: 'var(--pse-fs-h2)', fontWeight: 600 }}>{title}</h2>}
+            {meta && <p className="pse-micro mt-0.5">{meta}</p>}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </header>
+      )}
+      <div className={bodyClassName}>{children}</div>
+    </Tag>
+  );
+}
+
+/** One figure in a MetricRow. */
+export interface MetricItem {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: string;
+  hint?: string;
+}
+
+/**
+ * MetricRow — several aligned figures on one line, hairline separated.
+ * This is how secondary numbers are shown: dense, comparable, never as
+ * free-standing cards competing with the primary figure.
+ */
+export function MetricRow({ items }: { items: MetricItem[] }) {
+  return (
+    <div className="pse-metrics">
+      {items.map(m => (
+        <div key={m.label}>
+          <p className="pse-eyebrow">{m.label}</p>
+          <p className="pse-fig-md mt-1.5" style={{ color: m.tone || 'var(--pse-text)' }}>{m.value}</p>
+          {m.sub && <p className="pse-micro mt-1">{m.sub}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One row of a KeyValue list. */
+export function KVRow({ k, v, hint, mono, right, emphasis }: {
+  k: string; v: React.ReactNode; hint?: string; mono?: boolean; right?: React.ReactNode; emphasis?: boolean;
+}) {
+  return (
+    <div className="pse-kv-row">
+      <div className="min-w-0">
+        <span className="pse-kv-k" style={emphasis ? { color: 'var(--pse-text)' } : undefined}>{k}</span>
+        {hint && <p className="pse-micro mt-0.5">{hint}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-2.5">
+        <span className={mono ? 'pse-mono' : 'pse-kv-v'}>{v}</span>
+        {right}
+      </div>
+    </div>
+  );
+}
+
+/** KeyValue — the wrapper for KVRow entries. */
+export function KeyValue({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`pse-kv ${className || ''}`}>{children}</div>;
+}
+
+/** A dense data row (tool, ledger entry, payout). */
+export function RowItem({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`pse-row-item ${className || ''}`}>{children}</div>;
+}
+
+/** Rows — the wrapper for RowItem entries. */
+export function Rows({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`pse-rows ${className || ''}`}>{children}</div>;
+}
+
+/** Toolbar — filters, search and sort live here, ruled rather than contained. */
+export function Toolbar({ children }: { children: React.ReactNode }) {
+  return <div className="pse-toolbar">{children}</div>;
+}
+
+/** Segmented — single-choice control for filters and views. */
+export function Segmented<T extends string>({ options, value, onChange, ariaLabel }: {
+  options: Array<{ id: T; label: string }>;
+  value: T; onChange: (id: T) => void; ariaLabel?: string;
+}) {
+  return (
+    <div className="pse-seg" role="group" aria-label={ariaLabel}>
+      {options.map(o => (
+        <button
+          key={o.id}
+          type="button"
+          aria-pressed={value === o.id}
+          onClick={() => onChange(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** TierMark — the rank of a tool tier, expressed typographically. */
+export function TierMark({ rank }: { rank: number }) {
+  return <span className={`pse-tier pse-tier-${Math.min(4, Math.max(1, rank))}`} aria-hidden="true">{rank}</span>;
+}
+
+/** ZoneHeader — the currency/zone identity band inside a wallet zone. */
+export function ZoneHeader({ label, note, currency, tone = 'gbp', right }: {
+  label: string; note?: string; currency: 'GBP' | 'BNB'; tone?: 'gbp' | 'bnb'; right?: React.ReactNode;
+}) {
+  return (
+    <div className="pse-zone-head">
+      <span className={`pse-zone-ccy ${tone === 'bnb' ? 'pse-zone-bnb' : 'pse-zone-gbp'}`}>{currency}</span>
+      <div className="min-w-0 flex-1">
+        <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{label}</p>
+        {note && <p className="pse-micro mt-0.5">{note}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+/** Slots — the fixed-capacity progression strip (referrals). */
+export function Slots({ filled, total }: { filled: number; total: number }) {
+  const n = Math.max(0, total);
+  const on = Math.min(Math.max(0, filled), n);
+  return (
+    <div className="pse-slots" role="img" aria-label={`${on} of ${n} slots filled`}>
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className={`pse-slot ${i < on ? 'pse-slot-on' : ''}`} />
+      ))}
+    </div>
+  );
+}
+
+/** PrimaryAction / SecondaryAction — consistent single-row CTA link with a chevron. */
+export function ActionLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link to={to} className="pse-caption inline-flex items-center gap-1.5 font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+      {children} <ChevronRight size={13} />
+    </Link>
+  );
+}
+
+/** External reference link (explorer, docs) — never a fake control. */
+export function ExternalRef({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer noopener"
+      className="pse-micro inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--pse-text-2)' }}>
+      {children} <ExternalLink size={11} />
+    </a>
+  );
+}
+
+export { Lock, LineChart, HelpCircle, GaugeIcon };
+
+/* ════════════════════ v3 composition primitives ══════════════════════════
+ * Measured corrections to the composition layer. The rendered build showed
+ * eight sections sharing one identical heading size, 31 bordered card-like
+ * boxes on a single marketing page and a 3.35e7px radius alongside four
+ * near-identical ones. These primitives make the corrected composition the
+ * easy thing to write.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * usePseDocumentTitle — PSEmine routes must own the browser title.
+ *
+ * Verified defect: every /mine/* route kept the PulseEarn product title, so a
+ * PSEmine session appeared as PulseEarn in the tab, history and bookmarks.
+ * The previous title is restored on unmount so PulseEarn is unaffected.
+ */
+export function usePseDocumentTitle(title?: string) {
+  useEffect(() => {
+    if (!title) return;
+    const previous = document.title;
+    document.title = `${title} · PSEmine`;
+    return () => { document.title = previous; };
+  }, [title]);
+}
+
+/**
+ * ChapterHead — a numbered chapter opening.
+ *
+ * Gives a long page a spine: the numeral is fixed-width and tabular, the title
+ * carries the section scale, and the meta line is the only place body copy is
+ * allowed to set the context.
+ */
+export function ChapterHead({ no, title, meta, size = 'lg', right }: {
+  no: string; title: string; meta?: string; size?: 'xl' | 'lg' | 'md'; right?: React.ReactNode;
+}) {
+  const cls = size === 'xl' ? 'pse-section-xl' : size === 'md' ? 'pse-section' : 'pse-section-lg';
+  return (
+    <div className="pse-chapter-head">
+      <span className="pse-chapter-no" aria-hidden="true">{no}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className={`${cls} pse-measure-wide`}>{title}</h2>
+          {right && <div className="shrink-0 pt-1">{right}</div>}
+        </div>
+        {meta && <p className="pse-caption pse-measure mt-2.5">{meta}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ListGroup / ListRow — one border around many rows.
+ *
+ * The structural answer to a wall of cards: related items share a single
+ * surface and are separated by hairlines, so the page stops reading as a
+ * collection of independent boxes.
+ */
+export function ListGroup({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`pse-list-group ${className || ''}`}>{children}</div>;
+}
+
+export function ListRow({ n, title, body, right, icon: Icon }: {
+  n?: string | number; title: string; body?: string; right?: React.ReactNode; icon?: ChipIcon;
+}) {
+  return (
+    <div className="pse-list-row">
+      {n !== undefined
+        ? <span className="pse-list-n" aria-hidden="true">{n}</span>
+        : Icon ? <Icon size={16} className="mt-2 shrink-0" style={{ color: 'var(--pse-text-3)' }} /> : null}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className="pse-section-sm">{title}</p>
+          {right}
+        </div>
+        {body && <p className="pse-caption mt-1.5">{body}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Editorial — a numbered explanation with no surface at all.
+ * For "how it works" content, rules and numerals carry the structure so the
+ * section does not need to become another card.
+ */
+export function Editorial({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={`pse-editorial ${className || ''}`}>{children}</div>;
+}
+
+export function EditorialItem({ no, title, body, right }: {
+  no: string; title: string; body?: string; right?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <span className="pse-editorial-no" aria-hidden="true">{no}</span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="pse-section-sm">{title}</p>
+          {right}
+        </div>
+        {body && <p className="pse-caption pse-measure mt-1.5">{body}</p>}
+      </div>
+    </div>
+  );
+}
+

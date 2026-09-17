@@ -12,11 +12,15 @@
     "verify:visual": "bun scripts/pse-visual-check.mjs",
     "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
-    "probe:route": "bun scripts/pse-probe.mjs"
+    "probe:route": "bun scripts/pse-probe.mjs",
+    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs"
   },
   "dependencies": {
+    "@reown/appkit": "1.8.24",
+    "@reown/appkit-adapter-ethers": "1.8.24",
     "axios": "^1.18.1",
     "clsx": "^2.1.1",
+    "ethers": "6.15.0",
     "firebase": "^12.16.0",
     "framer-motion": "^12.42.2",
     "lightweight-charts": "^5.2.0",

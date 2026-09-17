@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Check, X, Wallet, ShieldCheck, Loader2, Clock, ChevronRight, ExternalLink,
-  Layers, Gauge, AlertTriangle, Info,
+  Layers, Gauge, AlertTriangle, Info, Smartphone,
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -276,10 +276,69 @@ function Spec({ label, value, sub, accent, className }: {
   );
 }
 
+/* ═══════════════════════ WALLET CONNECT STEP ═══════════════════════ */
+const WalletConnectStep: React.FC = () => {
+  const {
+    injectedWallets, walletConnectAvailable, connectWallet,
+    connectWalletConnectTransport, isConnectingWallet,
+  } = usePSEMine();
+  return (
+    <div className="space-y-2.5">
+      <div className="pse-inset p-4">
+        <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Connect a wallet</p>
+        <p className="pse-micro mt-1">
+          A wallet is required to sign the payment. PSEmine never requests automatic
+          transfers — every payment must be approved in your wallet.
+        </p>
+      </div>
+      {injectedWallets.map(w => (
+        <button
+          key={w.id}
+          onClick={() => void connectWallet(w.id)}
+          disabled={isConnectingWallet}
+          className="pse-btn pse-btn-secondary w-full justify-between px-4 py-3"
+        >
+          <span className="flex items-center gap-2.5">
+            {w.icon
+              ? <img src={w.icon} alt="" width={22} height={22} className="rounded-md" />
+              : <Wallet size={16} />}
+            <span className="pse-caption font-medium">{w.name}</span>
+          </span>
+          <ChevronRight size={14} />
+        </button>
+      ))}
+      {walletConnectAvailable && (
+        <button
+          onClick={() => void connectWalletConnectTransport()}
+          disabled={isConnectingWallet}
+          className="pse-btn pse-btn-secondary w-full justify-between px-4 py-3"
+        >
+          <span className="flex items-center gap-2.5">
+            <Smartphone size={16} />
+            <span className="pse-caption font-medium">WalletConnect — mobile &amp; extension wallets</span>
+          </span>
+          <ChevronRight size={14} />
+        </button>
+      )}
+      {isConnectingWallet && (
+        <p className="pse-micro flex items-center gap-2 pt-1" style={{ color: 'var(--pse-text-2)' }}>
+          <Loader2 size={13} className="animate-spin" /> Waiting for the wallet…
+        </p>
+      )}
+      {!walletConnectAvailable && injectedWallets.length === 0 && (
+        <p className="pse-micro p-3 rounded-xl" style={{ background: 'var(--pse-inset)', color: 'var(--pse-warning)' }}>
+          No wallet detected. Open PSEmine in your wallet&apos;s browser (Trust, MetaMask),
+          install an extension, or configure WalletConnect for this deployment.
+        </p>
+      )}
+    </div>
+  );
+};
+
 /* ═══════════════════════════ PURCHASE FLOW ═══════════════════════════
  * States mirror the backend purchase lifecycle — success is never shown
  * before the backend verifies the transaction on-chain. */
-type FlowStep = 'quote' | 'pay' | 'verifying' | 'result';
+type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
 
 const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
   { id: 'quote', label: 'Quote' },
@@ -290,11 +349,14 @@ const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
 
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void }> = ({ tool, onClose }) => {
   const {
-    connectedWallet, connectWallet, isConnectingWallet, pseUser,
+    connectedWallet, pseUser,
     requestQuote, activeQuote, clearQuote, submitPurchaseTx,
+    sendPayment, ensurePaymentChain,
   } = usePSEMine();
 
-  const [step, setStep] = useState<FlowStep>('quote');
+  // Start on the wallet step when no wallet is connected yet; the modal opens
+  // the connection flow immediately instead of a dead quote screen.
+  const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string } | null>(null);
@@ -330,44 +392,56 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   const counts = pseUser?.toolOwnershipCounts;
   const owned = counts ? (counts as Record<string, number>)[tool.id] || 0 : 0;
 
-  const sendPayment = async () => {
+  // Return-from-wallet continuity: if the connection completes while the user
+  // sits on the connect step (deep-link return from a mobile wallet app, or
+  // extension approval), the flow advances into the quote automatically. The
+  // quote request effect above runs regardless of which step is visible.
+  useEffect(() => {
+    if (step === 'connect' && connectedWallet) setStep('quote');
+  }, [step, connectedWallet]);
+
+  // Safety: if the wallet disconnects mid-flow (wallet lock, WalletConnect
+  // session end), no payment UI may remain active — drop back to connect.
+  // The 'verifying' step intentionally stays: the transaction may already be
+  // broadcast, so the backend verification result is still meaningful.
+  useEffect(() => {
+    if (!connectedWallet && (step === 'pay' || step === 'quote')) setStep('connect');
+  }, [connectedWallet, step]);
+
+  /** Proceeds to the wallet-signed payment. The connection step guarantees a
+   * wallet is present; the chain assertion below is fail-closed either way. */
+  const payNow = async () => {
     if (!activeQuote) return;
     if (!connectedWallet || !EVM.test(connectedWallet)) {
+      setStep('connect');
       toast.error('Connect a valid BNB Smart Chain wallet first.');
       return;
     }
     setStep('verifying');
     try {
-      const eth = (window as unknown as {
-        ethereum?: { request: (args: { method: string; params?: Array<Record<string, unknown>> }) => Promise<string> };
-      }).ethereum;
-      if (!eth) throw new Error('No Web3 wallet found. Install MetaMask or Trust Wallet.');
-
-      // NETWORK ASSERTION — fail-closed. The quote is issued for exactly one
-      // chain, and the backend verifier only ever reads BSC. A wallet left on
-      // another network would sign a transaction that can never be verified,
-      // so the active chain is confirmed (and switched, if the wallet allows)
-      // BEFORE anything is signed. Nothing is sent while the chain is wrong or
-      // unreadable, and the quote timer keeps running on the pay step.
-      const quotedChainHex = `0x${(activeQuote.chainId || 56).toString(16)}`;
-      const activeChain = await eth.request({ method: 'eth_chainId' }).catch(() => null);
-      if (typeof activeChain !== 'string' || activeChain.toLowerCase() !== quotedChainHex) {
-        try {
-          await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: quotedChainHex }] });
-        } catch {
-          /* refused, or the wallet does not know the chain — the re-read decides */
-        }
-        const rechecked = await eth.request({ method: 'eth_chainId' }).catch(() => null);
-        if (typeof rechecked !== 'string' || rechecked.toLowerCase() !== quotedChainHex) {
-          setStep('pay');
-          toast.error(`Switch your wallet to ${activeQuote.network || 'BNB Smart Chain'} before paying.`);
-          return;
-        }
+      // NETWORK ASSERTION — fail-closed, through the ACTIVE provider (injected
+      // or WalletConnect). The backend verifier only ever reads BSC, so a
+      // transaction signed on any other chain can never be verified. If the
+      // switch is refused or unverifiable, nothing is sent.
+      const chainOk = await ensurePaymentChain(activeQuote.chainId || 56);
+      if (!chainOk) {
+        setStep('pay');
+        toast.error(`Switch your wallet to ${activeQuote.network || 'BNB Smart Chain'} before paying.`);
+        return;
       }
 
-      const txHash = await eth.request({
-        method: 'eth_sendTransaction',
-        params: [{ from: connectedWallet, to: activeQuote.receiverWallet, value: activeQuote.bnbAmountWei }],
+      // to + value come VERBATIM from the server quote; from is the connected
+      // wallet. The frontend cannot substitute a recipient or amount — and the
+      // backend independently re-verifies all of it from the chain record.
+      // Fail-closed: a quote without the exact wei string is never paid from.
+      const wei = activeQuote.bnbAmountWei;
+      if (!wei || !/^[0-9]+$/.test(String(wei))) {
+        throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');
+      }
+      const txHash = await sendPayment({
+        from: connectedWallet,
+        to: activeQuote.receiverWallet,
+        value: String(wei),
       });
       if (!txHash) throw new Error('Transaction was not submitted.');
 
@@ -444,6 +518,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
         </div>
 
         <div className="p-5">
+          {/* STEP: connect — shown whenever no wallet is connected yet */}
+          {step === 'connect' && <WalletConnectStep />}
+
           {/* STEP: quote */}
           {step === 'quote' && (
             quoteLoading || !activeQuote ? (
@@ -494,8 +571,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                     Maximum ownership for this tool reached.
                   </p>
                 ) : !connectedWallet ? (
-                  <button onClick={() => void connectWallet()} disabled={isConnectingWallet} className="pse-btn pse-btn-primary w-full justify-center py-3">
-                    <Wallet size={15} /> {isConnectingWallet ? 'Connecting…' : 'Connect BNB Smart Chain wallet'}
+                  <button onClick={() => setStep('connect')} className="pse-btn pse-btn-primary w-full justify-center py-3">
+                    <Wallet size={15} /> Connect a wallet to continue
                   </button>
                 ) : (
                   <button onClick={() => setStep('pay')} className="pse-btn pse-btn-primary w-full justify-center py-3">
@@ -543,7 +620,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                 <Meter value={meterPct} tone={secondsLeft < 120 ? 'warning' : 'blue'} label="Quote validity" />
               </div>
 
-              <button onClick={() => void sendPayment()} className="pse-btn pse-btn-primary w-full justify-center py-3.5">
+              <button onClick={() => void payNow()} className="pse-btn pse-btn-primary w-full justify-center py-3.5">
                 <Wallet size={15} /> Open wallet & send {Number(activeQuote.bnbAmount).toFixed(4)} BNB
               </button>
               <button onClick={() => setStep('quote')} className="pse-btn pse-btn-ghost w-full justify-center">Back to quote</button>

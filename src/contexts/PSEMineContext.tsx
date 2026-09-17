@@ -22,6 +22,23 @@ import {
   LOCKED_PSEMINE_TOOLS
 } from '../types/psemine';
 import { PSEMineEngine } from '../engines/psemine/PSEMineEngine';
+import {
+  type PseEip1193Provider,
+  type PseWalletConnection,
+  type PseWalletTransport,
+  type PseInjectedWallet,
+  connectWithProvider,
+  connectWalletConnect,
+  disconnectWalletConnect,
+  discoverInjectedWallets,
+  ensureChain,
+  hasInjectedProvider,
+  isWalletConnectConfigured,
+  isWalletRejection,
+  sendPaymentTransaction,
+  silentInjectedAccounts,
+  subscribeWalletEvents,
+} from '../engines/psemine/pseWallet';
 import toast from 'react-hot-toast';
 
 interface PSEMineContextType {
@@ -31,8 +48,20 @@ interface PSEMineContextType {
   liveAccruedGBP: number;
   connectedWallet: string | null;
   isConnectingWallet: boolean;
-  connectWallet: () => Promise<string | null>;
-  disconnectWallet: () => void;
+  /** Transport of the active wallet connection ('injected' | 'walletConnect'). */
+  walletTransport: PseWalletTransport | null;
+  /** Human-readable wallet label for the active connection. */
+  walletName: string | null;
+  /** Discoverable injected wallets (EIP-6963) + whether WalletConnect is offered. */
+  injectedWallets: PseInjectedWallet[];
+  walletConnectAvailable: boolean;
+  connectWallet: (walletId?: string) => Promise<string | null>;
+  connectWalletConnectTransport: () => Promise<string | null>;
+  disconnectWallet: () => Promise<void>;
+  /** Sends the payment through the active provider; resolves with the tx hash. */
+  sendPayment: (tx: { from: string; to: string; value: string }) => Promise<string>;
+  /** Fail-closed chain assertion against the server-quoted chain. */
+  ensurePaymentChain: (chainId: number) => Promise<boolean>;
   tools: PSEMineToolDefinition[];
   ownerships: PSEMineToolOwnership[];
   purchases: PSEMinePurchase[];
@@ -61,7 +90,14 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [loading, setLoading] = useState<boolean>(true);
   const [liveAccruedGBP, setLiveAccruedGBP] = useState<number>(0);
   const [connectedWallet, setConnectedWallet] = useState<string | null>(() => {
-    return localStorage.getItem('psemine_connected_wallet') || null;
+    try {
+      const raw = localStorage.getItem('psemine_connected_wallet');
+      if (!raw) return null;
+      const stored = JSON.parse(raw) as { address?: string };
+      return stored?.address ?? null;
+    } catch {
+      return null;
+    }
   });
   const [isConnectingWallet, setIsConnectingWallet] = useState<boolean>(false);
   const [ownerships, setOwnerships] = useState<PSEMineToolOwnership[]>([]);
@@ -71,8 +107,26 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [payouts, setPayouts] = useState<PSEMinePayout[]>([]);
   const [activeQuote, setActiveQuote] = useState<PSEMineQuote | null>(null);
   const [isRequestingQuote, setIsRequestingQuote] = useState<boolean>(false);
+  const [walletTransport, setWalletTransport] = useState<PseWalletTransport | null>(null);
+  const [walletName, setWalletName] = useState<string | null>(null);
+  const [injectedWallets, setInjectedWallets] = useState<PseInjectedWallet[]>([]);
+  const [walletConnectAvailable, setWalletConnectAvailable] = useState<boolean>(isWalletConnectConfigured());
 
   const animFrameRef = useRef<number | null>(null);
+  // The live EIP-1193 provider for the active connection. Held in a ref so the
+  // payment path can use it without re-render churn; transport/name live in state.
+  const providerRef = useRef<PseEip1193Provider | null>(null);
+  const transportRef = useRef<PseWalletTransport | null>(null);
+  const walletNameRef = useRef<string | null>(null);
+
+  // Discover EIP-6963 injected wallets once (async announce window).
+  useEffect(() => {
+    let cancelled = false;
+    discoverInjectedWallets().then(list => {
+      if (!cancelled) setInjectedWallets(list);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // 1. Subscribe to Authoritative Campaign State
   useEffect(() => {
@@ -141,6 +195,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const data = snap.data() as PSEMineUser;
             setPseUser(data);
             if (data.connectedWallet) {
+              // Backend record is authoritative for the last used wallet; the
+              // local per-account record stays in sync but never overrides a
+              // newer local connection.
               setConnectedWallet(prev => prev || data.connectedWallet);
             }
           }
@@ -225,88 +282,226 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [pseUser, campaign]);
+  }, [pseUser, campaign]);  // 4. Web3 Wallet Connection — one architecture, two transports.
+  //
+  // • injected: window.ethereum / EIP-6963 wallets (MetaMask, Trust Browser,
+  //   Binance Web3, any EIP-1193 dapp browser).
+  // • walletConnect: WalletConnect v2 via Reown AppKit (mobile wallets from a
+  //   normal browser, including Trust Wallet), enabled only when a Project ID
+  //   is configured. Without it the transport is simply not offered.
+  //
+  // The active provider is normalised to one EIP-1193 surface with standard
+  // account/chain events, so the rest of the app never branches on wallet type.
+  // This layer requests transactions and reports state; it NEVER asserts
+  // payment success — the backend owns verification.
 
-  // 4. Web3 Wallet Connection (EIP-1193 / MetaMask / Trust / Binance Web3)
-  const connectWallet = useCallback(async (): Promise<string | null> => {
+  const persistWallet = useCallback((address: string | null, transport?: PseWalletTransport | null, name?: string | null) => {
+    try {
+      if (address) {
+        // Per-account record: { address, transport, walletName }. A different
+        // signed-in account must never inherit another account's wallet.
+        localStorage.setItem('psemine_connected_wallet', JSON.stringify({
+          address, transport: transport ?? 'injected', walletName: name ?? 'Browser wallet',
+        }));
+      } else {
+        localStorage.removeItem('psemine_connected_wallet');
+      }
+    } catch {
+      /* storage unavailable — best effort */
+    }
+  }, []);
+
+  const subscribeActiveProvider = useCallback((connection: PseWalletConnection) => {
+    providerRef.current = connection.provider;
+    transportRef.current = connection.transport;
+    setWalletTransport(connection.transport);
+    setWalletName(connection.walletName);
+    return subscribeWalletEvents(connection.provider, {
+      onAccountsChanged: (accounts) => {
+        if (!accounts || accounts.length === 0) {
+          // Wallet locked/disconnected: clear local session; backend payout
+          // destination is untouched (it is set explicitly on the wallet page).
+          setConnectedWallet(null);
+          persistWallet(null);
+          providerRef.current = null;
+          transportRef.current = null;
+          setWalletTransport(null);
+          setWalletName(null);
+        } else {
+          const next = accounts[0].toLowerCase();
+          setConnectedWallet(next);
+          persistWallet(next, transportRef.current, walletNameRef.current);
+          if (currentUser) void PSEMineEngine.setConnectedWallet(next);
+        }
+      },
+      onChainChanged: (chainIdHex) => {
+        // State refresh only. Payment is gated by ensurePaymentChain(); a chain
+        // change alone never activates or cancels a purchase.
+        void chainIdHex;
+      },
+      onDisconnect: () => {
+        setConnectedWallet(null);
+        persistWallet(null);
+        providerRef.current = null;
+        transportRef.current = null;
+        walletNameRef.current = null;
+        setWalletTransport(null);
+        setWalletName(null);
+      },
+    });
+  }, [currentUser, persistWallet]);
+
+  const adoptConnection = useCallback((connection: PseWalletConnection): string => {
+    setConnectedWallet(connection.address);
+    persistWallet(connection.address, connection.transport, connection.walletName);
+    walletNameRef.current = connection.walletName;
+    subscribeActiveProvider(connection);
+    return connection.address;
+  }, [subscribeActiveProvider, persistWallet]);
+
+  const connectInjectedWallet = useCallback(async (wallet?: PseInjectedWallet): Promise<string | null> => {
     setIsConnectingWallet(true);
     try {
-      const ethWindow = typeof window !== 'undefined' ? (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }) : null;
-      if (ethWindow && ethWindow.ethereum) {
-        const ethereum = ethWindow.ethereum;
-        
-        // Request accounts
-        const accounts = (await ethereum.request({
-          method: 'eth_requestAccounts'
-        })) as string[];
+      const connection = await connectWithProvider(
+        wallet?.provider ??
+          (typeof window !== 'undefined'
+            ? (window as unknown as { ethereum?: PseEip1193Provider }).ethereum ?? null
+            : null) as PseEip1193Provider,
+        'injected',
+        wallet?.name ?? 'Browser wallet',
+      );
+      if (!connection) return null;
+      const address = adoptConnection(connection);
 
-        if (accounts && accounts.length > 0) {
-          const address = accounts[0].toLowerCase();
-          setConnectedWallet(address);
-          localStorage.setItem('psemine_connected_wallet', address);
+      // Record server-side (payout destination is a separate, explicit write).
+      if (currentUser) void PSEMineEngine.setConnectedWallet(address);
 
-          // Attempt switching to BSC (Chain ID 56 / 0x38)
-          try {
-            await ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: '0x38' }]
-            });
-          } catch (switchError: unknown) {
-            // This error code indicates that the chain has not been added to MetaMask.
-            const sErr = switchError as { code?: number };
-            if (sErr && sErr.code === 4902) {
-              try {
-                await ethereum.request({
-                  method: 'wallet_addEthereumChain',
-                  params: [
-                    {
-                      chainId: '0x38',
-                      chainName: 'BNB Smart Chain Mainnet',
-                      nativeCurrency: {
-                        name: 'BNB',
-                        symbol: 'BNB',
-                        decimals: 18
-                      },
-                      rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                      blockExplorerUrls: ['https://bscscan.com']
-                    }
-                  ]
-                });
-              } catch (addError) {
-                console.warn('User denied adding BSC network:', addError);
-              }
-            }
-          }
-
-          // Record the wallet server-side (Phase 1: no direct client writes to psemine_users)
-          if (currentUser) {
-            await PSEMineEngine.setConnectedWallet(address);
-          }
-
-          toast.success(`Connected: ${address.slice(0, 6)}...${address.slice(-4)}`, {
-            icon: '⚡'
-          });
-          return address;
-        }
-        return null;
+      toast.success(`Connected: ${address.slice(0, 6)}…${address.slice(-4)}`, { icon: '⚡' });
+      return address;
+    } catch (e) {
+      if (isWalletRejection(e)) {
+        toast('Connection cancelled in your wallet.', { icon: '🖐️' });
       } else {
-        toast.error('No Web3 wallet extension found. Please install MetaMask, Trust Wallet, or open in a Web3 browser.');
-        return null;
+        console.error('[PSEMineContext] Wallet connect error:', e);
+        toast.error('Could not connect the wallet. Please try again.');
       }
-    } catch (e: unknown) {
-      console.error('[PSEMineContext] Wallet connect error:', e);
-      const errMsg = e instanceof Error ? e.message : 'Failed to connect wallet';
-      toast.error(errMsg);
       return null;
     } finally {
       setIsConnectingWallet(false);
     }
-  }, [currentUser, pseUser]);
+  }, [adoptConnection, currentUser]);
 
-  const disconnectWallet = useCallback(() => {
+  const connectWalletConnectTransport = useCallback(async (): Promise<string | null> => {
+    if (!isWalletConnectConfigured()) {
+      toast.error('WalletConnect is not configured for this deployment.');
+      return null;
+    }
+    setIsConnectingWallet(true);
+    try {
+      const provider = await connectWalletConnect();
+      if (!provider) {
+        toast('WalletConnect session was not completed.', { icon: '⏳' });
+        return null;
+      }
+      const connection = await connectWithProvider(provider, 'walletConnect', 'WalletConnect wallet');
+      if (!connection) return null;
+      const address = adoptConnection(connection);
+      if (currentUser) void PSEMineEngine.setConnectedWallet(address);
+      toast.success(`Connected: ${address.slice(0, 6)}…${address.slice(-4)}`, { icon: '🔗' });
+      return address;
+    } catch (e) {
+      if (isWalletRejection(e)) {
+        toast('Connection cancelled in your wallet.', { icon: '🖐️' });
+      } else {
+        console.error('[PSEMineContext] WalletConnect error:', e);
+        toast.error('Could not complete the WalletConnect session.');
+      }
+      return null;
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  }, [adoptConnection, currentUser]);
+
+  /**
+   * Connection entry point. With a walletId, connects that specific EIP-6963
+   * injected wallet; without one, prefers an injected wallet when present and
+   * otherwise opens the WalletConnect flow (mobile browsers). Back-compat:
+   * callers may still `await connectWallet()` with no argument.
+   */
+  const connectWallet = useCallback(async (walletId?: string): Promise<string | null> => {
+    if (walletId) {
+      const wallet = injectedWallets.find(w => w.id === walletId);
+      if (!wallet) return null;
+      return connectInjectedWallet(wallet);
+    }
+    if (injectedWallets.length > 0) return connectInjectedWallet(injectedWallets[0]);
+    if (walletConnectAvailable) return connectWalletConnectTransport();
+    toast.error('No wallet available. Install a Web3 wallet or open this page in your wallet\'s browser.');
+    return null;
+  }, [injectedWallets, walletConnectAvailable, connectInjectedWallet, connectWalletConnectTransport]);
+
+  const disconnectWallet = useCallback(async (): Promise<void> => {
+    if (transportRef.current === 'walletConnect') {
+      await disconnectWalletConnect();
+    }
     setConnectedWallet(null);
-    localStorage.removeItem('psemine_connected_wallet');
+    persistWallet(null);
+    providerRef.current = null;
+    transportRef.current = null;
+    setWalletTransport(null);
+    setWalletName(null);
     toast('Wallet disconnected', { icon: '🔌' });
+  }, [persistWallet]);
+
+  /** Fail-closed chain assertion through the ACTIVE provider (either transport). */
+  const ensurePaymentChain = useCallback(async (chainId: number): Promise<boolean> => {
+    const provider = providerRef.current;
+    if (!provider) return false;
+    return ensureChain(provider, chainId);
+  }, []);
+
+  /** Sends the payment through the active provider; returns the tx hash only. */
+  const sendPayment = useCallback(async (tx: { from: string; to: string; value: string }): Promise<string> => {
+    const provider = providerRef.current;
+    if (!provider) throw new Error('No wallet is connected.');
+    return sendPaymentTransaction(provider, tx);
+  }, []);
+
+  // Silent re-connect on session start: previously-authorised injected
+  // accounts re-adopt automatically; per-account persistence means account B
+  // never inherits account A's wallet. The stored key holds both address and
+  // transport so a WalletConnect session can also be restored when its
+  // provider re-initialises (injected re-adoption is handled above).
+  useEffect(() => {
+    const raw = localStorage.getItem('psemine_connected_wallet');
+    if (!raw) return;
+    try {
+      const stored = JSON.parse(raw) as { address?: string; transport?: PseWalletTransport; walletName?: string };
+      if (!stored?.address) return;
+      if (stored.transport === 'walletConnect') {
+        setWalletConnectAvailable(isWalletConnectConfigured());
+        return; // WalletConnect reconnect requires the SDK session; reconnection is explicit.
+      }
+      if (hasInjectedProvider()) {
+        silentInjectedAccounts(
+          (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider,
+        ).then(accounts => {
+          if (accounts.includes(stored.address as string)) {
+            const connection: PseWalletConnection = {
+              transport: 'injected',
+              provider: (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider,
+              address: stored.address as string,
+              chainId: null,
+              walletName: stored.walletName || 'Browser wallet',
+            };
+            adoptConnection(connection);
+          }
+        });
+      }
+    } catch {
+      /* malformed stored state — ignore; explicit connect still works */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 5. Quote Generation
@@ -437,6 +632,25 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     (a, b) => a.displayOrder - b.displayOrder
   );
 
+  // Account switch guard: when the signed-in Firebase account changes, any
+  // locally-held wallet session belongs to the PREVIOUS account. Backend-bound
+  // paymentWallet values are untouched (the backend re-binds at intent creation
+  // and rejects mismatches at verification), but the UI must not display or
+  // offer account A's wallet while signed in as account B.
+  const lastUidRef = useRef<string | null>(currentUser?.uid ?? null);
+  useEffect(() => {
+    const uid = currentUser?.uid ?? null;
+    if (lastUidRef.current === uid) return;
+    lastUidRef.current = uid;
+    setConnectedWallet(null);
+    persistWallet(null);
+    providerRef.current = null;
+    transportRef.current = null;
+    walletNameRef.current = null;
+    setWalletTransport(null);
+    setWalletName(null);
+  }, [currentUser, persistWallet]);
+
   return (
     <PSEMineContext.Provider
       value={{
@@ -446,8 +660,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         liveAccruedGBP,
         connectedWallet,
         isConnectingWallet,
+        walletTransport,
+        walletName,
+        injectedWallets,
+        walletConnectAvailable,
         connectWallet,
+        connectWalletConnectTransport,
         disconnectWallet,
+        sendPayment,
+        ensurePaymentChain,
         tools: toolsList,
         ownerships,
         purchases,

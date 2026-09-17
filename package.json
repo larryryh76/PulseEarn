@@ -13,7 +13,7 @@
     "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
     "probe:route": "bun scripts/pse-probe.mjs",
-    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs"
+    "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs"
   },
   "dependencies": {
     "@reown/appkit": "1.8.24",

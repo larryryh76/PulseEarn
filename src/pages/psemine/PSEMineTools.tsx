@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Check, X, Wallet, ShieldCheck, Loader2, Clock, ChevronRight, ExternalLink,
@@ -6,6 +6,12 @@ import {
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
+import {
+  type PsePaymentSubmissionState,
+  canRetryPayment,
+  isSubmissionUncertain,
+  resolvePaymentPayer,
+} from '../../engines/psemine/pseWallet';
 import { PSEMineToolDefinition, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
   Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow, RowItem,
@@ -340,6 +346,16 @@ const WalletConnectStep: React.FC = () => {
  * before the backend verifies the transaction on-chain. */
 type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
 
+/** Human wording for the submission state machine (see pseWallet.ts). */
+const SUBMISSION_LABEL: Record<PsePaymentSubmissionState, string> = {
+  NOT_SUBMITTED: 'Preparing the purchase',
+  SUBMISSION_IN_PROGRESS: 'Waiting for your wallet',
+  SUBMITTED: 'Transaction submitted',
+  UNKNOWN_SUBMISSION_STATE: 'Submission state unknown',
+  CONFIRMING: 'Confirming on BNB Smart Chain',
+  VERIFIED: 'Verified',
+};
+
 const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
   { id: 'quote', label: 'Quote' },
   { id: 'pay', label: 'Pay in BNB' },
@@ -350,7 +366,7 @@ const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void }> = ({ tool, onClose }) => {
   const {
     connectedWallet, pseUser,
-    requestQuote, activeQuote, clearQuote, submitPurchaseTx,
+    requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
     sendPayment, ensurePaymentChain,
   } = usePSEMine();
 
@@ -359,17 +375,28 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
-  const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string; hash?: string; uncertain?: boolean } | null>(null);
+  // Payer binding + submission state. The purchase is bound to a wallet BEFORE
+  // anything is signed, and the submission state decides whether a retry is
+  // even permitted (never after UNKNOWN_SUBMISSION_STATE).
+  const [boundPayer, setBoundPayer] = useState<string | null>(null);
+  const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [submissionState, setSubmissionState] = useState<PsePaymentSubmissionState>('NOT_SUBMITTED');
+
+  /** Forget the local binding (expired quote, wallet disconnect, restart). */
+  const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
 
   // Fetch quote on open
   useEffect(() => {
     let cancelled = false;
     setQuoteLoading(true);
+    resetBinding();
+    setSubmissionState('NOT_SUBMITTED');
     requestQuote(tool.id)
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setQuoteLoading(false); });
     return () => { cancelled = true; clearQuote(); };
-  }, [tool.id, requestQuote, clearQuote]);
+  }, [tool.id, requestQuote, clearQuote, resetBinding]);
 
   // Quote countdown (server expiry, locally interpolated)
   useEffect(() => {
@@ -383,11 +410,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   useEffect(() => {
     if (activeQuote && secondsLeft === 0 && step === 'pay') {
       clearQuote();
+      resetBinding();
       setQuoteLoading(true);
       requestQuote(tool.id).finally(() => setQuoteLoading(false));
       toast('Quote expired — refreshed with the live BNB rate.', { icon: '⏳' });
     }
-  }, [secondsLeft, activeQuote, step, clearQuote, requestQuote, tool.id]);
+  }, [secondsLeft, activeQuote, step, clearQuote, requestQuote, tool.id, resetBinding]);
 
   const counts = pseUser?.toolOwnershipCounts;
   const owned = counts ? (counts as Record<string, number>)[tool.id] || 0 : 0;
@@ -401,15 +429,27 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
   }, [step, connectedWallet]);
 
   // Safety: if the wallet disconnects mid-flow (wallet lock, WalletConnect
-  // session end), no payment UI may remain active — drop back to connect.
+  // session end), no payment UI may remain active — drop back to connect and
+  // drop the local binding (the server record keeps its payer; a reconnect of
+  // the SAME wallet reuses it, a different wallet never inherits it).
   // The 'verifying' step intentionally stays: the transaction may already be
   // broadcast, so the backend verification result is still meaningful.
   useEffect(() => {
-    if (!connectedWallet && (step === 'pay' || step === 'quote')) setStep('connect');
-  }, [connectedWallet, step]);
+    if (!connectedWallet && (step === 'pay' || step === 'quote')) {
+      setStep('connect');
+      resetBinding();
+    }
+  }, [connectedWallet, step, resetBinding]);
 
-  /** Proceeds to the wallet-signed payment. The connection step guarantees a
-   * wallet is present; the chain assertion below is fail-closed either way. */
+  /**
+   * Proceeds to the wallet-signed payment.
+   *
+   * ORDER IS THE POINT: quote → BIND PAYER → chain assertion → sign → submit
+   * hash. The purchase is bound to the connected wallet server-side before the
+   * wallet is ever asked to sign, so a mid-flow wallet change cannot become the
+   * payer of someone else's quote — and the backend rejects the mismatch
+   * against the on-chain sender either way.
+   */
   const payNow = async () => {
     if (!activeQuote) return;
     if (!connectedWallet || !EVM.test(connectedWallet)) {
@@ -417,12 +457,54 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
       toast.error('Connect a valid BNB Smart Chain wallet first.');
       return;
     }
+    // A payment may only be attempted while its state is NOT_SUBMITTED. After
+    // an ambiguous send (UNKNOWN_SUBMISSION_STATE) — or once a hash exists —
+    // nothing here will drive eth_sendTransaction again.
+    if (!canRetryPayment(submissionState)) {
+      toast.error('This payment is not in a submittable state — check your wallet activity before trying again.');
+      return;
+    }
     setStep('verifying');
     try {
-      // NETWORK ASSERTION — fail-closed, through the ACTIVE provider (injected
-      // or WalletConnect). The backend verifier only ever reads BSC, so a
-      // transaction signed on any other chain can never be verified. If the
-      // switch is refused or unverifiable, nothing is sent.
+      // 1. BIND THE PAYER — server-side, against this account and this quote,
+      //    BEFORE any signature exists.
+      let payer = boundPayer;
+      let intentId = purchaseId;
+      if (!intentId || !payer) {
+        const bound = await bindPurchaseIntent(activeQuote);
+        if (!bound.success || !bound.purchaseId || !bound.payerWallet) {
+          setSubmissionState('NOT_SUBMITTED');
+          setResult({ ok: false, message: bound.error || 'Could not bind this purchase to your wallet.' });
+          setStep('result');
+          return;
+        }
+        intentId = bound.purchaseId;
+        payer = bound.payerWallet;
+        setPurchaseId(intentId);
+        setBoundPayer(payer);
+      }
+
+      // 2. The wallet about to sign must still be the bound payer. If the user
+      //    switched wallets after the quote, we stop here: paying from B would
+      //    either be rejected as WALLET_MISMATCH or, worse, be paid and not
+      //    attributed. No transaction is sent from the wrong wallet.
+      const payerCheck = resolvePaymentPayer(payer, connectedWallet);
+      if (!payerCheck.ok) {
+        setSubmissionState('NOT_SUBMITTED');
+        setResult({
+          ok: false,
+          message: payerCheck.code === 'WALLET_MISMATCH'
+            ? `WALLET_MISMATCH — this purchase is bound to ${shortAddr(payer)}. Reconnect that wallet to pay, or close this and start a new purchase with ${shortAddr(connectedWallet)}. Nothing was sent and the binding was not changed.`
+            : 'This purchase has no bound payer wallet. Start the purchase again.',
+        });
+        setStep('result');
+        return;
+      }
+
+      // 3. NETWORK ASSERTION — fail-closed, through the ACTIVE provider (injected
+      //    or WalletConnect). The backend verifier only ever reads BSC, so a
+      //    transaction signed on any other chain can never be verified. If the
+      //    switch is refused or unverifiable, nothing is sent.
       const chainOk = await ensurePaymentChain(activeQuote.chainId || 56);
       if (!chainOk) {
         setStep('pay');
@@ -430,26 +512,51 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
         return;
       }
 
-      // to + value come VERBATIM from the server quote; from is the connected
-      // wallet. The frontend cannot substitute a recipient or amount — and the
-      // backend independently re-verifies all of it from the chain record.
-      // Fail-closed: a quote without the exact wei string is never paid from.
+      // 4. to + value come VERBATIM from the server quote; from is the BOUND
+      //    payer. The frontend cannot substitute a recipient or amount — and the
+      //    backend independently re-verifies all of it from the chain record.
+      //    Fail-closed: a quote without the exact wei string is never paid from.
       const wei = activeQuote.bnbAmountWei;
       if (!wei || !/^[0-9]+$/.test(String(wei))) {
         throw new Error('The server quote is missing its exact BNB amount. Request a new quote.');
       }
-      const txHash = await sendPayment({
-        from: connectedWallet,
-        to: activeQuote.receiverWallet,
-        value: String(wei),
-      });
-      if (!txHash) throw new Error('Transaction was not submitted.');
 
-      // Backend verifies on-chain; activation is server-authoritative.
-      const res = await submitPurchaseTx(activeQuote, txHash);
+      // 5. EXACTLY ONE broadcast attempt. An ambiguous result stops here as
+      //    PAYMENT_SUBMISSION_UNCERTAIN — it is never retried or resent through
+      //    another method.
+      setSubmissionState('SUBMISSION_IN_PROGRESS');
+      let txHash: string;
+      try {
+        txHash = await sendPayment({
+          from: payer,
+          to: activeQuote.receiverWallet,
+          value: String(wei),
+        });
+      } catch (sendErr) {
+        if (isSubmissionUncertain(sendErr)) {
+          setSubmissionState('UNKNOWN_SUBMISSION_STATE');
+          setResult({
+            ok: false,
+            uncertain: true,
+            message: 'PAYMENT_SUBMISSION_UNCERTAIN — your wallet did not report whether this payment was broadcast, so nothing was sent again. Check your wallet activity (or BscScan) for a pending transfer before doing anything else. If one exists, keep the wallet that sent it; support can reconcile it from the on-chain record.',
+          });
+          setStep('result');
+          return;
+        }
+        throw sendErr;
+      }
+      if (!txHash) throw new Error('Transaction was not submitted.');
+      setSubmissionState('SUBMITTED');
+
+      // 6. Backend verifies on-chain; activation is server-authoritative.
+      setSubmissionState('CONFIRMING');
+      const res = await submitPurchaseTx(intentId, txHash, payer);
       if (res.success) {
+        setSubmissionState('VERIFIED');
         setResult({ ok: true, message: `${tool.name} activated. Its hourly capacity is now live on your dashboard.`, hash: txHash });
       } else {
+        const stillConfirming = res.code === 'INSUFFICIENT_CONFIRMATIONS';
+        setSubmissionState(stillConfirming ? 'CONFIRMING' : 'SUBMITTED');
         setResult({
           ok: false,
           message: res.error || 'Verification failed. If you already sent the payment, keep the transaction hash — support can reconcile it from the on-chain record.',
@@ -460,6 +567,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Payment could not be submitted.';
       if (/user rejected|user denied|4001/i.test(msg)) {
+        setSubmissionState('NOT_SUBMITTED');
         setStep('pay');
         toast('Payment cancelled in your wallet.');
       } else {
@@ -467,6 +575,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
         setStep('result');
       }
     }
+  };
+
+  /** Restart from a fresh quote — the only route out of an uncertain or failed
+   *  submission, and only ever at the user's explicit request. */
+  const restartPurchase = () => {
+    setResult(null);
+    resetBinding();
+    setSubmissionState('NOT_SUBMITTED');
+    clearQuote();
+    setQuoteLoading(true);
+    setStep('quote');
+    requestQuote(tool.id).finally(() => setQuoteLoading(false));
   };
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
@@ -610,6 +730,19 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                     Verify the full address in your wallet before sending. Network: BNB Smart Chain (chain {activeQuote.chainId}).
                   </p>
                 </div>
+                {boundPayer && (
+                  <>
+                    <div className="pse-divider" />
+                    <div>
+                      <p className="pse-eyebrow mb-1.5">Bound payer</p>
+                      <CopyField value={boundPayer} display={shortAddr(boundPayer)} label="payer wallet" fullWidth />
+                      <p className="pse-micro mt-2">
+                        This purchase is already bound to this wallet. Only this wallet can pay it — reconnecting a
+                        different wallet will not be accepted.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>
@@ -643,6 +776,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
               <p className="pse-micro max-w-xs text-center">
                 Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
               </p>
+              <span className="pse-micro pse-mono" style={{ color: 'var(--pse-text-2)' }}>
+                {submissionState} · {SUBMISSION_LABEL[submissionState]}
+              </span>
             </div>
           )}
 
@@ -656,8 +792,21 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                     : { background: 'rgba(240,68,56,0.10)', border: '1px solid rgba(240,68,56,0.3)' }}>
                   {result.ok ? <Check size={22} style={{ color: 'var(--pse-success)' }} /> : <X size={22} style={{ color: 'var(--pse-danger)' }} />}
                 </div>
-                <p className="pse-h2" style={{ fontSize: 20 }}>{result.ok ? 'Tool activated' : 'Verification didn\u2019t complete'}</p>
+                <p className="pse-h2" style={{ fontSize: 20 }}>
+                  {result.ok ? 'Tool activated' : result.uncertain ? 'Payment submission uncertain' : 'Verification didn\u2019t complete'}
+                </p>
                 <p className="pse-caption max-w-sm">{result.message}</p>
+                {result.uncertain && (
+                  <div className="pse-inset flex items-start gap-2.5 p-3.5 text-left">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
+                    <p className="pse-micro">
+                      Nothing was sent twice and no tool was activated. Check your wallet&apos;s activity (or the address on
+                      BscScan) for a pending transfer. If one exists, do not send again — keep its hash and the wallet that
+                      sent it; support reconciles it from the on-chain record. If none exists, use{' '}
+                      <span className="pse-mono">Start a new purchase</span> below.
+                    </p>
+                  </div>
+                )}
                 {result.hash && (
                   <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer"
                     className="pse-micro inline-flex items-center gap-1.5 font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
@@ -687,6 +836,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
                 <button onClick={onClose} className="pse-btn pse-btn-primary flex-1 justify-center py-3">
                   {result.ok ? 'Go to dashboard' : 'Close'}
                 </button>
+                {!result.ok && (
+                  <button onClick={restartPurchase} className="pse-btn pse-btn-secondary flex-1 justify-center py-3">
+                    {result.uncertain ? 'Start a new purchase' : 'Try again with a new quote'}
+                  </button>
+                )}
               </div>
             </div>
           )}

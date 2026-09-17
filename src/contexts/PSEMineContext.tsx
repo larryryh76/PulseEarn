@@ -62,6 +62,15 @@ interface PSEMineContextType {
   sendPayment: (tx: { from: string; to: string; value: string }) => Promise<string>;
   /** Fail-closed chain assertion against the server-quoted chain. */
   ensurePaymentChain: (chainId: number) => Promise<boolean>;
+  /**
+   * Binds the connected wallet as the payer of a server quote BEFORE the wallet
+   * is asked to sign anything. Resolves with the server-issued purchase id and
+   * the payer wallet the backend actually recorded on it (never the client's
+   * claim when the two differ).
+   */
+  bindPurchaseIntent: (quote: PSEMineQuote) => Promise<{
+    success: boolean; purchaseId?: string; payerWallet?: string; error?: string;
+  }>;
   tools: PSEMineToolDefinition[];
   ownerships: PSEMineToolOwnership[];
   purchases: PSEMinePurchase[];
@@ -72,7 +81,9 @@ interface PSEMineContextType {
   isRequestingQuote: boolean;
   requestQuote: (toolId: PSEToolTierId) => Promise<PSEMineQuote | null>;
   clearQuote: () => void;
-  submitPurchaseTx: (quote: PSEMineQuote, txHash: string) => Promise<{ success: boolean; error?: string }>;
+  submitPurchaseTx: (purchaseId: string, txHash: string, senderWallet: string) => Promise<{
+    success: boolean; error?: string; code?: string;
+  }>;
   updatePayoutWallet: (newAddress: string) => Promise<{ success: boolean; error?: string }>;
   maintainTool: (ownershipId: string) => Promise<{ success: boolean; error?: string }>;
   refreshData: () => Promise<void>;
@@ -529,46 +540,72 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveQuote(null);
   }, []);
 
-  // 6. Submit Purchase Transaction
-  const submitPurchaseTx = useCallback(async (
-    quote: PSEMineQuote, 
-    txHash: string
-  ): Promise<{ success: boolean; error?: string }> => {
+  // 6. PAYER BINDING — the wallet is committed to the quote BEFORE it signs.
+  //
+  // The intent used to be created after the wallet returned a hash, which meant
+  // a mid-flow wallet change silently became the payer of a purchase that was
+  // quoted for another wallet. Binding first (server-side, against the
+  // authenticated account) is what makes the on-chain sender check in
+  // /api/mine/tools/verify-purchase meaningful: paymentWallet is fixed before
+  // any signature exists, and no later request may rewrite it.
+  const bindPurchaseIntent = useCallback(async (quote: PSEMineQuote): Promise<{
+    success: boolean; purchaseId?: string; payerWallet?: string; error?: string;
+  }> => {
     if (!currentUser) {
       return { success: false, error: 'User not authenticated' };
     }
+    if (!connectedWallet || !/^0x[0-9a-fA-F]{40}$/.test(connectedWallet)) {
+      return { success: false, error: 'Connect a valid BNB Smart Chain wallet before creating this purchase.' };
+    }
 
     try {
-      // 1. Create purchase intent
-      const purchase = await PSEMineEngine.createPurchaseIntent(
-        quote, 
-        connectedWallet || '0x0000000000000000000000000000000000000000'
-      );
+      const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet);
+      return {
+        success: true,
+        purchaseId: purchase.id,
+        payerWallet: String(purchase.paymentWallet || connectedWallet).toLowerCase(),
+      };
+    } catch (e: unknown) {
+      console.error('[PSEMineContext] bindPurchaseIntent error:', e);
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Could not bind this purchase to your wallet.',
+      };
+    }
+  }, [currentUser, connectedWallet]);
 
-      // 2. Authoritative purchase activation
-      const result = await PSEMineEngine.activateToolPurchase(
-        purchase.id, 
-        txHash, 
-        connectedWallet || undefined
-      );
+  // 7. Submit Purchase Transaction Hash (for an ALREADY BOUND purchase) —
+  // the backend verifies sender/recipient/amount/chain/confirmations and is the
+  // only thing that may activate the tool.
+  const submitPurchaseTx = useCallback(async (
+    purchaseId: string,
+    txHash: string,
+    senderWallet: string,
+  ): Promise<{ success: boolean; error?: string; code?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: 'User not authenticated' };
+    }
+    if (!purchaseId) {
+      return { success: false, error: 'This purchase is not bound to a wallet yet. Start the purchase again.' };
+    }
+
+    try {
+      const result = await PSEMineEngine.activateToolPurchase(purchaseId, txHash, senderWallet);
 
       if (result.success) {
-        toast.success(`${LOCKED_PSEMINE_TOOLS[quote.toolId].name} Deployed!`, {
-          icon: '⛏️',
-          duration: 6000
-        });
+        toast.success('Payment verified — tool deployed!', { icon: '⛏️', duration: 6000 });
         setActiveQuote(null);
       } else {
         toast.error(result.error || 'Payment verification failed');
       }
 
-      return result;
+      return { success: result.success, error: result.error, code: result.code };
     } catch (e: unknown) {
       console.error('[PSEMineContext] submitPurchaseTx error:', e);
       const errMsg = e instanceof Error ? e.message : 'Purchase processing error';
       return { success: false, error: errMsg };
     }
-  }, [currentUser, connectedWallet]);
+  }, [currentUser]);
 
   // 7. Update Payout Wallet
   const updatePayoutWallet = useCallback(async (newAddress: string): Promise<{ success: boolean; error?: string }> => {
@@ -679,6 +716,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isRequestingQuote,
         requestQuote,
         clearQuote,
+        bindPurchaseIntent,
         submitPurchaseTx,
         updatePayoutWallet,
         maintainTool,

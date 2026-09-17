@@ -8001,7 +8001,11 @@ def verify_psemine_tool_purchase():
                 'quoteId': quote_id,
                 'quotedBNBAmount': quoted_bnb,
                 'receiverWallet': expected_destination,
-                'paymentWallet': (sender_wallet or p_curr.to_dict().get('paymentWallet') or '').lower(),
+                # Server-derived payer only: `expected_sender` is the binding
+                # decision (bound wallet wins; a declared sender is used only
+                # for a legacy intent with no binding at all), never a raw
+                # client-supplied address.
+                'paymentWallet': (expected_sender or p_curr.to_dict().get('paymentWallet') or '').lower(),
                 'confirmedAt': now_iso,
                 'activatedAt': now_iso,
                 'confirmations': block_depth,  # actual observed depth (0 in dev bypass) — never fabricated
@@ -8492,6 +8496,12 @@ def mine_create_purchase():
     data = request.get_json() or {}
     quote_id = (data.get('quoteId') or '').strip()
     payment_wallet = (data.get('paymentWallet') or '').strip().lower()
+    # The all-zero address is not a wallet: an intent created against it would
+    # carry no payer to bind, which is the exact state the pre-signature binding
+    # exists to prevent (verification would then have to trust a declared sender).
+    if payment_wallet == '0x' + '0' * 40:
+        return jsonify({"success": False, "error": "INVALID_PAYMENT_WALLET",
+                        "message": "Connect a real wallet before creating a purchase."}), 400
 
     import re as _re
     if not _re.match(r'^0x[0-9a-fA-F]{40}$', payment_wallet or ''):
@@ -8531,10 +8541,33 @@ def mine_create_purchase():
     if counts.get(tool_id, 0) >= tool_cfg['max_per_user']:
         return jsonify({"success": False, "error": "MAX_OWNERSHIP_REACHED", "message": f"Maximum ownership reached for {tool_cfg['name']}."}), 409
 
-    # One active intent per (user, tool): return the existing one idempotently
+    # ONE ACTIVE INTENT PER (user, tool), and its payer binding is IMMUTABLE.
+    # The binding is written here, before the wallet is asked to sign anything;
+    # a later create call must never be able to move it to another wallet — that
+    # binding is what the on-chain sender is compared against at verification.
+    # The decision itself is a pure, unit-tested function.
     existing = db.collection('psemine_purchases').where('userId', '==', uid).where('toolId', '==', tool_id).where('status', '==', 'awaiting_payment').get()
     for e in existing:
-        return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": e.to_dict()})
+        stored = e.to_dict() or {}
+        action, decision_code = _pse_engine.purchase_intent_reuse_decision(
+            stored.get('paymentWallet'), payment_wallet, stored.get('expiresAt')
+        )
+        if action == 'reuse':
+            return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})
+        if action == 'rebind_forbidden':
+            return jsonify({
+                "success": False,
+                "error": decision_code or "WALLET_MISMATCH",
+                "message": "This account already has an awaiting purchase for this tool bound to a "
+                           "different wallet. Pay it from that wallet, or wait for its quote window "
+                           "to lapse before binding another.",
+                "purchaseId": e.id,
+                "boundWallet": (stored.get('paymentWallet') or '').lower(),
+            }), 409
+        # 'supersede': the stored quote has lapsed, so that intent can never be
+        # verified (its quote fails QUOTE_EXPIRED). Fall through and create a
+        # fresh intent for the requested wallet; the stored record is left
+        # untouched as audit evidence.
 
     now_dt = datetime.now(timezone.utc)
     purchase_id = f"pse_pur_{tool_id}_{int(now_dt.timestamp() * 1000)}_{uid[:6]}"

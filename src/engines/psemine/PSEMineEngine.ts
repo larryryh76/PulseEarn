@@ -363,6 +363,15 @@ export class PSEMineEngine {
       );
     }
 
+    // The payer binding is whatever the SERVER stored on the intent record —
+    // never the value this client sent. If the backend refused to rebind a
+    // live intent, the UI follows the server's wallet so a payment can only be
+    // attempted from the wallet the purchase is actually bound to.
+    const serverPaymentWallet =
+      typeof data.purchase?.paymentWallet === 'string' && data.purchase.paymentWallet
+        ? data.purchase.paymentWallet.toLowerCase()
+        : paymentWallet.toLowerCase();
+
     return {
       id: data.purchaseId,
       userId: quote.userId,
@@ -374,7 +383,7 @@ export class PSEMineEngine {
       quotedBNBAmount: quote.bnbAmount,
       exchangeRateBNBGBP: quote.exchangeRateBNBGBP,
       receiverWallet: quote.receiverWallet,
-      paymentWallet: paymentWallet.toLowerCase(),
+      paymentWallet: serverPaymentWallet,
       transactionHash: null,
       network: quote.network,
       status: 'awaiting_payment',
@@ -388,13 +397,19 @@ export class PSEMineEngine {
   }
 
   /**
-   * Authoritative Tool Purchase Activation & Capacity Recalculation via Secure Backend API
+   * Authoritative Tool Purchase Activation & Capacity Recalculation via Secure Backend API.
+   *
+   * The purchase intent already exists and is already bound to its payer wallet
+   * (created BEFORE the wallet was asked to sign). Only the transaction hash and
+   * the bound payer are submitted; the backend re-derives the recipient, the
+   * exact amount, the chain, the payer binding and the confirmation depth from
+   * its own data and the chain itself.
    */
   public static async activateToolPurchase(
     purchaseId: string, 
     txHash: string,
     senderWallet?: string
-  ): Promise<{ success: boolean; error?: string; user?: PSEMineUser }> {
+  ): Promise<{ success: boolean; error?: string; code?: string; confirmations?: number; user?: PSEMineUser }> {
     const purchaseRef = doc(db, 'psemine_purchases', purchaseId);
     const purchaseSnap = await getDoc(purchaseRef);
 
@@ -439,6 +454,11 @@ export class PSEMineEngine {
       if (!res.ok || !data.success) {
         return {
           success: false,
+          // Machine-readable backend code (e.g. INSUFFICIENT_CONFIRMATIONS,
+          // WALLET_MISMATCH, QUOTE_EXPIRED) so the UI can distinguish
+          // "still confirming" from "rejected" without parsing prose.
+          code: typeof data.error === 'string' ? data.error : undefined,
+          confirmations: typeof data.confirmations === 'number' ? data.confirmations : undefined,
           error: pseFailureMessage('POST /api/mine/tools/verify-purchase', res.status, data),
         };
       }

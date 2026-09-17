@@ -352,41 +352,184 @@ export interface PsePaymentTx {
   value: string;
 }
 
-/**
- * Sends the payment transaction through an ethers v6 BrowserProvider over any
- * conforming EIP-1193 provider, so WalletConnect and injected wallets share
- * one code path. Resolves with the transaction hash once the wallet has signed
- * and broadcast. Nothing here interprets the hash — the backend owns
- * verification (recipient/sender/amount/chain/confirmations).
+/* ─── Payment submission state machine ───
  *
- * Fallback: ethers probes auxiliary RPC methods (eth_blockNumber, …) that some
- * minimal in-app dapp browsers do not implement. If the ethers path fails
- * BEFORE the wallet shows an approval (any error that is not a 4001
- * rejection), the raw EIP-1193 eth_sendTransaction is used instead — the one
- * method every conforming wallet implements. A user rejection is always
- * final and never retried through the fallback.
+ * A payment is not a boolean. Between "the user tapped Pay" and "the tool is
+ * activated" the transaction passes through states that demand different
+ * behaviour, and the one that matters most is UNKNOWN_SUBMISSION_STATE: the
+ * wallet returned an error but we cannot tell whether it broadcast first.
+ *
+ * NOT_SUBMITTED           → nothing has been sent; a retry is safe.
+ * SUBMISSION_IN_PROGRESS  → a send is with the wallet; never start another.
+ * SUBMITTED               → the wallet returned a transaction hash.
+ * UNKNOWN_SUBMISSION_STATE→ a send failed ambiguously; NEVER auto-retry.
+ * CONFIRMING              → the chain has it but confirmations are pending.
+ * VERIFIED                → the backend verified it and activated the tool.
+ *
+ * Only the backend ever moves a payment to VERIFIED; nothing in the wallet
+ * layer may assert success.
+ */
+export type PsePaymentSubmissionState =
+  | 'NOT_SUBMITTED'
+  | 'SUBMISSION_IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'UNKNOWN_SUBMISSION_STATE'
+  | 'CONFIRMING'
+  | 'VERIFIED';
+
+export const PAYMENT_SUBMISSION_UNCERTAIN = 'PAYMENT_SUBMISSION_UNCERTAIN';
+
+/**
+ * Thrown when a send attempt failed in a way that leaves the broadcast status
+ * unknown (see UNKNOWN_SUBMISSION_STATE). The caller must NOT send again: it
+ * must report the uncertain state and let the user establish, from their own
+ * wallet or a block explorer, whether a transaction exists.
+ */
+export class PsePaymentSubmissionUncertainError extends Error {
+  readonly code = PAYMENT_SUBMISSION_UNCERTAIN;
+  readonly submissionState: PsePaymentSubmissionState = 'UNKNOWN_SUBMISSION_STATE';
+
+  constructor() {
+    super(
+      'The wallet did not report whether the payment was broadcast. ' +
+      'No second attempt was made — check your wallet activity before retrying.',
+    );
+    this.name = 'PsePaymentSubmissionUncertainError';
+  }
+}
+
+export const isSubmissionUncertain = (e: unknown): boolean =>
+  e instanceof PsePaymentSubmissionUncertainError ||
+  (typeof e === 'object' && e !== null &&
+    (e as { code?: string }).code === PAYMENT_SUBMISSION_UNCERTAIN);
+
+/**
+ * Whether a payment in this state may be attempted again. Deliberately true
+ * for NOT_SUBMITTED only — an unknown submission is resolved by the user
+ * (wallet activity / explorer / support recovery), never by an automatic or
+ * casual resend.
+ */
+export const canRetryPayment = (state: PsePaymentSubmissionState): boolean =>
+  state === 'NOT_SUBMITTED';
+
+/* ─── Payer binding guard ─── */
+
+export interface PsePayerCheck {
+  ok: boolean;
+  code?: 'WALLET_MISMATCH' | 'PAYER_NOT_BOUND';
+  payer?: string;
+}
+
+/**
+ * Pre-send guard: the wallet that signs must be the payer the purchase record
+ * is bound to. The backend enforces this authoritatively against the on-chain
+ * sender; this keeps the UI from asking wallet B to fund a purchase that is
+ * attributed to wallet A in the first place (and from surfacing a paid-but-
+ * rejected result afterwards).
+ */
+export const resolvePaymentPayer = (
+  boundPayer: string | null | undefined,
+  connectedWallet: string | null | undefined,
+): PsePayerCheck => {
+  const bound = String(boundPayer ?? '').trim().toLowerCase();
+  const connected = String(connectedWallet ?? '').trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(bound)) return { ok: false, code: 'PAYER_NOT_BOUND' };
+  if (!/^0x[0-9a-f]{40}$/.test(connected) || connected !== bound) {
+    return { ok: false, code: 'WALLET_MISMATCH' };
+  }
+  return { ok: true, payer: bound };
+};
+
+const isTxHash = (value: unknown): value is string =>
+  typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
+
+/**
+ * Every EIP-1193 / EIP-5792 method that can put a transaction on chain. Listed
+ * explicitly rather than pattern-matched: the set decides whether a fallback is
+ * allowed, so it must be auditable at a glance.
+ */
+const BROADCAST_METHODS = new Set([
+  'eth_sendtransaction',
+  'eth_sendrawtransaction',
+  'wallet_sendtransaction',
+  'wallet_sendcalls',
+]);
+
+/**
+ * Sends the payment transaction — AT MOST ONE broadcast attempt per call.
+ *
+ * THE RULE
+ * --------
+ * The fallback to raw eth_sendTransaction may run ONLY when it is PROVEN that
+ * no send was ever requested from the wallet. That proof is not inferred from an
+ * error shape or from which ethers call failed; it is recorded directly: every
+ * request goes through a thin wrapper that notes when eth_sendTransaction is
+ * reached. So:
+ *
+ *   • ethers throws and NO send was requested → the transaction was never
+ *     broadcast (ethers died while BUILDING it: chain/nonce/fee/gas probing,
+ *     which is exactly what minimal in-app dapp browsers lack). One raw attempt
+ *     is safe, so it is made — once.
+ *   • ethers throws and a send WAS requested → the wallet may already have
+ *     broadcast. This is UNKNOWN_SUBMISSION_STATE: raise
+ *     PsePaymentSubmissionUncertainError and STOP. No retry, no second method.
+ *   • ethers returns a hash → hand it back immediately. Nothing else is ever
+ *     called afterwards.
+ *   • A user rejection (4001) at any point is final and never retried.
+ *
+ * The previous shape retried through the raw method after ANY non-rejection
+ * error, which could pay twice when the first attempt had already been
+ * broadcast; the shape before that could not distinguish the two cases at all.
+ * A returned hash always ends the flow: the backend is the only verifier of
+ * recipient/sender/amount/chain/confirmations.
  */
 export const sendPaymentTransaction = async (
   provider: PseEip1193Provider,
   tx: PsePaymentTx,
 ): Promise<string> => {
+  let sendRequested = false;
+  const tracked: PseEip1193Provider = {
+    request: <T = unknown>(args: { method: string; params?: unknown[] | object }) => {
+      // ANY broadcast-capable method counts, not just the one ethers happens to
+      // use today: the fallback decision must never be defeated by a wallet or
+      // SDK that submits through a different method name.
+      if (BROADCAST_METHODS.has(String(args.method).toLowerCase())) sendRequested = true;
+      return provider.request<T>(args);
+    },
+  };
+  if (provider.on) tracked.on = provider.on.bind(provider);
+  if (provider.removeListener) tracked.removeListener = provider.removeListener.bind(provider);
+
   try {
     const { BrowserProvider } = await import('ethers');
     // EIP-1193 providers conform to ethers' Eip1193RequestFn; the structural cast
     // keeps this module free of a static ethers type dependency.
-    const web3Provider = new BrowserProvider(provider as unknown as ConstructorParameters<typeof BrowserProvider>[0]);
+    const web3Provider = new BrowserProvider(tracked as unknown as ConstructorParameters<typeof BrowserProvider>[0]);
     const signer = await web3Provider.getSigner();
     const response = await signer.sendTransaction({ from: tx.from, to: tx.to, value: tx.value });
+    if (!isTxHash(response?.hash)) throw new PsePaymentSubmissionUncertainError();
     return response.hash;
   } catch (e) {
-    if (isWalletRejection(e)) throw e; // user said no — done, no fallback.
+    if (isWalletRejection(e)) throw e; // 4001 — the user said no; nothing was sent
+    if (isSubmissionUncertain(e)) throw e;
+    // Only a PROVEN pre-broadcast failure may fall through to the raw attempt.
+    if (sendRequested) throw new PsePaymentSubmissionUncertainError();
+  }
+
+  // The wallet cannot build a transaction through ethers (nothing was sent), so
+  // broadcast once through the one method every conforming wallet implements.
+  try {
     const hash = await provider.request({
       method: 'eth_sendTransaction',
       params: [{ from: tx.from, to: tx.to, value: tx.value }],
     });
-    if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) {
-      throw new Error('The wallet did not return a valid transaction hash.');
-    }
+    if (!isTxHash(hash)) throw new PsePaymentSubmissionUncertainError();
     return hash;
+  } catch (e) {
+    if (isWalletRejection(e)) throw e; // 4001 — the user said no; nothing was sent
+    if (isSubmissionUncertain(e)) throw e;
+    // A send was attempted and no hash came back: the broadcast status is
+    // unknown. STOP — do not retry, do not fall back, do not guess.
+    throw new PsePaymentSubmissionUncertainError();
   }
 };

@@ -189,6 +189,53 @@ def purchase_sender_binding(declared_sender, intent_wallet):
     return True, None, (declared or intent)
 
 
+def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, now=None):
+    """Decide what POST /api/mine/purchases/create may do with an existing intent.
+
+    WHY THIS IS A FUNCTION AND NOT AN EXPRESSION
+    --------------------------------------------
+    The payer is bound when the intent is created — BEFORE the wallet is asked
+    to sign — and that binding is what the on-chain sender is checked against at
+    verification. If re-posting the create endpoint with a different address
+    could move the binding, the whole check would be decorative: a client could
+    quote with wallet A, switch to wallet B, and re-create the intent under B.
+    So a live intent is never re-pointed at another wallet.
+
+    Returns (action, code):
+      * 'reuse'            — same payer (or the same empty binding): the caller
+                             receives the existing intent, unmodified.
+      * 'rebind_forbidden' — a DIFFERENT payer while the stored quote is still
+                             inside its window: refuse with WALLET_MISMATCH and
+                             write nothing at all.
+      * 'supersede'        — a different payer and the stored quote has already
+                             lapsed. That intent can never be verified (its
+                             quote fails QUOTE_EXPIRED) and neither payment can
+                             be attributed to the other wallet, so a fresh
+                             intent is created for the new payer. The stored
+                             record is left untouched as audit evidence.
+
+    A missing/unparseable expiry counts as lapsed: refusing forever would lock
+    an account out of a tool tier, while superseding is safe precisely because
+    the old record is never rewritten and its quote binding still applies.
+    """
+    stored = (stored_wallet or "").strip().lower()
+    requested = (requested_wallet or "").strip().lower()
+    if stored == requested:
+        return "reuse", None
+    if not stored or stored == ZERO_ADDRESS:
+        # Legacy intent with no payer to protect: a named wallet supersedes it.
+        return "supersede", None
+    if now is None:
+        now = utcnow()
+    try:
+        expires = _parse(expires_at)
+    except Exception:
+        expires = None
+    if expires is not None and expires > now:
+        return "rebind_forbidden", "WALLET_MISMATCH"
+    return "supersede", None
+
+
 def _checkpoint_digest(parts):
     """Build a stable short digest for an accrual checkpoint."""
     raw = "|".join(str(p) for p in parts)

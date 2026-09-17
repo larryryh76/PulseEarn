@@ -20,6 +20,11 @@ import {
   LOCKED_PSEMINE_TOOLS,
   PSEMINE_CONSTANTS
 } from '../../types/psemine';
+import {
+  pseFailureMessage,
+  pseTransportFailureMessage,
+  logPseDiagnostic,
+} from './pseErrors';
 
 export class PSEMineEngine {
   private static CAMPAIGN_DOC_ID = 'active_campaign';
@@ -218,11 +223,14 @@ export class PSEMineEngine {
       return {
         success: false,
         error: data.error || 'ENROLLMENT_FAILED',
-        message: data.message || 'PSEmine could not be enabled for this account.',
+        message: pseFailureMessage('POST /api/mine/enroll', response.status, data),
       };
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Network error';
-      return { success: false, error: 'NETWORK', message };
+      return {
+        success: false,
+        error: 'NETWORK',
+        message: pseTransportFailureMessage('POST /api/mine/enroll', e),
+      };
     }
   }
 
@@ -267,12 +275,21 @@ export class PSEMineEngine {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        return { success: false, error: data.message || data.error || 'Maintenance failed.' };
+        return {
+          success: false,
+          error: pseFailureMessage(
+            `POST /api/mine/tools/${ownershipId}/maintain`, res.status, data,
+          ),
+        };
       }
       return { success: true, cycleIndex: data.cycleIndex, settledMinor: data.settledMinor };
     } catch (e: unknown) {
-      const errMsg = e instanceof Error ? e.message : 'Maintenance error.';
-      return { success: false, error: errMsg };
+      return {
+        success: false,
+        error: pseTransportFailureMessage(
+          `POST /api/mine/tools/${ownershipId}/maintain`, e,
+        ),
+      };
     }
   }
 
@@ -309,7 +326,9 @@ export class PSEMineEngine {
       return resData.quote as PSEMineQuote;
     }
 
-    throw new Error(resData.message || resData.error || 'Failed to generate authoritative quote from server.');
+    throw new Error(
+      pseFailureMessage('POST /api/mine/tools/quote', response.status, resData),
+    );
   }
 
   /**
@@ -339,7 +358,9 @@ export class PSEMineEngine {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success || !data.purchaseId) {
-      throw new Error(data.message || data.error || 'Failed to create purchase intent.');
+      throw new Error(
+        pseFailureMessage('POST /api/mine/purchases/create', res.status, data),
+      );
     }
 
     return {
@@ -414,11 +435,11 @@ export class PSEMineEngine {
         signal: controller.signal
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        return { 
-          success: false, 
-          error: data.message || data.error || 'On-chain transaction verification failed on BSC.' 
+        return {
+          success: false,
+          error: pseFailureMessage('POST /api/mine/tools/verify-purchase', res.status, data),
         };
       }
 
@@ -428,14 +449,22 @@ export class PSEMineEngine {
 
       return { success: true, user: updatedUser };
     } catch (e: unknown) {
-      console.error('[PSEMineEngine] activateToolPurchase error:', e);
-      const message =
-        e instanceof Error
-          ? (e.name === 'AbortError' ? 'Verification request timed out. Please verify on BSCScan or retry.' : e.message)
-          : typeof e === 'object' && e !== null && 'message' in e && typeof (e as { message: unknown }).message === 'string'
-            ? (e as { message: string }).message
-            : 'Server verification failed';
-      return { success: false, error: message };
+      // A timeout is its own state: the chain result is genuinely unknown, so
+      // say that rather than reporting a generic verification failure.
+      if (e instanceof Error && e.name === 'AbortError') {
+        logPseDiagnostic('POST /api/mine/tools/verify-purchase', {
+          kind: 'unavailable', title: '', message: '', retryable: true,
+          operation: 'POST /api/mine/tools/verify-purchase',
+        });
+        return {
+          success: false,
+          error: 'Verification request timed out. Check BSCScan before retrying — the payment itself is unaffected.',
+        };
+      }
+      return {
+        success: false,
+        error: pseTransportFailureMessage('POST /api/mine/tools/verify-purchase', e),
+      };
     } finally {
       clearTimeout(timeoutId);
     }
@@ -498,9 +527,23 @@ export class PSEMineEngine {
       result = (res.ok && data.success)
         ? { ok: true, retryable: false }
         : { ok: false, retryable: res.status >= 500 || res.status === 429 };
+      if (!result.ok) {
+        // Classified for diagnosis, but never surfaced as a user-facing error:
+        // a failed referral attribution must not interrupt signup.
+        logPseDiagnostic('POST /api/mine/referrals/register', {
+          kind: result.retryable ? 'unavailable' : 'validation',
+          title: '', message: '', retryable: result.retryable,
+          status: res.status, code: data?.error, requestId: data?.requestId,
+          operation: 'POST /api/mine/referrals/register',
+        } as never);
+      }
       return result;
     } catch (e) {
-      console.error('[PSEMineEngine] registerReferral error:', e);
+      logPseDiagnostic('POST /api/mine/referrals/register', {
+        kind: 'network', title: '', message: '', retryable: true,
+        operation: 'POST /api/mine/referrals/register',
+      });
+      void e;
       return result;
     } finally {
       // Retain retryable failures in localStorage so the next PSEmine session
@@ -579,7 +622,10 @@ export class PSEMineEngine {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
-      return { success: false, error: data.message || data.error || 'Could not update payout wallet.' };
+      return {
+        success: false,
+        error: pseFailureMessage('POST /api/mine/wallet (payout)', res.status, data),
+      };
     }
     return { success: true };
   }
@@ -605,11 +651,17 @@ export class PSEMineEngine {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        return { success: false, error: data.message || data.error || 'Could not record wallet.' };
+        return {
+          success: false,
+          error: pseFailureMessage('POST /api/mine/wallet (connected)', res.status, data),
+        };
       }
       return { success: true };
-    } catch {
-      return { success: false, error: 'Network error recording wallet.' };
+    } catch (e) {
+      return {
+        success: false,
+        error: pseTransportFailureMessage('POST /api/mine/wallet (connected)', e),
+      };
     }
   }
 

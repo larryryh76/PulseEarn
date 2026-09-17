@@ -333,7 +333,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
         {!isSignup && (
           <div className="flex justify-end">
-            <Link to="/mine/forgot-password" className="pse-caption font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+            <Link to="/mine/forgot-password" className="pse-caption pse-tap font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
               Forgot password?
             </Link>
           </div>
@@ -343,7 +343,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
       <div className="mt-7 flex items-center justify-between border-t pt-6" style={{ borderColor: 'var(--pse-line)' }}>
         <span className="pse-caption">{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
-        <Link className="pse-caption font-semibold hover:underline" style={{ color: 'var(--pse-blue)' }}
+        <Link className="pse-caption pse-tap font-semibold hover:underline" style={{ color: 'var(--pse-blue)' }}
           to={isSignup ? '/mine/login' : '/mine/signup'}>
           {isSignup ? 'Sign in' : 'Create account'}
         </Link>

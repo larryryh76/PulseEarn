@@ -132,18 +132,15 @@ app = Flask(__name__)
 # Internal accounting/operations fields (collected BNB, shutdown state, admin
 # metadata, anything underscore-prefixed) are never published here; enrolled
 # users receive the full document from the entitlement-gated /api/mine/state.
-PUBLIC_CAMPAIGN_FIELDS = (
-    'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
-    'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentNetworkId',
-    'receiverWalletAddress', 'purchaseEnabled', 'miningEnabled', 'referralEnabled',
-)
-
-
+# The allow-list itself lives in psemine_public.py: it is a pure module, so the
+# projection can be unit-tested without importing Flask (api/tests/test_public_payload.py).
+# This app only ever applies it — it never widens it.
 def _public_campaign_view(camp):
     """Whitelist one campaign document down to its public projection."""
     if not camp:
         return None
-    return {k: camp[k] for k in PUBLIC_CAMPAIGN_FIELDS if k in camp}
+    from psemine_public import public_campaign_view
+    return public_campaign_view(camp)
 
 
 def _request_id():
@@ -191,6 +188,43 @@ def _pse_before_request():
             return jsonify({"success": False, "error": "FORBIDDEN",
                             "message": "Invalid lifecycle credential.",
                             "requestId": _request_id()}), 403
+
+    # ── Legacy v1 surface (/api/psemine/*): entitlement parity with v2 ─────
+    # v1 predates @require_psemine_access, yet four of its routes write economic
+    # state (order create, on-chain payment verification, session accrual sync,
+    # withdrawal request). Without this gate any authenticated account — a
+    # PulseEarn-only account included — could operate PSEmine through it. The
+    # rule itself is a pure, unit-tested function; enforcement happens here,
+    # before routing, so a v1 handler can never run ungated.
+    try:
+        import psemine_engine as _pse_legacy_engine
+        _legacy_needs_entitlement = _pse_legacy_engine.legacy_v1_write_requires_entitlement(
+            request.method, request.path
+        )
+    except Exception:
+        _legacy_needs_entitlement = False
+    if _legacy_needs_entitlement:
+        if not init_firebase():
+            return jsonify({"success": False, "error": "AUTH_SERVICE_OFFLINE",
+                            "requestId": _request_id()}), 503
+        _bearer = None
+        _authz_header = request.headers.get('Authorization') or ''
+        if _authz_header.startswith('Bearer '):
+            _bearer = _authz_header.split(' ', 1)[1].strip()
+        if not _bearer:
+            return jsonify({"success": False, "error": "AUTHENTICATION_REQUIRED",
+                            "message": "Sign in to continue.",
+                            "requestId": _request_id()}), 401
+        try:
+            request.user = auth.verify_id_token(_bearer)
+        except Exception:
+            return jsonify({"success": False, "error": "AUTHENTICATION_REQUIRED",
+                            "message": "Your session has expired. Please sign in again.",
+                            "requestId": _request_id()}), 401
+        if not has_psemine_access(request.user.get('uid')):
+            return jsonify({"success": False, "error": "PSEMINE_ACCESS_DENIED",
+                            "message": "PSEmine is not enabled for this account.",
+                            "requestId": _request_id()}), 403
     return None
 
 
@@ -201,17 +235,40 @@ def _pse_after_request(response):
     The projection is applied centrally (not in the route) so the public surface
     cannot start leaking a new internal field just because the campaign document
     gained one.
+
+    Coverage is every response that carries a campaign document to a caller who
+    has not been checked against the full campaign record:
+
+      * GET /api/mine/campaign/status — unauthenticated by design, and
+      * the legacy /api/psemine/* surface — v1 predates the entitlement gate and
+        returns raw campaign documents from several read endpoints (its
+        /dashboard and /campaigns handlers call to_dict() directly).
+
+    Enrolled users still receive the complete document from the entitlement-
+    gated GET /api/mine/state, which is deliberately not covered here.
     """
     rid = request.environ.get('pse.request_id')
     if rid:
         response.headers['X-Request-Id'] = rid
     try:
-        if request.path.rstrip('/') == '/api/mine/campaign/status' and response.is_json:
+        path = request.path.rstrip('/')
+        covered = path == '/api/mine/campaign/status' or path.startswith('/api/psemine/')
+        if covered and response.is_json:
             body = response.get_json(silent=True)
-            if isinstance(body, dict) and isinstance(body.get('campaign'), dict):
-                body['campaign'] = _public_campaign_view(body['campaign'])
-                response.set_data(json.dumps(body))
-                response.content_type = 'application/json'
+            if isinstance(body, dict):
+                changed = False
+                if isinstance(body.get('campaign'), dict):
+                    body['campaign'] = _public_campaign_view(body['campaign'])
+                    changed = True
+                if isinstance(body.get('campaigns'), list):
+                    body['campaigns'] = [
+                        _public_campaign_view(c) if isinstance(c, dict) else c
+                        for c in body['campaigns']
+                    ]
+                    changed = True
+                if changed:
+                    response.set_data(json.dumps(body))
+                    response.content_type = 'application/json'
     except Exception:
         pass
     return response

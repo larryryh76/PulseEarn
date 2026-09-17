@@ -472,7 +472,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                             button inside the heading, which is the accessible accordion pattern. */}
                         <h2 className="pse-section-sm m-0">
                           <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open}
-                            className="flex w-full items-center gap-2 text-left">
+                            className="pse-chapter-toggle flex w-full items-center gap-2 text-left">
                             <span className="pse-step">{idx + 1}</span>
                             {s.title}
                           </button>

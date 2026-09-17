@@ -201,6 +201,34 @@ export function pseDataError(operation: string, status?: number): PseApiError {
   return new PseApiError(info('data', { status, operation }));
 }
 
+/**
+ * Classify a failed response and return the message a user should see.
+ *
+ * Exists because the engine client (purchase, quote, wallet, referral,
+ * maintenance) returns `{ success: false, error }` rather than throwing, and
+ * previously built that string as `data.message || data.error || 'generic'`.
+ * That collapsed a 401, a 403 entitlement denial, a 409 quote expiry, a 429 and
+ * a 503 into the same class of sentence. Backend explanations still win when
+ * present — they are more specific — but every failure now resolves through the
+ * taxonomy, and the operation + correlation id are logged for diagnosis.
+ */
+export function pseFailureMessage(
+  operation: string,
+  status: number,
+  body?: { error?: string; message?: string; requestId?: string } | null,
+): string {
+  const error = pseHttpError(operation, status, body);
+  logPseDiagnostic(operation, error.toInfo());
+  return error.message;
+}
+
+/** The message for a failure that never produced a response (offline, abort). */
+export function pseTransportFailureMessage(operation: string, cause?: unknown): string {
+  const error = pseNetworkError(operation, cause);
+  logPseDiagnostic(operation, error.toInfo());
+  return error.message;
+}
+
 /** Normalise anything thrown (PseApiError, Firebase errors, TypeErrors) to info. */
 export function toPseErrorInfo(error: unknown, operation?: string): PseErrorInfo {
   if (error instanceof PseApiError) {

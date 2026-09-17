@@ -481,6 +481,9 @@
   .pse-scope header a,
   .pse-scope nav a,
   .pse-scope footer a { display: inline-flex; align-items: center; }
+  /* Chapter accordions are the guide's primary control: a 14px heading row
+     measured 22px tall on mobile once the title became a real heading. */
+  .pse-scope .pse-chapter-toggle { min-height: 44px; }
 }
 
 /* ── Bottom bar: one source of truth for the space it consumes ───────────── */

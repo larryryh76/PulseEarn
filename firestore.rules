@@ -310,9 +310,16 @@ service cloud.firestore {
     }
 
     match /psemine_campaigns/{campaignId} {
-      // Publicly readable so prospective miners can review status, duration & economic terms
-      allow read: if true;
-      allow list: if true;
+      // NOT world-readable, and deliberately so.
+      //
+      // This document is the same one the backend projects down to a public
+      // allow-list for GET /api/mine/campaign/status (see api/psemine_public.py).
+      // A `read: if true` rule would have handed every anonymous caller the whole
+      // document — including operational fields the projection exists to hide —
+      // making the API projection cosmetic at the data layer. Prospective miners
+      // get the projected view from that endpoint; a signed-in session may read
+      // the document directly for realtime campaign state.
+      allow read, list: if isAuthenticated() || isModerator();
       allow write: if isAdmin();
     }
 

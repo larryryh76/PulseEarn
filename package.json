@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "check:isolation": "bun scripts/check-product-isolation.mjs",
     "verify:visual": "bun scripts/pse-visual-check.mjs",
+    "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
     "probe:route": "bun scripts/pse-probe.mjs"
   },

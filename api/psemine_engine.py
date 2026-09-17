@@ -162,6 +162,46 @@ def _checkpoint_digest(parts):
 
 
 # ----------------------------------------------------------------------------
+# Legacy v1 surface (/api/psemine/*) — entitlement parity
+# ----------------------------------------------------------------------------
+# The v1 endpoints predate the v2 contract and the @require_psemine_access gate.
+# They are still deployed and four of them WRITE economic state (order creation,
+# on-chain payment verification, session accrual sync, withdrawal requests), so
+# without this rule any authenticated account — including a PulseEarn-only
+# account — could operate PSEmine through the legacy surface.
+#
+# v1 is NOT deleted here: retirement needs usage evidence (see the audit note in
+# the remediation report). Instead the same entitlement test that guards v2 is
+# applied before routing, so both surfaces share one boundary.
+LEGACY_V1_PATH_PREFIX = "/api/psemine/"
+
+# Admin-only in v1 (checked by @is_admin inside the handler) — excluded so the
+# existing admin authorization remains the single gate for this path.
+LEGACY_V1_ADMIN_ONLY_PATHS = ("/api/psemine/setup",)
+
+# Read-only by design: campaign terms and tool economics are public product
+# information, and both are already exposed for anonymous visitors through the
+# projected public API. Listed explicitly so the allow-list is auditable.
+LEGACY_V1_PUBLIC_READ_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def legacy_v1_write_requires_entitlement(method, path):
+    """True when a legacy v1 request must present PSEmine entitlement.
+
+    Pure decision function (no I/O) so the rule is unit-testable without Flask
+    or Firestore. Enforced centrally in the request gate.
+    """
+    p = (path or "").rstrip("/")
+    if not p.startswith(LEGACY_V1_PATH_PREFIX.rstrip("/") + "/"):
+        return False
+    if (method or "").upper() in LEGACY_V1_PUBLIC_READ_METHODS:
+        return False
+    if p in LEGACY_V1_ADMIN_ONLY_PATHS:
+        return False
+    return True
+
+
+# ----------------------------------------------------------------------------
 # Campaign authority
 # ----------------------------------------------------------------------------
 
@@ -578,11 +618,20 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
         # ------------------------------------------------------------------
         # Firestore transaction ordering rule (enforced server-side):
         #   READS  →  VALIDATE  →  CALCULATE  →  BUFFER WRITES
-        # This body obeys it STRUCTURALLY. No write is buffered before the last
-        # read, and the two exit paths below are arranged so that a buffered
-        # write is always the final operation before returning. Earlier revisions
-        # buffered the B2 reconciliation update first and relied on derive_cycle
-        # early-returning before the settle reads — safe by control flow only.
+        #
+        # This body obeys it STRUCTURALLY, not by control flow: every
+        # txn.get()/query in this function appears before the first txn.set()/
+        # txn.update(), with no exceptions and no early-exit shortcut. A
+        # source-order check (api/tests/test_transaction_ordering.py) asserts
+        # that property directly, so a future edit cannot reintroduce
+        # read-after-write without failing the suite.
+        #
+        # Earlier revisions buffered the B2 reconciliation update inside the
+        # "cycle not complete" exit path — i.e. textually BEFORE the conditional
+        # settle reads. That was correct only because derive_cycle returned early
+        # on that path; the order was a consequence of control flow rather than
+        # of the code's shape, which is exactly the class of latent risk this
+        # restructure removes. The exit-path write now lives in the write phase.
         # ------------------------------------------------------------------
 
         # B2: reconcile anchor-less legacy ownerships at first canonical touch.
@@ -602,40 +651,47 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             }
             d = {**d, "cycleStartedAt": _iso(now), "lastAccruedAt": _iso(now)}
         c = derive_cycle(d, now)
-        if not c.maintenance_required:
-            # Exit path 1: nothing to settle. The reconciliation (if any) still
-            # commits — it is the LAST operation, with no read after it.
+        maintenance_required = c.maintenance_required
+
+        # ── read phase: EVERY read happens here, before any write is buffered ──
+        # References are not reads (no I/O), so they may be built freely.
+        user_ref = db.collection("psemine_users").document(uid)
+        entry_ref = None
+        cycle_end = None
+        settle_minor = 0
+        new_accrued = 0
+        entry_exists = False
+
+        if maintenance_required:
+            cycle_end = _parse(c.cycle_end_iso)
+            windows = campaign_operating_windows_for(db, camp, now)
+
+            # settle any uncheckpointed eligible time for THIS tool
+            # (anchor -> cycle_end). Pure computation: no I/O, no buffered write.
+            anchor_raw = d.get("lastAccruedAt") or d.get("cycleStartedAt")
+            if anchor_raw:
+                anchor = _parse(anchor_raw)
+                if anchor < cycle_end:
+                    settle_minor, _eff = accrue_ownership(d, anchor, cycle_end, windows)
+
+            # Conditional settle reads — still the read phase, so they precede
+            # every write even though they only run when a settle is due.
+            if settle_minor > 0:
+                _user = user_ref.get(transaction=txn).to_dict() or {}
+                new_accrued = int(_user.get("accruedMinor") or 0) + settle_minor
+                digest = _checkpoint_digest([uid, "maintenance_settle", ownership_id, _iso(cycle_end)])
+                entry_id = f"accrual_{uid[:28]}_{digest}"
+                entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
+                entry_exists = entry_ref.get(transaction=txn).exists
+
+        # --------------- write phase: every write, and nothing reads after ---------------
+        # Exit path: nothing to settle. The reconciliation (if any) still commits
+        # here — in the write phase, like every other write in this function.
+        if not maintenance_required:
             if reconcile_payload is not None:
                 txn.update(own_ref, reconcile_payload)
             return {"ok": False, "error": "CYCLE_NOT_COMPLETE", "state": c.state}
 
-        cycle_end = _parse(c.cycle_end_iso)
-        windows = campaign_operating_windows_for(db, camp, now)
-
-        # settle any uncheckpointed eligible time for THIS tool (anchor -> cycle_end)
-        # (read phase: the settle amount is computed WITHOUT buffered writes;
-        # user/ledger reads happen below only when a settle is actually due)
-        anchor_raw = d.get("lastAccruedAt") or d.get("cycleStartedAt")
-        settle_minor = 0
-        if anchor_raw:
-            anchor = _parse(anchor_raw)
-            if anchor < cycle_end:
-                settle_minor, _eff = accrue_ownership(d, anchor, cycle_end, windows)
-
-        # (read phase, continued) reads needed for the settle write — still zero
-        # buffered writes at this point on this path.
-        user_ref = db.collection("psemine_users").document(uid)
-        entry_ref = None
-        new_accrued = 0
-        if settle_minor > 0:
-            user = user_ref.get(transaction=txn).to_dict() or {}
-            new_accrued = int(user.get("accruedMinor") or 0) + settle_minor
-            digest = _checkpoint_digest([uid, "maintenance_settle", ownership_id, _iso(cycle_end)])
-            entry_id = f"accrual_{uid[:28]}_{digest}"
-            entry_ref = db.collection("psemine_mining_ledger").document(entry_id)
-            entry_exists = entry_ref.get(transaction=txn).exists
-
-        # ------------------------- write phase (last) -------------------------
         if reconcile_payload is not None:
             txn.update(own_ref, reconcile_payload)
         if settle_minor > 0:

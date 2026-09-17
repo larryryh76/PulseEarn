@@ -27,9 +27,16 @@ Contract:
 
 PUBLIC_CAMPAIGN_FIELDS = (
     'id', 'name', 'status', 'durationDays', 'startAt', 'endAt',
-    'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentNetworkId',
+    'currencyDisplay', 'paymentAsset', 'paymentNetwork', 'paymentChainId',
     'receiverWalletAddress', 'purchaseEnabled', 'miningEnabled', 'referralEnabled',
 )
+
+# The name the campaign document actually carries. It was previously listed here
+# as `paymentNetworkId`, a key no writer ever produced, so the projected payload
+# silently omitted the chain id and any pre-signin consumer had to fall back to
+# its own constant. The pair below is asserted against the document writers by
+# api/tests/test_final_gates.py so a rename cannot drift again.
+CAMPAIGN_CHAIN_ID_FIELD = 'paymentChainId'
 
 # Fields that are deliberately part of the public contract, and why. Kept beside
 # the allow-list so a reviewer sees the intent without reading the purchase flow.
@@ -37,10 +44,16 @@ PUBLIC_CAMPAIGN_FIELD_NOTES = {
     'receiverWalletAddress': 'Payers must see the receiving address before signing in.',
 }
 
-# Never published, listed so the intent is explicit rather than implied by absence.
+# Never published. These are the operational fields the bootstrap writer, the
+# purchase transaction and the admin lifecycle actions actually put on
+# psemine_campaigns/active_campaign — internal economics and admin state that a
+# payer has no reason to see. Listed so the intent is explicit rather than
+# implied by absence; the projection never emits anything outside the allow-list
+# regardless of what this tuple contains.
 PRIVATE_CAMPAIGN_FIELDS = (
-    'collectedBNB', 'collectedMinor', 'shutdownState', 'totalAccruedGBP',
-    'accruedMinor', 'adminMetadata', 'internalNotes', 'payoutWallet',
+    'totalCapacitiesRegisteredGBPPerHour', 'totalAccruedLiabilityGBP',
+    'totalBNBCollected', 'totalMinersCount', 'walletChangeDeadline',
+    'pauseWindows', 'shutdownState', 'createdAt', 'updatedAt',
 )
 
 

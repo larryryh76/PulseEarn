@@ -342,6 +342,29 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
         ethereum?: { request: (args: { method: string; params?: Array<Record<string, unknown>> }) => Promise<string> };
       }).ethereum;
       if (!eth) throw new Error('No Web3 wallet found. Install MetaMask or Trust Wallet.');
+
+      // NETWORK ASSERTION — fail-closed. The quote is issued for exactly one
+      // chain, and the backend verifier only ever reads BSC. A wallet left on
+      // another network would sign a transaction that can never be verified,
+      // so the active chain is confirmed (and switched, if the wallet allows)
+      // BEFORE anything is signed. Nothing is sent while the chain is wrong or
+      // unreadable, and the quote timer keeps running on the pay step.
+      const quotedChainHex = `0x${(activeQuote.chainId || 56).toString(16)}`;
+      const activeChain = await eth.request({ method: 'eth_chainId' }).catch(() => null);
+      if (typeof activeChain !== 'string' || activeChain.toLowerCase() !== quotedChainHex) {
+        try {
+          await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: quotedChainHex }] });
+        } catch {
+          /* refused, or the wallet does not know the chain — the re-read decides */
+        }
+        const rechecked = await eth.request({ method: 'eth_chainId' }).catch(() => null);
+        if (typeof rechecked !== 'string' || rechecked.toLowerCase() !== quotedChainHex) {
+          setStep('pay');
+          toast.error(`Switch your wallet to ${activeQuote.network || 'BNB Smart Chain'} before paying.`);
+          return;
+        }
+      }
+
       const txHash = await eth.request({
         method: 'eth_sendTransaction',
         params: [{ from: connectedWallet, to: activeQuote.receiverWallet, value: activeQuote.bnbAmountWei }],

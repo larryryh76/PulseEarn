@@ -69,9 +69,12 @@ class TestPublicCampaignProjection(unittest.TestCase):
         self.assertIsNone(psemine_public.public_campaign_view(None))
 
     def test_leak_detector_recognises_private_fields(self):
+        """Advisory check over the fields the campaign document really carries."""
         self.assertEqual(
-            ["adminMetadata", "collectedBNB"],
-            psemine_public.leaked_public_keys({"collectedBNB": 1, "adminMetadata": 2, "status": "active"}),
+            ["totalBNBCollected", "totalMinersCount"],
+            psemine_public.leaked_public_keys(
+                {"totalBNBCollected": 1, "totalMinersCount": 2, "status": "active"}
+            ),
         )
 
 

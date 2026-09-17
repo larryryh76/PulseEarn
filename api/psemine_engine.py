@@ -155,6 +155,40 @@ def _valid_evm(addr):
     return isinstance(addr, str) and bool(re.match(EVM_ADDRESS, addr or ""))
 
 
+# The address the frontend uses as a placeholder when no wallet is connected.
+# Treated as "no wallet bound", never as a real sender to verify against.
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+
+def purchase_sender_binding(declared_sender, intent_wallet):
+    """Decide which on-chain sender a purchase verification may accept.
+
+    WHY THIS IS A FUNCTION AND NOT AN EXPRESSION
+    --------------------------------------------
+    Verification used to bind with `expected_sender = sender_wallet or
+    purchase['paymentWallet']` — i.e. whatever the CLIENT declared won. A client
+    could therefore present a purchase intent created with wallet A, pay from
+    wallet B, declare B, verify successfully, and have the backend rewrite the
+    intent's `paymentWallet` to B. The payment itself is real (it reaches the
+    campaign receiver), but attributing wallet B's payment to wallet A's
+    purchase is exactly the silent reassignment this must not do: a mismatched
+    payer goes to manual review instead.
+
+    Returns (ok, error_code, expected_sender):
+      * intent unbound / zero address -> ok, sender = declared (may be empty).
+      * declared matches the bound wallet -> ok, sender = that wallet.
+      * declared differs from a bound wallet -> WALLET_MISMATCH, no bind.
+      * declared empty, wallet bound -> ok, sender = bound wallet (on-chain
+        `from` is still checked against it by the verifier).
+    """
+    declared = (declared_sender or "").strip().lower()
+    intent = (intent_wallet or "").strip().lower()
+    unbound = (not intent) or intent == ZERO_ADDRESS
+    if not unbound and declared and declared != intent:
+        return False, "WALLET_MISMATCH", intent
+    return True, None, (declared or intent)
+
+
 def _checkpoint_digest(parts):
     """Build a stable short digest for an accrual checkpoint."""
     raw = "|".join(str(p) for p in parts)

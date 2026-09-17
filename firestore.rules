@@ -25,6 +25,16 @@ service cloud.firestore {
       );
     }
 
+    // Product boundary for direct document reads. Being signed in is NOT the
+    // same as belonging to the product: PulseEarn and PSEmine share the Firebase
+    // identity but not this data. Entitlement is granted only by the backend
+    // (POST /api/mine/enroll, or the audited legacy backfill), so this helper
+    // cannot be satisfied by a client writing its own profile. A missing user
+    // document makes the get() fail, which denies — fail-closed.
+    function hasPSEMineAccess(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.productAccess.psemine == true;
+    }
+
     // 1. Users Collection
     match /users/{userId} {
       // SEC-001: Removed limit-based lookup to prevent PII exposure.
@@ -317,9 +327,16 @@ service cloud.firestore {
       // A `read: if true` rule would have handed every anonymous caller the whole
       // document — including operational fields the projection exists to hide —
       // making the API projection cosmetic at the data layer. Prospective miners
-      // get the projected view from that endpoint; a signed-in session may read
-      // the document directly for realtime campaign state.
-      allow read, list: if isAuthenticated() || isModerator();
+      // get the projected view from that endpoint; a session belonging to this
+      // product may read the document directly for realtime campaign state.
+      //
+      // The read is scoped to the ENTITLEMENT, not merely to "signed in" — an
+      // authenticated PulseEarn-only account must not be able to read our
+      // internal economics (collected BNB, accrued liability, shutdown state)
+      // just because the two products share an identity provider. Callers
+      // outside the product use the projected public payload instead, which
+      // requires no session at all.
+      allow read, list: if (isAuthenticated() && hasPSEMineAccess(request.auth.uid)) || isModerator();
       allow write: if isAdmin();
     }
 

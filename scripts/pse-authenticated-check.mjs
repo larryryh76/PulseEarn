@@ -49,10 +49,55 @@ const ROUTES = [
   { id: 'landing-signed-in', path: '/mine' },
 ];
 
+/**
+ * The PulseEarn product surface a PSEmine session must never touch. These are
+ * the real routes found in api/index.py, not guesses — a pattern that matches
+ * nothing proves nothing, so the list is kept in step with the backend.
+ */
 const FORBIDDEN_PRODUCT_CALLS = [
-  /execute-transaction/, /\/api\/tasks/, /\/api\/predictions/,
-  /\/api\/daily-reward/, /\/api\/welcome-bonus/, /\/api\/streak/,
+  /\/api\/execute-transaction/,
+  /\/api\/execute-prediction/,
+  /\/api\/resolve-prediction/,
+  /\/api\/tasks\/submit/,
+  /\/api\/referrals\/apply-signup-bonus/,
+  /\/api\/process-referral-reward/,
+  /\/api\/offerwall\/my-rewards/,
+  /\/api\/evaluate-user-integrity/,
 ];
+
+/**
+ * PulseEarn Firestore collections. The web SDK puts the document path in the
+ * request URL, so a cross-product listener is observable here even though it is
+ * not an /api/ call — this is the runtime half of the isolation guard, which
+ * only proves the source has no such imports.
+ *
+ * Collections come from the PulseEarn engines:
+ *   users/{uid}/notifications  NotificationEngine, BroadcastEngine
+ *   users/{uid}/activities     ActivityEngine
+ *   user_predictions           MarketResolutionEngine
+ *   referrals / support_tickets / broadcasts / system_anomalies
+ */
+const FORBIDDEN_STORE_PATHS = [
+  /\/documents\/users\/[^/]+\/notifications/,
+  /\/documents\/users\/[^/]+\/activities/,
+  /\/documents\/user_predictions/,
+  /\/documents\/referrals/,
+  /\/documents\/support_tickets/,
+  /\/documents\/broadcasts/,
+  /\/documents\/system_anomalies/,
+];
+
+/**
+ * Firestore request URLs carry the project API key in the query string. Only the
+ * path is ever recorded, so no credential can reach a screenshot or a report.
+ */
+function safePath(url) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return '<unparseable>';
+  }
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -179,10 +224,14 @@ async function main() {
         storageState: storage,
       });
       const page = await context.newPage();
-      const consoleErrors = [], pageErrors = [], productCalls = [];
+      const consoleErrors = [], pageErrors = [], productCalls = [], productStores = [];
       page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 240)); });
       page.on('pageerror', e => pageErrors.push(String(e).slice(0, 240)));
-      page.on('request', r => { if (FORBIDDEN_PRODUCT_CALLS.some(re => re.test(r.url()))) productCalls.push(r.url()); });
+      page.on('request', r => {
+        const url = r.url();
+        if (FORBIDDEN_PRODUCT_CALLS.some(re => re.test(url))) productCalls.push(safePath(url));
+        if (FORBIDDEN_STORE_PATHS.some(re => re.test(url))) productStores.push(safePath(url));
+      });
 
       let measured = null, landedOn = '', title = '';
       try {
@@ -202,19 +251,56 @@ async function main() {
         reachedConsole: landedOn === route.path,
         ...(measured || {}),
         horizontalOverflow: measured ? measured.scrollWidth > measured.clientWidth + 1 : null,
-        consoleErrors, pageErrors, crossProductCalls: [...new Set(productCalls)],
+        consoleErrors, pageErrors,
+        crossProductCalls: [...new Set(productCalls)],
+        crossProductStoreReads: [...new Set(productStores)],
       });
     }
   }
 
+  // ── Logout: the session must actually end ──────────────────────────────────
+  // Reported as an observation, never assumed: if the control cannot be found
+  // the reason is recorded instead of a fabricated pass.
+  const logout = { attempted: true, controlFound: false, signedOut: false, reason: '' };
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 }, storageState: storage,
+    });
+    const page = await context.newPage();
+    await page.goto(`${base}/mine/me`, { waitUntil: 'load', timeout: 25_000 });
+    await page.waitForTimeout(800);
+    const control = page.getByRole('button', { name: /log ?out|sign ?out/i }).first();
+    if (await control.count()) {
+      logout.controlFound = true;
+      await control.click();
+      // A confirm dialog may stand in the way; accept it if present.
+      const confirm = page.getByRole('button', { name: /log ?out|sign ?out|confirm|yes/i }).last();
+      if (await confirm.count()) { try { await confirm.click({ timeout: 2_000 }); } catch { /* no dialog */ } }
+      await page.waitForTimeout(2500);
+      await page.goto(`${base}/mine/dashboard`, { waitUntil: 'load', timeout: 25_000 });
+      await page.waitForTimeout(1200);
+      logout.landedOn = await page.evaluate(() => location.pathname);
+      logout.signedOut = !/^\/mine\/(dashboard|tools|wallet|referrals|activity|me)/.test(logout.landedOn);
+    } else {
+      logout.reason = 'no logout control matched on /mine/me — reported, not assumed';
+    }
+    await context.close();
+  } catch (e) {
+    logout.reason = String(e).slice(0, 200);
+  }
+
   await browser.close();
   if (server) server.close();
-  fs.writeFileSync(path.join(OUT, 'authenticated-report.json'), JSON.stringify(results, null, 2));
+  fs.writeFileSync(
+    path.join(OUT, 'authenticated-report.json'),
+    JSON.stringify({ routes: results, logout }, null, 2),
+  );
+  console.log(`\nLogout: control ${logout.controlFound ? 'found' : 'NOT FOUND'} · session ended: ${logout.signedOut}${logout.reason ? ` (${logout.reason})` : ''}`);
 
   // ── Report ────────────────────────────────────────────────────────────────
   const redirects = results.filter(r => !r.reachedConsole);
   const overflow = results.filter(r => r.horizontalOverflow);
-  const leaks = results.filter(r => r.crossProductCalls.length);
+  const leaks = results.filter(r => r.crossProductCalls.length || r.crossProductStoreReads.length);
   const errored = results.filter(r => r.pageErrors.length);
   const taps = results.filter(r => (r.smallTargetsUnder44 || []).length && r.width <= 430);
 
@@ -223,8 +309,10 @@ async function main() {
   redirects.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} → ${r.landedOn}`));
   console.log(`  horizontal overflow: ${overflow.length}`);
   overflow.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} (${r.scrollWidth} > ${r.clientWidth})`));
-  console.log(`  PulseEarn product calls: ${leaks.length}`);
-  leaks.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} → ${r.crossProductCalls.join(', ')}`));
+  console.log(`  PulseEarn product calls / store reads: ${leaks.length}`);
+  leaks.slice(0, 6).forEach(r => console.log(
+    `    ${r.route} @${r.width} → ${[...r.crossProductCalls, ...r.crossProductStoreReads].join(', ')}`,
+  ));
   console.log(`  page errors: ${errored.length}`);
   errored.slice(0, 6).forEach(r => console.log(`    ${r.route} @${r.width} → ${r.pageErrors[0]}`));
   console.log(`  mobile pages with taps under 44px: ${taps.length}`);

@@ -7,7 +7,6 @@ import time
 import urllib.parse
 import logging
 import traceback
-import hmac
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -7856,7 +7855,31 @@ def verify_psemine_tool_purchase():
         expected_wei = int(str(_quoted_wei_raw))
     else:
         expected_wei = int(Decimal(quoted_bnb_str) * (Decimal(10) ** 18))
-    expected_sender = sender_wallet or purchase.get('paymentWallet')
+    # WALLET BINDING. A payment may only be attributed to a purchase when the
+    # payer matches the wallet the intent was created with. A mismatch is
+    # recorded for manual review and never silently reassigned.
+    _sender_ok, _sender_code, expected_sender = _pse_engine.purchase_sender_binding(
+        sender_wallet, purchase.get('paymentWallet')
+    )
+    if not _sender_ok:
+        try:
+            _pse_engine.create_payment_recovery(db, uid,
+                tx_hash=tx_hash,
+                quote_id=quote_id,
+                purchase_id=purchase_id,
+                sender=sender_wallet,
+                recipient=expected_destination,
+                chain_id=PSEMINE_BSC_CHAIN_ID,
+                reason=_sender_code,
+                extra={'message': 'On-chain payer does not match the wallet bound to the purchase intent.'})
+        except Exception:
+            logging.warning('[PSEmine] recovery record failed on wallet mismatch', exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": "WALLET_MISMATCH",
+            "message": "The paying wallet does not match the wallet this purchase was created with. "
+                       "Your payment was recorded for manual review and no tool was activated.",
+        }), 409
 
     verified, err_code, err_msg, block_depth, receipt_block = verify_bsc_transaction(
         tx_hash,
@@ -8645,9 +8668,23 @@ def mine_cron_lifecycle():
         _authz = (request.headers.get('Authorization') or '')
         if _authz.startswith('Bearer '):
             provided = _authz.split(' ', 1)[1].strip()
-    if secret:
-        if not provided or not hmac.compare_digest(str(provided), str(secret)):
-            return jsonify({"success": False, "error": "FORBIDDEN"}), 403
+    # FAIL-CLOSED AT THIS LAYER TOO, not only in the before_request gate.
+    # The previous form (`if secret:`) meant that a deployment WITHOUT
+    # CRON_SECRET configured executed the lifecycle sweep for any anonymous
+    # caller that reached this handler. Authorization now goes through the same
+    # unit-tested decision function the request hook uses, so neither layer is
+    # made safe by the other: unconfigured -> 503, no/incorrect credential -> 403.
+    _cron_allowed, _cron_deny = _pse_engine.cron_lifecycle_authorized(provided, secret)
+    if not _cron_allowed:
+        if _cron_deny == _pse_engine.CRON_NOT_CONFIGURED:
+            return jsonify({
+                "success": False,
+                "error": "CRON_NOT_CONFIGURED",
+                "message": "Lifecycle execution is disabled: no cron credential is configured.",
+                "requestId": _request_id(),
+            }), 503
+        return jsonify({"success": False, "error": "FORBIDDEN",
+                        "requestId": _request_id()}), 403
     camp, eff, ended_now = _pse_engine.campaign_lifecycle_state(db)
     checked = 0
     if eff in ('ended', 'settling'):

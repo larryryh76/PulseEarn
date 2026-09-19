@@ -8616,7 +8616,16 @@ def mine_create_purchase():
         'activatedAt': None,
     }
     db.collection('psemine_purchases').document(purchase_id).set(payload)
-    return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": payload})
+    # The stored payload carries firestore.SERVER_TIMESTAMP for createdAt — a
+    # Firestore Sentinel that is valid for the WRITE but not JSON-serializable
+    # for the RESPONSE (jsonify raises TypeError: Sentinel). Respond with a
+    # concrete UTC ISO timestamp instead; the authoritative server value lands
+    # in Firestore via the sentinel. (Production incident 2026-09-19: every
+    # FRESH intent creation 500'd before the user could reach the payment
+    # step. Hidden for weeks because the reuse path always returned first.)
+    response_payload = dict(payload)
+    response_payload['createdAt'] = now_dt.isoformat()
+    return jsonify({"success": True, "purchaseId": purchase_id, "existing": False, "purchase": response_payload})
 
 @app.route('/api/mine/wallet', methods=['POST'])
 @verify_token

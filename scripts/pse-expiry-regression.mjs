@@ -62,6 +62,9 @@ check('quote created', q.status === 200 && !!quote?.quoteId, `expires ${quote?.e
 //    The decisive assertions: the intent handed back carries a live quote window
 //    and is bound to wallet A (a dead-quote reuse would fail the window check).
 const i1 = await api('POST', `${PROD}/api/mine/purchases/create`, { quoteId: quote.quoteId, paymentWallet: WALLET_A });
+if (i1.status !== 200) {
+  console.error('CREATE RESPONSE:', i1.status, JSON.stringify(i1.body));
+}
 const pid1 = i1.body?.purchaseId;
 const pur1 = i1.body?.purchase;
 check('create accepted with wallet A', i1.status === 200 && !!pid1, `existing=${i1.body?.existing} id=${pid1}`);

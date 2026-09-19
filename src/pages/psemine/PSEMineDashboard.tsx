@@ -6,11 +6,12 @@ import {
   gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe,
   campaignStatusView, cycleStateView, purchaseStatusView,
   Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow,
-  RowItem, Meter, TierMark, PSEEmpty, PSEError, PSELoading, FeedNotice,
+  RowItem, Meter, PSEEmpty, PSEError, PSELoading, FeedNotice,
   ActivityRow, ACTIVITY_ICONS, shortHash, CampaignBanner, Slots, ActionLink,
 } from '../../components/psemine/pse';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { usePSEMine } from '../../contexts/PSEMineContext';
+import { MinerArt } from '../../components/psemine/PSEBrand';
 import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 
 /** Tool name/rate resolution that never invents a tier. */
@@ -353,7 +354,7 @@ function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
 
   return (
     <RowItem className="flex-wrap sm:flex-nowrap">
-      <TierMark rank={rank} />
+      <MinerArt tier={rank as 1 | 2 | 3 | 4} size={40} className="shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(tool)}</p>

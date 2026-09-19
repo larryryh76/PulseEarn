@@ -1,219 +1,294 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   PSEMINE FUNCTIONAL BASELINE — presentation layer intentionally stripped.
+   PSEMINE DESIGN SYSTEM v4 — financial / Web3 product surface.
 
-   This file is a NEUTRAL CONTRACT, not a design. Every pse-* class and
-   --pse-* variable referenced by the PSEmine components is defined here so
-   the product renders as a plain, legible, functional interface:
+   Grounded in studied references (Binance & Kraken terminals, Coinbase &
+   Phantom wallets, Revolut & Wise fintech surfaces):
 
-     • system fonts, no typography system
-     • flat colors, no gradients, no shadows, no glow
-     • 1px solid borders, square corners, hairline dividers
-     • plain buttons, tables, lists, labels
-     • status colors reserved for state semantics only
-
-   The next design phase replaces this file; nothing else needs to change.
+   • Dark, near-monochrome surface stack; colour encodes state only.
+   • Tabular numerals everywhere numbers align in a column.
+   • Rows with hairline dividers carry most data — not walls of cards.
+   • ONE dominant financial value per screen (verdict-first).
+   • Modest radius (10px), 1px borders, no glow, no glass.
+   • A second data dimension may render as a faint row fill (depth pattern).
    ═══════════════════════════════════════════════════════════════════════ */
 
 .pse-scope {
-  /* Functional tokens (light, high-contrast, neutral) */
-  --pse-bg: #ffffff;
-  --pse-surface: #ffffff;
-  --pse-inset: #f4f4f5;
-  --pse-text: #111111;
-  --pse-text-2: #444444;
-  --pse-text-3: #666666;
-  --pse-line: #d4d4d8;
-  --pse-line-strong: #a1a1aa;
-  --pse-blue: #1d4ed8;
-  --pse-cyan: #0e7490;
-  --pse-purple: #6d28d9;
-  --pse-success: #15803d;
-  --pse-warning: #b45309;
-  --pse-danger: #b91c1c;
-  --pse-neutral: #666666;
-  --pse-fs-h1: 1.6rem;
-  --pse-fs-h2: 1.15rem;
+  /* Surface stack — deep neutral charcoal (blue-cast, not pure black) */
+  --pse-bg: #0B0E13;
+  --pse-surface: #11151D;
+  --pse-raised: #171C26;
+  --pse-inset: #0E1219;
 
+  /* Brand */
+  --pse-blue: #4C9EF8;
+  --pse-blue-strong: #1570EF;
+  --pse-cyan: #22D3EE;
+  --pse-purple: #8B7CF6;
+
+  /* State only */
+  --pse-success: #2ECE84;
+  --pse-warning: #F5A524;
+  --pse-danger: #F04438;
+  --pse-neutral: #98A2B3;
+
+  /* Lines & text */
+  --pse-line: rgba(255, 255, 255, 0.08);
+  --pse-line-strong: rgba(255, 255, 255, 0.15);
+  --pse-text: #F2F4F7;
+  --pse-text-2: #9BA3B4;
+  --pse-text-3: #6B7480;
+
+  /* Scale */
+  --pse-fs-h1: clamp(26px, 3.2vw, 34px);
+  --pse-fs-h2: clamp(18px, 2vw, 21px);
+
+  color-scheme: dark;
   color: var(--pse-text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.55;
+  letter-spacing: -0.008em;
   background: var(--pse-bg);
+  -webkit-font-smoothing: antialiased;
 }
 
-.pse-scope a { color: var(--pse-blue); text-decoration: underline; text-underline-offset: 2px; }
-.pse-scope a:hover { color: #1e40af; }
+.pse-scope a { color: var(--pse-blue); text-decoration: none; }
+.pse-scope a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pse-scope p, .pse-scope li, .pse-scope dd { overflow-wrap: break-word; }
 
-/* Flat presentation: markup may still carry rounded-* utilities from the
-   previous design; the baseline is square. (Keeps .pse-dot circular.) */
-.pse-scope .rounded-sm, .pse-scope .rounded, .pse-scope .rounded-md,
-.pse-scope .rounded-lg, .pse-scope .rounded-xl, .pse-scope .rounded-2xl,
-.pse-scope .rounded-3xl, .pse-scope .rounded-t-2xl, .pse-scope .rounded-full {
-  border-radius: 0;
-}
-
-/* ── Layout helpers ─────────────────────────────────────────────────── */
-.pse-section { max-width: 1080px; margin-inline: auto; padding-inline: 16px; }
-.pse-band { padding-block: 24px; }
-.pse-band-lg { padding-block: 24px; }
-.pse-content-bottom { padding-bottom: 32px; }
-.pse-workbench { padding-top: 16px; }
+/* ── Layout rhythm ──────────────────────────────────────────────────── */
+.pse-section { max-width: 1120px; margin-inline: auto; padding-inline: 20px; }
+.pse-band { padding-block: 40px; }
+.pse-band-lg { padding-block: 64px; }
+@media (max-width: 640px) { .pse-band-lg { padding-block: 44px; } }
+.pse-content-bottom { padding-bottom: 96px; }
+.pse-workbench { padding-top: 24px; }
 .pse-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-.pse-no-scrollbar { overflow-x: auto; }
-.pse-scope .pse-mobile-menu, .pse-scope .pse-sticky-nav, .pse-scope .pse-rail { position: relative; }
-.pse-rail-node { display: inline-block; width: 8px; height: 8px; background: var(--pse-line-strong); border-radius: 50%; }
+.pse-no-scrollbar { scrollbar-width: none; }
+.pse-no-scrollbar::-webkit-scrollbar { display: none; }
+.pse-measure { max-width: 56ch; }
+.pse-measure-wide { max-width: 64ch; }
 
-/* ── Typography helpers (no scale — just weight/inheritance) ───────── */
-.pse-scope .pse-h1 { font-size: var(--pse-fs-h1); font-weight: 600; margin: 0; }
-.pse-scope .pse-h2 { font-size: var(--pse-fs-h2); font-weight: 600; margin: 0; }
-.pse-scope .pse-h3 { font-size: 1rem; font-weight: 600; margin: 0; }
-.pse-scope .pse-lead { font-size: 1rem; }
-.pse-scope .pse-caption { font-size: 0.875rem; color: var(--pse-text-2); }
-.pse-scope .pse-micro { font-size: 0.75rem; color: var(--pse-text-3); }
-.pse-scope .pse-eyebrow { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--pse-text-3); margin: 0; }
-.pse-scope .pse-section-xl { font-size: 1.4rem; font-weight: 600; margin: 0; }
-.pse-scope .pse-section-lg { font-size: 1.2rem; font-weight: 600; margin: 0; }
-.pse-scope .pse-section-sm { font-size: 0.95rem; font-weight: 600; margin: 0; }
-.pse-scope .pse-guide-body { font-size: 0.9rem; }
-.pse-measure, .pse-measure-wide { max-width: 68ch; }
-.pse-scope .pse-num, .pse-scope .pse-mono { font-variant-numeric: tabular-nums; }
-.pse-scope .pse-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
-.pse-scope .pse-hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8em; }
-.pse-scope .pse-fig-hero { font-size: 1.8rem; font-weight: 600; }
-.pse-scope .pse-fig-xl { font-size: 1.8rem; font-weight: 600; }
-.pse-scope .pse-fig-lg { font-size: 1.4rem; font-weight: 600; }
-.pse-scope .pse-fig-md { font-size: 1.1rem; font-weight: 600; }
-.pse-verdict { padding: 12px 0; }
-.pse-divi { display: block; }
-.pse-scope .pse-divider, .pse-divider { height: 1px; background: var(--pse-line); }
+/* ── Type system ────────────────────────────────────────────────────── */
+.pse-scope .pse-h1 { font-size: var(--pse-fs-h1); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin: 0; }
+.pse-scope .pse-h2 { font-size: var(--pse-fs-h2); font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; margin: 0; }
+.pse-scope .pse-h3 { font-size: 15px; font-weight: 600; margin: 0; }
+.pse-scope .pse-lead { font-size: clamp(15px, 1.6vw, 17px); line-height: 1.65; color: var(--pse-text-2); }
+.pse-scope .pse-caption { font-size: 13px; color: var(--pse-text-2); }
+.pse-scope .pse-micro { font-size: 11.5px; color: var(--pse-text-3); }
+.pse-scope .pse-eyebrow {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; color: var(--pse-text-3); margin: 0;
+}
+.pse-scope .pse-section-xl { font-size: clamp(22px, 3vw, 30px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.18; margin: 0; }
+.pse-scope .pse-section-lg { font-size: clamp(19px, 2.2vw, 24px); font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; margin: 0; }
+.pse-scope .pse-section-sm { font-size: 14.5px; font-weight: 600; margin: 0; }
+.pse-scope .pse-guide-body { font-size: 14px; color: var(--pse-text-2); line-height: 1.7; }
+
+/* Financial numerals: aligned, tabular, calm. */
+.pse-scope .pse-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: -0.01em; }
+.pse-scope .pse-mono, .pse-scope .pse-hash {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em; letter-spacing: -0.01em;
+}
+.pse-scope .pse-fig-hero { font-size: clamp(34px, 5vw, 44px); font-weight: 700; letter-spacing: -0.025em; line-height: 1; }
+.pse-scope .pse-fig-xl { font-size: clamp(30px, 4vw, 38px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.pse-scope .pse-fig-lg { font-size: 22px; font-weight: 650; letter-spacing: -0.015em; }
+.pse-scope .pse-fig-md { font-size: 16px; font-weight: 600; }
+.pse-verdict { padding: 8px 0; }
+.pse-scope .pse-divider { height: 1px; background: var(--pse-line); border: 0; }
 
 /* ── Surfaces ───────────────────────────────────────────────────────── */
-.pse-scope .pse-card,
-.pse-scope .pse-quiet,
-.pse-scope .pse-surface-accent,
-.pse-scope .pse-hero-surface {
-  border: 1px solid var(--pse-line);
+.pse-scope .pse-card, .pse-scope .pse-quiet {
   background: var(--pse-surface);
+  border: 1px solid var(--pse-line);
+  border-radius: 10px;
 }
-.pse-scope .pse-surface-accent > * + * { border-top: 1px solid var(--pse-line); }
-.pse-scope .pse-inset { background: var(--pse-inset); border: 1px solid var(--pse-line); }
-.pse-list-group { border: 1px solid var(--pse-line); }
-.pse-list-row { padding: 12px 16px; border-top: 1px solid var(--pse-line); }
-.pse-list-row:first-child { border-top: 0; }
-.pse-list-n { display: inline-block; min-width: 1.5em; font-weight: 600; color: var(--pse-text-3); }
-.pse-editorial { display: grid; gap: 16px; }
-.pse-editorial-no { display: inline-block; min-width: 1.5em; font-weight: 600; color: var(--pse-text-3); }
-.pse-chapter-head { display: flex; gap: 12px; align-items: baseline; }
-.pse-chapter-no { font-weight: 600; color: var(--pse-text-3); }
+/* The single accent surface of a screen: brand-tinted, used once per page. */
+.pse-scope .pse-surface-accent {
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgba(76, 158, 248, 0.14), transparent 55%),
+    linear-gradient(180deg, rgba(21, 112, 239, 0.08), rgba(17, 21, 29, 0)) ,
+    var(--pse-surface);
+  border: 1px solid rgba(76, 158, 248, 0.28);
+  border-radius: 12px;
+}
+.pse-scope .pse-hero-surface {
+  background:
+    radial-gradient(90% 70% at 78% 8%, rgba(76, 158, 248, 0.13), transparent 60%),
+    radial-gradient(60% 50% at 15% 90%, rgba(139, 124, 246, 0.07), transparent 65%),
+    var(--pse-bg);
+}
+.pse-scope .pse-inset { background: var(--pse-inset); border: 1px solid var(--pse-line); border-radius: 8px; }
 
 /* ── Buttons ────────────────────────────────────────────────────────── */
 .pse-scope .pse-btn {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border-radius: 8px;
   border: 1px solid var(--pse-line-strong);
-  background: var(--pse-surface);
+  background: var(--pse-raised);
   color: var(--pse-text);
-  font: inherit; font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 2px;
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 9px 16px;
   cursor: pointer;
-  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
-.pse-scope .pse-btn:hover { background: var(--pse-inset); }
-.pse-scope .pse-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.pse-scope .pse-btn-primary { background: var(--pse-blue); border-color: var(--pse-blue); color: #fff; }
-.pse-scope .pse-btn-primary:hover { background: #1e40af; }
-.pse-scope .pse-btn-secondary { background: var(--pse-surface); color: var(--pse-text); }
-.pse-scope .pse-btn-ghost { border-color: transparent; background: transparent; }
-.pse-scope .pse-btn-ghost:hover { background: var(--pse-inset); }
-.pse-scope .pse-btn-danger { background: var(--pse-danger); border-color: var(--pse-danger); color: #fff; }
-.pse-scope .pse-btn-lg { padding: 12px 18px; }
-.pse-scope .pse-btn-sm { padding: 4px 10px; font-size: 0.85rem; }
+.pse-scope .pse-btn:hover { background: #1C2230; border-color: rgba(255, 255, 255, 0.22); }
+.pse-scope .pse-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pse-scope .pse-btn-primary {
+  background: var(--pse-blue-strong); border-color: var(--pse-blue-strong); color: #fff;
+}
+.pse-scope .pse-btn-primary:hover:not(:disabled) { background: #1B63D6; border-color: #1B63D6; }
+.pse-scope .pse-btn-secondary { background: var(--pse-raised); color: var(--pse-text); }
+.pse-scope .pse-btn-ghost { background: transparent; border-color: transparent; color: var(--pse-text-2); }
+.pse-scope .pse-btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); color: var(--pse-text); }
+.pse-scope .pse-btn-danger { background: #B42318; border-color: #B42318; color: #fff; }
+.pse-scope .pse-btn-lg { padding: 13px 22px; font-size: 14.5px; border-radius: 9px; }
+.pse-scope .pse-btn-sm { padding: 6px 12px; font-size: 12.5px; }
 .pse-tap { min-height: 44px; display: inline-flex; align-items: center; }
 
-/* ── Chips / status labels ──────────────────────────────────────────── */
+/* ── Status chips: pill, tinted, state-only colour ──────────────────── */
 .pse-scope .pse-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--pse-line);
-  border-radius: 2px;
-  padding: 2px 8px;
-  font-size: 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--pse-line-strong);
+  padding: 3px 10px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em;
   color: var(--pse-text-2);
-  background: var(--pse-surface);
+  background: var(--pse-raised);
 }
-.pse-scope .pse-chip-success { color: var(--pse-success); border-color: var(--pse-success); }
-.pse-scope .pse-chip-warning { color: var(--pse-warning); border-color: var(--pse-warning); }
-.pse-scope .pse-chip-danger  { color: var(--pse-danger);  border-color: var(--pse-danger); }
-.pse-scope .pse-chip-blue    { color: var(--pse-blue);    border-color: var(--pse-blue); }
-.pse-scope .pse-chip-cyan    { color: var(--pse-cyan);    border-color: var(--pse-cyan); }
-.pse-scope .pse-chip-purple  { color: var(--pse-purple);  border-color: var(--pse-purple); }
-.pse-scope .pse-chip-neutral { color: var(--pse-neutral); }
-.pse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--pse-neutral); }
-.pse-dot-pulse { animation: pse-blink 1.5s steps(2, start) infinite; }
-@keyframes pse-blink { to { visibility: hidden; } }
+.pse-scope .pse-chip-success { color: var(--pse-success); border-color: rgba(46, 206, 132, 0.35); background: rgba(46, 206, 132, 0.10); }
+.pse-scope .pse-chip-warning { color: var(--pse-warning); border-color: rgba(245, 165, 36, 0.35); background: rgba(245, 165, 36, 0.10); }
+.pse-scope .pse-chip-danger  { color: var(--pse-danger);  border-color: rgba(240, 68, 56, 0.38);  background: rgba(240, 68, 56, 0.10); }
+.pse-scope .pse-chip-blue    { color: var(--pse-blue);    border-color: rgba(76, 158, 248, 0.35); background: rgba(76, 158, 248, 0.10); }
+.pse-scope .pse-chip-cyan    { color: var(--pse-cyan);    border-color: rgba(34, 211, 238, 0.32); background: rgba(34, 211, 238, 0.08); }
+.pse-scope .pse-chip-purple  { color: var(--pse-purple);  border-color: rgba(139, 124, 246, 0.35); background: rgba(139, 124, 246, 0.10); }
+.pse-scope .pse-chip-neutral { color: var(--pse-text-2); }
+.pse-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--pse-neutral); flex-shrink: 0; }
+.pse-dot-pulse { animation: pse-pulse 2s ease-in-out infinite; }
+@keyframes pse-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* ── Forms ──────────────────────────────────────────────────────────── */
 .pse-scope .pse-input {
   width: 100%;
   border: 1px solid var(--pse-line-strong);
-  border-radius: 2px;
-  background: var(--pse-surface);
+  border-radius: 8px;
+  background: var(--pse-inset);
   color: var(--pse-text);
   font: inherit;
-  padding: 10px 12px;
-  min-height: 44px;
+  padding: 11px 13px;
+  min-height: 46px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.pse-scope .pse-input:focus { outline: 2px solid var(--pse-blue); outline-offset: -1px; }
+.pse-scope .pse-input::placeholder { color: var(--pse-text-3); }
+.pse-scope .pse-input:focus {
+  outline: none; border-color: var(--pse-blue);
+  box-shadow: 0 0 0 3px rgba(76, 158, 248, 0.18);
+}
 .pse-step {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; height: 22px; padding: 0 4px;
-  border: 1px solid var(--pse-line-strong); border-radius: 2px;
-  font-size: 0.75rem; color: var(--pse-text-2);
+  min-width: 24px; height: 24px; padding: 0 6px;
+  border: 1px solid var(--pse-line-strong); border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; color: var(--pse-text-2);
 }
-.pse-step-active { border-color: var(--pse-blue); color: var(--pse-blue); }
-.pse-step-done { border-color: var(--pse-success); color: var(--pse-success); }
+.pse-step-active { border-color: var(--pse-blue); color: var(--pse-blue); background: rgba(76, 158, 248, 0.12); }
+.pse-step-done { border-color: rgba(46, 206, 132, 0.45); color: var(--pse-success); background: rgba(46, 206, 132, 0.10); }
 
-/* ── Data display ───────────────────────────────────────────────────── */
-.pse-scope .pse-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.pse-scope .pse-table th, .pse-scope .pse-table td { border: 1px solid var(--pse-line); padding: 8px 10px; text-align: left; }
-.pse-scope .pse-table th { background: var(--pse-inset); font-weight: 600; }
+/* ── Data display: tables, kv rows, metrics ─────────────────────────── */
+.pse-scope .pse-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.pse-scope .pse-table th {
+  text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--pse-text-3);
+  padding: 10px 14px; border-bottom: 1px solid var(--pse-line);
+}
+.pse-scope .pse-table td { padding: 12px 14px; border-bottom: 1px solid var(--pse-line); }
+.pse-scope .pse-table tr:last-child td { border-bottom: 0; }
 .pse-num-cell { text-align: right; font-variant-numeric: tabular-nums; }
-.pse-metrics { display: flex; flex-wrap: wrap; gap: 24px; padding: 12px 0; }
-.pse-kv { border: 1px solid var(--pse-line); }
+.pse-scope .pse-table th.pse-num-cell { text-align: right; }
+
+.pse-metrics { display: flex; flex-wrap: wrap; gap: 8px 40px; padding: 16px 0; }
+.pse-kv { border: 1px solid var(--pse-line); border-radius: 10px; overflow: hidden; background: var(--pse-surface); }
 .pse-kv-row, .pse-row-item {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 10px 16px; border-top: 1px solid var(--pse-line);
+  padding: 12px 16px;
 }
-.pse-kv-row:first-child { border-top: 0; }
-.pse-kv-k { font-size: 0.875rem; color: var(--pse-text-2); }
-.pse-kv-v { font-weight: 600; font-variant-numeric: tabular-nums; }
-.pse-rows { border: 1px solid var(--pse-line); }
 .pse-rows > * + * { border-top: 1px solid var(--pse-line); }
-.pse-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; }
+.pse-kv-row + .pse-kv-row, .pse-row-item + .pse-row-item { border-top: 1px solid var(--pse-line); }
+.pse-kv-k { font-size: 13px; color: var(--pse-text-2); }
+.pse-kv-v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.pse-rows { border: 1px solid var(--pse-line); border-radius: 10px; overflow: hidden; background: var(--pse-surface); }
+.pse-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 12px; align-items: center; }
 .pse-rule, .pse-rule-t { border-color: var(--pse-line); }
-.pse-zone-head { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
-.pse-zone-ccy { font-size: 0.7rem; font-weight: 700; border: 1px solid var(--pse-line-strong); padding: 1px 6px; border-radius: 2px; }
-.pse-tier { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border: 1px solid var(--pse-line-strong); border-radius: 2px; font-size: 0.75rem; color: var(--pse-text-2); }
-.pse-slots { display: flex; gap: 4px; }
-.pse-slot { width: 24px; height: 8px; border: 1px solid var(--pse-line-strong); }
-.pse-slot-on { background: var(--pse-blue); border-color: var(--pse-blue); }
-.pse-seg { display: inline-flex; border: 1px solid var(--pse-line-strong); border-radius: 2px; overflow: hidden; }
-.pse-seg button { border: 0; background: var(--pse-surface); color: var(--pse-text-2); font: inherit; font-size: 0.85rem; padding: 6px 12px; cursor: pointer; border-right: 1px solid var(--pse-line); }
-.pse-seg button:last-child { border-right: 0; }
-.pse-seg button[aria-pressed="true"] { background: var(--pse-inset); color: var(--pse-text); font-weight: 600; }
-.pse-chapter-toggle { background: none; border: 0; font: inherit; cursor: pointer; color: inherit; }
 
-/* ── Meter / skeleton / loading ─────────────────────────────────────── */
-.pse-meter { height: 10px; border: 1px solid var(--pse-line-strong); background: var(--pse-inset); }
-.pse-meter-fill { height: 100%; background: var(--pse-blue); }
+/* Second data dimension as a faint row fill (depth pattern from
+   exchange order books): set --pse-fill on the row element, 0–100. */
+.pse-fill-row { position: relative; }
+.pse-fill-row::before {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: var(--pse-fill, 0%);
+  background: linear-gradient(90deg, rgba(76, 158, 248, 0.10), rgba(76, 158, 248, 0.03));
+  pointer-events: none;
+}
+.pse-fill-row > * { position: relative; }
+
+/* ── Lists / editorial (ruled, not carded) ──────────────────────────── */
+.pse-list-group { border: 1px solid var(--pse-line); border-radius: 10px; overflow: hidden; background: var(--pse-surface); }
+.pse-list-row { display: flex; gap: 14px; padding: 16px 18px; }
+.pse-list-row + .pse-list-row { border-top: 1px solid var(--pse-line); }
+.pse-list-n { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px;
+  border: 1px solid var(--pse-line-strong); border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--pse-text-2); }
+.pse-editorial { display: grid; gap: 22px; }
+.pse-editorial-no { display: inline-block; font-size: 12px; font-weight: 700; color: var(--pse-blue); letter-spacing: 0.08em; }
+.pse-chapter-head { display: flex; gap: 14px; align-items: baseline; }
+.pse-chapter-no { font-weight: 700; font-size: 12px; color: var(--pse-text-3); letter-spacing: 0.14em; }
+.pse-chapter-toggle { background: none; border: 0; font: inherit; cursor: pointer; color: inherit; text-align: left; }
+
+/* ── Meters / slots / segments ──────────────────────────────────────── */
+.pse-meter { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.pse-meter-fill { height: 100%; border-radius: 999px; background: var(--pse-blue); transition: width 0.5s ease; }
 .pse-meter-fill-warning { background: var(--pse-warning); }
 .pse-meter-fill-purple { background: var(--pse-purple); }
-.pse-skeleton { border: 1px dashed var(--pse-line-strong); background: var(--pse-inset); min-height: 24px; }
+.pse-slots { display: flex; gap: 5px; }
+.pse-slot { width: 28px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.10); }
+.pse-slot-on { background: var(--pse-purple); }
+.pse-seg { display: inline-flex; border: 1px solid var(--pse-line-strong); border-radius: 8px; overflow: hidden; background: var(--pse-inset); }
+.pse-scope .pse-seg button {
+  border: 0; background: transparent; color: var(--pse-text-2);
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 7px 14px; cursor: pointer;
+}
+.pse-scope .pse-seg button + button { border-left: 1px solid var(--pse-line); }
+.pse-scope .pse-seg button[aria-pressed="true"] { background: var(--pse-raised); color: var(--pse-text); }
 
-/* ── Touch targets on coarse pointers (usability floor, not styling) ── */
+/* ── Tiers / zones ──────────────────────────────────────────────────── */
+.pse-tier {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 4px;
+  border-radius: 7px; font-size: 11.5px; font-weight: 800;
+  color: var(--pse-text-2); background: var(--pse-inset); border: 1px solid var(--pse-line-strong);
+}
+.pse-zone-head { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.pse-zone-ccy {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  border-radius: 6px; padding: 3px 7px;
+}
+.pse-zone-gbp { color: var(--pse-cyan); background: rgba(34, 211, 238, 0.10); border: 1px solid rgba(34, 211, 238, 0.30); }
+.pse-zone-bnb { color: var(--pse-warning); background: rgba(245, 165, 36, 0.10); border: 1px solid rgba(245, 165, 36, 0.30); }
+
+/* ── Misc ───────────────────────────────────────────────────────────── */
+.pse-sticky-nav { position: sticky; top: 56px; z-index: 30; background: color-mix(in srgb, var(--pse-bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--pse-line); }
+.pse-rail { display: flex; flex-direction: column; align-items: center; }
+.pse-rail-node { width: 9px; height: 9px; border-radius: 50%; background: var(--pse-line-strong); flex-shrink: 0; }
+.pse-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--pse-inset) 40%, var(--pse-raised) 50%, var(--pse-inset) 60%);
+  background-size: 200% 100%;
+  animation: pse-shimmer 1.4s ease infinite;
+}
+@keyframes pse-shimmer { to { background-position: -200% 0; } }
+.pse-scope .pse-mobile-menu { box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
+
+/* Touch floor on coarse pointers */
 @media (pointer: coarse) {
   .pse-scope header a, .pse-scope nav a, .pse-scope footer a,
-  .pse-scope .pse-btn-sm, .pse-scope .pse-chapter-toggle {
-    min-height: 44px;
-  }
+  .pse-scope .pse-btn-sm, .pse-scope .pse-chapter-toggle { min-height: 44px; }
 }

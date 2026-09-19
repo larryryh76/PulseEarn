@@ -195,7 +195,17 @@ export const PSEMineWallet: React.FC = () => {
         <Surface
           title="Payment wallet"
           meta="The wallet you pay from"
-          action={<Chip label="Not your payout address" chip="pse-chip pse-chip-blue" dot={false} />}
+          action={
+            <div className="flex items-center gap-2">
+              <Chip
+                label={connectedWallet ? 'Connected' : 'Not connected'}
+                chip={connectedWallet ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-neutral'}
+                pulse={Boolean(connectedWallet)}
+                dot={false}
+              />
+              <Chip label="Not your payout address" chip="pse-chip pse-chip-blue" dot={false} />
+            </div>
+          }
         >
           <ZoneHeader
             label="Connected BNB Smart Chain wallet"

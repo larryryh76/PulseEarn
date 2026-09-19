@@ -15,9 +15,10 @@ import {
 import { PSEMineToolDefinition, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
   Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow, RowItem,
-  Meter, TierMark, gbp, gbpHour, gbpRate, shortAddr, shortHash, nowMs, cycleStateView,
+  Meter, gbp, gbpHour, gbpRate, shortAddr, shortHash, nowMs, cycleStateView,
   CopyField, PSEEmpty, PSELoading, PSEError, ActionLink,
 } from '../../components/psemine/pse';
+import { MinerArt } from '../../components/psemine/PSEBrand';
 import { cn } from '../../utils';
 import toast from 'react-hot-toast';
 
@@ -146,7 +147,7 @@ export const PSEMineTools: React.FC = () => {
             <RowItem key={tool.id} className="flex-wrap gap-y-3 lg:flex-nowrap">
               {/* Identity */}
               <div className="flex min-w-0 flex-1 items-start gap-3">
-                <TierMark rank={tool.tier} />
+                <MinerArt tier={tool.tier as 1 | 2 | 3 | 4} size={56} className="shrink-0" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{tool.name}</p>
@@ -210,7 +211,7 @@ export const PSEMineTools: React.FC = () => {
             const meta = (LOCKED_PSEMINE_TOOLS[t.toolId as keyof typeof LOCKED_PSEMINE_TOOLS] || null);
             return (
               <RowItem key={t.id}>
-                <TierMark rank={meta?.tier ?? 1} />
+                <MinerArt tier={(meta?.tier ?? 1) as 1 | 2 | 3 | 4} size={40} className="shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>

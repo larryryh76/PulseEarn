@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, ShieldCheck, Clock, Wallet, Cog, Users, Check, ChevronDown,
-  Landmark, LineChart, Lock, Wrench, Layers, Route, ServerCog, Gauge,
+  Landmark, LineChart, Lock, Wrench, Layers, ServerCog, Gauge,
 } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
   gbp, gbpHour, Chip, Meter, campaignStatusView, usePseDocumentTitle,
-  ChapterHead, Editorial, EditorialItem, ListGroup, ListRow,
+  ChapterHead, ListGroup, ListRow,
 } from '../../components/psemine/pse';
+import { MinerArt } from '../../components/psemine/PSEBrand';
 import { cn } from '../../utils';
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
@@ -18,13 +19,15 @@ const MAX_TOOL = PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR;
 const MAX_REF = PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR;
 const MAX_ALL = PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR;
 
-/** The campaign model, in the order money actually moves. */
-const MODEL_STEPS = [
-  { icon: Layers, label: 'Tools', detail: `${gbp(3)}–${gbp(200)} per tool, owned for the campaign` },
-  { icon: Gauge, label: 'Capacity', detail: `Fixed hourly rate, capped at ${gbpHour(MAX_TOOL)}` },
-  { icon: LineChart, label: 'GBP earnings', detail: 'Accrued hourly against active capacity' },
-  { icon: Landmark, label: 'Settlement', detail: 'Day 90 — balances finalised from the ledger' },
-  { icon: Wallet, label: 'BNB payout', detail: 'Reviewed, then paid to your payout wallet' },
+/** The full product journey, in the order a user actually experiences it. */
+const JOURNEY = [
+  { icon: Wallet, title: 'Connect', body: 'Link a BNB Smart Chain wallet — MetaMask, Trust Wallet, or any WalletConnect wallet.' },
+  { icon: Layers, title: 'Choose a mining tool', body: 'Four tiers, from a compact entry unit to the flagship system. Fixed GBP prices.' },
+  { icon: Landmark, title: 'Purchase with BNB', body: 'A server quote converts the fixed price to an exact BNB amount. You send exactly that.' },
+  { icon: Cog, title: 'Tool activates', body: 'The backend verifies the transaction on-chain, then activates the tool on your account.' },
+  { icon: Gauge, title: 'Capacity accrues earnings', body: 'Each tool holds a fixed hourly GBP rate while its 24-hour operating cycle runs.' },
+  { icon: ServerCog, title: 'Campaign settles', body: 'At day 90 accrual stops and final balances are computed from the mining ledger.' },
+  { icon: LineChart, title: 'Payout', body: 'Reviewed settlement requests are paid in BNB to your configured payout wallet.' },
 ];
 
 const PHASES = [
@@ -34,7 +37,6 @@ const PHASES = [
   { icon: Landmark, phase: 'After day 90', title: 'Payout', detail: 'Reviewed requests are paid to configured BNB Smart Chain wallets.' },
 ];
 
-/** One explanation of payment → verification → payout, used once. */
 const PAYMENT_STEPS = [
   {
     title: 'The price is quoted, not estimated',
@@ -72,16 +74,16 @@ const FAQS = [
 ];
 
 /**
- * PSEMineLanding — the public product introduction.
+ * PSEMineLanding — the PUBLIC marketing surface.
  *
- * Composition rules (from a rendered measurement of this page):
- *   • Chapters carry a numeral and a heading from the section scale, so eight
- *     sections no longer read as eight identical blocks.
- *   • Lists are ruled, not carded. Each explanation lives in one surface.
- *   • Payment and payout are explained once, in chapter 05 — not repeated in
- *     the hero, a steps grid, a security list and the FAQ.
- *   • No fabricated users, earnings, statistics or activity: every figure is a
- *     fixed campaign constant from PSEMINE_CONSTANTS.
+ * Boundary rules (enforced in code, not by convention):
+ *   • No authenticated-app navigation and no deep links into /mine/* app
+ *     routes. Every CTA leads to the auth entry (or back into the console for
+ *     a signed-in visitor) or to a public informational destination.
+ *   • The story follows the product: hero → the real product interface →
+ *     the journey → the four tools (with their product identities) →
+ *     capacity → campaign → money path → security → FAQ → final CTA.
+ *   • Every figure is a fixed campaign constant or real backend state.
  */
 export const PSEMineLanding: React.FC = () => {
   const { campaign } = usePSEMine();
@@ -95,14 +97,14 @@ export const PSEMineLanding: React.FC = () => {
   const purchaseEnabled = campaign?.purchaseEnabled !== false;
 
   const primaryHref = currentUser ? '/mine/dashboard' : '/mine/signup';
-  const primaryLabel = currentUser ? 'Open your console' : 'Start the campaign';
+  const primaryLabel = currentUser ? 'Open your console' : 'Start Mining';
 
   return (
     <div>
-      {/* ═══════════ HERO — verdict first, with the live product frame ═══════════ */}
+      {/* ═══════════ HERO ═══════════ */}
       <section className="pse-hero-surface border-b" style={{ borderColor: 'var(--pse-line)' }}>
         <div className="pse-section pse-band-lg">
-          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-16">
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip label={`Campaign ${statusView.label.trim()}`} chip={statusView.chip} pulse={statusView.live} />
@@ -110,7 +112,7 @@ export const PSEMineLanding: React.FC = () => {
                 <Chip label="GBP accounting" chip="pse-chip pse-chip-neutral" dot={false} />
               </div>
 
-              <h1 className="pse-h1 mt-7">
+              <h1 className="pse-h1 mt-7" style={{ fontSize: 'clamp(32px, 4.6vw, 52px)' }}>
                 Mine with capacity.<br />
                 <span style={{ color: 'var(--pse-blue)' }}>Settle in GBP.</span>
               </h1>
@@ -125,9 +127,9 @@ export const PSEMineLanding: React.FC = () => {
                 <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-lg justify-center">
                   {primaryLabel} <ArrowRight size={15} />
                 </Link>
-                <Link to="/mine/guide" className="pse-btn pse-btn-secondary pse-btn-lg justify-center">
-                  How the campaign works
-                </Link>
+                <a href="#how-it-works" className="pse-btn pse-btn-secondary pse-btn-lg justify-center">
+                  How It Works
+                </a>
               </div>
 
               <dl className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-t pt-6 sm:grid-cols-3"
@@ -145,19 +147,17 @@ export const PSEMineLanding: React.FC = () => {
               </dl>
             </div>
 
-            {/* The single accent surface of the page: the product itself, rendered
-                from the same components the console uses — real campaign constants,
-                not an illustration. */}
+            {/* PRODUCT VISUAL — the actual operator console, rendered from the
+                same primitives the app uses. Real constants, no mock metrics. */}
             <div className="pse-surface-accent">
               <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
                 <div>
                   <p className="pse-eyebrow">Mining console</p>
-                  <p className="pse-caption mt-1">A live look at the operator workspace.</p>
+                  <p className="pse-caption mt-1">The operator workspace you get inside.</p>
                 </div>
                 <Chip label={statusView.label.trim()} chip={statusView.chip} pulse={statusView.live} />
               </div>
 
-              {/* Earnings verdict — the console's primary figure. */}
               <div className="px-5 pt-5">
                 <p className="pse-eyebrow">Accrued campaign earnings</p>
                 <div className="mt-2 flex items-baseline gap-3">
@@ -166,7 +166,6 @@ export const PSEMineLanding: React.FC = () => {
                 </div>
               </div>
 
-              {/* Capacity meter — the console's primary gauge. */}
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="pse-eyebrow">Capacity composition</p>
@@ -179,11 +178,10 @@ export const PSEMineLanding: React.FC = () => {
                 </div>
               </div>
 
-              {/* The four tools — the actual product — exactly as priced. */}
               <div className="border-t px-2.5 py-2.5" style={{ borderColor: 'var(--pse-line)' }}>
                 {TOOLS.map(t => (
-                  <div key={t.id} className="flex items-center gap-3 px-2.5 py-2.5">
-                    <span className="pse-tier" aria-hidden="true">{t.tier}</span>
+                  <div key={t.id} className="flex items-center gap-3 px-2.5 py-2">
+                    <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={34} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="pse-section-sm">{t.name}</p>
                       <p className="pse-micro mt-0.5">Limit {t.maxPerUser} · {gbpHour(t.hourlyRateGBP)}/hr</p>
@@ -205,86 +203,53 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ 01 · HOW IT WORKS ═══════════ */}
-      <section className="pse-section pse-band-lg">
+      {/* ═══════════ HOW IT WORKS — the full journey ═══════════ */}
+      <section id="how-it-works" className="pse-section pse-band-lg scroll-mt-20">
         <ChapterHead
           no="01"
           size="xl"
-          title="Four steps, no hardware, no hosting"
-          meta="The campaign runs the operations. You choose tools, keep them in cycle, and the ledger records what the capacity earned."
+          title="From wallet to payout, in seven steps"
+          meta="No hardware, no hosting, no electricity. The campaign operates the tools; you hold the capacity."
         />
 
-        {/* The campaign model in one glance — the order money actually moves. */}
-        <div className="pse-list-group mt-10 max-w-3xl">
-          {MODEL_STEPS.map((step, i) => {
+        <ListGroup className="mt-10 max-w-3xl">
+          {JOURNEY.map((step, i) => {
             const Icon = step.icon;
             return (
-              <div key={step.label} className="flex items-center gap-3.5 border-t px-5 py-3.5 first:border-t-0"
-                style={{ borderColor: 'var(--pse-line)' }}>
-                <Icon size={15} className="shrink-0"
-                  style={{ color: i === 2 ? 'var(--pse-cyan)' : 'var(--pse-text-3)' }} />
-                <div className="min-w-0 flex-1">
-                  <p className="pse-section-sm">{step.label}</p>
-                  <p className="pse-micro mt-0.5">{step.detail}</p>
-                </div>
-                <span className="pse-num pse-micro shrink-0" style={{ color: 'var(--pse-text-3)' }}>{i + 1}</span>
-              </div>
+              <ListRow
+                key={step.title}
+                n={i + 1}
+                icon={Icon}
+                title={step.title}
+                body={step.body}
+                right={i === JOURNEY.length - 1
+                  ? <Check size={15} style={{ color: 'var(--pse-success)' }} />
+                  : <ArrowRight size={14} style={{ color: 'var(--pse-text-3)' }} />}
+              />
             );
           })}
-        </div>
-
-        <Editorial className="mt-10 max-w-3xl">
-          <EditorialItem
-            no="01"
-            title="Buy a tool"
-            body="Each of the four tiers has a fixed GBP price and a fixed hourly capacity. Ownership limits per tier cap how much capacity one account can hold."
-          />
-          <EditorialItem
-            no="02"
-            title="Capacity starts accruing"
-            body="A tool adds its hourly rate to your capacity for as long as its operating cycle is active. Accrual is computed from server-verified operating time, never from client estimates."
-          />
-          <EditorialItem
-            no="03"
-            title="Keep tools in cycle"
-            body="Tools run 24-hour operating cycles. When a cycle completes, one free maintenance action restarts it. A tool left between cycles does not accrue until it is restarted."
-          />
-          <EditorialItem
-            no="04"
-            title="Settle and get paid"
-            body="Accrual stops at day 90. Balances are finalised from the mining ledger, and reviewed payout requests are paid to your configured BNB Smart Chain wallet."
-          />
-        </Editorial>
+        </ListGroup>
       </section>
 
-      {/* ═══════════ 02 · TOOLS ═══════════ */}
-      <section className="border-y pse-band-lg" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+      {/* ═══════════ MINING TOOLS — the four product identities ═══════════ */}
+      <section id="tools" className="border-y pse-band-lg scroll-mt-20" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
         <div className="pse-section">
           <ChapterHead
             no="02"
             size="xl"
             title="Four tiers. One 24-hour operating cycle."
-            meta="Fixed economics for the whole campaign — no dynamic pricing, no auctions, no hardware."
-            right={
-              <Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-sm">
-                Open the marketplace <ArrowRight size={13} />
-              </Link>
-            }
+            meta="Fixed economics for the whole campaign — no dynamic pricing, no auctions, no hardware to run."
           />
 
-          {/* The product as product cards (mobile-first), with the full economics
-              table below for operators who want every number at once. */}
           <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {TOOLS.map(t => (
-              <div key={t.id} className="pse-card p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="pse-tier" aria-hidden="true">{t.tier}</span>
-                    <p className="pse-section-sm">{t.name}</p>
-                  </div>
-                  <span className="pse-num pse-fig-md" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
+              <div key={t.id} className="pse-card flex flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={84} className="shrink-0" />
+                  <span className="pse-num pse-fig-lg" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
                 </div>
-                <p className="pse-micro mt-2">{t.tagline}</p>
+                <p className="pse-section-sm mt-3">{t.name}</p>
+                <p className="pse-micro mt-1 flex-1">{t.tagline}</p>
                 <div className="mt-4 flex items-baseline justify-between border-t pt-3" style={{ borderColor: 'var(--pse-line)' }}>
                   <span className="pse-micro">Hourly capacity</span>
                   <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</span>
@@ -343,8 +308,9 @@ export const PSEMineLanding: React.FC = () => {
               {TOOLS.map(t => (
                 <li key={t.id} className="border-t px-5 py-4 first:border-t-0" style={{ borderColor: 'var(--pse-line)' }}>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="pse-section-sm flex items-center gap-2">
-                      <span className="pse-tier" aria-hidden="true">{t.tier}</span>{t.name}
+                    <span className="pse-section-sm flex items-center gap-2.5">
+                      <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={30} className="shrink-0" />
+                      {t.name}
                     </span>
                     <span className="pse-num pse-caption font-semibold">{gbp(t.purchasePriceGBP)}</span>
                   </div>
@@ -372,7 +338,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ 03 · CAPACITY & REFERRALS ═══════════ */}
+      {/* ═══════════ CAPACITY ═══════════ */}
       <section className="pse-section pse-band-lg">
         <ChapterHead
           no="03"
@@ -399,13 +365,7 @@ export const PSEMineLanding: React.FC = () => {
             </ListGroup>
 
             <div className="pse-quiet p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="pse-eyebrow">How a referral qualifies</p>
-                <span className="pse-caption" style={{ color: 'var(--pse-purple)' }}>Gradual progression</span>
-              </div>
-              <div className="mt-4" aria-hidden="true">
-                <Meter value={60} tone="purple" label="Referral qualification progression" />
-              </div>
+              <p className="pse-eyebrow">How a referral qualifies</p>
               <ol className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
                 {['Registered', 'Wallet connected', 'Tool purchased', 'Mining active', 'Qualified'].map((s, i) => (
                   <li key={s} className="pse-micro flex items-baseline gap-1.5">
@@ -450,7 +410,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ 04 · CAMPAIGN TIMELINE ═══════════ */}
+      {/* ═══════════ CAMPAIGN TIMELINE ═══════════ */}
       <section className="border-y pse-band-lg" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
         <div className="pse-section">
           <ChapterHead
@@ -480,7 +440,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ 05 · PAYMENT & PAYOUT (explained once) ═══════════ */}
+      {/* ═══════════ WALLET / PAYOUT — the money path ═══════════ */}
       <section className="pse-section pse-band-lg">
         <ChapterHead
           no="05"
@@ -541,7 +501,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ 06 · SECURITY ═══════════ */}
+      {/* ═══════════ SECURITY ═══════════ */}
       <section className="border-t pse-band-lg" style={{ borderColor: 'var(--pse-line)' }}>
         <div className="pse-section grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] lg:gap-14">
           <div>
@@ -552,8 +512,8 @@ export const PSEMineLanding: React.FC = () => {
               meta="No value in the app can be claimed, forged or double-counted from the client. Product access is an explicit, backend-enforced entitlement — separate from PulseEarn, even though both products share one sign-in identity."
             />
             <div className="mt-7 flex flex-wrap gap-2.5">
-              <Link to="/mine/guide" className="pse-btn pse-btn-secondary pse-btn-sm">
-                <Route size={13} /> Read the full guide
+              <Link to={primaryHref} className="pse-btn pse-btn-secondary pse-btn-sm">
+                <ShieldCheck size={13} /> {primaryLabel}
               </Link>
               <Link to="/help" className="pse-btn pse-btn-ghost pse-btn-sm">Contact support</Link>
             </div>
@@ -568,12 +528,12 @@ export const PSEMineLanding: React.FC = () => {
       </section>
 
       {/* ═══════════ FAQ ═══════════ */}
-      <section className="pse-section pse-band-lg">
+      <section id="faq" className="pse-section pse-band-lg scroll-mt-20">
         <ChapterHead
           no="07"
           size="lg"
           title="Questions operators ask before their first purchase"
-          meta="If something here is unclear, the campaign guide goes deeper — including the operating cycle and the payout review."
+          meta="If something here is unclear, support can help — and the guide inside the product goes deeper."
         />
 
         <div className="pse-list-group mt-9 max-w-3xl">
@@ -598,7 +558,7 @@ export const PSEMineLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════ FINAL CTA ═══════════ */}
+      {/* ═══════════ FINAL CTA — back to the auth entry ═══════════ */}
       <section className="pse-hero-surface border-t" style={{ borderColor: 'var(--pse-line)' }}>
         <div className="pse-section pse-band text-center">
           <h2 className="pse-section-lg mx-auto max-w-xl">
@@ -607,15 +567,23 @@ export const PSEMineLanding: React.FC = () => {
           <p className="pse-caption pse-measure mx-auto mt-3 max-w-md">
             {purchaseEnabled
               ? 'Buy a tool, keep it in cycle, and let the campaign settle your earnings at the end.'
-              : 'Purchases are currently closed. The guide explains how the campaign works while you wait.'}
+              : 'Purchases are currently closed. You can still create an account and explore the campaign while you wait.'}
           </p>
           <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-lg w-full justify-center sm:w-auto">
-              {primaryLabel} <ArrowRight size={15} />
-            </Link>
-            <Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-lg w-full justify-center sm:w-auto">
-              Browse tools
-            </Link>
+            {currentUser ? (
+              <Link to="/mine/dashboard" className="pse-btn pse-btn-primary pse-btn-lg w-full justify-center sm:w-auto">
+                Open your console <ArrowRight size={15} />
+              </Link>
+            ) : (
+              <>
+                <Link to="/mine/signup" className="pse-btn pse-btn-primary pse-btn-lg w-full justify-center sm:w-auto">
+                  Create account <ArrowRight size={15} />
+                </Link>
+                <Link to="/mine/login" className="pse-btn pse-btn-secondary pse-btn-lg w-full justify-center sm:w-auto">
+                  Sign in
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>

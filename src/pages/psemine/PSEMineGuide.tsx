@@ -386,7 +386,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
       )}
 
       {/* Mobile section navigation */}
-      <nav aria-label="Guide sections" className="pse-sticky-nav -mx-5 mt-4 px-5 py-3 sm:-mx-8 sm:px-8 lg:hidden">
+      <nav aria-label="Guide sections" className="pse-sticky-nav mt-4 px-1 py-3 lg:hidden">
         <div className="flex items-center gap-2 overflow-x-auto pse-no-scrollbar">
           {SECTIONS.map((s, i) => {
             const active = activeSection === s.id;

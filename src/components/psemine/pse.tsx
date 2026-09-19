@@ -18,6 +18,7 @@ import {
   ChevronRight, ExternalLink,
 } from 'lucide-react';
 import type { PseErrorInfo, PseErrorKind } from '../../engines/psemine/pseErrors';
+import { PSELogo as BrandMark, PSELoader } from './PSEBrand';
 
 /* ── Server-anchored clock ────────────────────────────────────────────
  * Server time is the only authority for cycles and countdowns. We anchor to
@@ -245,33 +246,8 @@ export function Chip({ label, chip, dot, pulse, icon: Icon }: { label: string; c
 }
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
-  // Functional baseline: plain text emblem — no gradient artwork.
-  return (
-    <span className="inline-flex items-center gap-2.5 select-none" role="img" aria-label="PSEmine emblem">
-      <span
-        className="inline-flex shrink-0 items-center justify-center font-bold"
-        style={{
-          width: size, height: size,
-          border: '1px solid var(--pse-line-strong)',
-          color: 'var(--pse-text)',
-          fontSize: Math.max(10, Math.round(size * 0.38)),
-        }}
-        aria-hidden="true"
-      >
-        P
-      </span>
-      {withWordmark && (
-        <span className="flex flex-col leading-none">
-          <span className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--pse-text)' }}>
-            PSE<span style={{ color: 'var(--pse-blue)' }}>mine</span>
-          </span>
-          <span className="text-[8px] font-bold uppercase" style={{ letterSpacing: '0.24em', color: 'var(--pse-text-3)' }}>
-            90-Day Campaign
-          </span>
-        </span>
-      )}
-    </span>
-  );
+  // The recovered + refined PSEmine mark (PSEBrand.tsx).
+  return <BrandMark size={size} withWordmark={withWordmark} />;
 }
 
 /**
@@ -480,11 +456,10 @@ export function PSELoading({ label = 'Loading', skeleton = false }: { label?: st
       </div>
     );
   }
+  // Branded loader: the PSEmine mark breathing — not a generic spinner.
   return (
-    <div className="flex items-center justify-center gap-2.5 py-14" role="status" aria-live="polite">
-      <span className="h-4 w-4 animate-spin rounded-full border-2"
-        style={{ borderColor: 'var(--pse-line-strong)', borderTopColor: 'var(--pse-blue)' }} />
-      <span className="pse-caption">{label}…</span>
+    <div className="flex items-center justify-center py-14" role="status" aria-live="polite">
+      <PSELoader label={label} size={38} />
     </div>
   );
 }

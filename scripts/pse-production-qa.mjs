@@ -184,6 +184,8 @@ const prov = {
       window.__granted = true; return [window.__stubAddr];
     }
     if (method === 'eth_chainId') return window.__stubChain;
+    window.__lastWalletMethod = window.__lastWalletMethod || [];
+    window.__lastWalletMethod.push(method);
     if (method === 'wallet_switchEthereumChain') {
       window.__switchCount += 1;
       if (window.__denySwitch) throw Object.assign(new Error('user rejected the chain switch'), { code: 4001 });
@@ -510,6 +512,8 @@ async function main() {
             /switch your wallet|BNB Smart Chain before paying|wrong network/i.test(document.body.innerText));
           netGuard.noSend = await t3.evaluate(() =>
             !window.__pseQA.calls.includes('eth_sendTransaction'));
+          netGuard.providerCalls = await t3.evaluate(() => [...window.__pseQA.calls]);
+          netGuard.pageText = (await t3.evaluate(() => document.body.innerText)).slice(0, 500);
           netGuard.switchRequested = await t3.evaluate(() => window.__switchCount > 0);
           // Phase B: the user accepts the switch in-wallet and retries.
           await t3.evaluate(() => { window.__denySwitch = false; });
@@ -702,6 +706,35 @@ async function main() {
       const dup = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: unknown, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
       REPORT.payment.duplicateUnknown = { status: dup.status, error: dup.body?.error };
       console.log(`  duplicate unknown-hash submit → ${dup.status} ${dup.body?.error || ''}`);
+
+      // 5m. REAL-CHAIN MISMATCH (no funds spent): fetch a REAL mainnet BSC
+      // transaction directly from the chain (latest block) and submit it — it
+      // exists on-chain but has nothing to do with this purchase, so the
+      // verifier must independently fetch it from BSC and reject it on a term
+      // mismatch (DESTINATION_MISMATCH), proving the backend genuinely reads
+      // the chain rather than pattern-matching hashes.
+      let realTx = null;
+      try {
+        const rpc = 'https://bsc-dataseed.binance.org/';
+        const lr = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }) }).then(r => r.json());
+        const block = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: [lr.result, true], id: 2 }) }).then(r => r.json());
+        const txs = (block?.result?.transactions || []).filter(t => t.to && t.value !== '0x0');
+        if (txs.length) realTx = txs[txs.length - 1].hash;
+      } catch { /* probe is best-effort */ }
+      if (realTx) {
+        const real = await api('POST', `${PROD}/api/mine/tools/verify-purchase`, { purchaseId, transactionHash: realTx, senderWallet: '0x1111111111111111111111111111111111111111' }, TOKEN);
+        REPORT.payment.realChainMismatch = { status: real.status, hash: realTx, body: real.body };
+        console.log(`  real-chain mismatch probe → ${real.status} ${real.body?.error || ''}`);
+        if (real.status === 422 && real.body?.error && !['TRANSACTION_NOT_FOUND', 'RPC_ERROR'].includes(real.body.error)) {
+          ok('payment', `real BSC transaction (${realTx.slice(0, 18)}…) fetched from the chain and REJECTED on terms (${real.body.error}) — backend genuinely verifies on-chain`);
+        } else if (real.status === 422) {
+          note(`real-hash probe hit ${real.body?.error} — chain-read not proven by this probe`);
+        } else {
+          defect('payment', `real-chain mismatch → ${real.status} ${JSON.stringify(real.body).slice(0, 120)}`);
+        }
+      } else {
+        note('real-chain probe unavailable (BSC RPC fetch failed) — skipped');
+      }
     } else if (intent.status === 403 || intent.status === 409) {
       note(`purchase intent not permitted for QA account (${intent.status} ${intent.body?.error}) — lifecycle/campaign gate; intent-bound probes skipped`);
     } else {

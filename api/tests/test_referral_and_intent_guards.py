@@ -129,6 +129,41 @@ class IntentReuseDecisionTests(unittest.TestCase):
         )
         self.assertEqual(action, "supersede")
 
+    # -- Quote coherence (2026-09-19, production QA finding) ----------------
+
+    def test_same_wallet_same_quote_id_reuses(self):
+        """Same payer + same quote + live window = idempotent reuse."""
+        action, code = purchase_intent_reuse_decision(
+            WALLET_A, WALLET_A, LIVE_QUOTE, now=NOW,
+            stored_quote_id="quote_1", requested_quote_id="quote_1",
+        )
+        self.assertEqual((action, code), ("reuse", None))
+
+    def test_same_wallet_different_quote_id_supersedes(self):
+        """THE COHERENCE DEFECT: a re-quoted bind must never receive the old
+        intent — the UI would pay the NEW wei while verification checks the
+        OLD quote (guaranteed AMOUNT_MISMATCH after funds move)."""
+        action, code = purchase_intent_reuse_decision(
+            WALLET_A, WALLET_A, LIVE_QUOTE, now=NOW,
+            stored_quote_id="quote_1", requested_quote_id="quote_2",
+        )
+        self.assertEqual((action, code), ("supersede", None))
+
+    def test_different_wallet_different_quote_id_live_still_forbidden(self):
+        """A re-quote must NOT open a rebind path while the intent is live."""
+        action, code = purchase_intent_reuse_decision(
+            WALLET_A, WALLET_B, LIVE_QUOTE, now=NOW,
+            stored_quote_id="quote_1", requested_quote_id="quote_2",
+        )
+        self.assertEqual((action, code), ("rebind_forbidden", "WALLET_MISMATCH"))
+
+    def test_legacy_binding_without_quote_ids_reuses_unchanged(self):
+        """Callers not passing quote ids keep the pre-coherence semantics."""
+        action, code = purchase_intent_reuse_decision(
+            WALLET_A, WALLET_A, LIVE_QUOTE, now=NOW,
+        )
+        self.assertEqual((action, code), ("reuse", None))
+
 
 # ---------------------------------------------------------------------------
 # 2. register_referral — orphan-row guard

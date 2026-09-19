@@ -189,7 +189,8 @@ def purchase_sender_binding(declared_sender, intent_wallet):
     return True, None, (declared or intent)
 
 
-def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, now=None):
+def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, now=None,
+                                   stored_quote_id=None, requested_quote_id=None):
     """Decide what POST /api/mine/purchases/create may do with an existing intent.
 
     WHY THIS IS A FUNCTION AND NOT AN EXPRESSION
@@ -202,19 +203,26 @@ def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, 
     So a live intent is never re-pointed at another wallet.
 
     Returns (action, code):
-      * 'reuse'            — same payer (or the same empty binding) AND the
-                             stored quote is still inside its window: the caller
-                             receives the existing intent, unmodified.
+      * 'reuse'            — same payer (or the same empty binding), the SAME
+                             quote id, and the stored quote still inside its
+                             window: the caller receives the existing intent,
+                             unmodified.
       * 'rebind_forbidden' — a DIFFERENT payer while the stored quote is still
                              inside its window: refuse with WALLET_MISMATCH and
                              write nothing at all.
-      * 'supersede'        — the stored quote has already lapsed (either payer).
-                             That intent can never be verified (its quote fails
-                             QUOTE_EXPIRED), so handing it out again — even to
-                             the SAME wallet — would dead-end the (user, tool)
-                             pair behind a quote no payment can satisfy. A fresh
-                             intent is created instead; the stored record is
-                             left untouched as audit evidence.
+      * 'supersede'        — the stored quote has lapsed (either payer) or the
+                             bind carries a DIFFERENT quote id (the client
+                             deliberately re-quoted). A lapsed quote can never
+                             verify (QUOTE_EXPIRED), and a re-quoted bind would
+                             otherwise have the UI pay the NEW quoted wei while
+                             verification compares against the OLD quote — a
+                             guaranteed AMOUNT_MISMATCH after funds have been
+                             sent. A fresh intent is created; the stored record
+                             is left untouched as audit evidence.
+
+    Quote coherence (stored_quote_id/requested_quote_id): reuse is idempotent
+    ONLY for the same quote. Callers that load a fresh quote then re-create the
+    intent must get an intent bound to THAT quote, never the previous one.
 
     A missing/unparseable expiry counts as lapsed: refusing forever would lock
     an account out of a tool tier, while superseding is safe precisely because
@@ -230,16 +238,31 @@ def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, 
         expires = None
     lapsed = expires is None or expires <= reference_now
 
+    # Quote coherence: reuse is idempotent ONLY for the SAME quote. A bind
+    # carrying a DIFFERENT quote id means the client re-quoted deliberately;
+    # handing back the old intent would make the UI pay the NEW quoted wei
+    # while verification compares against the OLD quote — a guaranteed
+    # AMOUNT_MISMATCH with the user's funds already sent. (The state endpoint
+    # does not expose awaiting purchases, so the UI cannot resume an old
+    # quote's amounts; superseding is the only coherent path.)
+    same_quote = (
+        stored_quote_id is None or requested_quote_id is None
+        or str(stored_quote_id) == str(requested_quote_id)
+    )
+
     if not stored or stored == ZERO_ADDRESS:
         # Legacy intent with no payer to protect: re-posting the same empty
         # binding is idempotent; a named wallet supersedes it.
-        return ("reuse", None) if requested == stored else ("supersede", None)
+        if requested == stored and same_quote:
+            return "reuse", None
+        return "supersede", None
     if stored == requested:
-        # Same payer: idempotent ONLY while the quote can still be verified.
-        # A lapsed quote dead-ends the intent forever, so it is superseded —
-        # the stored record is never rewritten and its payer binding remains
+        # Same payer: idempotent ONLY while the SAME quote can still be
+        # verified. A lapsed quote dead-ends the intent forever, and a fresh
+        # quote means the client re-priced the purchase — both supersede. The
+        # stored record is never rewritten and its payer binding remains
         # exactly as first created.
-        if lapsed:
+        if lapsed or not same_quote:
             return "supersede", None
         return "reuse", None
     if not lapsed:

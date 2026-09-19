@@ -8569,7 +8569,8 @@ def mine_create_purchase():
     for e in existing:
         stored = e.to_dict() or {}
         action, decision_code = _pse_engine.purchase_intent_reuse_decision(
-            stored.get('paymentWallet'), payment_wallet, stored.get('expiresAt')
+            stored.get('paymentWallet'), payment_wallet, stored.get('expiresAt'),
+            stored_quote_id=stored.get('quoteId'), requested_quote_id=quote_id,
         )
         if action == 'reuse':
             return jsonify({"success": True, "purchaseId": e.id, "existing": True, "purchase": stored})

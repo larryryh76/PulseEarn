@@ -38,8 +38,8 @@ export const NotificationBell: React.FC<{ variant?: 'desktop' | 'mobile' }> = ({
       onClick={() => setOpen(v => !v)}
       className={
         mobile
-          ? 'relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5 transition-colors hover:bg-white/5'
-          : 'relative rounded-lg p-2.5 transition-colors hover:bg-white/5'
+          ? 'relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2.5'
+          : 'relative rounded-lg p-2.5'
       }
       aria-label={unreadNotifications > 0 ? `Notifications (${unreadNotifications} unread)` : 'Notifications'}
       aria-expanded={open}
@@ -95,7 +95,7 @@ export const NotificationBell: React.FC<{ variant?: 'desktop' | 'mobile' }> = ({
         ) : (
           <ul className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
             {notifications.map(n => (
-              <li key={n.id} className="px-4 py-3" style={{ background: n.read ? undefined : 'rgba(46,144,250,0.05)' }}>
+              <li key={n.id} className="px-4 py-3" style={{ background: n.read ? undefined : 'var(--pse-inset)' }}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="pse-caption font-medium truncate" style={{ color: 'var(--pse-text)' }}>{n.title}</p>

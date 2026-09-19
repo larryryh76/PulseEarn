@@ -267,7 +267,7 @@ export const PSEMineWallet: React.FC = () => {
                 </button>
               </form>
             ) : (
-              <div className="pse-inset flex items-start gap-2.5 p-3.5" style={{ borderColor: 'rgba(245,165,36,0.3)' }}>
+              <div className="pse-inset flex items-start gap-2.5 p-3.5" style={{ borderColor: 'var(--pse-warning)' }}>
                 <Lock size={13} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-warning)' }} />
                 <p className="pse-micro">
                   The campaign is {campaignView.label.trim().toLowerCase()} — payout wallet changes are locked. The backend

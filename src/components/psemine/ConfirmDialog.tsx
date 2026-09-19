@@ -67,8 +67,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
               style={danger
-                ? { background: 'rgba(240,68,56,0.10)', border: '1px solid rgba(240,68,56,0.30)' }
-                : { background: 'rgba(245,165,36,0.10)', border: '1px solid rgba(245,165,36,0.30)' }}
+                ? { background: 'var(--pse-inset)', border: '1px solid var(--pse-danger)' }
+                : { background: 'var(--pse-inset)', border: '1px solid var(--pse-warning)' }}
             >
               <AlertTriangle size={17} style={{ color: danger ? 'var(--pse-danger)' : 'var(--pse-warning)' }} />
             </div>

@@ -395,7 +395,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 aria-current={active ? 'true' : undefined}
                 className="shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors"
                 style={active
-                  ? { background: 'rgba(76,158,248,0.14)', borderColor: 'rgba(76,158,248,0.45)', color: 'var(--pse-blue)' }
+                  ? { background: 'var(--pse-inset)', borderColor: 'var(--pse-blue)', color: 'var(--pse-blue)' }
                   : { background: 'var(--pse-inset)', borderColor: 'var(--pse-line)', color: 'var(--pse-text-2)' }}>
                 <span className="pse-num mr-1.5 text-[10px]" style={{ color: active ? 'var(--pse-blue)' : 'var(--pse-text-3)' }}>{i + 1}</span>
                 {s.title}
@@ -428,8 +428,8 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                   <button key={s.id} type="button" onClick={() => jumpToSection(s.id)}
                     aria-current={active ? 'true' : undefined}
                     className={cn('flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] transition-colors',
-                      active ? 'text-white' : 'text-[#98A2B3] hover:text-white')}
-                    style={active ? { background: 'rgba(255,255,255,0.05)' } : undefined}>
+                      active ? 'font-semibold' : '')}
+                    style={{ color: active ? 'var(--pse-text)' : 'var(--pse-text-2)', background: active ? 'var(--pse-inset)' : undefined }}>
                     <span className={done ? 'pse-step pse-step-done' : 'pse-step'}>{done ? '✓' : i + 1}</span>
                     <span className="min-w-0 flex-1 truncate">{s.title}</span>
                   </button>
@@ -460,7 +460,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 style={{ borderColor: 'var(--pse-line)' }}>
                 <div className="flex items-start gap-3.5 p-5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'rgba(76,158,248,0.10)', border: '1px solid rgba(76,158,248,0.25)' }}>
+                    style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-blue)' }}>
                     <Icon size={17} style={{ color: 'var(--pse-blue)' }} />
                   </div>
                   <div className="min-w-0 flex-1">

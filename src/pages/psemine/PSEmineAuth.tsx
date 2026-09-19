@@ -22,7 +22,7 @@ const GoogleG: React.FC<{ size?: number }> = ({ size = 16 }) => (
 );
 
 const Spinner: React.FC<{ className?: string }> = ({ className }) => (
-  <span className={cn('h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white', className)} />
+  <span className={cn('h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60', className)} />
 );
 
 /* ═══════════════════ Shared auth shell ═══════════════════ */
@@ -143,7 +143,7 @@ function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
     <div role="alert" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'rgba(240,68,56,0.35)', background: 'rgba(240,68,56,0.08)' }}>
+      style={{ borderColor: 'var(--pse-danger)', background: 'var(--pse-inset)' }}>
       <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
       <p className="pse-caption" style={{ color: 'var(--pse-danger)' }}>{message}</p>
     </div>
@@ -154,7 +154,7 @@ function FormError({ message }: { message: string | null }) {
 function FormSuccess({ message }: { message: string }) {
   return (
     <div role="status" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'rgba(46,206,132,0.32)', background: 'rgba(46,206,132,0.08)' }}>
+      style={{ borderColor: 'var(--pse-success)', background: 'var(--pse-inset)' }}>
       <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
       <p className="pse-caption" style={{ color: 'var(--pse-success)' }}>{message}</p>
     </div>
@@ -272,7 +272,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
       {refFromQuery && isSignup && (
         <div className="mt-4 flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
-          style={{ borderColor: 'rgba(139,124,246,0.32)', background: 'rgba(139,124,246,0.08)' }}>
+          style={{ borderColor: 'var(--pse-purple)', background: 'var(--pse-inset)' }}>
           <Wand2 size={14} style={{ color: 'var(--pse-purple)' }} />
           <p className="pse-micro" style={{ color: 'var(--pse-purple)' }}>
             Referral applied: <span className="pse-mono">{refFromQuery}</span>
@@ -351,8 +351,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
       {isSignup && (
         <p className="pse-micro mt-5">
-          By creating an account you agree to the <Link to="/terms" className="underline hover:text-[#F2F4F7]">Terms</Link>
-          {' '}and <Link to="/privacy" className="underline hover:text-[#F2F4F7]">Privacy Policy</Link>.
+          By creating an account you agree to the <Link to="/terms">Terms</Link>
+          {' '}and <Link to="/privacy">Privacy Policy</Link>.
           PSEmine is a separate product from PulseEarn; this account is shared, the product access is not.
         </p>
       )}
@@ -558,7 +558,7 @@ const PSEmineAccessGate: React.FC = () => {
         <div className="pse-card overflow-hidden">
           <div className="flex items-start gap-3.5 border-b px-6 py-5" style={{ borderColor: 'var(--pse-line)' }}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
-              style={{ borderColor: 'rgba(139,124,246,0.32)', background: 'rgba(139,124,246,0.10)' }}>
+              style={{ borderColor: 'var(--pse-purple)', background: 'var(--pse-inset)' }}>
               <ShieldX size={19} style={{ color: 'var(--pse-purple)' }} />
             </div>
             <div>

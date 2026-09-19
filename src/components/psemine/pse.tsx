@@ -245,26 +245,21 @@ export function Chip({ label, chip, dot, pulse, icon: Icon }: { label: string; c
 }
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
+  // Functional baseline: plain text emblem — no gradient artwork.
   return (
-    <span className="inline-flex items-center gap-2.5 select-none">
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="PSEmine emblem" className="shrink-0">
-        <defs>
-          <linearGradient id="pse-lg-a" x1="6" y1="6" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#2E90FA" /><stop offset="100%" stopColor="#22D3EE" />
-          </linearGradient>
-          <linearGradient id="pse-lg-b" x1="12" y1="4" x2="36" y2="38" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#5AB2FC" /><stop offset="100%" stopColor="#1570EF" />
-          </linearGradient>
-          <linearGradient id="pse-lg-c" x1="18" y1="16" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#8B7CF6" /><stop offset="100%" stopColor="#2E90FA" />
-          </linearGradient>
-        </defs>
-        <path d="M8 8L20 4V34L8 42V8Z" fill="url(#pse-lg-a)" />
-        <path d="M22 4L38 12L42 16L22 24V4Z" fill="url(#pse-lg-b)" />
-        <path d="M22 24L42 16L36 30L22 34V24Z" fill="url(#pse-lg-c)" />
-        <path d="M22 10L32 15L22 20V10Z" fill="#0A0E14" />
-        <path d="M22 37L32 32L36 35L22 44V37Z" fill="url(#pse-lg-a)" opacity="0.85" />
-      </svg>
+    <span className="inline-flex items-center gap-2.5 select-none" role="img" aria-label="PSEmine emblem">
+      <span
+        className="inline-flex shrink-0 items-center justify-center font-bold"
+        style={{
+          width: size, height: size,
+          border: '1px solid var(--pse-line-strong)',
+          color: 'var(--pse-text)',
+          fontSize: Math.max(10, Math.round(size * 0.38)),
+        }}
+        aria-hidden="true"
+      >
+        P
+      </span>
       {withWordmark && (
         <span className="flex flex-col leading-none">
           <span className="text-[15px] font-bold tracking-tight" style={{ color: 'var(--pse-text)' }}>
@@ -312,9 +307,9 @@ export function Panel({ title, meta, action, children, tone, className, bodyClas
   className?: string; bodyClassName?: string;
 }) {
   const border =
-    tone === 'warning' ? 'rgba(245,165,36,0.32)' :
-    tone === 'danger' ? 'rgba(240,68,56,0.32)' :
-    tone === 'success' ? 'rgba(46,206,132,0.30)' : undefined;
+    tone === 'warning' ? 'var(--pse-warning)' :
+    tone === 'danger' ? 'var(--pse-danger)' :
+    tone === 'success' ? 'var(--pse-success)' : undefined;
   return (
     <section className={`pse-card overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>
       {(title || action) && (
@@ -410,16 +405,16 @@ export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
  * A generic error screen is only correct when the failure is genuinely
  * unknown. Everything we can identify gets its own icon, copy and action. */
 const ERROR_PRESENTATION: Record<PseErrorKind, { icon: ChipIcon; tone: string; accent: string }> = {
-  auth:        { icon: LogIn,         tone: 'rgba(76,158,248,0.30)',  accent: 'var(--pse-blue)' },
-  permission:  { icon: ShieldX,       tone: 'rgba(139,124,246,0.30)', accent: 'var(--pse-purple)' },
-  validation:  { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  conflict:    { icon: RefreshCcw,    tone: 'rgba(34,211,238,0.30)',  accent: 'var(--pse-cyan)' },
-  rate_limit:  { icon: Hourglass,     tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
-  unavailable: { icon: ServerOff,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  backend:     { icon: ServerCog,     tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  network:     { icon: WifiOff,       tone: 'rgba(152,162,179,0.30)', accent: 'var(--pse-neutral)' },
-  data:        { icon: AlertTriangle, tone: 'rgba(245,165,36,0.30)',  accent: 'var(--pse-warning)' },
-  unknown:     { icon: AlertTriangle, tone: 'rgba(240,68,56,0.30)',   accent: 'var(--pse-danger)' },
+  auth:        { icon: LogIn,         tone: 'var(--pse-blue)',    accent: 'var(--pse-blue)' },
+  permission:  { icon: ShieldX,       tone: 'var(--pse-purple)',  accent: 'var(--pse-purple)' },
+  validation:  { icon: AlertTriangle, tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
+  conflict:    { icon: RefreshCcw,    tone: 'var(--pse-cyan)',    accent: 'var(--pse-cyan)' },
+  rate_limit:  { icon: Hourglass,     tone: 'var(--pse-neutral)', accent: 'var(--pse-neutral)' },
+  unavailable: { icon: ServerOff,     tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
+  backend:     { icon: ServerCog,     tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
+  network:     { icon: WifiOff,       tone: 'var(--pse-neutral)', accent: 'var(--pse-neutral)' },
+  data:        { icon: AlertTriangle, tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
+  unknown:     { icon: AlertTriangle, tone: 'var(--pse-danger)',  accent: 'var(--pse-danger)' },
 };
 
 export function PSEError({ error, onRetry, retrying, action, compact }: {
@@ -459,7 +454,7 @@ export function PSEError({ error, onRetry, retrying, action, compact }: {
 /** Inline, non-blocking notice for a degraded (secondary) data feed. */
 export function FeedNotice({ message, onRetry, retrying }: { message: string; onRetry?: () => void; retrying?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-3" style={{ background: 'rgba(245,165,36,0.06)' }}>
+    <div className="flex items-center justify-between gap-3 px-5 py-3" style={{ background: 'var(--pse-inset)' }}>
       <p className="pse-micro flex items-center gap-2" style={{ color: 'var(--pse-warning)' }}>
         <AlertTriangle size={12} className="shrink-0" /> {message}
       </p>
@@ -682,9 +677,9 @@ export function Surface({ title, meta, action, children, tone, className, bodyCl
   className?: string; bodyClassName?: string; as?: 'section' | 'div';
 }) {
   const border =
-    tone === 'warning' ? 'rgba(245,165,36,0.32)' :
-    tone === 'danger' ? 'rgba(240,68,56,0.32)' :
-    tone === 'success' ? 'rgba(46,206,132,0.30)' : undefined;
+    tone === 'warning' ? 'var(--pse-warning)' :
+    tone === 'danger' ? 'var(--pse-danger)' :
+    tone === 'success' ? 'var(--pse-success)' : undefined;
   const Tag = (as || 'section') as 'section';
   return (
     <Tag className={`pse-quiet overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>

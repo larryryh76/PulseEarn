@@ -584,7 +584,7 @@ export const PSEMineLanding: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setOpenFaq(open ? null : i)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-white/[0.015]"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors"
                   aria-expanded={open}
                 >
                   <span className="pse-section-sm">{f.q}</span>

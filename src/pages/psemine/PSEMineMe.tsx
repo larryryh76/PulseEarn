@@ -114,7 +114,7 @@ export const PSEMineMe: React.FC = () => {
                 className="block w-full rounded-lg px-3 py-2 text-left pse-caption font-medium transition-colors"
                 style={{
                   color: active === s.id ? 'var(--pse-text)' : 'var(--pse-text-2)',
-                  background: active === s.id ? 'rgba(255,255,255,0.05)' : undefined,
+                  background: active === s.id ? 'var(--pse-inset)' : undefined,
                 }}
               >
                 {s.label}
@@ -138,7 +138,7 @@ export const PSEMineMe: React.FC = () => {
             <Surface title="Account" meta="Shared sign-in identity · PSEmine entitlement">
               <div className="flex items-center gap-3.5 px-4 py-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full text-[16px] font-bold"
-                  style={{ background: 'rgba(76,158,248,0.12)', color: 'var(--pse-blue)', border: '1px solid rgba(76,158,248,0.3)' }}>
+                  style={{ background: 'var(--pse-inset)', color: 'var(--pse-blue)', border: '1px solid var(--pse-blue)' }}>
                   {(userData?.username || currentUser?.email || '?').slice(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -193,7 +193,7 @@ export const PSEMineMe: React.FC = () => {
                     <form onSubmit={changePassword} className="space-y-3" noValidate>
                       {pwError && (
                         <div role="alert" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-                          style={{ borderColor: 'rgba(240,68,56,0.35)', background: 'rgba(240,68,56,0.08)' }}>
+                          style={{ borderColor: 'var(--pse-danger)', background: 'var(--pse-inset)' }}>
                           <AlertCircle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
                           <p className="pse-caption" style={{ color: 'var(--pse-danger)' }}>{pwError}</p>
                         </div>
@@ -298,7 +298,7 @@ export const PSEMineMe: React.FC = () => {
           {/* ── SUPPORT ── */}
           <div id="pse-sec-support" className="scroll-mt-28">
             <Surface title="Support" meta="Questions about tools, payments or settlement">
-              <Link to="/help" className="pse-row-item transition-colors hover:bg-white/[0.02]">
+              <Link to="/help" className="pse-row-item">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl"
                   style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
                   <LifeBuoy size={16} style={{ color: 'var(--pse-cyan)' }} />
@@ -337,8 +337,8 @@ export const PSEMineMe: React.FC = () => {
           <div className="flex items-center gap-2 px-1">
             <Mail size={12} style={{ color: 'var(--pse-text-3)' }} />
             <p className="pse-micro">
-              Account questions? <Link to="/help" className="underline hover:text-[#F2F4F7]">Support</Link> ·{' '}
-              <Link to="/mine/guide" className="underline hover:text-[#F2F4F7]">Guide</Link>
+              <Link to="/help">Account questions? Support</Link> ·{' '}
+              <Link to="/mine/guide">Guide</Link>
             </p>
           </div>
         </div>

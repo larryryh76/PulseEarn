@@ -127,7 +127,7 @@ export const PSEMineTools: React.FC = () => {
         bodyClassName="pse-rows"
       >
         {/* Desktop column legend — the rows below align to it */}
-        <div className="pse-rule-t hidden px-4 py-2 lg:flex" style={{ background: 'rgba(255,255,255,0.012)' }}>
+        <div className="pse-rule-t hidden px-4 py-2 lg:flex" style={{ background: 'var(--pse-inset)' }}>
           <span className="pse-eyebrow flex-1">Tier</span>
           <span className="pse-eyebrow w-[92px]">Price</span>
           <span className="pse-eyebrow w-[104px]">Capacity</span>
@@ -788,8 +788,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; onClose: () => void 
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl"
                   style={result.ok
-                    ? { background: 'rgba(46,206,132,0.12)', border: '1px solid rgba(46,206,132,0.3)' }
-                    : { background: 'rgba(240,68,56,0.10)', border: '1px solid rgba(240,68,56,0.3)' }}>
+                    ? { background: 'var(--pse-inset)', border: '1px solid var(--pse-success)' }
+                    : { background: 'var(--pse-inset)', border: '1px solid var(--pse-danger)' }}>
                   {result.ok ? <Check size={22} style={{ color: 'var(--pse-success)' }} /> : <X size={22} style={{ color: 'var(--pse-danger)' }} />}
                 </div>
                 <p className="pse-h2" style={{ fontSize: 20 }}>

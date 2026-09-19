@@ -206,12 +206,19 @@ class ProviderCache:
 _provider_cache: Optional[ProviderCache] = None
 
 def init_provider_cache(cache_ttl: int = 30) -> ProviderCache:
-    """Initialize and return global provider cache."""
+    """Initialize and return the global provider cache.
+
+    The cache is constructed but NOT force-warmed here: at import/boot time the
+    Firebase Admin SDK may not be initialized yet (it initializes lazily per
+    request), and a forced Firestore read would fail with "The default Firebase
+    app does not exist" and leave an empty cache window (observed in production
+    2026-09-19). The first cache access refreshes from Firestore instead, and a
+    failed refresh is retried automatically on later accesses because
+    _last_refresh stays 0 until a refresh succeeds.
+    """
     global _provider_cache
     if _provider_cache is None:
         _provider_cache = ProviderCache(cache_ttl_seconds=cache_ttl)
-        # Warm up cache on init
-        _provider_cache.get_all_providers(allow_cache=False)
     return _provider_cache
 
 def get_provider_cache() -> ProviderCache:

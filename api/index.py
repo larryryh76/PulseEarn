@@ -12,6 +12,25 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from functools import wraps
 
+# ---------------------------------------------------------------------------
+# Task-root import normalization (Vercel serverless fix, incident 2026-09-19).
+#
+# Production traceback (requestId 4b398d2f0c5649bc):
+#   File "/var/task/api/index.py", line 8317, in mine_state
+#       import psemine_engine as _pse_engine
+#   ModuleNotFoundError: No module named 'psemine_engine'
+#
+# On Vercel this file loads as package `api` rooted at /var/task, so bare
+# sibling imports (`psemine_engine`, `psemine_core`, `services.provider_cache`)
+# only resolve if the FUNCTION directory itself is on sys.path. Locally
+# (`python api/index.py`) the directory is sys.path[0], which masked the
+# defect in every offline test. This bootstrap is idempotent, adds nothing
+# before stdlib entries, and is the single authority for task-root resolution
+# — every sibling import below stays exactly as written.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(1, _HERE)  # position 1: stdlib precedence preserved
+
 def mine_record_activity(uid, *, _type, title, description, metadata=None):
     """Canonical top-level psemine_activities write for /api/mine/* flows
     (Phase 3 completion). Fire-and-forget: an activity failure must never

@@ -276,8 +276,11 @@ class FakeDB:
         return _MultiTxn(self._namespaces)
 
     def coll(self, name):
-        """Direct committed-state view of one collection: {doc_id: data}."""
-        return dict(self._namespaces.get(name, {}))
+        "Direct committed-state view of one collection: {doc_id: data}."
+        store = self._namespaces.get(name)
+        if store is None:
+            return {}
+        return {doc_id: dict(doc["data"]) for doc_id, doc in store.current().items()}
 
 
 class _MultiTxn:

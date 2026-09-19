@@ -202,17 +202,19 @@ def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, 
     So a live intent is never re-pointed at another wallet.
 
     Returns (action, code):
-      * 'reuse'            — same payer (or the same empty binding): the caller
+      * 'reuse'            — same payer (or the same empty binding) AND the
+                             stored quote is still inside its window: the caller
                              receives the existing intent, unmodified.
       * 'rebind_forbidden' — a DIFFERENT payer while the stored quote is still
                              inside its window: refuse with WALLET_MISMATCH and
                              write nothing at all.
-      * 'supersede'        — a different payer and the stored quote has already
-                             lapsed. That intent can never be verified (its
-                             quote fails QUOTE_EXPIRED) and neither payment can
-                             be attributed to the other wallet, so a fresh
-                             intent is created for the new payer. The stored
-                             record is left untouched as audit evidence.
+      * 'supersede'        — the stored quote has already lapsed (either payer).
+                             That intent can never be verified (its quote fails
+                             QUOTE_EXPIRED), so handing it out again — even to
+                             the SAME wallet — would dead-end the (user, tool)
+                             pair behind a quote no payment can satisfy. A fresh
+                             intent is created instead; the stored record is
+                             left untouched as audit evidence.
 
     A missing/unparseable expiry counts as lapsed: refusing forever would lock
     an account out of a tool tier, while superseding is safe precisely because
@@ -220,18 +222,27 @@ def purchase_intent_reuse_decision(stored_wallet, requested_wallet, expires_at, 
     """
     stored = (stored_wallet or "").strip().lower()
     requested = (requested_wallet or "").strip().lower()
-    if stored == requested:
-        return "reuse", None
-    if not stored or stored == ZERO_ADDRESS:
-        # Legacy intent with no payer to protect: a named wallet supersedes it.
-        return "supersede", None
-    if now is None:
-        now = utcnow()
+
+    reference_now = utcnow() if now is None else now
     try:
         expires = _parse(expires_at)
-    except Exception:
+    except Exception:  # any unparseable shape counts as lapsed, never a 500
         expires = None
-    if expires is not None and expires > now:
+    lapsed = expires is None or expires <= reference_now
+
+    if not stored or stored == ZERO_ADDRESS:
+        # Legacy intent with no payer to protect: re-posting the same empty
+        # binding is idempotent; a named wallet supersedes it.
+        return ("reuse", None) if requested == stored else ("supersede", None)
+    if stored == requested:
+        # Same payer: idempotent ONLY while the quote can still be verified.
+        # A lapsed quote dead-ends the intent forever, so it is superseded —
+        # the stored record is never rewritten and its payer binding remains
+        # exactly as first created.
+        if lapsed:
+            return "supersede", None
+        return "reuse", None
+    if not lapsed:
         return "rebind_forbidden", "WALLET_MISMATCH"
     return "supersede", None
 
@@ -890,10 +901,24 @@ def referral_code_for(db, uid):
 
 def register_referral(db, uid, referral_code_or_referrer):
     """Backend-side referral record creation with deterministic identity.
-    Idempotent: re-registration returns the existing record."""
-    referrer_id = referral_code_or_referrer
-    if not (referral_code_or_referrer or "").startswith("ref_") and len(referral_code_or_referrer or "") != 28:
-        resolved = _resolve_referrer(db, referral_code_or_referrer)
+    Idempotent: re-registration returns the existing record.
+
+    An UNRESOLVABLE code is a hard error (REFERRER_NOT_FOUND), never a row: a
+    referral record pointing at a non-existent referrer would pollute the
+    pipeline, silently 'succeed' for the invited user, and write a phantom
+    invite notification to nobody. (Production defect, 2026-09-19: the raw
+    unresolved code fell through as the referrer id and created exactly that
+    orphan row.) Canonical ref_ ids must likewise resolve to a real account.
+    """
+    raw = (referral_code_or_referrer or "").strip()
+    referrer_id = None
+    if raw.startswith("ref_"):
+        if raw == uid:
+            return {"ok": False, "error": "SELF_REFERRAL"}
+        if db.collection("users").document(raw).get().exists:
+            referrer_id = raw
+    elif raw:
+        resolved = _resolve_referrer(db, raw)
         if resolved:
             referrer_id = resolved
     if not referrer_id:

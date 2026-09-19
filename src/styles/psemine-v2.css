@@ -478,6 +478,12 @@
   .pse-scope footer button {
     min-height: 44px;
   }
+  /* Measured: pse-btn-sm text links outside nav/header/footer (landing sections
+     "Open the marketplace", "Read the full guide", "Contact support") rendered
+     32px tall at 390px. Same 44px floor applies. */
+  .pse-scope .pse-btn-sm {
+    min-height: 44px;
+  }
   .pse-scope header a,
   .pse-scope nav a,
   .pse-scope footer a { display: inline-flex; align-items: center; }

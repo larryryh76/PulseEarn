@@ -215,6 +215,19 @@ export const PSEMineDashboard: React.FC = () => {
             },
           ]} />
         </div>
+
+        {/* Campaign progress — the 90-day arc, anchored to backend dates. */}
+        {dayNumber !== null && (
+          <div className="pse-rule px-4 py-3.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="pse-eyebrow">Campaign progress</p>
+              <p className="pse-micro">Day {dayNumber} of {totalDays}{daysLeft !== null ? ` · ${daysLeft}d remaining` : ''}</p>
+            </div>
+            <div className="mt-2.5">
+              <Meter value={(dayNumber / totalDays) * 100} label="Campaign progress through the 90-day arc" />
+            </div>
+          </div>
+        )}
       </AccentSurface>
 
       {/* ══ ATTENTION (exception-first) ══ */}

@@ -99,7 +99,7 @@ export const PSEMineLanding: React.FC = () => {
 
   return (
     <div>
-      {/* ═══════════ HERO — verdict first ═══════════ */}
+      {/* ═══════════ HERO — verdict first, with the live product frame ═══════════ */}
       <section className="pse-hero-surface border-b" style={{ borderColor: 'var(--pse-line)' }}>
         <div className="pse-section pse-band-lg">
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-16">
@@ -145,29 +145,54 @@ export const PSEMineLanding: React.FC = () => {
               </dl>
             </div>
 
-            {/* The single accent surface of the page: the structural story. */}
+            {/* The single accent surface of the page: the product itself, rendered
+                from the same components the console uses — real campaign constants,
+                not an illustration. */}
             <div className="pse-surface-accent">
-              <div className="border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
-                <p className="pse-eyebrow">The campaign model</p>
-                <p className="pse-caption mt-1.5">From purchase to payout, in the order money actually moves.</p>
+              <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
+                <div>
+                  <p className="pse-eyebrow">Mining console</p>
+                  <p className="pse-caption mt-1">A live look at the operator workspace.</p>
+                </div>
+                <Chip label={statusView.label.trim()} chip={statusView.chip} pulse={statusView.live} />
               </div>
-              <ol>
-                {MODEL_STEPS.map((step, i) => {
-                  const Icon = step.icon;
-                  return (
-                    <li key={step.label} className="flex items-center gap-3.5 border-t px-5 py-3.5"
-                      style={{ borderColor: 'var(--pse-line)' }}>
-                      <Icon size={15} className="shrink-0"
-                        style={{ color: i === 2 ? 'var(--pse-cyan)' : 'var(--pse-text-3)' }} />
-                      <div className="min-w-0 flex-1">
-                        <p className="pse-section-sm">{step.label}</p>
-                        <p className="pse-micro mt-0.5">{step.detail}</p>
-                      </div>
-                      <span className="pse-num pse-micro shrink-0" style={{ color: 'var(--pse-text-3)' }}>{i + 1}</span>
-                    </li>
-                  );
-                })}
-              </ol>
+
+              {/* Earnings verdict — the console's primary figure. */}
+              <div className="px-5 pt-5">
+                <p className="pse-eyebrow">Accrued campaign earnings</p>
+                <div className="mt-2 flex items-baseline gap-3">
+                  <span className="pse-fig-hero">£0.00</span>
+                  <span className="pse-micro" style={{ color: 'var(--pse-text-3)' }}>at day 0</span>
+                </div>
+              </div>
+
+              {/* Capacity meter — the console's primary gauge. */}
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="pse-eyebrow">Capacity composition</p>
+                  <p className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{gbpHour(MAX_TOOL)}</p>
+                </div>
+                <div className="mt-2.5"><Meter value={(MAX_TOOL / MAX_ALL) * 100} label="Tool capacity against the campaign maximum" /></div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="pse-micro">Tools <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(MAX_TOOL)}</span></span>
+                  <span className="pse-micro">Referrals <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>+{gbpHour(MAX_REF)}</span></span>
+                </div>
+              </div>
+
+              {/* The four tools — the actual product — exactly as priced. */}
+              <div className="border-t px-2.5 py-2.5" style={{ borderColor: 'var(--pse-line)' }}>
+                {TOOLS.map(t => (
+                  <div key={t.id} className="flex items-center gap-3 px-2.5 py-2.5">
+                    <span className="pse-tier" aria-hidden="true">{t.tier}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="pse-section-sm">{t.name}</p>
+                      <p className="pse-micro mt-0.5">Limit {t.maxPerUser} · {gbpHour(t.hourlyRateGBP)}/hr</p>
+                    </div>
+                    <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
+                  </div>
+                ))}
+              </div>
+
               <div className="border-t px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
                 <p className="pse-micro">
                   {statusView.live
@@ -188,6 +213,25 @@ export const PSEMineLanding: React.FC = () => {
           title="Four steps, no hardware, no hosting"
           meta="The campaign runs the operations. You choose tools, keep them in cycle, and the ledger records what the capacity earned."
         />
+
+        {/* The campaign model in one glance — the order money actually moves. */}
+        <div className="pse-list-group mt-10 max-w-3xl">
+          {MODEL_STEPS.map((step, i) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.label} className="flex items-center gap-3.5 border-t px-5 py-3.5 first:border-t-0"
+                style={{ borderColor: 'var(--pse-line)' }}>
+                <Icon size={15} className="shrink-0"
+                  style={{ color: i === 2 ? 'var(--pse-cyan)' : 'var(--pse-text-3)' }} />
+                <div className="min-w-0 flex-1">
+                  <p className="pse-section-sm">{step.label}</p>
+                  <p className="pse-micro mt-0.5">{step.detail}</p>
+                </div>
+                <span className="pse-num pse-micro shrink-0" style={{ color: 'var(--pse-text-3)' }}>{i + 1}</span>
+              </div>
+            );
+          })}
+        </div>
 
         <Editorial className="mt-10 max-w-3xl">
           <EditorialItem
@@ -228,7 +272,36 @@ export const PSEMineLanding: React.FC = () => {
             }
           />
 
-          <div className="pse-quiet mt-10 overflow-hidden">
+          {/* The product as product cards (mobile-first), with the full economics
+              table below for operators who want every number at once. */}
+          <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {TOOLS.map(t => (
+              <div key={t.id} className="pse-card p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="pse-tier" aria-hidden="true">{t.tier}</span>
+                    <p className="pse-section-sm">{t.name}</p>
+                  </div>
+                  <span className="pse-num pse-fig-md" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
+                </div>
+                <p className="pse-micro mt-2">{t.tagline}</p>
+                <div className="mt-4 flex items-baseline justify-between border-t pt-3" style={{ borderColor: 'var(--pse-line)' }}>
+                  <span className="pse-micro">Hourly capacity</span>
+                  <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="pse-micro">Ownership limit</span>
+                  <span className="pse-num pse-caption">{t.maxPerUser} per account</span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="pse-micro">At limit</span>
+                  <span className="pse-num pse-caption" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pse-quiet mt-3 overflow-hidden">
             <div className="hidden md:block">
               <table className="pse-table">
                 <thead>

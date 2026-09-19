@@ -55,13 +55,31 @@ const EIP6963_REQUEST = 'eip6963:requestProvider';
 
 /* ─── WalletConnect (lazy: the SDK lives in its own chunk) ─── */
 
+/** Minimal AppKit surface this module uses (structural, SDK-version agnostic). */
+interface WcAppKitLike {
+  open(): void | Promise<void>;
+  disconnect(): void | Promise<void>;
+  getAddress(chainNamespace?: string): string | undefined;
+  getIsConnectedState(): boolean;
+  getState(): { open?: boolean; loading?: boolean; activeChain?: string };
+  subscribeState(cb: (s: { open?: boolean; loading?: boolean; activeChain?: string }) => void): () => void;
+}
+
+/** Minimal Ethers-adapter surface: the WalletConnect universal provider. */
+interface WcAdapterLike {
+  getWalletConnectProvider(): unknown;
+}
+
 const wcState: {
-  attempted: boolean;
   available: boolean;
+  appKit: WcAppKitLike | null;
+  adapter: WcAdapterLike | null;
   openModal: (() => void) | null;
-  getProvider: (() => Promise<PseEip1193Provider | null>) | null;
   disconnect: (() => Promise<void>) | null;
-} = { attempted: false, available: false, openModal: null, getProvider: null, disconnect: null };
+} = { available: false, appKit: null, adapter: null, openModal: null, disconnect: null };
+
+/** In-flight initialisation guard (also makes a failed init retryable). */
+let wcInitPromise: Promise<boolean> | null = null;
 
 export const WALLETCONNECT_PROJECT_ID = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined)?.trim() || '';
 
@@ -69,16 +87,25 @@ export const isWalletConnectConfigured = (): boolean => WALLETCONNECT_PROJECT_ID
 
 /**
  * Initialises AppKit + the Ethers adapter on first use. Called lazily from
- * connectWalletConnect() so the WalletConnect bundle is only fetched when the
- * user actually chooses a WalletConnect-compatible wallet.
+ * connectWalletConnect()/restoreWalletConnectSession() so the WalletConnect
+ * bundle is only fetched when a WalletConnect session is actually needed.
  *
- * The EthersAdapter's connect() resolves once a wallet has approved the
- * session; its universal provider is a full EIP-1193 provider, so it is
- * normalised through the same interface as injected wallets.
+ * A failed initialisation (offline, bad project id) is retryable: the guard
+ * promise clears on failure so the next user action re-attempts instead of
+ * permanently latching the transport off.
  */
-async function initWalletConnect(): Promise<boolean> {
-  if (wcState.attempted) return wcState.available;
-  wcState.attempted = true;
+function initWalletConnect(): Promise<boolean> {
+  if (wcState.available && wcState.appKit) return Promise.resolve(true);
+  if (!wcInitPromise) {
+    wcInitPromise = doInitWalletConnect().catch(() => {
+      wcInitPromise = null; // allow a retry on the next attempt
+      return false;
+    });
+  }
+  return wcInitPromise;
+}
+
+async function doInitWalletConnect(): Promise<boolean> {
   if (!isWalletConnectConfigured()) return false;
 
   try {
@@ -91,55 +118,133 @@ async function initWalletConnect(): Promise<boolean> {
       name: 'PSEmine',
       description: 'PSEmine — 90-day mining campaign',
       url: typeof window !== 'undefined' ? window.location.origin : 'https://pulseearn.online',
-      icons: [`${window.location.origin}/logo.png`],
+      // Must reference a real asset: wallets display it, and some wallet apps
+      // use it when bookmarking the session. public/favicon.svg ships today.
+      icons: [`${window.location.origin}/favicon.svg`],
     };
 
-    const adapter = new EthersAdapter();
+    const adapter = new EthersAdapter() as unknown as WcAdapterLike;
     const appKit = createAppKit({
-      adapters: [adapter],
+      adapters: [adapter as never],
       networks: [bsc],
       projectId: WALLETCONNECT_PROJECT_ID,
       metadata,
       features: { analytics: false },
-    });
+    }) as unknown as WcAppKitLike;
 
     wcState.available = true;
+    wcState.appKit = appKit;
+    wcState.adapter = adapter;
     wcState.openModal = () => { void appKit.open(); };
-    wcState.getProvider = async () => {
-      // Wait until the adapter reports a connected wallet (or a short timeout —
-      // the user may close the modal without connecting).
-      const deadline = Date.now() + 240_000; // WalletConnect sessions may need a QR scan
-      while (Date.now() < deadline) {
-        const universal = adapter.getWalletConnectProvider() as PseEip1193Provider | null;
-        if (universal) {
-          try {
-            const accounts = (await universal.request({ method: 'eth_accounts' })) as string[];
-            if (accounts && accounts.length > 0) return universal;
-          } catch {
-            /* provider present but not usable yet — keep waiting */
-          }
-        }
-        await new Promise(r => setTimeout(r, 500));
-      }
-      return null;
-    };
     wcState.disconnect = async () => {
       try { await appKit.disconnect(); } catch { /* already disconnected */ }
     };
     return true;
   } catch (e) {
-    // AppKit failed to initialise (bad project id, network, etc.) — degrade to
-    // injected-only rather than blocking wallet connection entirely.
+    // AppKit failed to initialise — degrade to injected-only rather than
+    // blocking wallet connection entirely.
     console.warn('[pseWallet] WalletConnect unavailable:', e);
     return false;
   }
 }
 
-export const connectWalletConnect = async (): Promise<PseEip1193Provider | null> => {
+/**
+ * Resolves the active WalletConnect universal provider once a session exists.
+ *
+ * Two resolution paths, in order:
+ *   1. The adapter already exposes a provider with approved accounts — an
+ *      APPROVED SESSION (fresh approval or one restored from WalletConnect
+ *      storage after the wallet-app redirect reloaded the page).
+ *   2. Event-driven wait: AppKit's public state reports the modal closing
+ *      (which happens the moment the wallet approves and redirects); after
+ *      that the provider is grabbed and verified. A light poll runs as a
+ *      catch-all for wallets that never report a modal-close event.
+ *
+ * The wait ends after `timeoutMs` with null (user cancelled, or the handoff
+ * never completed). The timeout must comfortably exceed a slow mobile handoff:
+ * wallet open → user reads the prompt → approves → redirect back.
+ */
+async function waitForWalletConnectProvider(timeoutMs: number): Promise<PseEip1193Provider | null> {
+  const appKit = wcState.appKit;
+  const adapter = wcState.adapter;
+  if (!appKit || !adapter) return null;
+
+  const grabProvider = async (): Promise<PseEip1193Provider | null> => {
+    try {
+      const universal = adapter.getWalletConnectProvider() as PseEip1193Provider | null;
+      if (!universal || typeof universal.request !== 'function') return null;
+      const accounts = (await universal.request({ method: 'eth_accounts' })) as string[];
+      return accounts && accounts.length > 0 ? universal : null;
+    } catch {
+      /* provider present but not usable yet */
+      return null;
+    }
+  };
+
+  const immediate = await grabProvider();
+  if (immediate) return immediate;
+
+  return new Promise(resolve => {
+    let settled = false;
+    let poll = 0;
+    let timer = 0;
+    let unsubState: (() => void) | null = null;
+    const finish = (v: PseEip1193Provider | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(poll);
+      clearTimeout(timer);
+      unsubState?.();
+      resolve(v);
+    };
+
+    timer = window.setTimeout(() => finish(null), timeoutMs);
+
+    // Event path: modal closes ⇒ approval/redirect happened ⇒ verify provider.
+    try {
+      unsubState = appKit.subscribeState(state => {
+        if (state?.open === false) void grabProvider().then(p => { if (p) finish(p); });
+      });
+    } catch { /* state subscription unavailable — poll covers it */ }
+
+    // Catch-all poll (the event path can be missed on some wallet builds).
+    poll = window.setInterval(() => { void grabProvider().then(p => { if (p) finish(p); }); }, 500);
+  });
+}
+
+/**
+ * Connects (or restores) a WalletConnect session and resolves the universal
+ * provider once accounts exist.
+ *
+ * ORDER MATTERS: an already-approved session (previous handoff, page reload,
+ * second tab) is adopted WITHOUT reopening the modal — this is exactly the
+ * mobile return path: the wallet app approves, the OS reloads the browser tab,
+ * and the reloaded page must silently re-adopt the approved session. Only when
+ * no session exists is the modal opened and the wait begins.
+ */
+export const connectWalletConnect = async (opts?: { timeoutMs?: number }): Promise<PseEip1193Provider | null> => {
   const ready = await initWalletConnect();
-  if (!ready || !wcState.openModal || !wcState.getProvider) return null;
+  if (!ready || !wcState.openModal) return null;
+
+  const restored = await waitForWalletConnectProvider(3_000);
+  if (restored) return restored;
+
+  // Fresh connect: open the modal and wait while the user completes the
+  // handoff (QR on desktop, deep link to the wallet app on mobile).
   wcState.openModal();
-  return wcState.getProvider();
+  return waitForWalletConnectProvider(opts?.timeoutMs ?? 300_000);
+};
+
+/**
+ * Silent session restore (boot path): adopts an approved WalletConnect session
+ * from storage WITHOUT opening the modal. Returns null when there is nothing
+ * to restore within `timeoutMs` — that is not an error, just no session.
+ */
+export const restoreWalletConnectSession = async (timeoutMs = 8_000): Promise<PseEip1193Provider | null> => {
+  if (!isWalletConnectConfigured()) return null;
+  const ready = await initWalletConnect();
+  if (!ready) return null;
+  return waitForWalletConnectProvider(timeoutMs);
 };
 
 export const disconnectWalletConnect = async (): Promise<void> => {

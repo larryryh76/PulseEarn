@@ -35,6 +35,7 @@ import {
   hasInjectedProvider,
   isWalletConnectConfigured,
   isWalletRejection,
+  restoreWalletConnectSession,
   sendPaymentTransaction,
   silentInjectedAccounts,
   subscribeWalletEvents,
@@ -481,9 +482,15 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Silent re-connect on session start: previously-authorised injected
   // accounts re-adopt automatically; per-account persistence means account B
   // never inherits account A's wallet. The stored key holds both address and
-  // transport so a WalletConnect session can also be restored when its
-  // provider re-initialises (injected re-adoption is handled above).
+  // transport.
+  //
+  // WalletConnect restore (mobile return path): when the wallet app approves
+  // the session it deep-links back and the OS reloads this page — the original
+  // connect() promise dies with that page load. The reloaded page therefore
+  // restores the approved session here WITHOUT reopening the modal; only when
+  // no stored session exists is nothing done (explicit connect as before).
   useEffect(() => {
+    let cancelled = false;
     const raw = localStorage.getItem('psemine_connected_wallet');
     if (!raw) return;
     try {
@@ -491,7 +498,17 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!stored?.address) return;
       if (stored.transport === 'walletConnect') {
         setWalletConnectAvailable(isWalletConnectConfigured());
-        return; // WalletConnect reconnect requires the SDK session; reconnection is explicit.
+        if (!isWalletConnectConfigured()) return;
+        void restoreWalletConnectSession().then(provider => {
+          if (cancelled || !provider) return; // no session yet — explicit connect still works
+          return connectWithProvider(provider, 'walletConnect', stored.walletName || 'WalletConnect wallet')
+            .then(connection => {
+              if (cancelled || !connection) return;
+              adoptConnection(connection);
+              if (currentUser) void PSEMineEngine.setConnectedWallet(connection.address);
+            });
+        }).catch(() => { /* restore is best-effort; explicit connect remains */ });
+        return;
       }
       if (hasInjectedProvider()) {
         silentInjectedAccounts(
@@ -512,6 +529,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {
       /* malformed stored state — ignore; explicit connect still works */
     }
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

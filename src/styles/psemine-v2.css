@@ -287,8 +287,16 @@
 @keyframes pse-shimmer { to { background-position: -200% 0; } }
 .pse-scope .pse-mobile-menu { box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45); }
 
-/* Touch floor on coarse pointers */
-@media (pointer: coarse) {
+/* Touch floor on coarse pointers — and on phone-width viewports too, because
+   some WebViews report a fine pointer on a touch device, where the floor would
+   otherwise silently not apply. */
+@media (pointer: coarse), (max-width: 640px) {
   .pse-scope header a, .pse-scope nav a, .pse-scope footer a,
   .pse-scope .pse-btn-sm, .pse-scope .pse-chapter-toggle { min-height: 44px; }
+  /* Inline text actions ("Refresh") are the smallest controls in the console:
+     give them a real tap target without changing how they read. */
+  .pse-scope button.pse-micro, .pse-scope a.pse-micro {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 44px; min-width: 44px;
+  }
 }

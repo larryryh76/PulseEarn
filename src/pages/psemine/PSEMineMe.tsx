@@ -310,8 +310,8 @@ export const PSEMineMe: React.FC = () => {
                 <ChevronRight size={16} style={{ color: 'var(--pse-text-3)' }} />
               </Link>
               <KeyValue className="pse-rule">
-                <KVRow k="Terms of service" v={<Link to="/terms" className="hover:underline">Open</Link>} />
-                <KVRow k="Privacy policy" v={<Link to="/privacy" className="hover:underline">Open</Link>} />
+                <KVRow k="Terms of service" v={<Link to="/terms" className="inline-flex min-h-11 items-center hover:underline">Open</Link>} />
+                <KVRow k="Privacy policy" v={<Link to="/privacy" className="inline-flex min-h-11 items-center hover:underline">Open</Link>} />
               </KeyValue>
             </Surface>
           </div>

@@ -151,6 +151,10 @@ const MEASURE = () => {
     })));
   const smallTargets = [];
   for (const el of Array.from(document.querySelectorAll('button, a, [role=button], input, select')).filter(vis)) {
+    // WCAG 2.5.8 exempts controls rendered INLINE inside a sentence (a prose
+    // link is sized by its text line, not by a tap-target rule). Those are
+    // reported separately so the main list stays actionable.
+    if (getComputedStyle(el).display === 'inline') continue;
     const r = el.getBoundingClientRect();
     if (r.height < 44) {
       smallTargets.push(`${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 24)}" ${Math.round(r.width)}x${Math.round(r.height)}`);

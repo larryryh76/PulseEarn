@@ -64,6 +64,7 @@ export const CYCLE_STATE_MAP: Record<string, {
   description: string; live: boolean;
 }> = {
   active:                { label: 'Active',                chip: 'pse-chip pse-chip-success', icon: PlayCircle, description: 'Operating normally — accruing hourly.', live: true },
+  restarting:            { label: 'Restarting',            chip: 'pse-chip pse-chip-blue',    icon: RefreshCcw, description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
   cycle_complete:        { label: 'Cycle Complete',        chip: 'pse-chip pse-chip-warning', icon: Clock,      description: '24-hour operating cycle finished. Maintenance is available.', live: false },
   maintenance_required:  { label: 'Maintenance Required',  chip: 'pse-chip pse-chip-danger',  icon: Wrench,     description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
   paused:                { label: 'Paused',                chip: 'pse-chip pse-chip-warning', icon: Pause,      description: 'Campaign paused — tool is not accruing.', live: false },
@@ -77,6 +78,15 @@ export const CYCLE_STATE_MAP: Record<string, {
 
 export function cycleStateView(state?: string | null) {
   return CYCLE_STATE_MAP[state || ''] || CYCLE_STATE_MAP.inactive;
+}
+
+/* ── Operating model labels (session vs continuous) ───────────────────
+ * Mirrors the backend per-tool operating model. Runtime behavior itself is
+ * backend-authoritative; these labels only describe it. */
+export function operatingModelView(model?: string | null): { label: string; detail: string; chip: string } {
+  return model === 'continuous'
+    ? { label: 'Continuous mining', detail: 'No manual restart required', chip: 'pse-chip pse-chip-cyan' }
+    : { label: 'Session mining', detail: 'Manual restart required between sessions', chip: 'pse-chip pse-chip-neutral' };
 }
 
 /* ── Purchase status ────────────────────────────────────────────────── */
@@ -153,6 +163,27 @@ export function gbpRate(v?: number | null): string {
 export function shortHash(h?: string | null, size = 6): string {
   if (!h) return '—';
   return h.length <= size * 2 + 3 ? h : `${h.slice(0, size)}…${h.slice(-4)}`;
+}
+/**
+ * EXACT BNB display, derived from the server's wei string. This is THE single
+ * rendering path for a quoted amount: the quote block, the payment summary and
+ * the pay button all render this value, so they can never disagree (the
+ * previous defect showed 0.005273 in the quote while the button said 0.0053).
+ * Never rounds: trailing zeros are trimmed, nothing else.
+ */
+export function bnbExactFromWei(wei?: string | number | null, fallbackBnb?: number | null): string {
+  const w = typeof wei === 'string'
+    ? wei.trim()
+    : typeof wei === 'number' && Number.isFinite(wei) ? String(Math.floor(wei)) : '';
+  if (/^\d+$/.test(w) && w.length > 0) {
+    const padded = w.padStart(19, '0');
+    const whole = padded.slice(0, padded.length - 18);
+    const frac = padded.slice(-18).replace(/0+$/, '');
+    return frac ? `${whole}.${frac}` : whole;
+  }
+  // Legacy quotes without a wei string: fall back to the numeric amount at the
+  // same 6-decimal precision the backend quoted with.
+  return typeof fallbackBnb === 'number' && Number.isFinite(fallbackBnb) ? fallbackBnb.toFixed(6) : '—';
 }
 export function shortAddr(a?: string | null): string {
   if (!a) return '—';

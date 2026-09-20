@@ -42,6 +42,39 @@ LEGACY_TOOL_ID_ALIASES: Dict[str, str] = {
     "pro": "advanced",
 }
 
+# --- Operating models (per tool; ECONOMICS UNTOUCHED) ------------------------
+# The operating model decides HOW a tool runs, never how much it earns per
+# hour. Hourly rates live exclusively in LOCKED_PSEMINE_TOOLS above.
+#
+#   session    : the tool mines for a finite operating session of
+#                session_duration_hours, then stops. A manual restart is
+#                required; after the restart is requested the backend keeps the
+#                tool idle for restart_delay_minutes before the next session
+#                begins (accrual is impossible in that window — the anchor sits
+#                in the future until the session actually starts).
+#   continuous : the tool runs for the active campaign with NO manual restart
+#                cycle (Elite). Campaign pause/end/settlement still govern it.
+#
+# session_duration_hours reuses the canonical OPERATING_CYCLE_HOURS value below
+# (24h) — the duration that has always governed operating cycles; it is not a
+# new invented number. restart_delay_minutes is the backend-owned restart
+# latency ("10 minutes or longer").
+TOOL_OPERATING_MODELS: Dict[str, dict] = {
+    "starter":  {"operatingModel": "session",    "sessionDurationHours": 24, "restartDelayMinutes": 10},
+    "builder":  {"operatingModel": "session",    "sessionDurationHours": 24, "restartDelayMinutes": 10},
+    "advanced": {"operatingModel": "session",    "sessionDurationHours": 24, "restartDelayMinutes": 10},
+    "elite":    {"operatingModel": "continuous"},
+}
+
+# Unknown/legacy tools default to the session model — the behavior every
+# ownership had before per-tool models existed (safe default, never a rate
+# change).
+def tool_operating_model(tool_id) -> dict:
+    """Resolve the operating model for a tool id (legacy ids map first)."""
+    raw = str(tool_id or "").strip()
+    canonical = raw if raw in TOOL_OPERATING_MODELS else LEGACY_TOOL_ID_ALIASES.get(raw, raw)
+    return TOOL_OPERATING_MODELS.get(canonical) or TOOL_OPERATING_MODELS["starter"]
+
 # Maximum capacities (minor units / hour)
 MAX_TOOL_CAPACITY_MINOR_PER_HOUR = 1060          # £10.60
 MAX_QUALIFIED_REFERRALS = 5
@@ -166,7 +199,13 @@ def derive_cycle(ownership: dict, now: datetime) -> OwnershipCycle:
     Derive the real-time operating cycle from persisted ownership fields.
     Backend fields expected on ownership docs:
       cycleIndex, cycleStartedAt (iso), status
-    Cycle length: OPERATING_CYCLE_HOURS; grace: MAINTENANCE_GRACE_HOURS.
+    Session tools: cycle length OPERATING_CYCLE_HOURS; grace MAINTENANCE_GRACE_HOURS.
+    Continuous tools (Elite): never enter the cycle-complete/maintenance cycle —
+    they stay 'active' while the ownership itself is active; campaign state and
+    settlement govern them instead.
+    A session tool whose cycleStartedAt lies in the FUTURE is mid-restart: the
+    restart was requested and the next session begins at that timestamp. Until
+    then the tool mines nothing (state 'restarting').
     """
     idx = int(ownership.get("cycleIndex") or 0)
     # B2 consistency: no activatedAt fallback — anchor-less legacy ownerships
@@ -181,10 +220,28 @@ def derive_cycle(ownership: dict, now: datetime) -> OwnershipCycle:
     except Exception:
         return OwnershipCycle(cycle_index=idx, state=status)
 
+    model = tool_operating_model(ownership.get("toolId"))
+    if model.get("operatingModel") == "continuous":
+        # Continuous operation: no session end, no maintenance requirement.
+        # cycle_end_iso stays None — the UI must not show a session countdown.
+        return OwnershipCycle(
+            cycle_index=idx,
+            cycle_start_iso=started.isoformat(),
+            state="active",
+        )
+
     elapsed = now - started
-    cycle_len = timedelta(hours=OPERATING_CYCLE_HOURS)
+    cycle_len = timedelta(hours=float(model.get("sessionDurationHours") or OPERATING_CYCLE_HOURS))
     grace = timedelta(hours=MAINTENANCE_GRACE_HOURS)
 
+    if elapsed < timedelta(0):
+        # Restart requested; the next session begins at `started` (future).
+        return OwnershipCycle(
+            cycle_index=idx,
+            cycle_start_iso=started.isoformat(),
+            cycle_end_iso=(started + cycle_len).isoformat(),
+            state="restarting",
+        )
     if elapsed < cycle_len:
         return OwnershipCycle(
             cycle_index=idx,
@@ -395,8 +452,32 @@ def accrue_ownership(
         else:
             return zero
 
-    # Operating portion of the CURRENT cycle only (grace never accrues).
-    cycle_end = started + timedelta(hours=OPERATING_CYCLE_HOURS)
+    model = tool_operating_model(ownership.get("toolId"))
+    if model.get("operatingModel") == "continuous":
+        # Continuous tool: no operating-cycle clipping. Eligible time is simply
+        # the requested window intersected with the campaign operating windows
+        # below; pause/end remain enforced by those windows (and by the caller).
+        effective_end = window_end
+        effective_start = max(window_start, started)
+        if effective_end <= effective_start:
+            return (0, window_end)
+        total_minor = 0
+        for w_start, w_end, is_operating in campaign_windows:
+            if not is_operating:
+                continue
+            seg_start = max(effective_start, w_start)
+            seg_end = min(effective_end, w_end)
+            if seg_end <= seg_start:
+                continue
+            hours = Decimal((seg_end - seg_start).total_seconds()) / Decimal(3600)
+            earned = int((Decimal(rate_minor) * hours).to_integral_value(rounding=ROUND_DOWN))
+            total_minor += earned
+        return (total_minor, window_end)
+
+    # Session tool: operating portion of the CURRENT session only — a future
+    # session start (restart pending) and the post-session window never accrue.
+    session_len = timedelta(hours=float(model.get("sessionDurationHours") or OPERATING_CYCLE_HOURS))
+    cycle_end = started + session_len
     effective_end = min(window_end, cycle_end)
     effective_start = max(window_start, started)
     if effective_end <= effective_start:

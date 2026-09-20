@@ -37,6 +37,7 @@ from psemine_core import (
     compute_tool_capacity_minor,
     compute_total_capacity_minor,
     derive_cycle,
+    tool_operating_model,
     gbp_major_to_minor,
     is_anchorless_legacy_ownership,
     is_valid_referral_progression,
@@ -708,9 +709,21 @@ def accrual_checkpoint(db, uid, source="auto"):
 
 def maintain_ownership(db, uid, ownership_id, source_ip=None):
     """
-    Canonical maintenance: validates cycle completion, settles any unsettled
-    eligible time (idempotently via per-tool anchor), advances the cycle.
-    No economic reward is minted by maintenance itself. Idempotent per cycle.
+    Canonical maintenance = the manual RESTART of a session-based tool.
+
+    Validates session completion, settles any unsettled eligible time
+    (idempotently via the per-tool anchor), then schedules the NEXT session.
+    The restart is NOT instantaneous: the next session begins at
+    now + restartDelayMinutes (backend-owned latency, per-tool operating model),
+    and the accrual anchor is parked at that future start — so no earning is
+    possible during the restart window and the tool only mines again once the
+    backend considers the session active (derive_cycle flips 'restarting' ->
+    'active' at the scheduled start).
+
+    Continuous tools (Elite) have no manual restart cycle: they are refused
+    here (CONTINUOUS_TOOL) and run while the campaign itself is active.
+    No economic reward is minted by maintenance itself. Idempotent per session:
+    a second restart while one is pending is rejected (RESTART_IN_PROGRESS).
     """
     camp, effective, _ = campaign_lifecycle_state(db)
     if effective == "ended":
@@ -728,6 +741,12 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             return {"ok": False, "error": "FORBIDDEN"}
         if d.get("status") not in ("active", "cycle_complete", "maintenance_required"):
             return {"ok": False, "error": "INVALID_STATE"}
+
+        # Per-tool operating model. Continuous tools never restart manually.
+        model = tool_operating_model(d.get("toolId"))
+        if model.get("operatingModel") == "continuous":
+            return {"ok": False, "error": "CONTINUOUS_TOOL"}
+        restart_delay_minutes = max(0, int(model.get("restartDelayMinutes") or 0))
 
         now = utcnow()
         # ------------------------------------------------------------------
@@ -766,6 +785,11 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
             }
             d = {**d, "cycleStartedAt": _iso(now), "lastAccruedAt": _iso(now)}
         c = derive_cycle(d, now)
+        if c.state == "restarting":
+            # A restart is already scheduled and pending — refuse to double-book
+            # it. The caller gets the authoritative resume time.
+            return {"ok": False, "error": "RESTART_IN_PROGRESS",
+                    "resumesAt": d.get("cycleStartedAt")}
         maintenance_required = c.maintenance_required
 
         # ── read phase: EVERY read happens here, before any write is buffered ──
@@ -824,13 +848,15 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
                 })
             txn.update(own_ref, {"lastAccruedAt": _iso(cycle_end)})
 
-        # cycle advancement: within grace -> next cycle starts at cycle_end (full time kept);
-        # after grace -> lost time is lost, next cycle starts now.
-        now_in_grace = now <= cycle_end + timedelta(hours=MAINTENANCE_GRACE_HOURS)
-        next_start = cycle_end if now_in_grace else now
+        # Restart scheduling: the next session begins after the backend-owned
+        # restart delay — never instantaneously. The elapsed restart window
+        # (previous session end -> next start) earns nothing: the anchor below
+        # is parked at the future start, so accrual_checkpoint cannot credit it.
+        next_start = now + timedelta(minutes=restart_delay_minutes)
+        next_index = int(d.get("cycleIndex") or 0) + 1
 
         txn.update(own_ref, {
-            "cycleIndex": int(d.get("cycleIndex") or 0) + 1,
+            "cycleIndex": next_index,
             "cycleStartedAt": _iso(next_start),
             "lastMaintenanceAt": _iso(now),
             "maintenanceCount": int(d.get("maintenanceCount") or 0) + 1,
@@ -841,17 +867,28 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
 
         act_ref = db.collection("psemine_activities").document()
         txn.set(act_ref, {
-            "id": act_ref.id, "userId": uid, "type": "TOOL_MAINTAINED",
-            "title": "Maintenance Completed",
-            "description": f"Operating cycle {int(d.get('cycleIndex') or 0) + 1} started for {d.get('toolName') or d.get('toolId')}.",
-            "metadata": {"ownershipId": ownership_id, "cycleIndex": int(d.get("cycleIndex") or 0) + 1},
+            "id": act_ref.id, "userId": uid, "type": "RESTART_REQUESTED",
+            "title": "Restart Requested",
+            "description": (
+                f"Mining session completed for {d.get('toolName') or d.get('toolId')}. "
+                f"Restart in progress — session {next_index} begins at "
+                f"{next_start.strftime('%H:%M UTC')}."
+            ),
+            "metadata": {
+                "ownershipId": ownership_id,
+                "cycleIndex": next_index,
+                "resumesAt": _iso(next_start),
+                "restartDelayMinutes": restart_delay_minutes,
+            },
             "createdAt": firestore_server_ts(),
         })
 
         return {
             "ok": True,
-            "cycleIndex": int(d.get("cycleIndex") or 0) + 1,
+            "cycleIndex": next_index,
             "nextCycleStartedAt": _iso(next_start),
+            "resumesAt": _iso(next_start),
+            "restartDelayMinutes": restart_delay_minutes,
             "settledMinor": int(settle_minor),
         }
 
@@ -859,7 +896,10 @@ def maintain_ownership(db, uid, ownership_id, source_ip=None):
 
 
 def hydrate_ownership_for_activation(ownership_id, uid, tool_id, tool_cfg, purchase_id, now):
-    """Ownership payload with canonical cycle + anchor fields (minor-unit rates)."""
+    """Ownership payload with canonical cycle + anchor fields (minor-unit rates)
+    plus the tool's operating model (session vs continuous) so the runtime
+    behavior and the UI both read from the same backend configuration."""
+    model = tool_operating_model(tool_id)
     return {
         "id": ownership_id,
         "userId": uid,
@@ -877,6 +917,10 @@ def hydrate_ownership_for_activation(ownership_id, uid, tool_id, tool_cfg, purch
         "maintenanceCount": 0,
         "operatingCycleHours": OPERATING_CYCLE_HOURS,
         "maintenanceGraceHours": MAINTENANCE_GRACE_HOURS,
+        # Operating model (backend-configured; the UI displays it verbatim):
+        "operatingModel": model.get("operatingModel", "session"),
+        "sessionDurationHours": model.get("sessionDurationHours", OPERATING_CYCLE_HOURS),
+        "restartDelayMinutes": model.get("restartDelayMinutes", 0),
         "status": "active",
         "createdAt": firestore_server_ts(),
     }

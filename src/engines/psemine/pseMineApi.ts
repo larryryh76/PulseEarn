@@ -79,16 +79,40 @@ export interface PseStateTool {
   id: string; toolId?: string; toolName?: string; hourlyRateGBP?: number; purchasePriceGBP?: number;
   status?: string; cycleIndex?: number; cycleState?: string; maintenanceRequired?: boolean;
   cycleEndsAt?: string | null; activatedAt?: string; lastAccruedAt?: string; cycleStartedAt?: string;
+  /** Per-tool operating model (backend-authoritative). */
+  operatingModel?: 'session' | 'continuous';
+  sessionDurationHours?: number;
+  restartDelayMinutes?: number;
+  /** For a session tool mid-restart: the backend-scheduled next-session start. */
+  restartResumesAt?: string | null;
 }
 export interface PseStateCampaign {
   id?: string; name?: string; status?: string; startAt?: string; endAt?: string; durationDays?: number;
   purchaseEnabled?: boolean; miningEnabled?: boolean; referralEnabled?: boolean;
   receiverWalletAddress?: string; paymentNetwork?: string;
 }
+/** An in-flight purchase the client can RESUME after a refresh instead of
+ *  creating a second purchase intent. Read-only projection of the user's own
+ *  records; amounts come verbatim from the stored quote. */
+export interface PsePendingPurchase {
+  purchaseId: string;
+  toolId?: string;
+  toolName?: string;
+  status?: string;
+  quoteId?: string;
+  paymentWallet?: string | null;
+  receiverWallet?: string;
+  quotedBNBAmount?: number;
+  quotedBNBWei?: string;
+  chainId?: number;
+  expiresAt?: string;
+  transactionHash?: string | null;
+}
 export interface PseState {
   success: boolean;
   user: PseStateUser;
   tools: PseStateTool[];
+  pendingPurchases?: PsePendingPurchase[];
   campaign: PseStateCampaign | null;
   effectiveCampaignStatus: string;
   checkpoint?: { earnedMinor?: number; duplicate?: boolean };

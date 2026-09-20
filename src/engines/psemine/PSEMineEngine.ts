@@ -263,7 +263,7 @@ export class PSEMineEngine {
    * POST /api/mine/tools/{ownershipId}/maintain. Restores future earning
    * eligibility; no reward is minted by maintenance itself.
    */
-  public static async maintainTool(ownershipId: string): Promise<{ success: boolean; error?: string; cycleIndex?: number; settledMinor?: number }> {
+  public static async maintainTool(ownershipId: string): Promise<{ success: boolean; error?: string; cycleIndex?: number; settledMinor?: number; resumesAt?: string; restartDelayMinutes?: number }> {
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
@@ -282,7 +282,7 @@ export class PSEMineEngine {
           ),
         };
       }
-      return { success: true, cycleIndex: data.cycleIndex, settledMinor: data.settledMinor };
+      return { success: true, cycleIndex: data.cycleIndex, settledMinor: data.settledMinor, resumesAt: data.resumesAt, restartDelayMinutes: data.restartDelayMinutes };
     } catch (e: unknown) {
       return {
         success: false,

@@ -4,7 +4,7 @@ import { RefreshCcw, Wrench, Layers, Activity as ActivityIcon } from 'lucide-rea
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
   gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe,
-  campaignStatusView, cycleStateView, purchaseStatusView,
+  campaignStatusView, cycleStateView, purchaseStatusView, operatingModelView,
   Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow,
   RowItem, Meter, PSEEmpty, PSEError, PSELoading, FeedNotice,
   ActivityRow, ACTIVITY_ICONS, shortHash, CampaignBanner, Slots, ActionLink,
@@ -58,6 +58,36 @@ export const PSEMineDashboard: React.FC = () => {
     [tools],
   );
   const activeTools = useMemo(() => tools.filter(t => t.cycleState === 'active'), [tools]);
+  const restartingTools = useMemo(() => tools.filter(t => t.cycleState === 'restarting'), [tools]);
+
+  /**
+   * TOOL STACKING view: every owned tool is listed individually (so three
+   * Advanced Miners are three stacked tools, never one Elite), and the tier
+   * totals are summed from the BACKEND's ownership records — counts and per-tool
+   * rates come from the state payload; only the displayed multiplication is
+   * local. The authoritative tool capacity is user.toolCapacityGBPPerHour.
+   */
+  const tierStack = useMemo(() => {
+    const groups = new Map<string, { tier: number; name: string; count: number; rate: number; model: string }>();
+    for (const t of tools) {
+      const key = String(t.toolId || 'unknown');
+      const def = LOCKED_PSEMINE_TOOLS[key as keyof typeof LOCKED_PSEMINE_TOOLS];
+      const rate = typeof t.hourlyRateGBP === 'number' ? t.hourlyRateGBP : (def?.hourlyRateGBP ?? 0);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        groups.set(key, {
+          tier: def?.tier ?? 9,
+          name: t.toolName || def?.name || 'Mining tool',
+          count: 1,
+          rate,
+          model: t.operatingModel || def?.operating?.model || 'session',
+        });
+      }
+    }
+    return [...groups.values()].sort((a, b) => a.tier - b.tier);
+  }, [tools]);
 
   const handleMaintain = async (ownershipId: string) => {
     setMaintaining(prev => new Set(prev).add(ownershipId));
@@ -118,14 +148,20 @@ export const PSEMineDashboard: React.FC = () => {
     if (isMiningLive && needsMaintenance.length > 0) {
       return {
         label: 'Partially interrupted', tone: 'var(--pse-warning)',
-        detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} stopped accruing and need maintenance.`,
+        detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} finished a mining session and stopped accruing — restart them to resume.`,
+      };
+    }
+    if (isMiningLive && restartingTools.length > 0 && activeTools.length === 0) {
+      return {
+        label: 'Restarting', tone: 'var(--pse-blue)',
+        detail: `${restartingTools.length} tool${restartingTools.length === 1 ? '' : 's'} restarting — mining resumes at the backend-scheduled time. No earnings accrue until then.`,
       };
     }
     if (isMiningLive && activeTools.length > 0) {
       return { label: 'Mining active', tone: 'var(--pse-success)', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
     }
     if (isMiningLive) {
-      return { label: 'Mining idle', tone: 'var(--pse-warning)', detail: 'No tool is currently inside an active operating cycle.' };
+      return { label: 'Mining idle', tone: 'var(--pse-warning)', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.' };
     }
     return { label: view.label.trim(), tone: view.tone, detail: view.detail };
   })();
@@ -202,7 +238,13 @@ export const PSEMineDashboard: React.FC = () => {
             {
               label: 'Operating tools',
               value: `${activeTools.length} / ${tools.length}`,
-              sub: tools.length === 0 ? 'No equipment purchased' : `${needsMaintenance.length} needing attention`,
+              sub: tools.length === 0
+                ? 'No equipment purchased'
+                : needsMaintenance.length > 0
+                  ? `${needsMaintenance.length} need a restart`
+                  : restartingTools.length > 0
+                    ? `${restartingTools.length} restarting`
+                    : 'All sessions healthy',
             },
             {
               label: 'Qualified referrals',
@@ -235,9 +277,9 @@ export const PSEMineDashboard: React.FC = () => {
       {isMiningLive && needsMaintenance.length > 0 && (
         <Surface
           tone="warning"
-          title={needsMaintenance.length === 1 ? '1 tool needs maintenance' : `${needsMaintenance.length} tools need maintenance`}
-          meta="Maintenance is free and restarts accrual for the next 24-hour cycle."
-          action={<Chip label="Action required" chip="pse-chip pse-chip-warning" dot={false} />}
+          title={needsMaintenance.length === 1 ? '1 mining session completed' : `${needsMaintenance.length} mining sessions completed`}
+          meta="Mining stopped for these tools. Restarting starts the next session — the backend needs a short restart period before mining resumes, and nothing accrues while it restarts."
+          action={<Chip label="Restart required" chip="pse-chip pse-chip-warning" dot={false} />}
           bodyClassName="pse-rows"
         >
           {needsMaintenance.map(t => (
@@ -245,7 +287,7 @@ export const PSEMineDashboard: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(t)}</p>
                 <p className="pse-micro mt-0.5">
-                  {cycleStateView(t.cycleState || t.status).description} · <span className="pse-num">{gbpRate(toolRate(t))}</span>
+                  Mining stopped — session complete · <span className="pse-num">{gbpRate(toolRate(t))}</span>
                 </p>
               </div>
               <button
@@ -253,10 +295,72 @@ export const PSEMineDashboard: React.FC = () => {
                 disabled={maintaining.has(t.id)}
                 className="pse-btn pse-btn-primary pse-btn-sm shrink-0"
               >
-                <Wrench size={12} /> {maintaining.has(t.id) ? 'Maintaining…' : 'Run maintenance'}
+                <Wrench size={12} /> {maintaining.has(t.id) ? 'Restarting…' : 'Restart miner'}
               </button>
             </RowItem>
           ))}
+        </Surface>
+      )}
+
+      {/* Restart in progress — the resume time is the backend's, never a guess. */}
+      {isMiningLive && restartingTools.length > 0 && (
+        <Surface
+          title={restartingTools.length === 1 ? '1 tool restarting' : `${restartingTools.length} tools restarting`}
+          meta="The backend is preparing the next mining session. No earnings accrue during the restart period."
+          action={<Chip label="Restarting" chip="pse-chip pse-chip-blue" pulse />}
+          bodyClassName="pse-rows"
+        >
+          {restartingTools.map(t => {
+            const eta = remainingFrom(t.restartResumesAt, nowMs());
+            return (
+              <RowItem key={t.id} className="flex-wrap sm:flex-nowrap">
+                <div className="min-w-0 flex-1">
+                  <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(t)}</p>
+                  <p className="pse-micro mt-0.5">
+                    Mining resumes {t.restartResumesAt ? `at ${new Date(t.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : 'shortly'}
+                    {eta.ms > 0 && ` · ${eta.text}`}
+                  </p>
+                </div>
+                <span className="pse-num pse-caption shrink-0" style={{ color: 'var(--pse-text-3)' }}>{gbpRate(toolRate(t))}</span>
+              </RowItem>
+            );
+          })}
+        </Surface>
+      )}
+
+      {/* ══ TOOL STACK ══════════════════════════════════════════════════
+          Every owned tool is its own operating unit: totals are grouped from
+          the backend's ownership records, so Advanced ×3 stays three stacked
+          tools (each with its own session state) rather than one tool. */}
+      {tierStack.length > 0 && (
+        <Surface
+          title="Capacity stack"
+          meta="Your owned tools grouped by tier — each entry is its own operating session"
+          action={<ActionLink to="/mine/tools">Add capacity</ActionLink>}
+          bodyClassName="pse-rows"
+        >
+          {tierStack.map(g => (
+            <RowItem key={g.name}>
+              <div className="min-w-0 flex-1">
+                <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>
+                  {g.name} × {g.count}
+                </p>
+                <p className="pse-micro mt-0.5">
+                  {gbpHour(g.rate)} each · {operatingModelView(g.model).label}
+                </p>
+              </div>
+              <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-cyan)' }}>
+                +{gbpHour(g.count * g.rate)}
+              </span>
+            </RowItem>
+          ))}
+          <RowItem>
+            <div className="min-w-0 flex-1">
+              <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Total tool capacity</p>
+              <p className="pse-micro mt-0.5">Backend-reported · cap {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</p>
+            </div>
+            <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{gbpHour(toolCapacity)}</span>
+          </RowItem>
         </Surface>
       )}
 
@@ -272,7 +376,7 @@ export const PSEMineDashboard: React.FC = () => {
             <PSEEmpty
               icon={Layers}
               title="No mining tools yet"
-              body="Purchase a tool to start building hourly capacity. Tools run 24-hour cycles and accrue their rate while active."
+              body="Purchase a tool to start building hourly capacity. Session tools accrue only while a mining session is active; Elite mines continuously."
               action={<Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-sm">Open the marketplace</Link>}
             />
           ) : (
@@ -297,6 +401,8 @@ export const PSEMineDashboard: React.FC = () => {
               <KVRow k="Phase" v={view.label.trim()} />
               <KVRow k="Duration" v={`${totalDays} days`} hint="Fixed, then settlement" />
               <KVRow k="Accounting" v="GBP" hint="Fixed hourly rates" />
+              <KVRow k="Session tools" v="Manual restart" hint="No earnings during a restart period" />
+              <KVRow k="Elite Miner" v="Continuous" hint="No manual session restart" />
             </KeyValue>
           </Surface>
 
@@ -339,9 +445,13 @@ function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
   const cycle = cycleStateView(tool.cycleState || tool.status);
   const def = toolDef(tool);
   const rank = def?.displayOrder ?? 1;
+  const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
   const running = tool.cycleState === 'active' && miningLive;
-  const remaining = running ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
-  const needsAction = miningLive && (
+  // Continuous tools expose no session end — never invent a countdown for them.
+  const remaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
+  const restarting = tool.cycleState === 'restarting';
+  const restartEta = restarting ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
+  const needsAction = miningLive && !continuous && (
     tool.maintenanceRequired === true ||
     tool.cycleState === 'cycle_complete' ||
     tool.cycleState === 'maintenance_required'
@@ -359,21 +469,26 @@ function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
         <div className="flex flex-wrap items-center gap-2">
           <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(tool)}</p>
           <Chip label={cycle.label} chip={cycle.chip} dot={false} />
-          {typeof tool.cycleIndex === 'number' && <span className="pse-micro">Cycle #{tool.cycleIndex + 1}</span>}
+          {continuous && <Chip label="Continuous" chip="pse-chip pse-chip-cyan" dot={false} />}
+          {!continuous && typeof tool.cycleIndex === 'number' && <span className="pse-micro">Session #{tool.cycleIndex + 1}</span>}
         </div>
         <p className="pse-micro mt-0.5">
           {remaining
-            ? remaining.text
-            : cycle.live
-              ? (miningLive ? 'Operating — accruing hourly' : 'Idle — campaign not active')
-              : cycle.description}
+            ? `Mining active — session remaining: ${remaining.text}`
+            : restartEta
+              ? `Mining stopped — restarting. Mining resumes${tool.restartResumesAt ? ` at ${new Date(tool.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : ''}${restartEta.ms > 0 ? ` · ${restartEta.text}` : ''}`
+              : continuous
+                ? (miningLive ? 'Mining active — continuous operation, no restart required' : 'Idle — campaign not active')
+                : cycle.live
+                  ? (miningLive ? 'Mining active — accruing hourly' : 'Idle — campaign not active')
+                  : cycle.description}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolRate(tool))}</span>
         {needsAction && (
           <button onClick={() => onMaintain(tool.id)} disabled={maintaining} className="pse-btn pse-btn-secondary pse-btn-sm">
-            <Wrench size={12} /> {maintaining ? 'Maintaining…' : 'Maintain'}
+            <Wrench size={12} /> {maintaining ? 'Restarting…' : 'Restart'}
           </button>
         )}
       </div>

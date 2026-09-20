@@ -15,7 +15,8 @@ import { cn } from '../../utils';
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 
 const FAQS = [
-  { q: 'What happens if I don\u2019t maintain a tool?', a: 'A tool whose cycle completed stops accruing until maintenance is performed. Nothing is lost — the tool stays owned, and one free maintenance action restarts accrual for the next cycle.' },
+  { q: 'What happens when a mining session ends?', a: 'Starter, Builder and Advanced miners run finite mining sessions. When a session completes, mining stops — the tool accrues nothing until you restart it from the dashboard. Restarting is free, but the backend needs a short restart period before mining resumes. Nothing is lost: the tool stays owned throughout.' },
+  { q: 'Which tools need manual restarts?', a: 'Starter, Builder and Advanced miners are session-based and need a manual restart between sessions. The Elite Miner operates continuously: once activated it keeps mining while the campaign is active, with no manual restart cycle.' },
   { q: 'Can I buy more tools mid-campaign?', a: 'Yes, while the campaign is active and purchases are enabled, up to each tool\u2019s ownership limit. New tools start their own first operating cycle when activated.' },
   { q: 'Why is my earnings number moving slowly?', a: 'Earnings accrue by the hour against your capacity, and only while tools are in an active operating cycle. The figure shown is settled by the backend checkpoint — it never estimates ahead.' },
   { q: 'Is my payout wallet the same as my connected wallet?', a: 'No. The connected wallet is for browsing and payments. The payout wallet is a separate, server-stored destination that receives your settlement. Connecting a wallet never changes your payout destination.' },
@@ -69,7 +70,7 @@ const SECTIONS: Section[] = [
         <ol className="mt-4 space-y-3">
           {[
             ['Day 0 — Start', 'The campaign opens. Purchases become available and tools begin their first operating cycle.'],
-            ['Days 1–90 — Operations', 'Tools run 24-hour cycles. Maintenance keeps them accruing. Capacity adds to your hourly rate as you buy tools and qualify referrals.'],
+            ['Days 1–90 — Operations', 'Session tools mine in finite sessions and stop when a session completes until you restart them; Elite mines continuously. Restarts are free and take a short backend period, during which nothing accrues. Capacity adds to your hourly rate as you buy tools and qualify referrals.'],
             ['Day 90 — Settlement', 'Accrual stops. Final balances are calculated from the append-only mining ledger.'],
             ['After day 90 — Payout', 'Payout requests open (minimum £10), are reviewed, then processed to your configured payout wallet.'],
           ].map(([t, d], i) => (
@@ -96,7 +97,7 @@ const SECTIONS: Section[] = [
         <div className="mt-4 overflow-x-auto">
           <table className="pse-table">
             <thead>
-              <tr><th>Tool</th><th className="pse-num-cell">Price</th><th className="pse-num-cell">Capacity</th><th className="pse-num-cell">Limit</th></tr>
+              <tr><th>Tool</th><th className="pse-num-cell">Price</th><th className="pse-num-cell">Capacity</th><th className="pse-num-cell">Limit</th><th>Operation</th></tr>
             </thead>
             <tbody>
               {TOOLS.map(t => (
@@ -105,6 +106,7 @@ const SECTIONS: Section[] = [
                   <td className="pse-num-cell">{gbp(t.purchasePriceGBP)}</td>
                   <td className="pse-num-cell" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</td>
                   <td className="pse-num-cell">{t.maxPerUser}</td>
+                  <td>{t.operating?.model === 'continuous' ? 'Continuous' : 'Session (manual restart)'}</td>
                 </tr>
               ))}
               <tr>
@@ -114,6 +116,7 @@ const SECTIONS: Section[] = [
                   {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}
                 </td>
                 <td className="pse-num-cell">—</td>
+                <td>—</td>
               </tr>
             </tbody>
           </table>
@@ -122,18 +125,26 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    id: 'cycles', icon: Repeat, title: 'Operating cycles & maintenance', summary: '24-hour cycles, always-free maintenance',
+    id: 'cycles', icon: Repeat, title: 'Mining sessions & restarts', summary: 'Session tools restart manually; Elite runs continuously',
     body: (
       <>
         <p className="pse-caption">
-          Every tool runs 24-hour operating cycles. While a cycle is active, the tool accrues its hourly rate. When the
-          cycle completes, the tool stops accruing until it is maintained.
+          Tools do not all run the same way. Starter, Builder and Advanced miners mine in finite <strong>sessions</strong>:
+          when a session completes, mining stops and the tool waits for you to restart it. The Elite Miner mines
+          <strong> continuously</strong> for as long as the campaign is active, with no manual restart cycle.
+        </p>
+        <p className="pse-caption mt-3">
+          Restarting a session tool is free, but it is not instant: the backend prepares the next session and mining
+          resumes only once that restart period completes. Nothing accrues while a session is stopped or restarting.
+          Session length and restart timing are set by the backend campaign configuration, not by the app.
         </p>
         <div className="mt-4 space-y-2.5">
           {[
-            ['Active', 'The 24-hour cycle is running and accruing.', 'pse-chip-success'],
-            ['Cycle Complete', 'The cycle finished. Maintenance is available — one free action.', 'pse-chip-warning'],
-            ['Maintenance Required', 'The grace window passed. Maintain to resume mining; the tool stays yours.', 'pse-chip-danger'],
+            ['Active', 'The session is running and the tool is accruing its hourly rate.', 'pse-chip-success'],
+            ['Session Complete', 'The mining session finished. Mining has stopped — restart the tool to begin the next session.', 'pse-chip-warning'],
+            ['Restarting', 'The restart was requested. Mining resumes automatically once the backend completes the restart period.', 'pse-chip-blue'],
+            ['Maintenance Required', 'The session ended a while ago and no restart has been requested yet. The tool stays yours — restart it to resume.', 'pse-chip-danger'],
+            ['Continuous', 'Elite Miner: mining runs continuously while the campaign is active. No restart required.', 'pse-chip-cyan'],
           ].map(([label, desc, chip]) => (
             <div key={label} className="flex items-start gap-3 pse-inset p-3.5">
               <Chip label={label} chip={`pse-chip ${chip}`} dot={false} />
@@ -143,8 +154,8 @@ const SECTIONS: Section[] = [
         </div>
         <p className="pse-caption mt-3.5 flex items-start gap-2">
           <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
-          Maintenance is always free and always will be. There is no paid maintenance and no health-percentage system —
-          the state itself is the operational truth.
+          Restarting is always free and always will be. There is no paid restart and no health-percentage system —
+          the backend-reported state itself is the operational truth.
         </p>
       </>
     ),
@@ -188,7 +199,8 @@ const SECTIONS: Section[] = [
           </div>
         </div>
         <p className="pse-micro mt-4">
-          Accrual depends on active operating cycles — a tool between cycles does not accrue until maintenance restarts it.
+          Accrual depends on live mining: a session tool earns only while its session is active, and a restarting tool
+          earns nothing until the backend marks the next session active. Elite earns continuously.
         </p>
       </>
     ),

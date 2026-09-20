@@ -9,6 +9,14 @@ export type PSEMineCampaignStatus =
 
 export type PSEToolTierId = 'starter' | 'builder' | 'advanced' | 'elite';
 
+/** How a tool OPERATES. Presentation mirror of the backend TOOL_OPERATING_MODELS
+ *  config (api/psemine_core.py), which is authoritative for runtime behavior:
+ *  - session    : finite operating session, then mining stops until the user
+ *                 manually restarts; the restart takes a backend-owned delay.
+ *  - continuous : runs while the campaign is active with NO manual restarts.
+ *  The model never changes what a tool earns per hour — rates stay locked. */
+export type PSEToolOperatingModel = 'session' | 'continuous';
+
 export interface PSEMineToolDefinition {
   id: PSEToolTierId;
   name: string;
@@ -25,6 +33,13 @@ export interface PSEMineToolDefinition {
     powerEfficiency: string;
     hashRateClass: string;
     warrantyDays: number;
+  };
+  /** Operating behavior (see PSEToolOperatingModel). Backend-authoritative at
+   *  runtime; this mirror drives tool-card labels only. */
+  operating: {
+    model: PSEToolOperatingModel;
+    /** Backend-owned restart latency for session tools, in minutes. */
+    restartDelayMinutes?: number;
   };
 }
 
@@ -234,7 +249,7 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
     name: 'Starter Miner',
     tier: 1,
     tagline: 'Entry-level mining capacity for emerging miners',
-    description: 'Deploys a lightweight, dedicated mining node with £0.10/hour continuous campaign capacity.',
+    description: 'Deploys a lightweight, dedicated mining node with £0.10/hour of campaign capacity on session-based operation — the easiest way to enter PSEmine.',
     purchasePriceGBP: 3,
     hourlyRateGBP: 0.10,
     maxPerUser: 5,
@@ -245,14 +260,15 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
       powerEfficiency: '98.4%',
       hashRateClass: 'Class-1 Standard',
       warrantyDays: 90
-    }
+    },
+    operating: { model: 'session', restartDelayMinutes: 10 }
   },
   builder: {
     id: 'builder',
     name: 'Builder Miner',
     tier: 2,
-    tagline: 'Standard production rig for core capacity scaling',
-    description: 'Deploys a balanced mining rig delivering £0.50/hour continuous campaign capacity.',
+    tagline: 'Growth-focused rig for scaling core capacity',
+    description: 'Deploys a balanced mining rig delivering £0.50/hour of campaign capacity on session-based operation, with enhanced tool statistics and restart control.',
     purchasePriceGBP: 10,
     hourlyRateGBP: 0.50,
     maxPerUser: 3,
@@ -263,14 +279,15 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
       powerEfficiency: '99.1%',
       hashRateClass: 'Class-2 Advanced',
       warrantyDays: 90
-    }
+    },
+    operating: { model: 'session', restartDelayMinutes: 10 }
   },
   advanced: {
     id: 'advanced',
     name: 'Advanced Miner',
     tier: 3,
-    tagline: 'High-throughput mining unit for heavy operations',
-    description: 'High-density computational node providing £1.20/hour continuous campaign capacity.',
+    tagline: 'High-throughput unit for building a larger position',
+    description: 'High-density computational node providing £1.20/hour of campaign capacity on session-based operation, with stacking visualization and deeper earnings analytics.',
     purchasePriceGBP: 50,
     hourlyRateGBP: 1.20,
     maxPerUser: 3,
@@ -281,14 +298,15 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
       powerEfficiency: '99.6%',
       hashRateClass: 'Class-3 Enterprise',
       warrantyDays: 90
-    }
+    },
+    operating: { model: 'session', restartDelayMinutes: 10 }
   },
   elite: {
     id: 'elite',
     name: 'Elite Miner',
     tier: 4,
-    tagline: 'Maximum capability enterprise mining cluster',
-    description: 'Institutional-grade mining cluster providing £2.50/hour continuous campaign capacity.',
+    tagline: 'Premium tier — continuous campaign operation',
+    description: 'Institutional-grade mining cluster providing £2.50/hour of campaign capacity with continuous operation: no manual session restarts while the campaign runs.',
     purchasePriceGBP: 200,
     hourlyRateGBP: 2.50,
     maxPerUser: 2,
@@ -299,9 +317,16 @@ export const LOCKED_PSEMINE_TOOLS: Record<PSEToolTierId, PSEMineToolDefinition> 
       powerEfficiency: '99.9%',
       hashRateClass: 'Class-4 Tier-1',
       warrantyDays: 90
-    }
+    },
+    operating: { model: 'continuous' }
   }
 };
+
+/** Operating model for a tool id (legacy ids map exactly like the backend). */
+export function toolOperatingModel(id: PSEToolTierId | string): PSEToolOperatingModel {
+  const key = (id === 'growth' ? 'builder' : id === 'pro' ? 'advanced' : id) as PSEToolTierId;
+  return LOCKED_PSEMINE_TOOLS[key]?.operating?.model ?? 'session';
+}
 
 // Economic Limits Constants
 export const PSEMINE_CONSTANTS = {

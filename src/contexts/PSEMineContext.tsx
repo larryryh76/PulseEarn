@@ -53,6 +53,9 @@ interface PSEMineContextType {
   walletTransport: PseWalletTransport | null;
   /** Human-readable wallet label for the active connection. */
   walletName: string | null;
+  /** Active EIP-1193 chain id (decimal), or null when no wallet reports one.
+   *  Payment is only permitted on the server-quoted chain (56 = BSC mainnet). */
+  walletChainId: number | null;
   /** Discoverable injected wallets (EIP-6963) + whether WalletConnect is offered. */
   injectedWallets: PseInjectedWallet[];
   walletConnectAvailable: boolean;
@@ -121,6 +124,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isRequestingQuote, setIsRequestingQuote] = useState<boolean>(false);
   const [walletTransport, setWalletTransport] = useState<PseWalletTransport | null>(null);
   const [walletName, setWalletName] = useState<string | null>(null);
+  const [walletChainId, setWalletChainId] = useState<number | null>(null);
   const [injectedWallets, setInjectedWallets] = useState<PseInjectedWallet[]>([]);
   const [walletConnectAvailable, setWalletConnectAvailable] = useState<boolean>(isWalletConnectConfigured());
 
@@ -328,6 +332,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     transportRef.current = connection.transport;
     setWalletTransport(connection.transport);
     setWalletName(connection.walletName);
+    setWalletChainId(typeof connection.chainId === 'number' ? connection.chainId : null);
     return subscribeWalletEvents(connection.provider, {
       onAccountsChanged: (accounts) => {
         if (!accounts || accounts.length === 0) {
@@ -339,6 +344,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           transportRef.current = null;
           setWalletTransport(null);
           setWalletName(null);
+          setWalletChainId(null);
         } else {
           const next = accounts[0].toLowerCase();
           setConnectedWallet(next);
@@ -347,9 +353,16 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       },
       onChainChanged: (chainIdHex) => {
-        // State refresh only. Payment is gated by ensurePaymentChain(); a chain
-        // change alone never activates or cancels a purchase.
-        void chainIdHex;
+        // State refresh: the purchase UI reads walletChainId for its state-aware
+        // network warning. Payment itself stays gated by ensurePaymentChain();
+        // a chain change alone never activates or cancels a purchase.
+        if (typeof chainIdHex !== 'string') { setWalletChainId(null); return; }
+        try {
+          const n = Number.parseInt(chainIdHex, chainIdHex.startsWith('0x') ? 16 : 10);
+          setWalletChainId(Number.isFinite(n) ? n : null);
+        } catch {
+          setWalletChainId(null);
+        }
       },
       onDisconnect: () => {
         setConnectedWallet(null);
@@ -359,6 +372,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         walletNameRef.current = null;
         setWalletTransport(null);
         setWalletName(null);
+        setWalletChainId(null);
       },
     });
   }, [currentUser, persistWallet]);
@@ -660,10 +674,13 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     const res = await PSEMineEngine.maintainTool(ownershipId);
     if (res.success) {
-      toast.success('Maintenance completed — operating cycle restarted.');
+      toast.success(
+        'Restart requested — the next mining session begins automatically when the backend completes the restart.',
+        { duration: 6000 },
+      );
       await PSEMineEngine.syncAccrual(currentUser.uid);
     } else {
-      toast.error(res.error || 'Maintenance failed');
+      toast.error(res.error || 'Restart failed');
     }
     return res;
   }, [currentUser]);
@@ -704,6 +721,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     walletNameRef.current = null;
     setWalletTransport(null);
     setWalletName(null);
+    setWalletChainId(null);
   }, [currentUser, persistWallet]);
 
   return (
@@ -717,6 +735,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isConnectingWallet,
         walletTransport,
         walletName,
+        walletChainId,
         injectedWallets,
         walletConnectAvailable,
         connectWallet,

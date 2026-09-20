@@ -8346,6 +8346,16 @@ def mine_state():
         d['cycleState'] = c.state
         d['maintenanceRequired'] = c.maintenance_required
         d['cycleEndsAt'] = c.cycle_end_iso
+        # Operating model (session vs continuous) — backend-configured truth the
+        # UI renders verbatim. A future cycleStartedAt on a session tool is the
+        # scheduled next session (restart pending): expose its authoritative
+        # resume time so the client never guesses the restart ETA.
+        _model = _pse_engine.tool_operating_model(d.get('toolId'))
+        d['operatingModel'] = d.get('operatingModel') or _model.get('operatingModel')
+        d['sessionDurationHours'] = d.get('sessionDurationHours') or _model.get('sessionDurationHours')
+        d['restartDelayMinutes'] = d.get('restartDelayMinutes', 0) or _model.get('restartDelayMinutes', 0)
+        if c.state == 'restarting' and d.get('cycleStartedAt'):
+            d['restartResumesAt'] = d.get('cycleStartedAt')
         tools.append(d)
     camp, eff, _ = _pse_engine.campaign_lifecycle_state(db, force_write=False)
     _ledger_rows = [r.to_dict() for r in db.collection("psemine_mining_ledger").where("userId", "==", uid).get()]
@@ -8362,6 +8372,32 @@ def mine_state():
     )
     counts = u.get('toolOwnershipCounts') or {}
     qual = int(u.get('qualifiedReferralsCount') or 0)
+    # Pending purchases (awaiting_payment / transaction_submitted / confirming):
+    # the client uses this to RESUME an in-flight purchase after a refresh
+    # instead of creating a second intent. Read-only projection of the user's
+    # own records; amounts come verbatim from the stored quote.
+    pending_purchases = []
+    try:
+        pur_rows = db.collection('psemine_purchases').where('userId', '==', uid) \
+            .where('status', 'in', ['awaiting_payment', 'transaction_submitted', 'confirming']).get()
+        for pr in pur_rows:
+            pd = pr.to_dict() or {}
+            pending_purchases.append({
+                'purchaseId': pr.id,
+                'toolId': pd.get('toolId'),
+                'toolName': pd.get('toolName'),
+                'status': pd.get('status'),
+                'quoteId': pd.get('quoteId'),
+                'paymentWallet': pd.get('paymentWallet'),
+                'receiverWallet': pd.get('receiverWallet'),
+                'quotedBNBAmount': pd.get('quotedBNBAmount'),
+                'quotedBNBWei': pd.get('quotedBNBWei'),
+                'chainId': pd.get('chainId'),
+                'expiresAt': pd.get('expiresAt'),
+                'transactionHash': pd.get('transactionHash'),
+            })
+    except Exception:
+        logging.warning("[PSEmine State] pending-purchase projection failed", exc_info=True)
     from psemine_core import compute_tool_capacity_minor, compute_referral_capacity_minor, compute_total_capacity_minor
     return jsonify({
         "success": True,
@@ -8379,6 +8415,7 @@ def mine_state():
             "status": u.get('status'),
         },
         "tools": tools,
+        "pendingPurchases": pending_purchases,
         "campaign": {k: v for k, v in camp.items() if not str(k).startswith('_')} if camp else None,
         "effectiveCampaignStatus": eff,
         "checkpoint": {"earnedMinor": ck.get("earnedMinor", 0), "duplicate": ck.get("duplicate", False)},

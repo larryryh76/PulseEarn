@@ -644,9 +644,13 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // sits on the connect step (deep-link return from a mobile wallet app, or
   // extension approval), the flow advances into the quote automatically. The
   // quote request effect above runs regardless of which step is visible.
+  // Only a LIVE connection advances the step. An address merely remembered for
+  // the account would otherwise bounce the user straight back out of the
+  // connect step, leaving "reconnect" as a button that does nothing — the exact
+  // dead end this check is supposed to prevent.
   useEffect(() => {
-    if (step === 'connect' && connectedWallet) setStep('quote');
-  }, [step, connectedWallet]);
+    if (step === 'connect' && connectedWallet && walletTransport !== null) setStep('quote');
+  }, [step, connectedWallet, walletTransport]);
 
   // Safety: if the wallet disconnects mid-flow (wallet lock, WalletConnect
   // session end), no payment UI may remain active — drop back to connect and

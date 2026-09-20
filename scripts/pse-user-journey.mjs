@@ -237,8 +237,11 @@ try {
     const liveProviderUsed = await page.evaluate(() => window.__calls.length > 0);
     if (!liveProviderUsed) {
       check('no connected provider yet', true, 'account-remembered payer only');
-      const payDisabled = await payButton.isDisabled().catch(() => null);
-      check('Pay is blocked while no live wallet is connected in this browser', payDisabled === true, `disabled=${payDisabled}`);
+      // Fail closed means the payment step is NOT reachable at all: offering a
+      // disabled Pay button would still let a user click through to a prompt
+      // nothing can answer.
+      check('no Pay control is offered before a live wallet is connected',
+        (await payButton.count()) === 0, `pay controls=${await payButton.count()}`);
       check('a reconnect action is offered instead',
         (await dialogButtons()).some(b => /reconnect|connect a wallet/i.test(b)),
         JSON.stringify(await dialogButtons()));

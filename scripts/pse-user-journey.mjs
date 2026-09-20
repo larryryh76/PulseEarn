@@ -279,8 +279,9 @@ try {
 
     const payLabel = (await payButton.innerText().catch(() => '')).replace(/\s+/g, ' ');
     const payAmount = (payLabel.match(/0\.\d{4,}/) || [])[0];
+    const quotedAmount = (amounts[0] || '').replace(/\s*BNB$/, '');
     check('the Pay control shows the exact quoted amount',
-      Boolean(payAmount) && payAmount === amounts[0],
+      Boolean(payAmount) && payAmount === quotedAmount,
       `pay="${payLabel}" quote="${amounts[0] || ''}"`);
 
     // Wrong chain (stub is on Ethereum mainnet): warn + offer the switch.

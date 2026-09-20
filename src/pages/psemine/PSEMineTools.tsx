@@ -526,7 +526,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const {
     connectedWallet, walletChainId, walletTransport, pseUser,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
-    sendPayment, ensurePaymentChain,
+    sendPayment, ensurePaymentChain, refreshWalletChain,
   } = usePSEMine();
   const { refresh } = usePseState();
 
@@ -704,10 +704,18 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   const switchChain = async () => {
     const ok = await ensurePaymentChain(requiredChainId);
-    if (ok) {
+    if (!ok) {
+      toast.error(`Switch your wallet to ${networkName} in the wallet app — the request was refused or unsupported.`);
+      return;
+    }
+    // Confirm the chain from the provider itself: a wallet that does not emit
+    // chainChanged would otherwise leave the warning and the blocked Pay button
+    // on screen after a switch that actually succeeded.
+    const chain = await refreshWalletChain();
+    if (chain === requiredChainId) {
       toast.success(`Wallet switched to ${networkName}.`);
     } else {
-      toast.error(`Switch your wallet to ${networkName} in the wallet app — the request was refused or unsupported.`);
+      toast(`Confirm ${networkName} in your wallet to continue.`, { icon: '⏳' });
     }
   };
 

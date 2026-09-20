@@ -67,6 +67,12 @@ interface PSEMineContextType {
   /** Fail-closed chain assertion against the server-quoted chain. */
   ensurePaymentChain: (chainId: number) => Promise<boolean>;
   /**
+   * Re-reads the active chain from the wallet provider and updates
+   * `walletChainId`. Called after an explicit switch: wallets that never emit
+   * `chainChanged` must not leave the console showing the old chain.
+   */
+  refreshWalletChain: () => Promise<number | null>;
+  /**
    * Binds the connected wallet as the payer of a server quote BEFORE the wallet
    * is asked to sign anything. Resolves with the server-issued purchase id and
    * the payer wallet the backend actually recorded on it (never the client's
@@ -724,6 +730,29 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWalletChainId(null);
   }, [currentUser, persistWallet]);
 
+  /**
+   * Re-read the active chain straight from the provider.
+   *
+   * A wallet is not obliged to emit `chainChanged` (WalletConnect sessions and
+   * several extensions do not), so after an explicit switch the console would
+   * keep showing the OLD chain and its wrong-network warning forever. The
+   * switch confirms the chain itself instead of trusting an event.
+   */
+  const refreshWalletChain = useCallback(async (): Promise<number | null> => {
+    const provider = providerRef.current;
+    if (!provider) return null;
+    try {
+      const hex = (await provider.request({ method: 'eth_chainId' })) as string;
+      const n = typeof hex === 'string' ? Number.parseInt(hex, hex.startsWith('0x') ? 16 : 10) : NaN;
+      const value = Number.isFinite(n) ? n : null;
+      setWalletChainId(value);
+      return value;
+    } catch {
+      setWalletChainId(null);
+      return null;
+    }
+  }, []);
+
   return (
     <PSEMineContext.Provider
       value={{
@@ -743,6 +772,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         disconnectWallet,
         sendPayment,
         ensurePaymentChain,
+        refreshWalletChain,
         tools: toolsList,
         ownerships,
         purchases,

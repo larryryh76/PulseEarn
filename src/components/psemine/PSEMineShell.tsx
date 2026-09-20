@@ -90,7 +90,11 @@ export const PSEMineShell: React.FC = () => {
             <PSELogo size={30} withWordmark />
           </Link>
 
-          {inConsole && <div className="hidden sm:block"><NavStatus /></div>}
+          {/* Campaign chip: decorative here — the ConsoleBar below already
+              carries phase + progress for enrolled sessions. Hidden until lg
+              because at 768px the full console nav needs the room (it
+              overflowed the viewport by 3px with the chip present). */}
+          {inConsole && <div className="hidden lg:block"><NavStatus /></div>}
 
           {/* Desktop navigation */}
           <nav className="ml-auto hidden items-center gap-0.5 md:flex" aria-label="PSEmine console">

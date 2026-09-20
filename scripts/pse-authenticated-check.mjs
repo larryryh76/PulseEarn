@@ -23,6 +23,16 @@
  *
  * NOTE ON ACCOUNT SAFETY: the harness only signs in and reads pages. It never
  * purchases, withdraws or mutates economic state.
+ *
+ * NOTE ON THE SESSION: the signed-in session lives in ONE persistent browser
+ * context for the whole run. Firebase stores its session in IndexedDB, which
+ * Playwright's storageState() does not capture, so per-width contexts came back
+ * signed out and reported a console that was simply unauthenticated. Widths are
+ * measured by resizing the viewport (mobile emulation flags are per-context).
+ *
+ * The account must hold PSEmine entitlement (`users/{uid}.productAccess.psemine`)
+ * or the console correctly renders the entitlement gate on every protected route
+ * — that is a product state, and the report says so rather than claiming a pass.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -189,8 +199,13 @@ async function main() {
   const results = [];
 
   // ── Sign in once, through the real form ────────────────────────────────────
-  const authContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  const authPage = await authContext.newPage();
+  // ONE persistent context for the whole run. Firebase persists its session in
+  // IndexedDB, which Playwright's storageState() does NOT capture — a fresh
+  // context per width came back signed out, so every console route "redirected"
+  // to /mine/login and the run proved nothing. The session now lives here and
+  // widths are measured by resizing the viewport instead.
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const authPage = await context.newPage();
   const authErrors = [];
   authPage.on('pageerror', e => authErrors.push(String(e).slice(0, 200)));
   await authPage.goto(`${base}/mine/login`, { waitUntil: 'load' });
@@ -212,46 +227,54 @@ async function main() {
     return;
   }
   const signedInAs = await authPage.evaluate(() => document.body.innerText.slice(0, 120));
-  const storage = await authContext.storageState();
-  await authContext.close();
   console.log(`Signed in. Landing text: ${signedInAs.replace(/\s+/g, ' ').slice(0, 80)}`);
 
+  // Per-iteration capture, attached ONCE to the persistent page and reset at the
+  // top of every route/width pass (listeners cannot be re-registered per pass
+  // without duplicating every entry).
+  const capture = { consoleErrors: [], pageErrors: [], productCalls: [], productStores: [] };
+  const resetCapture = () => {
+    capture.consoleErrors.length = 0;
+    capture.pageErrors.length = 0;
+    capture.productCalls.length = 0;
+    capture.productStores.length = 0;
+  };
+  authPage.on('console', m => { if (m.type() === 'error') capture.consoleErrors.push(m.text().slice(0, 240)); });
+  authPage.on('pageerror', e => capture.pageErrors.push(String(e).slice(0, 240)));
+  authPage.on('request', r => {
+    const url = r.url();
+    if (FORBIDDEN_PRODUCT_CALLS.some(re => re.test(url))) capture.productCalls.push(safePath(url));
+    if (FORBIDDEN_STORE_PATHS.some(re => re.test(url))) capture.productStores.push(safePath(url));
+  });
+
   // ── Walk the console at every width with that session ─────────────────────
+  // Mobile emulation flags (isMobile/hasTouch) are fixed per context, so the
+  // width pass is a viewport resize: that is what drives the responsive
+  // breakpoints and the layout measurements taken below.
   for (const route of ROUTES) {
     for (const width of WIDTHS) {
-      const context = await browser.newContext({
-        viewport: { width, height: 900 }, isMobile: width <= 430, hasTouch: width <= 430,
-        storageState: storage,
-      });
-      const page = await context.newPage();
-      const consoleErrors = [], pageErrors = [], productCalls = [], productStores = [];
-      page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 240)); });
-      page.on('pageerror', e => pageErrors.push(String(e).slice(0, 240)));
-      page.on('request', r => {
-        const url = r.url();
-        if (FORBIDDEN_PRODUCT_CALLS.some(re => re.test(url))) productCalls.push(safePath(url));
-        if (FORBIDDEN_STORE_PATHS.some(re => re.test(url))) productStores.push(safePath(url));
-      });
+      const { consoleErrors, pageErrors, productCalls, productStores } = capture;
+      resetCapture();
+      await authPage.setViewportSize({ width, height: 900 });
 
       let measured = null, landedOn = '', title = '';
       try {
-        await page.goto(`${base}${route.path}`, { waitUntil: 'load', timeout: 25_000 });
-        await page.waitForTimeout(1200);
-        landedOn = await page.evaluate(() => location.pathname);
-        title = await page.title();
-        measured = await page.evaluate(MEASURE);
-        await page.screenshot({ path: path.join(OUT, `${route.id}-${width}.png`), fullPage: true, animations: 'disabled' });
+        await authPage.goto(`${base}${route.path}`, { waitUntil: 'load', timeout: 25_000 });
+        await authPage.waitForTimeout(1200);
+        landedOn = await authPage.evaluate(() => location.pathname);
+        title = await authPage.title();
+        measured = await authPage.evaluate(MEASURE);
+        await authPage.screenshot({ path: path.join(OUT, `${route.id}-${width}.png`), fullPage: true, animations: 'disabled' });
       } catch (e) {
         pageErrors.push(`HARNESS: ${String(e).slice(0, 160)}`);
       }
-      await context.close();
 
       results.push({
         route: route.path, id: route.id, width, landedOn, title,
         reachedConsole: landedOn === route.path,
         ...(measured || {}),
         horizontalOverflow: measured ? measured.scrollWidth > measured.clientWidth + 1 : null,
-        consoleErrors, pageErrors,
+        consoleErrors: [...consoleErrors], pageErrors: [...pageErrors],
         crossProductCalls: [...new Set(productCalls)],
         crossProductStoreReads: [...new Set(productStores)],
       });
@@ -259,36 +282,35 @@ async function main() {
   }
 
   // ── Logout: the session must actually end ──────────────────────────────────
-  // Reported as an observation, never assumed: if the control cannot be found
-  // the reason is recorded instead of a fabricated pass.
+  // Runs in the SAME signed-in context (a fresh context is signed out by
+  // definition and would report a fabricated pass). Reported as an observation,
+  // never assumed: an unmatched control records the reason instead.
   const logout = { attempted: true, controlFound: false, signedOut: false, reason: '' };
   try {
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 900 }, storageState: storage,
-    });
-    const page = await context.newPage();
-    await page.goto(`${base}/mine/me`, { waitUntil: 'load', timeout: 25_000 });
-    await page.waitForTimeout(800);
-    const control = page.getByRole('button', { name: /log ?out|sign ?out/i }).first();
+    await authPage.setViewportSize({ width: 1280, height: 900 });
+    await authPage.goto(`${base}/mine/me`, { waitUntil: 'load', timeout: 25_000 });
+    await authPage.waitForTimeout(800);
+    logout.landedOnMe = await authPage.evaluate(() => location.pathname);
+    const control = authPage.getByRole('button', { name: /log ?out|sign ?out/i }).first();
     if (await control.count()) {
       logout.controlFound = true;
       await control.click();
       // A confirm dialog may stand in the way; accept it if present.
-      const confirm = page.getByRole('button', { name: /log ?out|sign ?out|confirm|yes/i }).last();
+      const confirm = authPage.getByRole('button', { name: /log ?out|sign ?out|confirm|yes/i }).last();
       if (await confirm.count()) { try { await confirm.click({ timeout: 2_000 }); } catch { /* no dialog */ } }
-      await page.waitForTimeout(2500);
-      await page.goto(`${base}/mine/dashboard`, { waitUntil: 'load', timeout: 25_000 });
-      await page.waitForTimeout(1200);
-      logout.landedOn = await page.evaluate(() => location.pathname);
+      await authPage.waitForTimeout(2500);
+      await authPage.goto(`${base}/mine/dashboard`, { waitUntil: 'load', timeout: 25_000 });
+      await authPage.waitForTimeout(1200);
+      logout.landedOn = await authPage.evaluate(() => location.pathname);
       logout.signedOut = !/^\/mine\/(dashboard|tools|wallet|referrals|activity|me)/.test(logout.landedOn);
     } else {
-      logout.reason = 'no logout control matched on /mine/me — reported, not assumed';
+      logout.reason = `no logout control matched on /mine/me (landed ${logout.landedOnMe}) — reported, not assumed`;
     }
-    await context.close();
   } catch (e) {
     logout.reason = String(e).slice(0, 200);
   }
 
+  await context.close();
   await browser.close();
   if (server) server.close();
   fs.writeFileSync(

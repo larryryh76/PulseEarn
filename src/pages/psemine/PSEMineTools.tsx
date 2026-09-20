@@ -92,7 +92,35 @@ export const PSEMineTools: React.FC = () => {
   const headroom = Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity);
   const totalOwned = Object.values(counts).reduce((a, b) => a + (b || 0), 0);
   const tierSlotsLeft = tools.reduce((acc, t) => acc + Math.max(0, t.maxPerUser - (counts[t.id] || 0)), 0);
-  const pendingPurchase = (state?.pendingPurchases || [])[0] || null;
+  // ══ Refresh recovery: which pending purchase deserves the top card ══════
+  // The backend returns every open record in no particular order, so the
+  // client ranks them instead of trusting index 0:
+  //   1. an IN-FLIGHT submission (transaction_submitted / confirming) — the
+  //      backend is verifying it, so it is the most urgent thing to surface;
+  //   2. otherwise the newest quote window (a live one is resumable as-is).
+  // A lapsed awaiting_payment record is still shown (it must never be silently
+  // forgotten) but is labelled honestly: its quote can no longer be paid, so
+  // the action is a FRESH quote — the backend supersedes the dead record and
+  // keeps it as audit history.
+  const pendingPurchase = useMemo(() => {
+    const rows = state?.pendingPurchases || [];
+    if (rows.length === 0) return null;
+    const rank = (p: PsePendingPurchase) => {
+      const inFlight = p.status === 'transaction_submitted' || p.status === 'confirming';
+      const parsed = p.expiresAt ? Date.parse(p.expiresAt) : NaN;
+      return { inFlight, exp: Number.isNaN(parsed) ? 0 : parsed };
+    };
+    return [...rows].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra.inFlight !== rb.inFlight) return ra.inFlight ? -1 : 1;
+      return rb.exp - ra.exp;
+    })[0];
+  }, [state?.pendingPurchases]);
+  const pendingInFlight = pendingPurchase?.status === 'transaction_submitted' || pendingPurchase?.status === 'confirming';
+  const pendingQuoteLive = Boolean(
+    pendingPurchase?.expiresAt && Date.parse(pendingPurchase.expiresAt) > nowMs(),
+  );
 
   if (loading && !state) {
     return <div className="pse-section pt-6 md:pt-8"><PSELoading skeleton label="Loading the marketplace" /></div>;
@@ -151,16 +179,23 @@ export const PSEMineTools: React.FC = () => {
 
       {/* ══ A pending purchase is never silently replaced ══ */}
       {pendingPurchase && (
-        <Surface tone="warning" title="Purchase in flight" meta="Recovered from the backend — no new purchase record is needed.">
+        <Surface
+          tone="warning"
+          title={pendingInFlight ? 'Payment in flight' : pendingQuoteLive ? 'Purchase in flight' : 'Purchase record open'}
+          meta="Recovered from the backend — no second purchase record is created."
+        >
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
             <div className="min-w-0">
               <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>
-                {pendingPurchase.toolName || pendingPurchase.toolId || 'Mining tool'} · {pendingPurchase.status === 'awaiting_payment' ? 'Awaiting payment' : 'Verifying on-chain'}
+                {pendingPurchase.toolName || pendingPurchase.toolId || 'Mining tool'} ·{' '}
+                {pendingInFlight ? 'Verifying on-chain' : pendingQuoteLive ? 'Awaiting payment' : 'Quote lapsed'}
               </p>
               <p className="pse-micro mt-0.5">
-                {pendingPurchase.status === 'awaiting_payment'
-                  ? 'Open the tool below to resume this purchase with its original quote and payment wallet.'
-                  : 'A transaction was submitted for this purchase and the backend is verifying it.'}
+                {pendingInFlight
+                  ? 'A transaction was submitted for this purchase and the backend is verifying it. Nothing further is needed from you.'
+                  : pendingQuoteLive
+                    ? 'Open the tool below to resume this purchase with its original quote and payment wallet.'
+                    : 'This record\u2019s quote window has lapsed, so it can no longer be paid. Requesting a fresh quote keeps the stored record as audit history and never rewrites it.'}
               </p>
             </div>
             <button
@@ -170,7 +205,7 @@ export const PSEMineTools: React.FC = () => {
               }}
               className="pse-btn pse-btn-primary pse-btn-sm shrink-0"
             >
-              Resume purchase
+              {pendingInFlight ? 'View payment status' : pendingQuoteLive ? 'Resume purchase' : 'Start fresh quote'}
             </button>
           </div>
         </Surface>

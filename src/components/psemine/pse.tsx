@@ -827,7 +827,11 @@ export function Slots({ filled, total }: { filled: number; total: number }) {
 /** PrimaryAction / SecondaryAction — consistent single-row CTA link with a chevron. */
 export function ActionLink({ to, children }: { to: string; children: React.ReactNode }) {
   return (
-    <Link to={to} className="pse-caption inline-flex items-center gap-1.5 font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+    // min-h-11: on a phone these shortcuts were 20px tall, below a comfortable
+    // tap target. It costs nothing on desktop, where the row is taller anyway.
+    <Link to={to}
+      className="pse-caption inline-flex min-h-11 items-center gap-1.5 font-medium hover:underline"
+      style={{ color: 'var(--pse-blue)' }}>
       {children} <ChevronRight size={13} />
     </Link>
   );

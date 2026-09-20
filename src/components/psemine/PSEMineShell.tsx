@@ -86,7 +86,7 @@ export const PSEMineShell: React.FC = () => {
       <header className="sticky top-0 z-40 border-b" style={{ borderColor: 'var(--pse-line)', background: 'color-mix(in srgb, var(--pse-bg) 88%, transparent)', backdropFilter: 'blur(10px)' }}>
         <div className="pse-section flex h-14 items-center gap-3">
           {/* In console the mark stays inside the application. */}
-          <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home" className="flex shrink-0 items-center">
+          <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home" className="flex min-h-11 shrink-0 items-center">
             <PSELogo size={30} withWordmark />
           </Link>
 
@@ -309,8 +309,12 @@ const ConsoleBar: React.FC = () => {
               Capacity <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(capacity)}</span>
             </span>
           )}
+          {/* min-h/min-w keep the tap target at 44px on phones: the console bar
+              is the primary refresh control on mobile and a text-sized button
+              is hard to hit accurately there. */}
           <button type="button" onClick={() => void refresh()} disabled={refreshing}
-            className="pse-micro whitespace-nowrap font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+            className="pse-micro inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap px-2 font-medium hover:underline"
+            style={{ color: 'var(--pse-blue)' }}>
             {refreshing ? 'Syncing…' : 'Sync'}
           </button>
         </div>

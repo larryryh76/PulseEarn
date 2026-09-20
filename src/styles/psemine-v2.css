@@ -299,4 +299,8 @@
     display: inline-flex; align-items: center; justify-content: center;
     min-height: 44px; min-width: 44px;
   }
+  /* Segmented filters/tabs and full-width actions are tapped constantly on a
+     phone; they were rendering at 33-41px. */
+  .pse-scope .pse-seg button { min-height: 44px; }
+  .pse-scope .pse-btn:not(.pse-btn-sm) { min-height: 44px; }
 }

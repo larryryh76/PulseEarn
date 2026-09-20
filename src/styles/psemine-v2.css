@@ -303,4 +303,9 @@
      phone; they were rendering at 33-41px. */
   .pse-scope .pse-seg button { min-height: 44px; }
   .pse-scope .pse-btn:not(.pse-btn-sm) { min-height: 44px; }
+  /* Guide section jumps and the sticky mobile section nav. */
+  .pse-scope .pse-sticky-nav a, .pse-scope .pse-sticky-nav button,
+  .pse-scope [aria-label="Guide sections"] a, .pse-scope [aria-label="Guide sections"] button {
+    min-height: 44px;
+  }
 }

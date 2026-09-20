@@ -566,37 +566,119 @@ async function main() {
     /* 4b ── REAL purchase modal flow (quote → bind → sign → submit) ── */
     console.log('\n── PURCHASE MODAL (real UI, wallet-signed, no real BNB) ──');
     const t2 = await authCtx.newPage();
+    // Watch the backend conversation so a stuck step is diagnosed from the
+    // response, not guessed from the UI text.
+    const modalApi = [];
+    t2.on('response', async r => {
+      if (!r.url().includes('/api/mine/')) return;
+      let body = null;
+      try { body = (await r.text()).slice(0, 220); } catch { /* body unavailable */ }
+      modalApi.push({ status: r.status(), url: r.url().replace(base, ''), body });
+    });
     await t2.addInitScript(STUB({ addr: '0x1111111111111111111111111111111111111111', chain: CHAIN }));
     await t2.goto(`${base}/mine/tools`, { waitUntil: 'load', timeout: 30000 });
     await t2.waitForTimeout(3000);
     const buy = t2.locator('button:has-text("Purchase with BNB")').first();
     if (await buy.count() && await buy.isVisible().catch(() => false)) {
       await buy.click();
-      await t2.waitForTimeout(1000);
-      // connect step (the modal re-discovers wallets inside its own lifetime)
-      const mStub = t2.locator('button:has-text("QA Stub Wallet")').first();
-      if (await mStub.count() && await mStub.isVisible().catch(() => false)) {
-        await mStub.click().catch(() => {});
-      } else {
-        const anyConnect = t2.locator('button:has-text("Connect")').first();
-        if (await anyConnect.count() && await anyConnect.isVisible().catch(() => false)) await anyConnect.click().catch(() => {});
+      // The dialog opens on the WALLET step when nothing is connected, or
+      // straight on the quote when a remembered session was silently restored.
+      // Handle both — and never click "Reconnect…" as if it were "Continue".
+      const dlg = t2.locator('[role="dialog"]').first();
+      try { await dlg.waitFor({ state: 'visible', timeout: 10000 }); } catch { /* reported below */ }
+      const pickStub = async () => {
+        const stub = dlg.locator('button:has-text("QA Stub Wallet")').first();
+        if (await stub.count() && await stub.isVisible().catch(() => false)) {
+          await stub.click().catch(() => {});
+          await t2.waitForTimeout(2000);
+          return true;
+        }
+        return false;
+      };
+      if (!(await pickStub())) {
+        const connectCta = dlg.locator('button:has-text("Connect a wallet to continue")').first();
+        if (await connectCta.count() && await connectCta.isVisible().catch(() => false)) {
+          await connectCta.click().catch(() => {});
+          await t2.waitForTimeout(1500);
+          await pickStub();
+        }
       }
-      // quote step should render after connect
+      // REFRESH RECOVERY takes priority over a fresh quote: this account still
+      // has an in-flight purchase for the cheapest tier, so the dialog is
+      // expected to reopen THAT record rather than quote a new one. Asserting
+      // it here is the point — a refresh must never create a second intent.
+      const dlgText = (await dlg.innerText().catch(() => '')).replace(/\s+/g, ' ');
+      const recovered = /Transaction submitted|Confirming payment/i.test(dlgText);
+      REPORT.payment.modalRecovered = recovered;
+      REPORT.payment.modalVisible = await dlg.isVisible().catch(() => false);
+      REPORT.payment.modalText = dlgText.slice(0, 500);
+      REPORT.payment.modalButtons = await dlg.getByRole('button').allInnerTexts().catch(() => []);
+      console.log(`  · [modal] state: ${dlgText.slice(0, 180) || '(no dialog text)'}`);
+      console.log(`  · [modal] buttons: ${JSON.stringify(REPORT.payment.modalButtons)}`);
+      REPORT.payment.modalApi = modalApi;
+      console.log(`  · [modal] api: ${JSON.stringify(modalApi.slice(-6))}`);
+      // The dialog can open straight on the PAY step when a LIVE intent for this
+      // tier is resumed with its original quote — that is correct behaviour, not
+      // a missing quote step, so both arrivals are accepted and cross-checked.
+      const payControl = () => dlg.locator('button:has-text("Open wallet & pay")').first();
+      let payReady = (await payControl().count()) > 0;
       let reachedQuote = false;
-      try { await t2.waitForSelector('text=You pay (exact amount)', { timeout: 15000 }); reachedQuote = true; } catch { /* noop */ }
-      const qinfo = await t2.evaluate(() => ({
-        bnb: document.body.innerText.match(/([0-9.]+) BNB/)?.[1] || null,
-        receiver: document.body.innerText.match(/0x8b32A461[0-9a-zA-Z]{6}/)?.[0] || null,
-      }));
-      REPORT.payment.modalQuote = { reachedQuote, ...qinfo };
-      if (reachedQuote && qinfo.bnb) ok('payment', `quote step rendered: ${qinfo.bnb} BNB to ${qinfo.receiver || 'receiver'}`);
-      else defect('payment', `quote step did not render (reachedQuote=${reachedQuote})`);
+      if (!recovered && !payReady) {
+        try {
+          await t2.waitForSelector('text=You pay (exact amount)', { timeout: 15000 });
+          reachedQuote = true;
+        } catch { /* reported below */ }
+      }
+      if (!recovered && !payReady) payReady = (await payControl().count()) > 0;
+      const finalText = (await dlg.innerText().catch(() => '')).replace(/\s+/g, ' ');
+      const qinfo = {
+        bnb: finalText.match(/([0-9]+\.[0-9]{4,}) BNB/)?.[1] || null,
+        receiver: finalText.match(/0x8b32[0-9a-zA-Z]{4}/)?.[0] || null,
+      };
+      REPORT.payment.modalQuote = { reachedQuote, payReady, recovered, ...qinfo };
+      if (recovered) {
+        const pending = (await api('GET', `${PROD}/api/mine/state`, null, TOKEN)).body?.pendingPurchases || [];
+        const inFlight = pending.filter(p => ['transaction_submitted', 'confirming'].includes(p.status));
+        REPORT.payment.recoveredRecord = inFlight.map(p => ({ id: p.purchaseId, tool: p.toolId, status: p.status }));
+        if (inFlight.length > 0 && /no new purchase was created/i.test(dlgText)) {
+          ok('payment', `refresh recovery: the dialog reopened the existing ${inFlight[0].tool} purchase (${inFlight[0].status}) instead of creating a second intent`);
+        } else {
+          defect('payment', `recovery dialog did not reference the backend's in-flight record: ${JSON.stringify(REPORT.payment.recoveredRecord)}`);
+        }
+      } else if (payReady || reachedQuote) {
+        // ONE amount string everywhere: the summary, the "you pay exactly" block
+        // and the Pay control itself must all quote the same value.
+        const amounts = [...new Set(finalText.match(/0\.[0-9]{4,}\s*BNB/g) || [])].map(s => s.trim());
+        const payLabel = (await payControl().innerText().catch(() => '')).replace(/\s+/g, ' ');
+        const payAmount = (payLabel.match(/0\.[0-9]{4,}/) || [])[0];
+        REPORT.payment.exactAmount = { amounts, payLabel, payAmount };
+        if (amounts.length === 1 && payAmount === amounts[0].replace(/\s*BNB$/, '')) {
+          ok('payment', `dialog reached a payable state (${payReady ? 'resumed original quote' : 'fresh quote'}): ${amounts[0]} shown identically on the Pay control`);
+        } else {
+          defect('payment', `amounts disagree across the payment dialog: ${JSON.stringify(REPORT.payment.exactAmount)}`);
+        }
+      } else {
+        defect('payment', `purchase dialog reached neither a quote nor a payable state (reachedQuote=${reachedQuote}, payReady=${payReady})`);
+      }
 
-      // continue to payment → the bound-payer step
-      const cont = t2.locator('button:has-text("Continue to payment")').first();
-      if (await cont.count() && await cont.isVisible().catch(() => false)) {
-        await cont.click();
-        await t2.waitForTimeout(1500);
+      // continue to payment → the bound-payer step. Skipped only when the
+      // dialog legitimately stands in the recovered (already-submitted) state.
+      const cont = dlg.locator('button:has-text("Continue to payment")').first();
+      if (recovered) {
+        const recheck = dlg.locator('button:has-text("Check verification again")').first();
+        const closeBtn = dlg.locator('button:has-text("Close")').first();
+        REPORT.payment.recoveryControls = { recheck: await recheck.count(), close: await closeBtn.count() };
+        if (await recheck.count()) ok('payment', 'recovery state offers a verification re-check (hash reused, nothing re-sent)');
+        else defect('payment', 'recovery state offered no verification re-check');
+        if (await closeBtn.count()) await closeBtn.click().catch(() => {});
+      } else {
+        // Reach the pay step when the dialog is still on the quote step. A live
+        // resumed purchase is already past it and offers no Continue control —
+        // that is correct behaviour, not a missing step.
+        if (await cont.count() && await cont.isVisible().catch(() => false)) {
+          await cont.click();
+          await t2.waitForTimeout(1500);
+        }
         const payShown = await t2.evaluate(() => ({
           boundPayer: /Bound payer/.test(document.body.innerText),
           sendBtn: !!document.body.innerText.match(/Open wallet & pay/),
@@ -614,7 +696,7 @@ async function main() {
         // independently queries the chain, fails the verification, retains the
         // hash guidance, and activates nothing.
         await t2.evaluate(() => { window.__payMode = 'ok'; });
-        const send = t2.locator('button:has-text("Open wallet & pay")').first();
+        const send = dlg.locator('button:has-text("Open wallet & pay")').first();
         // Never click a disabled control blind: record the pay step's own words
         // so a blocked payment is DIAGNOSED instead of dying in a click timeout.
         REPORT.payment.payStepText = (await t2.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 700);
@@ -640,17 +722,17 @@ async function main() {
         if (toolsAfter.length === 0) ok('payment', 'fake-hash submission: backend verified on-chain, failed it, and activated NOTHING (no tool ownership records)');
         else defect('payment', `fake-hash submission created ownership: ${JSON.stringify(toolsAfter)}`);
 
-        // REJECTION path: restart through the real control, then reject in-wallet
-        const restart = t2.locator('button:has-text("Start a new purchase")').first();
+        // REJECTION path: restart through the real control, then reject in-wallet.
+        const restart = dlg.locator('button:has-text("Start a new purchase")').first();
         if (await restart.count() && await restart.isVisible().catch(() => false)) {
           await restart.click();
           await t2.waitForTimeout(2500);
-          const cont2 = t2.locator('button:has-text("Continue to payment")').first();
+          const cont2 = dlg.locator('button:has-text("Continue to payment")').first();
           if (await cont2.count() && await cont2.isVisible().catch(() => false)) {
             await cont2.click();
             await t2.waitForTimeout(1200);
             await t2.evaluate(() => { window.__payMode = 'reject'; });
-            const send2 = t2.locator('button:has-text("Open wallet & pay")').first();
+            const send2 = dlg.locator('button:has-text("Open wallet & pay")').first();
             if (await send2.count()) {
               await send2.click();
               await t2.waitForTimeout(2500);
@@ -661,8 +743,9 @@ async function main() {
             }
           }
         }
-      } else {
-        defect('payment', 'Continue-to-payment button not reachable from the quote step');
+        // Reachability is asserted above ("pay step rendered without the send
+        // control"); by here the rejection path may legitimately have returned
+        // the dialog to the quote step, so no further state is claimed.
       }
     } else {
       note('Purchase button not visible (campaign gate or entitlement state) — modal flow skipped.');

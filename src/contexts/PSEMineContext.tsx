@@ -36,6 +36,7 @@ import {
   isWalletConnectConfigured,
   isWalletRejection,
   restoreWalletConnectSession,
+  getChainId,
   sendPaymentTransaction,
   silentInjectedAccounts,
   subscribeWalletEvents,
@@ -531,19 +532,23 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
       if (hasInjectedProvider()) {
-        silentInjectedAccounts(
-          (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider,
-        ).then(accounts => {
-          if (accounts.includes(stored.address as string)) {
-            const connection: PseWalletConnection = {
-              transport: 'injected',
-              provider: (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider,
-              address: stored.address as string,
-              chainId: null,
-              walletName: stored.walletName || 'Browser wallet',
-            };
-            adoptConnection(connection);
-          }
+        const provider = (window as unknown as { ethereum?: PseEip1193Provider }).ethereum as PseEip1193Provider;
+        silentInjectedAccounts(provider).then(async accounts => {
+          if (!accounts.includes(stored.address as string)) return;
+          // Read the live chain too. The restore is silent (eth_accounts never
+          // prompts) but it must not leave the console believing the network is
+          // unknown: that would show the fail-closed "network unreadable" state
+          // — with no switch action — to a wallet sitting on BNB Smart Chain.
+          // eth_chainId is read-only and equally silent.
+          const chainId = await getChainId(provider);
+          if (cancelled) return;
+          adoptConnection({
+            transport: 'injected',
+            provider,
+            address: stored.address as string,
+            chainId,
+            walletName: stored.walletName || 'Browser wallet',
+          });
         });
       }
     } catch {

@@ -427,6 +427,7 @@ async function main() {
         'button:has-text("Connect wallet")',
         'button:has-text("Connect")',
         'button:has-text("Connect a wallet to continue")',
+        'button:has-text("Reconnect your wallet to continue")',
       ];
       for (const sel of candidates) {
         const b = w.locator(sel).first();
@@ -503,32 +504,51 @@ async function main() {
       if (await cont3.count() && await cont3.isVisible().catch(() => false)) {
         await cont3.click();
         await t3.waitForTimeout(1200);
-        const send3 = t3.locator('button:has-text("Open wallet & send")').first();
-        if (await send3.count() && await send3.isVisible().catch(() => false)) {
+        // The warning is STATE-AWARE: it renders with the pay step itself and
+        // Pay is disabled while the wallet is off BSC, so the user never has to
+        // press Pay to discover a wrong network.
+        const pay3 = t3.locator('button:has-text("Open wallet & pay")').first();
+        const switch3 = t3.locator('button:has-text("Switch to BNB Smart Chain")').first();
+        if (await pay3.count() && await pay3.isVisible().catch(() => false)) {
           netGuard.reached = true;
-          await send3.click();
-          await t3.waitForTimeout(5000);
-          netGuard.blocked = await t3.evaluate(() =>
-            /switch your wallet|BNB Smart Chain before paying|wrong network/i.test(document.body.innerText));
-          netGuard.noSend = await t3.evaluate(() =>
-            !window.__pseQA.calls.includes('eth_sendTransaction'));
+          netGuard.blocked = await t3.evaluate(() => /wrong network|switch to bnb smart chain/i.test(document.body.innerText));
+          netGuard.payDisabled = await pay3.isDisabled().catch(() => null);
+          netGuard.noSend = await t3.evaluate(() => !window.__pseQA.calls.includes('eth_sendTransaction'));
           netGuard.providerCalls = await t3.evaluate(() => [...window.__pseQA.calls]);
           netGuard.pageText = (await t3.evaluate(() => document.body.innerText)).slice(0, 500);
-          netGuard.switchRequested = await t3.evaluate(() => window.__switchCount > 0);
-          // Phase B: the user accepts the switch in-wallet and retries.
+          // Phase A: the wallet REFUSES the switch — warning stays, nothing signs.
+          if (await switch3.count() && await switch3.isVisible().catch(() => false)) {
+            await switch3.click();
+            await t3.waitForTimeout(3000);
+            netGuard.switchRequested = await t3.evaluate(() => window.__switchCount > 0);
+            netGuard.chainAfterRefusal = await t3.evaluate(() => window.__stubChain);
+            netGuard.stillBlockedAfterRefusal = await t3.evaluate(() =>
+              !window.__pseQA.calls.includes('eth_sendTransaction') && /wrong network/i.test(document.body.innerText));
+          }
+          // Phase B: the switch is accepted — the console RE-READS the chain
+          // (wallets need not emit chainChanged), clears the warning, enables
+          // Pay, and the send proceeds on BSC.
           await t3.evaluate(() => { window.__denySwitch = false; });
-          const send3b = t3.locator('button:has-text("Open wallet & send")').first();
-          if (await send3b.count() && await send3b.isVisible().catch(() => false)) {
-            await send3b.click();
+          if (await switch3.count() && await switch3.isVisible().catch(() => false)) {
+            await switch3.click();
+            await t3.waitForTimeout(2500);
+          }
+          netGuard.warningCleared = await t3.evaluate(() => !/wrong network/i.test(document.body.innerText));
+          netGuard.switchedToBsc = await t3.evaluate(() => window.__stubChain === '0x38');
+          if (await pay3.isEnabled().catch(() => false)) {
+            await pay3.click();
             await t3.waitForTimeout(5000);
-            netGuard.switchedToBsc = await t3.evaluate(() =>
+            netGuard.sentOnBsc = await t3.evaluate(() =>
               window.__pseQA.calls.includes('eth_sendTransaction') && window.__stubChain === '0x38');
           }
         }
       }
     }
     REPORT.wallet.networkSwitch = netGuard;
-    if (netGuard.reached && netGuard.blocked && netGuard.noSend && netGuard.switchRequested && netGuard.switchedToBsc) ok('wallet', 'wrong-network payment refused the switch → blocked with instruction, nothing sent; accepting the switch → send proceeded on BSC');
+    if (netGuard.reached && netGuard.blocked && netGuard.payDisabled && netGuard.noSend
+        && netGuard.switchRequested && netGuard.stillBlockedAfterRefusal
+        && netGuard.warningCleared && netGuard.switchedToBsc && netGuard.sentOnBsc)
+      ok('wallet', 'wrong-network pay step warns and blocks with nothing signed; a refused switch keeps it blocked; accepting the switch clears the warning and the send proceeds on BSC');
     else if (!netGuard.liveSession) note(`wrong-network switch path untestable this run (no live provider session): ${JSON.stringify(netGuard)}`);
     else defect('wallet', `wrong-network guard: ${JSON.stringify(netGuard)}`);
     await t3.close();
@@ -579,7 +599,9 @@ async function main() {
         await t2.waitForTimeout(1500);
         const payShown = await t2.evaluate(() => ({
           boundPayer: /Bound payer/.test(document.body.innerText),
-          sendBtn: !!document.body.innerText.match(/Open wallet & send/),
+          sendBtn: !!document.body.innerText.match(/Open wallet & pay/),
+          exactAmountLabel: document.body.innerText.match(/Open wallet & pay [0-9.]+ BNB/)?.[0] || null,
+          quotedAmount: document.body.innerText.match(/([0-9]+\.[0-9]{4,}) BNB/)?.[1] || null,
         }));
         REPORT.payment.payStep = payShown;
         // The bound-payer block appears once a bind exists; on a first pass the
@@ -592,8 +614,17 @@ async function main() {
         // independently queries the chain, fails the verification, retains the
         // hash guidance, and activates nothing.
         await t2.evaluate(() => { window.__payMode = 'ok'; });
-        const send = t2.locator('button:has-text("Open wallet & send")').first();
-        await send.click();
+        const send = t2.locator('button:has-text("Open wallet & pay")').first();
+        // Never click a disabled control blind: record the pay step's own words
+        // so a blocked payment is DIAGNOSED instead of dying in a click timeout.
+        REPORT.payment.payStepText = (await t2.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 700);
+        const sendEnabled = await send.isEnabled().catch(() => false);
+        REPORT.payment.sendEnabled = sendEnabled;
+        if (!sendEnabled) {
+          defect('payment', `send control is disabled on the pay step: ${REPORT.payment.payStepText.slice(0, 240)}`);
+        } else {
+          await send.click();
+        }
         await t2.waitForTimeout(6000);
         const afterPayText = await t2.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
         REPORT.payment.fakeHashPath = {
@@ -619,7 +650,7 @@ async function main() {
             await cont2.click();
             await t2.waitForTimeout(1200);
             await t2.evaluate(() => { window.__payMode = 'reject'; });
-            const send2 = t2.locator('button:has-text("Open wallet & send")').first();
+            const send2 = t2.locator('button:has-text("Open wallet & pay")').first();
             if (await send2.count()) {
               await send2.click();
               await t2.waitForTimeout(2500);

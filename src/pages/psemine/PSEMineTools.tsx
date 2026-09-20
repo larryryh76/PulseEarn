@@ -524,7 +524,7 @@ const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
 
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, pending, onClose }) => {
   const {
-    connectedWallet, walletChainId, pseUser,
+    connectedWallet, walletChainId, walletTransport, pseUser,
     requestQuote, activeQuote, clearQuote, bindPurchaseIntent, submitPurchaseTx,
     sendPayment, ensurePaymentChain,
   } = usePSEMine();
@@ -670,6 +670,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // ── Pre-payment state (the checklist the pay button obeys) ─────────────────
   const requiredChainId = quote?.chainId || 56;
   const networkName = quote?.network || 'BNB Smart Chain';
+  // An address remembered for this ACCOUNT is not a usable payer: signing needs
+  // a live EIP-1193 provider in THIS browser. Without one the payment path can
+  // only dead-end at the signature prompt, so it is reported (and blocked) as
+  // "reconnect required" instead of being drawn as a connected wallet.
+  const walletLive = Boolean(connectedWallet) && walletTransport !== null;
   const chainUnknown = walletChainId === null;
   const wrongChain = !chainUnknown && walletChainId !== requiredChainId;
   const onRequiredChain = walletChainId === requiredChainId;
@@ -681,7 +686,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   const blockedReason = (() => {
     if (!connectedWallet) return 'Connect a wallet to continue.';
+    if (!walletLive) return 'Reconnect your wallet in this browser — the payment must be signed by the wallet that pays, and this session has no live wallet connection.';
     if (walletChanged) return `This purchase is locked to ${shortAddr(boundPayer)} — reconnect that wallet to pay.`;
+    // Fail closed on an UNREADABLE chain: the backend verifies the transfer on
+    // chain 56, so paying from an unknown network is a dead end, not a warning.
+    if (chainUnknown) return `Your wallet\u2019s network could not be read. Reconnect the wallet, or switch it to ${networkName} (chain ${requiredChainId}), before paying.`;
     if (wrongChain) return `Switch your wallet to ${networkName} (chain ${requiredChainId}) — chain ${walletChainId} cannot be verified.`;
     if (!quoteValid) return 'The quote expired. Refresh it to continue — the backend will not accept a stale quote.';
     if (!ownershipOk) return `Maximum ownership reached for ${tool.name}.`;
@@ -1066,9 +1075,9 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                   <p className="pse-caption rounded-xl p-3 text-center" style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
                     Maximum ownership for this tool reached.
                   </p>
-                ) : !connectedWallet ? (
+                ) : !walletLive ? (
                   <button onClick={() => setStep('connect')} className="pse-btn pse-btn-primary w-full justify-center py-3">
-                    <Wallet size={15} /> Connect a wallet to continue
+                    <Wallet size={15} /> {connectedWallet ? 'Reconnect your wallet to continue' : 'Connect a wallet to continue'}
                   </button>
                 ) : !quoteValid ? (
                   <button onClick={refreshQuoteNow} className="pse-btn pse-btn-primary w-full justify-center py-3">
@@ -1143,7 +1152,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               <div className="pse-inset p-4">
                 <p className="pse-eyebrow mb-2">Before you pay</p>
                 <ul className="space-y-1.5">
-                  <ChecklistItem ok={Boolean(connectedWallet && EVM.test(connectedWallet))} label={connectedWallet ? `Wallet connected — ${shortAddr(connectedWallet)}` : 'Connect a wallet'} />
+                  <ChecklistItem
+                    ok={walletLive && Boolean(connectedWallet && EVM.test(connectedWallet))}
+                    warn={Boolean(connectedWallet) && !walletLive}
+                    label={!connectedWallet
+                      ? 'Connect a wallet'
+                      : walletLive
+                        ? `Wallet connected — ${shortAddr(connectedWallet)}`
+                        : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`}
+                  />
                   <ChecklistItem
                     ok={payerAligned}
                     warn={walletChanged}
@@ -1154,13 +1171,15 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                         : 'Payer is bound to this wallet before anything is signed'}
                   />
                   <ChecklistItem
-                    ok={onRequiredChain}
-                    warn={wrongChain}
-                    label={chainUnknown
-                      ? `Network asserted at signature time — ${networkName} (chain ${requiredChainId})`
+                    ok={onRequiredChain && walletLive}
+                    warn={wrongChain || (walletLive && chainUnknown)}
+                    label={!walletLive
+                      ? `Network verified once the wallet is reconnected — must be ${networkName} (chain ${requiredChainId})`
                       : onRequiredChain
                         ? `${networkName} (chain ${requiredChainId})`
-                        : `Wrong network — wallet is on chain ${walletChainId}`}
+                        : chainUnknown
+                          ? `Network unreadable — reconnect or switch to ${networkName} (chain ${requiredChainId})`
+                          : `Wrong network — wallet is on chain ${walletChainId}`}
                   />
                   <ChecklistItem ok={quoteValid} warn={!quoteValid} label={quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying'} />
                   <ChecklistItem ok={ownershipOk} warn={!ownershipOk} label={ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})`} />
@@ -1214,6 +1233,11 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               </button>
               {payBlocked && (
                 <p className="pse-micro text-center" style={{ color: 'var(--pse-warning)' }}>{blockedReason}</p>
+              )}
+              {!walletLive && (
+                <button onClick={() => setStep('connect')} className="pse-btn pse-btn-secondary w-full justify-center py-3">
+                  <Wallet size={15} /> {connectedWallet ? 'Reconnect this wallet' : 'Connect a wallet'}
+                </button>
               )}
               <button onClick={() => (quoteValid ? setStep('quote') : refreshQuoteNow())} className="pse-btn pse-btn-ghost w-full justify-center">
                 {quoteValid ? 'Back to quote' : 'Refresh quote'}

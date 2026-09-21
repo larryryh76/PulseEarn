@@ -4,6 +4,10 @@ import './index.css'
 // PSEmine design system v2 (scoped to .pse-scope) — loaded after the global
 // stylesheet so the product's own token scale and primitives layer on top of it.
 import './styles/psemine-v2.css'
+// PSEmine design system v3 — the token/primitive ladder every PSEmine surface
+// composes from (spacing, radius, surfaces, borders, shadows, control states,
+// status treatment, data visualisation). Loaded last so it refines v2.
+import './styles/psemine-v3.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

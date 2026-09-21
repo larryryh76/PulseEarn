@@ -51,6 +51,8 @@ from psemine_core import (
     MAINTENANCE_GRACE_HOURS,
     OPERATING_CYCLE_HOURS,
     PAYOUT_MIN_GBP_MINOR,
+    PAYOUT_DEBIT_KIND,
+    PAYOUT_REVERSAL_KIND,
     PSEMINE_CAMPAIGN_DOC_ID,
     REFERRAL_BONUS_MINOR_PER_HOUR,
 )
@@ -504,7 +506,7 @@ def _legacy_balance_minor(user):
 # THE accrual writer (single source of truth)
 # ----------------------------------------------------------------------------
 
-def accrual_checkpoint(db, uid, source="auto"):
+def accrual_checkpoint(db, uid, source="auto", camp=None):
     """
     THE single authoritative accrual writer.
 
@@ -513,8 +515,18 @@ def accrual_checkpoint(db, uid, source="auto"):
     Every state transition writes exactly one ledger entry (deterministic id).
     Campaign pause/end are enforced via operating windows; after campaign end
     the anchors settle once to endAt and produce nothing further.
+
+    `camp` accepts a campaign dict that THIS REQUEST already read through
+    campaign_lifecycle_state(), so a request that needs the campaign for its
+    response does not read the document twice. Only a dict carrying the derived
+    `_effectiveStatus` marker is accepted (i.e. one produced by that function);
+    anything else falls back to reading it here, so the lifecycle decision —
+    including whose call performs the auto-end write — is never guessed.
     """
-    camp, effective, _ = campaign_lifecycle_state(db)
+    if camp is None or "_effectiveStatus" not in camp:
+        camp, effective, _ = campaign_lifecycle_state(db)
+    else:
+        effective = camp["_effectiveStatus"]
     now = utcnow()
     windows = campaign_operating_windows_for(db, camp, now)
     if effective not in ("active", "paused"):
@@ -1276,20 +1288,76 @@ def update_payout_wallet(db, uid, new_wallet):
     return {"ok": True, "payoutWallet": wallet}
 
 
-def _paid_out_minor(db, uid, txn=None):
+# The ONLY ledger kinds the balance equation can consume. canonical_net_paid_minor
+# ignores every other kind, so a query restricted to these returns exactly the
+# rows that can change the answer — the projection is narrowing, not filtering.
+PAYOUT_LEDGER_KINDS = (PAYOUT_DEBIT_KIND, PAYOUT_REVERSAL_KIND)
+
+
+def payout_ledger_rows(db, uid, txn=None):
+    """The user's payout debit/reversal ledger rows — and nothing else.
+
+    WHY THIS IS NARROW
+    ------------------
+    A user's mining ledger is dominated by ACCRUAL entries (one per checkpoint
+    that crossed a minor unit), and every consumer of a ledger read here —
+    `canonical_net_paid_minor`, and therefore `available_balance_minor` — keeps
+    only `kind in (payout_debit, payout_reversal)`. Reading the whole ledger and
+    discarding 99% of it on every dashboard poll (twice, before this helper)
+    was the single largest read amplifier behind the 2026-09-21 Firestore quota
+    exhaustion: the cost grew with account age while the answer never changed.
+
+    A transaction read keeps the original unfiltered query. Inside a transaction
+    a failed filter must not be retried as a second read (the transaction is
+    already suspect), so the narrowing is applied only to non-transactional
+    reads, where it is provably equivalent.
+
+    If the composite index for (userId, kind) is missing, Firestore answers
+    FAILED_PRECONDITION; that specific case falls back to the full user ledger,
+    which is exactly the previous behaviour. Every other failure (quota, outage)
+    propagates unchanged so the request fails as an upstream 503 instead of
+    doubling load during an incident.
+    """
+    coll = db.collection("psemine_mining_ledger")
+    if txn is None:
+        try:
+            snaps = (coll.where("userId", "==", uid)
+                         .where("kind", "in", list(PAYOUT_LEDGER_KINDS)).get())
+            return [s.to_dict() for s in snaps]
+        except Exception as _exc:
+            if type(_exc).__name__ != "FailedPrecondition":
+                raise
+            logging.warning(
+                "[PSEmine Ledger] payout-kind query needs an index; falling back "
+                "to the full user ledger (correct, more expensive)", exc_info=True)
+    snaps = coll.where("userId", "==", uid).get(transaction=txn)
+    return [s.to_dict() for s in snaps]
+
+
+def _paid_out_minor(db, uid, txn=None, rows=None):
     """B-F1: canonical payout debits NET of reversals (exactly-once accounting:
-    a rejected payout must restore availability exactly once)."""
-    snaps = db.collection("psemine_mining_ledger").where("userId", "==", uid).get(transaction=txn)
-    return canonical_net_paid_minor([s.to_dict() for s in snaps])
+    a rejected payout must restore availability exactly once).
+
+    `rows` lets a caller that already read this user's payout rows for the same
+    request pass them in instead of issuing a second identical read."""
+    if rows is None:
+        rows = payout_ledger_rows(db, uid, txn=txn)
+    return canonical_net_paid_minor(rows)
 
 
-def _legacy_paid_out_minor(db, uid):
+def _legacy_paid_out_minor(db, uid, rows=None):
     """B-F1: sum of GENUINE legacy (v1) withdrawal debits only.
     Canonical payouts (source == 'user') are excluded — each one already has
     its deterministic `payout_{withdrawalId}` ledger debit counted by
-    _paid_out_minor. Summing both counted every canonical payout twice."""
-    snaps = db.collection("psemine_withdrawals").where("userId", "==", uid).get()
-    return legacy_withdrawal_paid_minor([s.to_dict() for s in snaps])
+    _paid_out_minor. Summing both counted every canonical payout twice.
+
+    `rows` reuses a withdrawal read the caller already performed. The query is
+    NOT narrowed by status: a user's withdrawal set is inherently small, and an
+    `in` filter here would add an index dependency for no measurable gain."""
+    if rows is None:
+        snaps = db.collection("psemine_withdrawals").where("userId", "==", uid).get()
+        rows = [s.to_dict() for s in snaps]
+    return legacy_withdrawal_paid_minor(rows)
 
 
 def create_payout_request(db, uid, amount_gbp, source="user"):

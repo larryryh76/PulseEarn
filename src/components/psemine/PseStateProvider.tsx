@@ -14,6 +14,18 @@ import { gbp } from './pse';
 /** Secondary (non-blocking) data feeds. */
 export type PseFeed = 'withdrawals' | 'referrals' | 'activities' | 'notifications';
 
+/**
+ * The canonical state is re-checkpointed every minute (it is the accrual clock),
+ * but the four secondary feeds are NOT: they change rarely, PSEMineContext
+ * already delivers referral / purchase / ownership changes through live
+ * Firestore listeners, and every feed page has its own Refresh control.
+ * Re-fetching all four on every tick meant five requests per console minute, four
+ * of which were near-always redundant — the console half of the 2026-09-21 read
+ * amplification. They are now refreshed on load, on explicit user action, and on
+ * this slower background cadence.
+ */
+const FEED_REFRESH_MS = 5 * 60_000;
+
 interface PseStateCtx {
   state: PseState | null;
   campaignStatus: string | null;
@@ -50,6 +62,8 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [feedErrors, setFeedErrors] = useState<Partial<Record<PseFeed, PseErrorInfo>>>({});
   const [refreshing, setRefreshing] = useState(false);
   const inFlight = useRef(false);
+  /** When the secondary feeds were last fetched (0 = never in this session). */
+  const lastFeedsAt = useRef(0);
 
   /**
    * Identity-only reset. Called on sign-out AND when the account has no
@@ -85,7 +99,7 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setFeedErrors(next);
   }, []);
 
-  const load = useCallback(async (isRefresh: boolean) => {
+  const load = useCallback(async (isRefresh: boolean, feeds: 'always' | 'if-due' = 'always') => {
     if (!currentUser) {
       clearAll();
       setLoading(false);
@@ -111,7 +125,13 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const s = await fetchPseState();
       setState(s);
-      await loadFeeds();
+      // 'always' = mount and explicit user refresh (Sync buttons, feed Refresh
+      // controls); 'if-due' = the background tick, which must not re-poll four
+      // endpoints that almost never change.
+      if (feeds === 'always' || Date.now() - lastFeedsAt.current >= FEED_REFRESH_MS) {
+        lastFeedsAt.current = Date.now();
+        await loadFeeds();
+      }
     } catch (e) {
       const info = toPseErrorInfo(e, 'GET /api/mine/state');
       logPseDiagnostic('canonical state', info);
@@ -127,15 +147,14 @@ export const PseStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => { void load(false); }, [load]);
 
   // Periodic re-checkpoint while visible: accrual continues server-side; this
-  // only refreshes the displayed figure and keeps the clock anchored.
+  // only refreshes the displayed figure and keeps the clock anchored. The feeds
+  // ride along only when their slower cadence is due (see FEED_REFRESH_MS).
   useEffect(() => {
     if (!currentUser || !hasPSEmineAccess) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void load(true);
-    }, 60_000);
-    const onVis = () => { if (document.visibilityState === 'visible') void load(true); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+    const tick = () => { if (document.visibilityState === 'visible') void load(true, 'if-due'); };
+    const id = window.setInterval(tick, 60_000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', tick); };
   }, [currentUser, hasPSEmineAccess, load]);
 
   const campaignStatus = useMemo(() => {

@@ -107,6 +107,14 @@ const PSEMineContext = createContext<PSEMineContextType | undefined>(undefined);
 export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, userData } = useAuth();
   const hasPSEmineAccess = userData?.productAccess?.psemine === true;
+  // IDENTITY, not object identity. The listener effect below must survive any
+  // re-render that does not change WHO is signed in: it used to depend on the
+  // whole `currentUser` object and on `userData?.username`, so a PulseEarn
+  // profile update tore down and re-created all five Firestore listeners — a
+  // full re-read of four queries plus one document, against the same quota the
+  // PSEmine console already spends on `/api/mine/state`.
+  const currentUserUid = currentUser?.uid;
+  const currentUserEmail = currentUser?.email ?? undefined;
   const [campaign, setCampaign] = useState<PSEMineCampaign | null>(null);
   const [pseUser, setPseUser] = useState<PSEMineUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -141,6 +149,11 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const providerRef = useRef<PseEip1193Provider | null>(null);
   const transportRef = useRef<PseWalletTransport | null>(null);
   const walletNameRef = useRef<string | null>(null);
+  // READ, never depended on: the PulseEarn username is only used to label the
+  // zeroed PSEmine user document when it is first created. Making it a listener
+  // dependency re-subscribed every PSEmine listener on any profile rename.
+  const usernameRef = useRef<string | undefined>(userData?.username);
+  useEffect(() => { usernameRef.current = userData?.username; }, [userData?.username]);
 
   // Discover EIP-6963 injected wallets once (async announce window).
   useEffect(() => {
@@ -186,7 +199,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // it for any authenticated visitor let a PulseEarn account silently acquire
     // a PSEmine footprint. Product access is explicit now — an account without
     // productAccess.psemine gets no PSEmine listeners and no PSEmine writes.
-    if (!currentUser || !hasPSEmineAccess) {
+    if (!currentUserUid || !hasPSEmineAccess) {
       setPseUser(null);
       setOwnerships([]);
       setPurchases([]);
@@ -207,12 +220,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         // Ensure user exists
         await PSEMineEngine.getOrCreatePSEUser(
-          currentUser.uid, 
-          currentUser.email, 
-          userData?.username
+          currentUserUid,
+          currentUserEmail,
+          usernameRef.current
         );
 
-        const userRef = doc(db, 'psemine_users', currentUser.uid);
+        const userRef = doc(db, 'psemine_users', currentUserUid);
         unsubUser = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
             const data = snap.data() as PSEMineUser;
@@ -233,7 +246,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Tool Ownerships
         const ownQuery = query(
           collection(db, 'psemine_tool_ownership'),
-          where('userId', '==', currentUser.uid)
+          where('userId', '==', currentUserUid)
         );
         unsubOwnerships = onSnapshot(ownQuery, (snap) => {
           const list: PSEMineToolOwnership[] = [];
@@ -244,7 +257,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Purchases
         const purQuery = query(
           collection(db, 'psemine_purchases'),
-          where('userId', '==', currentUser.uid)
+          where('userId', '==', currentUserUid)
         );
         unsubPurchases = onSnapshot(purQuery, (snap) => {
           const list: PSEMinePurchase[] = [];
@@ -256,7 +269,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Referrals
         const refQuery = query(
           collection(db, 'psemine_referrals'),
-          where('referrerId', '==', currentUser.uid)
+          where('referrerId', '==', currentUserUid)
         );
         unsubReferrals = onSnapshot(refQuery, (snap) => {
           const list: PSEMineReferral[] = [];
@@ -285,7 +298,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (unsubPurchases) unsubPurchases();
       if (unsubReferrals) unsubReferrals();
     };
-  }, [currentUser, userData?.username, hasPSEmineAccess]);
+    // `usernameRef` is intentionally not a dependency (see its declaration).
+  }, [currentUserUid, currentUserEmail, hasPSEmineAccess]);
 
   // 3. High-Frequency Visual Accrual Animation (Server-Anchored)
   useEffect(() => {

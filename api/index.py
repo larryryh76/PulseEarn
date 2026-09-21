@@ -268,6 +268,34 @@ def _pse_after_request(response):
     rid = request.environ.get('pse.request_id')
     if rid:
         response.headers['X-Request-Id'] = rid
+    # Opt-in request-cost observability (X-Pse-Db-Metrics: 1). Counts only,
+    # never contents, and only for callers that asked for them. The
+    # structured line is what makes read amplification visible before it
+    # exhausts a quota again.
+    try:
+        from flask import g as _g
+        _tally = getattr(_g, '_pse_db_tally', None)
+    except Exception:
+        _tally = None
+    if _tally is not None:
+        try:
+            _snap = _tally.snapshot()
+            response.headers['X-Pse-Db-Reads'] = str(_snap['reads'])
+            response.headers['X-Pse-Db-Writes'] = str(_snap['writes'])
+            response.headers['X-Pse-Db-Transactions'] = str(_snap['transactions'])
+            response.headers['X-Pse-Db-Duration-Ms'] = str(_snap['durationMs'])
+            _req_u = getattr(request, 'user', None)
+            print(json.dumps({
+                "at": datetime.now(timezone.utc).isoformat(),
+                "operation": f"{request.method} {request.path}",
+                "status": response.status_code,
+                "uid": _req_u.get('uid') if isinstance(_req_u, dict) else None,
+                "requestId": rid,
+                "db": _snap,
+            }))
+            sys.stdout.flush()
+        except Exception:
+            pass
     try:
         path = request.path.rstrip('/')
         covered = path == '/api/mine/campaign/status' or path.startswith('/api/psemine/')
@@ -292,6 +320,81 @@ def _pse_after_request(response):
     return response
 
 
+# ---------------------------------------------------------------------------
+# Upstream capacity failures must never masquerade as application bugs.
+#
+# Production incident 2026-09-21: Firebase project pulseearn-a4b16 exhausted its
+# Firestore quota, so every document read raised ResourceExhausted and the
+# generic handler answered `500 INTERNAL_SERVER_ERROR`. That reads as "PSEMine is
+# broken" to both users and operators, and it sends the investigation looking
+# for a code regression that does not exist. Capacity / availability failures
+# are retryable, so they are classified as 503 Service Unavailable.
+#
+# Classification is by exception TYPE, never by matching message text, and it
+# walks the __cause__ / __context__ chain so a wrapped or `raise ... from` gRPC
+# error is still recognised. If google.api_core cannot be imported the helper
+# degrades to a class-name fallback and can never break module load.
+# ---------------------------------------------------------------------------
+_UPSTREAM_UNAVAILABLE_TYPES = None
+
+
+def _upstream_unavailable_types():
+    """The google.api_core exception classes that mean "capacity/availability".
+    Resolved once, lazily; an import failure yields () (name fallback only)."""
+    global _UPSTREAM_UNAVAILABLE_TYPES
+    if _UPSTREAM_UNAVAILABLE_TYPES is None:
+        _resolved = []
+        try:
+            from google.api_core import exceptions as _gcp_exc
+            for _n in ('ResourceExhausted', 'ServiceUnavailable', 'DeadlineExceeded',
+                       'TooManyRequests', 'RetryError'):
+                _t = getattr(_gcp_exc, _n, None)
+                if isinstance(_t, type):
+                    _resolved.append(_t)
+        except Exception:
+            _resolved = []
+        _UPSTREAM_UNAVAILABLE_TYPES = tuple(_resolved)
+    return _UPSTREAM_UNAVAILABLE_TYPES
+
+
+def _upstream_unavailable_error(exc):
+    """Classify `exc` as upstream capacity/availability.
+
+    The rule itself is pure and unit-tested in psemine_core
+    (`upstream_unavailable_kind`); this supplies the resolved google.api_core
+    classes so the decision can use isinstance where those packages exist.
+    Imported lazily, like every other sibling import here, to preserve the
+    module boot order.
+    """
+    from psemine_core import upstream_unavailable_kind
+    return upstream_unavailable_kind(exc, extra_types=_upstream_unavailable_types())
+
+
+def _log_request_failure(exc, status, upstream=None):
+    """Structured diagnostics BEFORE the traceback: the client only ever sees a
+    clean message, so operators need endpoint + identity context in the logs to
+    find the failing operation. `upstream` separates "a dependency is out of
+    capacity" from "PSEMine had a defect" without opening the GCP console.
+    No tokens, bodies or balances are logged."""
+    try:
+        _req_user = getattr(request, 'user', None)
+        _uid = _req_user.get('uid') if isinstance(_req_user, dict) else None
+        _entry = {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "operation": f"{request.method} {request.path}",
+            "status": status,
+            "uid": _uid,
+            "requestId": _request_id(),
+            "exception": type(exc).__name__,
+        }
+        if upstream:
+            _entry["upstream"] = upstream
+        print(json.dumps(_entry))
+    except Exception:
+        pass
+    print(traceback.format_exc()); sys.stdout.flush()
+
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     from werkzeug.exceptions import HTTPException
@@ -302,24 +405,20 @@ def handle_exception(e):
             "message": e.description,
             "requestId": _request_id(),
         }), e.code
-    tb = traceback.format_exc()
-    # Structured diagnostics BEFORE the traceback: the client only ever sees a
-    # clean message, so operators need endpoint + identity context in the logs
-    # to find the failing operation. No tokens, bodies or balances are logged.
-    try:
-        _req_user = getattr(request, 'user', None)
-        _uid = _req_user.get('uid') if isinstance(_req_user, dict) else None
-        print(json.dumps({
-            "at": datetime.now(timezone.utc).isoformat(),
-            "operation": f"{request.method} {request.path}",
-            "status": 500,
-            "uid": _uid,
+    upstream = _upstream_unavailable_error(e)
+    _log_request_failure(e, 503 if upstream else 500, upstream=upstream)
+    if upstream:
+        # Truthful and retryable. Nothing is fabricated: no zeroed balances, no
+        # empty tool lists, no cached "success" — the client is told the service
+        # is temporarily unavailable and that no state was changed.
+        _resp = jsonify({
+            "success": False,
+            "error": "SERVICE_UNAVAILABLE",
+            "message": "The mining service is temporarily unavailable. Nothing was changed — please try again shortly.",
             "requestId": _request_id(),
-            "exception": type(e).__name__,
-        }))
-    except Exception:
-        pass
-    print(tb); sys.stdout.flush()
+        })
+        _resp.headers['Retry-After'] = '30'
+        return _resp, 503
     return jsonify({
         "success": False, "error": "INTERNAL_SERVER_ERROR",
         "message": str(e) if os.environ.get('VERCEL_ENV') != 'production' else "An internal server error occurred.",
@@ -418,8 +517,46 @@ def init_firebase():
 
 def get_db():
     if init_firebase():
-        return firestore.client()
+        client = firestore.client()
+        # Opt-in per-request metering: the caller sends X-Pse-Db-Metrics: 1.
+        # The wrapper is transparent, and when it is not requested this returns
+        # the real client unchanged — production is untouched.
+        tally = _pse_db_tally()
+        if tally is None:
+            return client
+        from services.firestore_metrics import wrap_client
+        return wrap_client(client, tally)
     return None
+
+
+def _pse_db_tally():
+    """The current request's Firestore tally, or None when not requested.
+
+    Lives on Flask's per-request `g`, so counts are scoped to exactly one
+    request and can never bleed into another. Any failure returns None:
+    observability must never be able to break a request.
+    """
+    try:
+        from flask import g as _g, has_request_context, request as _rq
+        from services.firestore_metrics import (
+            FirestoreTally, metrics_available, metrics_requested,
+        )
+    except Exception:
+        return None
+    try:
+        if not has_request_context():
+            return None
+        if not metrics_available():
+            return None
+        if not metrics_requested(_rq.headers.get('X-Pse-Db-Metrics')):
+            return None
+        tally = getattr(_g, '_pse_db_tally', None)
+        if tally is None:
+            tally = FirestoreTally()
+            _g._pse_db_tally = tally
+        return tally
+    except Exception:
+        return None
 
 def require_db(f):
     @wraps(f)
@@ -461,14 +598,61 @@ def evaluate_missions(user_id):
     # purged via the admin endpoint POST /api/admin/missions/purge.
     return
 
-def is_admin(uid):
+_USER_DOC_ABSENT = object()
+
+
+def _request_user_doc(uid):
+    """Request-scoped users/{uid} snapshot — the ONE read behind entitlement.
+
+    WHY: a single PSEmine console load reads `users/{uid}` from up to three
+    separate places (the entitlement gate, the moderation gate, the referral
+    identity), and every one of those is a billed Firestore document read. Read
+    amplification is what made the 2026-09-21 quota exhaustion reachable, so the
+    document is read at most ONCE per request and reused.
+
+    Safety properties, in order of importance:
+      • The cache lives on Flask's per-request `g`, keyed by uid, so it is
+        discarded with the request and can never serve another caller's
+        entitlement.
+      • It caches only what a direct read returned ("absent" included), so it
+        cannot grant access the database would deny.
+      • An unavailable or raising database is NEVER cached and never swallowed
+        here: the exception propagates so the request fails as an upstream 503,
+        instead of silently looking like an unenrolled account.
+
+    Returns the user document dict, or None when the document is absent.
+    """
+    try:
+        from flask import g as _flask_g
+    except Exception:
+        _flask_g = None
+    cache = None
+    if _flask_g is not None:
+        try:
+            cache = getattr(_flask_g, '_pse_user_doc_cache', None)
+            if cache is None:
+                cache = {}
+                _flask_g._pse_user_doc_cache = cache
+        except Exception:
+            cache = None
+    if cache is not None and uid in cache:
+        cached = cache[uid]
+        return None if cached is _USER_DOC_ABSENT else cached
     db = get_db()
-    if not db: return False
-    user_doc = db.collection('users').document(uid).get()
-    if user_doc.exists:
-        d = user_doc.to_dict()
-        return d.get('role') in ['admin', 'ADMIN'] or d.get('isRoot') == True
-    return False
+    if not db:
+        return None
+    snap = db.collection('users').document(uid).get()
+    doc = (snap.to_dict() or {}) if snap.exists else None
+    if cache is not None:
+        cache[uid] = doc if doc is not None else _USER_DOC_ABSENT
+    return doc
+
+
+def is_admin(uid):
+    d = _request_user_doc(uid)
+    if not d:
+        return False
+    return d.get('role') in ['admin', 'ADMIN'] or d.get('isRoot') == True
 
 def has_psemine_access(uid):
     """B5: backend PSEmine entitlement check — THE authoritative source is the
@@ -478,10 +662,10 @@ def has_psemine_access(uid):
     db = get_db()
     if not db:
         return False
-    user_doc = db.collection('users').document(uid).get()
-    if not user_doc.exists:
+    doc = _request_user_doc(uid)
+    if doc is None:
         return False
-    pa = user_doc.to_dict().get('productAccess') or {}
+    pa = doc.get('productAccess') or {}
     if pa.get('psemine') is True:
         return True
     # Grant-only legacy backfill: users who ALREADY hold PSEmine economic
@@ -510,6 +694,10 @@ def has_psemine_access(uid):
                 'metadata': {'rule': 'psemine tool ownership existed without productAccess flag'},
             })
             _batch.commit()
+            # Reflect the grant in the request-scoped snapshot so a second
+            # entitlement check in this same request does not repeat the probe.
+            # (This is the value a fresh read would return.)
+            doc['productAccess'] = {**(pa if isinstance(pa, dict) else {}), 'psemine': True}
             return True
     except Exception:
         pass
@@ -529,13 +717,10 @@ def require_psemine_access(f):
 
 
 def is_moderator(uid):
-    db = get_db()
-    if not db: return False
-    user_doc = db.collection('users').document(uid).get()
-    if user_doc.exists:
-        d = user_doc.to_dict()
-        return d.get('role') in ['admin', 'ADMIN', 'moderator'] or d.get('isRoot') == True
-    return False
+    d = _request_user_doc(uid)
+    if not d:
+        return False
+    return d.get('role') in ['admin', 'ADMIN', 'moderator'] or d.get('isRoot') == True
 
 @app.route('/api/mine/enroll', methods=['POST'])
 @verify_token
@@ -7255,7 +7440,7 @@ def psemine_create_withdrawal():
     # 1. Canonical ledger balance (accruedMinor) + legacy read-model, minus payouts.
     # (B1) _legacy_balance_minor returns 0 once absorbed — legacy counted EXACTLY ONCE.
     _u = db.collection('psemine_users').document(uid).get().to_dict() or {}
-    _ledger_rows = [r.to_dict() for r in db.collection("psemine_mining_ledger").where("userId", "==", uid).get()]
+    _ledger_rows = _pse_engine.payout_ledger_rows(db, uid)
     _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
     accumulated_output = _pse_engine.available_balance_minor(
         int(_u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
@@ -8335,7 +8520,13 @@ def mine_state():
     uid = request.user['uid']
     import psemine_engine as _pse_engine
     _pse_engine.ensure_psemine_user(db, uid)
-    ck = _pse_engine.accrual_checkpoint(db, uid, source='state')
+    # ONE campaign read for this request: the response body needs the campaign
+    # document and the accrual checkpoint needs it to build its operating
+    # windows, so the checkpoint is handed the same snapshot instead of reading
+    # it a second time. force_write=True is what the checkpoint used anyway, so
+    # the lazy auto-end write still happens exactly once.
+    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db)
+    ck = _pse_engine.accrual_checkpoint(db, uid, source='state', camp=camp)
     u = db.collection('psemine_users').document(uid).get().to_dict() or {}
     owns = db.collection('psemine_tool_ownership').where('userId', '==', uid).get()
     now = _pse_engine.utcnow()
@@ -8357,15 +8548,21 @@ def mine_state():
         if c.state == 'restarting' and d.get('cycleStartedAt'):
             d['restartResumesAt'] = d.get('cycleStartedAt')
         tools.append(d)
-    camp, eff, _ = _pse_engine.campaign_lifecycle_state(db, force_write=False)
-    _ledger_rows = [r.to_dict() for r in db.collection("psemine_mining_ledger").where("userId", "==", uid).get()]
+    # Read once, use three times. The balance equation consumes ONLY this user's
+    # payout-kind ledger rows and ONLY this user's withdrawals, so the ledger read
+    # is narrowed to those kinds (see payout_ledger_rows) and the same two row sets
+    # are reused by the debit computation below instead of being queried again.
+    # Reading the full ledger twice per dashboard poll was the largest read
+    # amplifier in the 2026-09-21 Firestore quota exhaustion.
+    _ledger_rows = _pse_engine.payout_ledger_rows(db, uid)
     _withdrawal_rows = [r.to_dict() for r in db.collection("psemine_withdrawals").where("userId", "==", uid).get()]
     # (B-F1 composition) accruedMinor = GROSS earned (canonical accrual + legacy
     # exactly once) — matches the v1 dashboard semantics. availableMinor is the
     # single canonical net equation; debits are applied EXACTLY ONCE there and
     # never again for display.
     accrued_minor = int(u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(u)
-    debited = _pse_engine._paid_out_minor(db, uid) + _pse_engine._legacy_paid_out_minor(db, uid)
+    debited = (_pse_engine._paid_out_minor(db, uid, rows=_ledger_rows)
+               + _pse_engine._legacy_paid_out_minor(db, uid, rows=_withdrawal_rows))
     available_minor = _pse_engine.available_balance_minor(
         int(u.get('accruedMinor') or 0), _ledger_rows, _withdrawal_rows,
         legacy_accrued_minor=_pse_engine._legacy_balance_minor(u),

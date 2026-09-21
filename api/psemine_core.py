@@ -613,3 +613,56 @@ def campaign_operating_windows(
         return []
     # active
     return [(start_at, eff_end, True)]
+
+
+# ----------------------------------------------------------------------------
+# Upstream capacity classification (pure)
+# ----------------------------------------------------------------------------
+
+# Exception class names that mean "a dependency is out of capacity or
+# unavailable" — i.e. RETRYABLE, not an application defect.
+UPSTREAM_UNAVAILABLE_NAMES = frozenset({
+    "ResourceExhausted",
+    "ServiceUnavailable",
+    "DeadlineExceeded",
+    "TooManyRequests",
+    "RetryError",
+})
+
+
+def upstream_unavailable_kind(exc, extra_types=()) -> Optional[str]:
+    """Return the exception class name when `exc` denotes exhausted capacity or
+    an unavailable dependency, else None.
+
+    WHY THIS IS A PURE RULE: production incident 2026-09-21 was a Firestore quota
+    exhaustion (`ResourceExhausted`) that the API reported as
+    `500 INTERNAL_SERVER_ERROR`. That is a lie with a cost — it sends operators
+    hunting for a code regression and shows users a failure that looks permanent.
+    Capacity failures are retryable, so the edge maps this decision to 503. The
+    rule lives here, with the other pure decision functions, so it can be tested
+    without Flask or Firestore.
+
+    The walk follows `__cause__`/`__context__`, so a wrapped or
+    `raise ... from` error (how google.api_core re-raises a gRPC status) is still
+    recognised. `extra_types` lets the caller pass the real dependency exception
+    classes for `isinstance` precision; the class-name set is the fallback that
+    is always available, including where those packages are not installed.
+
+    Classification is never done by matching message text.
+    """
+    types = tuple(t for t in (extra_types or ()) if isinstance(t, type))
+    seen = set()
+    pending = [exc]
+    while pending:
+        cur = pending.pop()
+        if cur is None or id(cur) in seen:
+            continue
+        seen.add(id(cur))
+        if types and isinstance(cur, types):
+            return type(cur).__name__
+        name = type(cur).__name__
+        if name in UPSTREAM_UNAVAILABLE_NAMES:
+            return name
+        pending.append(getattr(cur, "__cause__", None))
+        pending.append(getattr(cur, "__context__", None))
+    return None

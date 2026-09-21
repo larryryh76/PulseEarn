@@ -88,7 +88,7 @@ class TestBootstrapShape(unittest.TestCase):
         it documents the full blast radius of the package-mode defect.
         """
         per_file = {
-            "index.py": {"psemine_engine": 26, "psemine_core": 3,
+            "index.py": {"psemine_engine": 26, "psemine_core": 4,
                          "psemine_public": 1, "services.provider_cache": 6},
             "psemine_engine.py": {"psemine_engine": 0, "psemine_core": 1,
                                   "psemine_public": 0},

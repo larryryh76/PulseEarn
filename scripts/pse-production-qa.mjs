@@ -27,10 +27,29 @@
  * Credentials and tokens stay in /tmp (mode 0600) or process env. They are
  * never printed, never written to the repo, never committed.
  *
+ * PRODUCTION SAFETY (added after the 2026-09-21 Firestore quota incident)
+ * -----------------------------------------------------------------------
+ * This harness is the heaviest thing that talks to production: a full run mounts
+ * the whole console repeatedly and probes every endpoint. That is exactly what a
+ * certification run is for — but it also means it must never be pointed at a
+ * degraded backend, and it must not create a new account on every invocation.
+ *
+ *   1. PREFLIGHT. `/api/health` is checked first; a full run REFUSES to start
+ *      unless the backend reports healthy, because a sweep against an exhausted
+ *      dependency adds load to an outage and its failures mean nothing.
+ *      Override with PSE_QA_FORCE=1 only to observe a degraded backend.
+ *   2. REUSE BY DEFAULT. If a QA account already exists it is reused; a fresh
+ *      mailbox + signup + email verification is an opt-in (PSE_QA_REUSE=0).
+ *   3. SMOKE MODE. `PSE_QA_SMOKE=1` runs the targeted post-change verification:
+ *      no browser, no route sweep, no new account — one REST sign-in and the
+ *      authenticated endpoint contract checks. Use it after changing backend
+ *      code; use the full run for certification.
+ *
  * Usage:
- *   bun scripts/pse-production-qa.mjs                 # full run (new QA account)
+ *   bun scripts/pse-production-qa.mjs                 # full run (reuses an account)
+ *   PSE_QA_SMOKE=1 bun scripts/pse-production-qa.mjs # targeted backend check
+ *   PSE_QA_REUSE=0 bun scripts/pse-production-qa.mjs # certify the signup path
  *   PSE_QA_CREDS=/tmp/pse-qa/creds.json bun scripts/pse-production-qa.mjs
- *   PSE_QA_REUSE=1 bun scripts/pse-production-qa.mjs  # reuse existing QA account
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -40,8 +59,17 @@ import { chromium } from 'playwright';
 const PROD = process.env.PSE_QA_BASE_URL || 'https://www.pulseearn.online';
 const CREDS_FILE = process.env.PSE_QA_CREDS || '/tmp/pse-qa/creds.json';
 const OUT = process.env.PSE_QA_OUT || '/tmp/pse-production-qa';
-const REUSE = process.env.PSE_QA_REUSE === '1';
+/** Reuse the QA account that already exists unless a fresh signup is asked for
+ *  (PSE_QA_REUSE=0). Creating a mailbox and a real account on every run costs
+ *  writes and a verification round trip against the same quota the product
+ *  uses — one of the ways this harness contributed to the 2026-09-21 incident. */
+const REUSE = process.env.PSE_QA_REUSE === '1'
+  || (process.env.PSE_QA_REUSE !== '0' && fs.existsSync(CREDS_FILE));
 const HEADFUL = process.env.PSE_QA_HEADED === '1';
+/** Targeted post-change verification: no browser, no account creation. */
+const SMOKE = process.env.PSE_QA_SMOKE === '1';
+/** Escape hatch for deliberately observing a degraded backend. */
+const FORCE = process.env.PSE_QA_FORCE === '1';
 const CHAIN = '0x38'; // BNB Smart Chain (56)
 
 const REPORT = {
@@ -146,6 +174,82 @@ async function api(method, url, body, token) {
   });
   let data = null; try { data = await res.json(); } catch { /* html error page */ }
   return { status: res.status, body: data };
+}
+
+/**
+ * Refuse to sweep a backend whose upstream dependency is already failing.
+ *
+ * A full run against an exhausted Firestore adds load to an outage, and every
+ * assertion it makes is meaningless (a 503 from quota exhaustion looks like a
+ * product defect). Operators get a clear instruction instead of a false report.
+ */
+async function preflightUpstream(base) {
+  let res;
+  let body = null;
+  try {
+    res = await fetch(`${base}/api/health`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    body = await res.json().catch(() => null);
+  } catch (e) {
+    console.error(`\nREFUSING TO RUN: ${base}/api/health is unreachable (${e.message}).`);
+    process.exit(3);
+  }
+  const checks = body?.checks || {};
+  console.log(`── PREFLIGHT ── /api/health → ${res.status} ${body?.status || ''}`
+    + ` (firestore=${checks.firestoreReachable}, storage=${checks.storageReachable})`);
+  if ((res.ok && body?.success === true) || FORCE) {
+    if (FORCE && !(res.ok && body?.success === true)) {
+      console.log('  ! PSE_QA_FORCE=1 — proceeding against an unhealthy backend');
+    }
+    return;
+  }
+  console.error('\nREFUSING TO RUN: the backend is not healthy.');
+  console.error('  A full sweep would add load to an already-degraded dependency and');
+  console.error('  every failure it reported would be meaningless.');
+  console.error(`  /api/health → ${res.status} ${JSON.stringify(body).slice(0, 400)}`);
+  console.error('  Restore the upstream dependency (Firestore quota / credentials), then re-run.');
+  console.error('  Set PSE_QA_FORCE=1 only when observing a degraded backend is the goal.');
+  process.exit(3);
+}
+
+/**
+ * SMOKE MODE — the targeted post-change verification (PSE_QA_SMOKE=1).
+ *
+ * Deliberately cheap: one REST sign-in, then the authenticated endpoint
+ * contracts. No browser, no console mounts, no listeners, no account creation.
+ * This is the run to use while iterating on backend code; the full harness is
+ * for certification and should be invoked deliberately.
+ */
+async function smokeRun(creds) {
+  console.log('\n── SMOKE RUN (targeted backend verification) ──');
+  const signIn = await fbSignIn(creds.PSE_TEST_EMAIL, creds.PSE_TEST_PASSWORD);
+  const TOKEN = signIn.idToken;
+  REPORT.session = { uid: signIn.localId, email: signIn.email };
+
+  const endpoints = [
+    ['GET', '/api/mine/state'],
+    ['GET', '/api/mine/activities'],
+    ['GET', '/api/mine/referrals'],
+    ['GET', '/api/mine/withdrawals'],
+    ['GET', '/api/mine/notifications'],
+  ];
+  for (const [method, path] of endpoints) {
+    const res = await api(method, `${PROD}${path}`, null, TOKEN);
+    REPORT.smoke = REPORT.smoke || {};
+    REPORT.smoke[path] = { status: res.status, error: res.body?.error || null };
+    if (res.status === 200) ok('smoke', `${path} → 200`);
+    else if (res.status === 503) note(`${path} → 503 ${res.body?.error || ''} (upstream unavailable)`);
+    else defect('smoke', `${path} → ${res.status} ${res.body?.error || ''}`);
+  }
+  const state = REPORT.smoke?.['/api/mine/state'];
+  if (state?.status === 200) ok('smoke', 'canonical state endpoint healthy');
+
+  // Unauthenticated contract: the endpoint must reject, not crash.
+  const anon = await api('GET', `${PROD}/api/mine/state`, null, 'not-a-token');
+  REPORT.smoke['/api/mine/state (anonymous)'] = { status: anon.status };
+  if (anon.status === 401) ok('smoke', 'unauthenticated state request rejected (401)');
+  else defect('smoke', `unauthenticated state request → ${anon.status}`);
+
+  finish();
 }
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
@@ -271,8 +375,13 @@ async function main() {
   console.log(`PSEmine production QA → ${PROD}`);
   console.log(`QA account: ${EMAIL} (credentials in ${CREDS_FILE}, 0600)`);
 
-  const browser = await chromium.launch({ headless: !HEADFUL });
   const base = PROD.startsWith('http') ? PROD : await localServer();
+  // Safety gates: never sweep a degraded backend, and never mount the console
+  // when the caller only wants the targeted endpoint verification.
+  if (base === PROD) await preflightUpstream(base);
+  if (SMOKE) { await smokeRun(creds); return; }
+
+  const browser = await chromium.launch({ headless: !HEADFUL });
 
   /* 1 ── real production signup through the real form ─────────────────── */
   if (!REUSE) {
@@ -303,7 +412,10 @@ async function main() {
   console.log('\n── EMAIL VERIFICATION (real inbox) ──');
   {
     let link = null;
-    for (let i = 0; i < 12 && !link; i++) {
+    // Only poll the inbox when this run actually created the account: a reused
+    // account was verified by the run that created it, so waiting up to 60s for
+    // mail that will never arrive is pure waste on every targeted run.
+    for (let i = 0; i < 12 && !link && !REUSE; i++) {
       await new Promise(r => setTimeout(r, 5000));
       const msg = await mailLatest(MAILTOK);
       if (!msg) continue;
@@ -903,6 +1015,11 @@ async function main() {
   }
 
   await browser.close();
+  finish();
+}
+
+/** Write the report and exit with the conventional status (shared by both modes). */
+function finish() {
   delete REPORT.__authPage;
   delete REPORT.__storage;
   delete REPORT.__idToken;

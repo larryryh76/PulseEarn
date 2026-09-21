@@ -6,7 +6,7 @@ import {
   type PSEToolTierId,
 } from '../../types/psemine';
 import { gbp, gbpHour, REFERRAL_STAGES, REFERRAL_STAGE_MAP } from './pse';
-import { MinerVisual } from './MinerVisual';
+import { MinerArt } from './PSEBrand';
 
 /**
  * PseLandingVisuals — the PSEmine product visual system (OWNER-BRIEF §27).
@@ -123,16 +123,14 @@ export interface ConsolePreviewProps {
   /** Status wording override (e.g. "Pre-launch" before the campaign opens). */
   stateLabel?: string;
   /**
-   * True when the preview is showing the documented example rather than a
-   * running campaign. The frame then says so instead of claiming a status.
+   * Real mining activity. The public landing passes none before a purchase, so
+   * the feed shows its designed empty state instead of example amounts.
    */
-  illustrative?: boolean;
-  /** Illustrative activity entries — real activity types, example amounts. */
   activity: Array<{ title: string; detail: string; amount: string; tone: string }>;
 }
 
 export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
-  counts, dayIndex, durationDays, state, stateLabel, illustrative, activity,
+  counts, dayIndex, durationDays, state, stateLabel, activity,
 }) => {
   const toolCapacity = TIERS.reduce(
     (sum, t) => sum + counts[t.id] * tierDef(t.id).hourlyRateGBP,
@@ -151,11 +149,9 @@ export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
           <span className="pse-frame-dot" />
         </div>
         <div className="pse-frame-url">
-          <span aria-hidden="true">⌁</span> psemine.app/mine/dashboard
+          <span aria-hidden="true">⌁</span> pulseearn.online/mine/dashboard
         </div>
-        {illustrative
-          ? <span className="pse-tag" style={{ borderColor: 'rgba(76,158,248,0.34)', color: 'var(--pse-blue-ink)' }}>Illustrative</span>
-          : <StatePill state={state} label={stateLabel} />}
+        <StatePill state={state} label={stateLabel} />
       </div>
 
       <div className="p-4 sm:p-5">
@@ -165,16 +161,24 @@ export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
             <p className="pse-eyebrow">Hourly mining capacity</p>
             <p className="pse-fig-1 mt-2" style={{ color: 'var(--pse-text)' }}>{gbpHour(toolCapacity)}</p>
             <p className="pse-tiny mt-1.5">
-              {toolsOwned} owned {toolsOwned === 1 ? 'tool' : 'tools'} across {TIERS.filter(t => counts[t.id] > 0).length} tiers
+              {toolsOwned === 0
+                ? 'No tools held yet'
+                : `${toolsOwned} owned ${toolsOwned === 1 ? 'tool' : 'tools'} across ${TIERS.filter(t => counts[t.id] > 0).length} tiers`}
             </p>
           </div>
           <span className="pse-tag" style={{ borderColor: 'rgba(76,158,248,0.34)', color: 'var(--pse-blue-ink)' }}>
-            Example holdings
+            {toolsOwned === 0 ? 'Starting state' : 'Holdings'}
           </span>
         </div>
 
         {/* Composition: the exact arithmetic that produced the figure above. */}
         <div className="pse-inset-box mt-4">
+          {toolsOwned === 0 && (
+            <p className="pse-tiny px-3.5 py-3.5">
+              Each tool adds its fixed hourly rate for as long as it holds an active operating cycle. Buy your first
+              tool and this panel shows which tools produce your capacity, and what each one contributes.
+            </p>
+          )}
           <div className="pse-specs">
             {TIERS.filter(t => counts[t.id] > 0).map(t => (
               <div key={t.id} className="pse-spec">
@@ -207,22 +211,21 @@ export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
             </div>
             <div className="mt-2.5 flex items-center justify-between gap-2">
               <span className="pse-tiny">Mining phase</span>
-              {illustrative
-                ? <span className="pse-tag">Example day</span>
-                : <StatePill state={state} label={stateLabel} />}
+              <StatePill state={state} label={stateLabel} />
             </div>
           </div>
           <div className="pse-plate p-3.5">
             <div className="flex items-center justify-between gap-2">
-              <p className="pse-eyebrow">{illustrative ? 'Example accrual' : 'Accrued earnings'}</p>
+              <p className="pse-eyebrow">Accrued earnings</p>
               <span className="pse-tiny">GBP</span>
             </div>
             <p className="pse-fig-2 mt-3" style={{ color: 'var(--pse-text)' }}>
               {gbp(toolCapacity * 24 * dayIndex)}
             </p>
             <p className="pse-tiny mt-2">
-              {dayIndex} days × 24 hours at {gbpHour(toolCapacity)} — accrues hourly while a tool is in cycle, settles
-              at day {durationDays}
+              {toolCapacity === 0
+                ? `Nothing is accruing yet. Buy a tool, keep it in cycle, and accrual is written hourly until the campaign settles at day ${durationDays}.`
+                : `${dayIndex} days × 24 hours at ${gbpHour(toolCapacity)} — accrues hourly while a tool is in cycle, settles at day ${durationDays}`}
             </p>
           </div>
         </div>
@@ -245,7 +248,7 @@ export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
                     </span>
                   </div>
                   <div className="mt-1.5 flex h-[42px] items-end justify-center">
-                    <MinerVisual tier={t.id} size="xs" className="h-full w-full" />
+                    <MinerArt tier={t.rank as 1 | 2 | 3 | 4} size={38} className="h-full w-full" />
                   </div>
                   {/* Capacity rank, then the tier's hourly rate on its own line.
                       The rate is tabular and never truncates, so it gets the
@@ -268,9 +271,15 @@ export const ConsolePreview: React.FC<ConsolePreviewProps> = ({
         <div className="mt-4">
           <div className="flex items-center justify-between gap-2">
             <p className="pse-eyebrow">Mining activity</p>
-            <span className="pse-tag">Example</span>
+            {activity.length > 0 && <span className="pse-tag">Live</span>}
           </div>
           <div className="pse-inset-box mt-2.5">
+            {activity.length === 0 && (
+              <p className="pse-tiny px-3.5 py-3.5">
+                No activity yet. Tool purchases, activations, restarts and referral qualifications appear here as the
+                backend records them.
+              </p>
+            )}
             {activity.map((a, i) => (
               <div
                 key={a.title + i}
@@ -350,7 +359,7 @@ export const MarketplaceVisual: React.FC = () => {
       </div>
       <div className="pse-plate mt-2 flex items-center gap-2.5 p-2" style={{ background: 'var(--pse-l3)' }}>
         <div className="flex h-[38px] w-[52px] shrink-0 items-end justify-center">
-          <MinerVisual tier="starter" size="xs" className="h-full w-full" />
+          <MinerArt tier={1} size={38} className="h-full w-full" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="pse-tiny" style={{ color: 'var(--pse-text)' }}>{def.name}</p>
@@ -848,7 +857,7 @@ export const ToolComparison: React.FC<{ onSelect?: (tier: PSEToolTierId) => void
               {/* The product, at a comparable scale across tiers. */}
               <div className="flex items-center gap-3">
                 <div className="h-[52px] w-[70px] shrink-0">
-                  <MinerVisual tier={t.id} size="sm" fit="device" className="h-full w-full" />
+                  <MinerArt tier={t.rank as 1 | 2 | 3 | 4} size={64} className="h-full w-full" />
                 </div>
                 <div className="min-w-0">
                   <p className="pse-t-small font-semibold" style={{ color: 'var(--pse-text)' }}>{def.name}</p>

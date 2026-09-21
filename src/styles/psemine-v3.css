@@ -825,3 +825,15 @@
 .pse-scope .pse-state-ended { color: var(--pse-text-2); border-color: var(--pse-edge-2); background: rgba(255, 255, 255, 0.03); }
 .pse-scope .pse-state-glyph { width: 12px; height: 12px; flex-shrink: 0; }
 .pse-scope .pse-state-active .pse-state-glyph { animation: psePulse 2.4s ease-in-out infinite; }
+
+/* ── Touch floors: regression guard ──────────────────────────────────────
+   v2 sets the product's 44px tap floors for coarse pointers and phone-width
+   viewports. v3 is loaded after v2, so an unconditional control height here
+   would silently win over those floors. This block re-asserts v2's floors
+   after v3's control rules, so no v3 rule can lower a phone tap target. */
+@media (pointer: coarse), (max-width: 640px) {
+  .pse-scope .pse-btn-sm,
+  .pse-scope .pse-chapter-toggle { min-height: 44px; }
+  .pse-scope .pse-btn:not(.pse-btn-sm) { min-height: 44px; }
+  .pse-scope .pse-seg button { min-height: 44px; }
+}

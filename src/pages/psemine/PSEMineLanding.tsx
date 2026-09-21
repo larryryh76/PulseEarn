@@ -8,13 +8,13 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import {
   LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId,
 } from '../../types/psemine';
-import { gbp, gbpHour, PSELogo, usePseDocumentTitle } from '../../components/psemine/pse';
+import { campaignStatusView, gbp, gbpHour, PSELogo, usePseDocumentTitle } from '../../components/psemine/pse';
 import {
   CampaignLifecycle, CapacityBuilder, ConnectWalletVisual, ConsolePreview, MiningStates,
   PaymentVisual, ReferralProgression, SettlementVisual, StatePill, ToolComparison, WalletZones,
   AccrualVisual, MarketplaceVisual, type MiningState,
 } from '../../components/psemine/PseLandingVisuals';
-import { MinerVisual } from '../../components/psemine/MinerVisual';
+import { MinerArt } from '../../components/psemine/PSEBrand';
 
 /**
  * PSEMineLanding — the public product introduction at /mine.
@@ -46,20 +46,15 @@ const TOOL_BY_ID = LOCKED_PSEMINE_TOOLS;
    economics — are shown. */
 
 /**
- * Documented example holdings for the hero preview only (OWNER-BRIEF §5, §12).
- * Every hourly rate is the real per-tier rate; the counts are illustrative and
- * the preview carries an "Example holdings" tag plus a footer disclaimer.
- * 2 × £0.10 + 1 × £0.50 + 1 × £2.50 = £3.20/hour.
+ * The hero preview shows the product in its true starting state (OWNER-BRIEF
+ * §23). A visitor who has bought nothing holds nothing, so the preview renders
+ * zero tools, £0.00/hour of capacity, £0.00 accrued and an empty activity feed
+ * — the same figures the console shows on day 0. No example holdings, example
+ * campaign day or example earnings are rendered anywhere on this page.
  */
-const EXAMPLE_COUNTS: Record<PSEToolTierId, number> = { starter: 2, builder: 1, advanced: 0, elite: 1 };
-/** Documented example campaign day for the hero preview only. */
-const EXAMPLE_DAY = 34;
-
-const EXAMPLE_ACTIVITY = [
-  { title: 'Tool purchased', detail: 'Starter Miner · payment confirmed on-chain', amount: `−${gbp(3)}`, tone: 'var(--pse-blue)' },
-  { title: 'Mining capacity updated', detail: 'Starter Miner activated', amount: '+£0.10/hr', tone: 'var(--pse-cyan)' },
-  { title: 'Referral qualified', detail: 'Referee reached mining active', amount: '+£0.30/hr', tone: 'var(--pse-purple)' },
-];
+const NO_HOLDINGS: Record<PSEToolTierId, number> = { starter: 0, builder: 0, advanced: 0, elite: 0 };
+/** Real mining activity only — the public landing has none before a purchase. */
+const NO_ACTIVITY: Array<{ title: string; detail: string; amount: string; tone: string }> = [];
 
 const HOW_IT_WORKS: Array<{
   no: string; title: string; body: string; visual: React.ReactNode;
@@ -100,7 +95,7 @@ const CAPACITY_FLOW = [
   { label: 'Owned tools', value: 'per tier', note: 'Each tool contributes its fixed hourly rate for as long as it holds an active cycle.' },
   { label: 'Tool capacity', value: gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR), note: 'The ceiling across all four tiers at their ownership limits.' },
   { label: 'Qualified referrals', value: `+${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`, note: `${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} × ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} added once each referral qualifies.` },
-  { label: 'Total capacity', value: gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR), note: 'The maximum hourly capacity a single account can register.' },
+  { label: 'Total capacity', value: gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR), note: `Tools ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} plus up to ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from qualified referrals.` },
   { label: 'Hourly earnings', value: 'GBP ledger', note: 'Accrual is written to the mining ledger by the backend, hourly, against active capacity.' },
 ];
 
@@ -184,7 +179,10 @@ export const PSEMineLanding: React.FC = () => {
 
   const rawStatus = campaign?.status ?? 'scheduled';
   const miningState: MiningState = STATE_BY_STATUS[rawStatus] ?? 'ended';
-  const stateLabel = rawStatus === 'scheduled' ? 'Pre-launch' : undefined;
+  /* Campaign status wording comes from the same shared view every PSEmine
+     surface uses, so the landing and the console cannot disagree about it. */
+  const statusView = campaignStatusView(campaign?.status);
+  const stateLabel = statusView.label.trim();
   const durationDays = campaign?.durationDays ?? PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS;
 
   /** Real campaign day when one is running; otherwise the documented example. */
@@ -197,8 +195,8 @@ export const PSEMineLanding: React.FC = () => {
     return Math.max(0, Math.min(durationDays, days));
   }, [campaign?.startAt, rawStatus, durationDays]);
 
-  const illustrativeDay = realDay === null;
-  const dayIndex = realDay ?? EXAMPLE_DAY;
+  /* Day 0 is the honest value before the campaign window opens. */
+  const dayIndex = realDay ?? 0;
 
   const primaryHref = currentUser ? '/mine/dashboard' : '/mine/signup';
   const primaryLabel = currentUser ? 'Open your console' : 'Start Mining';
@@ -307,7 +305,7 @@ export const PSEMineLanding: React.FC = () => {
                 <dl className="pse-land-hero-facts">
                   {[
                     { k: 'Entry price', v: gbp(3) },
-                    { k: 'Max capacity', v: gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) },
+                    { k: 'Peak tool capacity', v: gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR) },
                     { k: 'Campaign', v: `${durationDays} days` },
                     { k: 'Network', v: 'BNB Smart Chain' },
                   ].map(f => (
@@ -322,13 +320,12 @@ export const PSEMineLanding: React.FC = () => {
               {/* The product, as a product screenshot. */}
               <div className="min-w-0">
                 <ConsolePreview
-                  counts={EXAMPLE_COUNTS}
+                  counts={NO_HOLDINGS}
                   dayIndex={dayIndex}
                   durationDays={durationDays}
                   state={miningState}
                   stateLabel={stateLabel}
-                  illustrative={illustrativeDay}
-                  activity={EXAMPLE_ACTIVITY}
+                  activity={NO_ACTIVITY}
                 />
               </div>
             </div>
@@ -398,7 +395,7 @@ export const PSEMineLanding: React.FC = () => {
                   <span className="pse-tag" style={{ position: 'absolute', top: 14, left: 14 }}>Featured</span>
                   <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 1 of 4</span>
                   <div style={{ maxWidth: 520, width: '100%' }}>
-                    <MinerVisual tier="starter" size="lg" className="w-full" />
+                    <MinerArt tier={1} size={200} className="h-auto w-full" />
                   </div>
                 </div>
                 <div className="pse-panel-body">
@@ -459,7 +456,7 @@ export const PSEMineLanding: React.FC = () => {
                 <div className="pse-mkt-visual" style={{ paddingBlock: 20 }}>
                   <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 2 of 4</span>
                   <div style={{ maxWidth: 300, width: '100%' }}>
-                    <MinerVisual tier="builder" size="md" className="w-full" />
+                    <MinerArt tier={2} size={140} className="h-auto w-full" />
                   </div>
                 </div>
                 <div className="pse-panel-body">
@@ -508,7 +505,7 @@ export const PSEMineLanding: React.FC = () => {
                         Tier {t.tier} of 4
                       </span>
                       <div style={{ maxWidth: 300, width: '100%' }}>
-                        <MinerVisual tier={id} size="md" className="w-full" />
+                        <MinerArt tier={(TOOL_BY_ID[id].tier || 1) as 1 | 2 | 3 | 4} size={140} className="h-auto w-full" />
                       </div>
                     </div>
                     <div className="pse-panel-body">
@@ -553,7 +550,7 @@ export const PSEMineLanding: React.FC = () => {
                   </span>
                   <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 4 of 4</span>
                   <div style={{ maxWidth: 460, width: '100%' }}>
-                    <MinerVisual tier="elite" size="lg" className="w-full" />
+                    <MinerArt tier={4} size={200} className="h-auto w-full" />
                   </div>
                 </div>
                 <div className="pse-panel-body">
@@ -785,12 +782,12 @@ export const PSEMineLanding: React.FC = () => {
                 state={miningState}
                 stateLabel={stateLabel}
               />
-              {illustrativeDay && (
+              {realDay === null && (
                 <p className="pse-tiny">
                   No campaign window has been opened by the backend yet, so this panel shows the campaign exactly as
-                  the console would: not started, no day counted. The console preview at the top of this page is a
-                  labelled illustration of the mining phase; your own day, remaining window and accrual appear here
-                  once the campaign is live.
+                  the console would: not started, no day counted. The console preview at the top of this page shows
+                  that same starting state — no tools held, £0.00/hour of capacity and £0.00 accrued — not an
+                  illustration of earnings.
                 </p>
               )}
               <MiningStates />

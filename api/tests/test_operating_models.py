@@ -139,7 +139,13 @@ class TestAccrualGating(unittest.TestCase):
         ]
         earned, eff_end = accrue_ownership(own, start, NOW, windows)
         self.assertEqual(earned, 10 * 24)
-        self.assertEqual(eff_end, NOW)  # anchor advances; paused time never retro-credits
+        # The anchor parks where the banked pence end (end of the operating half),
+        # not at window_end: a continuous tool with a paused tail banks only
+        # operating time, so the unearned tail is never counted as banked. The
+        # paused tail re-evaluates to zero — no retro-credit — on the next
+        # checkpoint, and before the 2026-09-21 remediation advancing to NOW
+        # discarded the sub-penny remainder of every checkpoint.
+        self.assertEqual(eff_end, start + timedelta(hours=24))
 
     def test_session_zero_when_anchor_past_session_end(self):
         start = NOW - timedelta(hours=48)

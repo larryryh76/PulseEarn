@@ -404,6 +404,76 @@ def normalize_tx_hash(tx_hash: str) -> str:
     return (tx_hash or "").strip().lower()
 
 
+# ----------------------------------------------------------------------------
+# Accrual banking: whole-penny anchors (cadence independence)
+# ----------------------------------------------------------------------------
+
+def earnable_seconds(
+    window_start: datetime,
+    window_end: datetime,
+    campaign_windows: List[Tuple[datetime, datetime, bool]],
+) -> Decimal:
+    """Operating seconds inside [window_start, window_end) (Decimal, never float)."""
+    total = Decimal(0)
+    for w_start, w_end, is_operating in campaign_windows or []:
+        if not is_operating:
+            continue
+        seg_start = max(window_start, w_start)
+        seg_end = min(window_end, w_end)
+        if seg_end <= seg_start:
+            continue
+        total += Decimal((seg_end - seg_start).total_seconds())
+    return total
+
+
+def accrual_banked_boundary(
+    window_start: datetime,
+    window_end: datetime,
+    campaign_windows: List[Tuple[datetime, datetime, bool]],
+    rate_minor: int,
+    earned_minor: int,
+) -> datetime:
+    """The instant up to which EXACTLY `earned_minor` whole pence have been banked.
+
+    WHY THIS EXISTS (and why it is not just `window_end`)
+    ----------------------------------------------------
+    Accrual is floored to whole pence per checkpoint. If the caller advances the
+    anchor all the way to `window_end` — which is what every implementation did
+    before this helper — the sub-penny remainder of each checkpoint is DISCARDED.
+    Earnings then depend on how often anything triggers a checkpoint, i.e. on how
+    often the user's dashboard polls: measured against this engine, a Starter
+    tool (10p/h) earned 0p in an hour at 60-second polls, a Builder tool (50p/h)
+    earned 0p, and an Elite tool (250p/h) earned 240p instead of 250p — where the
+    locked rates say £0.10 / £0.50 / £2.50 per hour.
+
+    Returning the whole-penny boundary keeps the unbanked remainder BEHIND the
+    anchor, so the next checkpoint credits it. The booked balance is then
+    identical at every cadence (60s, 300s, or one settlement an hour later),
+    which is what makes reducing dashboard polling financially safe.
+
+    Rounding is deliberately downward (to the microsecond): a boundary may never
+    represent MORE banked time than the whole pence it is derived from, or the
+    next checkpoint would bank part of that period twice.
+    """
+    if earned_minor <= 0 or rate_minor <= 0:
+        return window_start
+    remaining = (Decimal(int(earned_minor)) * Decimal(3600)) / Decimal(int(rate_minor))
+    for w_start, w_end, is_operating in campaign_windows or []:
+        if not is_operating:
+            continue
+        seg_start = max(window_start, w_start)
+        seg_end = min(window_end, w_end)
+        if seg_end <= seg_start:
+            continue
+        seg = Decimal((seg_end - seg_start).total_seconds())
+        if remaining > seg:
+            remaining -= seg
+            continue
+        micros = int((remaining * Decimal(1000000)).to_integral_value(rounding=ROUND_DOWN))
+        return seg_start + timedelta(microseconds=micros)
+    return window_end
+
+
 def accrue_ownership(
     ownership: dict,
     window_start: datetime,
@@ -413,10 +483,24 @@ def accrue_ownership(
     """
     Accrue GBP minor units for ONE ownership over [window_start, window_end).
 
-    Returns (earned_minor, effective_end) where effective_end is the timestamp the
-    caller must advance the ownership accrual anchor to (min(window_end, cycle_end)).
-    Advancing to effective_end — NOT to window_end — is what makes repeated
-    checkpoints idempotent across cycle boundaries.
+    Returns (earned_minor, next_anchor) where next_anchor is the instant the
+    caller must move the ownership accrual anchor to. It is `window_start`
+    itself when nothing was banked — meaning "leave the anchor alone" — so a
+    checkpoint that earns nothing is a pure read and never rewrites the tool
+    document (the dashboard must not write merely because it is being viewed).
+
+    Two boundaries exist, and they differ in purpose:
+      • TERMINAL — the accrual of this window is completely determined and no
+        later checkpoint can add to it: the session cycle ended inside the
+        window, or the campaign is not earning (caller passes no windows). The
+        anchor moves all the way to that boundary. At most a sub-penny tail is
+        left unbanked per session, which is unavoidable at penny resolution.
+      • WHOLE-PENNY — the window is still open (a running session, a continuous
+        tool). The anchor moves only as far as whole pence were banked, so the
+        remainder carries forward (see accrual_banked_boundary).
+
+    Either way the operation is idempotent: re-running it with the same window
+    returns 0 and never moves the anchor backwards.
 
     Eligible time excludes:
       - time before the current operating cycle started
@@ -460,32 +544,21 @@ def accrue_ownership(
         effective_end = window_end
         effective_start = max(window_start, started)
         if effective_end <= effective_start:
-            return (0, window_end)
-        total_minor = 0
-        for w_start, w_end, is_operating in campaign_windows:
-            if not is_operating:
-                continue
-            seg_start = max(effective_start, w_start)
-            seg_end = min(effective_end, w_end)
-            if seg_end <= seg_start:
-                continue
-            hours = Decimal((seg_end - seg_start).total_seconds()) / Decimal(3600)
-            earned = int((Decimal(rate_minor) * hours).to_integral_value(rounding=ROUND_DOWN))
-            total_minor += earned
-        return (total_minor, window_end)
-
-    # Session tool: operating portion of the CURRENT session only — a future
-    # session start (restart pending) and the post-session window never accrue.
-    session_len = timedelta(hours=float(model.get("sessionDurationHours") or OPERATING_CYCLE_HOURS))
-    cycle_end = started + session_len
-    effective_end = min(window_end, cycle_end)
-    effective_start = max(window_start, started)
-    if effective_end <= effective_start:
-        return (0, min(window_end, cycle_end))
+            return (0, window_start)
+    else:
+        # Session tool: operating portion of the CURRENT session only — a future
+        # session start (restart pending) and the post-session window never
+        # accrue.
+        session_len = timedelta(hours=float(model.get("sessionDurationHours") or OPERATING_CYCLE_HOURS))
+        cycle_end = started + session_len
+        effective_end = min(window_end, cycle_end)
+        effective_start = max(window_start, started)
+        if effective_end <= effective_start:
+            # Session over (or not started): nothing banked, anchor untouched.
+            return (0, window_start)
 
     total_minor = 0
-    # intersect with campaign operating windows
-    for w_start, w_end, is_operating in campaign_windows:
+    for w_start, w_end, is_operating in campaign_windows or []:
         if not is_operating:
             continue
         seg_start = max(effective_start, w_start)
@@ -495,7 +568,74 @@ def accrue_ownership(
         hours = Decimal((seg_end - seg_start).total_seconds()) / Decimal(3600)
         earned = int((Decimal(rate_minor) * hours).to_integral_value(rounding=ROUND_DOWN))
         total_minor += earned
-    return (total_minor, effective_end)
+
+    if not campaign_windows or effective_end < window_end:
+        # TERMINAL: campaign not earning, or the session ends inside this window.
+        return (total_minor, effective_end)
+    return (total_minor, accrual_banked_boundary(
+        effective_start, effective_end, campaign_windows, rate_minor, total_minor,
+    ))
+
+
+def referral_capacity_rate_minor(
+    qualified_referral_count: int,
+    has_operating_tool: bool = True,
+) -> int:
+    """Effective referral rate for a referral window, in minor units per hour.
+
+    Zero when no capacity qualifies (no qualified referral, or no operating
+    tool) — the two cases the anchor rules in `accrue_referral_capacity_banked`
+    have to tell apart from "capacity exists but this window banked less than a
+    penny".
+    """
+    if not has_operating_tool:
+        return 0
+    n = compute_referral_capacity_minor(qualified_referral_count) // REFERRAL_BONUS_MINOR_PER_HOUR
+    if n <= 0:
+        return 0
+    return n * REFERRAL_BONUS_MINOR_PER_HOUR
+
+
+def accrue_referral_capacity_banked(
+    qualified_referral_count: int,
+    window_start: datetime,
+    window_end: datetime,
+    campaign_windows: List[Tuple[datetime, datetime, bool]],
+    has_operating_tool: bool = True,
+) -> Tuple[int, datetime]:
+    """Referral capacity accrual + the anchor the caller must advance to.
+
+    Returns (earned_minor, next_anchor):
+      • rate > 0   — the anchor advances only as far as whole pence were banked,
+                     so the sub-penny remainder carries forward instead of being
+                     discarded by the next checkpoint. (The same cadence bug
+                     `accrue_ownership` was fixed for: 30p/h per referral never
+                     reached a whole penny inside one 60-second checkpoint, so
+                     referral capacity paid £0 however long it ran.)
+      • rate == 0  — no capacity can accrue in this window at all, because the
+                     referrer has no operating tool or no qualified referral.
+                     The anchor is still consumed (advanced to window_end):
+                     that is what stops a LATER qualification or restart from
+                     retro-crediting a period that accrued nothing. The engine
+                     re-anchors to the qualification moment when the count
+                     itself changes, so a zero-count user writes nothing.
+    """
+    rate = referral_capacity_rate_minor(qualified_referral_count, has_operating_tool)
+    if rate <= 0:
+        return (0, window_end)
+    total = 0
+    for w_start, w_end, is_operating in campaign_windows or []:
+        if not is_operating:
+            continue
+        seg_start = max(window_start, w_start)
+        seg_end = min(window_end, w_end)
+        if seg_end <= seg_start:
+            continue
+        hours = Decimal((seg_end - seg_start).total_seconds()) / Decimal(3600)
+        total += int((Decimal(rate) * hours).to_integral_value(rounding=ROUND_DOWN))
+    return (total, accrual_banked_boundary(
+        window_start, window_end, campaign_windows, rate, total,
+    ))
 
 
 def accrue_referral_capacity(
@@ -511,23 +651,10 @@ def accrue_referral_capacity(
     When the user has no operating tool, nothing accrues (anchor still advances
     at the caller so missed time is never retro-credited).
     """
-    if not has_operating_tool:
-        return 0
-    n = compute_referral_capacity_minor(qualified_referral_count) // REFERRAL_BONUS_MINOR_PER_HOUR
-    if n <= 0:
-        return 0
-    rate = n * REFERRAL_BONUS_MINOR_PER_HOUR
-    total = 0
-    for w_start, w_end, is_operating in campaign_windows:
-        if not is_operating:
-            continue
-        seg_start = max(window_start, w_start)
-        seg_end = min(window_end, w_end)
-        if seg_end <= seg_start:
-            continue
-        hours = Decimal((seg_end - seg_start).total_seconds()) / Decimal(3600)
-        total += int((Decimal(rate) * hours).to_integral_value(rounding=ROUND_DOWN))
-    return total
+    return accrue_referral_capacity_banked(
+        qualified_referral_count, window_start, window_end,
+        campaign_windows, has_operating_tool,
+    )[0]
 
 
 # ----------------------------------------------------------------------------

@@ -168,7 +168,13 @@ class TestCycles(unittest.TestCase):
         ]
         got, anchor = accrue_ownership(own, self.t0, self.t0 + timedelta(hours=20), windows)
         self.assertEqual(got, 1000)
-        self.assertEqual(anchor, self.t0 + timedelta(hours=20))
+        # The anchor is banked exactly where the LAST whole penny was earned, not
+        # at window_end. Before the 2026-09-21 remediation the anchor jumped to
+        # the end of the window unconditionally, which discarded the sub-penny
+        # remainder of every checkpoint; where a window ends in non-operating
+        # time the anchor now parks at the operating boundary and the dead tail
+        # simply re-evaluates to zero on the next checkpoint.
+        self.assertEqual(anchor, self.t0 + timedelta(hours=10))
 
     def test_campaign_windows_active(self):
         """Verify campaign windows active."""

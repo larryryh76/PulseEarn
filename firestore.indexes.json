@@ -122,6 +122,14 @@
       ]
     },
     {
+      "collectionGroup": "psemine_purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "psemine_mining_ledger",
       "queryScope": "COLLECTION",
       "fields": [

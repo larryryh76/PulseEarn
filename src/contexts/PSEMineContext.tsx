@@ -4,8 +4,11 @@ import {
   onSnapshot, 
   collection, 
   query, 
-  where
+  where,
+  orderBy,
+  limit
 } from 'firebase/firestore';
+import type { QuerySnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from './AuthContext';
 import { 
@@ -42,6 +45,32 @@ import {
   subscribeWalletEvents,
 } from '../engines/psemine/pseWallet';
 import toast from 'react-hot-toast';
+
+/**
+ * Bounds on the PSEmine realtime listeners.
+ *
+ * WHY: a Firestore `onSnapshot` without `limit()` re-reads the ENTIRE result set
+ * every time the listener attaches — and the console is mounted by every signed-in
+ * miner on every PSEmine route. Three of these listeners were unbounded, so a
+ * mature account paid for its whole purchase / ownership / referral history on
+ * every mount. These bounds are derived from the product's own constraints, not
+ * chosen for effect:
+ *
+ *  • ownerships — the locked economics cap total ownership at 5+3+3+2 = 13 tools
+ *    per account (starter/builder/advanced/elite). 25 leaves room for a legacy
+ *    v1 ownership alongside a canonical one without ever clipping live data.
+ *  • purchases — purchase records are not capped (abandoned intents accumulate),
+ *    so this one is ordered by `createdAt` descending and bounded to the most
+ *    recent 25. The dashboard renders the three most recent. Requires the
+ *    composite index declared in firestore.indexes.json.
+ *  • referrals — an account can invite without limit, but only the first 5
+ *    qualified referrals carry capacity and the console renders referral rows
+ *    from the API feed (/api/mine/referrals), not from this listener. 50 matches
+ *    the bound the API feeds use for activities and notifications.
+ */
+const OWNERSHIP_LISTENER_LIMIT = 25;
+const PURCHASE_LISTENER_LIMIT = 25;
+const REFERRAL_LISTENER_LIMIT = 50;
 
 interface PSEMineContextType {
   campaign: PSEMineCampaign | null;
@@ -100,6 +129,15 @@ interface PSEMineContextType {
   refreshData: () => Promise<void>;
   isCampaignArchived: boolean;
   campaignDaysRemaining: number;
+  /**
+   * Bumped whenever THIS session completes a state-changing action whose result
+   * the console must show immediately (tool activated, restart scheduled, payout
+   * address changed). PseStateProvider refreshes `/api/mine/state` on change, so
+   * a slower background cadence never leaves a purchase or a restart stale —
+   * without letting Firestore listener fires (which the accrual checkpoint can
+   * itself cause) drive request traffic.
+   */
+  stateEpoch: number;
 }
 
 const PSEMineContext = createContext<PSEMineContextType | undefined>(undefined);
@@ -115,6 +153,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // PSEmine console already spends on `/api/mine/state`.
   const currentUserUid = currentUser?.uid;
   const currentUserEmail = currentUser?.email ?? undefined;
+  const [stateEpoch, setStateEpoch] = useState(0);
+  const bumpStateEpoch = useCallback(() => setStateEpoch(e => e + 1), []);
   const [campaign, setCampaign] = useState<PSEMineCampaign | null>(null);
   const [pseUser, setPseUser] = useState<PSEMineUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -165,8 +205,26 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   // 1. Subscribe to Authoritative Campaign State
+  //
+  // ENTITLEMENT-GATED (2026-09-21 remediation). firestore.rules scope this
+  // document to `hasPSEMineAccess(uid)`, so an unconditional listener could only
+  // ever resolve as a DENIED subscription for a signed-out visitor or a
+  // PulseEarn-only account — a persistent, permanently-erroring listener that
+  // then fell through to a one-shot fetch anyway. Entitled miners get the
+  // realtime document they are permitted to read; everyone else gets the
+  // backend's public projection (GET /api/mine/campaign/status) exactly once,
+  // with no listener and no error path.
   useEffect(() => {
     let unsub: (() => void) | undefined;
+    let cancelled = false;
+
+    if (!currentUserUid || !hasPSEmineAccess) {
+      PSEMineEngine.getOrCreateActiveCampaign().then(camp => {
+        if (!cancelled) setCampaign(camp ?? null);
+      });
+      return () => { cancelled = true; };
+    }
+
     const initCampaign = async () => {
       try {
         const campRef = doc(db, 'psemine_campaigns', 'active_campaign');
@@ -175,22 +233,29 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setCampaign(snap.data() as PSEMineCampaign);
           } else {
             // Bootstrap initial campaign document
-            PSEMineEngine.getOrCreateActiveCampaign().then(setCampaign);
+            PSEMineEngine.getOrCreateActiveCampaign().then(camp => {
+              if (!cancelled) setCampaign(camp ?? null);
+            });
           }
         }, (err) => {
           console.warn('[PSEMineContext] Campaign listener fallback:', err);
-          PSEMineEngine.getOrCreateActiveCampaign().then(setCampaign);
+          PSEMineEngine.getOrCreateActiveCampaign().then(camp => {
+            if (!cancelled) setCampaign(camp ?? null);
+          });
         });
       } catch {
-        PSEMineEngine.getOrCreateActiveCampaign().then(setCampaign);
+        PSEMineEngine.getOrCreateActiveCampaign().then(camp => {
+          if (!cancelled) setCampaign(camp ?? null);
+        });
       }
     };
 
     initCampaign();
     return () => {
+      cancelled = true;
       if (unsub) unsub();
     };
-  }, []);
+  }, [currentUserUid, hasPSEmineAccess]);
 
   // 2. Subscribe to PSE User Data and Subcollections
   useEffect(() => {
@@ -243,38 +308,77 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setLoading(false);
         });
 
-        // Tool Ownerships
+        // Tool Ownerships — bounded at the ownership cap (see the limits above).
         const ownQuery = query(
           collection(db, 'psemine_tool_ownership'),
-          where('userId', '==', currentUserUid)
+          where('userId', '==', currentUserUid),
+          limit(OWNERSHIP_LISTENER_LIMIT)
         );
         unsubOwnerships = onSnapshot(ownQuery, (snap) => {
           const list: PSEMineToolOwnership[] = [];
           snap.forEach(d => list.push(d.data() as PSEMineToolOwnership));
           setOwnerships(list);
+        }, (err) => {
+          console.warn('[PSEMineContext] Ownership snapshot error:', err);
         });
 
-        // Purchases
+        // Purchases — most recent first, bounded. `createdAt` is written by the
+        // backend on every intent (firestore.SERVER_TIMESTAMP), so an ordered
+        // read is complete rather than sampling.
+        //
+        // INDEX GRACEFUL DEGRADATION: an ordered read over an equality filter
+        // needs the composite index declared in firestore.indexes.json. If that
+        // index has not been deployed yet, Firestore rejects the listener with
+        // FAILED_PRECONDITION — so the SAME bounded read is retried WITHOUT the
+        // order clause instead of leaving the dashboard's purchase history
+        // empty. The degraded path is a subset risk only (an account holding
+        // more than PURCHASE_LISTENER_LIMIT purchase records), never a failure:
+        // the failing listener is detached first, so it cannot error-loop, and
+        // the warning always names the condition so the missing index stays
+        // visible to whoever reads the console.
+        // Building a query object reads nothing; only the listener does.
         const purQuery = query(
           collection(db, 'psemine_purchases'),
-          where('userId', '==', currentUserUid)
+          where('userId', '==', currentUserUid),
+          orderBy('createdAt', 'desc'),
+          limit(PURCHASE_LISTENER_LIMIT)
         );
-        unsubPurchases = onSnapshot(purQuery, (snap) => {
+        const purFallbackQuery = query(
+          collection(db, 'psemine_purchases'),
+          where('userId', '==', currentUserUid),
+          limit(PURCHASE_LISTENER_LIMIT)
+        );
+        const applyPurchases = (snap: QuerySnapshot) => {
           const list: PSEMinePurchase[] = [];
           snap.forEach(d => list.push(d.data() as PSEMinePurchase));
           list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setPurchases(list);
+        };
+        unsubPurchases = onSnapshot(purQuery, applyPurchases, (err) => {
+          // Loud, never silent: detach the failing listener, then degrade to the
+          // same bounded read without the order clause (see the note above).
+          console.warn('[PSEMineContext] Purchase snapshot error:', err);
+          const failed = unsubPurchases;
+          unsubPurchases = onSnapshot(
+            purFallbackQuery,
+            applyPurchases,
+            (err2) => console.warn('[PSEMineContext] Purchase snapshot error (unordered fallback):', err2),
+          );
+          if (typeof failed === 'function') failed();
         });
 
-        // Referrals
+        // Referrals — bounded (the console renders referrals from the API feed).
         const refQuery = query(
           collection(db, 'psemine_referrals'),
-          where('referrerId', '==', currentUserUid)
+          where('referrerId', '==', currentUserUid),
+          limit(REFERRAL_LISTENER_LIMIT)
         );
         unsubReferrals = onSnapshot(refQuery, (snap) => {
           const list: PSEMineReferral[] = [];
           snap.forEach(d => list.push(d.data() as PSEMineReferral));
           setReferrals(list);
+        }, (err) => {
+          console.warn('[PSEMineContext] Referral snapshot error:', err);
         });
 
         // D1 remediation: the legacy psemine_users/{uid}/activity subcollection
@@ -617,6 +721,10 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     try {
       const purchase = await PSEMineEngine.createPurchaseIntent(quote, connectedWallet);
+      // The intent is now a PENDING purchase: the console resumes it from
+      // /api/mine/state's pendingPurchases projection, so refresh immediately
+      // rather than waiting for the tick.
+      bumpStateEpoch();
       return {
         success: true,
         purchaseId: purchase.id,
@@ -629,7 +737,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         error: e instanceof Error ? e.message : 'Could not bind this purchase to your wallet.',
       };
     }
-  }, [currentUser, connectedWallet]);
+  }, [currentUser, connectedWallet, bumpStateEpoch]);
 
   // 7. Submit Purchase Transaction Hash (for an ALREADY BOUND purchase) —
   // the backend verifies sender/recipient/amount/chain/confirmations and is the
@@ -652,6 +760,9 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (result.success) {
         toast.success('Payment verified — tool deployed!', { icon: '⛏️', duration: 6000 });
         setActiveQuote(null);
+        // A deployed tool changes capacity and pending purchases immediately:
+        // refresh the canonical state now instead of waiting for the tick.
+        bumpStateEpoch();
       } else {
         toast.error(result.error || 'Payment verification failed');
       }
@@ -662,7 +773,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const errMsg = e instanceof Error ? e.message : 'Purchase processing error';
       return { success: false, error: errMsg };
     }
-  }, [currentUser]);
+  }, [currentUser, bumpStateEpoch]);
 
   // 7. Update Payout Wallet
   const updatePayoutWallet = useCallback(async (newAddress: string): Promise<{ success: boolean; error?: string }> => {
@@ -674,6 +785,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = await PSEMineEngine.updatePayoutWallet(newAddress);
       if (res.success) {
         toast.success('Settlement payout address updated');
+        bumpStateEpoch();  // the state document carries payoutWallet
       } else {
         toast.error(res.error || 'Could not update payout address');
       }
@@ -682,7 +794,7 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const errMsg = e instanceof Error ? e.message : 'Network error';
       return { success: false, error: errMsg };
     }
-  }, [currentUser]);
+  }, [currentUser, bumpStateEpoch]);
 
   const refreshData = useCallback(async () => {
     if (currentUser) {
@@ -704,11 +816,12 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         { duration: 6000 },
       );
       await PSEMineEngine.syncAccrual(currentUser.uid);
+      bumpStateEpoch();  // next session start / cycle state changed
     } else {
       toast.error(res.error || 'Restart failed');
     }
     return res;
-  }, [currentUser]);
+  }, [currentUser, bumpStateEpoch]);
 
   // Calculate days remaining with full resilience against undefined or invalid date strings
   const campaignDaysRemaining = React.useMemo(() => {
@@ -808,7 +921,8 @@ export const PSEMineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         maintainTool,
         refreshData,
         isCampaignArchived,
-        campaignDaysRemaining
+        campaignDaysRemaining,
+        stateEpoch
       }}
     >
       {children}

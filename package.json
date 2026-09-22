@@ -14,6 +14,7 @@
     "verify:user-journey": "bun scripts/pse-user-journey.mjs",
     "audit:design": "bun scripts/pse-design-audit.mjs",
     "probe:route": "bun scripts/pse-probe.mjs",
+    "metrics:db": "bun scripts/pse-db-metrics.mjs",
     "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs"
   },
   "dependencies": {

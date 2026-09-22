@@ -101,8 +101,26 @@ class _FakeCollection:
 
 
 class _FakeTxn:
+    """Stand-in for a Firestore transaction: the engine buffers its writes here."""
+
     def __init__(self):
         self.ops = []
+
+    def get(self, reference, *args, **kwargs):
+        self.ops.append(("read", reference))
+        return reference.get()
+
+    def set(self, reference, payload, merge=False):
+        self.ops.append(("set", reference))
+        return None
+
+    def update(self, reference, payload):
+        self.ops.append(("update", reference))
+        return None
+
+    def delete(self, reference):
+        self.ops.append(("delete", reference))
+        return None
 
 
 class _FakeClient:
@@ -110,13 +128,19 @@ class _FakeClient:
         self.calls = []
         self.transaction_count = 0
         self.batch_count = 0
+        self.txns = []
 
     def collection(self, name):
         return _FakeCollection(name, self.calls)
 
+    def calls_of_txn(self):
+        return [op for txn in self.txns for op in txn.ops]
+
     def transaction(self):
         self.transaction_count += 1
-        return _FakeTxn()
+        txn = _FakeTxn()
+        self.txns.append(txn)
+        return txn
 
     def batch(self):
         self.batch_count += 1
@@ -138,10 +162,32 @@ class TestTally(unittest.TestCase):
         self.assertEqual(snapshot["reads"], 3)
         self.assertEqual(snapshot["writes"], 1)
         self.assertEqual(snapshot["byCollection"]["psemine_mining_ledger"],
-                         {"reads": 2, "writes": 0})
+                         {"reads": 2, "documents": 0, "writes": 0})
         self.assertEqual(snapshot["byCollection"]["psemine_users"],
-                         {"reads": 1, "writes": 1})
+                         {"reads": 1, "documents": 0, "writes": 1})
         self.assertGreaterEqual(snapshot["durationMs"], 0)
+
+    def test_documents_returned_are_tracked_separately_from_read_calls(self):
+        """`reads` counts operations; `documents` counts rows. The quota is spent
+        on rows, so an empty query and a 400-row query must not look alike."""
+        tally = FirestoreTally()
+        tally.read("psemine_purchases", documents=0, query=True)
+        tally.read("psemine_purchases", documents=400, query=True)
+        tally.read("psemine_users", documents=1, query=False)
+        snapshot = tally.snapshot()
+        self.assertEqual(snapshot["reads"], 3)
+        self.assertEqual(snapshot["documents"], 401)
+        self.assertEqual(snapshot["queryReads"], 2)
+        self.assertEqual(snapshot["documentReads"], 1)
+        self.assertEqual(snapshot["byCollection"]["psemine_purchases"]["documents"], 400)
+
+    def test_transaction_buffered_writes_are_counted_and_flagged(self):
+        tally = FirestoreTally()
+        tally.write("psemine_users")
+        tally.write("psemine_users", in_transaction=True)
+        snapshot = tally.snapshot()
+        self.assertEqual(snapshot["writes"], 2)
+        self.assertEqual(snapshot["transactionWrites"], 1)
 
 
 class TestWrapperTransparency(unittest.TestCase):
@@ -191,6 +237,51 @@ class TestWrapperTransparency(unittest.TestCase):
         self.metered.collection("psemine_users").document("u1").get(transaction=txn)
         self.assertEqual(self.tally.reads, 1)
         self.assertEqual(self.tally.transactions, 1)
+
+    def test_query_read_counts_the_documents_it_returned(self):
+        """A query that hands back N rows spends N reads, and the meter must say
+        so — this is the number that tracks the quota ceiling."""
+        self.metered.collection("psemine_purchases").where("userId", "==", "u1").get()
+        self.assertEqual(self.tally.reads, 1)
+        self.assertEqual(self.tally.documents, 1)  # the fake query returns one row
+        self.assertEqual(self.tally.query_reads, 1)
+        self.assertEqual(self.tally.document_reads, 0)
+
+    def test_a_failed_read_is_not_billed(self):
+        class _Boom(_FakeCollection):
+            def document(self, doc_id="auto"):
+                raise RuntimeError("resource exhausted")
+
+        client = _FakeClient()
+        client.collection = lambda name: _Boom(name, client.calls)
+        tally = FirestoreTally()
+        metered = wrap_client(client, tally)
+        with self.assertRaises(RuntimeError):
+            metered.collection("psemine_users").document("u1").get()
+        self.assertEqual(tally.reads, 0, "a read that never happened must not be counted")
+
+    def test_transaction_operations_are_counted_and_refs_are_unwrapped(self):
+        """The accrual checkpoint writes through the transaction object; the
+        meter has to see those, and the SDK has to receive the REAL reference."""
+        txn = self.metered.transaction()
+        user_ref = self.metered.collection("psemine_users").document("u1")
+        txn.update(user_ref, {"accruedMinor": 10})
+        txn.update(user_ref, {"lastAccruedAt": "now"})
+        txn.get(self.metered.collection("psemine_tool_ownership").document("own1"))
+        self.assertEqual(self.tally.writes, 2)
+        self.assertEqual(self.tally.transaction_writes, 2)
+        self.assertEqual(self.tally.reads, 1)
+        self.assertEqual(self.client.transaction_count, 1)
+        # Every reference the fake transaction received is a real object, not a proxy.
+        for op, reference in self.client.calls_of_txn():
+            self.assertIsInstance(reference, _FakeDoc)
+        self.assertEqual(self.tally.by_collection["psemine_users"]["writes"], 2)
+        self.assertEqual(self.tally.by_collection["psemine_users"]["documents"], 0)
+
+    def test_transaction_reads_are_attributed_to_their_collection(self):
+        txn = self.metered.transaction()
+        txn.get(self.metered.collection("psemine_tool_ownership").document("own1"))
+        self.assertEqual(self.tally.by_collection["psemine_tool_ownership"]["reads"], 1)
 
     def test_snapshot_references_are_real_objects(self):
         """Reads hand back the client's own snapshots — the wrapper must not

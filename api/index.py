@@ -281,7 +281,11 @@ def _pse_after_request(response):
         try:
             _snap = _tally.snapshot()
             response.headers['X-Pse-Db-Reads'] = str(_snap['reads'])
+            response.headers['X-Pse-Db-Documents'] = str(_snap['documents'])
+            response.headers['X-Pse-Db-Document-Reads'] = str(_snap['documentReads'])
+            response.headers['X-Pse-Db-Query-Reads'] = str(_snap['queryReads'])
             response.headers['X-Pse-Db-Writes'] = str(_snap['writes'])
+            response.headers['X-Pse-Db-Transaction-Writes'] = str(_snap['transactionWrites'])
             response.headers['X-Pse-Db-Transactions'] = str(_snap['transactions'])
             response.headers['X-Pse-Db-Duration-Ms'] = str(_snap['durationMs'])
             _req_u = getattr(request, 'user', None)

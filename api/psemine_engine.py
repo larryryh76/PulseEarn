@@ -32,6 +32,7 @@ from psemine_core import (
     LEGACY_TOOL_ID_ALIASES,
     accrue_ownership,
     accrue_referral_capacity,
+    accrue_referral_capacity_banked,
     campaign_operating_windows,
     compute_referral_capacity_minor,
     compute_tool_capacity_minor,
@@ -629,14 +630,34 @@ def accrual_checkpoint(db, uid, source="auto", camp=None):
         # Referral capacity accrual (requires >=1 tool operating now).
         # (Read phase: anchor and count come from the user snapshot; the anchor
         # write itself is deferred to the write phase.)
+        #
+        # ANCHOR RULES (2026-09-21 read-amplification remediation):
+        #   • qual > 0  — the anchor tracks whole banked pence, exactly like a
+        #                 tool anchor, so the sub-penny remainder carries forward
+        #                 instead of being discarded by the next checkpoint.
+        #                 (Before this, 30p/h per referral never reached a whole
+        #                 penny inside one 60-second checkpoint, so referral
+        #                 capacity paid nothing however long it ran.)
+        #   • qual == 0 — the anchor is NOT advanced at all. No capacity exists
+        #                 to accrue and none can be lost, so a miner with no
+        #                 qualified referrals writes nothing when the dashboard
+        #                 polls. The qualification transaction re-anchors the
+        #                 referral clock at the qualification instant (see
+        #                 settle_referral_on_activation), which is the documented
+        #                 rule: capacity applies from qualification forward and
+        #                 never retroactively.
         ref_anchor_raw = user.get("lastReferralAccruedAt")
         ref_anchor = _parse(ref_anchor_raw) if ref_anchor_raw else window_end
         referral_due = ref_anchor < window_end
+        referral_anchor_to = None
         if referral_due:
             qual = int(user.get("qualifiedReferralsCount") or 0)
-            referral_minor = accrue_referral_capacity(
-                qual, ref_anchor, window_end, windows, has_operating_tool=operating_now
-            )
+            if qual > 0:
+                referral_minor, _ref_next = accrue_referral_capacity_banked(
+                    qual, ref_anchor, window_end, windows, has_operating_tool=operating_now
+                )
+                if _ref_next > ref_anchor:
+                    referral_anchor_to = _ref_next
 
         total_minor = total_tool_minor + referral_minor
 
@@ -673,16 +694,23 @@ def accrual_checkpoint(db, uid, source="auto", camp=None):
             txn.update(_ref, _payload)
         for _ref, _payload in anchor_updates:
             txn.update(_ref, _payload)
-        if referral_due:
-            txn.update(user_ref, {"lastReferralAccruedAt": _iso(window_end)})
-
+        # The referral anchor rides the SAME user-document update as everything
+        # else below: two updates to one document per checkpoint would be two
+        # billed writes (and two listener deliveries) for one logical change.
         updates = {"updatedAt": firestore_server_ts()}
+        if referral_anchor_to is not None:
+            updates["lastReferralAccruedAt"] = _iso(referral_anchor_to)
+        if total_minor > 0 and entry_exists:
+            # Ledger entry already committed by an earlier attempt (transaction
+            # retry): every buffered anchor advance above still commits —
+            # idempotent — but the balance must not change twice, and the
+            # referral anchor MUST still advance. Dropping it here would leave
+            # the referral clock behind the period this entry already paid for,
+            # and the next checkpoint would credit that period a second time.
+            if referral_anchor_to is not None:
+                txn.update(user_ref, {"lastReferralAccruedAt": _iso(referral_anchor_to)})
+            return {"earnedMinor": 0, "duplicate": True, "entryId": entry_id}
         if total_minor > 0:
-            if entry_exists:
-                # Ledger entry already committed by an earlier attempt: buffered
-                # anchor advances above still commit (idempotent), but the
-                # balance must not change twice.
-                return {"earnedMinor": 0, "duplicate": True, "entryId": entry_id}
             txn.set(entry_ref, {
                 "id": entry_id,
                 "userId": uid,
@@ -705,12 +733,26 @@ def accrual_checkpoint(db, uid, source="auto", camp=None):
                 "referralCapacityGBPPerHour": float(Decimal(compute_referral_capacity_minor(qual)) / 100),
                 "totalCapacityGBPPerHour": float(Decimal(compute_total_capacity_minor(counts, qual)) / 100),
             })
-        # Display-continuity mirrors (server-owned): lastAccruedAt always advances so
-        # the client's server-anchored accrual animation stays meaningful; balances
-        # themselves remain ledger-authoritative (accruedMinor).
-        updates["lastAccruedAt"] = _iso(window_end)
-        txn.update(user_ref, updates)
-        return {"earnedMinor": int(total_minor), "duplicate": False, "entryId": entry_id if total_minor > 0 else None}
+        # Display-continuity mirror (server-owned): lastAccruedAt advances ONLY
+        # when this checkpoint banked something, so the client's server-anchored
+        # accrual animation re-anchors on a real balance change and never drops
+        # the unbanked remainder. The balance itself stays ledger-authoritative
+        # (accruedMinor).
+        #
+        # NO-OP CHECKPOINTS WRITE NOTHING. A dashboard poll that banks no pence,
+        # advances no anchor and absorbs nothing is a pure read: the user
+        # document is left untouched, so the client's psemine_users listener
+        # does not fire and the poll cannot feed itself back into another read.
+        # Before this, every poll rewrote `lastAccruedAt`/`updatedAt` (the
+        # referral-anchor write was unconditional), which is what made merely
+        # viewing the dashboard cost a write on every tick.
+        if total_minor > 0:
+            updates["lastAccruedAt"] = _iso(window_end)
+        if total_minor > 0 or referral_anchor_to is not None or needs_absorption:
+            txn.update(user_ref, updates)
+        return {"earnedMinor": int(total_minor), "duplicate": False,
+                "entryId": entry_id if total_minor > 0 else None,
+                "noop": total_minor <= 0 and referral_anchor_to is None and not needs_absorption}
 
     return _run_transaction(db, _txn)
 
@@ -1195,6 +1237,14 @@ def settle_referral_on_activation(db, uid, purchase_id):
                     "qualifiedReferralsCount": new_count,
                     "referralCapacityGBPPerHour": float(Decimal(compute_referral_capacity_minor(new_count)) / 100),
                     "totalCapacityGBPPerHour": float(Decimal(compute_total_capacity_minor(counts, new_count)) / 100),
+                    # Re-anchor the referral accrual clock AT the qualification
+                    # instant. A referrer with no qualified referrals keeps a
+                    # deliberately un-advanced `lastReferralAccruedAt` (that is
+                    # what lets a zero-referral dashboard poll write nothing),
+                    # so the anchor has to be set by the event that changes the
+                    # count — otherwise the newly created capacity would be
+                    # credited for the whole period before qualification.
+                    "lastReferralAccruedAt": now_iso,
                     "updatedAt": firestore_server_ts(),
                 })
             else:

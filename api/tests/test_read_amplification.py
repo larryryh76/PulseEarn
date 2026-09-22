@@ -253,6 +253,72 @@ class TestStateReadComposition(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# A MATURE account: the cost that grows with account age
+# ---------------------------------------------------------------------------
+
+class TestMatureAccountDocumentReads(unittest.TestCase):
+    """The QA account owns no tools and has a near-empty ledger, so it cannot
+    show how the state path behaves on an account that has been mining for
+    months — the shape that exhausted the quota. This is the isolated, clearly
+    marked dataset for that measurement; it is built in the in-memory double and
+    never touches production data.
+
+    The unit is DOCUMENTS RETURNED, because that is what the quota is spent in:
+    a query cost that is invisible in "number of queries" is exactly how a
+    300-row ledger scan went unnoticed.
+    """
+
+    ACCRUAL_ROWS = 300
+    PAYOUT_ROWS = 25
+    WITHDRAWALS = 20
+
+    def _mature(self):
+        db = tpc.FakeDB()
+        tpc._make_user(db, UID, accrued_minor=0)
+        entries = [("accrual", 10, None) for _ in range(self.ACCRUAL_ROWS)]
+        entries += [("migration", 400, None)]
+        entries += [("payout_debit", -100, f"wd{i}") for i in range(self.PAYOUT_ROWS)]
+        tpc._ledger(db, UID, entries)
+        for i in range(self.WITHDRAWALS):
+            tpc._withdrawal(db, UID, f"wd{i}", 1.0, "completed", source="user")
+        return db
+
+    def test_the_narrowed_ledger_read_scales_with_payouts_not_with_history(self):
+        db = self._mature()
+        full = _full_ledger_rows(db)
+        narrow = psemine_engine.payout_ledger_rows(db, UID)
+        self.assertEqual(len(full), self.ACCRUAL_ROWS + 1 + self.PAYOUT_ROWS)
+        self.assertEqual(len(narrow), self.PAYOUT_ROWS,
+                         "only the payout-kind rows the balance equation consumes may be read")
+        self.assertGreater(len(full) / max(1, len(narrow)), 10,
+                           "this fixture must be big enough to show the amplification")
+
+    def test_the_balance_on_a_mature_account_is_unchanged_by_the_narrowing(self):
+        """Equivalence on mature data, not merely on a three-row fixture: the
+        discarded accrual/migration rows must contribute nothing to the equation."""
+        db = self._mature()
+        withdrawals = _withdrawal_rows(db)
+        narrowed = available_balance_minor(
+            0, psemine_engine.payout_ledger_rows(db, UID), withdrawals, legacy_accrued_minor=0)
+        full = available_balance_minor(
+            0, _full_ledger_rows(db), withdrawals, legacy_accrued_minor=0)
+        self.assertEqual(narrowed, full)
+        # 25 canonical payouts of 100p each: debited ONCE, through the ledger.
+        # (The matching withdrawal docs carry source=='user' and are excluded, so
+        # the mature dataset proves there is no double-debit either.)
+        self.assertEqual(narrowed, 0, "no accrued balance is left after 2500p of payouts")
+
+    def test_state_path_reads_are_bounded_on_a_mature_account(self):
+        db = self._mature()
+        with counted() as reads:
+            result = _state_balance(db)
+        self.assertEqual(reads.by_collection("psemine_mining_ledger"), 1)
+        self.assertEqual(reads.by_collection("psemine_withdrawals"), 1)
+        self.assertEqual(len(reads.calls), 3)
+        self.assertEqual(result["debited"], 2500, "25 canonical payouts of 100p, counted once each")
+
+
+# ---------------------------------------------------------------------------
 # One campaign read per accrual checkpoint
 # ---------------------------------------------------------------------------
 

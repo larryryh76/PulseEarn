@@ -71,9 +71,11 @@ async function fbSignIn(email, password) {
   return j.idToken;
 }
 
+/** Accepts a Fetch `Headers` (REST path) or a plain object (Playwright response). */
 const meterOf = (headers) => {
   const out = {};
-  for (const [k, v] of headers) if (k.toLowerCase().startsWith('x-pse-db')) out[k.toLowerCase()] = v;
+  const entries = typeof headers?.entries === 'function' ? headers.entries() : Object.entries(headers || {});
+  for (const [k, v] of entries) if (k.toLowerCase().startsWith('x-pse-db')) out[k.toLowerCase()] = v;
   return out;
 };
 const numbers = (meter) => {
@@ -134,6 +136,15 @@ async function restSamples(token) {
 async function browserSession(email, password) {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  // Ask the backend for its per-request cost meter on the console's OWN state
+  // calls, so a session reports the writes/transactions it caused — not just how
+  // many requests it made. The header is opt-in and same-origin only; the app
+  // never sends it, so ordinary users are unaffected.
+  await context.route('**/api/**', async (route) => {
+    const headers = { ...route.request().headers() };
+    if (new URL(route.request().url()).pathname === '/api/mine/state') headers['x-pse-db-metrics'] = '1';
+    await route.continue({ headers });
+  });
   const page = await context.newPage();
 
   const apiCalls = [];       // every /api/* request seen, with status + meter
@@ -147,6 +158,8 @@ async function browserSession(email, password) {
   page.on('response', async (res) => {
     const url = res.url();
     if (!url.includes('/api/')) return;
+    // A redirected/opaque response can throw here; that is not an error worth
+    // aborting a measurement for — the call is still counted, just un-metered.
     let meter = {};
     try { meter = meterOf(res.headers()); } catch { /* opaque response */ }
     apiCalls.push({ at: Date.now(), path: new URL(url).pathname, status: res.status(), meter });

@@ -184,7 +184,7 @@ export const PSEMineLanding: React.FC = () => {
                     <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={34} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="pse-section-sm">{t.name}</p>
-                      <p className="pse-micro mt-0.5">Limit {t.maxPerUser} · {gbpHour(t.hourlyRateGBP)}/hr</p>
+                      <p className="pse-micro mt-0.5">Limit {t.maxPerUser} · {gbpHour(t.hourlyRateGBP)}</p>
                     </div>
                     <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
                   </div>

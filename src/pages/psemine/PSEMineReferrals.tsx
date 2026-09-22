@@ -97,8 +97,8 @@ export const PSEMineReferrals: React.FC = () => {
         <div className="flex flex-wrap items-end justify-between gap-4 px-4 pt-4">
           <div>
             <p className="pse-eyebrow">Qualified referrals</p>
-            <p className="pse-fig-xl mt-2">
-              {qualified}<span className="pse-fig-md" style={{ color: 'var(--pse-text-3)' }}> / {MAX_REFERRALS}</span>
+            <p className="pse-fig-1 mt-2">
+              {qualified}<span className="pse-fig-2" style={{ color: 'var(--pse-text-3)' }}> / {MAX_REFERRALS}</span>
             </p>
           </div>
           <div className="text-right">

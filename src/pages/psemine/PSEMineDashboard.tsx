@@ -198,7 +198,7 @@ export const PSEMineDashboard: React.FC = () => {
         <div className="mt-3 grid grid-cols-1 gap-y-4 px-4 pb-4 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] sm:gap-x-8">
           <div>
             <p className="pse-eyebrow">Accrued campaign earnings</p>
-            <p className="pse-fig-xl mt-2" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
+            <p className="pse-fig-1 mt-2" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
             <p className="pse-micro mt-2">
               {isMiningLive
                 ? `Accruing at ${gbpHour(totalCapacity)}. Settles after the campaign ends — accrued earnings are not withdrawable mid-campaign.`
@@ -214,7 +214,7 @@ export const PSEMineDashboard: React.FC = () => {
           <div className="min-w-0">
             <div className="flex items-baseline justify-between gap-3">
               <p className="pse-eyebrow">Capacity composition</p>
-              <p className="pse-fig-md" style={{ color: 'var(--pse-text)' }}>{gbpHour(totalCapacity)}</p>
+              <p className="pse-fig-2" style={{ color: 'var(--pse-text)' }}>{gbpHour(totalCapacity)}</p>
             </div>
             <div className="mt-2.5"><Meter value={capacityShare} label="Capacity against the campaign maximum" /></div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -421,7 +421,7 @@ export const PSEMineDashboard: React.FC = () => {
           <Surface title="Referral capacity" action={<ActionLink to="/mine/referrals">Manage</ActionLink>}>
             <div className="space-y-3 px-4 py-4">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="pse-fig-md">{user.qualifiedReferralsCount ?? 0}<span className="pse-caption" style={{ color: 'var(--pse-text-3)' }}> / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span></p>
+                <p className="pse-fig-2">{user.qualifiedReferralsCount ?? 0}<span className="pse-caption" style={{ color: 'var(--pse-text-3)' }}> / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span></p>
                 <p className="pse-caption pse-num" style={{ color: 'var(--pse-text-2)' }}>+{gbpHour(referralCapacity)}</p>
               </div>
               <Slots filled={user.qualifiedReferralsCount ?? 0} total={PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} />

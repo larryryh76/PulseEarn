@@ -1044,12 +1044,12 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 <div className="pse-inset p-5">
                   <div className="flex items-baseline justify-between">
                     <span className="pse-caption">Fixed price</span>
-                    <span className="pse-num pse-fig-md">{gbp(quote.gbpPrice)}</span>
+                    <span className="pse-num pse-fig-2">{gbp(quote.gbpPrice)}</span>
                   </div>
                   <div className="pse-divider my-3.5" />
                   <div className="flex items-baseline justify-between">
                     <span className="pse-caption">You pay (exact amount)</span>
-                    <span className="pse-num pse-fig-md" style={{ color: 'var(--pse-cyan)' }}>
+                    <span className="pse-num pse-fig-2" style={{ color: 'var(--pse-cyan)' }}>
                       {exactBnb} BNB
                     </span>
                   </div>
@@ -1136,7 +1136,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
                 <div>
                   <p className="pse-eyebrow mb-1.5">You pay exactly</p>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="pse-num pse-fig-md" style={{ color: 'var(--pse-cyan)' }}>{exactBnb} BNB</span>
+                    <span className="pse-num pse-fig-2" style={{ color: 'var(--pse-cyan)' }}>{exactBnb} BNB</span>
                     <CopyField value={exactBnb} display="Copy amount" label="BNB amount" />
                   </div>
                   <p className="pse-micro mt-2" style={{ color: 'var(--pse-warning)' }}>

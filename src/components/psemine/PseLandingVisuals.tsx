@@ -867,7 +867,7 @@ export const ToolComparison: React.FC<{ onSelect?: (tier: PSEToolTierId) => void
 
               {/* What it costs. */}
               <div className="pse-cmp-metric">
-                <span className="pse-num pse-t-small w-[62px] shrink-0 font-semibold" style={{ color: 'var(--pse-text)' }}>
+                <span className="pse-num pse-t-small w-[76px] shrink-0 font-semibold" style={{ color: 'var(--pse-text)' }}>
                   {gbp(def.purchasePriceGBP)}
                 </span>
                 <span className="pse-bar flex-1" aria-hidden="true">
@@ -881,7 +881,7 @@ export const ToolComparison: React.FC<{ onSelect?: (tier: PSEToolTierId) => void
 
               {/* What it provides. */}
               <div className="pse-cmp-metric">
-                <span className="pse-num pse-t-small w-[62px] shrink-0 font-semibold" style={{ color: 'var(--pse-blue-ink)' }}>
+                <span className="pse-num pse-t-small w-[76px] shrink-0 font-semibold" style={{ color: 'var(--pse-blue-ink)' }}>
                   {gbpHour(def.hourlyRateGBP)}
                 </span>
                 <span className="pse-bar flex-1" aria-hidden="true">

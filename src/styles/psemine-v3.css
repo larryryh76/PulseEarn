@@ -549,8 +549,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  /* 44px is the touch floor the console header honours on phone widths; the
+     menu control is the landing's only phone-only control, so it holds the same
+     floor instead of the 40px it was drawn at (which flex squeezed to 32px). */
+  flex: none;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--pse-edge);
   border-radius: var(--pse-r-sm);
   color: var(--pse-text-2);

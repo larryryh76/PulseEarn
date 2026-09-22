@@ -126,7 +126,7 @@ export const PSEMineWallet: React.FC = () => {
         />
         <div className="grid grid-cols-1 gap-y-4 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-8">
           <div>
-            <p className="pse-fig-xl">{gbp(user.accruedGBP)}</p>
+            <p className="pse-fig-1">{gbp(user.accruedGBP)}</p>
             <p className="pse-micro mt-2">
               Earned by {gbpHour(capacity)} of capacity. Not withdrawable during the campaign — the balance is
               finalised when the campaign closes.
@@ -358,7 +358,7 @@ export const PSEMineWallet: React.FC = () => {
                   <RowItem key={w.id} className="items-start">
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="pse-num pse-fig-md">{amount !== null ? gbp(amount) : '—'}</span>
+                        <span className="pse-num pse-fig-2">{amount !== null ? gbp(amount) : '—'}</span>
                         <Chip label={view.label} chip={view.chip} dot={false} />
                       </div>
                       <p className="pse-micro">{fmtDateTime(w.createdAt)}</p>

@@ -318,12 +318,12 @@ export function Panel({ title, meta, action, children, tone, className, bodyClas
     tone === 'danger' ? 'var(--pse-danger)' :
     tone === 'success' ? 'var(--pse-success)' : undefined;
   return (
-    <section className={`pse-card overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>
+    <section className={`pse-panel ${className || ''}`} style={border ? { borderColor: border } : undefined}>
       {(title || action) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
+        <header className="pse-panel-head">
           <div className="min-w-0">
-            {title && <h2 className="pse-h3">{title}</h2>}
-            {meta && <p className="pse-micro mt-0.5">{meta}</p>}
+            {title && <h2 className="pse-t-sub">{title}</h2>}
+            {meta && <p className="pse-t-tiny mt-0.5">{meta}</p>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </header>
@@ -343,13 +343,13 @@ export function Verdict({ label, value, status, sub, footnote, accent = 'var(--p
   footnote?: React.ReactNode; accent?: string; children?: React.ReactNode;
 }) {
   return (
-    <div className="pse-card p-5 sm:p-6">
+    <div className="pse-panel p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="pse-eyebrow">{label}</p>
         {status}
       </div>
-      <p className="pse-num mt-2.5 text-[34px] font-semibold leading-none sm:text-[42px]" style={{ color: accent }}>{value}</p>
-      {sub && <p className="pse-caption mt-2.5">{sub}</p>}
+      <p className="pse-num pse-fig-1 mt-2.5" style={{ color: accent }}>{value}</p>
+      {sub && <p className="pse-t-small mt-2.5">{sub}</p>}
       {footnote}
       {children}
     </div>
@@ -362,13 +362,13 @@ export function DataRow({ label, value, hint, mono, emphasis, right }: {
   emphasis?: boolean; right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+    <div className="pse-spec">
       <div className="min-w-0">
-        <p className="pse-caption" style={{ color: emphasis ? 'var(--pse-text)' : 'var(--pse-text-2)' }}>{label}</p>
-        {hint && <p className="pse-micro mt-0.5">{hint}</p>}
+        <span className="pse-spec-k" style={{ color: emphasis ? 'var(--pse-text)' : undefined }}>{label}</span>
+        {hint && <p className="pse-t-tiny mt-0.5">{hint}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className={mono ? 'pse-mono' : `pse-num ${emphasis ? 'pse-h3' : 'pse-caption font-semibold'}`}
+        <span className={mono ? 'pse-mono' : `pse-spec-v ${emphasis ? 'pse-fig-3' : ''}`}
           style={{ color: 'var(--pse-text)' }}>{value}</span>
         {right}
       </div>
@@ -381,11 +381,11 @@ export function DataRow({ label, value, hint, mono, emphasis, right }: {
  *  Flat colour only: the tone encodes state, it is never decoration. */
 export function Meter({ value, tone = 'blue', label }: { value: number; tone?: 'blue' | 'warning' | 'purple'; label?: string }) {
   const pct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
-  const fill = tone === 'warning' ? 'pse-meter-fill pse-meter-fill-warning'
-    : tone === 'purple' ? 'pse-meter-fill pse-meter-fill-purple'
-    : 'pse-meter-fill';
+  const fill = tone === 'warning' ? 'pse-bar-fill pse-bar-fill-amber'
+    : tone === 'purple' ? 'pse-bar-fill pse-bar-fill-purple'
+    : 'pse-bar-fill';
   return (
-    <div className="pse-meter" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
+    <div className="pse-bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
       aria-label={label}>
       <div className={fill} style={{ width: `${pct}%` }} />
     </div>
@@ -397,12 +397,12 @@ export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
   title: string; body?: string; action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl border" style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-inset)' }}>
-        <Icon size={19} style={{ color: 'var(--pse-text-3)' }} />
+    <div className="pse-empty">
+      <div className="pse-empty-mark">
+        <Icon size={17} />
       </div>
-      <p className="pse-h3">{title}</p>
-      {body && <p className="pse-micro max-w-sm">{body}</p>}
+      <p className="pse-t-sub">{title}</p>
+      {body && <p className="pse-t-tiny pse-limit-s">{body}</p>}
       {action}
     </div>
   );
@@ -500,12 +500,12 @@ export function Stat({ label, value, sub, accent, icon: Icon }: {
   label: string; value: string; sub?: React.ReactNode; accent?: string; icon?: ChipIcon;
 }) {
   return (
-    <div className="pse-card p-5">
+    <div className="pse-panel p-5">
       <div className="flex items-center justify-between gap-2">
         <p className="pse-eyebrow">{label}</p>
         {Icon && <Icon size={14} style={{ color: 'var(--pse-text-3)' }} />}
       </div>
-      <p className="pse-num mt-2 text-[24px] font-semibold leading-tight md:text-[28px]"
+      <p className="pse-num pse-fig-2 mt-2"
         style={{ color: accent || 'var(--pse-text)' }}>{value}</p>
       {sub && <p className="pse-micro mt-1.5">{sub}</p>}
     </div>
@@ -558,7 +558,7 @@ export function ToolGrid({ tools, ownedCounts }: {
       {tools.map((t) => {
         const owned = ownedCounts?.[t.id] || 0;
         return (
-          <div key={t.id} className="pse-card p-5">
+          <div key={t.id} className="pse-panel p-5">
             <div className="flex items-start justify-between gap-2">
               <p className="pse-h3">{t.name}</p>
               {owned > 0 ? (
@@ -670,7 +670,7 @@ export function WorkbenchHeader({ title, purpose, status, actions, tabs }: {
  * financial verdict before anything else.
  */
 export function AccentSurface({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <section className={`pse-surface-accent ${className || ''}`}>{children}</section>;
+  return <section className={`pse-panel pse-panel-accent ${className || ''}`}>{children}</section>;
 }
 
 /**
@@ -688,12 +688,12 @@ export function Surface({ title, meta, action, children, tone, className, bodyCl
     tone === 'success' ? 'var(--pse-success)' : undefined;
   const Tag = (as || 'section') as 'section';
   return (
-    <Tag className={`pse-quiet overflow-hidden ${className || ''}`} style={border ? { borderColor: border } : undefined}>
+    <Tag className={`pse-panel ${className || ''}`} style={border ? { borderColor: border } : undefined}>
       {(title || action) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 pse-rule-t" style={{ borderTop: 0 }}>
+        <header className="pse-panel-head">
           <div className="min-w-0">
-            {title && <h2 className="pse-h2" style={{ fontSize: 'var(--pse-fs-h2)', fontWeight: 600 }}>{title}</h2>}
-            {meta && <p className="pse-micro mt-0.5">{meta}</p>}
+            {title && <h2 className="pse-t-sub">{title}</h2>}
+            {meta && <p className="pse-t-tiny mt-0.5">{meta}</p>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </header>
@@ -723,8 +723,8 @@ export function MetricRow({ items }: { items: MetricItem[] }) {
       {items.map(m => (
         <div key={m.label}>
           <p className="pse-eyebrow">{m.label}</p>
-          <p className="pse-fig-md mt-1.5" style={{ color: m.tone || 'var(--pse-text)' }}>{m.value}</p>
-          {m.sub && <p className="pse-micro mt-1">{m.sub}</p>}
+          <p className="pse-fig-2 mt-1.5" style={{ color: m.tone || 'var(--pse-text)' }}>{m.value}</p>
+          {m.sub && <p className="pse-t-tiny mt-1">{m.sub}</p>}
         </div>
       ))}
     </div>
@@ -736,13 +736,13 @@ export function KVRow({ k, v, hint, mono, right, emphasis }: {
   k: string; v: React.ReactNode; hint?: string; mono?: boolean; right?: React.ReactNode; emphasis?: boolean;
 }) {
   return (
-    <div className="pse-kv-row">
+    <div className="pse-spec">
       <div className="min-w-0">
-        <span className="pse-kv-k" style={emphasis ? { color: 'var(--pse-text)' } : undefined}>{k}</span>
-        {hint && <p className="pse-micro mt-0.5">{hint}</p>}
+        <span className="pse-spec-k" style={emphasis ? { color: 'var(--pse-text)' } : undefined}>{k}</span>
+        {hint && <p className="pse-t-tiny mt-0.5">{hint}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
-        <span className={mono ? 'pse-mono' : 'pse-kv-v'}>{v}</span>
+        <span className={mono ? 'pse-mono' : 'pse-spec-v'}>{v}</span>
         {right}
       </div>
     </div>
@@ -751,7 +751,7 @@ export function KVRow({ k, v, hint, mono, right, emphasis }: {
 
 /** KeyValue — the wrapper for KVRow entries. */
 export function KeyValue({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-kv ${className || ''}`}>{children}</div>;
+  return <div className={`pse-specs ${className || ''}`}>{children}</div>;
 }
 
 /** A dense data row (tool, ledger entry, payout). */
@@ -816,9 +816,9 @@ export function Slots({ filled, total }: { filled: number; total: number }) {
   const n = Math.max(0, total);
   const on = Math.min(Math.max(0, filled), n);
   return (
-    <div className="pse-slots" role="img" aria-label={`${on} of ${n} slots filled`}>
+    <div className={`pse-cells ${n > 12 ? 'flex-wrap' : ''}`} role="img" aria-label={`${on} of ${n} slots filled`}>
       {Array.from({ length: n }, (_, i) => (
-        <span key={i} className={`pse-slot ${i < on ? 'pse-slot-on' : ''}`} />
+        <span key={i} className={`pse-cell ${i < on ? 'pse-cell-on-purple' : ''}`} />
       ))}
     </div>
   );

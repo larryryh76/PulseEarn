@@ -31,7 +31,7 @@ const Spinner: React.FC<{ className?: string }> = ({ className }) => (
 const CampaignLedgerStrip: React.FC = () => {
   const tools = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
   return (
-    <div className="pse-card overflow-hidden">
+    <div className="pse-panel overflow-hidden">
       <div className="border-b px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
         <p className="pse-eyebrow">Campaign schedule</p>
       </div>
@@ -325,8 +325,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               <span className="pse-micro">Password strength</span>
               <span className="pse-micro font-semibold" style={{ color: strength.tone }}>{strength.label}</span>
             </div>
-            <div className="pse-meter">
-              <div className="pse-meter-fill" style={{ width: `${Math.max(8, strength.score)}%`, background: strength.tone }} />
+            <div className="pse-bar">
+              <div className="pse-bar-fill" style={{ width: `${Math.max(8, strength.score)}%`, background: strength.tone }} />
             </div>
           </div>
         )}
@@ -394,7 +394,7 @@ export const PSEmineForgotPassword: React.FC = () => {
       <p className="pse-caption mt-2">We&apos;ll email a secure reset link to your account address.</p>
 
       {sent ? (
-        <div className="pse-card mt-7 p-6 text-center">
+        <div className="pse-panel mt-7 p-6 text-center">
           <CheckCircle2 size={22} className="mx-auto" style={{ color: 'var(--pse-success)' }} />
           <p className="pse-h3 mt-3">Check your inbox</p>
           <p className="pse-caption mt-1.5">
@@ -472,7 +472,7 @@ export const PSEmineVerifyEmail: React.FC = () => {
         Open it, then return here.
       </p>
 
-      <div className="pse-card mt-7 p-5">
+      <div className="pse-panel mt-7 p-5">
         <p className="pse-eyebrow mb-3">Three steps</p>
         <ol className="space-y-3">
           {[
@@ -555,7 +555,7 @@ const PSEmineAccessGate: React.FC = () => {
     <div className="pse-scope flex min-h-screen items-center justify-center px-5 py-14" style={{ background: 'var(--pse-bg)' }}>
       <div className="w-full max-w-lg">
         <Link to="/mine" className="mb-8 inline-flex"><PSELogo size={32} withWordmark /></Link>
-        <div className="pse-card overflow-hidden">
+        <div className="pse-panel overflow-hidden">
           <div className="flex items-start gap-3.5 border-b px-6 py-5" style={{ borderColor: 'var(--pse-line)' }}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
               style={{ borderColor: 'var(--pse-purple)', background: 'var(--pse-inset)' }}>

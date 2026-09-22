@@ -424,7 +424,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
       <div className="mt-5 lg:grid lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-7">
         {/* Desktop sidebar */}
         <aside className="hidden lg:block">
-          <div className="pse-card sticky top-20 overflow-hidden">
+          <div className="pse-panel sticky top-20 overflow-hidden">
             <div className="border-b px-4 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
               <p className="pse-eyebrow">Contents</p>
               <div className="mt-2.5">

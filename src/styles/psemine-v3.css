@@ -279,6 +279,73 @@
 }
 @keyframes pseSpin { to { transform: rotate(360deg); } }
 
+/* ── Art direction rebuild: capacity ledger / campaign instrument ────────
+   The landing is editorial and the console is operational. Shared surfaces
+   stay quiet so capacity, time and GBP figures carry the visual weight. */
+.pse-scope {
+  --pse-l0: #07090d;
+  --pse-l1: #0c1118;
+  --pse-l2: #111923;
+  --pse-l3: #17212c;
+  --pse-edge: rgba(190, 211, 232, .11);
+  --pse-edge-2: rgba(190, 211, 232, .22);
+  --pse-text: #eef4fa;
+  --pse-text-2: #9aa9b8;
+  --pse-text-3: #667586;
+  --pse-blue: #78b8ff;
+  --pse-cyan: #65d9df;
+  --pse-success: #61d7a1;
+  --pse-warning: #e8b05d;
+}
+.pse-scope .pse-land-hero-bg::before { display: none; }
+.pse-scope .pse-land-hero-bg { background: #07090d; }
+.pse-scope .pse-land-hero {
+  grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr);
+  gap: clamp(32px, 7vw, 112px);
+  padding-block: clamp(64px, 10vw, 148px) clamp(72px, 11vw, 160px);
+}
+.pse-scope .pse-land-hero > :last-child { border-left: 1px solid var(--pse-edge); padding-left: clamp(24px, 5vw, 80px); }
+.pse-scope .pse-land-hero h1 { max-width: 10.5ch; font-size: clamp(42px, 6.5vw, 82px); line-height: .98; letter-spacing: -.055em; }
+.pse-scope .pse-land-hero h1 span { color: var(--pse-cyan) !important; }
+.pse-scope .pse-land-hero .pse-t-body { max-width: 48ch; font-size: 16px; color: #aab8c7; }
+.pse-scope .pse-land-hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; row-gap: 20px; }
+.pse-scope .pse-land-hero-facts > div { padding-left: 12px; border-left: 2px solid var(--pse-edge-2); }
+.pse-scope .pse-land-hero-facts dd { font-size: 18px !important; letter-spacing: -.03em; }
+.pse-scope .pse-land-hero .pse-btn-primary { box-shadow: 0 10px 30px rgba(65, 145, 220, .12); }
+.pse-scope .pse-band { padding-block: clamp(72px, 9vw, 132px); }
+.pse-scope .pse-band-alt { background: #0a0f15; }
+.pse-scope .pse-sec-head { max-width: 940px; }
+.pse-scope .pse-sec-head h2 { max-width: 18ch; font-size: clamp(28px, 4vw, 48px); line-height: 1.02; letter-spacing: -.045em; }
+.pse-scope .pse-sec-head .pse-t-body { max-width: 54ch; }
+.pse-scope .pse-panel { border-radius: 8px; box-shadow: none; }
+.pse-scope .pse-panel-head { background: transparent; }
+.pse-scope .pse-panel-flagship { border-color: rgba(101, 217, 223, .4); box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+.pse-scope .pse-plate { border-radius: 5px; background: #0b121a; }
+.pse-scope .pse-mkt { gap: 10px; }
+.pse-scope .pse-mkt-visual { background: #0b1219; border-bottom: 1px solid var(--pse-edge); }
+.pse-scope .pse-flowstep { padding-block: clamp(28px, 4vw, 52px); }
+.pse-scope .pse-flowstep .pse-step-visual { filter: saturate(.72); }
+.pse-scope .pse-workbench { max-width: 1280px; }
+.pse-scope .pse-workbench .pse-accent-surface,
+.pse-scope .pse-workbench [class*="accent"] { box-shadow: 0 18px 50px rgba(0,0,0,.18); }
+.pse-scope .pse-fig-1 { font-size: clamp(38px, 5vw, 62px); letter-spacing: -.055em; }
+.pse-scope .pse-fig-2, .pse-scope .pse-fig-3 { letter-spacing: -.04em; }
+.pse-scope .pse-spec { min-height: 44px; }
+.pse-scope .pse-btn { border-radius: 5px; }
+.pse-scope .pse-pill, .pse-scope .pse-tag { border-radius: 3px; }
+.pse-scope .pse-land-head { background: rgba(7,9,13,.92); }
+@media (max-width: 1059px) {
+  .pse-scope .pse-land-hero { grid-template-columns: 1fr; }
+  .pse-scope .pse-land-hero > :last-child { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 620px) {
+  .pse-scope .pse-land-hero { padding-block: 48px 72px; gap: 40px; }
+  .pse-scope .pse-land-hero h1 { font-size: clamp(40px, 12vw, 58px); }
+  .pse-scope .pse-land-hero-facts { gap: 18px 12px; }
+  .pse-scope .pse-land-hero-facts dd { font-size: 16px !important; }
+  .pse-scope .pse-band { padding-block: 64px; }
+}
+
 /* ── Tags, pills, network badges ───────────────────────────────────────── */
 .pse-scope .pse-tag {
   display: inline-flex;
@@ -470,14 +537,23 @@
   flex-direction: column;
 }
 
-/* Hero atmosphere: one soft pool of blue at the top, nothing decorative. */
-.pse-scope .pse-land-hero-bg {
+  /* Art direction: a dark instrument panel, not a crypto gradient. The hero
+     is anchored by a ruled product frame; blue is reserved for action and
+     cyan for capacity, so color always carries meaning. */
+  .pse-scope .pse-land-hero-bg {
   position: relative;
-  background:
-    radial-gradient(920px 460px at 16% -10%, rgba(76, 158, 248, 0.11), transparent 62%),
-    radial-gradient(720px 420px at 92% 4%, rgba(34, 211, 238, 0.06), transparent 60%),
-    var(--pse-l0);
-}
+  background: var(--pse-l0);
+  }
+  .pse-scope .pse-land-hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(var(--pse-edge) 1px, transparent 1px), linear-gradient(90deg, var(--pse-edge) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.22), transparent 58%);
+  }
+  .pse-scope .pse-land-hero-bg > * { position: relative; }
 .pse-scope .pse-land-hero-bg::after {
   content: '';
   position: absolute;
@@ -580,19 +656,26 @@
 .pse-scope .pse-land-sheet > .pse-wrap-x:last-child { padding-top: var(--pse-s4); }
 
 /* ── Hero ──────────────────────────────────────────────────────────────── */
-.pse-scope .pse-land-hero {
+  .pse-scope .pse-land-hero {
   display: grid;
   gap: var(--pse-s8);
   padding-block: var(--pse-s9) var(--pse-s10);
   align-items: start;
-}
-@media (min-width: 1060px) {
-  .pse-scope .pse-land-hero {
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-    gap: var(--pse-s10);
-    padding-block: var(--pse-s11) var(--pse-s12);
   }
-}
+  @media (min-width: 1060px) {
+  .pse-scope .pse-land-hero {
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--pse-s10);
+  padding-block: var(--pse-s11) var(--pse-s12);
+  }
+  }
+  .pse-scope .pse-land-hero > :last-child {
+  border-left: 1px solid var(--pse-edge);
+  padding-left: clamp(var(--pse-s5), 4vw, var(--pse-s10));
+  }
+  @media (max-width: 1059px) {
+  .pse-scope .pse-land-hero > :last-child { border-left: 0; padding-left: 0; }
+  }
 .pse-scope .pse-land-hero-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

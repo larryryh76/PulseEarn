@@ -219,7 +219,20 @@ function App() {
         <Route path="/mine/signup" element={<PSEMineAuthProvider><PSEmineAuth mode="signup" /></PSEMineAuthProvider>} />
         <Route path="/mine/forgot-password" element={<PSEMineAuthProvider><PSEmineForgotPassword /></PSEMineAuthProvider>} />
         <Route path="/mine/verify-email" element={<PSEMineAuthProvider><PSEmineVerifyEmail /></PSEMineAuthProvider>} />
+        {/* PSEmine public landing at /mine: its own composition (OWNER-BRIEF §4).
+            It renders OUTSIDE the console shell — own header, own footer — and
+            shares only the design system and the domain providers. */}
         <Route path="/mine" element={
+          <PSEMineAuthProvider>
+            <PSEMineProvider>
+              <PseStateProvider>
+                <PSEMineLanding />
+              </PseStateProvider>
+            </PSEMineProvider>
+          </PSEMineAuthProvider>
+        } />
+        {/* PSEmine console: the authenticated product shell. */}
+        <Route element={
           <PSEMineAuthProvider>
             <PSEMineProvider>
               <PseStateProvider>
@@ -228,22 +241,21 @@ function App() {
             </PSEMineProvider>
           </PSEMineAuthProvider>
         }>
-          <Route index element={<PSEMineLanding />} />
-          <Route path="dashboard" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
-          <Route path="tools" element={<PSEmineProtectedRoute><PSEMineTools /></PSEmineProtectedRoute>} />
-          <Route path="wallet" element={<PSEmineProtectedRoute><PSEMineWallet /></PSEmineProtectedRoute>} />
-          <Route path="referrals" element={<PSEmineProtectedRoute><PSEMineReferrals /></PSEmineProtectedRoute>} />
-          <Route path="activity" element={<PSEmineProtectedRoute><PSEMineActivity /></PSEmineProtectedRoute>} />
-          <Route path="guide" element={<PSEMineGuide />} />
-          <Route path="guide/onboarding" element={<PSEmineProtectedRoute><PSEMineGuide onboarding /></PSEmineProtectedRoute>} />
-          <Route path="me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
+          <Route path="/mine/dashboard" element={<PSEmineProtectedRoute><PSEMineDashboard /></PSEmineProtectedRoute>} />
+          <Route path="/mine/tools" element={<PSEmineProtectedRoute><PSEMineTools /></PSEmineProtectedRoute>} />
+          <Route path="/mine/wallet" element={<PSEmineProtectedRoute><PSEMineWallet /></PSEmineProtectedRoute>} />
+          <Route path="/mine/referrals" element={<PSEmineProtectedRoute><PSEMineReferrals /></PSEmineProtectedRoute>} />
+          <Route path="/mine/activity" element={<PSEmineProtectedRoute><PSEMineActivity /></PSEmineProtectedRoute>} />
+          <Route path="/mine/guide" element={<PSEMineGuide />} />
+          <Route path="/mine/guide/onboarding" element={<PSEmineProtectedRoute><PSEMineGuide onboarding /></PSEmineProtectedRoute>} />
+          <Route path="/mine/me" element={<PSEmineProtectedRoute><PSEMineMe /></PSEmineProtectedRoute>} />
         </Route>
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
         <Route path="/admin/mine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
         <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
-	        <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
+               <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
         <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />
         <Route path="/admin/users" element={<OpsRoute><OpsLayout><AdminUsers /></OpsLayout></OpsRoute>} />

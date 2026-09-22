@@ -398,27 +398,38 @@ async function browserSession(email, password) {
   let tour = null;
   if (process.env.PSE_METRICS_TOUR === '1') {
     tour = [];
-    for (const r of ['/mine/dashboard', '/mine/tools', '/mine/wallet', '/mine/referrals', '/mine/activity', '/mine/me']) {
-      const before = apiCalls.length;
-      const errsBefore = pageErrors.length;
-      await page.goto(PROD + r, { waitUntil: 'load', timeout: 45_000 });
-      await page.waitForTimeout(3500);
-      const probe = await page.evaluate(() => {
-        const text = document.body.innerText || '';
-        return {
-          textLen: text.replace(/\s+/g, ' ').trim().length,
-          unavailableBanner: /temporarily unavailable|Something went wrong|Cannot read propert|Internal Server Error/i.test(text),
-          headline: text.replace(/\s+/g, ' ').trim().slice(0, 110),
-        };
-      }).catch(() => ({ textLen: 0, unavailableBanner: null, headline: null }));
-      tour.push({
-        route: r, textLen: probe.textLen, unavailableBanner: probe.unavailableBanner,
-        headline: probe.headline,
-        newApiCalls: apiCalls.slice(before).map(c => `${c.path} ${c.status}`),
-        pageErrors: pageErrors.slice(errsBefore),
-      });
-      console.log(`  TOUR ${r.padEnd(18)} text=${probe.textLen} newApi=${apiCalls.length - before} unavailableBanner=${probe.unavailableBanner}`);
+    const widths = (process.env.PSE_METRICS_WIDTHS || '390,1440').split(',').map(Number);
+    const routes = (process.env.PSE_METRICS_ROUTES || '/mine,/mine/dashboard,/mine/tools,/mine/wallet,/mine/referrals,/mine/activity,/mine/me,/mine/guide').split(',');
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const r of routes) {
+        const before = apiCalls.length;
+        const errsBefore = pageErrors.length;
+        await page.goto(PROD + r, { waitUntil: 'load', timeout: 45_000 });
+        await page.waitForTimeout(3000);
+        const probe = await page.evaluate(() => {
+          const text = document.body.innerText || '';
+          const doc = document.documentElement;
+          return {
+            textLen: text.replace(/\s+/g, ' ').trim().length,
+            overflow: doc.scrollWidth > window.innerWidth + 1,
+            scrollWidth: doc.scrollWidth,
+            innerWidth: window.innerWidth,
+            unavailableBanner: /temporarily unavailable|Something went wrong|Cannot read propert|Internal Server Error/i.test(text),
+            headline: text.replace(/\s+/g, ' ').trim().slice(0, 80),
+          };
+        }).catch(() => ({ textLen: 0, overflow: null, unavailableBanner: null, headline: null }));
+        tour.push({
+          width, route: r, textLen: probe.textLen, overflow: probe.overflow,
+          scrollWidth: probe.scrollWidth, innerWidth: probe.innerWidth,
+          unavailableBanner: probe.unavailableBanner, headline: probe.headline,
+          newApiCalls: apiCalls.slice(before).map(c => `${c.path} ${c.status}`),
+          pageErrors: pageErrors.slice(errsBefore),
+        });
+        console.log(`  TOUR @${width} ${r.padEnd(20)} text=${String(probe.textLen).padStart(5)} overflow=${probe.overflow} banner=${probe.unavailableBanner} newApi=${apiCalls.length - before}`);
+      }
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`${PROD}/mine/dashboard`, { waitUntil: 'load', timeout: 45_000 });
   }
 

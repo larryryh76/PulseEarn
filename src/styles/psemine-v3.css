@@ -470,14 +470,23 @@
   flex-direction: column;
 }
 
-/* Hero atmosphere: one soft pool of blue at the top, nothing decorative. */
-.pse-scope .pse-land-hero-bg {
+  /* Art direction: a dark instrument panel, not a crypto gradient. The hero
+     is anchored by a ruled product frame; blue is reserved for action and
+     cyan for capacity, so color always carries meaning. */
+  .pse-scope .pse-land-hero-bg {
   position: relative;
-  background:
-    radial-gradient(920px 460px at 16% -10%, rgba(76, 158, 248, 0.11), transparent 62%),
-    radial-gradient(720px 420px at 92% 4%, rgba(34, 211, 238, 0.06), transparent 60%),
-    var(--pse-l0);
-}
+  background: var(--pse-l0);
+  }
+  .pse-scope .pse-land-hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(var(--pse-edge) 1px, transparent 1px), linear-gradient(90deg, var(--pse-edge) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.22), transparent 58%);
+  }
+  .pse-scope .pse-land-hero-bg > * { position: relative; }
 .pse-scope .pse-land-hero-bg::after {
   content: '';
   position: absolute;
@@ -580,19 +589,26 @@
 .pse-scope .pse-land-sheet > .pse-wrap-x:last-child { padding-top: var(--pse-s4); }
 
 /* ── Hero ──────────────────────────────────────────────────────────────── */
-.pse-scope .pse-land-hero {
+  .pse-scope .pse-land-hero {
   display: grid;
   gap: var(--pse-s8);
   padding-block: var(--pse-s9) var(--pse-s10);
   align-items: start;
-}
-@media (min-width: 1060px) {
-  .pse-scope .pse-land-hero {
-    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-    gap: var(--pse-s10);
-    padding-block: var(--pse-s11) var(--pse-s12);
   }
-}
+  @media (min-width: 1060px) {
+  .pse-scope .pse-land-hero {
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--pse-s10);
+  padding-block: var(--pse-s11) var(--pse-s12);
+  }
+  }
+  .pse-scope .pse-land-hero > :last-child {
+  border-left: 1px solid var(--pse-edge);
+  padding-left: clamp(var(--pse-s5), 4vw, var(--pse-s10));
+  }
+  @media (max-width: 1059px) {
+  .pse-scope .pse-land-hero > :last-child { border-left: 0; padding-left: 0; }
+  }
 .pse-scope .pse-land-hero-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

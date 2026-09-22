@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Pickaxe, History, Users, User, Layers, Wallet, BookOpen, Gauge } from 'lucide-react';
+import { Pickaxe, History, Users, User, Layers, Wallet, BookOpen, Gauge, Menu, X } from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
 import { PSELogo, Chip, CampaignBanner, campaignStatusView, Meter, nowMs, toDateSafe, gbpHour, usePseDocumentTitle } from './pse';
@@ -150,7 +150,8 @@ export const PSEMineShell: React.FC = () => {
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               style={{ color: 'var(--pse-text-2)' }}
             >
-              <span className="pse-micro font-bold uppercase tracking-widest">{menuOpen ? '✕' : '☰'}</span>
+              {menuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+              <span className="sr-only">{menuOpen ? 'Close menu' : 'Open menu'}</span>
             </button>
           </div>
         </div>

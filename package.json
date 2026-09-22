@@ -15,6 +15,7 @@
     "audit:design": "bun scripts/pse-design-audit.mjs",
     "probe:route": "bun scripts/pse-probe.mjs",
     "metrics:db": "bun scripts/pse-db-metrics.mjs",
+    "firebase:check": "bun scripts/check-firebase-infra.mjs",
     "verify:wallet": "bunx vite build && bun scripts/pse-wallet-check.mjs && bun scripts/pse-wallet-gate.mjs"
   },
   "dependencies": {

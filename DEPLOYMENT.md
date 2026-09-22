@@ -43,3 +43,58 @@ from any temp directory.
   intentionally does NOT force-warm at import (boot-order safety).
 - Receiving wallet `0x8b32A461d3106B3356e9A389DfeB74aC084c8F33` is a locked
   code constant (`PSEMINE_PAYMENT_ADDRESS`) — do not move it to env vars.
+
+## Firebase infrastructure (Firestore + Storage)
+
+The repository is the source of truth for Firebase infrastructure. Nothing here
+should ever be created by hand in the Firebase Console: a composite index that
+exists only in the console is invisible to the next person, and a query whose
+index is missing fails at runtime as "empty list" or an error toast, not as a
+config error.
+
+| File | Role |
+|---|---|
+| `.firebaserc` | default project `pulseearn-a4b16` — pins every CLI deploy |
+| `firebase.json` | wires `firestore.rules`, `firestore.indexes.json`, `storage.rules` |
+| `firestore.indexes.json` | every composite index the repo's queries require |
+| `firestore.rules` | PSEmine entitlement + per-collection access rules |
+| `storage.rules` | Storage access (PSEmine uses no Storage paths) |
+
+### Before deploying: check the config is complete
+
+```bash
+bun run firebase:check      # or: bun scripts/check-firebase-infra.mjs
+```
+
+It derives the composite indexes the repository's own queries require and fails
+if one is not declared, validates the rules files (syntax shape, helper
+definitions, match coverage, no world-readable PSEmine collection), and lists
+anything it cannot classify statically (dynamic collection/order fields).
+
+### Deploying (local machine, authenticated)
+
+```bash
+firebase login
+firebase use                       # prints the default: pulseearn-a4b16
+firebase deploy --only firestore:indexes,firestore:rules
+```
+
+Deploy Storage rules only when `storage.rules` actually changed:
+
+```bash
+firebase deploy --only storage
+```
+
+Deploy targets explicitly as above — never a bare `firebase deploy`, which would
+push every configured resource in `firebase.json`.
+
+### Notes
+
+- New composite indexes take time to build; a query that needs one returns
+  FAILED_PRECONDITION until the build finishes. The console's ordered purchases
+  listener degrades to a bounded unordered read and warns instead of going empty
+  (`src/contexts/PSEMineContext.tsx`).
+- Declared indexes that no current query needs are deliberately kept; removing
+  one is its own decision, not cleanup.
+- Entitlement (`hasPSEMineAccess`) must not be relaxed to "any authenticated
+  user": PSEmine and PulseEarn share an identity provider but not this data.

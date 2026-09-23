@@ -6,8 +6,8 @@ import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import { requestPayout } from '../../engines/psemine/pseMineApi';
 import {
-  Chip, WorkbenchHeader, AccentSurface, Surface, KeyValue, KVRow, Rows, RowItem,
-  ZoneHeader, Meter, PSEEmpty, PSELoading, PSEError, FeedNotice,
+  Chip, WorkbenchHeader, Surface, KeyValue, KVRow, Rows, RowItem,
+  ZoneHeader, PSEEmpty, PSELoading, PSEError, FeedNotice,
   gbp, gbpHour, shortAddr, shortHash, fmtDateTime, payoutStatusView, CopyField,
   campaignStatusView, ActionLink,
 } from '../../components/psemine/pse';
@@ -115,36 +115,47 @@ export const PSEMineWallet: React.FC = () => {
         }
       />
 
-      {/* ══ ZONE 1 · GBP CAMPAIGN EARNINGS ══════════════════════════════ */}
-      <AccentSurface>
-        <ZoneHeader
-          label="Campaign earnings"
-          note="Accrued while tools operate — settles after the campaign ends"
-          currency="GBP"
-          tone="gbp"
-          right={<Chip label={campaignView.live ? 'Accruing' : campaignView.label.trim()} chip={campaignView.live ? 'pse-chip pse-chip-success' : campaignView.chip} pulse={campaignView.live} />}
-        />
-        <div className="grid grid-cols-1 gap-y-4 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-8">
+      {/* ══ FINTECH ACCOUNT POSITION ══════════════════════════════════════
+          High-impact GBP primary figure, capacity rate, and settlement arc. */}
+      <div className="pse-panel pse-panel-flagship mb-6">
+        <div className="pse-panel-head">
+          <div className="flex items-center gap-2">
+            <span className="pse-tag pse-tag-flagship">Financial Account Position</span>
+            <Chip label={campaignView.live ? 'Accruing' : campaignView.label.trim()} chip={campaignView.live ? 'pse-chip pse-chip-success' : campaignView.chip} pulse={campaignView.live} />
+          </div>
+          <span className="pse-tiny">GBP Campaign Ledger</span>
+        </div>
+
+        <div className="pse-panel-body grid grid-cols-1 gap-6 sm:grid-cols-[1.3fr_1fr]">
           <div>
-            <p className="pse-fig-1">{gbp(user.accruedGBP)}</p>
-            <p className="pse-micro mt-2">
-              Earned by {gbpHour(capacity)} of capacity. Not withdrawable during the campaign — the balance is
-              finalised when the campaign closes.
+            <p className="pse-eyebrow">Accrued Campaign Balance</p>
+            <p className="pse-fig-1 mt-2.5" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
+            <p className="pse-t-body mt-2" style={{ maxWidth: '44ch' }}>
+              Accruing at <span className="text-white font-semibold">{gbpHour(capacity)}</span>. Balances are locked in GBP accounting and settle into BNB after day {PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}.
             </p>
           </div>
-          <div className="min-w-0">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="pse-eyebrow">Capacity vs campaign maximum</span>
-              <span className="pse-num pse-caption font-semibold">{gbpHour(capacity)}</span>
+
+          <div className="pse-plate p-4 flex flex-col justify-between">
+            <div>
+              <p className="pse-eyebrow">Capacity Contribution</p>
+              <p className="pse-fig-2 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>{gbpHour(capacity)}</p>
+              <div className="pse-bar pse-bar-lg mt-3">
+                <div className="pse-bar-fill pse-bar-fill-cyan" style={{ width: `${capacityShare}%` }} />
+              </div>
             </div>
-            <div className="mt-2.5"><Meter value={capacityShare} label="Capacity against the campaign maximum" /></div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="pse-micro">Tools <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(user.toolCapacityGBPPerHour)}</span></span>
-              <span className="pse-micro">Referrals <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(user.referralCapacityGBPPerHour)}</span></span>
+            <div className="mt-3 pt-2 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--pse-edge)' }}>
+              <span className="pse-tiny">Tools: {gbpHour(user.toolCapacityGBPPerHour)}</span>
+              <span className="pse-tiny">Referrals: +{gbpHour(user.referralCapacityGBPPerHour)}</span>
             </div>
           </div>
         </div>
-      </AccentSurface>
+
+        {/* Settlement Timeline Progress */}
+        <div className="pse-panel-foot flex items-center justify-between text-xs">
+          <span className="pse-tiny">Campaign Status: <b className="text-white">{campaignView.label.trim()}</b></span>
+          <span className="pse-tiny">Settlement Window: <b className="text-white">{PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} Days</b></span>
+        </div>
+      </div>
 
       {/* ══ ZONE 2 · GBP SETTLEMENT ══════════════════════════════════════ */}
       <Surface

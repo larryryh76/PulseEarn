@@ -514,6 +514,58 @@
   .pse-scope .pse-band { padding-block: var(--pse-s11); }
 }
 
+/* Final art-direction pass: PSEmine is a campaign instrument, not a card gallery. */
+.pse-scope {
+  --pse-l0: #07090c;
+  --pse-l1: #0c1117;
+  --pse-l2: #111923;
+  --pse-l3: #18232e;
+  --pse-edge: rgba(220, 232, 244, .1);
+  --pse-edge-2: rgba(220, 232, 244, .2);
+  --pse-text: #f2f6fa;
+  --pse-text-2: #a2afbd;
+  --pse-text-3: #6d7b89;
+  --pse-blue: #78b8ff;
+  --pse-cyan: #69dce0;
+  --pse-success: #63d7a0;
+  --pse-warning: #e7b15e;
+  background: var(--pse-l0);
+}
+.pse-scope .pse-panel,
+.pse-scope .pse-frame,
+.pse-scope .pse-plate { box-shadow: none; }
+.pse-scope .pse-panel { border-radius: 6px; }
+.pse-scope .pse-panel-head { padding-block: 13px; }
+.pse-scope .pse-panel-body { padding: 20px; }
+.pse-scope .pse-land-hero-bg::before { background-image: linear-gradient(var(--pse-edge) 1px, transparent 1px), linear-gradient(90deg, var(--pse-edge) 1px, transparent 1px); opacity: .35; }
+.pse-scope .pse-land-hero { align-items: center; }
+.pse-scope .pse-land-hero h1 { max-width: 9.5ch; font-weight: 580; }
+.pse-scope .pse-land-hero > :last-child { border-left: 1px solid var(--pse-edge); }
+.pse-scope .pse-frame { border-radius: 4px; background: #090e14; }
+.pse-scope .pse-frame-bar { background: #0b1118; }
+.pse-scope .pse-frame-url { border-radius: 3px; }
+.pse-scope .pse-fig-1,
+.pse-scope .pse-fig-2,
+.pse-scope .pse-fig-3 { font-feature-settings: 'tnum' 1, 'ss01' 1; }
+.pse-scope .pse-mkt-visual { border-radius: 4px 4px 0 0; }
+.pse-scope .pse-mkt-card { border-radius: 5px; }
+.pse-scope .pse-flowstep { border-bottom: 1px solid var(--pse-edge); }
+.pse-scope .pse-flowstep:last-child { border-bottom: 0; }
+.pse-scope .pse-btn-primary { box-shadow: none; }
+.pse-scope .pse-btn-primary:hover:not(:disabled) { box-shadow: 0 0 0 1px rgba(120,184,255,.35); }
+.pse-scope .pse-land-head[data-stuck='true'] { background: rgba(7,9,12,.94); backdrop-filter: blur(8px); }
+.pse-scope .pse-workbench { max-width: 1280px; }
+.pse-scope .pse-workbench .pse-accent-surface { border-radius: 6px; box-shadow: none; }
+.pse-scope .pse-safe-bottom { background: rgba(7,9,12,.97) !important; backdrop-filter: blur(8px) !important; }
+@media (max-width: 899px) {
+  .pse-scope .pse-land-hero > :last-child { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 620px) {
+  .pse-scope .pse-land-hero { padding-block: 52px 72px; }
+  .pse-scope .pse-land-hero h1 { max-width: 10ch; font-size: clamp(42px, 13vw, 60px); }
+  .pse-scope .pse-land-hero-facts { border-top: 1px solid var(--pse-edge); padding-top: 20px; }
+}
+
 /* ── Grids used across the landing composition ─────────────────────────── */
 .pse-scope .pse-grid { display: grid; gap: var(--pse-s4); min-width: 0; }
 .pse-scope .pse-grid > * { min-width: 0; }

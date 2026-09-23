@@ -77,7 +77,7 @@ function MinerFrame({ children, size = 96, className }: MinerArtProps & { childr
 export function MinerArtStarter({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="30" y="38" width="36" height="28" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
+      <path d="M30 38h36v28H30z" fill="#151d26" stroke="#334454" />
       <rect x="36" y="45" width="14" height="14" rx="2.5" fill="url(#pse-mn-face)" opacity="0.9" />
       <rect x="55" y="45" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.18)" />
       <rect x="55" y="53" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.12)" />
@@ -90,7 +90,7 @@ export function MinerArtStarter({ size = 96, className }: MinerArtProps) {
 export function MinerArtBuilder({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="26" y="30" width="44" height="16" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
+      <path d="M26 30h44v16H26z" fill="#151d26" stroke="#334454" />
       <rect x="26" y="50" width="44" height="16" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
       <rect x="33" y="34" width="12" height="8" rx="2" fill="url(#pse-mn-face)" opacity="0.9" />
       <rect x="33" y="54" width="12" height="8" rx="2" fill="url(#pse-mn-core)" opacity="0.85" />
@@ -105,7 +105,7 @@ export function MinerArtBuilder({ size = 96, className }: MinerArtProps) {
 export function MinerArtAdvanced({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="22" y="26" width="52" height="40" rx="5" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.16)" />
+      <path d="M22 26h52v40H22z" fill="#151d26" stroke="#334454" />
       <rect x="28" y="32" width="16" height="10" rx="2" fill="url(#pse-mn-face)" />
       <rect x="48" y="32" width="20" height="10" rx="2" fill="url(#pse-mn-core)" opacity="0.8" />
       <rect x="28" y="46" width="40" height="3" rx="1.5" fill="rgba(255,255,255,0.14)" />

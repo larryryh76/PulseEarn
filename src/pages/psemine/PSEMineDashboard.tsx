@@ -187,10 +187,10 @@ export const PSEMineDashboard: React.FC = () => {
       {/* ══ COMMAND DECK INTEGRATED HERO ══════════════════════════════════
           High-density operational panel with financial figures & capacity mechanics. */}
       <div className="pse-panel pse-panel-flagship mb-6">
-        <div className="pse-panel-head">
+        <div className="pse-panel-head" role="status" aria-live="polite">
           <div className="flex flex-wrap items-center gap-2">
             <span className="pse-tag pse-tag-flagship">Live Campaign Position</span>
-            <span className="pse-dot" style={{ background: miningState.tone, width: 7, height: 7 }} />
+            <span className="pse-dot" aria-hidden="true" style={{ background: miningState.tone, width: 7, height: 7 }} />
             <span className="pse-t-small font-semibold" style={{ color: miningState.tone }}>{miningState.label}</span>
           </div>
           <span className="pse-tiny">{miningState.detail}</span>
@@ -250,6 +250,8 @@ export const PSEMineDashboard: React.FC = () => {
                   ? 'No equipment'
                   : needsMaintenance.length > 0
                     ? `${needsMaintenance.length} need restart`
+                    : restartingTools.length > 0
+                      ? `${restartingTools.length} restarting`
                     : 'All sessions active'}
               </p>
             </div>

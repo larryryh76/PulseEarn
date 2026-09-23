@@ -154,13 +154,14 @@
 .pse-scope .pse-sec-no b { color: var(--pse-cyan); font-weight: 700; }
 
 /* ── Panels: one surface language for every grouped block ──────────────── */
+/* Open, ruled surface system: remove heavy boxed containers, favor clean hairline dividers */
 .pse-scope .pse-panel {
   display: flex;
   flex-direction: column;
   min-width: 0;
   background: var(--pse-l1);
   border: 1px solid var(--pse-edge);
-  border-radius: var(--pse-r-lg);
+  border-radius: 6px;
   overflow: hidden;
 }
 .pse-scope .pse-panel-head {
@@ -168,30 +169,30 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--pse-s4);
-  padding: var(--pse-s4) var(--pse-s5);
+  padding: var(--pse-s3) var(--pse-s5);
   border-bottom: 1px solid var(--pse-edge);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0));
+  background: #090E15;
 }
-.pse-scope .pse-panel-body { padding: var(--pse-s5); min-width: 0; }
+.pse-scope .pse-panel-body { padding: var(--pse-s4) var(--pse-s5); min-width: 0; }
 .pse-scope .pse-panel-foot {
   padding: var(--pse-s3) var(--pse-s5);
   border-top: 1px solid var(--pse-edge);
-  background: rgba(0, 0, 0, 0.16);
+  background: #06090E;
 }
 .pse-scope .pse-panel-flagship {
-  border-color: rgba(34, 211, 238, 0.28);
-  box-shadow: var(--pse-sh-2);
+  border-color: rgba(95, 223, 240, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 .pse-scope .pse-plate {
-  background: var(--pse-l2);
+  background: #0A0F17;
   border: 1px solid var(--pse-edge);
-  border-radius: var(--pse-r-md);
+  border-radius: 4px;
   min-width: 0;
 }
 .pse-scope .pse-inset-box {
-  background: #0A0F16;
+  background: #06090D;
   border: 1px solid var(--pse-edge);
-  border-radius: var(--pse-r-sm);
+  border-radius: 4px;
 }
 .pse-scope .pse-panel-accent { border-left: 2px solid var(--pse-blue); }
 

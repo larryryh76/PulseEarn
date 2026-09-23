@@ -184,13 +184,54 @@ export const PSEMineDashboard: React.FC = () => {
         }
       />
 
-      {/* ══ COMMAND DECK INTEGRATED HERO ══════════════════════════════════
-          High-density operational panel with financial figures & capacity mechanics. */}
+      {/* ══ CAMPAIGN CONTROL HERO & ZERO-STATE ONBOARDING ══════════════════
+          High-density operational hero. Shows zero-state onboarding pathway if user has £0.00 capacity. */}
+      {tools.length === 0 && (
+        <div className="mb-6">
+          <div className="pse-panel pse-panel-flagship p-5 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <span className="pse-tag pse-tag-flagship">Campaign Onboarding</span>
+                <h2 className="pse-fig-1 mt-2" style={{ color: 'var(--pse-text)' }}>Build Your First Capacity</h2>
+                <p className="pse-t-body mt-1 max-w-xl">
+                  Your campaign earnings begin when your first mining tool becomes active. Choose a tool tier below to establish your initial hourly rate.
+                </p>
+              </div>
+              <Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-lg shrink-0">
+                Acquire Tool →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-6">
+              {[
+                { name: 'Starter', price: 3, rate: 0.10, tier: 1 },
+                { name: 'Builder', price: 10, rate: 0.50, tier: 2 },
+                { name: 'Advanced', price: 50, rate: 1.20, tier: 3 },
+                { name: 'Elite', price: 200, rate: 2.50, tier: 4 },
+              ].map(t => (
+                <div key={t.name} className="pse-plate p-3.5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex h-12 items-center justify-center">
+                      <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={48} />
+                    </div>
+                    <p className="pse-caption font-semibold mt-2" style={{ color: 'var(--pse-text)' }}>{t.name}</p>
+                    <p className="pse-num pse-fig-3 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>+{gbpHour(t.rate)}</p>
+                  </div>
+                  <div className="mt-3 pt-2 border-t flex items-center justify-between" style={{ borderColor: 'var(--pse-edge)' }}>
+                    <span className="pse-tiny">Price</span>
+                    <span className="pse-num pse-caption font-bold" style={{ color: 'var(--pse-text)' }}>{gbp(t.price)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="pse-panel pse-panel-flagship mb-6">
-        <div className="pse-panel-head" role="status" aria-live="polite">
+        <div className="pse-panel-head">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="pse-tag pse-tag-flagship">Live Campaign Position</span>
-            <span className="pse-dot" aria-hidden="true" style={{ background: miningState.tone, width: 7, height: 7 }} />
+            <span className="pse-tag pse-tag-flagship">Campaign Overview</span>
+            <span className="pse-dot" style={{ background: miningState.tone, width: 7, height: 7 }} />
             <span className="pse-t-small font-semibold" style={{ color: miningState.tone }}>{miningState.label}</span>
           </div>
           <span className="pse-tiny">{miningState.detail}</span>
@@ -250,8 +291,6 @@ export const PSEMineDashboard: React.FC = () => {
                   ? 'No equipment'
                   : needsMaintenance.length > 0
                     ? `${needsMaintenance.length} need restart`
-                    : restartingTools.length > 0
-                      ? `${restartingTools.length} restarting`
                     : 'All sessions active'}
               </p>
             </div>

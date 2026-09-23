@@ -449,6 +449,113 @@ export const SettlementVisual: React.FC = () => (
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Bespoke Mining Capacity Diagram — Visual Signature Component
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export const BespokeCapacityDiagram: React.FC<{
+  toolCapacity?: number;
+  referralCapacity?: number;
+  qualifiedCount?: number;
+}> = ({ toolCapacity = 0, referralCapacity = 0, qualifiedCount = 0 }) => {
+  const total = toolCapacity + referralCapacity;
+  return (
+    <div className="pse-panel pse-panel-flagship">
+      <div className="pse-panel-head">
+        <span className="pse-eyebrow">Mining Capacity Engine</span>
+        <span className="pse-tag pse-tag-flagship">Live Rate Flow</span>
+      </div>
+      <div className="pse-panel-body grid grid-cols-1 gap-4 sm:grid-cols-3 items-center">
+        {/* Step 1: Tool Capacity */}
+        <div className="pse-plate p-3.5 flex flex-col justify-between h-full">
+          <div>
+            <p className="pse-tiny">Owned Equipment</p>
+            <p className="pse-fig-2 mt-1" style={{ color: 'var(--pse-text)' }}>{gbpHour(toolCapacity)}</p>
+          </div>
+          <div className="mt-3 pt-2 border-t" style={{ borderColor: 'var(--pse-edge)' }}>
+            <span className="pse-tiny">Hardware Capacity</span>
+          </div>
+        </div>
+
+        {/* Plus Divider */}
+        <div className="flex flex-col items-center justify-center py-2 sm:py-0">
+          <span className="text-xl font-bold" style={{ color: 'var(--pse-purple-ink)' }}>+</span>
+          <span className="pse-tiny">Referral Bonus</span>
+        </div>
+
+        {/* Step 2: Referral Capacity */}
+        <div className="pse-plate p-3.5 flex flex-col justify-between h-full">
+          <div>
+            <p className="pse-tiny">Qualified Referrals ({qualifiedCount}/5)</p>
+            <p className="pse-fig-2 mt-1" style={{ color: 'var(--pse-purple-ink)' }}>+{gbpHour(referralCapacity)}</p>
+          </div>
+          <div className="mt-3 pt-2 border-t" style={{ borderColor: 'var(--pse-edge)' }}>
+            <span className="pse-tiny">+£0.30/hr per referral</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Output Total */}
+      <div className="pse-panel-foot flex items-center justify-between">
+        <div>
+          <p className="pse-tiny">Total Active Output</p>
+          <p className="pse-fig-1 mt-0.5" style={{ color: 'var(--pse-cyan-ink)' }}>{gbpHour(total)}</p>
+        </div>
+        <div className="text-right">
+          <p className="pse-tiny">Theoretical Cap</p>
+          <p className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>
+            {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Zero State Onboarding Capacity Builder — £0.00 Pathway Visual
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export const ZeroStateOnboardingBuilder: React.FC = () => {
+  return (
+    <div className="pse-panel">
+      <div className="pse-panel-head">
+        <div>
+          <p className="pse-eyebrow">Build Your First Capacity</p>
+          <p className="pse-fig-2 mt-1" style={{ color: 'var(--pse-text-3)' }}>£0.00/hour</p>
+        </div>
+        <span className="pse-tag">Starting State</span>
+      </div>
+      <div className="pse-panel-body">
+        <p className="pse-t-body max-w-xl">
+          Your campaign earnings begin when your first mining tool becomes active. Choose a tier from the equipment family below to establish your initial hourly rate.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-6">
+          {TIERS.map(t => {
+            const def = tierDef(t.id);
+            return (
+              <div key={t.id} className="pse-plate p-3 flex flex-col justify-between">
+                <div>
+                  <div className="flex h-12 items-center justify-center">
+                    <MinerArt tier={t.rank as 1 | 2 | 3 | 4} size={48} />
+                  </div>
+                  <p className="pse-caption font-semibold mt-2" style={{ color: 'var(--pse-text)' }}>{def.name}</p>
+                  <p className="pse-num pse-fig-3 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>{gbpHour(def.hourlyRateGBP)}</p>
+                </div>
+                <div className="mt-3 pt-2 border-t flex items-center justify-between" style={{ borderColor: 'var(--pse-edge)' }}>
+                  <span className="pse-tiny">Price</span>
+                  <span className="pse-num pse-caption font-bold" style={{ color: 'var(--pse-text)' }}>{gbp(def.purchasePriceGBP)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Capacity system — owned tools + qualified referrals → total → hourly
    ═══════════════════════════════════════════════════════════════════════════ */
 

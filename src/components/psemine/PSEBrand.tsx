@@ -73,62 +73,96 @@ function MinerFrame({ children, size = 96, className }: MinerArtProps & { childr
   );
 }
 
-/** STARTER — compact, single module, approachable. */
+/** STARTER — compact, single module, high-precision industrial silhouette. */
 export function MinerArtStarter({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="30" y="38" width="36" height="28" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
-      <rect x="36" y="45" width="14" height="14" rx="2.5" fill="url(#pse-mn-face)" opacity="0.9" />
-      <rect x="55" y="45" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.18)" />
-      <rect x="55" y="53" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.12)" />
-      <rect x="34" y="70" width="28" height="4" rx="2" fill="rgba(255,255,255,0.10)" />
+      <rect x="22" y="32" width="52" height="36" rx="4" fill="url(#pse-mn-body)" stroke="rgba(126,182,250,0.3)" strokeWidth="1" />
+      <rect x="26" y="36" width="20" height="20" rx="2" fill="#0D131C" stroke="rgba(255,255,255,0.1)" />
+      <circle cx="36" cy="46" r="6" fill="none" stroke="url(#pse-mn-face)" strokeWidth="2" />
+      <circle cx="36" cy="46" r="2" fill="var(--pse-blue-ink)" />
+      <rect x="50" y="38" width="18" height="4" rx="1" fill="rgba(255,255,255,0.15)" />
+      <rect x="50" y="45" width="18" height="4" rx="1" fill="rgba(255,255,255,0.15)" />
+      <rect x="50" y="52" width="12" height="4" rx="1" fill="url(#pse-mn-face)" opacity="0.8" />
+      <rect x="26" y="60" width="44" height="4" rx="1" fill="#090D14" />
+      <circle cx="30" cy="62" r="1" fill="var(--pse-green-ink)" />
+      <circle cx="34" cy="62" r="1" fill="var(--pse-green-ink)" />
+      <rect x="24" y="72" width="48" height="2" rx="1" fill="rgba(255,255,255,0.1)" />
     </MinerFrame>
   );
 }
 
-/** BUILDER — taller, modular stack. */
+/** BUILDER — dual-bay modular stack. */
 export function MinerArtBuilder({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="26" y="30" width="44" height="16" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
-      <rect x="26" y="50" width="44" height="16" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.14)" />
-      <rect x="33" y="34" width="12" height="8" rx="2" fill="url(#pse-mn-face)" opacity="0.9" />
-      <rect x="33" y="54" width="12" height="8" rx="2" fill="url(#pse-mn-core)" opacity="0.85" />
-      <rect x="52" y="34" width="12" height="8" rx="2" fill="rgba(255,255,255,0.14)" />
-      <rect x="52" y="54" width="12" height="8" rx="2" fill="rgba(255,255,255,0.10)" />
-      <rect x="30" y="70" width="36" height="4" rx="2" fill="rgba(255,255,255,0.10)" />
+      <rect x="18" y="24" width="60" height="22" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.16)" />
+      <rect x="18" y="50" width="60" height="22" rx="4" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.16)" />
+      {/* Module 1 Face */}
+      <circle cx="30" cy="35" r="5" fill="#0A0E15" stroke="url(#pse-mn-face)" strokeWidth="1.5" />
+      <rect x="40" y="31" width="30" height="8" rx="1.5" fill="#0A0E15" stroke="rgba(255,255,255,0.08)" />
+      <rect x="42" y="33" width="16" height="4" rx="1" fill="var(--pse-blue-ink)" opacity="0.9" />
+      {/* Module 2 Face */}
+      <circle cx="30" cy="61" r="5" fill="#0A0E15" stroke="url(#pse-mn-core)" strokeWidth="1.5" />
+      <rect x="40" y="57" width="30" height="8" rx="1.5" fill="#0A0E15" stroke="rgba(255,255,255,0.08)" />
+      <rect x="42" y="59" width="22" height="4" rx="1" fill="var(--pse-cyan-ink)" opacity="0.9" />
+      {/* Connector Rail */}
+      <line x1="22" y1="46" x2="22" y2="50" stroke="var(--pse-blue-ink)" strokeWidth="2" />
+      <line x1="74" y1="46" x2="74" y2="50" stroke="var(--pse-blue-ink)" strokeWidth="2" />
     </MinerFrame>
   );
 }
 
-/** ADVANCED — dense rack, vents, technical. */
+/** ADVANCED — dense multi-blade rack chassis. */
 export function MinerArtAdvanced({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <rect x="22" y="26" width="52" height="40" rx="5" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.16)" />
-      <rect x="28" y="32" width="16" height="10" rx="2" fill="url(#pse-mn-face)" />
-      <rect x="48" y="32" width="20" height="10" rx="2" fill="url(#pse-mn-core)" opacity="0.8" />
-      <rect x="28" y="46" width="40" height="3" rx="1.5" fill="rgba(255,255,255,0.14)" />
-      <rect x="28" y="52" width="40" height="3" rx="1.5" fill="rgba(255,255,255,0.10)" />
-      <rect x="28" y="58" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.07)" />
-      <circle cx="68" cy="59" r="3" fill="#22D3EE" opacity="0.85" />
-      <rect x="26" y="70" width="44" height="4" rx="2" fill="rgba(255,255,255,0.10)" />
+      <rect x="16" y="20" width="64" height="56" rx="5" fill="url(#pse-mn-body)" stroke="rgba(167,155,248,0.35)" strokeWidth="1" />
+      {/* Blades */}
+      <rect x="22" y="26" width="52" height="10" rx="2" fill="#0A0E15" stroke="rgba(255,255,255,0.1)" />
+      <rect x="22" y="39" width="52" height="10" rx="2" fill="#0A0E15" stroke="rgba(255,255,255,0.1)" />
+      <rect x="22" y="52" width="52" height="10" rx="2" fill="#0A0E15" stroke="rgba(255,255,255,0.1)" />
+      {/* Indicators */}
+      <circle cx="27" cy="31" r="2" fill="var(--pse-purple-ink)" />
+      <circle cx="27" cy="44" r="2" fill="var(--pse-purple-ink)" />
+      <circle cx="27" cy="57" r="2" fill="var(--pse-green-ink)" />
+      {/* Vents */}
+      <line x1="34" y1="31" x2="68" y2="31" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeDasharray="3 2" />
+      <line x1="34" y1="44" x2="68" y2="44" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeDasharray="3 2" />
+      <line x1="34" y1="57" x2="68" y2="57" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeDasharray="3 2" />
+      {/* Status Bar */}
+      <rect x="22" y="66" width="52" height="4" rx="1" fill="#080B10" />
+      <rect x="22" y="66" width="38" height="4" rx="1" fill="var(--pse-purple-ink)" />
     </MinerFrame>
   );
 }
 
-/** ELITE — flagship dual-bay with crest, visually dominant. */
+/** ELITE — flagship dual-tower engine console. */
 export function MinerArtElite({ size = 96, className }: MinerArtProps) {
   return (
     <MinerFrame size={size} className={className}>
-      <path d="M30 18L48 12L66 18V24L48 19L30 24V18Z" fill="url(#pse-mn-face)" opacity="0.9" />
-      <rect x="20" y="30" width="56" height="36" rx="6" fill="url(#pse-mn-body)" stroke="rgba(255,255,255,0.18)" />
-      <rect x="27" y="37" width="18" height="20" rx="3" fill="url(#pse-mn-face)" />
-      <rect x="51" y="37" width="18" height="20" rx="3" fill="url(#pse-mn-core)" />
-      <rect x="27" y="60" width="42" height="2.5" rx="1.25" fill="rgba(255,255,255,0.12)" />
-      <circle cx="72" cy="61" r="2.5" fill="#F5A524" opacity="0.9" />
-      <rect x="24" y="70" width="48" height="4" rx="2" fill="rgba(255,255,255,0.12)" />
-      <rect x="38" y="76" width="20" height="3" rx="1.5" fill="rgba(255,255,255,0.08)" />
+      {/* Chassis */}
+      <rect x="12" y="16" width="72" height="64" rx="6" fill="url(#pse-mn-body)" stroke="rgba(95,223,240,0.45)" strokeWidth="1.5" />
+      {/* Crest & Header */}
+      <path d="M20 16L48 10L76 16" fill="none" stroke="var(--pse-cyan-ink)" strokeWidth="2" />
+      {/* Dual Core Towers */}
+      <rect x="18" y="24" width="26" height="42" rx="3" fill="#080C12" stroke="rgba(255,255,255,0.12)" />
+      <rect x="52" y="24" width="26" height="42" rx="3" fill="#080C12" stroke="rgba(255,255,255,0.12)" />
+      {/* Core Vanes */}
+      <line x1="22" y1="32" x2="40" y2="32" stroke="url(#pse-mn-face)" strokeWidth="2" />
+      <line x1="22" y1="40" x2="40" y2="40" stroke="url(#pse-mn-face)" strokeWidth="2" />
+      <line x1="22" y1="48" x2="40" y2="48" stroke="url(#pse-mn-face)" strokeWidth="2" />
+      <line x1="56" y1="32" x2="74" y2="32" stroke="url(#pse-mn-core)" strokeWidth="2" />
+      <line x1="56" y1="40" x2="74" y2="40" stroke="url(#pse-mn-core)" strokeWidth="2" />
+      <line x1="56" y1="48" x2="74" y2="48" stroke="url(#pse-mn-core)" strokeWidth="2" />
+      {/* Central Matrix Gauge */}
+      <rect x="46" y="28" width="4" height="34" rx="1" fill="#05080C" />
+      <rect x="46" y="38" width="4" height="24" rx="1" fill="var(--pse-cyan-ink)" />
+      {/* Lower Docking Base */}
+      <rect x="18" y="70" width="60" height="4" rx="1" fill="#06090E" />
+      <circle cx="22" cy="72" r="1.5" fill="var(--pse-green-ink)" />
+      <circle cx="27" cy="72" r="1.5" fill="var(--pse-cyan-ink)" />
+      <circle cx="74" cy="72" r="1.5" fill="var(--pse-amber-ink)" />
     </MinerFrame>
   );
 }

@@ -5,7 +5,7 @@ import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateP
 import {
   gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe,
   campaignStatusView, cycleStateView, purchaseStatusView, operatingModelView,
-  Chip, WorkbenchHeader, AccentSurface, Surface, MetricRow, KeyValue, KVRow,
+  Chip, WorkbenchHeader, Surface, KeyValue, KVRow,
   RowItem, Meter, PSEEmpty, PSEError, PSELoading, FeedNotice,
   ActivityRow, ACTIVITY_ICONS, shortHash, CampaignBanner, Slots, ActionLink,
 } from '../../components/psemine/pse';
@@ -174,104 +174,121 @@ export const PSEMineDashboard: React.FC = () => {
       <CampaignBanner status={campaignStatus} />
 
       <WorkbenchHeader
-        title="Mining console"
-        purpose="Campaign status, earnings and equipment — every figure below is reported by the mining backend."
+        title="Command Deck"
+        purpose="Operational campaign position, real-time hourly capacity, and settlement ledger."
         status={<Chip label={view.label.trim()} chip={view.chip} pulse={view.live} />}
         actions={
-          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-secondary pse-btn-sm">
+          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-outline pse-btn-sm">
             <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Syncing…' : 'Sync now'}
           </button>
         }
       />
 
-      {/* ══ THE PRIMARY SURFACE ══════════════════════════════════════════
-          Mining state, earnings, rate, capacity and the campaign clock in one
-          coherent block — the reason the rest of the page exists. */}
-      <AccentSurface>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pt-4">
-          <span className="pse-dot" style={{ background: miningState.tone, width: 7, height: 7 }} />
-          <p className="pse-caption font-semibold" style={{ color: miningState.tone }}>{miningState.label}</p>
-          <span className="pse-micro">·</span>
-          <p className="pse-micro">{miningState.detail}</p>
+      {/* ══ COMMAND DECK INTEGRATED HERO ══════════════════════════════════
+          High-density operational panel with financial figures & capacity mechanics. */}
+      <div className="pse-panel pse-panel-flagship mb-6">
+        <div className="pse-panel-head" role="status" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="pse-tag pse-tag-flagship">Live Campaign Position</span>
+            <span className="pse-dot" aria-hidden="true" style={{ background: miningState.tone, width: 7, height: 7 }} />
+            <span className="pse-t-small font-semibold" style={{ color: miningState.tone }}>{miningState.label}</span>
+          </div>
+          <span className="pse-tiny">{miningState.detail}</span>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-y-4 px-4 pb-4 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] sm:gap-x-8">
-          <div>
+        <div className="pse-panel-body grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <div className="min-w-0">
             <p className="pse-eyebrow">Accrued campaign earnings</p>
-            <p className="pse-fig-1 mt-2" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
-            <p className="pse-micro mt-2">
+            <p className="pse-fig-1 mt-2.5" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
+            <p className="pse-t-body mt-2.5" style={{ maxWidth: '44ch' }}>
               {isMiningLive
-                ? `Accruing at ${gbpHour(totalCapacity)}. Settles after the campaign ends — accrued earnings are not withdrawable mid-campaign.`
-                : 'Accrual is not running. Earnings settle after the campaign ends.'}
+                ? `Accruing at ${gbpHour(totalCapacity)}. Settles after day ${totalDays} — accrued earnings are verified by the mining ledger.`
+                : 'Accrual is inactive. Earnings settle after campaign conclusion.'}
             </p>
             {checkpointEarned > 0 && (
-              <p className="pse-micro mt-1.5" style={{ color: 'var(--pse-success)' }}>
+              <p className="pse-t-small mt-2 font-medium" style={{ color: 'var(--pse-green-ink)' }}>
                 +{gbp(checkpointEarned / 100)} settled at this checkpoint
               </p>
             )}
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="pse-eyebrow">Capacity composition</p>
-              <p className="pse-fig-2" style={{ color: 'var(--pse-text)' }}>{gbpHour(totalCapacity)}</p>
+          <div className="pse-plate p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="pse-eyebrow">Total Mining Capacity</p>
+                <p className="pse-fig-2" style={{ color: 'var(--pse-cyan-ink)' }}>{gbpHour(totalCapacity)}</p>
+              </div>
+              <div className="pse-bar pse-bar-lg mt-3">
+                <div className="pse-bar-fill pse-bar-fill-cyan" style={{ width: `${capacityShare}%` }} />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="pse-tiny">Tools: <b className="text-white">{gbpHour(toolCapacity)}</b></span>
+                <span className="pse-tiny">Referrals: <b style={{ color: 'var(--pse-purple-ink)' }}>+{gbpHour(referralCapacity)}</b></span>
+              </div>
             </div>
-            <div className="mt-2.5"><Meter value={capacityShare} label="Capacity against the campaign maximum" /></div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="pse-micro">Tools <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolCapacity)}</span></span>
-              <span className="pse-micro">Referrals <span className="pse-num" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(referralCapacity)}</span></span>
-            </div>
-            <div className="mt-2.5">
-              <ActionLink to="/mine/tools">Add capacity</ActionLink>
+
+            <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--pse-edge)' }}>
+              <span className="pse-tiny">Max Ceiling: {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}</span>
+              <ActionLink to="/mine/tools">Expand capacity →</ActionLink>
             </div>
           </div>
         </div>
 
-        <div className="pse-rule">
-          <MetricRow items={[
-            {
-              label: 'Settlement-available',
-              value: availableStr,
-              tone: 'var(--pse-cyan)',
-              sub: 'Backend-reported · opens at settlement',
-            },
-            {
-              label: 'Operating tools',
-              value: `${activeTools.length} / ${tools.length}`,
-              sub: tools.length === 0
-                ? 'No equipment purchased'
-                : needsMaintenance.length > 0
-                  ? `${needsMaintenance.length} need a restart`
-                  : restartingTools.length > 0
-                    ? `${restartingTools.length} restarting`
-                    : 'All sessions healthy',
-            },
-            {
-              label: 'Qualified referrals',
-              value: `${user.qualifiedReferralsCount ?? 0} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}`,
-              sub: `+${gbpHour(referralCapacity)} of capacity`,
-            },
-            {
-              label: 'Campaign',
-              value: dayNumber !== null ? `Day ${dayNumber}` : '—',
-              sub: dayNumber !== null ? `of ${totalDays}${daysLeft !== null ? ` · ${daysLeft}d left` : ''}` : 'Schedule pending',
-            },
-          ]} />
+        {/* Key Metrics Row */}
+        <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[var(--pse-edge)]">
+            <div className="p-4">
+              <p className="pse-tiny">Settlement-available</p>
+              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>{availableStr}</p>
+              <p className="pse-tiny mt-1">Backend-reported</p>
+            </div>
+            <div className="p-4">
+              <p className="pse-tiny">Operating tools</p>
+              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-text)' }}>{activeTools.length} / {tools.length}</p>
+              <p className="pse-tiny mt-1">
+                {tools.length === 0
+                  ? 'No equipment'
+                  : needsMaintenance.length > 0
+                    ? `${needsMaintenance.length} need restart`
+                    : restartingTools.length > 0
+                      ? `${restartingTools.length} restarting`
+                    : 'All sessions active'}
+              </p>
+            </div>
+            <div className="p-4">
+              <p className="pse-tiny">Qualified referrals</p>
+              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-purple-ink)' }}>
+                {user.qualifiedReferralsCount ?? 0} / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}
+              </p>
+              <p className="pse-tiny mt-1">+{gbpHour(referralCapacity)} capacity</p>
+            </div>
+            <div className="p-4">
+              <p className="pse-tiny">Campaign position</p>
+              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-text)' }}>
+                {dayNumber !== null ? `Day ${dayNumber}` : '—'}
+              </p>
+              <p className="pse-tiny mt-1">
+                {dayNumber !== null ? `of ${totalDays} days (${daysLeft ?? 0}d left)` : 'Pending schedule'}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Campaign progress — the 90-day arc, anchored to backend dates. */}
+        {/* Campaign Timeline Bar */}
         {dayNumber !== null && (
-          <div className="pse-rule px-4 py-3.5">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="pse-eyebrow">Campaign progress</p>
-              <p className="pse-micro">Day {dayNumber} of {totalDays}{daysLeft !== null ? ` · ${daysLeft}d remaining` : ''}</p>
+          <div className="pse-panel-foot flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="pse-eyebrow">90-Day Campaign Timeline</span>
+              <span className="pse-num pse-tiny font-semibold" style={{ color: 'var(--pse-text)' }}>
+                Day {dayNumber} of {totalDays} · {Math.round((dayNumber / totalDays) * 100)}%
+              </span>
             </div>
-            <div className="mt-2.5">
-              <Meter value={(dayNumber / totalDays) * 100} label="Campaign progress through the 90-day arc" />
+            <div className="pse-bar pse-bar-lg">
+              <div className="pse-bar-fill pse-bar-fill-cyan" style={{ width: `${(dayNumber / totalDays) * 100}%` }} />
             </div>
           </div>
         )}
-      </AccentSurface>
+      </div>
 
       {/* ══ ATTENTION (exception-first) ══ */}
       {isMiningLive && needsMaintenance.length > 0 && (

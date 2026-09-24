@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Pickaxe, History, User, Layers, Wallet } from 'lucide-react';
+import { Pickaxe, History, User, Layers, Wallet, Menu, X } from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
 import {
@@ -133,7 +133,9 @@ export const PSEMineShell: React.FC = () => {
                 aria-controls="pse-mobile-menu"
                 aria-label={menuOpen ? 'Close menu' : 'Open menu'}
               >
-                <span className="pse-np pse-np-bone">{menuOpen ? '✕' : '☰'}</span>
+                {menuOpen
+                  ? <X size={16} aria-hidden="true" />
+                  : <Menu size={16} aria-hidden="true" />}
               </button>
             </div>
           </div>

@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCcw, Wrench, Layers, Activity as ActivityIcon } from 'lucide-react';
+import { RefreshCcw, Wrench, Activity as ActivityIcon } from 'lucide-react';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
-  gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs, toDateSafe,
-  campaignStatusView, cycleStateView, purchaseStatusView, operatingModelView,
-  Chip, WorkbenchHeader, Surface, KeyValue, KVRow,
-  RowItem, Meter, PSEEmpty, PSEError, PSELoading, FeedNotice,
-  ActivityRow, ACTIVITY_ICONS, shortHash, CampaignBanner, Slots, ActionLink,
+  gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs,
+  campaignStatusView, campaignTone, cycleStateView, purchaseStatusView,
+  Stamp, StatementHeader, Verdict, RailBand, DutyRail, CapacityRail, Ledger, LedgerRow,
+  Attn, PSEEmpty, PSEError, PSELoading, FeedNotice,
+  ACTIVITY_ICONS, shortHash, useCampaignClock,
 } from '../../components/psemine/pse';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { usePSEMine } from '../../contexts/PSEMineContext';
-import { MinerArt } from '../../components/psemine/PSEBrand';
+import { ModuleMark } from '../../components/psemine/PSEBrand';
 import type { PseStateTool } from '../../engines/psemine/pseMineApi';
 
 /** Tool name/rate resolution that never invents a tier. */
@@ -26,19 +26,34 @@ function toolRate(tool: PseStateTool): number {
   if (typeof tool.hourlyRateGBP === 'number') return tool.hourlyRateGBP;
   return toolDef(tool)?.hourlyRateGBP ?? 0;
 }
+function toolTier(tool: PseStateTool): 1 | 2 | 3 | 4 {
+  const def = toolDef(tool);
+  const rank = def?.tier ?? 1;
+  return Math.min(4, Math.max(1, rank)) as 1 | 2 | 3 | 4;
+}
 
 /**
  * The mining console.
  *
- * Composition rule (design system v2): exactly ONE accent surface carries the
- * financial verdict — is mining running, what has it earned, at what rate, and
- * how much campaign is left. Everything after it is a ruled, quieter group, so
- * the first viewport answers the six operational questions in order:
- *   mining active? → earning? → capacity? → what do I own? → attention? → when does it end?
+ * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
+ *
+ *   VERDICT  the accrued figure, its rate and the mining state — on the canvas,
+ *            never inside a tinted panel.
+ *   RAILS    the campaign duty rail (one campaign visual, shared with the shell)
+ *            and the capacity register (one capacity visual, shared product-wide).
+ *   LEDGERS  equipment, the account position and the records ledger — three
+ *            bordered containers, inside the contract's cap on every viewport.
+ *            Capacity, referral lanes and the tool tier stack are NOT repeated
+ *            here: the capacity register above is the product's one capacity
+ *            visual, and duplicating it made competitors out of it.
+ *   NOTES    the exceptions the backend reports, stated plainly.
+ *
+ * Every figure comes from the mining backend (`/api/mine/state`), every constant
+ * from the locked economics. Nothing here is estimated in the browser.
  */
 export const PSEMineDashboard: React.FC = () => {
   const { state, campaignStatus, loading, error, refresh, refreshing } = usePseState();
-  const { maintainTool } = usePSEMine();
+  const { maintainTool, pseUser, purchases } = usePSEMine();
   const availableStr = useAvailableGBP();
 
   const [maintaining, setMaintaining] = useState<Set<string>>(new Set());
@@ -52,6 +67,12 @@ export const PSEMineDashboard: React.FC = () => {
 
   const tools = useMemo(() => state?.tools ?? [], [state?.tools]);
   const user = state?.user;
+  // Hooks must run on EVERY render, so the campaign clock is anchored here —
+  // above the loading/error early returns. Called after them, a transition from
+  // a loaded console into an error state changed the hook count between renders
+  // and React threw "Rendered fewer hooks than expected" instead of showing the
+  // error screen it was asked for.
+  const clock = useCampaignClock(state?.campaign, campaignStatus);
 
   const needsMaintenance = useMemo(
     () => tools.filter(t => t.maintenanceRequired === true || t.cycleState === 'maintenance_required' || t.cycleState === 'cycle_complete'),
@@ -61,33 +82,12 @@ export const PSEMineDashboard: React.FC = () => {
   const restartingTools = useMemo(() => tools.filter(t => t.cycleState === 'restarting'), [tools]);
 
   /**
-   * TOOL STACKING view: every owned tool is listed individually (so three
-   * Advanced Miners are three stacked tools, never one Elite), and the tier
-   * totals are summed from the BACKEND's ownership records — counts and per-tool
-   * rates come from the state payload; only the displayed multiplication is
-   * local. The authoritative tool capacity is user.toolCapacityGBPPerHour.
+   * TOOL STACKING: every owned tool is listed individually in the equipment
+   * ledger (three Advanced Miners are three stacked tools, never one Elite).
+   * Tier totals are NOT re-summed into a second ledger: the capacity register is
+   * the one place capacity is broken down, and the authoritative tool capacity
+   * is user.toolCapacityGBPPerHour.
    */
-  const tierStack = useMemo(() => {
-    const groups = new Map<string, { tier: number; name: string; count: number; rate: number; model: string }>();
-    for (const t of tools) {
-      const key = String(t.toolId || 'unknown');
-      const def = LOCKED_PSEMINE_TOOLS[key as keyof typeof LOCKED_PSEMINE_TOOLS];
-      const rate = typeof t.hourlyRateGBP === 'number' ? t.hourlyRateGBP : (def?.hourlyRateGBP ?? 0);
-      const existing = groups.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        groups.set(key, {
-          tier: def?.tier ?? 9,
-          name: t.toolName || def?.name || 'Mining tool',
-          count: 1,
-          rate,
-          model: t.operatingModel || def?.operating?.model || 'session',
-        });
-      }
-    }
-    return [...groups.values()].sort((a, b) => a.tier - b.tier);
-  }, [tools]);
 
   const handleMaintain = async (ownershipId: string) => {
     setMaintaining(prev => new Set(prev).add(ownershipId));
@@ -99,15 +99,15 @@ export const PSEMineDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="pse-section pt-6 md:pt-8">
-        <PSELoading skeleton label="Loading your mining state" />
+      <div className="pse-gut pt-6">
+        <PSELoading label="Loading the mining console" />
       </div>
     );
   }
 
   if (error || !state || !user) {
     return (
-      <div className="pse-section py-8">
+      <div className="pse-gut py-8">
         {error
           ? <PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} />
           : <PSEError
@@ -126,381 +126,251 @@ export const PSEMineDashboard: React.FC = () => {
   const toolCapacity = user.toolCapacityGBPPerHour ?? 0;
   const referralCapacity = user.referralCapacityGBPPerHour ?? 0;
   const totalCapacity = user.totalCapacityGBPPerHour ?? 0;
-  const capacityShare = (totalCapacity / PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) * 100;
   const view = campaignStatusView(campaignStatus);
 
-  // Campaign clock (backend campaign document only — never local dates).
-  const c = state.campaign;
-  const totalDays = c?.durationDays && c.durationDays > 0 ? c.durationDays : 90;
-  const startMs = toDateSafe(c?.startAt)?.getTime();
-  const endMs = toDateSafe(c?.endAt)?.getTime();
-  const now = nowMs();
-  const dayNumber = typeof startMs === 'number'
-    ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
-    : null;
-  const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
-
-  // The single answer to "is mining active?" — derived from backend state only.
+  /** The single answer to "is mining active?" — derived from backend state only. */
   const miningState = (() => {
     if (isMiningLive && tools.length === 0) {
-      return { label: 'No capacity yet', tone: 'var(--pse-text-2)', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.' };
+      return { label: 'No capacity yet', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.', tone: 'idle' as const };
     }
     if (isMiningLive && needsMaintenance.length > 0) {
       return {
-        label: 'Partially interrupted', tone: 'var(--pse-warning)',
+        label: 'Partially interrupted',
         detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} finished a mining session and stopped accruing — restart them to resume.`,
+        tone: 'attn' as const,
       };
     }
     if (isMiningLive && restartingTools.length > 0 && activeTools.length === 0) {
       return {
-        label: 'Restarting', tone: 'var(--pse-blue)',
+        label: 'Restarting',
         detail: `${restartingTools.length} tool${restartingTools.length === 1 ? '' : 's'} restarting — mining resumes at the backend-scheduled time. No earnings accrue until then.`,
+        tone: 'info' as const,
       };
     }
     if (isMiningLive && activeTools.length > 0) {
-      return { label: 'Mining active', tone: 'var(--pse-success)', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
+      return { label: 'Mining active', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.`, tone: 'live' as const };
     }
     if (isMiningLive) {
-      return { label: 'Mining idle', tone: 'var(--pse-warning)', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.' };
+      return { label: 'Mining idle', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.', tone: 'attn' as const };
     }
-    return { label: view.label.trim(), tone: view.tone, detail: view.detail };
+    return { label: view.label.trim(), detail: view.detail, tone: campaignTone(campaignStatus) };
   })();
 
   const checkpointEarned = typeof state.checkpoint?.earnedMinor === 'number' ? state.checkpoint.earnedMinor : 0;
-  const recentTools = tools.slice(0, 6);
+  const recentTools = tools.slice(0, 8);
+  const purchaseOpen = state.campaign?.purchaseEnabled !== false;
+  const referralQualified = user.qualifiedReferralsCount ?? 0;
+  const counts = pseUser?.toolOwnershipCounts;
+  // Only the actionable purchase state belongs on the console: the full purchase
+  // history lives in the records ledger (/mine/activity) and the wallet.
+  const latestPurchase = purchases[0] ?? null;
+  const awaitingPurchases = purchases.filter(p => p.status === 'awaiting_payment').length;
 
   return (
-    <div className="pse-section pse-workbench pt-5 md:pt-7">
-      <CampaignBanner status={campaignStatus} />
-
-      <WorkbenchHeader
-        title="Command Deck"
-        purpose="Operational campaign position, real-time hourly capacity, and settlement ledger."
-        status={<Chip label={view.label.trim()} chip={view.chip} pulse={view.live} />}
+    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
+      <StatementHeader
+        routeKey="Mining console"
+        title="Where this campaign stands"
+        objective="Campaign status, earnings and equipment — every figure below is reported by the mining backend."
+        /* The mining state is the one value on this screen the backend changes on
+           its own, so it is announced politely rather than silently repainted. */
+        status={
+          <span role="status" aria-live="polite">
+            <Stamp tone={miningState.tone} pulse={miningState.tone === 'live'} glyph="●">{miningState.label}</Stamp>
+          </span>
+        }
         actions={
-          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-outline pse-btn-sm">
+          <button onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-2 pse-btn-sm">
             <RefreshCcw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Syncing…' : 'Sync now'}
           </button>
         }
       />
 
-      {/* ══ CAMPAIGN CONTROL HERO & ZERO-STATE ONBOARDING ══════════════════
-          High-density operational hero. Shows zero-state onboarding pathway if user has £0.00 capacity. */}
-      {tools.length === 0 && (
-        <div className="mb-6">
-          <div className="pse-panel pse-panel-flagship p-5 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <span className="pse-tag pse-tag-flagship">Campaign Onboarding</span>
-                <h2 className="pse-fig-1 mt-2" style={{ color: 'var(--pse-text)' }}>Build Your First Capacity</h2>
-                <p className="pse-t-body mt-1 max-w-xl">
-                  Your campaign earnings begin when your first mining tool becomes active. Choose a tool tier below to establish your initial hourly rate.
-                </p>
-              </div>
-              <Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-lg shrink-0">
-                Acquire Tool →
-              </Link>
+      {/* ══ VERDICT — the answer, on the canvas ══ */}
+      <Verdict
+        label="Accrued campaign earnings"
+        value={gbp(user.accruedGBP)}
+        status={<Stamp tone="live" glyph="≈">{gbpHour(totalCapacity)}</Stamp>}
+        note={
+          <>
+            {miningState.detail}
+            {isMiningLive
+              ? ' Accrual is written hourly by the backend while a tool’s duty cycle is open; the balance settles after the campaign ends.'
+              : ' Accrual is not running; earnings settle after the campaign ends.'}
+          </>
+        }
+        side={
+          <div className="pse-stack-tight">
+            <div className="pse-spec-line"><span>Settlement-available</span><span className="pse-jade">{availableStr}</span></div>
+            <div className="pse-spec-line"><span>Operating tools</span><span>{activeTools.length} / {tools.length}</span></div>
+            <div className="pse-spec-line">
+              <span>Qualified referrals</span>
+              <span>{referralQualified} / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-6">
-              {[
-                { name: 'Starter', price: 3, rate: 0.10, tier: 1 },
-                { name: 'Builder', price: 10, rate: 0.50, tier: 2 },
-                { name: 'Advanced', price: 50, rate: 1.20, tier: 3 },
-                { name: 'Elite', price: 200, rate: 2.50, tier: 4 },
-              ].map(t => (
-                <div key={t.name} className="pse-plate p-3.5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex h-12 items-center justify-center">
-                      <MinerArt tier={t.tier as 1 | 2 | 3 | 4} size={48} />
-                    </div>
-                    <p className="pse-caption font-semibold mt-2" style={{ color: 'var(--pse-text)' }}>{t.name}</p>
-                    <p className="pse-num pse-fig-3 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>+{gbpHour(t.rate)}</p>
-                  </div>
-                  <div className="mt-3 pt-2 border-t flex items-center justify-between" style={{ borderColor: 'var(--pse-edge)' }}>
-                    <span className="pse-tiny">Price</span>
-                    <span className="pse-num pse-caption font-bold" style={{ color: 'var(--pse-text)' }}>{gbp(t.price)}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="pse-spec-line">
+              <span>Campaign</span>
+              <span>{clock.dayNumber !== null ? `Day ${clock.dayNumber} of ${clock.totalDays}` : 'Schedule pending'}</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      <div className="pse-panel pse-panel-flagship mb-6">
-        <div className="pse-panel-head">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="pse-tag pse-tag-flagship">Campaign Overview</span>
-            <span className="pse-dot" style={{ background: miningState.tone, width: 7, height: 7 }} />
-            <span className="pse-t-small font-semibold" style={{ color: miningState.tone }}>{miningState.label}</span>
-          </div>
-          <span className="pse-tiny">{miningState.detail}</span>
-        </div>
-
-        <div className="pse-panel-body grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <div className="min-w-0">
-            <p className="pse-eyebrow">Accrued campaign earnings</p>
-            <p className="pse-fig-1 mt-2.5" style={{ color: 'var(--pse-text)' }}>{gbp(user.accruedGBP)}</p>
-            <p className="pse-t-body mt-2.5" style={{ maxWidth: '44ch' }}>
-              {isMiningLive
-                ? `Accruing at ${gbpHour(totalCapacity)}. Settles after day ${totalDays} — accrued earnings are verified by the mining ledger.`
-                : 'Accrual is inactive. Earnings settle after campaign conclusion.'}
-            </p>
             {checkpointEarned > 0 && (
-              <p className="pse-t-small mt-2 font-medium" style={{ color: 'var(--pse-green-ink)' }}>
-                +{gbp(checkpointEarned / 100)} settled at this checkpoint
-              </p>
+              <p className="pse-meta">+{gbp(checkpointEarned / 100)} settled at the last checkpoint</p>
             )}
           </div>
+        }
+      />
 
-          <div className="pse-plate p-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="pse-eyebrow">Total Mining Capacity</p>
-                <p className="pse-fig-2" style={{ color: 'var(--pse-cyan-ink)' }}>{gbpHour(totalCapacity)}</p>
-              </div>
-              <div className="pse-bar pse-bar-lg mt-3">
-                <div className="pse-bar-fill pse-bar-fill-cyan" style={{ width: `${capacityShare}%` }} />
-              </div>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="pse-tiny">Tools: <b className="text-white">{gbpHour(toolCapacity)}</b></span>
-                <span className="pse-tiny">Referrals: <b style={{ color: 'var(--pse-purple-ink)' }}>+{gbpHour(referralCapacity)}</b></span>
-              </div>
-            </div>
+      {/* ══ RAILS — the campaign clock, then the capacity register ══ */}
+      <RailBand
+        label="Campaign clock"
+        meta={`${clock.totalDays}-day campaign · backend dates`}
+        right={<Link to="/mine/guide" className="pse-meta pse-link">How the campaign runs</Link>}
+      >
+        <DutyRail campaign={state.campaign} status={campaignStatus} />
+      </RailBand>
 
-            <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--pse-edge)' }}>
-              <span className="pse-tiny">Max Ceiling: {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}</span>
-              <ActionLink to="/mine/tools">Expand capacity →</ActionLink>
-            </div>
-          </div>
-        </div>
+      <CapacityRail
+        toolCapacity={toolCapacity}
+        referralCapacity={referralCapacity}
+        counts={counts}
+        referralCount={referralQualified}
+        label="Mining capacity"
+      />
 
-        {/* Key Metrics Row */}
-        <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[var(--pse-edge)]">
-            <div className="p-4">
-              <p className="pse-tiny">Settlement-available</p>
-              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-cyan-ink)' }}>{availableStr}</p>
-              <p className="pse-tiny mt-1">Backend-reported</p>
-            </div>
-            <div className="p-4">
-              <p className="pse-tiny">Operating tools</p>
-              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-text)' }}>{activeTools.length} / {tools.length}</p>
-              <p className="pse-tiny mt-1">
-                {tools.length === 0
-                  ? 'No equipment'
-                  : needsMaintenance.length > 0
-                    ? `${needsMaintenance.length} need restart`
-                    : 'All sessions active'}
-              </p>
-            </div>
-            <div className="p-4">
-              <p className="pse-tiny">Qualified referrals</p>
-              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-purple-ink)' }}>
-                {user.qualifiedReferralsCount ?? 0} / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}
-              </p>
-              <p className="pse-tiny mt-1">+{gbpHour(referralCapacity)} capacity</p>
-            </div>
-            <div className="p-4">
-              <p className="pse-tiny">Campaign position</p>
-              <p className="pse-fig-3 mt-1" style={{ color: 'var(--pse-text)' }}>
-                {dayNumber !== null ? `Day ${dayNumber}` : '—'}
-              </p>
-              <p className="pse-tiny mt-1">
-                {dayNumber !== null ? `of ${totalDays} days (${daysLeft ?? 0}d left)` : 'Pending schedule'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Campaign Timeline Bar */}
-        {dayNumber !== null && (
-          <div className="pse-panel-foot flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="pse-eyebrow">90-Day Campaign Timeline</span>
-              <span className="pse-num pse-tiny font-semibold" style={{ color: 'var(--pse-text)' }}>
-                Day {dayNumber} of {totalDays} · {Math.round((dayNumber / totalDays) * 100)}%
-              </span>
-            </div>
-            <div className="pse-bar pse-bar-lg">
-              <div className="pse-bar-fill pse-bar-fill-cyan" style={{ width: `${(dayNumber / totalDays) * 100}%` }} />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ══ ATTENTION (exception-first) ══ */}
+      {/* ══ NOTES — exceptions the backend reports, in priority order ══ */}
       {isMiningLive && needsMaintenance.length > 0 && (
-        <Surface
-          tone="warning"
+        <Attn
+          tone="attn"
           title={needsMaintenance.length === 1 ? '1 mining session completed' : `${needsMaintenance.length} mining sessions completed`}
-          meta="Mining stopped for these tools. Restarting starts the next session — the backend needs a short restart period before mining resumes, and nothing accrues while it restarts."
-          action={<Chip label="Restart required" chip="pse-chip pse-chip-warning" dot={false} />}
-          bodyClassName="pse-rows"
-        >
-          {needsMaintenance.map(t => (
-            <RowItem key={t.id} className="flex-wrap sm:flex-nowrap">
-              <div className="min-w-0 flex-1">
-                <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(t)}</p>
-                <p className="pse-micro mt-0.5">
-                  Mining stopped — session complete · <span className="pse-num">{gbpRate(toolRate(t))}</span>
-                </p>
-              </div>
-              <button
-                onClick={() => void handleMaintain(t.id)}
-                disabled={maintaining.has(t.id)}
-                className="pse-btn pse-btn-primary pse-btn-sm shrink-0"
-              >
-                <Wrench size={12} /> {maintaining.has(t.id) ? 'Restarting…' : 'Restart miner'}
-              </button>
-            </RowItem>
-          ))}
-        </Surface>
+          body="Mining stopped for these tools. Restarting begins the next session; the backend needs a short restart period before mining resumes, and nothing accrues while it restarts."
+        />
       )}
-
-      {/* Restart in progress — the resume time is the backend's, never a guess. */}
       {isMiningLive && restartingTools.length > 0 && (
-        <Surface
+        <Attn
+          tone="info"
           title={restartingTools.length === 1 ? '1 tool restarting' : `${restartingTools.length} tools restarting`}
-          meta="The backend is preparing the next mining session. No earnings accrue during the restart period."
-          action={<Chip label="Restarting" chip="pse-chip pse-chip-blue" pulse />}
-          bodyClassName="pse-rows"
-        >
-          {restartingTools.map(t => {
-            const eta = remainingFrom(t.restartResumesAt, nowMs());
-            return (
-              <RowItem key={t.id} className="flex-wrap sm:flex-nowrap">
-                <div className="min-w-0 flex-1">
-                  <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(t)}</p>
-                  <p className="pse-micro mt-0.5">
-                    Mining resumes {t.restartResumesAt ? `at ${new Date(t.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : 'shortly'}
-                    {eta.ms > 0 && ` · ${eta.text}`}
-                  </p>
-                </div>
-                <span className="pse-num pse-caption shrink-0" style={{ color: 'var(--pse-text-3)' }}>{gbpRate(toolRate(t))}</span>
-              </RowItem>
-            );
-          })}
-        </Surface>
+          body="The backend is preparing the next mining session. No earnings accrue during the restart period."
+        />
+      )}
+      {!purchaseOpen && (
+        <Attn
+          tone="attn"
+          title="Tool purchases are closed for this campaign"
+          body="Existing tools continue to follow their operating model until the campaign settles."
+        />
       )}
 
-      {/* ══ TOOL STACK ══════════════════════════════════════════════════
-          Every owned tool is its own operating unit: totals are grouped from
-          the backend's ownership records, so Advanced ×3 stays three stacked
-          tools (each with its own session state) rather than one tool. */}
-      {tierStack.length > 0 && (
-        <Surface
-          title="Capacity stack"
-          meta="Your owned tools grouped by tier — each entry is its own operating session"
-          action={<ActionLink to="/mine/tools">Add capacity</ActionLink>}
-          bodyClassName="pse-rows"
-        >
-          {tierStack.map(g => (
-            <RowItem key={g.name}>
-              <div className="min-w-0 flex-1">
-                <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>
-                  {g.name} × {g.count}
-                </p>
-                <p className="pse-micro mt-0.5">
-                  {gbpHour(g.rate)} each · {operatingModelView(g.model).label}
-                </p>
-              </div>
-              <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-cyan)' }}>
-                +{gbpHour(g.count * g.rate)}
-              </span>
-            </RowItem>
-          ))}
-          <RowItem>
-            <div className="min-w-0 flex-1">
-              <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Total tool capacity</p>
-              <p className="pse-micro mt-0.5">Backend-reported · cap {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</p>
-            </div>
-            <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{gbpHour(toolCapacity)}</span>
-          </RowItem>
-        </Surface>
-      )}
-
-      {/* ══ EQUIPMENT + SIDE RAIL ══ */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <Surface
-          title="Equipment"
-          meta="Live operating cycles, derived by the backend"
-          action={<Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-sm">Browse tools</Link>}
-          bodyClassName={recentTools.length === 0 ? '' : 'pse-rows'}
-        >
-          {recentTools.length === 0 ? (
-            <PSEEmpty
-              icon={Layers}
-              title="No mining tools yet"
-              body="Purchase a tool to start building hourly capacity. Session tools accrue only while a mining session is active; Elite mines continuously."
-              action={<Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-sm">Open the marketplace</Link>}
-            />
-          ) : (
-            recentTools.map(t => <ToolRow key={t.id} tool={t} miningLive={isMiningLive} onMaintain={handleMaintain} maintaining={maintaining.has(t.id)} />)
-          )}
-        </Surface>
-
-        <div className="flex flex-col gap-4">
-          <Surface title="Campaign timeline" meta={state.campaign?.name || 'PSEmine 90-day campaign'}>
-            {view.live && dayNumber !== null ? (
-              <>
-                <div className="px-4 pt-4"><Meter value={(dayNumber / totalDays) * 100} label="Campaign progress" /></div>
-                <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-2 pb-4">
-                  <p className="pse-caption">Day <span className="pse-num font-semibold" style={{ color: 'var(--pse-text)' }}>{dayNumber}</span> of {totalDays}</p>
-                  {daysLeft !== null && <p className="pse-micro">{daysLeft} day{daysLeft === 1 ? '' : 's'} remaining</p>}
-                </div>
-              </>
+      {/* ══ LEDGERS — equipment beside the account reads ══ */}
+      <div className="pse-split">
+        <div className="pse-stack">
+          <Ledger
+            title="Your equipment"
+            meta={tools.length === 0
+              ? 'No tools held — every tier at its real price, rate and ownership limit'
+              : `${tools.length} tool${tools.length === 1 ? '' : 's'} · operating state derived by the backend`}
+            legend={tools.length === 0 ? ['Tier', '£ / hour · price'] : ['Tool', '£ / hour']}
+            action={
+              <Link to="/mine/tools" className="pse-btn pse-btn-2 pse-btn-sm">
+                {tools.length === 0 ? 'Open the marketplace' : 'Browse tools'}
+              </Link>
+            }
+            foot={latestPurchase ? (
+              <p className="pse-meta">
+                Latest purchase · {latestPurchase.toolName || latestPurchase.toolId}
+                {latestPurchase.transactionHash ? ` · ${shortHash(latestPurchase.transactionHash)}` : ''} ·{' '}
+                <Stamp tone={purchaseStatusView(latestPurchase.status).terminal ? 'info' : 'attn'} glyph="·">
+                  {purchaseStatusView(latestPurchase.status).label}
+                </Stamp>
+                {awaitingPurchases > 0 ? ` · ${awaitingPurchases} awaiting BNB payment` : ''}
+              </p>
+            ) : undefined}
+          >
+            {recentTools.length === 0 ? (
+              Object.values(LOCKED_PSEMINE_TOOLS)
+                .sort((a, b) => a.displayOrder - b.displayOrder)
+                .map(t => (
+                  <LedgerRow
+                    key={t.id}
+                    leading={<ModuleMark tier={t.tier as 1 | 2 | 3 | 4} size={54} active={false} />}
+                    title={t.name}
+                    sub={`Max ${t.maxPerUser} per account · at limit ${gbpHour(t.hourlyRateGBP * t.maxPerUser)} · ${t.operating.model === 'continuous' ? 'continuous duty' : 'session duty'}`}
+                    value={<>{gbpHour(t.hourlyRateGBP)}<span className="pse-meta" style={{ marginLeft: 10 }}>{gbp(t.purchasePriceGBP)}</span></>}
+                  />
+                ))
             ) : (
-              <p className="px-4 py-4 pse-caption">{view.detail}</p>
+              recentTools.map(t => (
+                <ToolRow
+                  key={t.id}
+                  tool={t}
+                  miningLive={isMiningLive}
+                  onMaintain={handleMaintain}
+                  maintaining={maintaining.has(t.id)}
+                />
+              ))
             )}
-            <KeyValue className="pse-rule-t">
-              <KVRow k="Phase" v={view.label.trim()} />
-              <KVRow k="Duration" v={`${totalDays} days`} hint="Fixed, then settlement" />
-              <KVRow k="Accounting" v="GBP" hint="Fixed hourly rates" />
-              <KVRow k="Session tools" v="Manual restart" hint="No earnings during a restart period" />
-              <KVRow k="Elite Miner" v="Continuous" hint="No manual session restart" />
-            </KeyValue>
-          </Surface>
+          </Ledger>
 
-          <Surface title="Payout state" action={<ActionLink to="/mine/wallet">Wallet</ActionLink>}>
-            <KeyValue>
-              <KVRow k="Settlement-available" v={availableStr} emphasis hint="Backend-reported figure only" />
-              <KVRow
-                k="Payout wallet"
-                v={user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}…${user.payoutWallet.slice(-4)}` : 'Not set'}
-                mono={Boolean(user.payoutWallet)}
-                hint={user.payoutWallet ? 'Receives settlement' : 'Required before settlement'}
-              />
-            </KeyValue>
-          </Surface>
+          <Ledger
+            title="Recent activity"
+            meta="Canonical backend ledger"
+            legend={['Event', 'Amount']}
+            legendCols={3}
+            action={<Link to="/mine/activity" className="pse-meta pse-link">Full ledger</Link>}
+          >
+            <ActivityPreview />
+          </Ledger>
+        </div>
 
-          <Surface title="Referral capacity" action={<ActionLink to="/mine/referrals">Manage</ActionLink>}>
-            <div className="space-y-3 px-4 py-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="pse-fig-2">{user.qualifiedReferralsCount ?? 0}<span className="pse-caption" style={{ color: 'var(--pse-text-3)' }}> / {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</span></p>
-                <p className="pse-caption pse-num" style={{ color: 'var(--pse-text-2)' }}>+{gbpHour(referralCapacity)}</p>
-              </div>
-              <Slots filled={user.qualifiedReferralsCount ?? 0} total={PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} />
-              <p className="pse-micro">Each qualified referral adds +£0.30/hour, applied from qualification forward.</p>
-            </div>
-          </Surface>
-
-          <RecentPurchases />
+        <div className="pse-stack">
+          {/* One statement, not three cards: settlement, payout and referral lanes
+              are all "what this account is worth and where it can move". */}
+          <Ledger
+            title="Account position"
+            meta="Settlement, payout and referral reads — backend figures only"
+            legend={['Field', 'Value']}
+            action={
+              <>
+                <Link to="/mine/wallet" className="pse-meta pse-link">Wallet</Link>
+                <span className="pse-meta" aria-hidden="true"> · </span>
+                <Link to="/mine/referrals" className="pse-meta pse-link">Referrals</Link>
+              </>
+            }
+          >
+            <LedgerRow title="Settlement-available" sub="Backend-reported figure only" value={availableStr} valueTone="var(--pse-jade-ink)" />
+            <LedgerRow
+              title="Payout wallet"
+              sub={user.payoutWallet ? 'Receives settlement' : 'Required before settlement'}
+              value={user.payoutWallet ? `${user.payoutWallet.slice(0, 6)}…${user.payoutWallet.slice(-4)}` : 'Not set'}
+            />
+            <LedgerRow
+              title="Payout opens"
+              sub={`Minimum £10.00 per request`}
+              value={isMiningLive ? 'At settlement' : campaignStatusView(campaignStatus).label.trim()}
+            />
+            <LedgerRow
+              title="Qualified referral lanes"
+              sub={`Each lane adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} from qualification forward · capped at ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`}
+              value={`${referralQualified} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} · +${gbpHour(referralCapacity)}`}
+              valueTone={referralCapacity > 0 ? 'var(--pse-jade-ink)' : undefined}
+              children={
+                <span className="pse-ticks" style={{ marginTop: 8 }} role="img" aria-label={`${referralQualified} of ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referral lanes qualified`}>
+                  {Array.from({ length: PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS }, (_, i) => (
+                    <span key={i} className="pse-tick" data-on={i < referralQualified ? 'true' : 'false'} />
+                  ))}
+                </span>
+              }
+            />
+          </Ledger>
         </div>
       </div>
-
-      <RecentActivity />
     </div>
   );
 };
 
-/* ── Tool row: dense, with its own action when the backend says it needs one ── */
+/* ── Tool row: dense ledger record, with its own action when the backend says it needs one ── */
 function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
   tool: PseStateTool; miningLive: boolean; onMaintain: (id: string) => void; maintaining: boolean;
 }) {
   const cycle = cycleStateView(tool.cycleState || tool.status);
   const def = toolDef(tool);
-  const rank = def?.displayOrder ?? 1;
   const continuous = (tool.operatingModel || def?.operating?.model) === 'continuous';
   const running = tool.cycleState === 'active' && miningLive;
   // Continuous tools expose no session end — never invent a countdown for them.
@@ -519,129 +389,91 @@ function ToolRow({ tool, miningLive, onMaintain, maintaining }: {
   }, []);
 
   return (
-    <RowItem className="flex-wrap sm:flex-nowrap">
-      <MinerArt tier={rank as 1 | 2 | 3 | 4} size={40} className="shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{toolName(tool)}</p>
-          <Chip label={cycle.label} chip={cycle.chip} dot={false} />
-          {continuous && <Chip label="Continuous" chip="pse-chip pse-chip-cyan" dot={false} />}
-          {!continuous && typeof tool.cycleIndex === 'number' && <span className="pse-micro">Session #{tool.cycleIndex + 1}</span>}
-        </div>
-        <p className="pse-micro mt-0.5">
-          {remaining
-            ? `Mining active — session remaining: ${remaining.text}`
-            : restartEta
-              ? `Mining stopped — restarting. Mining resumes${tool.restartResumesAt ? ` at ${new Date(tool.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : ''}${restartEta.ms > 0 ? ` · ${restartEta.text}` : ''}`
-              : continuous
-                ? (miningLive ? 'Mining active — continuous operation, no restart required' : 'Idle — campaign not active')
-                : cycle.live
-                  ? (miningLive ? 'Mining active — accruing hourly' : 'Idle — campaign not active')
-                  : cycle.description}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="pse-num pse-caption font-semibold" style={{ color: 'var(--pse-text-2)' }}>{gbpHour(toolRate(tool))}</span>
-        {needsAction && (
-          <button onClick={() => onMaintain(tool.id)} disabled={maintaining} className="pse-btn pse-btn-secondary pse-btn-sm">
-            <Wrench size={12} /> {maintaining ? 'Restarting…' : 'Restart'}
-          </button>
-        )}
-      </div>
-    </RowItem>
+    <LedgerRow
+      leading={<ModuleMark tier={toolTier(tool)} size={54} active={running || restarting} stopped={needsAction} />}
+      title={
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {toolName(tool)}
+          <Stamp tone={needsAction ? 'attn' : running ? 'live' : restarting ? 'info' : 'idle'} glyph={needsAction ? '▲' : running ? '●' : '·'}>
+            {cycle.label}
+          </Stamp>
+          {continuous && <span className="pse-np pse-np-2">Continuous</span>}
+          {!continuous && typeof tool.cycleIndex === 'number' && (
+            <span className="pse-np pse-np-2">Session #{tool.cycleIndex + 1}</span>
+          )}
+        </span>
+      }
+      sub={
+        remaining
+          ? `Mining active — session remaining: ${remaining.text}`
+          : restartEta
+            ? `Mining stopped — restarting. Mining resumes${tool.restartResumesAt ? ` at ${new Date(tool.restartResumesAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC` : ''}${restartEta.ms > 0 ? ` · ${restartEta.text}` : ''}`
+            : continuous
+              ? (miningLive ? 'Mining active — continuous operation, no restart required' : 'Idle — campaign not active')
+              : cycle.live
+                ? (miningLive ? 'Mining active — accruing hourly' : 'Idle — campaign not active')
+                : cycle.description
+      }
+      value={
+        <span className="flex items-center gap-3">
+          {gbpRate(toolRate(tool))}
+          {needsAction && (
+            <button onClick={() => onMaintain(tool.id)} disabled={maintaining} className="pse-btn pse-btn-2 pse-btn-sm">
+              <Wrench size={12} /> {maintaining ? 'Restarting…' : 'Restart'}
+            </button>
+          )}
+        </span>
+      }
+    />
   );
 }
 
-/* ── Purchases (real records only) ── */
-function RecentPurchases() {
-  const { state } = usePseState();
-  const { purchases } = usePSEMine();
-  const recent = purchases.slice(0, 3);
-  const purchaseOpen = state?.campaign?.purchaseEnabled !== false;
-
-  return (
-    <Surface title="Purchases" meta="On-chain verified activations" action={<ActionLink to="/mine/activity">Ledger</ActionLink>}
-      bodyClassName={recent.length === 0 ? '' : 'pse-rows'}>
-      {recent.length === 0 ? (
-        <p className="px-4 py-4 pse-micro">
-          No purchases yet. Each purchase is quoted, paid in BNB, verified on BNB Smart Chain, then activated.
-        </p>
-      ) : (
-        recent.map(p => {
-          const v = purchaseStatusView(p.status);
-          return (
-            <RowItem key={p.id}>
-              <div className="min-w-0 flex-1">
-                <p className="pse-caption font-medium truncate" style={{ color: 'var(--pse-text)' }}>
-                  {p.toolName || p.toolId} · <span className="pse-num">{gbp(p.quotedGBPAmount)}</span>
-                </p>
-                <p className="pse-micro mt-0.5">
-                  {p.transactionHash ? shortHash(p.transactionHash) : 'No transaction yet'} · {timeAgo(p.createdAt)}
-                </p>
-              </div>
-              <Chip label={v.label} chip={v.chip} dot={false} />
-            </RowItem>
-          );
-        })
-      )}
-      {!purchaseOpen && (
-        <p className="pse-rule px-4 py-3 pse-micro" style={{ color: 'var(--pse-warning)' }}>
-          Tool purchases are currently closed for this campaign.
-        </p>
-      )}
-    </Surface>
-  );
-}
-
-/* ── Ledger preview ── */
-function RecentActivity() {
+/* ── Activity preview — real ledger entries ── */
+function ActivityPreview() {
   const { activities, feedErrors, refreshing, refreshFeed } = usePseState();
   const recent = activities.slice(0, 6);
 
+  if (feedErrors.activities) {
+    return (
+      <FeedNotice
+        message="The activity feed could not be loaded — entries may be missing."
+        onRetry={() => void refreshFeed('activities')}
+        retrying={refreshing}
+      />
+    );
+  }
+  if (recent.length === 0) {
+    return (
+      <PSEEmpty
+        icon={ActivityIcon}
+        title="No activity yet"
+        body="Tool purchases, maintenance events, referral qualifications and campaign milestones appear here as the backend records them."
+      />
+    );
+  }
   return (
-    <Surface
-      title="Recent activity"
-      meta="Canonical backend ledger"
-      action={<ActionLink to="/mine/activity">Full ledger</ActionLink>}
-      bodyClassName={recent.length === 0 ? '' : 'pse-rows'}
-    >
-      {feedErrors.activities ? (
-        <FeedNotice
-          message="Activity could not be loaded."
-          onRetry={() => void refreshFeed('activities')}
-          retrying={refreshing}
-        />
-      ) : recent.length === 0 ? (
-        <PSEEmpty
-          icon={ActivityIcon}
-          title="No activity yet"
-          body="Tool purchases, maintenance events, referral qualifications and campaign milestones appear here."
-        />
-      ) : (
-        <ul>
-          {recent.map(a => {
-            const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
-            const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
-            const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
-            const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
-            return (
-              <ActivityRow
-                key={a.id}
-                icon={Icon}
-                title={a.title || 'Account event'}
-                description={a.description}
-                time={timeAgo(a.createdAt)}
-                amount={displayAmount !== null && displayAmount !== 0 ? (
-                  <p className="pse-num pse-caption font-semibold" style={{ color: displayAmount > 0 ? 'var(--pse-success)' : 'var(--pse-text)' }}>
-                    {displayAmount > 0 ? '+' : ''}{gbp(displayAmount)}
-                  </p>
-                ) : undefined}
-              />
-            );
-          })}
-        </ul>
-      )}
-    </Surface>
+    <>
+      {recent.map(a => {
+        const Icon = ACTIVITY_ICONS[(a.type || '').toLowerCase()] || ActivityIcon;
+        const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+        const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+        const displayAmount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+        const credited = displayAmount !== null && displayAmount > 0;
+        return (
+          <LedgerRow
+            key={a.id}
+            sign={displayAmount === null || displayAmount === 0 ? '' : credited ? 'credit' : 'debit'}
+            leading={<Icon size={14} style={{ color: 'var(--pse-text-3)' }} />}
+            title={a.title || 'Account event'}
+            sub={`${timeAgo(a.createdAt)}${a.type ? ` · ${a.type}` : ''}`}
+            value={displayAmount !== null && displayAmount !== 0
+              ? `${credited ? '+' : ''}${gbp(Math.abs(displayAmount))}`
+              : '—'}
+            valueTone={credited ? 'var(--pse-jade-ink)' : undefined}
+          />
+        );
+      })}
+    </>
   );
 }
 

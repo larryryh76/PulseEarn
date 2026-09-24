@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Stamp } from './pse';
 
 /**
- * Design-system confirmation dialog for consequential admin actions (FIX 3/4).
- * Replaces native window.confirm with the PSE token language: explains the
- * action, the concrete consequence, and the affected entity; requires an
- * explicit confirm/cancel. The BACKEND remains the final authority — this
- * dialog changes presentation only, never authorization or API contracts.
+ * Confirmation dialog for consequential admin actions (FIX 3/4).
+ * Replaces native window.confirm with the PSE material language: the action is
+ * stated as a receipt — what is being done, the concrete consequence and the
+ * affected entity — and requires an explicit confirm/cancel. The BACKEND
+ * remains the final authority; this dialog changes presentation only, never
+ * authorization or API contracts.
+ *
+ * Duty & Ledger: presented as a document (head + ruled body), never a tinted
+ * card. Colour keys the state — amber for attention, red for a destructive
+ * action — and carries no decoration.
  *
  * `requireText` (optional) forces the operator to type an exact token
  * (e.g. "shutdown") for the most destructive actions.
@@ -51,50 +57,39 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const canConfirm = !busy && typedOk;
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-title"
-    >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={busy ? undefined : onCancel} />
-      <div
-        className="pse-scope relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border shadow-2xl sm:rounded-2xl"
-        style={{ background: 'var(--pse-surface)', borderColor: 'var(--pse-line-strong)' }}
-      >
-        <div className="flex items-start justify-between gap-3 border-b p-5" style={{ borderColor: 'var(--pse-line)' }}>
-          <div className="flex items-start gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={danger
-                ? { background: 'var(--pse-inset)', border: '1px solid var(--pse-danger)' }
-                : { background: 'var(--pse-inset)', border: '1px solid var(--pse-warning)' }}
+    <div className="pse-scrim" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div className="pse-scrim-bg" onClick={busy ? undefined : onCancel} />
+      <div className="pse-scope pse-receipt" style={{ maxWidth: 460 }}>
+        <div className="pse-receipt-head">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Stamp tone={danger ? 'fail' : 'attn'} glyph={danger ? '▲' : '·'}>
+                {danger ? 'Destructive action' : 'Confirmation required'}
+              </Stamp>
+              <p id="confirm-title" className="pse-h3" style={{ marginTop: 10 }}>{title}</p>
+              {affected && <p className="pse-meta" style={{ marginTop: 4 }}>Affected · {affected}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="pse-btn pse-btn-3 pse-btn-sm"
+              aria-label="Close dialog"
             >
-              <AlertTriangle size={17} style={{ color: danger ? 'var(--pse-danger)' : 'var(--pse-warning)' }} />
-            </div>
-            <div>
-              <p id="confirm-title" className="pse-h3">{title}</p>
-              {affected && <p className="pse-micro mt-0.5">Affected: {affected}</p>}
-            </div>
+              <X size={15} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="flex h-9 w-9 items-center justify-center rounded-lg pse-btn pse-btn-ghost"
-            aria-label="Close dialog"
-          >
-            <X size={15} />
-          </button>
         </div>
 
-        <div className="p-5">
-          <p className="pse-caption">{consequence}</p>
+        <div className="pse-receipt-body">
+          <p className="pse-copy-s">{consequence}</p>
+
           {requireText && (
-            <div className="mt-4">
-              <label className="pse-caption mb-1.5 block font-medium" htmlFor="confirm-require-input">
-                Type <span className="pse-mono" style={{ color: 'var(--pse-warning)' }}>{requireText}</span> to confirm
-              </label>
+            <label className="pse-field" htmlFor="confirm-require-input">
+              <span className="pse-field-label">
+                <span className="pse-np">Type to confirm</span>
+                <span className="pse-mono pse-amber">{requireText}</span>
+              </span>
               <input
                 id="confirm-require-input"
                 className="pse-input pse-mono"
@@ -103,17 +98,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 value={typed}
                 onChange={e => setTyped(e.target.value)}
               />
-            </div>
+            </label>
           )}
-          <div className="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onCancel} disabled={busy} className="pse-btn pse-btn-secondary justify-center">
+
+          <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onCancel} disabled={busy} className="pse-btn pse-btn-2">
               {cancelLabel}
             </button>
             <button
               type="button"
               onClick={onConfirm}
               disabled={!canConfirm}
-              className={(danger ? 'pse-btn pse-btn-danger' : 'pse-btn pse-btn-primary') + ' justify-center'}
+              className={danger ? 'pse-btn pse-btn-danger' : 'pse-btn'}
             >
               {busy ? 'Working…' : confirmLabel}
             </button>

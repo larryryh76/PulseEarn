@@ -1,13 +1,11 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// PSEmine design system v2 (scoped to .pse-scope) — loaded after the global
-// stylesheet so the product's own token scale and primitives layer on top of it.
-import './styles/psemine-v2.css'
-// PSEmine design system v3 — the token/primitive ladder every PSEmine surface
-// composes from (spacing, radius, surfaces, borders, shadows, control states,
-// status treatment, data visualisation). Loaded last so it refines v2.
-import './styles/psemine-v3.css'
+// PSEmine — DUTY & LEDGER — the single authoritative PSEmine style layer,
+// loaded after the global stylesheet. It owns the product's palette, type
+// ramp, surfaces, instruments and controls, and the retired v2/v3 layers are
+// gone, so no PSEmine surface can render a token this file does not define.
+import './styles/psemine.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

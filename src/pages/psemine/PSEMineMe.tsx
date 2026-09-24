@@ -7,8 +7,8 @@ import {
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
-  WorkbenchHeader, Surface, KeyValue, KVRow, Chip, gbpHour, fmtDateTime, shortAddr,
-  campaignStatusView, Field, PSELoading, ActionLink,
+  Stamp, StatementHeader, Verdict, Ledger, LedgerRow, Attn, PSELoading,
+  gbpHour, fmtDateTime, shortAddr, campaignStatusView,
 } from '../../components/psemine/pse';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -26,12 +26,49 @@ const SECTIONS = [
 ];
 
 /**
+ * A ruled record row on the canvas.
+ * The account page states seven sections, so only ONE of them may carry a
+ * bordered surface (the identity ledger). Everything else is a ruled record on
+ * the page itself — the same row shape as a ledger row, without another box.
+ */
+const SpecRow: React.FC<{ k: string; v: React.ReactNode; hint?: React.ReactNode; mono?: boolean }> = ({ k, v, hint, mono }) => (
+  <div className="pse-row">
+    <div className="pse-row-k">
+      <p className="pse-label-b">{k}</p>
+      {hint && <p className="pse-meta" style={{ marginTop: 4 }}>{hint}</p>}
+    </div>
+    <span className={`pse-row-v ${mono ? 'pse-mono' : ''}`}>{v}</span>
+  </div>
+);
+
+/** One unframed section of the account workspace. */
+const Section: React.FC<{ id: string; title: string; meta?: string; action?: React.ReactNode; children: React.ReactNode }> = ({
+  id, title, meta, action, children,
+}) => (
+  <section id={`pse-sec-${id}`} className="pse-anchor pse-stack-tight">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="pse-h2">{title}</h2>
+        {meta && <p className="pse-meta" style={{ marginTop: 4 }}>{meta}</p>}
+      </div>
+      {action}
+    </div>
+    <hr className="pse-rule" />
+    <div>{children}</div>
+  </section>
+);
+
+/**
  * The account centre.
  *
- * Composition (design system v2): a settings workspace — a sticky section rail
- * on desktop (a segmented jump row on mobile) beside ruled surfaces. Only
- * PSEmine-relevant settings exist here; PulseEarn preferences live in the
- * PulseEarn product.
+ * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
+ *
+ *   VERDICT  the account's own state — its capacity and its identity standing —
+ *            on the canvas.
+ *   LEDGER   ONE bordered container: the identity record shared with PulseEarn.
+ *   NOTES    the remaining sections as ruled records on the page. Only
+ *            PSEmine-relevant settings exist here; PulseEarn preferences live in
+ *            the PulseEarn product.
  */
 export const PSEMineMe: React.FC = () => {
   const { currentUser, userData, logout } = usePSEMineAuth();
@@ -92,29 +129,58 @@ export const PSEMineMe: React.FC = () => {
   };
 
   return (
-    <div className="pse-section pse-workbench pt-5 md:pt-7">
-      <WorkbenchHeader
+    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
+      <StatementHeader
+        routeKey="Account · identity"
         title="Account"
-        purpose="Your PSEmine identity, security, wallets and campaign information. PulseEarn settings live in the PulseEarn product and are not shown here."
-        status={<Chip label="PSEmine access" chip="pse-chip pse-chip-success" dot={false} />}
+        objective="Your PSEmine identity, security, wallets and campaign information. PulseEarn settings live in the PulseEarn product and are not shown here."
+        status={<Stamp tone="live" glyph="●">PSEmine access</Stamp>}
       />
 
-      {loading && !state && <PSELoading skeleton label="Loading account details" />}
+      {loading && !state && <PSELoading label="Loading account details" />}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[186px_minmax(0,1fr)]">
+      {/* ══ VERDICT — the account's own state ══ */}
+      <Verdict
+        label="Account capacity"
+        value={gbpHour(capacity)}
+        status={
+          <Stamp tone={currentUser?.emailVerified ? 'live' : 'attn'} glyph="●">
+            {currentUser?.emailVerified ? 'Verified' : 'Verification pending'}
+          </Stamp>
+        }
+        note={
+          currentUser?.emailVerified
+            ? 'One Firebase identity is shared across PulseEarn and PSEmine; product access is separate and explicit — this account is enrolled in PSEmine.'
+            : 'Email verification is required before the console enables purchases and payouts.'
+        }
+        side={
+          <div className="pse-stack-tight">
+            <div className="pse-spec-line"><span>Campaign</span><span>{campaignView.label.trim()}</span></div>
+            <div className="pse-spec-line"><span>Operating tools</span><span>{String((state?.tools ?? []).length)}</span></div>
+            <div className="pse-spec-line"><span>Sign-in</span><span>{isPasswordAccount ? 'Email & password' : 'Google'}</span></div>
+            <div className="pse-spec-line"><span>Member since</span><span>{fmtDateTime(userData?.createdAt)}</span></div>
+          </div>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[186px_minmax(0,1fr)]" style={{ alignItems: 'start' }}>
         {/* Section rail (desktop) */}
         <nav aria-label="Account sections" className="hidden lg:block">
-          <div className="sticky top-24 space-y-0.5">
+          <div className="pse-stack-tight" style={{ position: 'sticky', top: 96 }}>
+            <p className="pse-np">Sections</p>
             {SECTIONS.map(s => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => goTo(s.id)}
                 aria-current={active === s.id ? 'true' : undefined}
-                className="block w-full rounded-lg px-3 py-2 text-left pse-caption font-medium transition-colors"
                 style={{
-                  color: active === s.id ? 'var(--pse-text)' : 'var(--pse-text-2)',
-                  background: active === s.id ? 'var(--pse-inset)' : undefined,
+                  display: 'block', width: '100%', minHeight: 40, textAlign: 'left',
+                  background: 'none', border: 0, borderLeft: '2px solid',
+                  borderLeftColor: active === s.id ? 'var(--pse-jade-ink)' : 'var(--pse-line)',
+                  paddingLeft: 12, cursor: 'pointer', font: 'inherit',
+                  fontSize: 13.5, fontWeight: 500,
+                  color: active === s.id ? 'var(--pse-bone)' : 'var(--pse-text-3)',
                 }}
               >
                 {s.label}
@@ -123,7 +189,7 @@ export const PSEMineMe: React.FC = () => {
           </div>
         </nav>
 
-        <div className="min-w-0 space-y-5">
+        <div className="min-w-0 pse-stack">
           {/* Mobile jump row */}
           <div className="lg:hidden">
             <div className="pse-seg flex-wrap">
@@ -133,216 +199,244 @@ export const PSEMineMe: React.FC = () => {
             </div>
           </div>
 
-          {/* ── ACCOUNT ── */}
-          <div id="pse-sec-account" className="scroll-mt-28">
-            <Surface title="Account" meta="Shared sign-in identity · PSEmine entitlement">
-              <div className="flex items-center gap-3.5 px-4 py-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full text-[16px] font-bold"
-                  style={{ background: 'var(--pse-inset)', color: 'var(--pse-blue)', border: '1px solid var(--pse-blue)' }}>
-                  {(userData?.username || currentUser?.email || '?').slice(0, 1).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="pse-h3 truncate">{userData?.username || 'PSEmine miner'}</p>
-                  <p className="pse-micro truncate">{currentUser?.email}</p>
-                </div>
-                <div className="ml-auto hidden shrink-0 sm:block">
-                  <Chip label={currentUser?.emailVerified ? 'Verified' : 'Action needed'} chip={currentUser?.emailVerified ? 'pse-chip pse-chip-success' : 'pse-chip pse-chip-warning'} dot={false} />
-                </div>
-              </div>
-              <KeyValue className="pse-rule">
-                <KVRow k="Member since" v={fmtDateTime(userData?.createdAt)} />
-                <KVRow k="Sign-in methods" v={isPasswordAccount ? 'Email & password' : 'Google'} />
-                <KVRow k="Display name" v={userData?.username || '—'} />
-                <KVRow k="Email status" v={currentUser?.emailVerified ? 'Verified' : 'Not verified'} hint={currentUser?.emailVerified ? 'Payouts and purchases enabled' : 'Verification is required for the console'} />
-              </KeyValue>
-              <p className="pse-rule px-4 py-3 pse-micro">
-                One Firebase identity is shared across PulseEarn and PSEmine. Product access is separate and explicit — this
-                account is enrolled in PSEmine.
-              </p>
-            </Surface>
-          </div>
+          {/* ── ACCOUNT — the page's only bordered surface ── */}
+          <Ledger
+            title="Account identity"
+            meta="Shared sign-in identity · PSEmine entitlement"
+            legend={['Record', 'Value']}
+          >
+            <LedgerRow
+              title={userData?.username || 'PSEmine miner'}
+              sub={currentUser?.email || '—'}
+              value={
+                <Stamp tone={currentUser?.emailVerified ? 'live' : 'attn'} glyph="●">
+                  {currentUser?.emailVerified ? 'Verified' : 'Action needed'}
+                </Stamp>
+              }
+            />
+            <LedgerRow title="Member since" value={fmtDateTime(userData?.createdAt)} />
+            <LedgerRow title="Sign-in methods" value={isPasswordAccount ? 'Email & password' : 'Google'} />
+            <LedgerRow title="Display name" value={userData?.username || '—'} />
+            <LedgerRow
+              title="Email status"
+              sub={currentUser?.emailVerified ? 'Payouts and purchases enabled' : 'Verification is required for the console'}
+              value={currentUser?.emailVerified ? 'Verified' : 'Not verified'}
+            />
+          </Ledger>
+
+          <Attn
+            tone="info"
+            title="One identity, two products"
+            body="Your Firebase sign-in is shared with PulseEarn, but points, tasks and rewards never apply in PSEmine. Campaign earnings here are GBP-denominated and settled in BNB."
+          />
 
           {/* ── SECURITY ── */}
-          <div id="pse-sec-security" className="scroll-mt-28">
-            <Surface
-              title="Security"
-              meta="Identity protection for this account"
-              action={
-                isPasswordAccount ? (
-                  <button onClick={() => { setPwOpen(v => !v); setPwError(null); }} className="pse-btn pse-btn-secondary pse-btn-sm">
-                    <KeyRound size={13} /> {pwOpen ? 'Close' : 'Change password'}
-                  </button>
-                ) : (
-                  <Chip label="Managed by Google" chip="pse-chip pse-chip-blue" dot={false} />
-                )
-              }
-            >
-              <KeyValue>
-                <KVRow k="Password" v={isPasswordAccount ? 'Set' : 'Not applicable'} hint={isPasswordAccount ? 'Changing it requires your current password' : 'Your Google account manages credentials'} />
-                <KVRow k="Email verification" v={currentUser?.emailVerified ? 'Complete' : 'Pending'} />
-              </KeyValue>
+          <Section
+            id="security"
+            title="Security"
+            meta="Identity protection for this account"
+            action={
+              isPasswordAccount ? (
+                <button
+                  onClick={() => { setPwOpen(v => !v); setPwError(null); }}
+                  className="pse-btn pse-btn-2 pse-btn-sm"
+                >
+                  <KeyRound size={13} /> {pwOpen ? 'Close' : 'Change password'}
+                </button>
+              ) : (
+                <Stamp tone="idle" glyph="·">Managed by Google</Stamp>
+              )
+            }
+          >
+            <SpecRow
+              k="Password"
+              v={isPasswordAccount ? 'Set' : 'Not applicable'}
+              hint={isPasswordAccount ? 'Changing it requires your current password' : 'Your Google account manages credentials'}
+            />
+            <SpecRow k="Email verification" v={currentUser?.emailVerified ? 'Complete' : 'Pending'} />
 
-              {pwOpen && isPasswordAccount && (
-                <div className="pse-rule px-4 py-4">
-                  {pwDone ? (
-                    <div className="pse-inset flex items-center gap-2.5 p-3.5">
-                      <CheckCircle2 size={15} style={{ color: 'var(--pse-success)' }} />
-                      <p className="pse-caption">Password updated. Use it next time you sign in.</p>
-                    </div>
-                  ) : (
-                    <form onSubmit={changePassword} className="space-y-3" noValidate>
-                      {pwError && (
-                        <div role="alert" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-                          style={{ borderColor: 'var(--pse-danger)', background: 'var(--pse-inset)' }}>
-                          <AlertCircle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
-                          <p className="pse-caption" style={{ color: 'var(--pse-danger)' }}>{pwError}</p>
+            {pwOpen && isPasswordAccount && (
+              <div className="pse-sunken pse-pad" style={{ marginTop: 14 }}>
+                {pwDone ? (
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 size={15} className="pse-jade" />
+                    <p className="pse-label">Password updated. Use it next time you sign in.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={changePassword} className="pse-stack-tight" noValidate>
+                    {pwError && (
+                      <div role="alert" className="pse-attn" data-tone="fail">
+                        <div className="pse-attn-body flex items-start gap-2">
+                          <AlertCircle size={14} className="shrink-0 pse-red" style={{ marginTop: 2 }} />
+                          <p className="pse-label" style={{ color: 'var(--pse-red)' }}>{pwError}</p>
                         </div>
-                      )}
-                      <Field label="Current password">
-                        <div className="relative">
-                          <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
-                          <input type={showPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)}
-                            className="pse-input pl-10" autoComplete="current-password" required />
-                        </div>
-                      </Field>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <Field label="New password" hint="Min 8 characters">
-                          <div className="relative">
-                            <input type={showPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)}
-                              className="pse-input pr-11" autoComplete="new-password" minLength={8} required />
-                            <button type="button" onClick={() => setShowPw(s => !s)}
-                              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg"
-                              style={{ color: 'var(--pse-text-3)' }}
-                              aria-label={showPw ? 'Hide passwords' : 'Show passwords'}>
-                              {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                        </Field>
-                        <Field label="Confirm new password">
-                          <input type={showPw ? 'text' : 'password'} value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
-                            className="pse-input" autoComplete="new-password" minLength={8} required />
-                        </Field>
                       </div>
-                      <button type="submit" disabled={pwBusy} className="pse-btn pse-btn-primary pse-btn-sm">
+                    )}
+                    <label className="pse-field">
+                      <span className="pse-field-label"><span className="pse-np">Current password</span></span>
+                      <div className="relative">
+                        <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--pse-text-3)' }} />
+                        <input type={showPw ? 'text' : 'password'} value={currentPw} onChange={e => setCurrentPw(e.target.value)}
+                          className="pse-input pl-10" autoComplete="current-password" required />
+                      </div>
+                    </label>
+                    <div className="pse-grid-2">
+                      <label className="pse-field">
+                        <span className="pse-field-label">
+                          <span className="pse-np">New password</span>
+                          <span className="pse-meta">Min 8 characters</span>
+                        </span>
+                        <div className="relative">
+                          <input type={showPw ? 'text' : 'password'} value={newPw} onChange={e => setNewPw(e.target.value)}
+                            className="pse-input pr-11" autoComplete="new-password" minLength={8} required />
+                          <button type="button" onClick={() => setShowPw(s => !s)}
+                            className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md"
+                            style={{ color: 'var(--pse-text-3)' }}
+                            aria-label={showPw ? 'Hide passwords' : 'Show passwords'}>
+                            {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </label>
+                      <label className="pse-field">
+                        <span className="pse-field-label"><span className="pse-np">Confirm new password</span></span>
+                        <input type={showPw ? 'text' : 'password'} value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+                          className="pse-input" autoComplete="new-password" minLength={8} required />
+                      </label>
+                    </div>
+                    <div>
+                      <button type="submit" disabled={pwBusy} className="pse-btn pse-btn-sm">
                         {pwBusy ? 'Updating…' : 'Update password'}
                       </button>
-                    </form>
-                  )}
-                </div>
-              )}
-            </Surface>
-          </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+          </Section>
 
           {/* ── WALLETS ── */}
-          <div id="pse-sec-wallets" className="scroll-mt-28">
-            <Surface
-              title="Wallets & payout"
-              meta="The wallet you pay from and the address settlement is paid to are different things"
-              action={<Link to="/mine/wallet" className="pse-btn pse-btn-secondary pse-btn-sm">Manage in wallet</Link>}
-            >
-              <KeyValue>
-                <KVRow k="Payment wallet (BNB)" v={connectedWallet ? shortAddr(connectedWallet) : 'Not connected'} mono={Boolean(connectedWallet)} hint="Used to sign tool purchases" />
-                <KVRow k="Payout wallet (BNB)" v={payoutWallet ? shortAddr(payoutWallet) : 'Not set'} mono={Boolean(payoutWallet)} hint={payoutWallet ? 'Receives your campaign settlement' : 'Required before settlement'} />
-                <KVRow k="Payout asset" v="BNB" hint="BNB Smart Chain (chain 56)" />
-                <KVRow k="Payout minimum" v="£10.00" hint="Per request, after settlement" />
-                <KVRow k="Accounting currency" v="GBP (£)" hint="Campaign earnings are GBP-denominated" />
-              </KeyValue>
-            </Surface>
-          </div>
+          <Section
+            id="wallets"
+            title="Wallets & payout"
+            meta="The wallet you pay from and the address settlement is paid to are different things"
+            action={<Link to="/mine/wallet" className="pse-btn pse-btn-2 pse-btn-sm">Manage in wallet</Link>}
+          >
+            <SpecRow
+              k="Payment wallet (BNB)"
+              v={connectedWallet ? shortAddr(connectedWallet) : 'Not connected'}
+              mono={Boolean(connectedWallet)}
+              hint="Used to sign tool purchases"
+            />
+            <SpecRow
+              k="Payout wallet (BNB)"
+              v={payoutWallet ? shortAddr(payoutWallet) : 'Not set'}
+              mono={Boolean(payoutWallet)}
+              hint={payoutWallet ? 'Receives your campaign settlement' : 'Required before settlement'}
+            />
+            <SpecRow k="Payout asset" v="BNB" hint="BNB Smart Chain (chain 56)" />
+            <SpecRow k="Payout minimum" v="£10.00" hint="Per request, after settlement" />
+            <SpecRow k="Accounting currency" v="GBP (£)" hint="Campaign earnings are GBP-denominated" />
+          </Section>
 
           {/* ── NOTIFICATIONS ── */}
-          <div id="pse-sec-notifications" className="scroll-mt-28">
-            <Surface
-              title="Notifications"
-              meta="PSEmine notification feed only — opened from the bell in the product bar"
-              action={<Chip
-                label={unreadNotifications > 0 ? `${unreadNotifications} unread` : 'All read'}
-                chip={unreadNotifications > 0 ? 'pse-chip pse-chip-blue' : 'pse-chip pse-chip-neutral'}
-                dot={false}
-              />}
-            >
-              <KeyValue>
-                <KVRow k="Notifications received" v={String(notifications.length)} />
-                <KVRow
-                  k="Most recent"
-                  v={lastNotification ? (lastNotification.title || 'Notification') : '—'}
-                  hint={lastNotification ? `${fmtDateTime(lastNotification.createdAt)} · ${lastNotification.read ? 'read' : 'unread'}` : 'Nothing recorded yet'}
-                />
-              </KeyValue>
-              <div className="pse-rule flex items-start gap-2 px-4 py-3">
-                <Bell size={12} className="mt-0.5 shrink-0" />
-                <p className="pse-micro">
-                  PSEmine reads its own notification records only. PulseEarn notifications never appear in this console.
-                </p>
-              </div>
-            </Surface>
-          </div>
+          <Section
+            id="notifications"
+            title="Notifications"
+            meta="PSEmine notification feed only — opened from the bell in the product bar"
+            action={
+              <Stamp tone={unreadNotifications > 0 ? 'info' : 'idle'} glyph="·">
+                {unreadNotifications > 0 ? `${unreadNotifications} unread` : 'All read'}
+              </Stamp>
+            }
+          >
+            <SpecRow k="Notifications received" v={String(notifications.length)} />
+            <SpecRow
+              k="Most recent"
+              v={lastNotification ? (lastNotification.title || 'Notification') : '—'}
+              hint={lastNotification
+                ? `${fmtDateTime(lastNotification.createdAt)} · ${lastNotification.read ? 'read' : 'unread'}`
+                : 'Nothing recorded yet'}
+            />
+            <p className="pse-meta flex items-start gap-2" style={{ marginTop: 12 }}>
+              <Bell size={12} className="shrink-0" style={{ marginTop: 2 }} />
+              PSEmine reads its own notification records only. PulseEarn notifications never appear in this console.
+            </p>
+          </Section>
 
           {/* ── CAMPAIGN ── */}
-          <div id="pse-sec-campaign" className="scroll-mt-28">
-            <Surface title="Campaign information" meta="Read-only — derived from backend state">
-              <KeyValue>
-                <KVRow k="Campaign status" v={campaignView.label.trim()} />
-                <KVRow k="Your capacity" v={gbpHour(capacity)} hint="Tools plus qualified referrals" />
-                <KVRow k="Operating tools" v={String((state?.tools ?? []).length)} hint={state?.tools?.length ? 'Cycle state is on the dashboard' : 'No tools purchased yet'} />
-                <KVRow k="Campaign duration" v="90 days" hint="Fixed, then settlement" />
-              </KeyValue>
-              <div className="pse-rule flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3.5">
-                <ActionLink to="/mine/guide">Campaign guide</ActionLink>
-                <Link to="/mine/activity" className="pse-micro inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-text-2)' }}><Gauge size={12} /> Activity ledger</Link>
-                <Link to="/mine/tools" className="pse-micro inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-text-2)' }}><Layers size={12} /> Tool marketplace</Link>
-              </div>
-            </Surface>
-          </div>
+          <Section id="campaign" title="Campaign information" meta="Read-only — derived from backend state">
+            <SpecRow k="Campaign status" v={campaignView.label.trim()} />
+            <SpecRow k="Your capacity" v={gbpHour(capacity)} hint="Tools plus qualified referrals" />
+            <SpecRow
+              k="Operating tools"
+              v={String((state?.tools ?? []).length)}
+              hint={state?.tools?.length ? 'Cycle state is on the dashboard' : 'No tools purchased yet'}
+            />
+            <SpecRow k="Campaign duration" v="90 days" hint="Fixed, then settlement" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2" style={{ marginTop: 14 }}>
+              <Link to="/mine/guide" className="pse-label pse-link inline-flex items-center gap-1.5">
+                <Gauge size={12} /> Campaign guide
+              </Link>
+              <Link to="/mine/activity" className="pse-label pse-link inline-flex items-center gap-1.5">
+                <Gauge size={12} /> Activity ledger
+              </Link>
+              <Link to="/mine/tools" className="pse-label pse-link inline-flex items-center gap-1.5">
+                <Layers size={12} /> Mining tools
+              </Link>
+            </div>
+          </Section>
 
           {/* ── SUPPORT ── */}
-          <div id="pse-sec-support" className="scroll-mt-28">
-            <Surface title="Support" meta="Questions about tools, payments or settlement">
-              <Link to="/help" className="pse-row-item">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl"
-                  style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
-                  <LifeBuoy size={16} style={{ color: 'var(--pse-cyan)' }} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Contact support</p>
-                  <p className="pse-micro mt-0.5">Include your account email and any transaction hash.</p>
-                </div>
-                <ChevronRight size={16} style={{ color: 'var(--pse-text-3)' }} />
-              </Link>
-              <KeyValue className="pse-rule">
-                <KVRow k="Terms of service" v={<Link to="/terms" className="inline-flex min-h-11 items-center hover:underline">Open</Link>} />
-                <KVRow k="Privacy policy" v={<Link to="/privacy" className="inline-flex min-h-11 items-center hover:underline">Open</Link>} />
-              </KeyValue>
-            </Surface>
-          </div>
+          <Section id="support" title="Support" meta="Questions about tools, payments or settlement">
+            <Link to="/help" className="pse-row pse-link" style={{ textDecoration: 'none' }}>
+              <span className="pse-row-k flex items-center gap-3">
+                <LifeBuoy size={15} className="pse-jade" />
+                <span>
+                  <span className="pse-label-b" style={{ display: 'block' }}>Contact support</span>
+                  <span className="pse-meta" style={{ display: 'block', marginTop: 4 }}>
+                    Include your account email and any transaction hash.
+                  </span>
+                </span>
+              </span>
+              <ChevronRight size={16} className="pse-dim-3" />
+            </Link>
+            <SpecRow
+              k="Terms of service"
+              v={<Link to="/terms" className="pse-link">Open</Link>}
+            />
+            <SpecRow
+              k="Privacy policy"
+              v={<Link to="/privacy" className="pse-link">Open</Link>}
+            />
+          </Section>
 
           {/* ── SESSION ── */}
-          <div id="pse-sec-session" className="scroll-mt-28">
-            <Surface title="Session">
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-                <div className="flex items-start gap-3">
-                  <ShieldCheck size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
-                  <div>
-                    <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Sign out of PSEmine</p>
-                    <p className="pse-micro mt-0.5">Ends the session on this device. Tools, balances and settlement are unaffected.</p>
-                  </div>
-                </div>
-                <button onClick={() => void handleLogout()} className="pse-btn pse-btn-danger justify-center">
-                  <LogOut size={14} /> Sign out
-                </button>
+          <Section id="session" title="Session">
+            <div className="pse-row" data-stack="true">
+              <div className="pse-row-k flex items-start gap-3">
+                <ShieldCheck size={16} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                <span>
+                  <span className="pse-label-b" style={{ display: 'block' }}>Sign out of PSEmine</span>
+                  <span className="pse-meta" style={{ display: 'block', marginTop: 4 }}>
+                    Ends the session on this device. Tools, balances and settlement are unaffected.
+                  </span>
+                </span>
               </div>
-            </Surface>
-          </div>
+              <button onClick={() => void handleLogout()} className="pse-btn pse-btn-danger">
+                <LogOut size={14} /> Sign out
+              </button>
+            </div>
+          </Section>
 
-          <div className="flex items-center gap-2 px-1">
-            <Mail size={12} style={{ color: 'var(--pse-text-3)' }} />
-            <p className="pse-micro">
-              <Link to="/help">Account questions? Support</Link> ·{' '}
-              <Link to="/mine/guide">Guide</Link>
-            </p>
-          </div>
+          <p className="pse-meta flex items-center gap-2">
+            <Mail size={12} />
+            <Link to="/help" className="pse-link">Account questions? Support</Link>
+            <span className="pse-dim-3">·</span>
+            <Link to="/mine/guide" className="pse-link">Guide</Link>
+          </p>
         </div>
       </div>
+
     </div>
   );
 };

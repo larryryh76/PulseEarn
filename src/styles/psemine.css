@@ -454,8 +454,7 @@
 .pse-bar {
   position: sticky; top: 0; z-index: 40;
   border-bottom: 1px solid var(--pse-line);
-  background: color-mix(in srgb, var(--pse-canvas) 92%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--pse-canvas);
 }
 .pse-bar-row { display: flex; align-items: center; gap: 12px; min-height: 56px; }
 .pse-mark { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: var(--pse-bone); }
@@ -500,8 +499,7 @@
 .pse-tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   border-top: 1px solid var(--pse-line);
-  background: color-mix(in srgb, var(--pse-canvas) 95%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--pse-canvas);
   padding-bottom: env(safe-area-inset-bottom);
 }
 @media (min-width: 900px) { .pse-tabbar { display: none; } }
@@ -590,7 +588,7 @@
 }
 
 /* ── Sticky helpers on phones ─────────────────────────────────────────────── */
-.pse-sticky-action { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(180deg, transparent, var(--pse-canvas) 40%); }
+.pse-sticky-action { position: sticky; bottom: 0; padding: 12px 0; background: var(--pse-canvas); border-top: 1px solid var(--pse-line); }
 
 /* ── Touch floors (coarse pointers and phone widths) ──────────────────────── */
 @media (pointer: coarse), (max-width: 640px) {

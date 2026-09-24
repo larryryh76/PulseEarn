@@ -354,17 +354,7 @@ export const PSEMineLanding: React.FC = () => {
             title="Your hourly rate is the sum of exactly two things"
             lead="Tool capacity plus qualified referral capacity. The register below is the same instrument the console shows you, drawn here with every lane available."
           >
-            <div className="pse-grid-2">
-              <div className="pse-ledger pse-pad">
-                <CapacityRail
-                  toolCapacity={0}
-                  referralCapacity={0}
-                  counts={{ starter: 0, builder: 0, advanced: 0, elite: 0 }}
-                  referralCount={0}
-                  label="Capacity register"
-                  meta="Nothing held — every lane available"
-                />
-              </div>
+            <div className="pse-note">
               <div className="pse-stack" style={{ marginTop: 4 }}>
                 {[
                   ['Tools add capacity, per tool', `Owned tools are summed at their fixed hourly rate: ${TOOLS.map(t => `${t.name} ${gbpHour(t.hourlyRateGBP)}`).join(' · ')}.`],
@@ -394,9 +384,6 @@ export const PSEMineLanding: React.FC = () => {
             lead="The campaign position is derived from backend campaign state — never from a browser clock. The same rail appears in the console, on every route."
           >
             <div className="pse-stack">
-              <div className="pse-ledger pse-pad">
-                <DutyRail campaign={campaign} density="default" />
-              </div>
               <DutyModels />
               <div className="pse-ledger">
                 <div className="pse-ledger-legend" data-cols={2}>

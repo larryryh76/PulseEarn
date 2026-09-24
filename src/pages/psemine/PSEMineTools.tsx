@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Check, X, Wallet, ShieldCheck, Loader2, Clock, ChevronRight, ExternalLink,
+  Check, X, Wallet, ShieldCheck, Loader2, ChevronRight, ExternalLink,
   Layers, Info, Smartphone, RefreshCcw,
 } from 'lucide-react';
 
-/* The receipt counts down the SERVER-issued quote window (mm:ss); the wall-clock
- * binding this module keeps for the timing display is held live here. */
-export const pseToolsSessionClock = () => _unusedClock;
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
@@ -1265,7 +1262,6 @@ const WalletConnectStep: React.FC = () => {
   );
 };
 
-const _unusedClock = Clock;
 
 
 export default PSEMineTools;

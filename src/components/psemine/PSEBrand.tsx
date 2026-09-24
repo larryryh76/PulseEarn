@@ -23,21 +23,21 @@ import React from 'react';
 
 /* ── Brand mark ──────────────────────────────────────────────────────────── */
 
-const MARK_JADE = '#4FD1A5';
-const MARK_JADE_DEEP = '#17A97A';
+const MARK_BLUE = '#6D8FFF';
+const MARK_CYAN = '#70D9E8';
+const MARK_PURPLE = '#A28DFF';
 const MARK_BONE = '#EDEEEC';
-const MARK_STEEL = 'rgba(255,255,255,0.42)';
 const MARK_CUT = '#0B0B0C';
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5 select-none">
       <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="PSEmine emblem" className="shrink-0">
-        <path d="M8 8L20 4V34L8 42V8Z" fill={MARK_JADE} />
+        <path d="M8 8L20 4V34L8 42V8Z" fill={MARK_BLUE} />
         <path d="M22 4L38 12L42 16L22 24V4Z" fill={MARK_BONE} />
-        <path d="M22 24L42 16L36 30L22 34V24Z" fill={MARK_STEEL} />
+        <path d="M22 24L42 16L36 30L22 34V24Z" fill={MARK_PURPLE} />
         <path d="M22 10L32 15L22 20V10Z" fill={MARK_CUT} />
-        <path d="M22 37L32 32L36 35L22 44V37Z" fill={MARK_JADE_DEEP} />
+        <path d="M22 37L32 32L36 35L22 44V37Z" fill={MARK_CYAN} />
       </svg>
       {withWordmark && (
         <span className="pse-wordmark">
@@ -54,13 +54,13 @@ export function PSELoader({ label = 'Loading', size = 40 }: { label?: string; si
   return (
     <div className="flex flex-col items-center justify-center gap-3.5" role="status" aria-live="polite" aria-label={label}>
       <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <path d="M8 8L20 4V34L8 42V8Z" fill={MARK_JADE} opacity="0.9">
+        <path d="M8 8L20 4V34L8 42V8Z" fill={MARK_BLUE} opacity="0.9">
           <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1.6s" repeatCount="indefinite" />
         </path>
         <path d="M22 4L38 12L42 16L22 24V4Z" fill={MARK_BONE} opacity="0.9">
           <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1.6s" begin="0.22s" repeatCount="indefinite" />
         </path>
-        <path d="M22 24L42 16L36 30L22 34V24Z" fill={MARK_STEEL}>
+        <path d="M22 24L42 16L36 30L22 34V24Z" fill={MARK_PURPLE}>
           <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1.6s" begin="0.44s" repeatCount="indefinite" />
         </path>
       </svg>
@@ -266,16 +266,4 @@ export function ModulePlate({
       </div>
     </div>
   );
-}
-
-/**
- * TEMPORARY compatibility alias (migration step 3 → 14).
- *
- * Routes not yet migrated still ask for `MinerArt`. It now renders the
- * approved module object, so no surface can show the retired grey-box
- * illustrations. Deleted together with the old composition primitives once the
- * last route is migrated.
- */
-export function MinerArt({ tier, size = 96, className, active = true }: { tier: ModuleTier; size?: number; className?: string; active?: boolean }) {
-  return <ModuleMark tier={tier} size={size} active={active} className={className} />;
 }

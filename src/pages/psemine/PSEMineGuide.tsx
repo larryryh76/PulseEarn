@@ -437,7 +437,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
         <div>
           {/* One bordered surface for the whole guide: chapters are ruled into it
               and separated by hairlines, never lifted into their own cards. */}
-          <Ledger title="The campaign, chapter by chapter" meta="Nine chapters · the console always shows the live state">
+          <Ledger title="The campaign, chapter by chapter" meta={`${SECTIONS.length} chapters · the console always shows the live state`}>
           {SECTIONS.map((s, idx) => {
             const Icon = s.icon;
             const open = openSections.has(s.id);

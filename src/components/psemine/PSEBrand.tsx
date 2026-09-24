@@ -5,11 +5,11 @@
  * Two things live here and nothing else:
  *
  *  1. The brand mark — the faceted PSE emblem, flattened into the approved
- *     palette (jade + bone + steel). No decorative gradients, no blue/cyan.
+ *     palette (jade + bone + steel). No decorative gradients.
  *
  *  2. The MODULE family — Starter, Builder, Advanced, Elite drawn as a single
  *     product line: a machined front elevation, line-first, steel plate with
- *     jade core bars. Tier is carried by TOPOLOGY (bay count, vent bank,
+ *     tier-specific identity accents. Tier is carried by TOPOLOGY (bay count, vent bank,
  *     service rail, crest), never by size alone, and every module ships with a
  *     NAMEPLATE (tier / name / £ per hour). Duty identity is drawn, not
  *     written: session tools show a segmented duty rail, Elite shows an
@@ -83,11 +83,21 @@ const EDGE = 'rgba(255,255,255,0.2)';
 const EDGE_STRONG = 'rgba(255,255,255,0.3)';
 const STEEL = 'rgba(255,255,255,0.1)';
 const CORE_OFF = 'rgba(255,255,255,0.14)';
-const CORE_ON = '#17A97A';
-const CORE_HOT = '#4FD1A5';
+const TIER_ACCENT: Record<ModuleTier, string> = {
+  1: '#6D8FFF',
+  2: '#70D9E8',
+  3: '#A28DFF',
+  4: '#C2B7FF',
+};
+const TIER_HOT: Record<ModuleTier, string> = {
+  1: '#88A4FF',
+  2: '#9CEAF2',
+  3: '#BEAEFF',
+  4: '#D9D1FF',
+};
 
-const core = (x: number, y: number, w: number, h: number, on: boolean, hot = false) => (
-  <rect key={`c${x}-${y}`} x={x} y={y} width={w} height={h} rx="1.5" fill={on ? (hot ? CORE_HOT : CORE_ON) : CORE_OFF} />
+const core = (x: number, y: number, w: number, h: number, on: boolean, accent: string, hotAccent: string, hot = false) => (
+  <rect key={`c${x}-${y}`} x={x} y={y} width={w} height={h} rx="1.5" fill={on ? (hot ? hotAccent : accent) : CORE_OFF} />
 );
 
 type MarkProps = { tier: ModuleTier; size?: number; active?: boolean; stopped?: boolean; className?: string };
@@ -100,6 +110,8 @@ type MarkProps = { tier: ModuleTier; size?: number; active?: boolean; stopped?: 
 export function ModuleMark({ tier, size = 160, active = false, stopped = false, className }: MarkProps) {
   const on = active && !stopped;
   const hot = on;
+  const accent = TIER_ACCENT[tier];
+  const hotAccent = TIER_HOT[tier];
   const fill = stopped ? '#E0A03A' : undefined;
   return (
     <svg
@@ -112,13 +124,13 @@ export function ModuleMark({ tier, size = 160, active = false, stopped = false, 
       role="img"
     >
       {/* Baseline shadow plate: every module stands on the same ground line. */}
-      <rect x="18" y="66" width="84" height="2" rx="1" fill={on ? 'rgba(23,169,122,0.35)' : STEEL} />
+      <rect x="18" y="66" width="84" height="2" rx="1" fill={on ? accent : STEEL} opacity={on ? 0.55 : 1} />
 
       {tier === 1 && (
         <>
           <rect x="46" y="24" width="28" height="24" rx="3" fill={PLATE} stroke={EDGE} />
-          {core(51, 29, 18, 7, on, hot)}
-          {core(51, 39, 18, 3, false)}
+          {core(51, 29, 18, 7, on, accent, hotAccent, hot)}
+          {core(51, 39, 18, 3, false, accent, hotAccent)}
           <rect x="40" y="52" width="40" height="3" rx="1.5" fill={STEEL} />
         </>
       )}
@@ -128,8 +140,8 @@ export function ModuleMark({ tier, size = 160, active = false, stopped = false, 
           <rect x="40" y="14" width="40" height="17" rx="3" fill={PLATE} stroke={EDGE} />
           <rect x="40" y="35" width="40" height="17" rx="3" fill={PLATE} stroke={EDGE} />
           <rect x="44" y="31.5" width="32" height="3" rx="1.5" fill={STEEL} />
-          {core(45, 19, 14, 7, on, hot)}
-          {core(45, 40, 14, 7, on, false)}
+          {core(45, 19, 14, 7, on, accent, hotAccent, hot)}
+          {core(45, 40, 14, 7, on, accent, hotAccent)}
           <rect x="62" y="19" width="13" height="7" rx="1.5" fill={STEEL} />
           <rect x="62" y="40" width="13" height="7" rx="1.5" fill="rgba(255,255,255,0.07)" />
           <rect x="36" y="56" width="48" height="3" rx="1.5" fill={STEEL} />
@@ -141,25 +153,25 @@ export function ModuleMark({ tier, size = 160, active = false, stopped = false, 
           <rect x="24" y="16" width="24" height="32" rx="3" fill={PLATE} stroke={EDGE_STRONG} />
           <rect x="48" y="16" width="24" height="32" rx="3" fill={PLATE} stroke={EDGE_STRONG} />
           <rect x="72" y="16" width="24" height="32" rx="3" fill={PLATE} stroke={EDGE_STRONG} />
-          {core(29, 21, 14, 6, on, hot)}
-          {core(53, 21, 14, 6, on, false)}
-          {core(77, 21, 14, 6, on, false)}
+          {core(29, 21, 14, 6, on, accent, hotAccent, hot)}
+          {core(53, 21, 14, 6, on, accent, hotAccent)}
+          {core(77, 21, 14, 6, on, accent, hotAccent)}
           {[31, 36, 41].map(y => (
             <rect key={y} x="29" y={y} width="60" height="2" rx="1" fill="rgba(255,255,255,0.07)" />
           ))}
           <rect x="24" y="52" width="72" height="3" rx="1.5" fill={STEEL} />
-          <circle cx="92" cy="53.5" r="2" fill={stopped ? '#E0A03A' : on ? CORE_HOT : CORE_OFF} />
+          <circle cx="92" cy="53.5" r="2" fill={stopped ? '#E0A03A' : on ? hotAccent : CORE_OFF} />
         </>
       )}
 
       {tier === 4 && (
         <>
           {/* Crest bar: flagships are marked at the top, not by being huge. */}
-          <rect x="38" y="5" width="44" height="4" rx="2" fill={stopped ? '#E0A03A' : on ? CORE_HOT : 'rgba(255,255,255,0.22)'} />
+          <rect x="38" y="5" width="44" height="4" rx="2" fill={stopped ? '#E0A03A' : on ? hotAccent : 'rgba(255,255,255,0.22)'} />
           <rect x="26" y="14" width="68" height="38" rx="4" fill={PLATE} stroke={EDGE_STRONG} />
           <rect x="59.5" y="14" width="1" height="38" fill="rgba(255,255,255,0.09)" />
-          {core(32, 21, 25, 12, on, hot)}
-          {core(63, 21, 25, 12, on, false)}
+          {core(32, 21, 25, 12, on, accent, hotAccent, hot)}
+          {core(63, 21, 25, 12, on, accent, hotAccent)}
           <rect x="32" y="38" width="56" height="2.5" rx="1.25" fill="rgba(255,255,255,0.08)" />
           <rect x="32" y="44" width="40" height="2.5" rx="1.25" fill="rgba(255,255,255,0.055)" />
           <rect x="30" y="56" width="60" height="3" rx="1.5" fill={STEEL} />

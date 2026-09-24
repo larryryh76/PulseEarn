@@ -46,7 +46,7 @@ import SupportPolicy from './pages/legal/SupportPolicy'
 import HelpCenter from './pages/legal/HelpCenter'
 import { PSEMineShell } from './components/psemine/PSEMineShell'
 import { PseStateProvider } from './components/psemine/PseStateProvider'
-import { PSEMineLanding } from './pages/psemine/PSEMineLanding'
+import { PSEMineEntry } from './pages/psemine/PSEMineEntry'
 import { PSEMineDashboard } from './pages/psemine/PSEMineDashboard'
 import { PSEMineTools } from './pages/psemine/PSEMineTools'
 import { PSEMineWallet } from './pages/psemine/PSEMineWallet'
@@ -219,14 +219,12 @@ function App() {
         <Route path="/mine/signup" element={<PSEMineAuthProvider><PSEmineAuth mode="signup" /></PSEMineAuthProvider>} />
         <Route path="/mine/forgot-password" element={<PSEMineAuthProvider><PSEmineForgotPassword /></PSEMineAuthProvider>} />
         <Route path="/mine/verify-email" element={<PSEMineAuthProvider><PSEmineVerifyEmail /></PSEMineAuthProvider>} />
-        {/* PSEmine public landing at /mine: its own composition (OWNER-BRIEF §4).
-            It renders OUTSIDE the console shell — own header, own footer — and
-            shares only the design system and the domain providers. */}
+        {/* /mine resolves the destination before rendering either public or console UI. */}
         <Route path="/mine" element={
           <PSEMineAuthProvider>
             <PSEMineProvider>
               <PseStateProvider>
-                <PSEMineLanding />
+                <PSEMineEntry />
               </PseStateProvider>
             </PSEMineProvider>
           </PSEMineAuthProvider>

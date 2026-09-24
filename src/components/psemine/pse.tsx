@@ -5,20 +5,20 @@
  * - The server clock is authoritative: countdowns anchor to serverTimeMs.
  * - Color only ever encodes state (never decoration).
  * - Every map below mirrors the actual backend state machines.
- * - Composition before decoration: `Panel` + `DataRow` + `Verdict` exist so a
- *   page can present one coherent workspace instead of a wall of equal cards.
+ * - Composition law: VERDICT → RAILS → LEDGERS → NOTES. Ledgers are the only
+ *   bordered containers; rails are ruled instrument bands, never cards.
+ * - ONE campaign rail and ONE capacity register exist in the whole product.
  */
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   Clock, Pause, Ban, Loader, Cog, Wrench, CheckCircle2, Circle,
-  XCircle, Hourglass, Wallet, RefreshCcw, HelpCircle, Archive, PlayCircle,
+  XCircle, Hourglass, Wallet, RefreshCcw, Archive, PlayCircle,
   ServerCog, ShieldAlert, Inbox, AlertTriangle, Copy as CopyIcon, Check,
-  Lock, WifiOff, LogIn, ShieldX, LineChart, ServerOff, Gauge as GaugeIcon,
-  ChevronRight, ExternalLink,
+  WifiOff, LogIn, ShieldX, ServerOff,
 } from 'lucide-react';
 import type { PseErrorInfo, PseErrorKind } from '../../engines/psemine/pseErrors';
 import { PSELogo as BrandMark, PSELoader } from './PSEBrand';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId } from '../../types/psemine';
 
 /* ── Server-anchored clock ────────────────────────────────────────────
  * Server time is the only authority for cycles and countdowns. We anchor to
@@ -37,43 +37,40 @@ export function nowMs(): number {
 
 /* ── Campaign status ────────────────────────────────────────────────── */
 export const CAMPAIGN_STATUS_MAP: Record<string, {
-  label: string; chip: string; tone: string;
+  label: string; tone: StampTone;
   headline: string; detail: string; live: boolean;
 }> = {
-  scheduled: { label: 'Scheduled', chip: 'pse-chip pse-chip-purple', tone: '#8B7CF6', headline: 'Campaign hasn\u2019t started yet', detail: 'Mining begins when the campaign goes live.', live: false },
-  active:    { label: 'Active',    chip: 'pse-chip pse-chip-success', tone: '#2ECE84', headline: 'Mining available', detail: 'Tools are operating and accruing on schedule.', live: true },
-  paused:    { label: ' Paused',   chip: 'pse-chip pse-chip-warning', tone: '#F5A524', headline: 'Mining temporarily paused', detail: 'Accrual is paused network-wide. It resumes automatically when the campaign resumes.', live: false },
-  settling:  { label: 'Settling',  chip: 'pse-chip pse-chip-cyan',    tone: '#22D3EE', headline: 'Mining ended — final earnings being calculated', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
-  payout:    { label: 'Payout',    chip: 'pse-chip pse-chip-blue',    tone: '#2E90FA', headline: 'Payout processing', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
-  closed:    { label: 'Closed',    chip: 'pse-chip pse-chip-neutral', tone: '#98A2B3', headline: 'Campaign finished', detail: 'The campaign has finished. Balances were settled.', live: false },
-  archived:  { label: 'Archived',  chip: 'pse-chip pse-chip-neutral', tone: '#98A2B3', headline: 'Public mining interface closed', detail: 'This campaign is archived. Records remain available.', live: false },
+  scheduled: { label: 'Scheduled', tone: 'idle', headline: 'Campaign hasn\u2019t started yet', detail: 'Mining begins when the campaign goes live.', live: false },
+  active:    { label: 'Active',    tone: 'live', headline: 'Mining available', detail: 'Tools are operating and accruing on schedule.', live: true },
+  paused:    { label: 'Paused',    tone: 'attn', headline: 'Mining temporarily paused', detail: 'Accrual is paused network-wide. It resumes automatically when the campaign resumes.', live: false },
+  settling:  { label: 'Settling',  tone: 'info', headline: 'Mining ended — final earnings being calculated', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
+  payout:    { label: 'Payout',    tone: 'info', headline: 'Payout processing', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
+  closed:    { label: 'Closed',    tone: 'idle', headline: 'Campaign finished', detail: 'The campaign has finished. Balances were settled.', live: false },
+  archived:  { label: 'Archived',  tone: 'idle', headline: 'Public mining interface closed', detail: 'This campaign is archived. Records remain available.', live: false },
 };
 
 export function campaignStatusView(status?: string | null) {
   return CAMPAIGN_STATUS_MAP[status || ''] || CAMPAIGN_STATUS_MAP.scheduled;
 }
 
-/** Campaign-banner states rendered above every authenticated page. */
-export const CAMPAIGN_BANNER_STATES = new Set(['scheduled', 'paused', 'settling', 'payout', 'closed', 'archived']);
-
 /* ── Tool operating cycle (backend derive_cycle state machine) ──────── */
 type ChipIcon = React.ComponentType<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
 
 export const CYCLE_STATE_MAP: Record<string, {
-  label: string; chip: string; icon: ChipIcon;
+  label: string; tone: StampTone; icon: ChipIcon;
   description: string; live: boolean;
 }> = {
-  active:                { label: 'Active',                chip: 'pse-chip pse-chip-success', icon: PlayCircle, description: 'Operating normally — accruing hourly.', live: true },
-  restarting:            { label: 'Restarting',            chip: 'pse-chip pse-chip-blue',    icon: RefreshCcw, description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
-  cycle_complete:        { label: 'Cycle Complete',        chip: 'pse-chip pse-chip-warning', icon: Clock,      description: '24-hour operating cycle finished. Maintenance is available.', live: false },
-  maintenance_required:  { label: 'Maintenance Required',  chip: 'pse-chip pse-chip-danger',  icon: Wrench,     description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
-  paused:                { label: 'Paused',                chip: 'pse-chip pse-chip-warning', icon: Pause,      description: 'Campaign paused — tool is not accruing.', live: false },
-  settling:              { label: 'Settling',              chip: 'pse-chip pse-chip-cyan',    icon: ServerCog,  description: 'Campaign settlement in progress.', live: false },
-  ended:                 { label: 'Ended',                 chip: 'pse-chip pse-chip-neutral', icon: Ban,        description: 'Campaign ended — accrual stopped.', live: false },
-  archived:              { label: 'Archived',              chip: 'pse-chip pse-chip-neutral', icon: Archive,    description: 'Campaign archived.', live: false },
-  revoked:               { label: 'Revoked',               chip: 'pse-chip pse-chip-danger',  icon: XCircle,    description: 'Ownership revoked.', live: false },
-  expired:               { label: 'Expired',               chip: 'pse-chip pse-chip-neutral', icon: Hourglass,  description: 'Ownership expired.', live: false },
-  inactive:              { label: 'Inactive',              chip: 'pse-chip pse-chip-neutral', icon: Circle,     description: 'Not yet operating.', live: false },
+  active:                { label: 'Active',                tone: 'live', icon: PlayCircle, description: 'Operating normally — accruing hourly.', live: true },
+  restarting:            { label: 'Restarting',            tone: 'info', icon: RefreshCcw, description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
+  cycle_complete:        { label: 'Cycle Complete',        tone: 'attn', icon: Clock,      description: '24-hour operating cycle finished. Maintenance is available.', live: false },
+  maintenance_required:  { label: 'Maintenance Required',  tone: 'fail', icon: Wrench,     description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
+  paused:                { label: 'Paused',                tone: 'attn', icon: Pause,      description: 'Campaign paused — tool is not accruing.', live: false },
+  settling:              { label: 'Settling',              tone: 'info', icon: ServerCog,  description: 'Campaign settlement in progress.', live: false },
+  ended:                 { label: 'Ended',                 tone: 'idle', icon: Ban,        description: 'Campaign ended — accrual stopped.', live: false },
+  archived:              { label: 'Archived',              tone: 'idle', icon: Archive,    description: 'Campaign archived.', live: false },
+  revoked:               { label: 'Revoked',               tone: 'fail', icon: XCircle,    description: 'Ownership revoked.', live: false },
+  expired:               { label: 'Expired',               tone: 'idle', icon: Hourglass,  description: 'Ownership expired.', live: false },
+  inactive:              { label: 'Inactive',              tone: 'idle', icon: Circle,     description: 'Not yet operating.', live: false },
 };
 
 export function cycleStateView(state?: string | null) {
@@ -83,27 +80,27 @@ export function cycleStateView(state?: string | null) {
 /* ── Operating model labels (session vs continuous) ───────────────────
  * Mirrors the backend per-tool operating model. Runtime behavior itself is
  * backend-authoritative; these labels only describe it. */
-export function operatingModelView(model?: string | null): { label: string; detail: string; chip: string } {
+export function operatingModelView(model?: string | null): { label: string; detail: string } {
   return model === 'continuous'
-    ? { label: 'Continuous mining', detail: 'No manual restart required', chip: 'pse-chip pse-chip-cyan' }
-    : { label: 'Session mining', detail: 'Manual restart required between sessions', chip: 'pse-chip pse-chip-neutral' };
+    ? { label: 'Continuous mining', detail: 'No manual restart required' }
+    : { label: 'Session mining', detail: 'Manual restart required between sessions' };
 }
 
 /* ── Purchase status ────────────────────────────────────────────────── */
 export const PURCHASE_STATUS_MAP: Record<string, {
-  label: string; chip: string; terminal: boolean; tone: string;
+  label: string; tone: StampTone; terminal: boolean;
 }> = {
-  created:               { label: 'Created',               chip: 'pse-chip pse-chip-neutral', terminal: false, tone: '#98A2B3' },
-  awaiting_payment:      { label: 'Awaiting Payment',      chip: 'pse-chip pse-chip-warning', terminal: false, tone: '#F5A524' },
-  transaction_submitted: { label: 'Transaction Submitted', chip: 'pse-chip pse-chip-blue',    terminal: false, tone: '#2E90FA' },
-  confirming:            { label: 'Confirming on BSC',     chip: 'pse-chip pse-chip-cyan',    terminal: false, tone: '#22D3EE' },
-  confirmed:             { label: 'Confirmed',             chip: 'pse-chip pse-chip-success', terminal: false, tone: '#2ECE84' },
-  activated:             { label: 'Tool Activated',        chip: 'pse-chip pse-chip-success', terminal: true,  tone: '#2ECE84' },
-  expired:               { label: 'Quote Expired',         chip: 'pse-chip pse-chip-neutral', terminal: true,  tone: '#98A2B3' },
-  underpaid:             { label: 'Underpaid',             chip: 'pse-chip pse-chip-danger',  terminal: true,  tone: '#F04438' },
-  failed:                { label: 'Failed',                chip: 'pse-chip pse-chip-danger',  terminal: true,  tone: '#F04438' },
-  manual_review:         { label: 'Manual Review',         chip: 'pse-chip pse-chip-purple',  terminal: true,  tone: '#8B7CF6' },
-  reversed:              { label: 'Reversed',              chip: 'pse-chip pse-chip-neutral', terminal: true,  tone: '#98A2B3' },
+  created:               { label: 'Created',               tone: 'idle', terminal: false },
+  awaiting_payment:      { label: 'Awaiting Payment',      tone: 'attn', terminal: false },
+  transaction_submitted: { label: 'Transaction Submitted', tone: 'info', terminal: false },
+  confirming:            { label: 'Confirming on BSC',     tone: 'info', terminal: false },
+  confirmed:             { label: 'Confirmed',             tone: 'live', terminal: false },
+  activated:             { label: 'Tool Activated',        tone: 'live', terminal: true },
+  expired:               { label: 'Quote Expired',         tone: 'idle', terminal: true },
+  underpaid:             { label: 'Underpaid',             tone: 'fail', terminal: true },
+  failed:                { label: 'Failed',                tone: 'fail', terminal: true },
+  manual_review:         { label: 'Manual Review',         tone: 'attn', terminal: true },
+  reversed:              { label: 'Reversed',              tone: 'idle', terminal: true },
 };
 
 export function purchaseStatusView(status?: string | null) {
@@ -111,13 +108,13 @@ export function purchaseStatusView(status?: string | null) {
 }
 
 /* ── Referral stage ─────────────────────────────────────────────────── */
-export const REFERRAL_STAGE_MAP: Record<string, { label: string; chip: string; step: number; help: string }> = {
-  registered:       { label: 'Registered',       chip: 'pse-chip pse-chip-neutral', step: 1, help: 'Signed up with your referral code. No capacity yet.' },
-  wallet_connected: { label: 'Wallet Connected', chip: 'pse-chip pse-chip-blue',    step: 2, help: 'Connected a BNB Smart Chain wallet. Not yet earning for you.' },
-  tool_purchased:   { label: 'Tool Purchased',   chip: 'pse-chip pse-chip-purple',  step: 3, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
-  mining_active:    { label: 'Mining Active',    chip: 'pse-chip pse-chip-cyan',    step: 4, help: 'Mining is live. Qualification settles on the backend shortly.' },
-  qualified:        { label: 'Qualified',        chip: 'pse-chip pse-chip-success', step: 5, help: 'Qualified — added +£0.30/hour to your referral capacity.' },
-  rejected:         { label: 'Rejected',         chip: 'pse-chip pse-chip-danger',  step: 0, help: 'This referral did not qualify.' },
+export const REFERRAL_STAGE_MAP: Record<string, { label: string; tone: StampTone; step: number; help: string }> = {
+  registered:       { label: 'Registered',       tone: 'idle', step: 1, help: 'Signed up with your referral code. No capacity yet.' },
+  wallet_connected: { label: 'Wallet Connected', tone: 'info', step: 2, help: 'Connected a BNB Smart Chain wallet. Not yet earning for you.' },
+  tool_purchased:   { label: 'Tool Purchased',   tone: 'attn', step: 3, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
+  mining_active:    { label: 'Mining Active',    tone: 'info', step: 4, help: 'Mining is live. Qualification settles on the backend shortly.' },
+  qualified:        { label: 'Qualified',        tone: 'live', step: 5, help: 'Qualified — added +£0.30/hour to your referral capacity.' },
+  rejected:         { label: 'Rejected',         tone: 'fail', step: 0, help: 'This referral did not qualify.' },
 };
 
 export function referralStageView(stage?: string | null) {
@@ -133,14 +130,14 @@ export const REFERRAL_STAGES = [
 ] as const;
 
 /* ── Payout status ──────────────────────────────────────────────────── */
-export const PAYOUT_STATUS_MAP: Record<string, { label: string; chip: string }> = {
-  pending:      { label: 'Pending',      chip: 'pse-chip pse-chip-warning' },
-  under_review: { label: 'Under Review', chip: 'pse-chip pse-chip-cyan' },
-  approved:     { label: 'Approved',     chip: 'pse-chip pse-chip-blue' },
-  processing:   { label: 'Processing',   chip: 'pse-chip pse-chip-cyan' },
-  paid:         { label: 'Paid',         chip: 'pse-chip pse-chip-success' },
-  failed:       { label: 'Failed',       chip: 'pse-chip pse-chip-danger' },
-  reversed:     { label: 'Reversed',     chip: 'pse-chip pse-chip-neutral' },
+export const PAYOUT_STATUS_MAP: Record<string, { label: string; tone: StampTone }> = {
+  pending:      { label: 'Pending',      tone: 'attn' },
+  under_review: { label: 'Under Review', tone: 'info' },
+  approved:     { label: 'Approved',     tone: 'info' },
+  processing:   { label: 'Processing',   tone: 'info' },
+  paid:         { label: 'Paid',         tone: 'live' },
+  failed:       { label: 'Failed',       tone: 'fail' },
+  reversed:     { label: 'Reversed',     tone: 'idle' },
 };
 
 export function payoutStatusView(status?: string | null) {
@@ -267,142 +264,26 @@ export const ACTIVITY_ICONS: Record<string, ChipIcon> = {
 
 /* ════════════════════════════ React primitives ═══════════════════════ */
 
-export function Chip({ label, chip, dot, pulse, icon: Icon }: { label: string; chip: string; dot?: boolean; pulse?: boolean; icon?: ChipIcon }) {
-  return (
-    <span className={chip}>
-      {Icon ? <Icon size={11} /> : dot !== false && <span className={`pse-dot ${pulse ? 'pse-dot-pulse' : ''}`} />}
-      {label}
-    </span>
-  );
-}
-
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   // The recovered + refined PSEmine mark (PSEBrand.tsx).
   return <BrandMark size={size} withWordmark={withWordmark} />;
 }
 
 /**
- * PageHeader — the single title block for every console page.
- * `nav` renders a secondary in-page navigation (used by the guide).
+ * PSEEmpty — a ledger with nothing in it.
+ * The empty state is part of the product, so it states the fact, says what the
+ * ledger will contain, and offers the next action. No illustration, no
+ * mascot, and never a fabricated row.
  */
-export function PageHeader({ eyebrow, title, sub, right, nav }: {
-  eyebrow: string; title: string; sub?: string; right?: React.ReactNode; nav?: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-1.5">
-          <p className="pse-eyebrow">{eyebrow}</p>
-          <h1 className="pse-h2">{title}</h1>
-          {sub && <p className="pse-caption max-w-2xl">{sub}</p>}
-        </div>
-        {right && <div className="shrink-0">{right}</div>}
-      </div>
-      {nav}
-    </div>
-  );
-}
-
-/**
- * Panel — one bordered surface with an optional header row.
- * The console composes few panels with many rows (instead of many cards) so a
- * page reads as one workspace with clear grouping.
- */
-export function Panel({ title, meta, action, children, tone, className, bodyClassName }: {
-  title?: string; meta?: string; action?: React.ReactNode; children: React.ReactNode;
-  tone?: 'default' | 'warning' | 'danger' | 'success';
-  className?: string; bodyClassName?: string;
-}) {
-  const border =
-    tone === 'warning' ? 'var(--pse-warning)' :
-    tone === 'danger' ? 'var(--pse-danger)' :
-    tone === 'success' ? 'var(--pse-success)' : undefined;
-  return (
-    <section className={`pse-panel ${className || ''}`} style={border ? { borderColor: border } : undefined}>
-      {(title || action) && (
-        <header className="pse-panel-head">
-          <div className="min-w-0">
-            {title && <h2 className="pse-t-sub">{title}</h2>}
-            {meta && <p className="pse-t-tiny mt-0.5">{meta}</p>}
-          </div>
-          {action && <div className="shrink-0">{action}</div>}
-        </header>
-      )}
-      <div className={bodyClassName}>{children}</div>
-    </section>
-  );
-}
-
-/**
- * Verdict — the headline financial figure of a page.
- * Deliberately the largest type on screen: what the account is worth right now,
- * what it is accruing, and in which accounting state.
- */
-export function Verdict({ label, value, status, sub, footnote, accent = 'var(--pse-text)', children }: {
-  label: string; value: string; status?: React.ReactNode; sub?: string;
-  footnote?: React.ReactNode; accent?: string; children?: React.ReactNode;
-}) {
-  return (
-    <div className="pse-panel p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="pse-eyebrow">{label}</p>
-        {status}
-      </div>
-      <p className="pse-num pse-fig-1 mt-2.5" style={{ color: accent }}>{value}</p>
-      {sub && <p className="pse-t-small mt-2.5">{sub}</p>}
-      {footnote}
-      {children}
-    </div>
-  );
-}
-
-/** DataRow — a hairline-separated label/value row inside a Panel. */
-export function DataRow({ label, value, hint, mono, emphasis, right }: {
-  label: string; value: React.ReactNode; hint?: string; mono?: boolean;
-  emphasis?: boolean; right?: React.ReactNode;
-}) {
-  return (
-    <div className="pse-spec">
-      <div className="min-w-0">
-        <span className="pse-spec-k" style={{ color: emphasis ? 'var(--pse-text)' : undefined }}>{label}</span>
-        {hint && <p className="pse-t-tiny mt-0.5">{hint}</p>}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className={mono ? 'pse-mono' : `pse-spec-v ${emphasis ? 'pse-fig-3' : ''}`}
-          style={{ color: 'var(--pse-text)' }}>{value}</span>
-        {right}
-      </div>
-    </div>
-  );
-}
-
-/** Meter — thin progress track. `value` is a 0–100 percentage. */
-/** Meter — thin progress track. `value` is a 0–100 percentage.
- *  Flat colour only: the tone encodes state, it is never decoration. */
-export function Meter({ value, tone = 'blue', label }: { value: number; tone?: 'blue' | 'warning' | 'purple'; label?: string }) {
-  const pct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
-  const fill = tone === 'warning' ? 'pse-bar-fill pse-bar-fill-amber'
-    : tone === 'purple' ? 'pse-bar-fill pse-bar-fill-purple'
-    : 'pse-bar-fill';
-  return (
-    <div className="pse-bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}
-      aria-label={label}>
-      <div className={fill} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
 export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
-  icon?: ChipIcon;
-  title: string; body?: string; action?: React.ReactNode;
+  icon?: ChipIcon; title: string; body?: string; action?: React.ReactNode;
 }) {
   return (
-    <div className="pse-empty">
-      <div className="pse-empty-mark">
-        <Icon size={17} />
-      </div>
-      <p className="pse-t-sub">{title}</p>
-      {body && <p className="pse-t-tiny pse-limit-s">{body}</p>}
+    <div className="pse-empty-state">
+      <p className="pse-np flex items-center gap-2">
+        <Icon size={12} aria-hidden="true" /> {title}
+      </p>
+      {body && <p className="pse-meta pse-measure">{body}</p>}
       {action}
     </div>
   );
@@ -411,17 +292,17 @@ export function PSEEmpty({ icon: Icon = Inbox, title, body, action }: {
 /* ── Error states, by kind ──────────────────────────────────────────────
  * A generic error screen is only correct when the failure is genuinely
  * unknown. Everything we can identify gets its own icon, copy and action. */
-const ERROR_PRESENTATION: Record<PseErrorKind, { icon: ChipIcon; tone: string; accent: string }> = {
-  auth:        { icon: LogIn,         tone: 'var(--pse-blue)',    accent: 'var(--pse-blue)' },
-  permission:  { icon: ShieldX,       tone: 'var(--pse-purple)',  accent: 'var(--pse-purple)' },
-  validation:  { icon: AlertTriangle, tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
-  conflict:    { icon: RefreshCcw,    tone: 'var(--pse-cyan)',    accent: 'var(--pse-cyan)' },
-  rate_limit:  { icon: Hourglass,     tone: 'var(--pse-neutral)', accent: 'var(--pse-neutral)' },
-  unavailable: { icon: ServerOff,     tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
-  backend:     { icon: ServerCog,     tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
-  network:     { icon: WifiOff,       tone: 'var(--pse-neutral)', accent: 'var(--pse-neutral)' },
-  data:        { icon: AlertTriangle, tone: 'var(--pse-warning)', accent: 'var(--pse-warning)' },
-  unknown:     { icon: AlertTriangle, tone: 'var(--pse-danger)',  accent: 'var(--pse-danger)' },
+const ERROR_PRESENTATION: Record<PseErrorKind, { icon: ChipIcon; tone: string }> = {
+  auth:        { icon: LogIn,         tone: 'var(--pse-text-2)' },
+  permission:  { icon: ShieldX,       tone: 'var(--pse-amber)' },
+  validation:  { icon: AlertTriangle, tone: 'var(--pse-amber)' },
+  conflict:    { icon: RefreshCcw,    tone: 'var(--pse-text-2)' },
+  rate_limit:  { icon: Hourglass,     tone: 'var(--pse-text-3)' },
+  unavailable: { icon: ServerOff,     tone: 'var(--pse-amber)' },
+  backend:     { icon: ServerCog,     tone: 'var(--pse-amber)' },
+  network:     { icon: WifiOff,       tone: 'var(--pse-text-3)' },
+  data:        { icon: AlertTriangle, tone: 'var(--pse-amber)' },
+  unknown:     { icon: AlertTriangle, tone: 'var(--pse-red)' },
 };
 
 export function PSEError({ error, onRetry, retrying, action, compact }: {
@@ -436,21 +317,21 @@ export function PSEError({ error, onRetry, retrying, action, compact }: {
   return (
     <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-2 px-4 py-6' : 'gap-3 px-6 py-12'}`}>
       <div className="flex h-11 w-11 items-center justify-center rounded-xl border"
-        style={{ borderColor: view.tone, background: 'var(--pse-inset)' }}>
-        <Icon size={19} style={{ color: view.accent }} />
+        style={{ borderColor: view.tone, background: 'var(--pse-sunken)' }}>
+        <Icon size={19} style={{ color: view.tone }} />
       </div>
       <p className="pse-h3">{error.title}</p>
-      <p className="pse-micro max-w-md">{error.message}</p>
+      <p className="pse-meta max-w-md">{error.message}</p>
       <div className="mt-1 flex flex-col items-center gap-2 sm:flex-row">
         {error.retryable && onRetry && (
-          <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-secondary pse-btn-sm">
+          <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-2 pse-btn-sm">
             <RefreshCcw size={13} className={retrying ? 'animate-spin' : ''} /> Try again
           </button>
         )}
         {action}
       </div>
       {error.operation && (
-        <p className="pse-micro mt-1 font-mono" style={{ color: 'var(--pse-text-3)' }}>
+        <p className="pse-meta mt-1 pse-mono" style={{ color: 'var(--pse-text-3)' }}>
           {error.operation}{error.status ? ` · ${error.status}` : ''}{error.code ? ` · ${error.code}` : ''}
         </p>
       )}
@@ -461,12 +342,12 @@ export function PSEError({ error, onRetry, retrying, action, compact }: {
 /** Inline, non-blocking notice for a degraded (secondary) data feed. */
 export function FeedNotice({ message, onRetry, retrying }: { message: string; onRetry?: () => void; retrying?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-3" style={{ background: 'var(--pse-inset)' }}>
-      <p className="pse-micro flex items-center gap-2" style={{ color: 'var(--pse-warning)' }}>
+    <div className="flex items-center justify-between gap-3 px-5 py-3" style={{ background: 'var(--pse-sunken)' }}>
+      <p className="pse-meta flex items-center gap-2" style={{ color: 'var(--pse-amber)' }}>
         <AlertTriangle size={12} className="shrink-0" /> {message}
       </p>
       {onRetry && (
-        <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-ghost pse-btn-sm shrink-0">
+        <button type="button" onClick={onRetry} disabled={retrying} className="pse-btn pse-btn-3 pse-btn-sm shrink-0">
           <RefreshCcw size={11} className={retrying ? 'animate-spin' : ''} /> Retry
         </button>
       )}
@@ -495,23 +376,6 @@ export function PSELoading({ label = 'Loading', skeleton = false }: { label?: st
   );
 }
 
-/** Compact stat block for secondary figures (kept out of the main verdict). */
-export function Stat({ label, value, sub, accent, icon: Icon }: {
-  label: string; value: string; sub?: React.ReactNode; accent?: string; icon?: ChipIcon;
-}) {
-  return (
-    <div className="pse-panel p-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="pse-eyebrow">{label}</p>
-        {Icon && <Icon size={14} style={{ color: 'var(--pse-text-3)' }} />}
-      </div>
-      <p className="pse-num pse-fig-2 mt-2"
-        style={{ color: accent || 'var(--pse-text)' }}>{value}</p>
-      {sub && <p className="pse-micro mt-1.5">{sub}</p>}
-    </div>
-  );
-}
-
 /** Copyable mono field with a transient copied state. */
 export function CopyField({ value, display, label, fullWidth }: {
   value: string; display?: string; label?: string; fullWidth?: boolean;
@@ -522,12 +386,12 @@ export function CopyField({ value, display, label, fullWidth }: {
       type="button"
       onClick={async () => { if (await copyText(value)) { setCopied(true); setTimeout(() => setCopied(false), 1600); } }}
       className={`group inline-flex max-w-full items-center gap-2 rounded-lg border py-2.5 pl-2.5 pr-3 transition-colors ${fullWidth ? 'w-full justify-between' : ''}`}
-      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-inset)', minHeight: 44 }}
+      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-sunken)', minHeight: 44 }}
       aria-label={label ? `Copy ${label}` : 'Copy to clipboard'}
     >
       <span className="pse-mono truncate">{display || value}</span>
       {copied
-        ? <Check size={12} style={{ color: 'var(--pse-success)' }} className="shrink-0" />
+        ? <Check size={12} style={{ color: 'var(--pse-jade-ink)' }} className="shrink-0" />
         : <CopyIcon size={12} className="shrink-0" style={{ color: 'var(--pse-text-3)' }} />}
     </button>
   );
@@ -539,315 +403,14 @@ export function Field({ label, hint, children, htmlFor }: {
 }) {
   return (
     <label className="block" htmlFor={htmlFor}>
-      <span className="pse-caption mb-1.5 flex items-baseline justify-between font-medium" style={{ color: 'var(--pse-text-2)' }}>
+      <span className="pse-label mb-1.5 flex items-baseline justify-between">
         {label}
-        {hint && <span className="pse-micro">{hint}</span>}
+        {hint && <span className="pse-meta">{hint}</span>}
       </span>
       {children}
     </label>
   );
 }
-
-/** Tool spec grid used by the marketplace and the landing page. */
-export function ToolGrid({ tools, ownedCounts }: {
-  tools: Array<{ id: string; name: string; tagline?: string; hourlyRateGBP: number; purchasePriceGBP: number; maxPerUser: number }>;
-  ownedCounts?: Record<string, number>;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {tools.map((t) => {
-        const owned = ownedCounts?.[t.id] || 0;
-        return (
-          <div key={t.id} className="pse-panel p-5">
-            <div className="flex items-start justify-between gap-2">
-              <p className="pse-h3">{t.name}</p>
-              {owned > 0 ? (
-                <Chip label={`${owned}/${t.maxPerUser} owned`} chip="pse-chip pse-chip-success" dot={false} />
-              ) : (
-                <Chip label="Not owned" chip="pse-chip pse-chip-neutral" dot={false} />
-              )}
-            </div>
-            {t.tagline && <p className="pse-micro mt-1.5">{t.tagline}</p>}
-            <div className="mt-4 flex items-baseline gap-1">
-              <span className="pse-num text-[24px] font-semibold" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</span>
-            </div>
-            <div className="pse-micro mt-2 flex items-center justify-between" style={{ color: 'var(--pse-text-2)' }}>
-              <span>Price</span><span className="pse-num font-semibold">{gbp(t.purchasePriceGBP)}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ── Campaign banner: responsive to every backend state ─────────────── */
-export function CampaignBanner({ status }: { status?: string | null }) {
-  if (!status || !CAMPAIGN_BANNER_STATES.has(status)) return null;
-  const view = campaignStatusView(status);
-  return (
-    <div className="flex items-start gap-3 rounded-xl border px-4 py-3"
-      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
-      <span className="pse-dot mt-1.5 shrink-0" style={{ background: view.tone }} />
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold" style={{ color: 'var(--pse-text)' }}>{view.headline}</p>
-        <p className="pse-micro">{view.detail}</p>
-      </div>
-    </div>
-  );
-}
-
-/** Activity row — shared by the dashboard feed, the ledger page and tool lists. */
-export function ActivityRow({ icon: Icon, title, description, amount, time, tone }: {
-  icon: ChipIcon; title: string; description?: string; amount?: React.ReactNode; time: string; tone?: string;
-}) {
-  return (
-    <li className="flex items-center gap-3.5 px-5 py-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-        style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-line)' }}>
-        <Icon size={15} style={{ color: tone || 'var(--pse-text-2)' }} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="pse-caption font-medium" style={{ color: 'var(--pse-text)' }}>{title}</p>
-        {description && <p className="pse-micro mt-0.5 line-clamp-2">{description}</p>}
-      </div>
-      <div className="shrink-0 text-right">
-        {amount}
-        <p className="pse-micro">{time}</p>
-      </div>
-    </li>
-  );
-}
-
-/** Section heading used between panels (no card, no border). */
-export function SectionHeading({ title, meta, right }: { title: string; meta?: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-2">
-      <div>
-        <p className="pse-eyebrow">{title}</p>
-        {meta && <p className="pse-micro mt-0.5">{meta}</p>}
-      </div>
-      {right}
-    </div>
-  );
-}
-
-/* ════════════════════ v2 composition primitives ══════════════════════════
- * These exist so a page composes ONE accent surface plus ruled, dense groups —
- * instead of a stack of equal-weight cards. See src/styles/psemine-v2.css for
- * the layout contract they enforce.
- * ════════════════════════════════════════════════════════════════════════ */
-
-/**
- * WorkbenchHeader — the opening block of every console page.
- * Title + purpose + the page's single state chip on the left, actions right.
- * It carries no surface: hierarchy comes from type, not a container.
- */
-export function WorkbenchHeader({ title, purpose, status, actions, tabs }: {
-  title: string; purpose?: string; status?: React.ReactNode;
-  actions?: React.ReactNode; tabs?: React.ReactNode;
-}) {
-  return (
-    <header className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="pse-h1" style={{ fontSize: 'var(--pse-fs-h1)' }}>{title}</h1>
-            {status}
-          </div>
-          {purpose && <p className="pse-caption max-w-2xl">{purpose}</p>}
-        </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
-      </div>
-      {tabs}
-    </header>
-  );
-}
-
-/**
- * AccentSurface — THE primary surface of a screen (one per page, by convention).
- * The only container that carries colour weight, so the eye lands on the
- * financial verdict before anything else.
- */
-export function AccentSurface({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <section className={`pse-panel pse-panel-accent ${className || ''}`}>{children}</section>;
-}
-
-/**
- * Surface — a quiet grouped container (no colour weight).
- * Use many rows inside one Surface; do not nest Surfaces.
- */
-export function Surface({ title, meta, action, children, tone, className, bodyClassName, as }: {
-  title?: React.ReactNode; meta?: string; action?: React.ReactNode; children: React.ReactNode;
-  tone?: 'default' | 'warning' | 'danger' | 'success';
-  className?: string; bodyClassName?: string; as?: 'section' | 'div';
-}) {
-  const border =
-    tone === 'warning' ? 'var(--pse-warning)' :
-    tone === 'danger' ? 'var(--pse-danger)' :
-    tone === 'success' ? 'var(--pse-success)' : undefined;
-  const Tag = (as || 'section') as 'section';
-  return (
-    <Tag className={`pse-panel ${className || ''}`} style={border ? { borderColor: border } : undefined}>
-      {(title || action) && (
-        <header className="pse-panel-head">
-          <div className="min-w-0">
-            {title && <h2 className="pse-t-sub">{title}</h2>}
-            {meta && <p className="pse-t-tiny mt-0.5">{meta}</p>}
-          </div>
-          {action && <div className="shrink-0">{action}</div>}
-        </header>
-      )}
-      <div className={bodyClassName}>{children}</div>
-    </Tag>
-  );
-}
-
-/** One figure in a MetricRow. */
-export interface MetricItem {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: string;
-  hint?: string;
-}
-
-/**
- * MetricRow — several aligned figures on one line, hairline separated.
- * This is how secondary numbers are shown: dense, comparable, never as
- * free-standing cards competing with the primary figure.
- */
-export function MetricRow({ items }: { items: MetricItem[] }) {
-  return (
-    <div className="pse-metrics">
-      {items.map(m => (
-        <div key={m.label}>
-          <p className="pse-eyebrow">{m.label}</p>
-          <p className="pse-fig-2 mt-1.5" style={{ color: m.tone || 'var(--pse-text)' }}>{m.value}</p>
-          {m.sub && <p className="pse-t-tiny mt-1">{m.sub}</p>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** One row of a KeyValue list. */
-export function KVRow({ k, v, hint, mono, right, emphasis }: {
-  k: string; v: React.ReactNode; hint?: string; mono?: boolean; right?: React.ReactNode; emphasis?: boolean;
-}) {
-  return (
-    <div className="pse-spec">
-      <div className="min-w-0">
-        <span className="pse-spec-k" style={emphasis ? { color: 'var(--pse-text)' } : undefined}>{k}</span>
-        {hint && <p className="pse-t-tiny mt-0.5">{hint}</p>}
-      </div>
-      <div className="flex shrink-0 items-center gap-2.5">
-        <span className={mono ? 'pse-mono' : 'pse-spec-v'}>{v}</span>
-        {right}
-      </div>
-    </div>
-  );
-}
-
-/** KeyValue — the wrapper for KVRow entries. */
-export function KeyValue({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-specs ${className || ''}`}>{children}</div>;
-}
-
-/** A dense data row (tool, ledger entry, payout). */
-export function RowItem({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-row-item ${className || ''}`}>{children}</div>;
-}
-
-/** Rows — the wrapper for RowItem entries. */
-export function Rows({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-rows ${className || ''}`}>{children}</div>;
-}
-
-/** Toolbar — filters, search and sort live here, ruled rather than contained. */
-export function Toolbar({ children }: { children: React.ReactNode }) {
-  return <div className="pse-toolbar">{children}</div>;
-}
-
-/** Segmented — single-choice control for filters and views. */
-export function Segmented<T extends string>({ options, value, onChange, ariaLabel }: {
-  options: Array<{ id: T; label: string }>;
-  value: T; onChange: (id: T) => void; ariaLabel?: string;
-}) {
-  return (
-    <div className="pse-seg" role="group" aria-label={ariaLabel}>
-      {options.map(o => (
-        <button
-          key={o.id}
-          type="button"
-          aria-pressed={value === o.id}
-          onClick={() => onChange(o.id)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** TierMark — the rank of a tool tier, expressed typographically. */
-export function TierMark({ rank }: { rank: number }) {
-  return <span className={`pse-tier pse-tier-${Math.min(4, Math.max(1, rank))}`} aria-hidden="true">{rank}</span>;
-}
-
-/** ZoneHeader — the currency/zone identity band inside a wallet zone. */
-export function ZoneHeader({ label, note, currency, tone = 'gbp', right }: {
-  label: string; note?: string; currency: 'GBP' | 'BNB'; tone?: 'gbp' | 'bnb'; right?: React.ReactNode;
-}) {
-  return (
-    <div className="pse-zone-head">
-      <span className={`pse-zone-ccy ${tone === 'bnb' ? 'pse-zone-bnb' : 'pse-zone-gbp'}`}>{currency}</span>
-      <div className="min-w-0 flex-1">
-        <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{label}</p>
-        {note && <p className="pse-micro mt-0.5">{note}</p>}
-      </div>
-      {right}
-    </div>
-  );
-}
-
-/** Slots — the fixed-capacity progression strip (referrals). */
-export function Slots({ filled, total }: { filled: number; total: number }) {
-  const n = Math.max(0, total);
-  const on = Math.min(Math.max(0, filled), n);
-  return (
-    <div className={`pse-cells ${n > 12 ? 'flex-wrap' : ''}`} role="img" aria-label={`${on} of ${n} slots filled`}>
-      {Array.from({ length: n }, (_, i) => (
-        <span key={i} className={`pse-cell ${i < on ? 'pse-cell-on-purple' : ''}`} />
-      ))}
-    </div>
-  );
-}
-
-/** PrimaryAction / SecondaryAction — consistent single-row CTA link with a chevron. */
-export function ActionLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return (
-    // min-h-11: on a phone these shortcuts were 20px tall, below a comfortable
-    // tap target. It costs nothing on desktop, where the row is taller anyway.
-    <Link to={to}
-      className="pse-caption inline-flex min-h-11 items-center gap-1.5 font-medium hover:underline"
-      style={{ color: 'var(--pse-blue)' }}>
-      {children} <ChevronRight size={13} />
-    </Link>
-  );
-}
-
-/** External reference link (explorer, docs) — never a fake control. */
-export function ExternalRef({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer noopener"
-      className="pse-micro inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--pse-text-2)' }}>
-      {children} <ExternalLink size={11} />
-    </a>
-  );
-}
-
-export { Lock, LineChart, HelpCircle, GaugeIcon };
 
 /* ════════════════════ v3 composition primitives ══════════════════════════
  * Measured corrections to the composition layer. The rendered build showed
@@ -873,82 +436,487 @@ export function usePseDocumentTitle(title?: string) {
   }, [title]);
 }
 
-/**
- * ChapterHead — a numbered chapter opening.
- *
- * Gives a long page a spine: the numeral is fixed-width and tabular, the title
- * carries the section scale, and the meta line is the only place body copy is
- * allowed to set the context.
- */
-export function ChapterHead({ no, title, meta, size = 'lg', right }: {
-  no: string; title: string; meta?: string; size?: 'xl' | 'lg' | 'md'; right?: React.ReactNode;
+/* ═══════════════════════════════════════════════════════════════════════════
+   DUTY & LEDGER — the approved primitive set.
+
+   Composition law:  VERDICT (unframed) → RAILS → LEDGERS → NOTES.
+   Canonical instruments (there is exactly ONE of each — every screen consumes
+   these, none re-draws them):
+     • DutyRail      — the 90-day campaign: phase, position, elapsed, remaining
+     • CapacityRail  — tool capacity + referral capacity → total £/hour
+   Ledgers are the only bordered containers. Stamps key state in mono caps.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+export type StampTone = 'live' | 'attn' | 'fail' | 'info' | 'idle';
+
+/** State as a mono-caps key. Shape and wording carry meaning; colour keys it. */
+export function Stamp({ tone = 'info', glyph, children, pulse }: {
+  tone?: StampTone; glyph?: string; children: React.ReactNode; pulse?: boolean;
 }) {
-  const cls = size === 'xl' ? 'pse-section-xl' : size === 'md' ? 'pse-section' : 'pse-section-lg';
   return (
-    <div className="pse-chapter-head">
-      <span className="pse-chapter-no" aria-hidden="true">{no}</span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 className={`${cls} pse-measure-wide`}>{title}</h2>
-          {right && <div className="shrink-0 pt-1">{right}</div>}
+    <span className="pse-stamp" data-tone={tone}>
+      {pulse ? <span className="pse-live-dot" aria-hidden="true" /> : glyph ? <span className="pse-stamp-glyph" aria-hidden="true">{glyph}</span> : null}
+      {children}
+    </span>
+  );
+}
+
+/** The stamp tone for a backend campaign status — read from the status map, so
+ *  a status can never render a label and a colour key that disagree. */
+export function campaignTone(status?: string | null): StampTone {
+  return campaignStatusView(status).tone;
+}
+
+/** The stamp tone for a tool's derived cycle state — same single source. */
+export function cycleTone(state?: string | null): StampTone {
+  return cycleStateView(state).tone;
+}
+
+/**
+ * StatementHeader — the opening block of a console route.
+ * A route key in mono caps, the route's title, one line stating its objective,
+ * the as-of time, then actions. It carries NO surface: hierarchy comes from
+ * type, never from a container.
+ */
+export function StatementHeader({ routeKey, title, objective, status, actions, asOf }: {
+  routeKey: string; title: string; objective?: string; status?: React.ReactNode;
+  actions?: React.ReactNode; asOf?: string;
+}) {
+  return (
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-2">
+        <p className="pse-np">{routeKey}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="pse-h1">{title}</h1>
+          {status}
         </div>
-        {meta && <p className="pse-caption pse-measure mt-2.5">{meta}</p>}
+        {objective && <p className="pse-copy-s pse-measure">{objective}</p>}
+        {asOf && <p className="pse-np">As of {asOf}</p>}
       </div>
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    </header>
+  );
+}
+
+/**
+ * Verdict — the answer, on the canvas.
+ * The primary figure of a screen is never inside a tinted panel: it is type on
+ * the page background, dominating every secondary read.
+ */
+export function Verdict({ label, value, unit, status, note, side }: {
+  label: string; value: string; unit?: string; status?: React.ReactNode;
+  note?: React.ReactNode; side?: React.ReactNode;
+}) {
+  return (
+    <section className="pse-verdict">
+      <div className="pse-verdict-top">
+        <p className="pse-np">{label}</p>
+        {status}
+      </div>
+      <p className="pse-fig-a pse-n pse-bone pse-verdict-fig">
+        {value}
+        {unit && <span className="pse-meta" style={{ marginLeft: 8 }}>{unit}</span>}
+      </p>
+      {note && <p className="pse-verdict-sub">{note}</p>}
+      {side && <div className="pse-verdict-side">{side}</div>}
+    </section>
+  );
+}
+
+/** RailBand — a ruled instrument band. Not a card: label, key, content. */
+export function RailBand({ label, meta, right, legend, children, className }: {
+  label: string; meta?: React.ReactNode; right?: React.ReactNode;
+  legend?: Array<{ kind: 'jade' | 'ghost' | 'steel'; text: string }>;
+  children: React.ReactNode; className?: string;
+}) {
+  return (
+    <section className={`pse-rail ${className || ''}`}>
+      <div className="pse-rail-head">
+        <p className="pse-np">{label}</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {meta && <span className="pse-meta">{meta}</span>}
+          {right}
+        </div>
+      </div>
+      {legend && legend.length > 0 && (
+        <ul className="pse-rail-key">
+          {legend.map(l => (
+            <li key={l.text}>
+              <span className={l.kind === 'jade' ? 'pse-k-jade' : l.kind === 'ghost' ? 'pse-k-ghost' : 'pse-k-steel'} aria-hidden="true" />
+              {l.text}
+            </li>
+          ))}
+        </ul>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/* ── THE canonical campaign clock ───────────────────────────────────────────
+ * One implementation of the 90-day arithmetic for the whole product. The shell
+ * band, the dashboard, the landing and the guide all read from this; no screen
+ * derives the campaign day from a browser clock on its own.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+export type CampaignPhaseKey = 'launch' | 'mining' | 'settlement' | 'payout' | 'closed';
+
+export const CAMPAIGN_PHASES: Array<{ key: CampaignPhaseKey; label: string }> = [
+  { key: 'launch', label: 'Launch' },
+  { key: 'mining', label: 'Mining' },
+  { key: 'settlement', label: 'Settlement' },
+  { key: 'payout', label: 'Payout' },
+  { key: 'closed', label: 'Closed' },
+];
+
+const PHASE_INDEX: Record<string, number> = {
+  scheduled: 0, active: 1, paused: 1, settling: 2, payout: 3, closed: 4, archived: 4,
+};
+
+/**
+ * Structural campaign input.
+ * Accepts the locked product type, the API state projection and a raw Firestore
+ * document alike — the rail only ever reads dates, duration and status.
+ */
+export interface CampaignClockInput {
+  startAt?: unknown;
+  endAt?: unknown;
+  durationDays?: number | null;
+  status?: string | null;
+  name?: string | null;
+}
+
+export interface CampaignClock {
+  totalDays: number;
+  startMs: number | null;
+  endMs: number | null;
+  /** 1-based campaign day, or null before the campaign window opens. */
+  dayNumber: number | null;
+  daysLeft: number | null;
+  /** 0–100 through the campaign window. */
+  progress: number;
+  phaseIndex: number;
+  phases: Array<{ key: CampaignPhaseKey; label: string; state: 'done' | 'current' | 'pending' }>;
+}
+
+/**
+ * Campaign position, derived from backend campaign dates only (never invented).
+ * A 60s tick keeps relative figures honest without polling the server.
+ */
+export function useCampaignClock(
+  campaign?: CampaignClockInput | null,
+  statusOverride?: string | null,
+): CampaignClock {
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = window.setInterval(() => setTick(t => t + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const status = statusOverride ?? campaign?.status ?? 'scheduled';
+  const totalDays = campaign?.durationDays && campaign.durationDays > 0
+    ? campaign.durationDays
+    : PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS;
+  const startMs = toDateSafe(campaign?.startAt)?.getTime() ?? null;
+  const endMs = toDateSafe(campaign?.endAt)?.getTime() ?? null;
+  const now = nowMs();
+  const live = ['active', 'paused', 'settling', 'payout'].includes(status);
+  const dayNumber = live && typeof startMs === 'number'
+    ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
+    : null;
+  const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
+  const progress = dayNumber === null ? 0 : Math.min(100, Math.max(0, (dayNumber / totalDays) * 100));
+  const phaseIndex = PHASE_INDEX[status] ?? 0;
+
+  return {
+    totalDays, startMs: startMs, endMs, dayNumber, daysLeft, progress, phaseIndex,
+    phases: CAMPAIGN_PHASES.map((p, i) => ({
+      ...p,
+      state: i < phaseIndex ? 'done' as const : i === phaseIndex ? 'current' as const : 'pending' as const,
+    })),
+  };
+}
+
+/**
+ * DutyRail — THE campaign visualization: START → CURRENT DAY → END.
+ * 90 ticks grouped into decades, the current day as a bright cursor, and the
+ * five campaign phases as labelled bands. Three densities:
+ *   compact → band (shell) · default → console · hero → landing
+ */
+export function DutyRail({ campaign, status, density = 'default', showFacts = true }: {
+  campaign?: CampaignClockInput | null;
+  status?: string | null;
+  density?: 'compact' | 'default' | 'hero';
+  showFacts?: boolean;
+}) {
+  const clock = useCampaignClock(campaign, status);
+  const total = clock.totalDays;
+  const decades: number[][] = [];
+  for (let i = 0; i < total; i += 10) {
+    decades.push(Array.from({ length: Math.min(10, total - i) }, (_, k) => i + k));
+  }
+  const cursorPct = clock.dayNumber === null ? 0 : ((clock.dayNumber - 0.5) / total) * 100;
+  const phase = CAMPAIGN_PHASES[clock.phaseIndex];
+  const view = campaignStatusView(status ?? campaign?.status);
+
+  if (density === 'compact') {
+    return (
+      <div className="pse-duty pse-duty-sm" role="img"
+        aria-label={`Campaign ${view.label.trim()} — day ${clock.dayNumber ?? 0} of ${total}`}>
+        <div className="pse-duty-blocks">
+          {decades.map((dec, i) => (
+            <span key={i} className="pse-duty-dec">
+              {dec.map(idx => (
+                <span key={idx} className="pse-duty-tick" data-state={
+                  clock.dayNumber !== null && idx + 1 < clock.dayNumber ? 'elapsed'
+                    : clock.dayNumber !== null && idx + 1 === clock.dayNumber ? 'position' : 'pending'
+                } />
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pse-duty" role="img"
+      aria-label={`Campaign ${view.label.trim()} — day ${clock.dayNumber ?? 0} of ${total}, phase ${phase.label}`}>
+      {clock.dayNumber !== null && (
+        <span className="pse-duty-now" style={{ left: `${cursorPct}%` }}>Day {clock.dayNumber}</span>
+      )}
+      <div className="pse-duty-blocks">
+        {decades.map((dec, i) => (
+          <span key={i} className="pse-duty-dec">
+            {dec.map(idx => (
+              <span key={idx} className="pse-duty-tick" data-state={
+                clock.dayNumber !== null && idx + 1 < clock.dayNumber ? 'elapsed'
+                  : clock.dayNumber !== null && idx + 1 === clock.dayNumber ? 'position' : 'pending'
+              } />
+            ))}
+          </span>
+        ))}
+      </div>
+      <div className="pse-duty-phases">
+        {clock.phases.map(p => (
+          <span key={p.key} className="pse-duty-phase" data-state={p.state}>{p.label}</span>
+        ))}
+      </div>
+      {showFacts && (
+        <div className="pse-duty-facts">
+          <span>
+            {clock.dayNumber === null
+              ? 'Campaign window not open'
+              : <>Day <b>{clock.dayNumber}</b> of {total}</>}
+          </span>
+          {clock.daysLeft !== null && <span><b>{clock.daysLeft}</b> days remaining</span>}
+          <span>Phase <b>{phase.label}</b></span>
+          <span>Accrual stops at day {total}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── THE canonical capacity register ────────────────────────────────────────
+ * Tool capacity + referral capacity → total £/hour. Every screen that shows
+ * capacity consumes THIS component; nothing else draws a capacity meter.
+ * A lane you own is filled jade; a lane you do not own is a hatched GHOST that
+ * still shows what it would add — real economics, never fabricated holdings.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+export function CapacityRail({
+  toolCapacity, referralCapacity, counts, referralCount = 0,
+  label = 'Mining capacity', meta, legend = true, showMarks = true,
+}: {
+  toolCapacity: number;
+  referralCapacity: number;
+  counts?: Partial<Record<PSEToolTierId, number>>;
+  referralCount?: number;
+  label?: string;
+  meta?: string;
+  legend?: boolean;
+  showMarks?: boolean;
+}) {
+  const ceiling = PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR;
+  const tools = (toolCapacity || 0);
+  const refs = (referralCapacity || 0);
+  const total = tools + refs;
+  const tiers = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
+
+  const lanes = tiers.map(t => {
+    const owned = counts?.[t.id] ?? 0;
+    const contribution = owned * t.hourlyRateGBP;
+    const potential = t.hourlyRateGBP * t.maxPerUser;
+    return {
+      id: t.id,
+      label: `${t.name.replace(' Miner', '').toUpperCase()} ${owned}/${t.maxPerUser}`,
+      value: owned > 0 ? contribution : potential,
+      ghost: owned === 0,
+    };
+  });
+  const refPotential = PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR * PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
+  lanes.push({
+    id: 'referral' as PSEToolTierId,
+    label: `REFERRALS ${referralCount}/${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}`,
+    value: referralCount > 0 ? refs : refPotential,
+    ghost: referralCount === 0,
+  });
+
+  return (
+    <section className="pse-rail">
+      <div className="pse-rail-head">
+        <p className="pse-np">{label}</p>
+        <span className="pse-meta">{meta ?? 'Tools + referrals = hourly capacity'}</span>
+      </div>
+
+      {legend && (
+        <ul className="pse-rail-key">
+          <li><span className="pse-k-jade" aria-hidden="true" />Held</li>
+          <li><span className="pse-k-ghost" aria-hidden="true" />Available (not held)</li>
+        </ul>
+      )}
+
+      <div className="pse-reg">
+        <ul className="pse-reg-lanes">
+          {lanes.map(l => (
+            <li key={String(l.id)} className="pse-reg-lane" data-ghost={l.ghost ? 'true' : 'false'}>
+              <span className="pse-reg-key">{l.label}</span>
+              <span className="pse-reg-track">
+                <span className="pse-reg-fill" style={{ width: `${Math.min(100, (l.value / ceiling) * 100)}%` }} />
+              </span>
+              <span className="pse-reg-val pse-n">£{l.value.toFixed(2)}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="pse-reg-foot">
+          <div className="pse-reg-sum">
+            <span>TOOLS <b className="pse-n pse-bone">£{tools.toFixed(2)}</b></span>
+            <span>+ REFERRALS <b className="pse-n pse-bone">£{refs.toFixed(2)}</b></span>
+          </div>
+          <p className="pse-reg-total pse-n">
+            £{total.toFixed(2)}<span> / hour</span>
+          </p>
+        </div>
+
+        {showMarks && (
+          <div className="pse-scale">
+            <span className="pse-scale-mark" data-hit={tools >= PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR ? 'true' : 'false'}>
+              £{PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR.toFixed(2)} tool cap
+            </span>
+            <span className="pse-scale-mark" data-hit={refs >= PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR ? 'true' : 'false'}>
+              +£{PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR.toFixed(2)} referral cap
+            </span>
+            <span className="pse-scale-mark" data-hit={total >= ceiling ? 'true' : 'false'}>
+              £{ceiling.toFixed(2)} ceiling
+            </span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ── LEDGER — the only bordered container ─────────────────────────────────── */
+
+export function Ledger({ title, meta, action, legend, children, foot, legendCols = 2 }: {
+  title?: React.ReactNode; meta?: React.ReactNode; action?: React.ReactNode;
+  legend?: string[]; children: React.ReactNode; foot?: React.ReactNode;
+  /** Column shape of the legend. Use 'lead' when rows carry a leading object
+   *  (a tool module) so the column heads sit over the columns they name. */
+  legendCols?: 2 | 3 | 'lead';
+}) {
+  return (
+    <section className="pse-ledger">
+      {(title || action) && (
+        <header className="pse-ledger-head">
+          <div className="min-w-0">
+            {title && <h2 className="pse-h3">{title}</h2>}
+            {meta && <p className="pse-meta mt-1">{meta}</p>}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </header>
+      )}
+      {legend && legend.length > 0 && (
+        <div className="pse-ledger-legend" data-cols={legendCols}>
+          {legend.map((h, i) => (
+            <span key={h} className="pse-np" style={{ textAlign: i === legend.length - 1 ? 'right' : 'left' }}>{h}</span>
+          ))}
+        </div>
+      )}
+      <div className="pse-ledger-body">{children}</div>
+      {foot && <div className="pse-ledger-foot">{foot}</div>}
+    </section>
+  );
+}
+
+/**
+ * LedgerRow — one financial record.
+ * title + meta on the left, the figure right-aligned on a tabular column. A
+ * `sign` renders the fixed credit/debit column used by the activity ledger.
+ */
+export function LedgerRow({ title, sub, value, valueTone, sign, leading, children }: {
+  title: React.ReactNode; sub?: React.ReactNode; value?: React.ReactNode;
+  valueTone?: string; sign?: 'credit' | 'debit' | ''; leading?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="pse-row" data-cols={sign ? 3 : 2} data-stack={children ? 'true' : 'false'}>
+      {sign !== undefined && (
+        <span className="pse-row-sign" data-sign={sign || undefined} aria-hidden="true">
+          {sign === 'credit' ? '+' : sign === 'debit' ? '−' : '·'}
+        </span>
+      )}
+      {leading && <span className="shrink-0" aria-hidden="true">{leading}</span>}
+      <div className="pse-row-k">
+        <p className="pse-label-b">{title}</p>
+        {sub && <p className="pse-meta mt-1">{sub}</p>}
+        {children}
+      </div>
+      {value !== undefined && (
+        <span className="pse-row-v pse-n" style={valueTone ? { color: valueTone } : undefined}>{value}</span>
+      )}
+    </div>
+  );
+}
+
+/** Day header inside a ledger (the activity statement groups by day). */
+export function DayGroup({ label, meta }: { label: string; meta?: string }) {
+  return (
+    <div className="pse-day">
+      <span className="pse-np pse-np-2">{label}</span>
+      {meta && <span className="pse-meta">{meta}</span>}
     </div>
   );
 }
 
 /**
- * ListGroup / ListRow — one border around many rows.
- *
- * The structural answer to a wall of cards: related items share a single
- * surface and are separated by hairlines, so the page stops reading as a
- * collection of independent boxes.
+ * Attn — the exception strip. Ruled, not carded, and only rendered when the
+ * backend actually reports something that needs the operator's attention.
  */
-export function ListGroup({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-list-group ${className || ''}`}>{children}</div>;
-}
-
-export function ListRow({ n, title, body, right, icon: Icon }: {
-  n?: string | number; title: string; body?: string; right?: React.ReactNode; icon?: ChipIcon;
+export function Attn({ tone = 'attn', title, body, action }: {
+  tone?: 'attn' | 'fail' | 'info'; title: React.ReactNode; body?: React.ReactNode; action?: React.ReactNode;
 }) {
   return (
-    <div className="pse-list-row">
-      {n !== undefined
-        ? <span className="pse-list-n" aria-hidden="true">{n}</span>
-        : Icon ? <Icon size={16} className="mt-2 shrink-0" style={{ color: 'var(--pse-text-3)' }} /> : null}
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <p className="pse-section-sm">{title}</p>
-          {right}
-        </div>
-        {body && <p className="pse-caption mt-1.5">{body}</p>}
+    <div className="pse-attn" data-tone={tone}>
+      <div className="pse-attn-body">
+        <p className="pse-label-b">{title}</p>
+        {body && <p className="pse-meta mt-1">{body}</p>}
       </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
 
-/**
- * Editorial — a numbered explanation with no surface at all.
- * For "how it works" content, rules and numerals carry the structure so the
- * section does not need to become another card.
- */
-export function Editorial({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`pse-editorial ${className || ''}`}>{children}</div>;
-}
-
-export function EditorialItem({ no, title, body, right }: {
-  no: string; title: string; body?: string; right?: React.ReactNode;
-}) {
+/** Clause — a numbered note. Rules and numerals carry the structure. */
+export function Clause({ no, title, body }: { no: string; title: string; body?: React.ReactNode }) {
   return (
-    <div>
-      <span className="pse-editorial-no" aria-hidden="true">{no}</span>
+    <div className="pse-clause">
+      <span className="pse-clause-no">{no}</span>
       <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="pse-section-sm">{title}</p>
-          {right}
-        </div>
-        {body && <p className="pse-caption pse-measure mt-1.5">{body}</p>}
+        <p className="pse-label-b">{title}</p>
+        {body && <p className="pse-meta mt-1 pse-measure">{body}</p>}
       </div>
     </div>
   );

@@ -8,7 +8,10 @@ import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { db } from '../../firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import { gbp, gbpHour, Chip, Meter, Panel, usePseDocumentTitle } from '../../components/psemine/pse';
+import {
+  Stamp, StatementHeader, Ledger, CapacityRail, usePseDocumentTitle,
+  gbp, gbpHour, type StampTone,
+} from '../../components/psemine/pse';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils';
 
@@ -32,7 +35,7 @@ const SECTIONS: Section[] = [
     id: 'what', icon: BookOpen, title: 'What PSEmine is', summary: 'A 90-day, GBP-denominated mining campaign',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           PSEmine is a 90-day, campaign-based mining product. You purchase mining tools with BNB on BNB Smart Chain.
           Each tool provides a fixed hourly capacity denominated in GBP. Across the campaign, your capacity accrues
           earnings that are calculated and stored server-side. When the campaign ends, accrued balances settle and are paid out.
@@ -43,15 +46,15 @@ const SECTIONS: Section[] = [
             ['Accounting', 'GBP (£) fixed rates'],
             ['Payment', 'BNB on BNB Smart Chain'],
           ].map(([k, v]) => (
-            <div key={k} className="pse-inset p-3.5">
-              <p className="pse-eyebrow">{k}</p>
-              <p className="pse-caption mt-1 font-medium" style={{ color: 'var(--pse-text)' }}>{v}</p>
+            <div key={k} className="pse-sunken p-3.5">
+              <p className="pse-np">{k}</p>
+              <p className="pse-copy-s mt-1 font-medium" style={{ color: 'var(--pse-text)' }}>{v}</p>
             </div>
           ))}
         </div>
-        <div className="pse-inset mt-4 flex items-start gap-2.5 p-3.5">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-blue)' }} />
-          <p className="pse-micro">
+        <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-text-2)' }} />
+          <p className="pse-meta">
             PSEmine shares its sign-in identity with PulseEarn but is a separate product: separate tools, separate
             accounting, separate activity and notifications. Points, tasks and PulseEarn rewards never apply here.
           </p>
@@ -63,22 +66,22 @@ const SECTIONS: Section[] = [
     id: 'lifecycle', icon: Route, title: 'Campaign lifecycle', summary: 'Four phases from start to payout',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           The campaign moves through four phases. The current phase is always shown in the console strip and on the
           dashboard — never inferred from dates in your browser.
         </p>
-        <ol className="mt-4 space-y-3">
+        <ol className="pse-stack-tight" style={{ listStyle: 'none', padding: 0, margin: '16px 0 0' }}>
           {[
             ['Day 0 — Start', 'The campaign opens. Purchases become available and tools begin their first operating cycle.'],
             ['Days 1–90 — Operations', 'Session tools mine in finite sessions and stop when a session completes until you restart them; Elite mines continuously. Restarts are free and take a short backend period, during which nothing accrues. Capacity adds to your hourly rate as you buy tools and qualify referrals.'],
             ['Day 90 — Settlement', 'Accrual stops. Final balances are calculated from the append-only mining ledger.'],
             ['After day 90 — Payout', 'Payout requests open (minimum £10), are reviewed, then processed to your configured payout wallet.'],
           ].map(([t, d], i) => (
-            <li key={t} className="flex items-start gap-3">
-              <span className="pse-step pse-step-active">{i + 1}</span>
-              <div>
-                <p className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{t}</p>
-                <p className="pse-micro mt-0.5">{d}</p>
+            <li key={t} className="pse-clause">
+              <span className="pse-clause-no">{String(i + 1).padStart(2, '0')}</span>
+              <div className="min-w-0">
+                <p className="pse-label-b">{t}</p>
+                <p className="pse-meta" style={{ marginTop: 4 }}>{d}</p>
               </div>
             </li>
           ))}
@@ -90,36 +93,28 @@ const SECTIONS: Section[] = [
     id: 'tools', icon: Layers, title: 'Mining tools', summary: 'Four tiers, fixed price and fixed capacity',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Four tools are available, each with a fixed price, a fixed hourly rate and a per-account ownership limit.
           Tool economics are fixed for the campaign — they don't change after purchase.
         </p>
-        <div className="mt-4 overflow-x-auto">
-          <table className="pse-table">
-            <thead>
-              <tr><th>Tool</th><th className="pse-num-cell">Price</th><th className="pse-num-cell">Capacity</th><th className="pse-num-cell">Limit</th><th>Operation</th></tr>
-            </thead>
-            <tbody>
-              {TOOLS.map(t => (
-                <tr key={t.id}>
-                  <td className="font-medium">{t.name}</td>
-                  <td className="pse-num-cell">{gbp(t.purchasePriceGBP)}</td>
-                  <td className="pse-num-cell" style={{ color: 'var(--pse-blue)' }}>{gbpHour(t.hourlyRateGBP)}</td>
-                  <td className="pse-num-cell">{t.maxPerUser}</td>
-                  <td>{t.operating?.model === 'continuous' ? 'Continuous' : 'Session (manual restart)'}</td>
-                </tr>
-              ))}
-              <tr>
-                <td className="font-semibold">Maximum tool capacity</td>
-                <td className="pse-num-cell">—</td>
-                <td className="pse-num-cell font-semibold" style={{ color: 'var(--pse-cyan)' }}>
-                  {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}
-                </td>
-                <td className="pse-num-cell">—</td>
-                <td>—</td>
-              </tr>
-            </tbody>
-          </table>
+        <div style={{ marginTop: 16 }}>
+          <hr className="pse-rule" />
+          {TOOLS.map(t => (
+            <div key={t.id} className="pse-row">
+              <div className="pse-row-k">
+                <p className="pse-label-b">{t.name}</p>
+                <p className="pse-meta" style={{ marginTop: 4 }}>
+                  {gbp(t.purchasePriceGBP)} · limit {t.maxPerUser} ·{' '}
+                  {t.operating?.model === 'continuous' ? 'continuous duty' : 'session duty · manual restart'}
+                </p>
+              </div>
+              <span className="pse-row-v pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</span>
+            </div>
+          ))}
+          <div className="pse-spec-line" style={{ paddingTop: 12, paddingBottom: 4 }}>
+            <span>Maximum tool capacity (all tiers at limit)</span>
+            <span>{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</span>
+          </div>
         </div>
       </>
     ),
@@ -128,32 +123,35 @@ const SECTIONS: Section[] = [
     id: 'cycles', icon: Repeat, title: 'Mining sessions & restarts', summary: 'Session tools restart manually; Elite runs continuously',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Tools do not all run the same way. Starter, Builder and Advanced miners mine in finite <strong>sessions</strong>:
           when a session completes, mining stops and the tool waits for you to restart it. The Elite Miner mines
           <strong> continuously</strong> for as long as the campaign is active, with no manual restart cycle.
         </p>
-        <p className="pse-caption mt-3">
+        <p className="pse-copy-s mt-3">
           Restarting a session tool is free, but it is not instant: the backend prepares the next session and mining
           resumes only once that restart period completes. Nothing accrues while a session is stopped or restarting.
           Session length and restart timing are set by the backend campaign configuration, not by the app.
         </p>
         <div className="mt-4 space-y-2.5">
-          {[
-            ['Active', 'The session is running and the tool is accruing its hourly rate.', 'pse-chip-success'],
-            ['Session Complete', 'The mining session finished. Mining has stopped — restart the tool to begin the next session.', 'pse-chip-warning'],
-            ['Restarting', 'The restart was requested. Mining resumes automatically once the backend completes the restart period.', 'pse-chip-blue'],
-            ['Maintenance Required', 'The session ended a while ago and no restart has been requested yet. The tool stays yours — restart it to resume.', 'pse-chip-danger'],
-            ['Continuous', 'Elite Miner: mining runs continuously while the campaign is active. No restart required.', 'pse-chip-cyan'],
-          ].map(([label, desc, chip]) => (
-            <div key={label} className="flex items-start gap-3 pse-inset p-3.5">
-              <Chip label={label} chip={`pse-chip ${chip}`} dot={false} />
-              <p className="pse-caption">{desc}</p>
+          {([
+            ['Active', 'The session is running and the tool is accruing its hourly rate.', 'live'],
+            ['Session Complete', 'The mining session finished. Mining has stopped — restart the tool to begin the next session.', 'attn'],
+            ['Restarting', 'The restart was requested. Mining resumes automatically once the backend completes the restart period.', 'info'],
+            ['Maintenance Required', 'The session ended a while ago and no restart has been requested yet. The tool stays yours — restart it to resume.', 'attn'],
+            ['Continuous', 'Elite Miner: mining runs continuously while the campaign is active. No restart required.', 'info'],
+          ] as Array<[string, string, StampTone]>).map(([label, desc, tone]) => (
+            <div key={label} className="pse-clause">
+              <span className="pse-clause-no">·</span>
+              <div className="min-w-0">
+                <Stamp tone={tone} glyph="●">{label}</Stamp>
+                <p className="pse-meta" style={{ marginTop: 6 }}>{desc}</p>
+              </div>
             </div>
           ))}
         </div>
-        <p className="pse-caption mt-3.5 flex items-start gap-2">
-          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
+        <p className="pse-copy-s mt-3.5 flex items-start gap-2">
+          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
           Restarting is always free and always will be. There is no paid restart and no health-percentage system —
           the backend-reported state itself is the operational truth.
         </p>
@@ -164,41 +162,22 @@ const SECTIONS: Section[] = [
     id: 'capacity', icon: LineChart, title: 'Mining capacity', summary: 'How your hourly rate is composed and capped',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Your hourly capacity is the sum of your tools plus your qualified referrals — nothing else. The backend
           calculates every figure; the app only displays what the server reports.
         </p>
-        <div className="mt-4 space-y-3">
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="pse-caption">Tool capacity (all four tiers at limit)</span>
-              <span className="pse-num pse-caption font-semibold">{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</span>
-            </div>
-            <Meter
-              value={(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR / PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) * 100}
-              label="Tool capacity share"
-            />
-          </div>
-          <div>
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <span className="pse-caption">Referral capacity (5 qualified)</span>
-              <span className="pse-num pse-caption font-semibold">{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}</span>
-            </div>
-            <Meter
-              value={(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR / PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) * 100}
-              tone="purple"
-              label="Referral capacity share"
-            />
-          </div>
-          <div className="pse-divider my-1" />
-          <div className="flex items-baseline justify-between">
-            <span className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>Maximum total capacity</span>
-            <span className="pse-num text-[20px] font-semibold" style={{ color: 'var(--pse-cyan)' }}>
-              {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}
-            </span>
-          </div>
-        </div>
-        <p className="pse-micro mt-4">
+        {/* The canonical capacity register, shown at every tier's ownership limit
+            and every referral slot filled — the same register the console and the
+            wallet render, so "how capacity adds up" is never drawn twice. */}
+        <CapacityRail
+          toolCapacity={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
+          referralCapacity={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
+          counts={{ starter: 5, builder: 3, advanced: 3, elite: 2 }}
+          referralCount={PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}
+          label="Capacity at every limit"
+          meta="Every tier at its ownership limit plus five qualified referrals"
+        />
+        <p className="pse-meta mt-4">
           Accrual depends on live mining: a session tool earns only while its session is active, and a restarting tool
           earns nothing until the backend marks the next session active. Elite earns continuously.
         </p>
@@ -209,12 +188,12 @@ const SECTIONS: Section[] = [
     id: 'referrals', icon: Users, title: 'Referral capacity', summary: '+£0.30/hour per qualified referral, up to 5',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Invite miners with your referral link. A referral adds <strong>+£0.30/hour</strong> to your capacity only
           after it fully qualifies: the invite registers, connects a BNB Smart Chain wallet, purchases a tool, and their
           first tool activates mining. Up to 5 referrals can qualify (+£1.50/hour at maximum).
         </p>
-        <p className="pse-caption mt-2.5">
+        <p className="pse-copy-s mt-2.5">
           Qualification settles on the backend exactly once, and your capacity changes from that moment forward — new
           referral capacity is never applied retroactively to past operating time.
         </p>
@@ -225,18 +204,18 @@ const SECTIONS: Section[] = [
     id: 'purchases', icon: Wallet, title: 'BNB payments & verification', summary: 'Quotes, exact amounts, on-chain checks',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Purchases begin with a server-generated quote: the fixed GBP price converted to an exact BNB amount at the live
           rate. Quotes expire, and the quoted amount is fixed inside that window.
         </p>
-        <p className="pse-caption mt-2.5">
+        <p className="pse-copy-s mt-2.5">
           You send the exact amount to the campaign&apos;s receiving wallet from your connected wallet. The backend then
           verifies your transaction on-chain — sender, recipient, exact amount, network and confirmation depth — before
           the tool activates. The app never marks a purchase confirmed on its own, and no other activation path exists.
         </p>
-        <div className="pse-inset mt-4 flex items-start gap-2.5 p-3.5">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-cyan)' }} />
-          <p className="pse-micro">
+        <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+          <p className="pse-meta">
             Payments and settlements happen only on BNB Smart Chain (chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}).
             Underpayments and mismatches are detected and recorded for manual review.
           </p>
@@ -248,12 +227,12 @@ const SECTIONS: Section[] = [
     id: 'earnings', icon: LineChart, title: 'Mining earnings', summary: 'Hourly accrual against active capacity',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           Earnings accrue hourly against active capacity: tool capacity plus qualified referral capacity, capped at{' '}
           {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} maximum. Paused campaigns and completed
           cycles don&apos;t accrue.
         </p>
-        <p className="pse-caption mt-2.5">
+        <p className="pse-copy-s mt-2.5">
           The displayed balance is settled by the backend at checkpoints and reconciled against the mining ledger — the
           number you see is the number the ledger supports. Accrued earnings are campaign earnings and are not
           withdrawable mid-campaign.
@@ -265,14 +244,14 @@ const SECTIONS: Section[] = [
     id: 'settlement', icon: Landmark, title: 'Settlement & payouts', summary: 'Day 90, then reviewed payouts',
     body: (
       <>
-        <p className="pse-caption">
+        <p className="pse-copy-s">
           At day 90, accrual stops and the campaign settles. Final balances are computed from the ledger, payout requests
           open (minimum £10), and each request is reviewed before being processed to your configured payout wallet on BNB
           Smart Chain.
         </p>
-        <div className="pse-inset mt-4 flex items-start gap-2.5 p-3.5">
-          <Clock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-warning)' }} />
-          <p className="pse-micro">
+        <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
+          <Clock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-amber)' }} />
+          <p className="pse-meta">
             Payout wallet changes lock at settlement. Set your payout wallet early and verify it carefully.
           </p>
         </div>
@@ -282,7 +261,7 @@ const SECTIONS: Section[] = [
   {
     id: 'security', icon: ShieldCheck, title: 'Security model', summary: 'Server-authoritative by design',
     body: (
-      <p className="pse-caption">
+      <p className="pse-copy-s">
         Balances live in an append-only ledger with deterministic entries. Purchases require on-chain verification with
         replay protection. Referral qualification has exactly one auditable path, and product access is an explicit,
         backend-enforced entitlement. The browser displays state — it can never create, claim or alter value.
@@ -376,83 +355,78 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   const alreadyOnboarded = userData?.onboardingCompleted !== false;
 
   return (
-    <div className="pse-section pb-24 pt-5 md:pt-7">
-      {/* Header — a guide gets the section scale, not a documentation heading. */}
-      <p className="pse-eyebrow">
-        {onboarding ? 'Welcome to PSEmine' : 'Campaign guide'}
-      </p>
-      <h1 className="pse-section-xl mt-3">
-        {onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}
-      </h1>
-      <p className="pse-caption pse-measure mt-3">
-        Everything you need to understand tools, operating cycles, referrals, payments and settlement. Read it once — the
-        console always shows the live state.
-      </p>
+    <div className="pse-gut pse-stack pse-canvas-bottom" style={{ paddingTop: 22 }}>
+      <StatementHeader
+        routeKey={onboarding ? 'Welcome to PSEmine' : 'Guide · campaign'}
+        title={onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}
+        objective="Everything you need to understand tools, operating cycles, referrals, payments and settlement. Read it once — the console always shows the live state."
+        status={onboarding
+          ? <Stamp tone="info" glyph="▤">{doneSections.size}/{SECTIONS.length} read</Stamp>
+          : undefined}
+      />
 
       {onboarding && (
-        <div className="pse-inset mt-4 flex flex-wrap items-center gap-3 p-3.5">
-          <Coins size={14} style={{ color: 'var(--pse-blue)' }} className="shrink-0" />
-          <p className="pse-micro flex-1 min-w-[200px]">This walkthrough appears once. You can return any time from the footer or the account menu.</p>
-          <span className="pse-micro shrink-0" style={{ color: 'var(--pse-text-3)' }}>{doneSections.size}/{SECTIONS.length} read</span>
+        <div className="pse-sunken pse-pad flex flex-wrap items-center gap-3">
+          <Coins size={14} className="pse-jade shrink-0" />
+          <p className="pse-meta flex-1 min-w-[200px]">This walkthrough appears once. You can return any time from the footer or the account menu.</p>
+          <span className="pse-n pse-dim-3 text-[12px]">{doneSections.size}/{SECTIONS.length} read</span>
         </div>
       )}
 
       {/* Mobile section navigation */}
-      <nav aria-label="Guide sections" className="pse-sticky-nav mt-4 px-1 py-3 lg:hidden">
-        <div className="flex items-center gap-2 overflow-x-auto pse-no-scrollbar">
-          {SECTIONS.map((s, i) => {
-            const active = activeSection === s.id;
-            return (
-              <button key={s.id} type="button" onClick={() => jumpToSection(s.id)}
-                aria-current={active ? 'true' : undefined}
-                className="shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors"
-                style={active
-                  ? { background: 'var(--pse-inset)', borderColor: 'var(--pse-blue)', color: 'var(--pse-blue)' }
-                  : { background: 'var(--pse-inset)', borderColor: 'var(--pse-line)', color: 'var(--pse-text-2)' }}>
-                <span className="pse-num mr-1.5 text-[10px]" style={{ color: active ? 'var(--pse-blue)' : 'var(--pse-text-3)' }}>{i + 1}</span>
-                {s.title}
-              </button>
-            );
-          })}
+      <nav aria-label="Guide sections" className="lg:hidden">
+        <div className="pse-seg flex-wrap">
+          {SECTIONS.map(s => (
+            <button key={s.id} type="button" onClick={() => jumpToSection(s.id)}
+              aria-current={activeSection === s.id ? 'page' : undefined}
+              data-active={activeSection === s.id}>
+              {s.title}
+            </button>
+          ))}
         </div>
-        <div className="mt-2.5 flex items-center gap-3">
-          <Meter value={progress} label="Guide progress" />
-          <span className="pse-micro shrink-0">{doneSections.size}/{SECTIONS.length} read</span>
+        <div className="flex items-center gap-3" style={{ marginTop: 12 }}>
+          <div className="pse-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <span className="pse-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <span className="pse-n pse-meta shrink-0">{doneSections.size}/{SECTIONS.length} read</span>
         </div>
       </nav>
 
-      <div className="mt-5 lg:grid lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-7">
-        {/* Desktop sidebar */}
+      <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-7">
+        {/* Desktop sidebar — a ruled contents rail, not another bordered box. */}
         <aside className="hidden lg:block">
-          <div className="pse-panel sticky top-20 overflow-hidden">
-            <div className="border-b px-4 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-              <p className="pse-eyebrow">Contents</p>
-              <div className="mt-2.5">
-                <Meter value={progress} label="Guide progress" />
+          <div className="pse-stack-tight" style={{ position: 'sticky', top: 96 }}>
+            <div>
+              <p className="pse-np">Contents</p>
+              <div className="pse-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: 10 }}>
+                <span className="pse-progress-fill" style={{ width: `${progress}%` }} />
               </div>
-              <p className="pse-micro mt-1.5">{doneSections.size}/{SECTIONS.length} sections read</p>
+              <p className="pse-n pse-meta" style={{ marginTop: 8 }}>{doneSections.size}/{SECTIONS.length} sections read</p>
             </div>
-            <nav className="py-1" aria-label="Guide contents">
+            <nav className="pse-stack-tight" aria-label="Guide contents">
               {SECTIONS.map((s, i) => {
                 const active = activeSection === s.id;
                 const done = doneSections.has(s.id);
                 return (
                   <button key={s.id} type="button" onClick={() => jumpToSection(s.id)}
-                    aria-current={active ? 'true' : undefined}
-                    className={cn('flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] transition-colors',
-                      active ? 'font-semibold' : '')}
-                    style={{ color: active ? 'var(--pse-text)' : 'var(--pse-text-2)', background: active ? 'var(--pse-inset)' : undefined }}>
-                    <span className={done ? 'pse-step pse-step-done' : 'pse-step'}>{done ? '✓' : i + 1}</span>
+                    aria-current={active ? 'page' : undefined}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 40,
+                      background: 'none', border: 0, borderLeft: '2px solid',
+                      borderLeftColor: active ? 'var(--pse-jade-ink)' : 'var(--pse-line)',
+                      paddingLeft: 12, cursor: 'pointer', font: 'inherit', textAlign: 'left',
+                      fontSize: 13.5, fontWeight: active ? 600 : 500,
+                      color: active ? 'var(--pse-bone)' : done ? 'var(--pse-text-2)' : 'var(--pse-text-3)',
+                    }}>
+                    <span className="pse-row-sign" aria-hidden="true">{done ? '✓' : String(i + 1).padStart(2, '0')}</span>
                     <span className="min-w-0 flex-1 truncate">{s.title}</span>
                   </button>
                 );
               })}
             </nav>
-            <div className="border-t p-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-              <Link to={onboarding ? '/mine/dashboard' : '/mine/tools'} className="pse-btn pse-btn-secondary pse-btn-sm w-full justify-center">
-                {onboarding ? 'Open the console' : 'Open the marketplace'}
-              </Link>
-            </div>
+            <Link to={onboarding ? '/mine/dashboard' : '/mine/tools'} className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full">
+              {onboarding ? 'Open the console' : 'Open the tool marketplace'}
+            </Link>
           </div>
         </aside>
 
@@ -461,7 +435,9 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
             so the chapters share a single container and are separated by
             hairlines (measured: 21 card-like boxes before this change). */}
         <div>
-          <div className="pse-list-group">
+          {/* One bordered surface for the whole guide: chapters are ruled into it
+              and separated by hairlines, never lifted into their own cards. */}
+          <Ledger title="The campaign, chapter by chapter" meta="Nine chapters · the console always shows the live state">
           {SECTIONS.map((s, idx) => {
             const Icon = s.icon;
             const open = openSections.has(s.id);
@@ -471,9 +447,9 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 className="scroll-mt-32 border-t first:border-t-0"
                 style={{ borderColor: 'var(--pse-line)' }}>
                 <div className="flex items-start gap-3.5 p-5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--pse-inset)', border: '1px solid var(--pse-blue)' }}>
-                    <Icon size={17} style={{ color: 'var(--pse-blue)' }} />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: 'var(--pse-sunken)', border: '1px solid var(--pse-line)' }}>
+                    <Icon size={17} style={{ color: 'var(--pse-jade-ink)' }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -482,33 +458,34 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                             two heading elements, so chapters could not be reached by heading
                             navigation (screen readers) or indexed as structure. The toggle is a
                             button inside the heading, which is the accessible accordion pattern. */}
-                        <h2 className="pse-section-sm m-0">
+                        <h2 className="pse-h3" style={{ margin: 0 }}>
                           <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open}
-                            className="pse-chapter-toggle flex w-full items-center gap-2 text-left">
-                            <span className="pse-step">{idx + 1}</span>
+                            className="flex w-full items-center gap-2.5 text-left"
+                            style={{ background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer' }}>
+                            <span className="pse-row-sign" aria-hidden="true">{String(idx + 1).padStart(2, '0')}</span>
                             {s.title}
                           </button>
                         </h2>
-                        <p className="pse-micro mt-1">{s.summary}</p>
+                        <p className="pse-meta" style={{ marginTop: 4 }}>{s.summary}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         {onboarding && (
                           <button type="button" onClick={() => markRead(s.id, true)}
-                            className="pse-btn pse-btn-ghost pse-btn-sm"
+                            className="pse-btn pse-btn-3 pse-btn-sm"
                             aria-pressed={doneSections.has(s.id)}>
                             {doneSections.has(s.id)
-                              ? <><Check size={12} style={{ color: 'var(--pse-success)' }} /> Read</>
+                              ? <><Check size={12} className="pse-jade" /> Read</>
                               : 'Mark read & next'}
                           </button>
                         )}
                         <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open}
                           aria-label={open ? `Collapse ${s.title}` : `Expand ${s.title}`}
-                          className="pse-btn pse-btn-ghost pse-btn-sm">
+                          className="pse-btn pse-btn-3 pse-btn-sm">
                           <ChevronDown size={15} className={cn('transition-transform', open && 'rotate-180')} />
                         </button>
                       </div>
                     </div>
-                    {open && <div className="pse-guide-body mt-4">{s.body}</div>}
+                    {open && <div style={{ marginTop: 16 }}>{s.body}</div>}
                   </div>
                 </div>
               </section>
@@ -518,8 +495,8 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           {/* FAQ — same surface, so the guide stays one continuous document. */}
           <section className="border-t" style={{ borderColor: 'var(--pse-line)' }}>
             <div className="border-b px-5 py-4" style={{ borderColor: 'var(--pse-line)' }}>
-              <h2 className="pse-section-sm">Frequently asked questions</h2>
-              <p className="pse-micro mt-0.5">Operational questions in the order they usually come up.</p>
+              <h2 className="pse-h3">Frequently asked questions</h2>
+              <p className="pse-meta" style={{ marginTop: 4 }}>Operational questions in the order they usually come up.</p>
             </div>
             <div>
               {FAQS.map((f, i) => {
@@ -528,48 +505,48 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                   <div key={f.q}>
                     <button type="button" onClick={() => setOpenFaq(open ? null : i)}
                       className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left" aria-expanded={open}>
-                      <span className="pse-caption font-semibold" style={{ color: 'var(--pse-text)' }}>{f.q}</span>
+                      <span className="pse-label-b">{f.q}</span>
                       <ChevronDown size={15} className={cn('shrink-0 transition-transform', open && 'rotate-180')} style={{ color: 'var(--pse-text-3)' }} />
                     </button>
-                    {open && <p className="pse-caption px-5 pb-4">{f.a}</p>}
+                    {open && <p className="pse-label px-5 pb-4">{f.a}</p>}
                   </div>
                 );
               })}
             </div>
           </section>
-          </div>
+          </Ledger>
 
           {/* Onboarding CTA */}
           {onboarding && (
-            <Panel className="mt-3" bodyClassName="p-6 text-center">
-              <CheckCircle2 size={22} className="mx-auto" style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-success)' : 'var(--pse-text-3)' }} />
-              <p className="pse-h3 mt-3">Ready to open your console?</p>
-              <p className="pse-caption mt-1.5">
+            <div className="pse-rule pse-note" style={{ marginTop: 18, paddingTop: 22, textAlign: 'center', alignItems: 'center' }}>
+              <CheckCircle2 size={22} style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-jade-ink)' : 'var(--pse-text-4)' }} />
+              <p className="pse-h3" style={{ marginTop: 12 }}>Ready to open your console?</p>
+              <p className="pse-meta">
                 {TOOLS[0] && `Tools start at ${gbp(TOOLS[0].purchasePriceGBP)} with ${gbpHour(TOOLS[0].hourlyRateGBP)} of capacity.`}
                 {' '}The peak rate is {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}.
               </p>
               <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-                <button onClick={() => void completeOnboarding()} disabled={completing} className="pse-btn pse-btn-primary pse-btn-lg justify-center">
+                <button onClick={() => void completeOnboarding()} disabled={completing} className="pse-btn pse-btn-lg justify-center">
                   {completing ? 'Opening…' : 'Continue to dashboard'} <ArrowRight size={15} />
                 </button>
-                <Link to="/mine/tools" className="pse-btn pse-btn-secondary pse-btn-lg justify-center">Browse tools first</Link>
+                <Link to="/mine/tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">Browse tools first</Link>
               </div>
-              {alreadyOnboarded && <p className="pse-micro mt-3">You can skip this — your account is already set up.</p>}
-            </Panel>
+              {alreadyOnboarded && <p className="pse-meta" style={{ marginTop: 12 }}>You can skip this — your account is already set up.</p>}
+            </div>
           )}
 
           {/* Non-onboarding closing CTA */}
           {!onboarding && (
-            <Panel className="mt-3" bodyClassName="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div className="pse-rule flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center" style={{ marginTop: 18, paddingTop: 22 }}>
               <div>
                 <p className="pse-h3">Understand it? Put capacity to work.</p>
-                <p className="pse-micro mt-1">Tools start at {gbp(TOOLS[0]?.purchasePriceGBP ?? 3)} and accrue hourly while active.</p>
+                <p className="pse-meta" style={{ marginTop: 4 }}>Tools start at {gbp(TOOLS[0]?.purchasePriceGBP ?? 3)} and accrue hourly while active.</p>
               </div>
               <div className="flex flex-wrap gap-2.5">
-                <Link to="/mine/tools" className="pse-btn pse-btn-primary pse-btn-sm">Open the marketplace</Link>
-                <Link to="/mine/dashboard" className="pse-btn pse-btn-secondary pse-btn-sm">Go to console</Link>
+                <Link to="/mine/tools" className="pse-btn pse-btn-sm">Open the tool marketplace</Link>
+                <Link to="/mine/dashboard" className="pse-btn pse-btn-2 pse-btn-sm">Go to console</Link>
               </div>
-            </Panel>
+            </div>
           )}
         </div>
       </div>

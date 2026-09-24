@@ -1,111 +1,51 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight, ArrowUpRight, Check, ChevronDown, Lock, Menu, ShieldCheck, X,
-} from 'lucide-react';
+import { ArrowRight, ChevronDown, Menu, X } from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId,
-} from '../../types/psemine';
-import { campaignStatusView, gbp, gbpHour, PSELogo, usePseDocumentTitle } from '../../components/psemine/pse';
+  campaignStatusView, campaignTone, gbp, gbpHour, PSELogo, Stamp,
+  DutyRail, CapacityRail, useCampaignClock, usePseDocumentTitle,
+} from '../../components/psemine/pse';
+import { ModuleMark } from '../../components/psemine/PSEBrand';
 import {
-  CampaignLifecycle, CapacityBuilder, ConnectWalletVisual, ConsolePreview, MiningStates,
-  PaymentVisual, ReferralProgression, SettlementVisual, StatePill, ToolComparison, WalletZones,
-  AccrualVisual, MarketplaceVisual, type MiningState,
+  ToolSpecSheet, SpecimenSheet, DutyModels, MoneyPath,
+  ReferralLanes, ReferralClauses, AssuranceList, TierLedger,
 } from '../../components/psemine/PseLandingVisuals';
-import { MinerArt } from '../../components/psemine/PSEBrand';
 
 /**
- * PSEMineLanding — the public product introduction at /mine.
+ * PSEMineLanding — the public product brief at /mine.
  *
- * This is its own composition (OWNER-BRIEF §4): it renders outside the
- * authenticated console shell, with its own header, section rhythm and footer,
- * and it never borrows the dashboard's card grid. The only thing it shares with
- * the console is the design system and the domain model.
+ * This is PUBLIC MARKETING, not a dashboard. It tells one story in seven ruled
+ * chapters: the product → the tools → capacity → the campaign clock → the money
+ * path → referral capacity → assurance. It uses the console's canonical
+ * instruments (the 90-day duty rail, the capacity register, the module family,
+ * ledger rows) at publication scale, and none of the console's chrome.
  *
- * Data rules (OWNER-BRIEF §23):
- *   • Campaign status, day, duration, chain, quote window and every price,
- *     hourly rate, ownership limit and capacity ceiling come from real fields
+ * Data rules (unchanged, and enforced by omission):
+ *   • Campaign status, dates, duration, network and every price, hourly rate,
+ *     ownership limit and capacity ceiling come from real fields
  *     (`PSEMineCampaign`, `LOCKED_PSEMINE_TOOLS`, `PSEMINE_CONSTANTS`).
- *   • No users, earnings, purchases, referrals, payouts, provider figures or
- *     campaign statistics are invented anywhere on this page.
- *   • The hero console preview is the single conceptual product visual. It uses
- *     documented example holdings and an example campaign day, and it says so in
- *     its own footer. Where the console has no data, sections show designed
- *     empty states instead of numbers.
+ *   • No users, earnings, purchases, referrals, payouts or statistics are
+ *     invented anywhere on this page. There is no social proof to fake, so the
+ *     proof is specification: the ceiling arithmetic and the verification path.
+ *   • The single product visual is the console SPECIMEN — the console's real
+ *     start state (no tools, £0.00, £0.00/hour), labelled as such. It never
+ *     shows a holding, an earnings figure or an activity entry the visitor has
+ *     not earned.
  */
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-const TOOL_BY_ID = LOCKED_PSEMINE_TOOLS;
 
-/* NOTE: `LOCKED_PSEMINE_TOOLS[tier].specs` (powerEfficiency / hashRateClass) is
-   deliberately NOT rendered anywhere on this page. OWNER-BRIEF §9 forbids
-   publishing invented hardware specifications, and those strings are exactly
-   that. Only price, hourly capacity and ownership limits — the verified
-   economics — are shown. */
-
-/**
- * The hero preview shows the product in its true starting state (OWNER-BRIEF
- * §23). A visitor who has bought nothing holds nothing, so the preview renders
- * zero tools, £0.00/hour of capacity, £0.00 accrued and an empty activity feed
- * — the same figures the console shows on day 0. No example holdings, example
- * campaign day or example earnings are rendered anywhere on this page.
- */
-const NO_HOLDINGS: Record<PSEToolTierId, number> = { starter: 0, builder: 0, advanced: 0, elite: 0 };
-/** Real mining activity only — the public landing has none before a purchase. */
-const NO_ACTIVITY: Array<{ title: string; detail: string; amount: string; tone: string }> = [];
-
-const HOW_IT_WORKS: Array<{
-  no: string; title: string; body: string; visual: React.ReactNode;
-}> = [
-  {
-    no: '01',
-    title: 'Connect your wallet',
-    body: 'Connect the BNB Smart Chain wallet you will pay from. The connected address is recorded as the payer of your purchase — it is never set by the browser.',
-    visual: <ConnectWalletVisual />,
-  },
-  {
-    no: '02',
-    title: 'Choose mining capacity',
-    body: `Four fixed tiers, priced ${gbp(3)}–${gbp(200)}, providing ${gbp(0.10)}–${gbp(2.50)} of hourly capacity each. Ownership limits per tier cap how much one account can hold.`,
-    visual: <MarketplaceVisual />,
-  },
-  {
-    no: '03',
-    title: 'Purchase with BNB',
-    body: `The backend quotes the fixed GBP price in BNB at the live rate and binds it to your account for ${PSEMINE_CONSTANTS.QUOTE_EXPIRATION_MINUTES} minutes. You send exactly that amount.`,
-    visual: <PaymentVisual />,
-  },
-  {
-    no: '04',
-    title: 'Mining begins',
-    body: 'Once the transfer is verified on-chain the tool activates and starts a 24-hour operating cycle. Capacity accrues hourly while the cycle is active; free maintenance restarts a finished cycle.',
-    visual: <AccrualVisual />,
-  },
-  {
-    no: '05',
-    title: 'The campaign settles',
-    body: `At day ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS} accrual stops and final balances are computed from the mining ledger. Reviewed payout requests are paid in BNB to your payout wallet.`,
-    visual: <SettlementVisual />,
-  },
-];
-
-const CAPACITY_FLOW = [
-  { label: 'Owned tools', value: 'per tier', note: 'Each tool contributes its fixed hourly rate for as long as it holds an active cycle.' },
-  { label: 'Tool capacity', value: gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR), note: 'The ceiling across all four tiers at their ownership limits.' },
-  { label: 'Qualified referrals', value: `+${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`, note: `${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} × ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} added once each referral qualifies.` },
-  { label: 'Total capacity', value: gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR), note: `Tools ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} plus up to ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from qualified referrals.` },
-  { label: 'Hourly earnings', value: 'GBP ledger', note: 'Accrual is written to the mining ledger by the backend, hourly, against active capacity.' },
-];
-
-const SECURITY_ITEMS = [
-  { t: 'Balances live in a server-side ledger', d: 'Earnings are deterministic entries in an append-only mining ledger. No client field can be edited into a balance.' },
-  { t: 'Payments are verified, not asserted', d: 'Sender, recipient, exact amount and confirmation depth are checked against the server quote before a tool activates. Replay protection stops one transaction being claimed twice.' },
-  { t: 'The browser cannot price or approve', d: 'It may request a quote, display the amount to send and show verification status. It cannot set a price, approve a payment or activate a tool.' },
-  { t: 'Operating cycles are enforced server-side', d: 'Cycle state, maintenance and accrual windows are derived and validated on the server at every step. Maintenance is always free.' },
-  { t: 'One qualification path for referrals', d: 'A referral qualifies once, through a single auditable backend path with anti-abuse checks — never retroactively.' },
-  { t: 'Separate product, shared sign-in', d: 'A PSEmine session never triggers PulseEarn points, tasks or rewards. The account is shared; the product behaviour is not.' },
+const NAV = [
+  { href: '#product', label: 'The product' },
+  { href: '#tools', label: 'The tools' },
+  { href: '#capacity', label: 'Capacity' },
+  { href: '#campaign', label: 'The campaign' },
+  { href: '#money', label: 'Money path' },
+  { href: '#referrals', label: 'Referrals' },
+  { href: '#assurance', label: 'Assurance' },
 ];
 
 const FAQS: Array<{ q: string; a: string }> = [
@@ -126,12 +66,12 @@ const FAQS: Array<{ q: string; a: string }> = [
     a: `Tool capacity is the sum of your owned tools, capped at ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}. Each qualified referral adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)}/hour, up to ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referrals (+${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}). The maximum total capacity is ${gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}.`,
   },
   {
-    q: 'When can I withdraw earnings?',
-    a: 'Accrued earnings are campaign earnings: they settle after the campaign ends. Payout requests open at settlement and are paid to your configured BNB Smart Chain wallet after review.',
+    q: 'Does a tool earn when its session has ended?',
+    a: 'No. Starter, Builder and Advanced each mine inside a finite session: when it ends, mining stops until you restart the tool, and nothing accrues while it is stopped or restarting. Elite mines continuously while the campaign is active and never needs a manual restart.',
   },
   {
-    q: 'What does maintenance cost?',
-    a: 'Nothing. Maintenance is a free action that restarts a completed operating cycle. A tool that sits idle after its cycle completes needs the same free maintenance before it resumes accruing.',
+    q: 'When can I withdraw earnings?',
+    a: 'Accrued earnings are campaign earnings: they settle after the campaign ends. Payout requests open at settlement and are paid to your configured BNB Smart Chain wallet after review.',
   },
   {
     q: 'Which network are payments made on?',
@@ -143,23 +83,22 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
 ];
 
-const NAV = [
-  { href: '#how-it-works', label: 'How it works' },
-  { href: '#marketplace', label: 'Mining tools' },
-  { href: '#capacity', label: 'Capacity' },
-  { href: '#referrals', label: 'Referrals' },
-  { href: '#campaign', label: 'Campaign' },
-  { href: '#security', label: 'Security' },
-];
-
-const STATE_BY_STATUS: Record<string, MiningState> = {
-  active: 'active',
-  paused: 'paused',
-  settling: 'settling',
-  payout: 'settling',
-  closed: 'ended',
-  archived: 'ended',
-};
+/** Chapter heading: a numeral, a title, one lead line. Type carries the hierarchy. */
+const Chapter: React.FC<{ no: string; title: string; lead?: string; right?: React.ReactNode; children: React.ReactNode; id: string; anchor?: boolean }> = ({
+  no, title, lead, right, children, id, anchor = true,
+}) => (
+  <section id={id} data-pse-section={id} className={`pse-brief${anchor ? ' pse-anchor' : ''}`}>
+    <div className="pse-brief-head">
+      <div className="min-w-0">
+        <p className="pse-np">Chapter {no}</p>
+        <h2 className="pse-brief-title" style={{ marginTop: 8 }}>{title}</h2>
+        {lead && <p className="pse-copy pse-measure" style={{ marginTop: 10 }}>{lead}</p>}
+      </div>
+      {right && <div className="flex flex-wrap items-end gap-2 lg:justify-end">{right}</div>}
+    </div>
+    {children}
+  </section>
+);
 
 export const PSEMineLanding: React.FC = () => {
   const { campaign } = usePSEMine();
@@ -177,714 +116,375 @@ export const PSEMineLanding: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const rawStatus = campaign?.status ?? 'scheduled';
-  const miningState: MiningState = STATE_BY_STATUS[rawStatus] ?? 'ended';
-  /* Campaign status wording comes from the same shared view every PSEmine
-     surface uses, so the landing and the console cannot disagree about it. */
+  const clock = useCampaignClock(campaign);
   const statusView = campaignStatusView(campaign?.status);
-  const stateLabel = statusView.label.trim();
   const durationDays = campaign?.durationDays ?? PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS;
-
-  /** Real campaign day when one is running; otherwise the documented example. */
-  const realDay = useMemo(() => {
-    if (!campaign?.startAt) return null;
-    if (!['active', 'paused', 'settling', 'payout'].includes(rawStatus)) return null;
-    const start = new Date(campaign.startAt).getTime();
-    if (!Number.isFinite(start)) return null;
-    const days = Math.floor((Date.now() - start) / 86400000);
-    return Math.max(0, Math.min(durationDays, days));
-  }, [campaign?.startAt, rawStatus, durationDays]);
-
-  /* Day 0 is the honest value before the campaign window opens. */
-  const dayIndex = realDay ?? 0;
+  const purchaseEnabled = campaign?.purchaseEnabled !== false && (!campaign?.status || campaign.status === 'active');
 
   const primaryHref = currentUser ? '/mine/dashboard' : '/mine/signup';
-  const primaryLabel = currentUser ? 'Open your console' : 'Start Mining';
+  const primaryLabel = currentUser ? 'Open your console' : 'Create an account';
   const purchaseHref = currentUser ? '/mine/tools' : '/mine/signup';
-  const purchaseEnabled = campaign?.purchaseEnabled !== false;
 
-  const featured = TOOL_BY_ID.starter;
-  const flagship = TOOL_BY_ID.elite;
-  /** Row 2 carries the third tier beside the flagship — the second tier is
-      already presented in row 1, so it is never repeated. */
-  const row2Tiers: PSEToolTierId[] = ['advanced'];
+  /** The specimen states the console's REAL current position (day 0 before it opens). */
+  const specimenLabel = clock.dayNumber === null
+    ? `Day 0 — the campaign window is not open, so the console shows no day counted`
+    : `Day ${clock.dayNumber} of ${clock.totalDays} — the console as it starts`;
 
   return (
     <div className="pse-scope pse-land">
-      {/* ═══════════ Header — the landing's own chrome, not the console's ═══════════ */}
-      <header className="pse-land-head" data-stuck={stuck} data-pse-section="header">
-        <div className="pse-wrap-x">
-          <div className="pse-land-head-row">
-            <Link to="/mine" className="pse-land-brand">
-              <PSELogo size={28} />
-              <span>
-                <span className="pse-land-brand-name">PSEMine</span>
-                <span className="pse-land-brand-sub">90-day campaign</span>
-              </span>
+      {/* ═══════════ Masthead — the publication's own chrome ═══════════ */}
+      <header className="pse-mast" data-stuck={stuck ? 'true' : 'false'} data-pse-section="header">
+        <div className="pse-land-wrap">
+          <div className="pse-bar-row">
+            <Link to="/mine" className="pse-mark" aria-label="PSEmine home">
+              <PSELogo size={26} withWordmark />
             </Link>
 
-            <nav className="pse-land-nav" aria-label="PSEmine landing">
-              {NAV.map(n => (
-                <a key={n.href} href={n.href}>{n.label}</a>
-              ))}
+            <nav className="pse-mast-nav" aria-label="PSEmine brief">
+              {NAV.map(n => <a key={n.href} href={n.href}>{n.label}</a>)}
             </nav>
 
-            <div className="pse-land-head-actions">
-              <Link to="/mine/login" className="pse-btn pse-btn-quiet pse-btn-sm hidden sm:inline-flex">
-                Sign in
-              </Link>
-              <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-sm">
-                {primaryLabel}
-              </Link>
+            <div className="pse-mast-actions">
+              <Link to="/mine/login" className="pse-btn pse-btn-3 pse-btn-sm hidden sm:inline-flex">Sign in</Link>
+              <Link to={primaryHref} className="pse-btn pse-btn-sm">{primaryLabel}</Link>
               <button
                 type="button"
-                className="pse-land-burger"
+                className="pse-burger"
                 aria-expanded={menuOpen}
                 aria-controls="pse-land-sheet"
                 aria-label={menuOpen ? 'Close menu' : 'Open menu'}
                 onClick={() => setMenuOpen(v => !v)}
               >
-                {menuOpen ? <X size={18} /> : <Menu size={18} />}
+                {menuOpen ? <X size={16} /> : <Menu size={16} />}
               </button>
             </div>
           </div>
         </div>
 
         {menuOpen && (
-          <div className="pse-land-sheet" id="pse-land-sheet">
-            <nav aria-label="PSEmine landing sections">
-              {[...NAV, { href: '#faq', label: 'FAQ' }].map(n => (
+          <div className="pse-sheet" id="pse-land-sheet">
+            <nav className="pse-land-wrap" aria-label="PSEmine brief sections">
+              {[...NAV, { href: '#faq', label: 'Questions' }].map(n => (
                 <a key={n.href} href={n.href} onClick={() => setMenuOpen(false)}>{n.label}</a>
               ))}
             </nav>
-            <div className="pse-wrap-x flex flex-col gap-2.5 pt-4">
-              <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-lg justify-center">
+            <div className="pse-land-wrap pse-stack-tight" style={{ marginTop: 12 }}>
+              <Link to={primaryHref} className="pse-btn pse-btn-full">
                 {primaryLabel} <ArrowRight size={15} />
               </Link>
-              <Link to="/mine/login" className="pse-btn pse-btn-outline pse-btn-lg justify-center">
-                Sign in
-              </Link>
+              <Link to="/mine/login" className="pse-btn pse-btn-2 pse-btn-full">Sign in</Link>
             </div>
           </div>
         )}
       </header>
 
       <main>
-        {/* ═══════════ HERO ═══════════ */}
-        <section className="pse-land-hero-bg" data-pse-section="hero">
-          <div className="pse-wrap-x">
-            <div className="pse-land-hero">
+        {/* ═══════════ HERO — the claim, the clock, the register, the family ═══════════ */}
+        <section data-pse-section="hero" className="pse-band-sec">
+          <div className="pse-land-wrap">
+            <div className="pse-brief-head">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatePill state={miningState} label={stateLabel} />
-                  <span className="pse-pill">{durationDays}-day campaign</span>
-                  <span className="pse-pill">GBP accounting</span>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Stamp tone={campaignTone(campaign?.status)} pulse={statusView.live} glyph="●">
+                    {statusView.label.trim()}
+                  </Stamp>
+                  <span className="pse-np pse-np-2">{durationDays}-day campaign</span>
+                  <span className="pse-np pse-np-2">GBP accounting</span>
                 </div>
 
-                <h1 className="pse-t-display mt-6">
+                <h1 className="pse-brief-title" style={{ fontSize: 'clamp(30px, 5vw, 52px)', marginTop: 18 }}>
                   Buy mining capacity.<br />
                   Hold it for {durationDays} days.<br />
-                  <span style={{ color: 'var(--pse-blue)' }}>Settle in GBP.</span>
+                  <span className="pse-jade">Settle in GBP.</span>
                 </h1>
 
-                <p className="pse-t-body pse-limit mt-5">
-                  PSEmine is a campaign-based mining product. Buy mining tools with BNB, hold a fixed hourly GBP
-                  capacity for the campaign, and let the settlement ledger decide what those operating hours earned.
-                  Fixed rates, on-chain verification, server-authoritative accounting.
+                <p className="pse-copy pse-measure" style={{ marginTop: 16 }}>
+                  PSEmine is a campaign-based mining product. Buy mining tools with BNB, hold a fixed hourly
+                  capacity in GBP for the length of the campaign, keep every tool inside its duty cycle, and
+                  the settlement ledger decides what those operating hours earned. Fixed rates, on-chain
+                  verification, server-authoritative accounting.
                 </p>
 
-                <div className="mt-7 flex flex-col gap-2.5 sm:flex-row">
-                  <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-lg justify-center">
-                    Start Mining <ArrowRight size={15} />
+                <div className="flex flex-col gap-2.5 sm:flex-row" style={{ marginTop: 22 }}>
+                  <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
+                    {currentUser ? 'Open your console' : 'Start mining'} <ArrowRight size={15} />
                   </Link>
-                  <a href="#how-it-works" className="pse-btn pse-btn-outline pse-btn-lg justify-center">
-                    How it works
-                  </a>
+                  <a href="#tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">See the tools</a>
                 </div>
-
-                <dl className="pse-land-hero-facts">
-                  {[
-                    { k: 'Entry price', v: gbp(3) },
-                    { k: 'Peak tool capacity', v: gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR) },
-                    { k: 'Campaign', v: `${durationDays} days` },
-                    { k: 'Network', v: 'BNB Smart Chain' },
-                  ].map(f => (
-                    <div key={f.k}>
-                      <dt className="pse-eyebrow">{f.k}</dt>
-                      <dd className="pse-num mt-1.5 text-[15px] font-semibold" style={{ color: 'var(--pse-text)' }}>{f.v}</dd>
-                    </div>
-                  ))}
-                </dl>
               </div>
 
-              {/* The product, as a product screenshot. */}
-              <div className="min-w-0">
-                <ConsolePreview
-                  counts={NO_HOLDINGS}
-                  dayIndex={dayIndex}
-                  durationDays={durationDays}
-                  state={miningState}
-                  stateLabel={stateLabel}
-                  activity={NO_ACTIVITY}
+              <ul className="pse-verdict-facts">
+                <li>
+                  <p className="pse-np">Entry price</p>
+                  <p className="pse-fact-v pse-n">{gbp(LOCKED_PSEMINE_TOOLS.starter.purchasePriceGBP)}</p>
+                </li>
+                <li>
+                  <p className="pse-np">Peak tool capacity</p>
+                  <p className="pse-fact-v pse-n">{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</p>
+                </li>
+                <li>
+                  <p className="pse-np">Campaign</p>
+                  <p className="pse-fact-v pse-n">{durationDays} days</p>
+                </li>
+                <li>
+                  <p className="pse-np">Network</p>
+                  <p className="pse-fact-v">{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}</p>
+                </li>
+              </ul>
+            </div>
+
+            <div className="pse-grid-2" style={{ marginTop: 28 }}>
+              <SpecimenSheet
+                dayLabel={specimenLabel}
+                dutyRail={<DutyRail campaign={campaign} density="default" />}
+                capacityRail={
+                  <CapacityRail
+                    toolCapacity={0}
+                    referralCapacity={0}
+                    counts={{ starter: 0, builder: 0, advanced: 0, elite: 0 }}
+                    referralCount={0}
+                    meta="Every lane as it would be held"
+                  />
+                }
+              />
+
+              <div className="pse-stack-tight">
+                <p className="pse-np">The module family</p>
+                <div className="pse-plate pse-pad">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+                    {TOOLS.map(t => (
+                      <div key={t.id} className="pse-stack-tight">
+                        <ModuleMark tier={t.tier as 1 | 2 | 3 | 4} size={150} active className="pse-mod-art" />
+                        <p className="pse-np">Tier {t.tier}</p>
+                        <p className="pse-label-b">{t.name}</p>
+                        <p className="pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</p>
+                        <p className="pse-meta">
+                          {t.operating.model === 'continuous' ? 'Continuous duty' : 'Session duty'} · max {t.maxPerUser}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="pse-meta pse-measure">
+                  One product line, four topologies. Tier is carried by the module's construction — bay count,
+                  vent bank, service rail, crest — and by its nameplate, never by being drawn larger.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ 01 · THE PRODUCT ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="product"
+            no="01"
+            title="A fixed-length capacity campaign, not a trading product"
+            lead="PSEmine has no order book, no token and no dynamic pricing. It has tools, capacity, operating hours and a ledger that settles once at the end."
+          >
+            <div className="pse-grid-2">
+              <div className="pse-stack">
+                <p className="pse-copy pse-measure">
+                  Each tool you own contributes a fixed hourly rate, denominated in GBP, for as long as its duty
+                  cycle is open. Those hours are written to an append-only mining ledger by the backend — not by
+                  this page, and not by your browser.
+                </p>
+                <p className="pse-copy pse-measure">
+                  At day {durationDays} accrual stops, final balances are computed from the ledger, and reviewed
+                  payout requests are paid in BNB to the wallet you configured. Between those two moments the
+                  balance is a campaign accrual: real, reported, and not yet withdrawable.
+                </p>
+              </div>
+              <div className="pse-ledger">
+                <div className="pse-ledger-legend" data-cols={2}>
+                  <span className="pse-np">Product fact</span>
+                  <span className="pse-np" style={{ textAlign: 'right' }}>Value</span>
+                </div>
+                <div className="pse-ledger-body">
+                  {[
+                    { k: 'Accounting currency', v: 'GBP (£)' },
+                    { k: 'Payment & payout asset', v: 'BNB' },
+                    { k: 'Tool tiers', v: '4' },
+                    { k: 'Tool capacity ceiling', v: gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR) },
+                    { k: 'Referral capacity ceiling', v: gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR) },
+                    { k: 'Maximum total capacity', v: gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR) },
+                    { k: 'Campaign length', v: `${durationDays} days` },
+                  ].map(r => (
+                    <div key={r.k} className="pse-row">
+                      <div className="pse-row-k"><p className="pse-label">{r.k}</p></div>
+                      <span className="pse-row-v pse-n" style={{ alignSelf: 'center' }}>{r.v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Chapter>
+        </div>
+
+        {/* ═══════════ 02 · THE TOOLS ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="tools"
+            no="02"
+            title="Four tiers, one price and one hourly rate each"
+            lead={`Every tier is a fixed price and a fixed hourly rate, additive up to ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}. Per-account ownership limits keep one operator from owning the whole campaign.`}
+            right={
+              <Link to={purchaseHref} className="pse-btn pse-btn-2 pse-btn-sm">
+                Open the marketplace <ArrowRight size={13} />
+              </Link>
+            }
+          >
+            <ToolSpecSheet purchaseHref={purchaseHref} purchaseEnabled={purchaseEnabled} />
+          </Chapter>
+        </div>
+
+        {/* ═══════════ 03 · CAPACITY ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="capacity"
+            no="03"
+            title="Your hourly rate is the sum of exactly two things"
+            lead="Tool capacity plus qualified referral capacity. The register below is the same instrument the console shows you, drawn here with every lane available."
+          >
+            <div className="pse-grid-2">
+              <div className="pse-ledger pse-pad">
+                <CapacityRail
+                  toolCapacity={0}
+                  referralCapacity={0}
+                  counts={{ starter: 0, builder: 0, advanced: 0, elite: 0 }}
+                  referralCount={0}
+                  label="Capacity register"
+                  meta="Nothing held — every lane available"
                 />
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ HOW IT WORKS — five-step visual flow ═══════════ */}
-        <section id="how-it-works" className="pse-anchor pse-band" data-pse-section="how-it-works">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>01</b> Product flow</p>
-                <h2 className="pse-t-sec mt-3">Five steps from wallet to settlement</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  No hardware, no hosting, no dynamic pricing. You choose capacity, pay in BNB, keep your tools in
-                  cycle, and the campaign settles what those hours earned.
-                </p>
-              </div>
-              <Link to="/mine/guide" className="pse-btn pse-btn-outline pse-btn-sm shrink-0">
-                Read the full guide <ArrowUpRight size={13} />
-              </Link>
-            </div>
-
-            <ol className="pse-flow mt-8">
-              {HOW_IT_WORKS.map(s => (
-                <li key={s.no} className="pse-flowstep">
-                  <div className="pse-flowstep-rail" aria-hidden="true">
-                    <span className="pse-step-no is-active">{s.no}</span>
-                    <span className="pse-flowstep-line" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <span className="pse-step-no is-active pse-flowstep-inline">{s.no}</span>
-                      <p className="pse-t-sub">{s.title}</p>
-                    </div>
-                    <p className="pse-t-body mt-3" style={{ maxWidth: '46ch' }}>{s.body}</p>
-                  </div>
-                  <div className="pse-step-visual">{s.visual}</div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* ═══════════ MINING MARKETPLACE ═══════════ */}
-        <section id="marketplace" className="pse-anchor pse-band pse-band-alt" data-pse-section="marketplace">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>02</b> Mining marketplace</p>
-                <h2 className="pse-t-sec mt-3">Four tiers. One 24-hour operating cycle.</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  Each tier is a fixed price and a fixed hourly capacity, additive up to{' '}
-                  {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}. Ownership limits per account keep one
-                  operator from owning the whole campaign.
-                </p>
-              </div>
-              <Link to={purchaseHref} className="pse-btn pse-btn-outline pse-btn-sm shrink-0">
-                Open the marketplace <ArrowUpRight size={13} />
-              </Link>
-            </div>
-
-            {/* Row 1 — the featured unit, presented large, beside the second tier. */}
-            <div className="pse-mkt pse-mkt-feat mt-8">
-              <div className="pse-panel">
-                <div className="pse-mkt-visual">
-                  <span className="pse-tag" style={{ position: 'absolute', top: 14, left: 14 }}>Featured</span>
-                  <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 1 of 4</span>
-                  <div style={{ maxWidth: 520, width: '100%' }}>
-                    <MinerArt tier={1} size={200} className="h-auto w-full" />
-                  </div>
-                </div>
-                <div className="pse-panel-body">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="pse-t-sub">{featured.name}</h3>
-                      <p className="pse-tiny mt-1.5">{featured.tagline}</p>
-                    </div>
-                    <p className="pse-fig-2 shrink-0" style={{ color: 'var(--pse-text)' }}>
-                      {gbp(featured.purchasePriceGBP)}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="pse-plate p-3">
-                      <p className="pse-tiny">Hourly capacity</p>
-                      <p className="pse-num pse-fig-3 mt-1.5" style={{ color: 'var(--pse-blue-ink)' }}>
-                        {gbpHour(featured.hourlyRateGBP)}
-                      </p>
-                    </div>
-                    <div className="pse-plate p-3">
-                      <p className="pse-tiny">Maximum per account</p>
-                      <p className="pse-num pse-fig-3 mt-1.5">{featured.maxPerUser}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Capacity held at the ownership limit</span>
-                    <span className="pse-spec-v">{gbpHour(featured.hourlyRateGBP * featured.maxPerUser)}</span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Operating cycle</span>
-                    <span className="pse-spec-v">24 hours · free maintenance</span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Activation</span>
-                    <span className="pse-spec-v">After on-chain verification</span>
-                  </div>
-                </div>
-                <div className="pse-panel-body" style={{ paddingTop: 0 }}>
-                  <Link
-                    to={purchaseHref}
-                    className="pse-btn pse-btn-primary pse-btn-lg w-full justify-center"
-                    aria-disabled={!purchaseEnabled}
-                  >
-                    Purchase {featured.name} <ArrowRight size={15} />
-                  </Link>
-                  <p className="pse-tiny mt-2.5 text-center">
-                    {purchaseEnabled
-                      ? `Paid in BNB on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · ${gbp(featured.purchasePriceGBP)}`
-                      : 'Purchases are currently closed for this campaign.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pse-panel">
-                <div className="pse-mkt-visual" style={{ paddingBlock: 20 }}>
-                  <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 2 of 4</span>
-                  <div style={{ maxWidth: 300, width: '100%' }}>
-                    <MinerArt tier={2} size={140} className="h-auto w-full" />
-                  </div>
-                </div>
-                <div className="pse-panel-body">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="pse-t-sub">{TOOL_BY_ID.builder.name}</h3>
-                      <p className="pse-tiny mt-1.5">{TOOL_BY_ID.builder.tagline}</p>
-                    </div>
-                    <p className="pse-fig-2 shrink-0">{gbp(TOOL_BY_ID.builder.purchasePriceGBP)}</p>
-                  </div>
-                </div>
-                <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Hourly capacity</span>
-                    <span className="pse-spec-v" style={{ color: 'var(--pse-blue-ink)' }}>
-                      {gbpHour(TOOL_BY_ID.builder.hourlyRateGBP)}
-                    </span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Maximum per account</span>
-                    <span className="pse-spec-v">{TOOL_BY_ID.builder.maxPerUser}</span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Capacity at limit</span>
-                    <span className="pse-spec-v">
-                      {gbpHour(TOOL_BY_ID.builder.hourlyRateGBP * TOOL_BY_ID.builder.maxPerUser)}
-                    </span>
-                  </div>
-                </div>
-                <div className="pse-panel-body" style={{ paddingTop: 0 }}>
-                  <Link to={purchaseHref} className="pse-btn pse-btn-outline w-full justify-center">
-                    Purchase {TOOL_BY_ID.builder.name}
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 2 — the third tier beside the flagship, which reads larger. */}
-            <div className="pse-mkt pse-mkt-flagship mt-4">
-              {row2Tiers.map(id => {
-                const t = TOOL_BY_ID[id];
-                return (
-                  <div key={id} className="pse-panel">
-                    <div className="pse-mkt-visual" style={{ paddingBlock: 20 }}>
-                      <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>
-                        Tier {t.tier} of 4
-                      </span>
-                      <div style={{ maxWidth: 300, width: '100%' }}>
-                        <MinerArt tier={(TOOL_BY_ID[id].tier || 1) as 1 | 2 | 3 | 4} size={140} className="h-auto w-full" />
-                      </div>
-                    </div>
-                    <div className="pse-panel-body">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="pse-t-sub">{t.name}</h3>
-                          <p className="pse-tiny mt-1.5">{t.tagline}</p>
-                        </div>
-                        <p className="pse-fig-2 shrink-0">{gbp(t.purchasePriceGBP)}</p>
-                      </div>
-                    </div>
-                    <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
-                      <div className="pse-spec">
-                        <span className="pse-spec-k">Hourly capacity</span>
-                        <span className="pse-spec-v" style={{ color: 'var(--pse-purple-ink)' }}>
-                          {gbpHour(t.hourlyRateGBP)}
-                        </span>
-                      </div>
-                      <div className="pse-spec">
-                        <span className="pse-spec-k">Maximum per account</span>
-                        <span className="pse-spec-v">{t.maxPerUser}</span>
-                      </div>
-                      <div className="pse-spec">
-                        <span className="pse-spec-k">Capacity at limit</span>
-                        <span className="pse-spec-v">{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</span>
-                      </div>
-                    </div>
-                    <div className="pse-panel-body" style={{ paddingTop: 0 }}>
-                      <Link to={purchaseHref} className="pse-btn pse-btn-outline w-full justify-center">
-                        Purchase {t.name}
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Flagship presentation: bigger object, denser specification. */}
-              <div className="pse-panel pse-panel-flagship">
-                <div className="pse-mkt-visual pse-mkt-visual-flagship">
-                  <span className="pse-tag pse-tag-flagship" style={{ position: 'absolute', top: 14, left: 14 }}>
-                    Flagship
-                  </span>
-                  <span className="pse-tag" style={{ position: 'absolute', top: 14, right: 14 }}>Tier 4 of 4</span>
-                  <div style={{ maxWidth: 460, width: '100%' }}>
-                    <MinerArt tier={4} size={200} className="h-auto w-full" />
-                  </div>
-                </div>
-                <div className="pse-panel-body">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="pse-t-sec" style={{ fontSize: 'clamp(20px, 2.4vw, 26px)' }}>{flagship.name}</h3>
-                      <p className="pse-t-small mt-2">{flagship.tagline}</p>
-                    </div>
-                    <p className="pse-fig-1 shrink-0">{gbp(flagship.purchasePriceGBP)}</p>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <div className="pse-plate p-3">
-                      <p className="pse-tiny">Hourly capacity</p>
-                      <p className="pse-num pse-fig-3 mt-1.5" style={{ color: 'var(--pse-cyan-ink)' }}>
-                        {gbpHour(flagship.hourlyRateGBP)}
-                      </p>
-                    </div>
-                    <div className="pse-plate p-3">
-                      <p className="pse-tiny">Maximum per account</p>
-                      <p className="pse-num pse-fig-3 mt-1.5">{flagship.maxPerUser}</p>
-                    </div>
-                    <div className="pse-plate p-3">
-                      <p className="pse-tiny">Capacity at limit</p>
-                      <p className="pse-num pse-fig-3 mt-1.5" style={{ color: 'var(--pse-text-2)' }}>
-                        {gbpHour(flagship.hourlyRateGBP * flagship.maxPerUser)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="pse-specs border-t" style={{ borderColor: 'var(--pse-edge)' }}>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Share of maximum tool capacity</span>
-                    <span className="pse-spec-v">
-                      {Math.round(
-                        ((flagship.hourlyRateGBP * flagship.maxPerUser)
-                          / PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR) * 100,
-                      )}%
-                    </span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Operating cycle</span>
-                    <span className="pse-spec-v">24 hours · free maintenance</span>
-                  </div>
-                  <div className="pse-spec">
-                    <span className="pse-spec-k">Activation</span>
-                    <span className="pse-spec-v">After on-chain verification</span>
-                  </div>
-                </div>
-                <div className="pse-panel-body" style={{ paddingTop: 0 }}>
-                  <Link
-                    to={purchaseHref}
-                    className="pse-btn pse-btn-primary pse-btn-lg w-full justify-center"
-                    aria-disabled={!purchaseEnabled}
-                  >
-                    Purchase {flagship.name} <ArrowRight size={15} />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ COMPARISON — price against capacity, with the product ═══════════ */}
-        <section id="comparison" className="pse-anchor pse-band" data-pse-section="comparison">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>03</b> Comparison</p>
-                <h2 className="pse-t-sec mt-3">What you buy, and what capacity it holds</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  Each tier drawn at a comparable scale, with its price and its hourly capacity on the same axis. The
-                  tool is the product; the bars are what the campaign pays for it.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="pse-tiny flex items-center gap-2">
-                  <span className="pse-bar" style={{ width: 26 }} aria-hidden="true">
-                    <span className="pse-bar-fill pse-bar-fill-neutral" style={{ width: '100%', display: 'block' }} />
-                  </span>
-                  Price
-                </span>
-                <span className="pse-tiny flex items-center gap-2">
-                  <span className="pse-bar" style={{ width: 26 }} aria-hidden="true">
-                    <span className="pse-bar-fill" style={{ width: '100%', display: 'block' }} />
-                  </span>
-                  Capacity / hour
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <ToolComparison />
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ CAPACITY SYSTEM ═══════════ */}
-        <section id="capacity" className="pse-anchor pse-band pse-band-alt" data-pse-section="capacity">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>04</b> Capacity system</p>
-                <h2 className="pse-t-sec mt-3">Your hourly rate is the sum of exactly two things</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  Tool capacity plus qualified referral capacity. The backend computes every figure; the app only
-                  displays what the server reports.
-                </p>
-              </div>
-            </div>
-
-            <div className="pse-cap mt-8">
-              <CapacityBuilder />
-
-              <div className="pse-panel">
-                <div className="pse-panel-head">
-                  <p className="pse-eyebrow">How capacity is built</p>
-                  <span className="pse-tiny">Tools → capacity → accrual</span>
-                </div>
-                <div>
-                  {CAPACITY_FLOW.map((row, i) => (
-                    <div key={row.label} className="pse-flow-row">
-                      <span className="pse-step-no">{String(i + 1).padStart(2, '0')}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="pse-t-small font-semibold" style={{ color: 'var(--pse-text)' }}>{row.label}</p>
-                        <p className="pse-tiny mt-1">{row.note}</p>
-                      </div>
-                      <span className="pse-num pse-t-small shrink-0 font-semibold" style={{ color: 'var(--pse-cyan-ink)' }}>
-                        {row.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Designed empty state: the landing has no personal capacity. */}
-                <div className="pse-panel-foot">
-                  <div className="flex items-start gap-3">
-                    <span className="pse-empty-mark" style={{ width: 26, height: 26 }} aria-hidden="true">
-                      <Lock size={12} />
-                    </span>
-                    <p className="pse-tiny">
-                      Your own capacity appears here only after you own a tool: the console shows your registered
-                      capacity, the operating state of every tool, and the accrual the ledger has written. This page
-                      explains the model — it never shows a number you have not earned.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ REFERRAL SYSTEM ═══════════ */}
-        <section id="referrals" className="pse-anchor pse-band" data-pse-section="referrals">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>05</b> Referral system</p>
-                <h2 className="pse-t-sec mt-3">Referrals pay capacity, not bonuses in cash</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  A referral qualifies through five verifiable stages. Each qualified referral adds a fixed hourly rate
-                  to your mining capacity for the rest of the campaign.
-                </p>
-              </div>
-            </div>
-
-            <div className="pse-cap mt-8">
-              <ReferralProgression qualified={0} />
-              <div className="pse-panel">
-                <div className="pse-panel-head">
-                  <p className="pse-eyebrow">What a referral must do</p>
-                  <span className="pse-tiny">Verified on the backend</span>
-                </div>
-                <div className="pse-specs">
-                  {[
-                    { k: 'Registered with your referral', v: 'Stage 1' },
-                    { k: 'Connected a BNB Smart Chain wallet', v: 'Stage 2' },
-                    { k: 'Purchased a mining tool', v: 'Stage 3' },
-                    { k: 'Mining active on their account', v: 'Stage 4' },
-                    { k: 'Qualified — capacity added', v: 'Stage 5' },
-                  ].map(s => (
-                    <div key={s.k} className="pse-spec">
-                      <span className="pse-spec-k flex items-center gap-2.5">
-                        <Check size={13} style={{ color: 'var(--pse-success)' }} />
-                        {s.k}
-                      </span>
-                      <span className="pse-spec-v" style={{ color: 'var(--pse-text-2)' }}>{s.v}</span>
-                    </div>
-                  ))}
-                  <div className="pse-spec" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <span className="pse-spec-k font-semibold" style={{ color: 'var(--pse-text)' }}>
-                      Maximum referral capacity
-                    </span>
-                    <span className="pse-spec-v" style={{ color: 'var(--pse-purple-ink)' }}>
-                      +{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}
-                    </span>
-                  </div>
-                </div>
-                <div className="pse-panel-body">
-                  <p className="pse-tiny">
-                    Qualification is decided by a single auditable backend path with anti-abuse checks, applies from
-                    the qualification moment forward, and is capped at{' '}
-                    {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referrals per account.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ CAMPAIGN LIFECYCLE ═══════════ */}
-        <section id="campaign" className="pse-anchor pse-band pse-band-alt" data-pse-section="campaign">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>06</b> Campaign lifecycle</p>
-                <h2 className="pse-t-sec mt-3">One {durationDays}-day arc: launch to closed</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  The phase you are in is always visible in the console, derived from backend campaign state — not from
-                  a browser clock.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-4">
-              <CampaignLifecycle
-                campaign={campaign}
-                dayIndex={realDay}
-                state={miningState}
-                stateLabel={stateLabel}
-              />
-              {realDay === null && (
-                <p className="pse-tiny">
-                  No campaign window has been opened by the backend yet, so this panel shows the campaign exactly as
-                  the console would: not started, no day counted. The console preview at the top of this page shows
-                  that same starting state — no tools held, £0.00/hour of capacity and £0.00 accrued — not an
-                  illustration of earnings.
-                </p>
-              )}
-              <MiningStates />
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ WALLET & PAYOUT ═══════════ */}
-        <section id="wallet" className="pse-anchor pse-band" data-pse-section="wallet">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>07</b> Wallet &amp; payout</p>
-                <h2 className="pse-t-sec mt-3">Quoted in GBP, paid in BNB, locked until settlement</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  The campaign keeps GBP accounting and BNB settlement strictly apart: a balance you have accrued is
-                  not a balance you can withdraw before the ledger is finalised.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <WalletZones
-                accruedGBP={0}
-                capacityGBPPerHour={0}
-                payoutWallet={null}
-                connectedWallet={null}
-              />
-            </div>
-
-            <div className="pse-panel mt-4">
-              <div className="pse-panel-head">
-                <p className="pse-eyebrow">Purchase &amp; payout path</p>
-                <span className="pse-tiny">Nothing here is estimated by the browser</span>
-              </div>
-              <div className="pse-grid pse-grid-4 pse-panel-body">
+              <div className="pse-stack" style={{ marginTop: 4 }}>
                 {[
-                  { n: '01', t: 'Quote', d: `The fixed GBP price is converted to an exact BNB amount and bound to your account for ${PSEMINE_CONSTANTS.QUOTE_EXPIRATION_MINUTES} minutes.` },
-                  { n: '02', t: 'Send', d: `You send exactly that amount to the campaign wallet on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}.` },
-                  { n: '03', t: 'Verify', d: 'Sender, recipient, amount and confirmation depth are checked against the quote before the tool activates.' },
-                  { n: '04', t: 'Accrue', d: 'The activated tool accrues hourly. Accrual stops at day ' + durationDays + ' and the ledger is finalised.' },
-                ].map(s => (
-                  <div key={s.n} className="pse-plate p-4">
-                    <span className="pse-step-no">{s.n}</span>
-                    <p className="pse-t-sub mt-3">{s.t}</p>
-                    <p className="pse-tiny mt-2">{s.d}</p>
+                  ['Tools add capacity, per tool', `Owned tools are summed at their fixed hourly rate: ${TOOLS.map(t => `${t.name} ${gbpHour(t.hourlyRateGBP)}`).join(' · ')}.`],
+                  ['Ownership limits are the cap', `The four tiers' per-account limits sum to ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of tool capacity — the ceiling on the register.`],
+                  ['Referrals add capacity too', `Each qualified referral adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)}, up to ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referrals (+${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}).`],
+                  ['Capacity only accrues on duty', 'A tool contributes while its operating cycle is open. A stopped, restarting or completed session accrues nothing — which is why the duty rail on the console is as important as the capacity figure.'],
+                ].map(([t, d], i) => (
+                  <div key={t} className="pse-clause">
+                    <span className="pse-clause-no">{String(i + 1).padStart(2, '0')}</span>
+                    <div className="min-w-0">
+                      <p className="pse-label-b">{t}</p>
+                      <p className="pse-meta mt-1 pse-measure">{d}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </section>
+          </Chapter>
+        </div>
 
-        {/* ═══════════ SECURITY & TRANSPARENCY ═══════════ */}
-        <section id="security" className="pse-anchor pse-band pse-band-alt" data-pse-section="security">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>08</b> Security &amp; transparency</p>
-                <h2 className="pse-t-sec mt-3">The browser displays state. The backend owns it.</h2>
-                <p className="pse-t-body pse-limit mt-4">
-                  Every value that matters — price, payment verification, capacity, accrual, qualification — is
-                  decided server-side. The app is a window onto that state, not a participant in it.
-                </p>
+        {/* ═══════════ 04 · THE CAMPAIGN ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="campaign"
+            no="04"
+            title={`One ${durationDays}-day arc, from launch to closed`}
+            lead="The campaign position is derived from backend campaign state — never from a browser clock. The same rail appears in the console, on every route."
+          >
+            <div className="pse-stack">
+              <div className="pse-ledger pse-pad">
+                <DutyRail campaign={campaign} density="default" />
               </div>
-              <Link to="/mine/guide" className="pse-btn pse-btn-outline pse-btn-sm shrink-0">
-                <ShieldCheck size={13} /> Full campaign guide
-              </Link>
-            </div>
-
-            <div className="pse-grid pse-grid-3 mt-8">
-              {SECURITY_ITEMS.map(item => (
-                <div key={item.t} className="pse-panel">
-                  <div className="pse-panel-body">
-                    <p className="pse-t-sub flex items-start gap-2.5">
-                      <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
-                      {item.t}
-                    </p>
-                    <p className="pse-tiny mt-2.5">{item.d}</p>
-                  </div>
+              <DutyModels />
+              <div className="pse-ledger">
+                <div className="pse-ledger-legend" data-cols={2}>
+                  <span className="pse-np">Phase</span>
+                  <span className="pse-np" style={{ textAlign: 'right' }}>State</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ FAQ ═══════════ */}
-        <section id="faq" className="pse-anchor pse-band" data-pse-section="faq">
-          <div className="pse-wrap-x">
-            <div className="pse-sec-head">
-              <div className="min-w-0">
-                <p className="pse-sec-no"><b>09</b> Questions</p>
-                <h2 className="pse-t-sec mt-3">What operators ask before their first purchase</h2>
+                <div className="pse-ledger-body">
+                  {clock.phases.map((p, i) => (
+                    <div key={p.key} className="pse-row">
+                      <div className="pse-row-k">
+                        <p className="pse-label-b">{p.label}</p>
+                        <p className="pse-meta mt-1">
+                          {[
+                            'Tools go on sale. Each purchase begins its first operating cycle.',
+                            'Cycles run for the campaign window. Capacity accrues hourly against the ledger.',
+                            'Accrual stops and final balances are computed from the mining ledger.',
+                            'Reviewed payout requests are paid in BNB to configured payout wallets.',
+                            'The campaign is archived with its final ledger intact.',
+                          ][i]}
+                        </p>
+                      </div>
+                      <span className="pse-row-v pse-np" style={{ alignSelf: 'center', color: p.state === 'current' ? 'var(--pse-jade-ink)' : undefined }}>
+                        {p.state === 'done' ? 'Complete' : p.state === 'current' ? 'In progress' : 'Scheduled'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+          </Chapter>
+        </div>
 
-            <div className="pse-faq mt-6" style={{ maxWidth: 860 }}>
+        {/* ═══════════ 05 · MONEY PATH ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="money"
+            no="05"
+            title="Quoted in GBP, paid in BNB, settled once"
+            lead="The campaign keeps GBP accounting and BNB settlement strictly apart: a balance you have accrued is not a balance you can withdraw before the ledger is finalised."
+          >
+            <MoneyPath />
+          </Chapter>
+        </div>
+
+        {/* ═══════════ 06 · REFERRALS ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="referrals"
+            no="06"
+            title="Referrals pay capacity, not cash bonuses"
+            lead="Five lanes, one qualification path. Each lane that qualifies adds a fixed hourly rate to your mining capacity for the rest of the campaign."
+          >
+            <div className="pse-grid-2">
+              <div className="pse-ledger pse-pad">
+                <ReferralLanes qualified={0} />
+              </div>
+              <ReferralClauses />
+            </div>
+          </Chapter>
+        </div>
+
+        {/* ═══════════ 07 · ASSURANCE + FAQ ═══════════ */}
+        <div className="pse-land-wrap">
+          <Chapter
+            id="assurance"
+            no="07"
+            title="The browser displays state. The backend owns it."
+            lead="Every value that matters — price, payment verification, capacity, accrual, qualification — is decided server-side. The application is a window onto that state, not a participant in it."
+            right={<Link to="/mine/guide" className="pse-btn pse-btn-2 pse-btn-sm">Read the campaign guide</Link>}
+          >
+            <div className="pse-grid-2">
+              <AssuranceList />
+              <div className="pse-ledger pse-pad">
+                <p className="pse-np">Security posture</p>
+                <div className="pse-stack-tight" style={{ marginTop: 12 }}>
+                  <div className="pse-spec-line"><span>Price authority</span><span>Server quote</span></div>
+                  <div className="pse-spec-line"><span>Payment verification</span><span>On-chain</span></div>
+                  <div className="pse-spec-line"><span>Accrual authority</span><span>Mining ledger</span></div>
+                  <div className="pse-spec-line"><span>Settlement</span><span>Backend-computed</span></div>
+                  <div className="pse-spec-line"><span>Wallet binding</span><span>Server-side</span></div>
+                  <div className="pse-spec-line"><span>Entitlement</span><span>Per account</span></div>
+                </div>
+              </div>
+            </div>
+          </Chapter>
+
+          <section id="faq" data-pse-section="faq" className="pse-brief pse-anchor">
+            <div className="pse-brief-head">
+              <div className="min-w-0">
+                <p className="pse-np">Questions</p>
+                <h2 className="pse-brief-title" style={{ marginTop: 8 }}>
+                  What operators ask before their first purchase
+                </h2>
+              </div>
+            </div>
+            <div className="pse-faq" style={{ marginTop: 8, maxWidth: 860 }}>
               {FAQS.map((f, i) => {
                 const open = openFaq === i;
                 return (
@@ -898,129 +498,105 @@ export const PSEMineLanding: React.FC = () => {
                       <span>{f.q}</span>
                       <ChevronDown
                         size={16}
-                        className="shrink-0 transition-transform"
+                        className="shrink-0"
                         style={{ color: 'var(--pse-text-3)', transform: open ? 'rotate(180deg)' : undefined }}
                       />
                     </button>
-                    {open && <p className="pse-t-body pse-limit-s pse-faq-a">{f.a}</p>}
+                    {open && <p className="pse-copy-s pse-faq-a">{f.a}</p>}
                   </div>
                 );
               })}
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        {/* ═══════════ FINAL CTA ═══════════ */}
-        <section className="pse-land-cta" data-pse-section="cta">
-          <div className="pse-wrap-x pse-band">
-            <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        {/* ═══════════ CTA ═══════════ */}
+        <section data-pse-section="cta" className="pse-band-sec">
+          <div className="pse-land-wrap">
+            <div className="pse-grid-2">
               <div className="min-w-0">
-                <p className="pse-sec-no"><b>10</b> Start</p>
-                <h2 className="pse-t-sec mt-3">
-                  The campaign runs for {durationDays} days. Capacity accrues every operating hour.
+                <p className="pse-np">Start</p>
+                <h2 className="pse-brief-title" style={{ marginTop: 8 }}>
+                  The campaign runs for {durationDays} days.
+                  {clock.daysLeft !== null && <> {clock.daysLeft} days remain.</>}
                 </h2>
-                <p className="pse-t-body pse-limit mt-4">
+                <p className="pse-copy pse-measure" style={{ marginTop: 12 }}>
                   {purchaseEnabled
-                    ? 'Buy a tool, keep it in cycle, and let the campaign settle your earnings at the end.'
-                    : 'Purchases are currently closed. The guide explains the campaign while you wait.'}
+                    ? 'Buy a tool, keep it inside its duty cycle, and let the campaign settle your earnings at the end.'
+                    : 'Purchases are currently closed for this campaign. The guide explains the campaign while you wait.'}
                 </p>
-                <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
-                  <Link to={primaryHref} className="pse-btn pse-btn-primary pse-btn-lg justify-center">
-                    Start Mining <ArrowRight size={15} />
+                <div className="flex flex-col gap-2.5 sm:flex-row" style={{ marginTop: 20 }}>
+                  <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
+                    {currentUser ? 'Open your console' : 'Create an account'} <ArrowRight size={15} />
                   </Link>
-                  <a href="#how-it-works" className="pse-btn pse-btn-outline pse-btn-lg justify-center">
-                    How it works
-                  </a>
+                  <a href="#tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">The tools</a>
                 </div>
               </div>
-
-              {/* The four tiers as an object row — the product, one last time. */}
-              <div className="pse-panel">
-                <div className="pse-panel-head">
-                  <p className="pse-eyebrow">The four tiers</p>
-                  <span className="pse-tiny">At a glance</span>
-                </div>
-                <div className="pse-specs">
-                  {TOOLS.map(t => (
-                    <div key={t.id} className="pse-spec">
-                      <span className="pse-spec-k flex items-center gap-2.5">
-                        <span className="pse-tier" aria-hidden="true">{t.tier}</span>
-                        {t.name}
-                      </span>
-                      <span className="pse-spec-v flex items-center gap-3">
-                        <span className="pse-num" style={{ color: 'var(--pse-blue-ink)' }}>
-                          {gbpHour(t.hourlyRateGBP)}
-                        </span>
-                        <span className="pse-num" style={{ color: 'var(--pse-text)' }}>{gbp(t.purchasePriceGBP)}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <TierLedger />
             </div>
           </div>
         </section>
       </main>
 
-      {/* ═══════════ Footer — the landing's own ═══════════ */}
-      <footer className="pse-land-foot" data-pse-section="footer">
-        <div className="pse-wrap-x">
-          <div className="pse-land-foot-cols">
+      {/* ═══════════ Footer ═══════════ */}
+      <footer className="pse-foot" data-pse-section="footer">
+        <div className="pse-land-wrap">
+          <div className="pse-foot-cols">
             <div>
-              <div className="pse-land-brand">
-                <PSELogo size={26} />
-                <span className="pse-land-brand-name">PSEMine</span>
-              </div>
-              <p className="pse-tiny mt-3" style={{ maxWidth: '34ch' }}>
+              <Link to="/mine" className="pse-mark" aria-label="PSEmine home">
+                <PSELogo size={24} withWordmark />
+              </Link>
+              <p className="pse-meta pse-measure-s" style={{ marginTop: 12 }}>
                 A {durationDays}-day campaign-based mining product with GBP accounting, BNB settlement and
                 server-authoritative accrual.
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="pse-net"><span className="pse-net-mark" aria-hidden="true" />BNB Smart Chain</span>
-                <span className="pse-pill">GBP campaign</span>
+              <div className="flex flex-wrap items-center gap-3" style={{ marginTop: 14 }}>
+                <span className="pse-chain"><span className="pse-chain-mark" aria-hidden="true" />BNB Smart Chain</span>
+                <span className="pse-np pse-np-2">GBP campaign</span>
               </div>
             </div>
 
             <div>
-              <p className="pse-eyebrow">Product</p>
-              <div className="pse-foot-list mt-3.5">
-                <a href="#how-it-works">How it works</a>
-                <a href="#marketplace">Mining tools</a>
-                <a href="#capacity">Capacity system</a>
-                <a href="#campaign">Campaign lifecycle</a>
+              <p className="pse-np">Product</p>
+              <div className="pse-foot-list">
+                <a href="#tools">Mining tools</a>
+                <a href="#capacity">Capacity register</a>
+                <a href="#campaign">Campaign clock</a>
+                <a href="#money">Money path</a>
               </div>
             </div>
 
             <div>
-              <p className="pse-eyebrow">Account</p>
-              <div className="pse-foot-list mt-3.5">
+              <p className="pse-np">Account</p>
+              <div className="pse-foot-list">
                 <Link to="/mine/signup">Create an account</Link>
                 <Link to="/mine/login">Sign in</Link>
-                <Link to="/mine/dashboard">Console dashboard</Link>
+                <Link to="/mine/dashboard">Mining console</Link>
                 <Link to="/mine/wallet">Wallet &amp; payouts</Link>
               </div>
             </div>
 
             <div>
-              <p className="pse-eyebrow">Resources</p>
-              <div className="pse-foot-list mt-3.5">
+              <p className="pse-np">Reference</p>
+              <div className="pse-foot-list">
                 <Link to="/mine/guide">Campaign guide</Link>
-                <a href="#faq">FAQ</a>
+                <a href="#faq">Questions</a>
                 <Link to="/help">Support</Link>
-                <Link to="/verification-policy">Verification policy</Link>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 border-t pt-5" style={{ borderColor: 'var(--pse-edge)' }}>
-            <p className="pse-tiny">
-              No user statistics, campaign totals, earnings, purchases, referrals or payouts are displayed on this
-              page. Every figure is either a fixed campaign parameter from the product's own economics, or — in the
-              single labelled console preview at the top — a documented example used to illustrate the interface.
+          <div className="pse-rule" style={{ marginTop: 26 }} />
+          <div className="pse-stack-tight" style={{ marginTop: 18 }}>
+            <p className="pse-meta pse-measure">
+              No user statistics, campaign totals, earnings, purchases, referrals or payouts are displayed on
+              this page. Every figure is a fixed campaign parameter from the product's own economics, and the
+              single product visual is the console's real start state — no holdings, £0.00 accrued,
+              £0.00/hour of capacity.
             </p>
-            <p className="pse-tiny mt-3">
-              PSEmine shares a sign-in identity with PulseEarn and nothing else: points, tasks and rewards do not apply
-              to this campaign.
+            <p className="pse-meta pse-measure">
+              PSEmine shares a sign-in identity with PulseEarn and nothing else: points, tasks and rewards do
+              not apply to this campaign.
             </p>
           </div>
         </div>

@@ -31,9 +31,9 @@ const Spinner: React.FC<{ className?: string }> = ({ className }) => (
 const CampaignLedgerStrip: React.FC = () => {
   const tools = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
   return (
-    <div className="pse-panel overflow-hidden">
+    <div className="pse-ledger overflow-hidden">
       <div className="border-b px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-        <p className="pse-eyebrow">Campaign schedule</p>
+        <p className="pse-np">Campaign schedule</p>
       </div>
       <dl className="divide-y" style={{ borderColor: 'var(--pse-line)' }}>
         {[
@@ -43,18 +43,18 @@ const CampaignLedgerStrip: React.FC = () => {
           ['Peak capacity', gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)],
         ].map(([k, v]) => (
           <div key={k} className="flex items-center justify-between gap-4 px-5 py-2.5">
-            <dt className="pse-micro">{k}</dt>
-            <dd className="pse-caption pse-num font-semibold" style={{ color: 'var(--pse-text)' }}>{v}</dd>
+            <dt className="pse-meta">{k}</dt>
+            <dd className="pse-copy-s pse-n font-semibold" style={{ color: 'var(--pse-text)' }}>{v}</dd>
           </div>
         ))}
       </dl>
       <div className="border-t px-5 py-3.5" style={{ borderColor: 'var(--pse-line)' }}>
-        <p className="pse-eyebrow mb-2">Tools from</p>
+        <p className="pse-np mb-2">Tools from</p>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5">
           {tools.slice(0, 3).map(t => (
-            <span key={t.id} className="pse-micro">
-              {t.name} · <span className="pse-num" style={{ color: 'var(--pse-blue)' }}>{gbp(t.purchasePriceGBP)}</span>
-              {' · '}<span className="pse-num">{gbpHour(t.hourlyRateGBP).replace('/hour', '/hr')}</span>
+            <span key={t.id} className="pse-meta">
+              {t.name} · <span className="pse-n" style={{ color: 'var(--pse-jade-ink)' }}>{gbp(t.purchasePriceGBP)}</span>
+              {' · '}<span className="pse-n">{gbpHour(t.hourlyRateGBP).replace('/hour', '/hr')}</span>
             </span>
           ))}
         </div>
@@ -66,23 +66,23 @@ const CampaignLedgerStrip: React.FC = () => {
 const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: string[]; showLedger?: boolean }> = ({
   children, quote, points, showLedger,
 }) => (
-  <main className="pse-scope flex min-h-screen" style={{ background: 'var(--pse-bg)' }}>
+  <main className="pse-scope flex min-h-screen" style={{ background: 'var(--pse-canvas)' }}>
     <aside className="hidden lg:flex lg:w-[44%] lg:shrink-0 lg:flex-col lg:justify-between lg:border-r lg:p-12"
-      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-surface)' }}>
+      style={{ borderColor: 'var(--pse-line)', background: 'var(--pse-plane)' }}>
       <Link to="/mine" aria-label="PSEmine home"><PSELogo size={34} withWordmark /></Link>
       <div className="max-w-sm">
-        <p className="pse-lead font-medium" style={{ color: 'var(--pse-text)' }}>{quote}</p>
+        <p className="pse-copy font-medium" style={{ color: 'var(--pse-text)' }}>{quote}</p>
         <ul className="mt-7 space-y-3">
           {points.map(p => (
-            <li key={p} className="flex items-start gap-2.5 pse-caption">
-              <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
+            <li key={p} className="flex items-start gap-2.5 pse-copy-s">
+              <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
               {p}
             </li>
           ))}
         </ul>
         {showLedger && <div className="mt-8"><CampaignLedgerStrip /></div>}
       </div>
-      <p className="pse-micro">90-day campaign · GBP accounting · BNB Smart Chain settlement</p>
+      <p className="pse-meta">90-day campaign · GBP accounting · BNB Smart Chain settlement</p>
     </aside>
     <div className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8">
       <div className="w-full max-w-md">{children}</div>
@@ -122,7 +122,7 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, minLength =
 
 function SubmitBtn({ pending, label }: { pending: boolean; label: string }) {
   return (
-    <button type="submit" disabled={pending} className="pse-btn pse-btn-primary w-full justify-center py-3">
+    <button type="submit" disabled={pending} className="pse-btn w-full justify-center py-3">
       {pending ? <Spinner /> : <>{label} <ArrowRight size={14} /></>}
     </button>
   );
@@ -131,8 +131,8 @@ function SubmitBtn({ pending, label }: { pending: boolean; label: string }) {
 function GoogleBtn({ pending, label, onClick }: { pending: boolean; label: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} disabled={pending}
-      className="pse-btn pse-btn-secondary w-full justify-center gap-2.5 py-3"
-      style={{ background: 'var(--pse-inset, #12161d)' }}>
+      className="pse-btn pse-btn-2 w-full justify-center gap-2.5 py-3"
+      style={{ background: 'var(--pse-sunken)' }}>
       {pending ? <Spinner /> : <><GoogleG size={16} /> {label}</>}
     </button>
   );
@@ -143,9 +143,9 @@ function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
     <div role="alert" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'var(--pse-danger)', background: 'var(--pse-inset)' }}>
-      <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-danger)' }} />
-      <p className="pse-caption" style={{ color: 'var(--pse-danger)' }}>{message}</p>
+      style={{ borderColor: 'var(--pse-red)', background: 'var(--pse-sunken)' }}>
+      <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-red)' }} />
+      <p className="pse-copy-s" style={{ color: 'var(--pse-red)' }}>{message}</p>
     </div>
   );
 }
@@ -154,9 +154,9 @@ function FormError({ message }: { message: string | null }) {
 function FormSuccess({ message }: { message: string }) {
   return (
     <div role="status" className="flex items-start gap-2 rounded-lg border px-3.5 py-2.5"
-      style={{ borderColor: 'var(--pse-success)', background: 'var(--pse-inset)' }}>
-      <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success)' }} />
-      <p className="pse-caption" style={{ color: 'var(--pse-success)' }}>{message}</p>
+      style={{ borderColor: 'var(--pse-jade-ink)', background: 'var(--pse-sunken)' }}>
+      <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+      <p className="pse-copy-s" style={{ color: 'var(--pse-jade-ink)' }}>{message}</p>
     </div>
   );
 }
@@ -165,7 +165,7 @@ function Divider({ label }: { label?: string }) {
   return (
     <div className="my-5 flex items-center gap-3">
       <span className="h-px flex-1" style={{ background: 'var(--pse-line)' }} />
-      {label && <span className="pse-micro" style={{ color: 'var(--pse-text-3)' }}>{label}</span>}
+      {label && <span className="pse-meta" style={{ color: 'var(--pse-text-3)' }}>{label}</span>}
       <span className="h-px flex-1" style={{ background: 'var(--pse-line)' }} />
     </div>
   );
@@ -178,10 +178,10 @@ function strengthOf(pw: string): { score: number; label: string; tone: string } 
   if (/[A-Z]/.test(pw)) score += 25;
   if (/[0-9]/.test(pw)) score += 25;
   if (/[^A-Za-z0-9]/.test(pw)) score += 25;
-  if (score <= 25) return { score, label: 'Weak', tone: 'var(--pse-danger)' };
-  if (score <= 50) return { score, label: 'Fair', tone: 'var(--pse-warning)' };
-  if (score <= 75) return { score, label: 'Good', tone: 'var(--pse-blue)' };
-  return { score, label: 'Strong', tone: 'var(--pse-success)' };
+  if (score <= 25) return { score, label: 'Weak', tone: 'var(--pse-red)' };
+  if (score <= 50) return { score, label: 'Fair', tone: 'var(--pse-amber)' };
+  if (score <= 75) return { score, label: 'Good', tone: 'var(--pse-bone)' };
+  return { score, label: 'Strong', tone: 'var(--pse-jade-ink)' };
 }
 
 /* ═══════════════════ LOGIN / SIGNUP ═══════════════════ */
@@ -260,9 +260,9 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
       ]}
     >
       <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-eyebrow">{isSignup ? 'Create your PSEmine account' : 'Welcome back'}</p>
+      <p className="pse-np">{isSignup ? 'Create your PSEmine account' : 'Welcome back'}</p>
       <h1 className="pse-h2 mt-2">{isSignup ? 'Start your campaign' : 'Sign in to PSEmine'}</h1>
-      <p className="pse-caption mt-2">
+      <p className="pse-copy-s mt-2">
         {isSignup
           ? refFromQuery
             ? 'You were invited — the referral code is applied to this account automatically.'
@@ -272,9 +272,9 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
       {refFromQuery && isSignup && (
         <div className="mt-4 flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
-          style={{ borderColor: 'var(--pse-purple)', background: 'var(--pse-inset)' }}>
-          <Wand2 size={14} style={{ color: 'var(--pse-purple)' }} />
-          <p className="pse-micro" style={{ color: 'var(--pse-purple)' }}>
+          style={{ borderColor: 'var(--pse-amber)', background: 'var(--pse-sunken)' }}>
+          <Wand2 size={14} style={{ color: 'var(--pse-amber)' }} />
+          <p className="pse-meta" style={{ color: 'var(--pse-amber)' }}>
             Referral applied: <span className="pse-mono">{refFromQuery}</span>
           </p>
         </div>
@@ -288,7 +288,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
           label={isSignup ? 'Sign up with Google' : 'Sign in with Google'}
           onClick={() => void google()}
         />
-        <p className="pse-micro mt-2">
+        <p className="pse-meta mt-2">
           {isSignup
             ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
             : 'Use the same Google identity you signed up with — no second account is created.'}
@@ -322,18 +322,18 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
         {isSignup && password.length > 0 && (
           <div aria-live="polite">
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="pse-micro">Password strength</span>
-              <span className="pse-micro font-semibold" style={{ color: strength.tone }}>{strength.label}</span>
+              <span className="pse-meta">Password strength</span>
+              <span className="pse-meta font-semibold" style={{ color: strength.tone }}>{strength.label}</span>
             </div>
-            <div className="pse-bar">
-              <div className="pse-bar-fill" style={{ width: `${Math.max(8, strength.score)}%`, background: strength.tone }} />
+            <div className="pse-progress" role="progressbar" aria-label="Password strength" aria-valuenow={Math.round(strength.score)} aria-valuemin={0} aria-valuemax={100}>
+              <div className="pse-progress-fill" style={{ width: `${Math.max(8, strength.score)}%`, background: strength.tone }} />
             </div>
           </div>
         )}
 
         {!isSignup && (
           <div className="flex justify-end">
-            <Link to="/mine/forgot-password" className="pse-caption pse-tap font-medium hover:underline" style={{ color: 'var(--pse-blue)' }}>
+            <Link to="/mine/forgot-password" className="pse-copy-s font-medium hover:underline" style={{ color: 'var(--pse-jade-ink)' }}>
               Forgot password?
             </Link>
           </div>
@@ -342,23 +342,23 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
       </form>
 
       <div className="mt-7 flex items-center justify-between border-t pt-6" style={{ borderColor: 'var(--pse-line)' }}>
-        <span className="pse-caption">{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
-        <Link className="pse-caption pse-tap font-semibold hover:underline" style={{ color: 'var(--pse-blue)' }}
+        <span className="pse-copy-s">{isSignup ? 'Already have an account?' : 'New to PSEmine?'}</span>
+        <Link className="pse-copy-s font-semibold hover:underline" style={{ color: 'var(--pse-jade-ink)' }}
           to={isSignup ? '/mine/login' : '/mine/signup'}>
           {isSignup ? 'Sign in' : 'Create account'}
         </Link>
       </div>
 
       {isSignup && (
-        <p className="pse-micro mt-5">
+        <p className="pse-meta mt-5">
           By creating an account you agree to the <Link to="/terms">Terms</Link>
           {' '}and <Link to="/privacy">Privacy Policy</Link>.
           PSEmine is a separate product from PulseEarn; this account is shared, the product access is not.
         </p>
       )}
 
-      <div className="mt-6 flex items-center gap-2 pse-micro">
-        <ShieldCheck size={14} style={{ color: 'var(--pse-cyan)' }} />
+      <div className="mt-6 flex items-center gap-2 pse-meta">
+        <ShieldCheck size={14} style={{ color: 'var(--pse-jade-ink)' }} />
         Secured authentication · your session stays on this device
       </div>
     </AuthShell>
@@ -389,21 +389,21 @@ export const PSEmineForgotPassword: React.FC = () => {
       points={['Reset links are single-use and expire', 'Your balances and tools are untouched by a reset']}
     >
       <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-eyebrow">Account recovery</p>
+      <p className="pse-np">Account recovery</p>
       <h1 className="pse-h2 mt-2">Reset your password</h1>
-      <p className="pse-caption mt-2">We&apos;ll email a secure reset link to your account address.</p>
+      <p className="pse-copy-s mt-2">We&apos;ll email a secure reset link to your account address.</p>
 
       {sent ? (
-        <div className="pse-panel mt-7 p-6 text-center">
-          <CheckCircle2 size={22} className="mx-auto" style={{ color: 'var(--pse-success)' }} />
+        <div className="pse-ledger mt-7 p-6 text-center">
+          <CheckCircle2 size={22} className="mx-auto" style={{ color: 'var(--pse-jade-ink)' }} />
           <p className="pse-h3 mt-3">Check your inbox</p>
-          <p className="pse-caption mt-1.5">
+          <p className="pse-copy-s mt-1.5">
             A reset link was sent to <span className="font-medium" style={{ color: 'var(--pse-text)' }}>{email}</span>.
             It expires shortly, so use it soon.
           </p>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-            <Link to="/mine/login" className="pse-btn pse-btn-secondary pse-btn-sm justify-center">Back to sign in</Link>
-            <button type="button" onClick={() => setSent(false)} className="pse-btn pse-btn-ghost pse-btn-sm justify-center">
+            <Link to="/mine/login" className="pse-btn pse-btn-2 pse-btn-sm justify-center">Back to sign in</Link>
+            <button type="button" onClick={() => setSent(false)} className="pse-btn pse-btn-3 pse-btn-sm justify-center">
               Use a different email
             </button>
           </div>
@@ -419,7 +419,7 @@ export const PSEmineForgotPassword: React.FC = () => {
             </div>
           </Field>
           <SubmitBtn pending={pending} label="Send reset link" />
-          <Link to="/mine/login" className="pse-caption text-center font-medium hover:underline" style={{ color: 'var(--pse-text-2)' }}>
+          <Link to="/mine/login" className="pse-copy-s text-center font-medium hover:underline" style={{ color: 'var(--pse-text-2)' }}>
             Back to sign in
           </Link>
         </form>
@@ -465,15 +465,15 @@ export const PSEmineVerifyEmail: React.FC = () => {
       points={['Verification protects balances and payouts', 'Payouts require a verified email — enforced server-side']}
     >
       <div className="mb-8 lg:hidden"><PSELogo size={34} withWordmark /></div>
-      <p className="pse-eyebrow">Secure account setup</p>
+      <p className="pse-np">Secure account setup</p>
       <h1 className="pse-h2 mt-2">Verify your email</h1>
-      <p className="pse-caption mt-2">
+      <p className="pse-copy-s mt-2">
         We sent a verification link to <span className="font-medium" style={{ color: 'var(--pse-text)' }}>{currentUser.email}</span>.
         Open it, then return here.
       </p>
 
-      <div className="pse-panel mt-7 p-5">
-        <p className="pse-eyebrow mb-3">Three steps</p>
+      <div className="pse-ledger mt-7 p-5">
+        <p className="pse-np mb-3">Three steps</p>
         <ol className="space-y-3">
           {[
             'Open the email and click the verification link.',
@@ -481,8 +481,8 @@ export const PSEmineVerifyEmail: React.FC = () => {
             'Nothing happened? Re-check below.',
           ].map((step, i) => (
             <li key={step} className="flex items-start gap-3">
-              <span className={cn('pse-step', i === 0 ? 'pse-step-active' : '')}>{i + 1}</span>
-              <p className="pse-caption">{step}</p>
+              <span className="pse-clause-no" aria-hidden="true">{i + 1}</span>
+              <p className="pse-copy-s">{step}</p>
             </li>
           ))}
         </ol>
@@ -494,11 +494,11 @@ export const PSEmineVerifyEmail: React.FC = () => {
 
       <div className="mt-5 flex flex-col gap-3">
         <button type="button" disabled={pending || cooldown > 0} onClick={() => void resend()}
-          className="pse-btn pse-btn-secondary w-full justify-center py-3">
+          className="pse-btn pse-btn-2 w-full justify-center py-3">
           <RefreshCcw size={14} className={pending ? 'animate-spin' : ''} />
           {pending ? 'Sending…' : cooldown > 0 ? `Resend available in ${cooldown}s` : 'Resend verification email'}
         </button>
-        <button type="button" onClick={() => window.location.reload()} className="pse-btn pse-btn-primary w-full justify-center py-3">
+        <button type="button" onClick={() => window.location.reload()} className="pse-btn w-full justify-center py-3">
           <CheckCircle2 size={14} /> I&apos;ve verified my email
         </button>
       </div>
@@ -506,7 +506,7 @@ export const PSEmineVerifyEmail: React.FC = () => {
       <button
         type="button"
         onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}
-        className="mt-7 flex items-center gap-2 pse-caption font-medium hover:underline"
+        className="mt-7 flex items-center gap-2 pse-copy-s font-medium hover:underline"
         style={{ color: 'var(--pse-text-2)' }}
       >
         <LogOut size={13} /> Sign out
@@ -552,25 +552,25 @@ const PSEmineAccessGate: React.FC = () => {
   };
 
   return (
-    <div className="pse-scope flex min-h-screen items-center justify-center px-5 py-14" style={{ background: 'var(--pse-bg)' }}>
+    <div className="pse-scope flex min-h-screen items-center justify-center px-5 py-14" style={{ background: 'var(--pse-canvas)' }}>
       <div className="w-full max-w-lg">
         <Link to="/mine" className="mb-8 inline-flex"><PSELogo size={32} withWordmark /></Link>
-        <div className="pse-panel overflow-hidden">
+        <div className="pse-ledger overflow-hidden">
           <div className="flex items-start gap-3.5 border-b px-6 py-5" style={{ borderColor: 'var(--pse-line)' }}>
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
-              style={{ borderColor: 'var(--pse-purple)', background: 'var(--pse-inset)' }}>
-              <ShieldX size={19} style={{ color: 'var(--pse-purple)' }} />
+              style={{ borderColor: 'var(--pse-amber)', background: 'var(--pse-sunken)' }}>
+              <ShieldX size={19} style={{ color: 'var(--pse-amber)' }} />
             </div>
             <div>
               <h1 className="pse-h3">PSEmine isn&apos;t enabled for this account</h1>
-              <p className="pse-micro mt-1">
+              <p className="pse-meta mt-1">
                 Signed in as <span style={{ color: 'var(--pse-text-2)' }}>{currentUser?.email}</span>
               </p>
             </div>
           </div>
 
           <div className="space-y-4 px-6 py-5">
-            <p className="pse-caption">
+            <p className="pse-copy-s">
               PSEmine and PulseEarn share one sign-in identity but are separate products, and product access is
               explicit. This account does not currently have PSEmine access.
               {userData?.productAccess?.pulseearn ? ' It is enrolled in PulseEarn only.' : ' No product is currently enrolled on it.'}
@@ -578,28 +578,28 @@ const PSEmineAccessGate: React.FC = () => {
 
             {error && <FormError message={error} />}
 
-            <div className="pse-inset p-3.5">
-              <p className="pse-eyebrow">Enabling PSEmine</p>
-              <p className="pse-micro mt-1.5">
+            <div className="pse-sunken p-3.5">
+              <p className="pse-np">Enabling PSEmine</p>
+              <p className="pse-meta mt-1.5">
                 Enabling creates your PSEmine mining account on this identity (zeroed balances, no purchases, no
                 charges) and records an audit entry. The backend grants access — the app cannot grant it by itself.
               </p>
             </div>
 
             <div className="flex flex-col gap-2.5 sm:flex-row">
-              <button type="button" onClick={() => void enable()} disabled={pending} className="pse-btn pse-btn-primary flex-1 justify-center py-3">
+              <button type="button" onClick={() => void enable()} disabled={pending} className="pse-btn flex-1 justify-center py-3">
                 {pending ? <Spinner /> : <>Enable PSEmine for this account <ArrowRight size={14} /></>}
               </button>
-              <button type="button" onClick={() => void other()} className="pse-btn pse-btn-secondary justify-center py-3">
+              <button type="button" onClick={() => void other()} className="pse-btn pse-btn-2 justify-center py-3">
                 Use another account
               </button>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4" style={{ borderColor: 'var(--pse-line)' }}>
-              <Link to="/mine/guide" className="pse-micro inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-blue)' }}>
+              <Link to="/mine/guide" className="pse-meta inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-jade-ink)' }}>
                 <KeyRound size={12} /> Read how PSEmine works
               </Link>
-              <Link to="/help" className="pse-micro inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-text-2)' }}>
+              <Link to="/help" className="pse-meta inline-flex items-center gap-1.5 hover:underline" style={{ color: 'var(--pse-text-2)' }}>
                 <LifeBuoy size={12} /> Contact support
               </Link>
             </div>
@@ -617,8 +617,8 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   if (loading) {
     return (
-      <div className="pse-scope" style={{ background: 'var(--pse-bg)' }}>
-        <div className="pse-section pt-6 md:pt-8">
+      <div className="pse-scope" style={{ background: 'var(--pse-canvas)' }}>
+        <div className="pse-work pse-gut">
           <PSELoading skeleton label="Restoring secure session" />
         </div>
       </div>

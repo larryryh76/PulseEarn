@@ -223,8 +223,16 @@ for (const vp of VIEWPORTS) {
       expanded: b.getAttribute('aria-expanded'),
     }));
 
+    // The hero's campaign stamp is the one instrument that states the campaign's
+    // own status. Scoped deliberately: the campaign PHASE table below it labels
+    // not-yet-reached phases "Scheduled", which is correct and must not be read
+    // as a campaign-status contradiction.
+    const heroSec = document.querySelector('[data-pse-section="hero"]');
+    const stampEl = heroSec ? heroSec.querySelector('.pse-stamp') : null;
+
     return {
       text: (document.body.innerText || '').replace(/\s+/g, ' ').trim(),
+      heroStamp: stampEl ? (stampEl.textContent || '').trim() : null,
       title: document.title,
       docHeight: document.documentElement.scrollHeight,
       overflow, clipped, collisions,
@@ -312,9 +320,18 @@ for (const vp of VIEWPORTS) {
       // Scheduled / Day 0.)
       const STARTED = ['active', 'paused', 'settling', 'payout'];
       const started = STARTED.includes(campaign.status);
-      const saysNotOpen = /\bscheduled\b/i.test(m.text) || /campaign window is not open/i.test(m.text) || /hasn.t started yet/i.test(m.text);
-      if (started && saysNotOpen) {
-        fail('realdata', `the page presents the campaign as Scheduled / not open while ${campaign.id} is "${campaign.status}" — the rendered campaign state contradicts /api/mine/campaign/status`);
+      const EXPECTED_LABEL = { active: 'Active', paused: 'Paused', settling: 'Settling', payout: 'Payout' }[campaign.status];
+      if (started) {
+        if (/campaign window is not open|campaign window not open|hasn.t started yet/i.test(m.text)) {
+          fail('realdata', `the page says the campaign window is not open while ${campaign.id} is "${campaign.status}" — rendered state contradicts /api/mine/campaign/status`);
+        }
+        if (m.heroStamp && m.heroStamp.toLowerCase() === 'scheduled') {
+          fail('realdata', `the hero stamps the campaign "${m.heroStamp}" while ${campaign.id} is "${campaign.status}" — rendered campaign state contradicts /api/mine/campaign/status`);
+        } else if (m.heroStamp && EXPECTED_LABEL && m.heroStamp.toLowerCase() !== EXPECTED_LABEL.toLowerCase()) {
+          fail('realdata', `the hero stamps the campaign "${m.heroStamp}" but ${campaign.id} is "${campaign.status}" (expected "${EXPECTED_LABEL}")`);
+        } else if (m.heroStamp) {
+          pass('realdata', `hero campaign stamp "${m.heroStamp}" matches ${campaign.id} "${campaign.status}"`);
+        }
       }
       // Case-insensitive: the rail's day label is rendered through a
       // text-transform, so innerText comes back uppercased.

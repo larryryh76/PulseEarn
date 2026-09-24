@@ -78,6 +78,14 @@ const FAQS: Array<{ q: string; a: string }> = [
     a: `Payments and payouts are made on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} in BNB (chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}). Campaign balances stay in GBP until a payout is executed.`,
   },
   {
+    q: 'How does a referral qualify?',
+    a: `A referral moves through five stages and is counted only at the last one: they register with your code, connect a ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} wallet, purchase a mining tool, start mining, and then the lane qualifies — at which point ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} is added to your capacity from that moment forward, never retroactively. Up to ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} lanes count.`,
+  },
+  {
+    q: 'What happens when the campaign ends?',
+    a: `Accrual stops at day ${PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS}. Final balances are computed from the mining ledger, payout requests open at settlement, and reviewed payouts are sent in BNB to the wallet configured on your account. The campaign is then archived with its ledger intact.`,
+  },
+  {
     q: 'Is this the same product as PulseEarn?',
     a: 'They share one sign-in identity and nothing else. PSEmine has its own tools, GBP accounting, ledger, activity and payouts; PulseEarn points, tasks and rewards never apply here.',
   },

@@ -114,6 +114,15 @@ export class PSEMineEngine {
    * Fetches active campaign document from Firestore or authoritative backend endpoint
    */
   public static async getOrCreateActiveCampaign(): Promise<PSEMineCampaign | null> {
+    // READ ORDER IS LOAD-BEARING. The Firestore document is the authoritative
+    // record for an ENTITLED miner, but firestore.rules scope `psemine_campaigns`
+    // to hasPSEMineAccess(uid): for a signed-out visitor or a PulseEarn-only
+    // account this read is DENIED and REJECTS. Previously that rejection escaped
+    // the one shared try block, so the public backend projection below was never
+    // fetched and the caller received null — which the public landing rendered as
+    // "Scheduled / Day 0" even while the campaign was genuinely active. The two
+    // lookups are now independent: denial of the restricted document degrades to
+    // the backend's public projection instead of to no campaign at all.
     try {
       const campaignRef = doc(db, 'psemine_campaigns', this.CAMPAIGN_DOC_ID);
       const snap = await getDoc(campaignRef);
@@ -121,8 +130,17 @@ export class PSEMineEngine {
       if (snap.exists()) {
         return snap.data() as PSEMineCampaign;
       }
+    } catch (e) {
+      // Expected for a caller without PSEmine access. Not an error state: the
+      // public projection served by the backend is the campaign view for them.
+      console.warn('[PSEMineEngine] campaign document read unavailable; using public projection:', e);
+    }
 
-      // Try fetching active campaign from backend status endpoint
+    // Public projection (GET /api/mine/campaign/status): the same authoritative
+    // campaign, served to any caller. This is the ONLY campaign source a
+    // signed-out visitor can reach, so it must not be gated behind the
+    // restricted document read.
+    try {
       const res = await fetch('/api/mine/campaign/status');
       if (res.ok) {
         const json = await res.json().catch(() => ({}));

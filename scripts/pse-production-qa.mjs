@@ -323,11 +323,29 @@ window.addEventListener('eip6963:requestProvider', () => {
 });
 `;
 
+/**
+ * The four certification viewports.
+ *
+ * Height is part of the viewport, not a detail: a page that only overflows at
+ * 430×932 or only clips at 1440×900 is a defect like any other. Every route is
+ * measured at each of these inside ONE authenticated context — Firebase keeps
+ * its session in IndexedDB, so a fresh context per width would come back signed
+ * out and every measurement would be of the login page.
+ */
+const VIEWPORTS = [
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 },
+  { width: 1440, height: 900 },
+];
+
 async function routeCheck(ctx, base, path_, width = 390) {
   const page = await ctx.newPage();
-  const errs = []; const apiCalls = [];
+  // Measure at the requested viewport, not at the context default.
+  await page.setViewportSize(VIEWPORTS.find(v => v.width === width) || { width, height: 900 });
+  const errs = []; const apiCalls = []; const urls = [];
   page.on('pageerror', e => errs.push(String(e).slice(0, 160)));
-  page.on('request', r => { if (r.url().includes('/api/')) apiCalls.push(`${r.method()} ${new URL(r.url()).pathname}`); });
+  page.on('request', r => { const u = r.url(); urls.push(u); if (u.includes('/api/')) apiCalls.push(`${r.method()} ${new URL(u).pathname}`); });
   page.on('response', r => { if (r.url().includes('/api/') && r.status() >= 400) apiCalls.push(`${r.request().method()} ${new URL(r.url()).pathname}:${r.status()}(server)`); });
   await page.goto(base + path_, { waitUntil: 'load', timeout: 30000 });
   await page.waitForTimeout(2200);
@@ -335,12 +353,76 @@ async function routeCheck(ctx, base, path_, width = 390) {
     text: (document.body?.innerText || '').trim(),
     title: document.title,
     scrollW: document.documentElement.scrollWidth, clientW: document.documentElement.clientWidth,
+    /**
+     * Duty & Ledger composition, measured from the rendered page rather than
+     * asserted from the source: ledgers are the bordered containers, rails are
+     * ruled bands (a top rule, never a full frame), the verdict is unframed,
+     * and there is exactly ONE capacity register and ONE campaign rail.
+     */
+    composition: (() => {
+      const visible = el => {
+        const s = getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const all = sel => Array.from(document.querySelectorAll(sel)).filter(visible);
+      const sides = el => {
+        const s = getComputedStyle(el);
+        return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
+          .filter(k => parseFloat(s[k]) > 0).length;
+      };
+      const painted = el => getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)';
+      const ledgers = all('.pse-ledger');
+      const rails = all('.pse-rail');
+      const verdicts = all('.pse-verdict');
+      /**
+       * The shell's campaign band is persistent chrome on every console route:
+       * it renders the SAME canonical DutyRail (same component, same clock) at
+       * compact density. That is one instrument shown twice, not a competing
+       * meter — the contract forbids a second campaign-time SYSTEM, so the
+       * single-instrument rule is measured on the page's own rails while the
+       * shell band is counted separately and reported.
+       */
+      const inShellBand = el => !!el.closest('.pse-band');
+      const duty = all('.pse-duty');
+      const regs = all('.pse-reg');
+      return {
+        ledgers: ledgers.length,
+        framedLedgers: ledgers.filter(el => sides(el) === 4).length,
+        rails: rails.length,
+        ruledRails: rails.filter(el => sides(el) === 1 && !painted(el)).length,
+        framedRails: rails.filter(el => sides(el) === 4 || painted(el)).length,
+        capacityRegisters: regs.filter(el => !inShellBand(el)).length,
+        campaignRails: duty.filter(el => !inShellBand(el)).length,
+        shellCampaignRails: duty.filter(inShellBand).length,
+        verdicts: verdicts.length,
+        framedVerdicts: verdicts.filter(el => sides(el) > 0 || painted(el)).length,
+      };
+    })(),
   }));
   const shot = path.join(OUT, `${path_.replace(/\W+/g, '_')}-${width}.png`);
   await page.screenshot({ path: shot, fullPage: true, animations: 'disabled' }).catch(() => {});
   await page.close();
+  /**
+   * Cross-product isolation, measured on the wire. PSEmine and PulseEarn share
+   * an identity provider and NOTHING else, so a PSEmine console route must never
+   * call a PulseEarn economy endpoint or mount a PulseEarn product listener.
+   * The patterns are real endpoints and real collections (same list the static
+   * isolation guard uses), not guesses: a pattern that matches nothing on a
+   * correct build proves nothing if it could never match anything.
+   */
+  const PULSEARN_CALL = [
+    /\/api\/execute-transaction/, /\/api\/execute-prediction/, /\/api\/resolve-prediction/,
+    /\/api\/tasks\/submit/, /\/api\/referrals\/apply-signup-bonus/, /\/api\/process-referral-reward/,
+    /\/api\/offerwall\/my-rewards/, /\/api\/evaluate-user-integrity/, /\/api\/check-daily-reward/,
+    /\/api\/daily-reward/, /\/api\/claim-daily-reward/, /\/api\/welcome-bonus/,
+    /documents\/users\/[^/]+\/(notifications|transactions|dailyRewards)/,
+    /documents\/(tasks|task_claims|offerwall_[a-z]*|predictions|marketplace_[a-z_]*|withdrawals|referrals|activities)([/?]|$)/,
+  ];
+  const productLeaks = [...new Set(urls.filter(u => PULSEARN_CALL.some(re => re.test(u))))].slice(0, 6);
   return { path: path_, width, title: info.title, chars: info.text.length,
-    overflow: info.scrollW > info.clientW + 1, pageErrors: errs,
+    overflow: info.scrollW > info.clientW + 1, composition: info.composition, pageErrors: errs, productLeaks,
     serverErrors: [...new Set(apiCalls)].filter(c => /:(4\d\d|5\d\d)/.test(c)).slice(0, 6),
     sample: info.text.slice(0, 140).replace(/\s+/g, ' ') };
 }
@@ -507,12 +589,35 @@ async function main() {
 
   if (authCtx) {
     const routes = ['/mine/dashboard', '/mine/tools', '/mine/wallet', '/mine/referrals', '/mine/activity', '/mine/me', '/mine/guide', '/mine'];
-    for (const r of routes) {
-      const res = await routeCheck(authCtx, base, r);
-      REPORT.walkthrough.push(res);
-      const bad = res.pageErrors.length || res.overflow || res.serverErrors.length;
-      if (bad) console.log(`  ✗ ${r} errs=${res.pageErrors.length} overflow=${res.overflow} server=${res.serverErrors.join(',')}`);
-      else console.log(`  ✓ ${r} (${res.chars}ch, title="${res.title}")`);
+    for (const vp of VIEWPORTS) {
+      console.log(`  ── ${vp.width}×${vp.height} ──`);
+      for (const r of routes) {
+        const res = await routeCheck(authCtx, base, r, vp.width);
+        REPORT.walkthrough.push(res);
+        const bad = res.pageErrors.length || res.overflow || res.serverErrors.length || res.productLeaks.length;
+        if (bad) console.log(`  ✗ ${r} @${vp.width} errs=${res.pageErrors.length} overflow=${res.overflow} server=${res.serverErrors.join(',')} leaks=${res.productLeaks.length}`);
+        else console.log(`  ✓ ${r} @${vp.width} (${res.chars}ch, title="${res.title}")`);
+        if (res.productLeaks.length) defect('isolation', `${r} @${vp.width} reached PulseEarn product surfaces: ${res.productLeaks.join(' · ')}`);
+
+        // Duty & Ledger composition. The public landing is a publication, not a
+        // console screen, so the container cap and the single-instrument rules
+        // are auditied on the console routes only.
+        const c = res.composition;
+        if (c && r !== '/mine') {
+          const cap = vp.width >= 1024 ? 4 : 3;
+          const problems = [];
+          if (c.ledgers > cap) problems.push(`${c.ledgers} bordered ledgers (cap ${cap})`);
+          if (c.framedRails > 0) problems.push(`${c.framedRails} rail(s) rendered as a bordered box`);
+          if (c.rails > 0 && c.ruledRails !== c.rails) problems.push(`rails not ruled (${c.ruledRails}/${c.rails})`);
+          if (c.capacityRegisters > 1) problems.push(`${c.capacityRegisters} competing capacity meters`);
+          if (c.campaignRails > 1) problems.push(`${c.campaignRails} competing campaign rails`);
+          if (c.shellCampaignRails + c.campaignRails > 1 && r === '/mine/dashboard') {
+            console.log(`  · [composition] ${r} @${vp.width}: the shell band and the page both show the canonical campaign rail (one instrument, two placements)`);
+          }
+          if (c.framedVerdicts > 0) problems.push('the verdict is framed');
+          if (problems.length) defect('composition', `${r} @${vp.width}: ${problems.join('; ')}`);
+        }
+      }
     }
   }
 
@@ -608,20 +713,41 @@ async function main() {
     netGuard.diag.providerAccounts = await t3.evaluate(async () => window.ethereum ? await window.ethereum.request({ method: 'eth_accounts' }) : null);
     netGuard.liveSession = !!(netGuard.diag.providerAccounts?.length && netGuard.diag.providerAccounts[0] === netGuard.diag.storedAddress);
     if (netGuard.liveSession) await t3.evaluate(() => { window.__denySwitch = true; }); // phase A: refuse
-    const buy3 = t3.locator('button:has-text("Purchase with BNB")').first();
-    if (await buy3.count() && await buy3.isVisible().catch(() => false)) {
-      await buy3.click();
-      await t3.waitForTimeout(1200);
-      const cont3 = t3.locator('button:has-text("Continue to payment")').first();
-      if (await cont3.count() && await cont3.isVisible().catch(() => false)) {
-        await cont3.click();
-        await t3.waitForTimeout(1200);
+    // A QA account that has already run keeps its awaiting-payment intent, so
+    // the tools page offers the RESUME affordance rather than the first-purchase
+    // button. Both are the same entry to the same pay step, so walk either —
+    // otherwise a re-run reports the guard as unreachable and hides a real
+    // regression behind a stale-intent artifact.
+    const clickFirst = async (texts) => {
+      for (const t of texts) {
+        const b = t3.locator(`button:has-text("${t}")`).first();
+        if (await b.count() && await b.isVisible().catch(() => false)) {
+          await b.click().catch(() => {});
+          await t3.waitForTimeout(1500);
+          return t;
+        }
+      }
+      return null;
+    };
+    const entry = await clickFirst(['Purchase with BNB', 'Resume payment', 'Complete payment', 'Continue payment', 'Buy Starter Miner', 'Buy ']);
+    netGuard.entry = entry;
+    if (entry) {
+      // The intermediate step only exists on a FIRST purchase: an account that
+      // already holds an awaiting-payment intent resumes straight into the pay
+      // step, so the pay control is awaited rather than assumed.
+      netGuard.step = await clickFirst(['Continue to payment', 'Continue', 'Proceed to payment', 'Review payment']);
+      {
         // The warning is STATE-AWARE: it renders with the pay step itself and
         // Pay is disabled while the wallet is off BSC, so the user never has to
         // press Pay to discover a wrong network.
         const pay3 = t3.locator('button:has-text("Open wallet & pay")').first();
         const switch3 = t3.locator('button:has-text("Switch to BNB Smart Chain")').first();
-        if (await pay3.count() && await pay3.isVisible().catch(() => false)) {
+        let payVisible = false;
+        for (let i = 0; i < 12 && !payVisible; i += 1) {
+          await t3.waitForTimeout(1000);
+          payVisible = (await pay3.count()) > 0 && await pay3.isVisible().catch(() => false);
+        }
+        if (payVisible) {
           netGuard.reached = true;
           netGuard.blocked = await t3.evaluate(() => /wrong network|switch to bnb smart chain/i.test(document.body.innerText));
           netGuard.payDisabled = await pay3.isDisabled().catch(() => null);

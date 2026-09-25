@@ -5,7 +5,7 @@ import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateP
 import {
   gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs,
   campaignStatusView, campaignTone, cycleStateView, purchaseStatusView,
-  Stamp, StatementHeader, Verdict, RailBand, DutyRail, CapacityRail, Ledger, LedgerRow,
+  Stamp, StatementHeader, Verdict, CapacityRail, Ledger, LedgerRow,
   Attn, PSEEmpty, PSEError, PSELoading, FeedNotice,
   ACTIVITY_ICONS, shortHash, useCampaignClock,
 } from '../../components/psemine/pse';
@@ -39,8 +39,7 @@ function toolTier(tool: PseStateTool): 1 | 2 | 3 | 4 {
  *
  *   VERDICT  the accrued figure, its rate and the mining state — on the canvas,
  *            never inside a tinted panel.
- *   RAILS    the campaign duty rail (one campaign visual, shared with the shell)
- *            and the capacity register (one capacity visual, shared product-wide).
+ *   RAILS    the capacity register; campaign position lives in the shared shell rail.
  *   LEDGERS  equipment, the account position and the records ledger — three
  *            bordered containers, inside the contract's cap on every viewport.
  *            Capacity, referral lanes and the tool tier stack are NOT repeated
@@ -218,15 +217,7 @@ export const PSEMineDashboard: React.FC = () => {
         }
       />
 
-      {/* ══ RAILS — the campaign clock, then the capacity register ══ */}
-      <RailBand
-        label="Campaign clock"
-        meta={`${clock.totalDays}-day campaign · backend dates`}
-        right={<Link to="/mine/guide" className="pse-meta pse-link">How the campaign runs</Link>}
-      >
-        <DutyRail campaign={state.campaign} status={campaignStatus} />
-      </RailBand>
-
+      {/* ══ RAILS — capacity; campaign position is in the shared shell rail ══ */}
       <CapacityRail
         toolCapacity={toolCapacity}
         referralCapacity={referralCapacity}
@@ -349,7 +340,7 @@ export const PSEMineDashboard: React.FC = () => {
               title="Qualified referral lanes"
               sub={`Each lane adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} from qualification forward · capped at ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`}
               value={`${referralQualified} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} · +${gbpHour(referralCapacity)}`}
-              valueTone={referralCapacity > 0 ? 'var(--pse-jade-ink)' : undefined}
+              valueTone={referralCapacity > 0 ? 'var(--pse-cyan)' : undefined}
               children={
                 <span className="pse-ticks" style={{ marginTop: 8 }} role="img" aria-label={`${referralQualified} of ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referral lanes qualified`}>
                   {Array.from({ length: PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS }, (_, i) => (
@@ -469,7 +460,7 @@ function ActivityPreview() {
             value={displayAmount !== null && displayAmount !== 0
               ? `${credited ? '+' : ''}${gbp(Math.abs(displayAmount))}`
               : '—'}
-            valueTone={credited ? 'var(--pse-jade-ink)' : undefined}
+            valueTone={credited ? 'var(--pse-success)' : undefined}
           />
         );
       })}

@@ -5,7 +5,7 @@
  * Two things live here and nothing else:
  *
  *  1. The brand mark — the faceted PSE emblem, flattened into the approved
- *     palette (jade + bone + steel). No decorative gradients.
+ *     palette (electric blue, cyan, purple, bone and steel). No decorative gradients.
  *
  *  2. The MODULE family — Starter, Builder, Advanced, Elite drawn as a single
  *     product line: a machined front elevation, line-first, steel plate with
@@ -84,16 +84,16 @@ const EDGE_STRONG = 'rgba(255,255,255,0.3)';
 const STEEL = 'rgba(255,255,255,0.1)';
 const CORE_OFF = 'rgba(255,255,255,0.14)';
 const TIER_ACCENT: Record<ModuleTier, string> = {
-  1: '#6D8FFF',
-  2: '#70D9E8',
-  3: '#A28DFF',
-  4: '#C2B7FF',
+  1: '#70D9E8',
+  2: '#6D8FFF',
+  3: '#8C7AE6',
+  4: '#A28DFF',
 };
 const TIER_HOT: Record<ModuleTier, string> = {
-  1: '#88A4FF',
-  2: '#9CEAF2',
-  3: '#BEAEFF',
-  4: '#D9D1FF',
+  1: '#9CEAF2',
+  2: '#88A4FF',
+  3: '#AB9BFF',
+  4: '#C2B7FF',
 };
 
 const core = (x: number, y: number, w: number, h: number, on: boolean, accent: string, hotAccent: string, hot = false) => (

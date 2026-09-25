@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen, Layers, Repeat, Wrench, Users, Wallet, LineChart, Landmark,
@@ -108,7 +108,7 @@ const SECTIONS: Section[] = [
                   {t.operating?.model === 'continuous' ? 'continuous duty' : 'session duty · manual restart'}
                 </p>
               </div>
-              <span className="pse-row-v pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</span>
+              <span className="pse-row-v pse-n pse-cyan">{gbpHour(t.hourlyRateGBP)}</span>
             </div>
           ))}
           <div className="pse-spec-line" style={{ paddingTop: 12, paddingBottom: 4 }}>
@@ -151,7 +151,7 @@ const SECTIONS: Section[] = [
           ))}
         </div>
         <p className="pse-copy-s mt-3.5 flex items-start gap-2">
-          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-blue)' }} />
           Restarting is always free and always will be. There is no paid restart and no health-percentage system —
           the backend-reported state itself is the operational truth.
         </p>
@@ -214,7 +214,7 @@ const SECTIONS: Section[] = [
           the tool activates. The app never marks a purchase confirmed on its own, and no other activation path exists.
         </p>
         <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-blue)' }} />
           <p className="pse-meta">
             Payments and settlements happen only on BNB Smart Chain (chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}).
             Underpayments and mismatches are detected and recorded for manual review.
@@ -278,7 +278,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   const [completing, setCompleting] = useState(false);
   const [doneSections, setDoneSections] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(onboarding ? [SECTIONS[0]?.id ?? 'what'] : SECTIONS.map(s => s.id)),
+    () => new Set([SECTIONS[0]?.id ?? 'what']),
   );
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0]?.id ?? 'what');
@@ -302,13 +302,16 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
     return () => observer.disconnect();
   }, []);
 
-  const progress = useMemo(
-    () => (SECTIONS.length > 0 ? Math.round((doneSections.size / SECTIONS.length) * 100) : 0),
-    [doneSections],
-  );
+  const activeSectionIndex = Math.max(0, SECTIONS.findIndex(section => section.id === activeSection));
+  const progress = onboarding
+    ? Math.round((doneSections.size / SECTIONS.length) * 100)
+    : Math.round(((activeSectionIndex + 1) / SECTIONS.length) * 100);
+  const progressLabel = onboarding
+    ? `${doneSections.size}/${SECTIONS.length} read`
+    : `Chapter ${activeSectionIndex + 1} of ${SECTIONS.length}`;
 
   const jumpToSection = (id: string) => {
-    setOpenSections(prev => new Set(prev).add(id));
+    setOpenSections(new Set([id]));
     const el = sectionRefs.current[id];
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY - 72;
@@ -316,11 +319,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   };
 
   const toggleSection = (id: string) => {
-    setOpenSections(prev => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
-    });
+    setOpenSections(prev => prev.has(id) ? new Set() : new Set([id]));
   };
 
   const markRead = (id: string, advance = false) => {
@@ -329,7 +328,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
     const idx = SECTIONS.findIndex(s => s.id === id);
     const next = SECTIONS[idx + 1];
     if (next) {
-      setOpenSections(prev => new Set(prev).add(next.id));
+      setOpenSections(new Set([next.id]));
       setTimeout(() => jumpToSection(next.id), 60);
     }
   };
@@ -355,7 +354,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   const alreadyOnboarded = userData?.onboardingCompleted !== false;
 
   return (
-    <div className="pse-gut pse-stack pse-canvas-bottom" style={{ paddingTop: 22 }}>
+    <div className="pse-gut pse-stack pse-canvas-bottom pse-guide" style={{ paddingTop: 22 }}>
       <StatementHeader
         routeKey={onboarding ? 'Welcome to PSEmine' : 'Guide · campaign'}
         title={onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}
@@ -367,7 +366,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
 
       {onboarding && (
         <div className="pse-sunken pse-pad flex flex-wrap items-center gap-3">
-          <Coins size={14} className="pse-jade shrink-0" />
+          <Coins size={14} className="pse-blue shrink-0" />
           <p className="pse-meta flex-1 min-w-[200px]">This walkthrough appears once. You can return any time from the footer or the account menu.</p>
           <span className="pse-n pse-dim-3 text-[12px]">{doneSections.size}/{SECTIONS.length} read</span>
         </div>
@@ -388,7 +387,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           <div className="pse-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
             <span className="pse-progress-fill" style={{ width: `${progress}%` }} />
           </div>
-          <span className="pse-n pse-meta shrink-0">{doneSections.size}/{SECTIONS.length} read</span>
+          <span className="pse-meta shrink-0">{progressLabel}</span>
         </div>
       </nav>
 
@@ -401,7 +400,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
               <div className="pse-progress" role="progressbar" aria-label="Guide progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: 10 }}>
                 <span className="pse-progress-fill" style={{ width: `${progress}%` }} />
               </div>
-              <p className="pse-n pse-meta" style={{ marginTop: 8 }}>{doneSections.size}/{SECTIONS.length} sections read</p>
+              <p className="pse-meta" style={{ marginTop: 8 }}>{progressLabel}</p>
             </div>
             <nav className="pse-stack-tight" aria-label="Guide contents">
               {SECTIONS.map((s, i) => {
@@ -413,7 +412,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 40,
                       background: 'none', border: 0, borderLeft: '2px solid',
-                      borderLeftColor: active ? 'var(--pse-jade-ink)' : 'var(--pse-line)',
+                      borderLeftColor: active ? 'var(--pse-blue)' : 'var(--pse-line)',
                       paddingLeft: 12, cursor: 'pointer', font: 'inherit', textAlign: 'left',
                       fontSize: 13.5, fontWeight: active ? 600 : 500,
                       color: active ? 'var(--pse-bone)' : done ? 'var(--pse-text-2)' : 'var(--pse-text-3)',
@@ -449,7 +448,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 <div className="flex items-start gap-3.5 p-5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                     style={{ background: 'var(--pse-sunken)', border: '1px solid var(--pse-line)' }}>
-                    <Icon size={17} style={{ color: 'var(--pse-jade-ink)' }} />
+                    <Icon size={17} style={{ color: 'var(--pse-blue)' }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -474,7 +473,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                             className="pse-btn pse-btn-3 pse-btn-sm"
                             aria-pressed={doneSections.has(s.id)}>
                             {doneSections.has(s.id)
-                              ? <><Check size={12} className="pse-jade" /> Read</>
+                              ? <><Check size={12} className="pse-success" /> Read</>
                               : 'Mark read & next'}
                           </button>
                         )}
@@ -519,7 +518,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           {/* Onboarding CTA */}
           {onboarding && (
             <div className="pse-rule pse-note" style={{ marginTop: 18, paddingTop: 22, textAlign: 'center', alignItems: 'center' }}>
-              <CheckCircle2 size={22} style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-jade-ink)' : 'var(--pse-text-4)' }} />
+              <CheckCircle2 size={22} style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-blue)' : 'var(--pse-text-4)' }} />
               <p className="pse-h3" style={{ marginTop: 12 }}>Ready to open your console?</p>
               <p className="pse-meta">
                 {TOOLS[0] && `Tools start at ${gbp(TOOLS[0].purchasePriceGBP)} with ${gbpHour(TOOLS[0].hourlyRateGBP)} of capacity.`}

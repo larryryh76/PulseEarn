@@ -8,10 +8,10 @@ import {
   campaignStatusView, campaignTone, gbp, gbpHour, PSELogo, Stamp,
   DutyRail, CapacityRail, useCampaignClock, usePseDocumentTitle,
 } from '../../components/psemine/pse';
-import { ModuleMark } from '../../components/psemine/PSEBrand';
+
 import {
   ToolSpecSheet, SpecimenSheet, DutyModels, MoneyPath,
-  ReferralLanes, ReferralClauses, AssuranceList, TierLedger,
+  ReferralLanes, ReferralClauses, AssuranceList,
 } from '../../components/psemine/PseLandingVisuals';
 
 /**
@@ -203,7 +203,7 @@ export const PSEMineLanding: React.FC = () => {
                 <h1 className="pse-brief-title" style={{ fontSize: 'clamp(30px, 5vw, 52px)', marginTop: 18 }}>
                   Buy mining capacity.<br />
                   Hold it for {durationDays} days.<br />
-                  <span className="pse-jade">Settle in GBP.</span>
+                  <span className="pse-cyan">Settle in GBP.</span>
                 </h1>
 
                 <p className="pse-copy pse-measure" style={{ marginTop: 16 }}>
@@ -255,28 +255,15 @@ export const PSEMineLanding: React.FC = () => {
                   />
                 }
               />
-
-              <div className="pse-stack-tight">
-                <p className="pse-np">The module family</p>
-                <div className="pse-plate pse-pad">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-6">
-                    {TOOLS.map(t => (
-                      <div key={t.id} className="pse-stack-tight">
-                        <ModuleMark tier={t.tier as 1 | 2 | 3 | 4} size={150} active className="pse-mod-art" />
-                        <p className="pse-np">Tier {t.tier}</p>
-                        <p className="pse-label-b">{t.name}</p>
-                        <p className="pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</p>
-                        <p className="pse-meta">
-                          {t.operating.model === 'continuous' ? 'Continuous duty' : 'Session duty'} · max {t.maxPerUser}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="pse-meta pse-measure">
-                  One product line, four topologies. Tier is carried by the module's construction — bay count,
-                  vent bank, service rail, crest — and by its nameplate, never by being drawn larger.
+              <div className="pse-stack-tight pse-landing-proof">
+                <p className="pse-np">The financial path</p>
+                <p className="pse-copy">
+                  Tools establish a fixed hourly capacity. Operating time is recorded in GBP through the campaign;
+                  after day {durationDays}, the ledger settles and approved payouts are sent in BNB.
                 </p>
+                <Link to="#tools" className="pse-btn pse-btn-2 pse-btn-sm" style={{ width: 'fit-content' }}>
+                  Compare the four tools <ArrowRight size={13} />
+                </Link>
               </div>
             </div>
           </div>
@@ -381,37 +368,15 @@ export const PSEMineLanding: React.FC = () => {
             id="campaign"
             no="04"
             title={`One ${durationDays}-day arc, from launch to closed`}
-            lead="The campaign position is derived from backend campaign state — never from a browser clock. The same rail appears in the console, on every route."
+            lead="The campaign position is derived from backend campaign state — never from a browser clock. Its position is shown once in the specimen rail above."
           >
             <div className="pse-stack">
               <DutyModels />
-              <div className="pse-ledger">
-                <div className="pse-ledger-legend" data-cols={2}>
-                  <span className="pse-np">Phase</span>
-                  <span className="pse-np" style={{ textAlign: 'right' }}>State</span>
-                </div>
-                <div className="pse-ledger-body">
-                  {clock.phases.map((p, i) => (
-                    <div key={p.key} className="pse-row">
-                      <div className="pse-row-k">
-                        <p className="pse-label-b">{p.label}</p>
-                        <p className="pse-meta mt-1">
-                          {[
-                            'Tools go on sale. Each purchase begins its first operating cycle.',
-                            'Cycles run for the campaign window. Capacity accrues hourly against the ledger.',
-                            'Accrual stops and final balances are computed from the mining ledger.',
-                            'Reviewed payout requests are paid in BNB to configured payout wallets.',
-                            'The campaign is archived with its final ledger intact.',
-                          ][i]}
-                        </p>
-                      </div>
-                      <span className="pse-row-v pse-np" style={{ alignSelf: 'center', color: p.state === 'current' ? 'var(--pse-jade-ink)' : undefined }}>
-                        {p.state === 'done' ? 'Complete' : p.state === 'current' ? 'In progress' : 'Scheduled'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <p className="pse-copy-s pse-measure">
+                Purchases open at launch. Operating time accrues against the campaign ledger; at day {durationDays},
+                accrual stops and balances settle. Reviewed payouts then move to the configured BNB wallet, and the
+                campaign closes with its ledger retained.
+              </p>
             </div>
           </Chapter>
         </div>
@@ -527,7 +492,10 @@ export const PSEMineLanding: React.FC = () => {
                   <a href="#tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">The tools</a>
                 </div>
               </div>
-              <TierLedger />
+              <div className="pse-note pse-accent-rule">
+                <p className="pse-np">A campaign, not a market</p>
+                <p className="pse-copy-s">Fixed GBP tool prices and hourly capacities. One operating window. Final settlement from the campaign ledger, then BNB payout to your configured wallet.</p>
+              </div>
             </div>
           </div>
         </section>

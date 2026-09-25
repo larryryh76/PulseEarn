@@ -264,7 +264,7 @@ const AdminPSEMine: React.FC = () => {
           meta={campaign
             ? `${campaign.name || 'Active campaign'} · ${campaign.durationDays || 90}-day campaign`
             : 'Campaign configuration is not loaded'}
-          legend={[{ kind: 'jade', text: 'Elapsed' }, { kind: 'ghost', text: 'Remaining' }]}
+          legend={[{ kind: 'cyan', text: 'Elapsed' }, { kind: 'ghost', text: 'Remaining' }]}
         >
           {campaign
             ? <DutyRail campaign={campaign} status={campaign.status} />

@@ -16,7 +16,7 @@ import {
   LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId,
 } from '../../types/psemine';
 import { gbp, gbpHour } from './pse';
-import { ModulePlate, ModuleMark, DutySegments, type DutyModel } from './PSEBrand';
+import { ModulePlate, DutySegments, type DutyModel } from './PSEBrand';
 
 const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
 const dutyOf = (id: PSEToolTierId): DutyModel =>
@@ -122,10 +122,7 @@ export const SpecimenSheet: React.FC<{
 export const DutyModels: React.FC = () => (
   <div className="pse-grid-2">
     <div className="pse-stack-tight">
-      <div className="pse-mod-plate" style={{ justifyContent: 'flex-start' }}>
-        <ModuleMark tier={1} size={150} active className="pse-mod-art" />
-      </div>
-      <p className="pse-np">Session duty — Starter · Builder · Advanced</p>
+      <p className="pse-label-b">Session duty · Starter, Builder, Advanced</p>
       <div style={{ maxWidth: 220 }}><DutySegments duty="session" running /></div>
       <p className="pse-copy-s pse-measure">
         A tool mines inside a finite operating session. When the session ends, mining stops until you restart
@@ -134,10 +131,7 @@ export const DutyModels: React.FC = () => (
       </p>
     </div>
     <div className="pse-stack-tight">
-      <div className="pse-mod-plate" style={{ justifyContent: 'flex-start' }}>
-        <ModuleMark tier={4} size={150} active className="pse-mod-art" />
-      </div>
-      <p className="pse-np">Continuous duty — Elite</p>
+      <p className="pse-label-b">Continuous duty · Elite</p>
       <div style={{ maxWidth: 220 }}><DutySegments duty="continuous" running /></div>
       <p className="pse-copy-s pse-measure">
         Elite operates continuously while the campaign is active: one unbroken duty rail, no manual session
@@ -168,7 +162,7 @@ export const MoneyPath: React.FC = () => (
         <div key={step.n} className="pse-path-node">
           <p className="pse-np">{step.n}</p>
           <p className="pse-label-b">{step.title}</p>
-          <span className={step.key === 'BNB' ? 'pse-chain' : 'pse-np pse-jade'}>
+          <span className={step.key === 'BNB' ? 'pse-chain' : 'pse-np pse-cyan'}>
             {step.key === 'BNB' && <span className="pse-chain-mark" aria-hidden="true" />}
             {step.key}
           </span>
@@ -197,7 +191,7 @@ export const ReferralLanes: React.FC<{ qualified?: number }> = ({ qualified = 0 
     <div className="pse-stack-tight">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="pse-np">Qualified lanes {on}/{max}</p>
-        <p className="pse-n pse-fig-c pse-jade">+{gbpHour(on * bonus)}</p>
+        <p className="pse-n pse-fig-c pse-cyan">+{gbpHour(on * bonus)}</p>
       </div>
       <div className="pse-duty-blocks" role="img" aria-label={`${on} of ${max} referral lanes qualified`}>
         {Array.from({ length: max }, (_, i) => (
@@ -254,7 +248,7 @@ export const ReferralClauses: React.FC = () => (
             {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} lanes × {gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)}
           </p>
         </div>
-        <span className="pse-row-v pse-n pse-jade" style={{ alignSelf: 'center' }}>
+        <span className="pse-row-v pse-n pse-cyan" style={{ alignSelf: 'center' }}>
           +{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}
         </span>
       </div>

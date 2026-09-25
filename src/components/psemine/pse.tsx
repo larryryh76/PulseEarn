@@ -391,7 +391,7 @@ export function CopyField({ value, display, label, fullWidth }: {
     >
       <span className="pse-mono truncate">{display || value}</span>
       {copied
-        ? <Check size={12} style={{ color: 'var(--pse-jade-ink)' }} className="shrink-0" />
+        ? <Check size={12} style={{ color: 'var(--pse-success)' }} className="shrink-0" />
         : <CopyIcon size={12} className="shrink-0" style={{ color: 'var(--pse-text-3)' }} />}
     </button>
   );
@@ -526,7 +526,7 @@ export function Verdict({ label, value, unit, status, note, side }: {
 /** RailBand — a ruled instrument band. Not a card: label, key, content. */
 export function RailBand({ label, meta, right, legend, children, className }: {
   label: string; meta?: React.ReactNode; right?: React.ReactNode;
-  legend?: Array<{ kind: 'jade' | 'ghost' | 'steel'; text: string }>;
+  legend?: Array<{ kind: 'cyan' | 'ghost' | 'steel'; text: string }>;
   children: React.ReactNode; className?: string;
 }) {
   return (
@@ -542,7 +542,7 @@ export function RailBand({ label, meta, right, legend, children, className }: {
         <ul className="pse-rail-key">
           {legend.map(l => (
             <li key={l.text}>
-              <span className={l.kind === 'jade' ? 'pse-k-jade' : l.kind === 'ghost' ? 'pse-k-ghost' : 'pse-k-steel'} aria-hidden="true" />
+              <span className={l.kind === 'cyan' ? 'pse-k-cyan' : l.kind === 'ghost' ? 'pse-k-ghost' : 'pse-k-steel'} aria-hidden="true" />
               {l.text}
             </li>
           ))}
@@ -721,7 +721,7 @@ export function DutyRail({ campaign, status, density = 'default', showFacts = tr
 /* ── THE canonical capacity register ────────────────────────────────────────
  * Tool capacity + referral capacity → total £/hour. Every screen that shows
  * capacity consumes THIS component; nothing else draws a capacity meter.
- * A lane you own is filled jade; a lane you do not own is a hatched GHOST that
+ * A lane you own is filled cyan; a lane you do not own is a hatched GHOST that
  * still shows what it would add — real economics, never fabricated holdings.
  * ───────────────────────────────────────────────────────────────────────── */
 
@@ -772,7 +772,7 @@ export function CapacityRail({
 
       {legend && (
         <ul className="pse-rail-key">
-          <li><span className="pse-k-jade" aria-hidden="true" />Held</li>
+          <li><span className="pse-k-cyan" aria-hidden="true" />Held</li>
           <li><span className="pse-k-ghost" aria-hidden="true" />Available (not held)</li>
         </ul>
       )}
@@ -921,4 +921,3 @@ export function Clause({ no, title, body }: { no: string; title: string; body?: 
     </div>
   );
 }
-

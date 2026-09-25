@@ -177,7 +177,7 @@ export const PSEMineMe: React.FC = () => {
                 style={{
                   display: 'block', width: '100%', minHeight: 40, textAlign: 'left',
                   background: 'none', border: 0, borderLeft: '2px solid',
-                  borderLeftColor: active === s.id ? 'var(--pse-jade-ink)' : 'var(--pse-line)',
+                  borderLeftColor: active === s.id ? 'var(--pse-blue)' : 'var(--pse-line)',
                   paddingLeft: 12, cursor: 'pointer', font: 'inherit',
                   fontSize: 13.5, fontWeight: 500,
                   color: active === s.id ? 'var(--pse-bone)' : 'var(--pse-text-3)',
@@ -259,7 +259,7 @@ export const PSEMineMe: React.FC = () => {
               <div className="pse-sunken pse-pad" style={{ marginTop: 14 }}>
                 {pwDone ? (
                   <div className="flex items-center gap-2.5">
-                    <CheckCircle2 size={15} className="pse-jade" />
+                    <CheckCircle2 size={15} className="pse-success" />
                     <p className="pse-label">Password updated. Use it next time you sign in.</p>
                   </div>
                 ) : (
@@ -390,7 +390,7 @@ export const PSEMineMe: React.FC = () => {
           <Section id="support" title="Support" meta="Questions about tools, payments or settlement">
             <Link to="/help" className="pse-row pse-link" style={{ textDecoration: 'none' }}>
               <span className="pse-row-k flex items-center gap-3">
-                <LifeBuoy size={15} className="pse-jade" />
+                <LifeBuoy size={15} className="pse-success" />
                 <span>
                   <span className="pse-label-b" style={{ display: 'block' }}>Contact support</span>
                   <span className="pse-meta" style={{ display: 'block', marginTop: 4 }}>
@@ -414,7 +414,7 @@ export const PSEMineMe: React.FC = () => {
           <Section id="session" title="Session">
             <div className="pse-row" data-stack="true">
               <div className="pse-row-k flex items-start gap-3">
-                <ShieldCheck size={16} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                <ShieldCheck size={16} className="shrink-0 pse-blue" style={{ marginTop: 2 }} />
                 <span>
                   <span className="pse-label-b" style={{ display: 'block' }}>Sign out of PSEmine</span>
                   <span className="pse-meta" style={{ display: 'block', marginTop: 4 }}>

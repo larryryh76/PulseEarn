@@ -871,7 +871,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {!showingRecovery && step === 'quote' && (
             quoteLoading || !quote ? (
               <div className="flex flex-col items-center gap-3 py-12">
-                <Loader2 size={22} className="animate-spin pse-jade" />
+                <Loader2 size={22} className="animate-spin pse-blue" />
                 <p className="pse-meta">Requesting a live BNB quote from the server…</p>
               </div>
             ) : (
@@ -1091,7 +1091,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               </button>
 
               <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                <ShieldCheck size={15} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                <ShieldCheck size={15} className="shrink-0 pse-blue" style={{ marginTop: 2 }} />
                 <p className="pse-meta">
                   After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount
                   and confirmation depth — before the tool activates.
@@ -1103,7 +1103,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {/* ── Step: verifying ── */}
           {!showingRecovery && step === 'verifying' && (
             <div className="pse-stack-tight" style={{ alignItems: 'center', paddingBlock: 32 }}>
-              <Loader2 size={24} className="animate-spin pse-jade" />
+              <Loader2 size={24} className="animate-spin pse-blue" />
               <p className="pse-h3">Verifying on BNB Smart Chain</p>
               <p className="pse-meta" style={{ textAlign: 'center', maxWidth: 340 }}>
                 Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
@@ -1160,7 +1160,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               )}
               {result.ok && (
                 <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                  <Info size={14} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                  <Info size={14} className="shrink-0 pse-blue" style={{ marginTop: 2 }} />
                   <p className="pse-meta">
                     {continuous
                       ? 'This tool mines continuously while the campaign is active — there is no manual session restart.'

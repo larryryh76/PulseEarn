@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
-  Stamp, StatementHeader, Verdict, Ledger, LedgerRow, DayGroup, Attn, PSEEmpty,
   PSELoading, PSEError, gbp, timeAgo, fmtDateTime, toDateSafe,
 } from '../../components/psemine/pse';
 
@@ -110,48 +109,44 @@ export const PSEMineActivity: React.FC = () => {
 
   return (
     <main>
-      <StatementHeader
-        routeKey="Activity · ledger"
-        title="Account ledger"
-        objective="Every recorded event for this PSEmine account — purchases, maintenance, referral qualifications and campaign milestones. Nothing here comes from PulseEarn."
-        status={<Stamp tone={activities.length > 0 ? 'info' : 'idle'}>{activities.length} entr{activities.length === 1 ? 'y' : 'ies'} loaded</Stamp>}
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={() => setDir(d => (d === 'desc' ? 'asc' : 'desc'))}
-            >
-              {dir === 'desc' ? 'Newest first' : 'Oldest first'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void refreshFeed('activities')}
-              disabled={refreshing}
-            >
-              Refresh
-            </button>
-          </>
-        }
-      />
+      <header>
+        <p>Activity · ledger</p>
+        <h1>Account ledger</h1>
+        <p>Every recorded event for this PSEmine account — purchases, maintenance, referral qualifications and campaign milestones. Nothing here comes from PulseEarn.</p>
+        <p role="status">{activities.length} entr{activities.length === 1 ? 'y' : 'ies'} loaded</p>
+        <div>
+          <button
+            type="button"
+            onClick={() => setDir(d => (d === 'desc' ? 'asc' : 'desc'))}
+          >
+            {dir === 'desc' ? 'Newest first' : 'Oldest first'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void refreshFeed('activities')}
+            disabled={refreshing}
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
 
-      <Verdict
-        label="Credited to this account"
-        value={gbp(totals.credited)}
-        status={<Stamp tone={totals.credited > 0 ? 'live' : 'idle'}>{totals.credited > 0 ? 'Accrual recorded' : 'No credit recorded'}</Stamp>}
-        note={
-          activities.length === 0
+      <section aria-labelledby="activity-credit-heading">
+        <h2 id="activity-credit-heading">Credited to this account</h2>
+        <p>{gbp(totals.credited)}</p>
+        <p role="status">{totals.credited > 0 ? 'Accrual recorded' : 'No credit recorded'}</p>
+        <p>
+          {activities.length === 0
             ? 'No backend record exists for this account yet. Purchases, maintenance events, referral qualifications and campaign updates appear here as they happen.'
-            : `Across ${activities.length} recorded backend entr${activities.length === 1 ? 'y' : 'ies'}. Amounts are exactly as the backend recorded them — nothing on this page is estimated in the browser.`
-        }
-        side={
-          <dl>
-            <div><dt>Debited from account</dt><dd>{gbp(totals.debited)}</dd></div>
-            <div><dt>Entries loaded</dt><dd>{activities.length}</dd></div>
-            <div><dt>Last recorded event</dt><dd>{totals.newest ? timeAgo(totals.newest) : '—'}</dd></div>
-            <div><dt>Last event time</dt><dd>{totals.newest ? fmtDateTime(totals.newest) : '—'}</dd></div>
-          </dl>
-        }
-      />
+            : `Across ${activities.length} recorded backend entr${activities.length === 1 ? 'y' : 'ies'}. Amounts are exactly as the backend recorded them — nothing on this page is estimated in the browser.`}
+        </p>
+        <dl>
+          <div><dt>Debited from account</dt><dd>{gbp(totals.debited)}</dd></div>
+          <div><dt>Entries loaded</dt><dd>{activities.length}</dd></div>
+          <div><dt>Last recorded event</dt><dd>{totals.newest ? timeAgo(totals.newest) : '—'}</dd></div>
+          <div><dt>Last event time</dt><dd>{totals.newest ? fmtDateTime(totals.newest) : '—'}</dd></div>
+        </dl>
+      </section>
 
       <section aria-label="Activity filters and search">
         <div role="group" aria-label="Filter activity by type">
@@ -179,67 +174,59 @@ export const PSEMineActivity: React.FC = () => {
       </section>
 
       {feedErrors.activities && (
-        <Attn
-          title="The activity feed is degraded"
-          body="The recorded ledger could not be fully loaded — entries may be missing from this statement."
-          action={
-            <button
-              type="button"
-              onClick={() => void refreshFeed('activities')}
-              disabled={refreshing}
-            >
-              Retry
-            </button>
-          }
-        />
+        <aside aria-label="Activity feed notice" role="status">
+          <h2>The activity feed is degraded</h2>
+          <p>The recorded ledger could not be fully loaded — entries may be missing from this statement.</p>
+          <button
+            type="button"
+            onClick={() => void refreshFeed('activities')}
+            disabled={refreshing}
+          >
+            Retry
+          </button>
+        </aside>
       )}
 
-      <Ledger
-        title="Recorded events"
-        meta={filteredView
+      <section aria-labelledby="recorded-events-heading">
+        <h2 id="recorded-events-heading">Recorded events</h2>
+        <p>{filteredView
           ? `Filtered view · ${filtered.length} of ${activities.length} entries`
-          : 'Day-grouped · newest first'}
-        legend={['Event', 'Amount']}
-      >
+          : 'Day-grouped · newest first'}</p>
         {filtered.length === 0 ? (
-          <PSEEmpty
-            title={activities.length === 0 ? 'No activity yet' : 'No events match this view'}
-            body={activities.length === 0
+          <>
+            <p>{activities.length === 0 ? 'No activity yet' : 'No events match this view'}</p>
+            <p>{activities.length === 0
               ? 'Purchases, maintenance events, referral qualifications and campaign updates appear here as they happen.'
-              : 'Clear the search or choose a different filter to see other recorded events.'}
-            action={activities.length > 0 ? (
-              <button type="button" onClick={resetView}>Reset view</button>
-            ) : undefined}
-          />
+              : 'Clear the search or choose a different filter to see other recorded events.'}</p>
+            {activities.length > 0 && <button type="button" onClick={resetView}>Reset view</button>}
+          </>
         ) : (
           groups.map(([key, rows]) => (
-            <React.Fragment key={key}>
-              <DayGroup label={dayLabel(key)} meta={`${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`} />
-              {rows.map(a => {
-                const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
-                const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
-                const amount = amountMinor !== null ? amountMinor / 100 : amountGBP;
-                const hasAmount = amount !== null && amount !== 0;
-                return (
-                  <LedgerRow
-                    key={a.id}
-                    sign={hasAmount ? (amount > 0 ? 'credit' : 'debit') : undefined}
-                    title={a.title || 'Account event'}
-                    sub={
-                      <>
+            <section key={key} aria-label={dayLabel(key)}>
+              <h3>{dayLabel(key)} — {rows.length} entr{rows.length === 1 ? 'y' : 'ies'}</h3>
+              <ul>
+                {rows.map(a => {
+                  const amountMinor = typeof a.amountMinor === 'number' ? a.amountMinor : null;
+                  const amountGBP = typeof a.amountGBP === 'number' ? a.amountGBP : null;
+                  const amount = amountMinor !== null ? amountMinor / 100 : amountGBP;
+                  const hasAmount = amount !== null && amount !== 0;
+                  return (
+                    <li key={a.id}>
+                      <h4>{a.title || 'Account event'}</h4>
+                      <p>
                         {a.description ? `${a.description} · ` : ''}
                         {fmtDateTime(a.createdAt)}
                         {a.type ? ` · ${a.type}` : null}
-                      </>
-                    }
-                    value={hasAmount ? gbp(Math.abs(amount)) : undefined}
-                  />
-                );
-              })}
-            </React.Fragment>
+                      </p>
+                      {hasAmount && <p>{amount > 0 ? 'Credit' : 'Debit'}: {gbp(Math.abs(amount))}</p>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           ))
         )}
-      </Ledger>
+      </section>
     </main>
   );
 };

@@ -1,13 +1,8 @@
 /* PSEmine status/data helpers and plain semantic React primitives. */
 import React, { useEffect, useState } from 'react';
-import {
-  Clock, Pause, Ban, Loader, Cog, Wrench, CheckCircle2, Circle,
-  XCircle, Hourglass, Wallet, RefreshCcw, Archive, PlayCircle,
-  ServerCog, ShieldAlert,
-} from 'lucide-react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
 import { PSELogo as BrandMark } from './PSEBrand';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId } from '../../types/psemine';
+import { PSEMINE_CONSTANTS } from '../../types/psemine';
 
 /* ── Server-anchored clock ────────────────────────────────────────────
  * Server time is the only authority for cycles and countdowns. We anchor to
@@ -43,23 +38,21 @@ export function campaignStatusView(status?: string | null) {
 }
 
 /* ── Tool operating cycle (backend derive_cycle state machine) ──────── */
-type ChipIcon = React.ComponentType<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
-
 export const CYCLE_STATE_MAP: Record<string, {
-  label: string; tone: StampTone; icon: ChipIcon;
+  label: string; tone: StampTone;
   description: string; live: boolean;
 }> = {
-  active:                { label: 'Active',                tone: 'live', icon: PlayCircle, description: 'Operating normally — accruing hourly.', live: true },
-  restarting:            { label: 'Restarting',            tone: 'info', icon: RefreshCcw, description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
-  cycle_complete:        { label: 'Cycle Complete',        tone: 'attn', icon: Clock,      description: '24-hour operating cycle finished. Maintenance is available.', live: false },
-  maintenance_required:  { label: 'Maintenance Required',  tone: 'fail', icon: Wrench,     description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
-  paused:                { label: 'Paused',                tone: 'attn', icon: Pause,      description: 'Campaign paused — tool is not accruing.', live: false },
-  settling:              { label: 'Settling',              tone: 'info', icon: ServerCog,  description: 'Campaign settlement in progress.', live: false },
-  ended:                 { label: 'Ended',                 tone: 'idle', icon: Ban,        description: 'Campaign ended — accrual stopped.', live: false },
-  archived:              { label: 'Archived',              tone: 'idle', icon: Archive,    description: 'Campaign archived.', live: false },
-  revoked:               { label: 'Revoked',               tone: 'fail', icon: XCircle,    description: 'Ownership revoked.', live: false },
-  expired:               { label: 'Expired',               tone: 'idle', icon: Hourglass,  description: 'Ownership expired.', live: false },
-  inactive:              { label: 'Inactive',              tone: 'idle', icon: Circle,     description: 'Not yet operating.', live: false },
+  active:                { label: 'Active',                tone: 'live', description: 'Operating normally — accruing hourly.', live: true },
+  restarting:            { label: 'Restarting',            tone: 'info', description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
+  cycle_complete:        { label: 'Cycle Complete',        tone: 'attn', description: '24-hour operating cycle finished. Maintenance is available.', live: false },
+  maintenance_required:  { label: 'Maintenance Required',  tone: 'fail', description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
+  paused:                { label: 'Paused',                tone: 'attn', description: 'Campaign paused — tool is not accruing.', live: false },
+  settling:              { label: 'Settling',              tone: 'info', description: 'Campaign settlement in progress.', live: false },
+  ended:                 { label: 'Ended',                 tone: 'idle', description: 'Campaign ended — accrual stopped.', live: false },
+  archived:              { label: 'Archived',              tone: 'idle', description: 'Campaign archived.', live: false },
+  revoked:               { label: 'Revoked',               tone: 'fail', description: 'Ownership revoked.', live: false },
+  expired:               { label: 'Expired',               tone: 'idle', description: 'Ownership expired.', live: false },
+  inactive:              { label: 'Inactive',              tone: 'idle', description: 'Not yet operating.', live: false },
 };
 
 export function cycleStateView(state?: string | null) {
@@ -229,44 +222,10 @@ export async function copyText(text: string): Promise<boolean> {
   catch { return false; }
 }
 
-/* ── Activity icon map (mirrors backend PSEMineActivityType) ────────── */
-export const ACTIVITY_ICONS: Record<string, ChipIcon> = {
-  tool_purchased: Wallet, TOOL_PURCHASE: Wallet,
-  payment_confirmed: CheckCircle2,
-  tool_activated: Cog,
-  capacity_updated: Loader, CAPACITY_UPDATED: Loader,
-  maintenance_completed: Wrench,
-  referral_registered: Circle,
-  referral_qualified: CheckCircle2, REFERRAL_QUALIFIED: CheckCircle2,
-  mining_accrual: RefreshCcw,
-  campaign_state_changed: ServerCog,
-  settlement_prepared: ServerCog,
-  payout_processing: Hourglass,
-  payout_completed: CheckCircle2,
-  wallet_updated: Wallet, WALLET_UPDATE: Wallet,
-  fraud_flag: ShieldAlert,
-  maintenance_required: Wrench,
-  campaign_ending: Clock,
-  campaign_ended: Archive,
-  wallet_update_required: Wallet,
-};
-
 /* ── React primitives ─────────────────────────────────────────────────── */
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return <BrandMark size={size} withWordmark={withWordmark} />;
-}
-
-export function PSEEmpty({ icon: _Icon, title, body, action }: {
-  icon?: ChipIcon; title: string; body?: string; action?: React.ReactNode;
-}) {
-  return (
-    <section aria-label={title}>
-      <p>{title}</p>
-      {body && <p>{body}</p>}
-      {action}
-    </section>
-  );
 }
 
 export function PSEError({ error, onRetry, retrying, action, compact: _compact }: {
@@ -294,15 +253,6 @@ export function PSEError({ error, onRetry, retrying, action, compact: _compact }
         </p>
       )}
     </section>
-  );
-}
-
-export function FeedNotice({ message, onRetry, retrying }: { message: string; onRetry?: () => void; retrying?: boolean }) {
-  return (
-    <aside aria-label="Data feed notice">
-      <p>{message}</p>
-      {onRetry && <button type="button" onClick={onRetry} disabled={retrying}>{retrying ? 'Retrying…' : 'Retry'}</button>}
-    </aside>
   );
 }
 
@@ -393,24 +343,6 @@ export function Verdict({ label, value, unit, status, note, side }: {
   );
 }
 
-export function RailBand({ label, meta, right, legend, children, className: _className }: {
-  label: string; meta?: React.ReactNode; right?: React.ReactNode;
-  legend?: Array<{ kind: 'jade' | 'ghost' | 'steel'; text: string }>;
-  children: React.ReactNode; className?: string;
-}) {
-  return (
-    <section>
-      <header>
-        <h2>{label}</h2>
-        {meta}
-        {right}
-      </header>
-      {legend && legend.length > 0 && <ul>{legend.map(item => <li key={item.text}>{item.text}</li>)}</ul>}
-      {children}
-    </section>
-  );
-}
-
 export type CampaignPhaseKey = 'launch' | 'mining' | 'settlement' | 'payout' | 'closed';
 
 export const CAMPAIGN_PHASES: Array<{ key: CampaignPhaseKey; label: string }> = [
@@ -478,104 +410,6 @@ export function useCampaignClock(
   };
 }
 
-export function DutyRail({ campaign, status, density: _density = 'default', showFacts = true }: {
-  campaign?: CampaignClockInput | null;
-  status?: string | null;
-  density?: 'compact' | 'default' | 'hero';
-  showFacts?: boolean;
-}) {
-  const clock = useCampaignClock(campaign, status);
-  const currentStatus = status ?? campaign?.status;
-  const statusView = campaignStatusView(currentStatus);
-  const phase = CAMPAIGN_PHASES[clock.phaseIndex];
-
-  return (
-    <section aria-label="Campaign timeline">
-      <h2>Campaign timeline</h2>
-      <p>Status: {statusView.label}. Current phase: {phase.label}.</p>
-      {showFacts && (
-        <>
-          <p>
-            {clock.dayNumber === null
-              ? `Campaign window not open; ${clock.totalDays} days total.`
-              : `Day ${clock.dayNumber} of ${clock.totalDays} (${clock.progress.toFixed(1)}% elapsed).`}
-          </p>
-          {clock.daysLeft !== null && <p>{clock.daysLeft} days remaining.</p>}
-          {clock.startMs !== null && <p>Starts {fmtDateTime(clock.startMs)}.</p>}
-          {clock.endMs !== null && <p>Ends {fmtDateTime(clock.endMs)}.</p>}
-        </>
-      )}
-      <ol>
-        {clock.phases.map(item => (
-          <li key={item.key}>
-            {item.label}: {item.state === 'current' ? 'Current phase' : item.state === 'done' ? 'Complete' : 'Upcoming'}
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-export function CapacityRail({
-  toolCapacity, referralCapacity, counts, referralCount,
-  label = 'Mining capacity', meta, legend: _legend = true, showMarks = true,
-}: {
-  toolCapacity: number;
-  referralCapacity: number;
-  counts?: Partial<Record<PSEToolTierId, number>>;
-  referralCount?: number;
-  label?: string;
-  meta?: string;
-  legend?: boolean;
-  showMarks?: boolean;
-}) {
-  const tools = toolCapacity || 0;
-  const refs = referralCapacity || 0;
-  const total = tools + refs;
-  const tiers = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-  const toolRows = tiers.map(tool => {
-    const hasCount = counts !== undefined && Object.prototype.hasOwnProperty.call(counts, tool.id);
-    const owned = hasCount ? counts[tool.id] ?? 0 : null;
-    return {
-      id: tool.id,
-      label: tool.name.replace(' Miner', ''),
-      owned,
-      maximum: tool.maxPerUser,
-      capacity: owned === null ? null : owned * tool.hourlyRateGBP,
-      potential: tool.hourlyRateGBP * tool.maxPerUser,
-    };
-  });
-  const maxReferrals = PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS;
-  const referralPotential = PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR * maxReferrals;
-
-  return (
-    <section aria-label={label}>
-      <h2>{label}</h2>
-      <p>{meta ?? 'Tools + referrals = hourly capacity'}</p>
-      <ul>
-        {toolRows.map(row => (
-          <li key={row.id}>
-            {row.label}: {row.owned === null
-              ? `ownership count not provided; potential ${gbpHour(row.potential)} at ${row.maximum} owned`
-              : `${row.owned} of ${row.maximum} owned; ${gbpHour(row.capacity)} held${row.owned === 0 ? `; potential ${gbpHour(row.potential)} at the limit` : ''}`}.
-          </li>
-        ))}
-        <li>
-          Referrals: {referralCount === undefined
-            ? `qualification count not provided; ${gbpHour(refs)} held`
-            : `${referralCount} of ${maxReferrals} qualified; ${gbpHour(refs)} held${referralCount === 0 ? `; up to ${gbpHour(referralPotential)} if all qualify` : ''}`}.
-        </li>
-      </ul>
-      <p>Tools: {gbpHour(tools)}. Referrals: {gbpHour(refs)}. Total: {gbpHour(total)}.</p>
-      {showMarks && (
-        <p>
-          Maximums: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} from tools, plus {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from referrals; theoretical ceiling {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}.
-        </p>
-      )}
-    </section>
-  );
-}
-
 export function Ledger({ title, meta, action, legend, children, foot, legendCols: _legendCols = 2 }: {
   title?: React.ReactNode; meta?: React.ReactNode; action?: React.ReactNode;
   legend?: string[]; children: React.ReactNode; foot?: React.ReactNode;
@@ -615,10 +449,6 @@ export function LedgerRow({ title, sub, value, sign, leading: _leading, children
   );
 }
 
-export function DayGroup({ label, meta }: { label: string; meta?: string }) {
-  return <h3>{label}{meta && <> — {meta}</>}</h3>;
-}
-
 export function Attn({ title, body, action }: {
   tone?: 'attn' | 'fail' | 'info'; title: React.ReactNode; body?: React.ReactNode; action?: React.ReactNode;
 }) {
@@ -628,14 +458,5 @@ export function Attn({ title, body, action }: {
       {body && <p>{body}</p>}
       {action}
     </aside>
-  );
-}
-
-export function Clause({ no, title, body }: { no: string; title: string; body?: React.ReactNode }) {
-  return (
-    <section>
-      <h3>{no}. {title}</h3>
-      {body && <p>{body}</p>}
-    </section>
   );
 }

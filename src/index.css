@@ -189,7 +189,6 @@
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  /* PSEmine surfaces are owned exclusively by src/styles/psemine.css (Duty & Ledger). */
 }
 
 /* UTILITIES */

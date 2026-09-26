@@ -5,8 +5,7 @@ import { db } from '../../firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import {
-  Stamp, StatementHeader, Ledger, CapacityRail, usePseDocumentTitle,
-  gbp, gbpHour,
+  usePseDocumentTitle, gbp, gbpHour,
 } from '../../components/psemine/pse';
 import toast from 'react-hot-toast';
 
@@ -135,14 +134,27 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <p>Your hourly capacity is the sum of your tools plus your qualified referrals — nothing else. The backend calculates every figure; the app only displays what the server reports.</p>
-        <CapacityRail
-          toolCapacity={PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR}
-          referralCapacity={PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR}
-          counts={{ starter: 5, builder: 3, advanced: 3, elite: 2 }}
-          referralCount={PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}
-          label="Capacity at every limit"
-          meta="Every tier at its ownership limit plus five qualified referrals"
-        />
+        <section aria-label="Capacity at every limit">
+          <h3>Capacity at every limit</h3>
+          <p>Every tier at its ownership limit plus five qualified referrals</p>
+          <dl>
+            {TOOLS.map(tool => {
+              const owned = tool.maxPerUser;
+              return (
+                <div key={tool.id}>
+                  <dt>{tool.name.replace(' Miner', '')}</dt>
+                  <dd>{owned} of {tool.maxPerUser} owned; {gbpHour(owned * tool.hourlyRateGBP)} held.</dd>
+                </div>
+              );
+            })}
+            <div>
+              <dt>Referrals</dt>
+              <dd>{PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} of {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} qualified; {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} held.</dd>
+            </div>
+          </dl>
+          <p>Tools: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}. Referrals: {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}. Total: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR + PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}.</p>
+          <p>Maximums: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} from tools, plus {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from referrals; theoretical ceiling {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}.</p>
+        </section>
         <p>Accrual depends on live mining: a session tool earns only while its session is active, and a restarting tool earns nothing until the backend marks the next session active. Elite earns continuously.</p>
       </>
     ),
@@ -282,12 +294,12 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
 
   return (
     <main>
-      <StatementHeader
-        routeKey={onboarding ? 'Welcome to PSEmine' : 'Guide · campaign'}
-        title={onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}
-        objective="Everything you need to understand tools, operating cycles, referrals, payments and settlement. Read it once — the console always shows the live state."
-        status={onboarding ? <Stamp tone="info">{doneSections.size}/{SECTIONS.length} read</Stamp> : undefined}
-      />
+      <header>
+        <p>{onboarding ? 'Welcome to PSEmine' : 'Guide · campaign'}</p>
+        <h1>{onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}</h1>
+        <p>Everything you need to understand tools, operating cycles, referrals, payments and settlement. Read it once — the console always shows the live state.</p>
+        {onboarding && <p role="status">{doneSections.size}/{SECTIONS.length} read</p>}
+      </header>
 
       {onboarding && (
         <section aria-label="Onboarding progress">
@@ -339,7 +351,9 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
       </aside>
 
       <div>
-        <Ledger title="The campaign, chapter by chapter" meta={`${SECTIONS.length} chapters · the console always shows the live state`}>
+        <section aria-labelledby="campaign-chapters-heading">
+          <h2 id="campaign-chapters-heading">The campaign, chapter by chapter</h2>
+          <p>{SECTIONS.length} chapters · the console always shows the live state</p>
           {SECTIONS.map((s, idx) => {
             const open = openSections.has(s.id);
             return (
@@ -387,7 +401,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
               );
             })}
           </section>
-        </Ledger>
+        </section>
 
         {onboarding && (
           <section aria-labelledby="onboarding-complete-heading">

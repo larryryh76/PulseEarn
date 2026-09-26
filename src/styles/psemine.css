@@ -93,11 +93,21 @@
   line-height: 1.55;
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 @media (min-width: 641px) { .pse-scope { --pse-gutter: 28px; } }
 @media (min-width: 1024px) { .pse-scope { --pse-gutter: 40px; --pse-fig-a: 44px; } }
 
 .pse-scope a { color: var(--pse-blue-ink); text-decoration: none; }
+/* Link-buttons need explicit ink: `.pse-scope a` (0,1,1) outranks `.pse-btn`'s
+   colour declaration (0,1,0), so a primary link-button would otherwise render
+   link-blue on the bone primary. origin/main hit the same collision and pinned
+   its (blue) primary to #ffffff; under the Phase 2 button system the primary's
+   ink is its own #0F0F12, and the outlined/quiet variants keep the plain link
+   treatment they already have across the product. (origin/main's duplicate
+   `.pse-blue/.pse-cyan/.pse-purple` helpers and its unused `.pse-accent-rule`
+   were dropped: this file already defines those colour helpers once, below.) */
+.pse-scope a.pse-btn:not(.pse-btn-2):not(.pse-btn-3) { color: #0F0F12; }
 .pse-scope a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pse-scope p, .pse-scope li, .pse-scope dd { overflow-wrap: break-word; }
 .pse-scope :focus-visible { outline: 2px solid var(--pse-blue-ink); outline-offset: 2px; border-radius: 4px; }
@@ -385,12 +395,12 @@
   border-radius: var(--pse-r-1); border: 1px solid transparent;
   background: var(--pse-bone); color: #0F0F12;
   font: inherit; font-size: 13.5px; font-weight: 600; padding: 10px 16px; min-height: 40px;
-  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 .pse-btn:hover:not(:disabled) { background: #ffffff; }
 .pse-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.pse-btn-2 { background: transparent; border-color: var(--pse-line-2); color: var(--pse-text); }
-.pse-btn-2:hover:not(:disabled) { background: rgba(255, 255, 255, 0.055); }
+.pse-btn-2 { background: transparent; border-color: rgba(109, 143, 255, 0.42); color: var(--pse-text); }
+.pse-btn-2:hover:not(:disabled) { background: var(--pse-blue-wash); }
 .pse-btn-3 { background: transparent; border-color: transparent; color: var(--pse-text-2); }
 .pse-btn-3:hover:not(:disabled) { color: var(--pse-text); background: rgba(255, 255, 255, 0.05); }
 .pse-btn-danger { background: transparent; border-color: rgba(229, 72, 77, 0.45); color: var(--pse-red); }
@@ -527,6 +537,14 @@
 .pse-mast-nav a:hover { color: var(--pse-text); text-decoration: none; }
 .pse-mast-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 @media (min-width: 1024px) { .pse-mast-nav { display: flex; } }
+@media (max-width: 640px) {
+  .pse-mast .pse-bar-row { gap: 6px; }
+  .pse-mast .pse-mark { gap: 7px; min-width: 0; }
+  .pse-mast .pse-wordmark-name { font-size: 14px; }
+  .pse-mast .pse-wordmark-sub { font-size: 7.5px; letter-spacing: 0.14em; }
+  .pse-mast-actions { gap: 4px; }
+  .pse-mast-actions .pse-btn-sm { padding-inline: 8px; font-size: 11px; }
+}
 .pse-brief { display: grid; gap: 20px; padding-block: 40px; border-top: 1px solid var(--pse-line); }
 @media (min-width: 768px) { .pse-brief { padding-block: 56px; } }
 .pse-brief-head { display: grid; gap: 12px; }
@@ -561,6 +579,28 @@
 }
 .pse-chain-mark { width: 7px; height: 7px; border-radius: 50%; background: var(--pse-bnb); flex: 0 0 auto; }
 
+/* Entry resolution skeleton — shaped like the public brief, never a generic spinner. */
+.pse-entry-skeleton { min-height: 100vh; background: var(--pse-canvas); }
+.pse-entry-skeleton-bar { display: flex; align-items: center; justify-content: space-between; min-height: 60px; padding: 0 var(--pse-gutter); border-bottom: 1px solid var(--pse-line); }
+.pse-entry-skeleton-wrap { max-width: var(--pse-measure-wide); margin-inline: auto; padding: 72px var(--pse-gutter) 56px; }
+.pse-entry-skeleton-kicker { width: 118px; height: 12px; }
+.pse-entry-skeleton-title { width: min(680px, 92%); height: clamp(38px, 6vw, 62px); margin-top: 20px; }
+.pse-entry-skeleton-title-short { width: min(470px, 72%); margin-top: 10px; }
+.pse-entry-skeleton-copy { width: min(620px, 92%); height: 18px; margin-top: 28px; }
+.pse-entry-skeleton-copy-short { width: min(520px, 78%); margin-top: 10px; }
+.pse-entry-skeleton-actions { display: flex; gap: 10px; margin-top: 28px; }
+.pse-entry-skeleton-button { width: 142px; height: 46px; }
+.pse-entry-skeleton-button-muted { width: 118px; opacity: 0.55; }
+.pse-entry-skeleton-ledger { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; max-width: 780px; margin-top: 64px; padding: 1px; background: var(--pse-line); }
+.pse-entry-skeleton-ledger span { height: 116px; border-radius: 0; }
+@media (max-width: 640px) {
+  .pse-entry-skeleton-wrap { padding-top: 48px; }
+  .pse-entry-skeleton-actions { flex-direction: column; }
+  .pse-entry-skeleton-button, .pse-entry-skeleton-button-muted { width: 100%; }
+  .pse-entry-skeleton-ledger { grid-template-columns: 1fr; }
+  .pse-entry-skeleton-ledger span { height: 64px; }
+}
+
 /* ── Sticky helpers on phones ─────────────────────────────────────────────── */
 .pse-sticky-action { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(180deg, transparent, var(--pse-canvas) 40%); }
 
@@ -569,6 +609,7 @@
   .pse-scope a, .pse-scope button, .pse-scope .pse-copy, .pse-scope input { min-height: 44px; }
   .pse-scope .pse-btn-sm { min-height: 44px; }
   .pse-scope .pse-seg button { min-height: 44px; }
+  .pse-scope .pse-seg { max-width: 100%; }
 }
 
 /* ── Motion ───────────────────────────────────────────────────────────────── */

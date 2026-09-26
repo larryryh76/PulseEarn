@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
-  Stamp, StatementHeader, Verdict, Ledger, LedgerRow, Attn, PSELoading,
-  gbpHour, fmtDateTime, shortAddr, campaignStatusView,
+  PSELoading, gbpHour, fmtDateTime, shortAddr, campaignStatusView,
 } from '../../components/psemine/pse';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -103,33 +102,31 @@ export const PSEMineMe: React.FC = () => {
 
   return (
     <main>
-      <StatementHeader
-        routeKey="Account · identity"
-        title="Account"
-        objective="Your PSEmine identity, security, wallets and campaign information. PulseEarn settings live in the PulseEarn product and are not shown here."
-        status={<Stamp tone="live">PSEmine access</Stamp>}
-      />
+      <header>
+        <p>Account · identity</p>
+        <h1>Account</h1>
+        <p role="status">PSEmine access</p>
+        <p>Your PSEmine identity, security, wallets and campaign information. PulseEarn settings live in the PulseEarn product and are not shown here.</p>
+      </header>
 
       {loading && !state && <PSELoading label="Loading account details" />}
 
-      <Verdict
-        label="Account capacity"
-        value={gbpHour(capacity)}
-        status={<Stamp tone={currentUser?.emailVerified ? 'live' : 'attn'}>{currentUser?.emailVerified ? 'Verified' : 'Verification pending'}</Stamp>}
-        note={
-          currentUser?.emailVerified
+      <section aria-labelledby="account-capacity-heading">
+        <h2 id="account-capacity-heading">Account capacity</h2>
+        <p>{gbpHour(capacity)}</p>
+        <p role="status">{currentUser?.emailVerified ? 'Verified' : 'Verification pending'}</p>
+        <p>
+          {currentUser?.emailVerified
             ? 'One Firebase identity is shared across PulseEarn and PSEmine; product access is separate and explicit — this account is enrolled in PSEmine.'
-            : 'Email verification is required before the console enables purchases and payouts.'
-        }
-        side={
-          <dl>
-            <div><dt>Campaign</dt><dd>{campaignView.label.trim()}</dd></div>
-            <div><dt>Operating tools</dt><dd>{String((state?.tools ?? []).length)}</dd></div>
-            <div><dt>Sign-in</dt><dd>{isPasswordAccount ? 'Email & password' : 'Google'}</dd></div>
-            <div><dt>Member since</dt><dd>{fmtDateTime(userData?.createdAt)}</dd></div>
-          </dl>
-        }
-      />
+            : 'Email verification is required before the console enables purchases and payouts.'}
+        </p>
+        <dl>
+          <div><dt>Campaign</dt><dd>{campaignView.label.trim()}</dd></div>
+          <div><dt>Operating tools</dt><dd>{String((state?.tools ?? []).length)}</dd></div>
+          <div><dt>Sign-in</dt><dd>{isPasswordAccount ? 'Email & password' : 'Google'}</dd></div>
+          <div><dt>Member since</dt><dd>{fmtDateTime(userData?.createdAt)}</dd></div>
+        </dl>
+      </section>
 
       <nav aria-label="Account sections">
         <h2>Sections</h2>
@@ -148,30 +145,33 @@ export const PSEMineMe: React.FC = () => {
         </ul>
       </nav>
 
-      <Ledger
-        title="Account identity"
-        meta="Shared sign-in identity · PSEmine entitlement"
-        legend={['Record', 'Value']}
-      >
-        <LedgerRow
-          title={userData?.username || 'PSEmine miner'}
-          sub={currentUser?.email || '—'}
-          value={<Stamp tone={currentUser?.emailVerified ? 'live' : 'attn'}>{currentUser?.emailVerified ? 'Verified' : 'Action needed'}</Stamp>}
-        />
-        <LedgerRow title="Member since" value={fmtDateTime(userData?.createdAt)} />
-        <LedgerRow title="Sign-in methods" value={isPasswordAccount ? 'Email & password' : 'Google'} />
-        <LedgerRow title="Display name" value={userData?.username || '—'} />
-        <LedgerRow
-          title="Email status"
-          sub={currentUser?.emailVerified ? 'Payouts and purchases enabled' : 'Verification is required for the console'}
-          value={currentUser?.emailVerified ? 'Verified' : 'Not verified'}
-        />
-      </Ledger>
+      <section aria-labelledby="account-identity-heading">
+        <header>
+          <h2 id="account-identity-heading">Account identity</h2>
+          <p>Shared sign-in identity · PSEmine entitlement</p>
+        </header>
+        <dl>
+          <div>
+            <dt>Identity</dt>
+            <dd>{userData?.username || 'PSEmine miner'}</dd>
+            <dd>{currentUser?.email || '—'}</dd>
+            <dd>Email status: {currentUser?.emailVerified ? 'Verified' : 'Action needed'}</dd>
+          </div>
+          <div><dt>Member since</dt><dd>{fmtDateTime(userData?.createdAt)}</dd></div>
+          <div><dt>Sign-in methods</dt><dd>{isPasswordAccount ? 'Email & password' : 'Google'}</dd></div>
+          <div><dt>Display name</dt><dd>{userData?.username || '—'}</dd></div>
+          <div>
+            <dt>Email status</dt>
+            <dd>{currentUser?.emailVerified ? 'Verified' : 'Not verified'}</dd>
+            <dd>{currentUser?.emailVerified ? 'Payouts and purchases enabled' : 'Verification is required for the console'}</dd>
+          </div>
+        </dl>
+      </section>
 
-      <Attn
-        title="One identity, two products"
-        body="Your Firebase sign-in is shared with PulseEarn, but points, tasks and rewards never apply in PSEmine. Campaign earnings here are GBP-denominated and settled in BNB."
-      />
+      <aside>
+        <h2>One identity, two products</h2>
+        <p>Your Firebase sign-in is shared with PulseEarn, but points, tasks and rewards never apply in PSEmine. Campaign earnings here are GBP-denominated and settled in BNB.</p>
+      </aside>
 
       <Section
         id="security"
@@ -184,7 +184,7 @@ export const PSEMineMe: React.FC = () => {
           >
             {pwOpen ? 'Close' : 'Change password'}
           </button>
-        ) : <Stamp tone="idle">Managed by Google</Stamp>}
+        ) : <p>Managed by Google</p>}
       >
         <SpecRow
           k="Password"
@@ -269,7 +269,7 @@ export const PSEMineMe: React.FC = () => {
         id="notifications"
         title="Notifications"
         meta="PSEmine notification feed only — opened from the bell in the product bar"
-        action={<Stamp tone={unreadNotifications > 0 ? 'info' : 'idle'}>{unreadNotifications > 0 ? `${unreadNotifications} unread` : 'All read'}</Stamp>}
+        action={<p>{unreadNotifications > 0 ? `${unreadNotifications} unread` : 'All read'}</p>}
       >
         <SpecRow k="Notifications received" v={String(notifications.length)} />
         <SpecRow

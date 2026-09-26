@@ -1,4 +1,4 @@
-/* PSEmine status/data helpers and plain semantic React primitives. */
+/* PSEmine status/data helpers and semantic React controls. */
 import React, { useEffect, useState } from 'react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
 import { PSELogo as BrandMark } from './PSEBrand';
@@ -21,16 +21,15 @@ export function nowMs(): number {
 
 /* ── Campaign status ────────────────────────────────────────────────── */
 export const CAMPAIGN_STATUS_MAP: Record<string, {
-  label: string; tone: StampTone;
-  headline: string; detail: string; live: boolean;
+  label: string; headline: string; detail: string; live: boolean;
 }> = {
-  scheduled: { label: 'Scheduled', tone: 'idle', headline: 'Campaign hasn\u2019t started yet', detail: 'Mining begins when the campaign goes live.', live: false },
-  active:    { label: 'Active',    tone: 'live', headline: 'Mining available', detail: 'Tools are operating and accruing on schedule.', live: true },
-  paused:    { label: 'Paused',    tone: 'attn', headline: 'Mining temporarily paused', detail: 'Accrual is paused network-wide. It resumes automatically when the campaign resumes.', live: false },
-  settling:  { label: 'Settling',  tone: 'info', headline: 'Mining ended — final earnings being calculated', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
-  payout:    { label: 'Payout',    tone: 'info', headline: 'Payout processing', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
-  closed:    { label: 'Closed',    tone: 'idle', headline: 'Campaign finished', detail: 'The campaign has finished. Balances were settled.', live: false },
-  archived:  { label: 'Archived',  tone: 'idle', headline: 'Public mining interface closed', detail: 'This campaign is archived. Records remain available.', live: false },
+  scheduled: { label: 'Scheduled', headline: 'Campaign hasn\u2019t started yet', detail: 'Mining begins when the campaign goes live.', live: false },
+  active:    { label: 'Active', headline: 'Mining available', detail: 'Tools are operating and accruing on schedule.', live: true },
+  paused:    { label: 'Paused', headline: 'Mining temporarily paused', detail: 'Accrual is paused network-wide. It resumes automatically when the campaign resumes.', live: false },
+  settling:  { label: 'Settling', headline: 'Mining ended — final earnings being calculated', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
+  payout:    { label: 'Payout', headline: 'Payout processing', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
+  closed:    { label: 'Closed', headline: 'Campaign finished', detail: 'The campaign has finished. Balances were settled.', live: false },
+  archived:  { label: 'Archived', headline: 'Public mining interface closed', detail: 'This campaign is archived. Records remain available.', live: false },
 };
 
 export function campaignStatusView(status?: string | null) {
@@ -39,20 +38,19 @@ export function campaignStatusView(status?: string | null) {
 
 /* ── Tool operating cycle (backend derive_cycle state machine) ──────── */
 export const CYCLE_STATE_MAP: Record<string, {
-  label: string; tone: StampTone;
-  description: string; live: boolean;
+  label: string; description: string; live: boolean;
 }> = {
-  active:                { label: 'Active',                tone: 'live', description: 'Operating normally — accruing hourly.', live: true },
-  restarting:            { label: 'Restarting',            tone: 'info', description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
-  cycle_complete:        { label: 'Cycle Complete',        tone: 'attn', description: '24-hour operating cycle finished. Maintenance is available.', live: false },
-  maintenance_required:  { label: 'Maintenance Required',  tone: 'fail', description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
-  paused:                { label: 'Paused',                tone: 'attn', description: 'Campaign paused — tool is not accruing.', live: false },
-  settling:              { label: 'Settling',              tone: 'info', description: 'Campaign settlement in progress.', live: false },
-  ended:                 { label: 'Ended',                 tone: 'idle', description: 'Campaign ended — accrual stopped.', live: false },
-  archived:              { label: 'Archived',              tone: 'idle', description: 'Campaign archived.', live: false },
-  revoked:               { label: 'Revoked',               tone: 'fail', description: 'Ownership revoked.', live: false },
-  expired:               { label: 'Expired',               tone: 'idle', description: 'Ownership expired.', live: false },
-  inactive:              { label: 'Inactive',              tone: 'idle', description: 'Not yet operating.', live: false },
+  active:                { label: 'Active', description: 'Operating normally — accruing hourly.', live: true },
+  restarting:            { label: 'Restarting', description: 'Restart in progress — the next mining session begins automatically at the backend-scheduled time.', live: false },
+  cycle_complete:        { label: 'Cycle Complete', description: '24-hour operating cycle finished. Maintenance is available.', live: false },
+  maintenance_required:  { label: 'Maintenance Required', description: 'Cycle finished and the grace window passed. Maintain the tool to resume mining.', live: false },
+  paused:                { label: 'Paused', description: 'Campaign paused — tool is not accruing.', live: false },
+  settling:              { label: 'Settling', description: 'Campaign settlement in progress.', live: false },
+  ended:                 { label: 'Ended', description: 'Campaign ended — accrual stopped.', live: false },
+  archived:              { label: 'Archived', description: 'Campaign archived.', live: false },
+  revoked:               { label: 'Revoked', description: 'Ownership revoked.', live: false },
+  expired:               { label: 'Expired', description: 'Ownership expired.', live: false },
+  inactive:              { label: 'Inactive', description: 'Not yet operating.', live: false },
 };
 
 export function cycleStateView(state?: string | null) {
@@ -69,20 +67,18 @@ export function operatingModelView(model?: string | null): { label: string; deta
 }
 
 /* ── Purchase status ────────────────────────────────────────────────── */
-export const PURCHASE_STATUS_MAP: Record<string, {
-  label: string; tone: StampTone; terminal: boolean;
-}> = {
-  created:               { label: 'Created',               tone: 'idle', terminal: false },
-  awaiting_payment:      { label: 'Awaiting Payment',      tone: 'attn', terminal: false },
-  transaction_submitted: { label: 'Transaction Submitted', tone: 'info', terminal: false },
-  confirming:            { label: 'Confirming on BSC',     tone: 'info', terminal: false },
-  confirmed:             { label: 'Confirmed',             tone: 'live', terminal: false },
-  activated:             { label: 'Tool Activated',        tone: 'live', terminal: true },
-  expired:               { label: 'Quote Expired',         tone: 'idle', terminal: true },
-  underpaid:             { label: 'Underpaid',             tone: 'fail', terminal: true },
-  failed:                { label: 'Failed',                tone: 'fail', terminal: true },
-  manual_review:         { label: 'Manual Review',         tone: 'attn', terminal: true },
-  reversed:              { label: 'Reversed',              tone: 'idle', terminal: true },
+export const PURCHASE_STATUS_MAP: Record<string, { label: string; terminal: boolean }> = {
+  created:               { label: 'Created', terminal: false },
+  awaiting_payment:      { label: 'Awaiting Payment', terminal: false },
+  transaction_submitted: { label: 'Transaction Submitted', terminal: false },
+  confirming:            { label: 'Confirming on BSC', terminal: false },
+  confirmed:             { label: 'Confirmed', terminal: false },
+  activated:             { label: 'Tool Activated', terminal: true },
+  expired:               { label: 'Quote Expired', terminal: true },
+  underpaid:             { label: 'Underpaid', terminal: true },
+  failed:                { label: 'Failed', terminal: true },
+  manual_review:         { label: 'Manual Review', terminal: true },
+  reversed:              { label: 'Reversed', terminal: true },
 };
 
 export function purchaseStatusView(status?: string | null) {
@@ -90,13 +86,13 @@ export function purchaseStatusView(status?: string | null) {
 }
 
 /* ── Referral stage ─────────────────────────────────────────────────── */
-export const REFERRAL_STAGE_MAP: Record<string, { label: string; tone: StampTone; step: number; help: string }> = {
-  registered:       { label: 'Registered',       tone: 'idle', step: 1, help: 'Signed up with your referral code. No capacity yet.' },
-  wallet_connected: { label: 'Wallet Connected', tone: 'info', step: 2, help: 'Connected a BNB Smart Chain wallet. Not yet earning for you.' },
-  tool_purchased:   { label: 'Tool Purchased',   tone: 'attn', step: 3, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
-  mining_active:    { label: 'Mining Active',    tone: 'info', step: 4, help: 'Mining is live. Qualification settles on the backend shortly.' },
-  qualified:        { label: 'Qualified',        tone: 'live', step: 5, help: 'Qualified — added +£0.30/hour to your referral capacity.' },
-  rejected:         { label: 'Rejected',         tone: 'fail', step: 0, help: 'This referral did not qualify.' },
+export const REFERRAL_STAGE_MAP: Record<string, { label: string; step: number; help: string }> = {
+  registered:       { label: 'Registered', step: 1, help: 'Signed up with your referral code. No capacity yet.' },
+  wallet_connected: { label: 'Wallet Connected', step: 2, help: 'Connected a BNB Smart Chain wallet. Not yet earning for you.' },
+  tool_purchased:   { label: 'Tool Purchased', step: 3, help: 'Purchased a mining tool. Qualifies when their first tool activates.' },
+  mining_active:    { label: 'Mining Active', step: 4, help: 'Mining is live. Qualification settles on the backend shortly.' },
+  qualified:        { label: 'Qualified', step: 5, help: 'Qualified — added +£0.30/hour to your referral capacity.' },
+  rejected:         { label: 'Rejected', step: 0, help: 'This referral did not qualify.' },
 };
 
 export function referralStageView(stage?: string | null) {
@@ -112,14 +108,14 @@ export const REFERRAL_STAGES = [
 ] as const;
 
 /* ── Payout status ──────────────────────────────────────────────────── */
-export const PAYOUT_STATUS_MAP: Record<string, { label: string; tone: StampTone }> = {
-  pending:      { label: 'Pending',      tone: 'attn' },
-  under_review: { label: 'Under Review', tone: 'info' },
-  approved:     { label: 'Approved',     tone: 'info' },
-  processing:   { label: 'Processing',   tone: 'info' },
-  paid:         { label: 'Paid',         tone: 'live' },
-  failed:       { label: 'Failed',       tone: 'fail' },
-  reversed:     { label: 'Reversed',     tone: 'idle' },
+export const PAYOUT_STATUS_MAP: Record<string, { label: string }> = {
+  pending:      { label: 'Pending' },
+  under_review: { label: 'Under Review' },
+  approved:     { label: 'Approved' },
+  processing:   { label: 'Processing' },
+  paid:         { label: 'Paid' },
+  failed:       { label: 'Failed' },
+  reversed:     { label: 'Reversed' },
 };
 
 export function payoutStatusView(status?: string | null) {
@@ -228,12 +224,11 @@ export function PSELogo({ size = 32, withWordmark = false }: { size?: number; wi
   return <BrandMark size={size} withWordmark={withWordmark} />;
 }
 
-export function PSEError({ error, onRetry, retrying, action, compact: _compact }: {
+export function PSEError({ error, onRetry, retrying, action }: {
   error: PseErrorInfo;
   onRetry?: () => void;
   retrying?: boolean;
   action?: React.ReactNode;
-  compact?: boolean;
 }) {
   return (
     <section role="alert">
@@ -256,7 +251,7 @@ export function PSEError({ error, onRetry, retrying, action, compact: _compact }
   );
 }
 
-export function PSELoading({ label = 'Loading', skeleton: _skeleton = false }: { label?: string; skeleton?: boolean }) {
+export function PSELoading({ label = 'Loading' }: { label?: string }) {
   return <p role="status" aria-live="polite">{label}</p>;
 }
 
@@ -296,73 +291,11 @@ export function usePseDocumentTitle(title?: string) {
   }, [title]);
 }
 
-export type StampTone = 'live' | 'attn' | 'fail' | 'info' | 'idle';
-
-export function Stamp({ children }: {
-  tone?: StampTone; glyph?: string; children: React.ReactNode; pulse?: boolean;
-}) {
-  return <span role="status">{children}</span>;
-}
-
-export function campaignTone(status?: string | null): StampTone {
-  return campaignStatusView(status).tone;
-}
-
-export function cycleTone(state?: string | null): StampTone {
-  return cycleStateView(state).tone;
-}
-
-export function StatementHeader({ routeKey, title, objective, status, actions, asOf }: {
-  routeKey: string; title: string; objective?: string; status?: React.ReactNode;
-  actions?: React.ReactNode; asOf?: string;
-}) {
-  return (
-    <header>
-      <p>{routeKey}</p>
-      <h1>{title}</h1>
-      {status}
-      {objective && <p>{objective}</p>}
-      {asOf && <p>As of {asOf}</p>}
-      {actions}
-    </header>
-  );
-}
-
-export function Verdict({ label, value, unit, status, note, side }: {
-  label: string; value: string; unit?: string; status?: React.ReactNode;
-  note?: React.ReactNode; side?: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2>{label}</h2>
-      {status}
-      <p>{value}{unit && <> {unit}</>}</p>
-      {note && <p>{note}</p>}
-      {side}
-    </section>
-  );
-}
-
-export type CampaignPhaseKey = 'launch' | 'mining' | 'settlement' | 'payout' | 'closed';
-
-export const CAMPAIGN_PHASES: Array<{ key: CampaignPhaseKey; label: string }> = [
-  { key: 'launch', label: 'Launch' },
-  { key: 'mining', label: 'Mining' },
-  { key: 'settlement', label: 'Settlement' },
-  { key: 'payout', label: 'Payout' },
-  { key: 'closed', label: 'Closed' },
-];
-
-const PHASE_INDEX: Record<string, number> = {
-  scheduled: 0, active: 1, paused: 1, settling: 2, payout: 3, closed: 4, archived: 4,
-};
-
 export interface CampaignClockInput {
   startAt?: unknown;
   endAt?: unknown;
   durationDays?: number | null;
   status?: string | null;
-  name?: string | null;
 }
 
 export interface CampaignClock {
@@ -371,9 +304,6 @@ export interface CampaignClock {
   endMs: number | null;
   dayNumber: number | null;
   daysLeft: number | null;
-  progress: number;
-  phaseIndex: number;
-  phases: Array<{ key: CampaignPhaseKey; label: string; state: 'done' | 'current' | 'pending' }>;
 }
 
 export function useCampaignClock(
@@ -394,69 +324,10 @@ export function useCampaignClock(
   const endMs = toDateSafe(campaign?.endAt)?.getTime() ?? null;
   const now = nowMs();
   const live = ['active', 'paused', 'settling', 'payout'].includes(status);
-  const dayNumber = live && typeof startMs === 'number'
-    ? Math.min(totalDays, Math.max(1, Math.floor((now - startMs) / 86_400_000) + 1))
+  const dayNumber = live && typeof startMs === 'number' && startMs <= now
+    ? Math.min(totalDays, Math.floor((now - startMs) / 86_400_000) + 1)
     : null;
   const daysLeft = typeof endMs === 'number' ? Math.max(0, Math.ceil((endMs - now) / 86_400_000)) : null;
-  const progress = dayNumber === null ? 0 : Math.min(100, Math.max(0, (dayNumber / totalDays) * 100));
-  const phaseIndex = PHASE_INDEX[status] ?? 0;
 
-  return {
-    totalDays, startMs, endMs, dayNumber, daysLeft, progress, phaseIndex,
-    phases: CAMPAIGN_PHASES.map((phase, index) => ({
-      ...phase,
-      state: index < phaseIndex ? 'done' as const : index === phaseIndex ? 'current' as const : 'pending' as const,
-    })),
-  };
-}
-
-export function Ledger({ title, meta, action, legend, children, foot, legendCols: _legendCols = 2 }: {
-  title?: React.ReactNode; meta?: React.ReactNode; action?: React.ReactNode;
-  legend?: string[]; children: React.ReactNode; foot?: React.ReactNode;
-  legendCols?: 2 | 3 | 'lead';
-}) {
-  return (
-    <section>
-      {(title || action) && (
-        <header>
-          {title && <h2>{title}</h2>}
-          {meta && <p>{meta}</p>}
-          {action}
-        </header>
-      )}
-      {legend && legend.length > 0 && <p>{legend.join(' · ')}</p>}
-      <div>{children}</div>
-      {foot && <footer>{foot}</footer>}
-    </section>
-  );
-}
-
-export function LedgerRow({ title, sub, value, sign, leading: _leading, children }: {
-  title: React.ReactNode; sub?: React.ReactNode; value?: React.ReactNode;
-  valueTone?: string; sign?: 'credit' | 'debit' | ''; leading?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div>
-      {sign && <span>{sign === 'credit' ? 'Credit: ' : 'Debit: '}</span>}
-      <div>
-        <p>{title}</p>
-        {sub && <p>{sub}</p>}
-        {children}
-      </div>
-      {value !== undefined && <span>{value}</span>}
-    </div>
-  );
-}
-
-export function Attn({ title, body, action }: {
-  tone?: 'attn' | 'fail' | 'info'; title: React.ReactNode; body?: React.ReactNode; action?: React.ReactNode;
-}) {
-  return (
-    <aside>
-      <p>{title}</p>
-      {body && <p>{body}</p>}
-      {action}
-    </aside>
-  );
+  return { totalDays, startMs, endMs, dayNumber, daysLeft };
 }

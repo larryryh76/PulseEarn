@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
   gbp, gbpHour, gbpRate, timeAgo, remainingFrom, nowMs,
-  campaignStatusView, campaignTone, cycleStateView, purchaseStatusView,
+  campaignStatusView, cycleStateView, purchaseStatusView,
   shortHash, useCampaignClock,
 } from '../../components/psemine/pse';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
@@ -87,29 +87,27 @@ export const PSEMineDashboard: React.FC = () => {
   /** The single answer to "is mining active?" — derived from backend state only. */
   const miningState = (() => {
     if (isMiningLive && tools.length === 0) {
-      return { label: 'No capacity yet', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.', tone: 'idle' as const };
+      return { label: 'No capacity yet', detail: 'No tools are operating, so nothing is accruing. Purchase a tool to begin.' };
     }
     if (isMiningLive && needsMaintenance.length > 0) {
       return {
         label: 'Partially interrupted',
         detail: `${needsMaintenance.length} tool${needsMaintenance.length === 1 ? '' : 's'} finished a mining session and stopped accruing — restart them to resume.`,
-        tone: 'attn' as const,
       };
     }
     if (isMiningLive && restartingTools.length > 0 && activeTools.length === 0) {
       return {
         label: 'Restarting',
         detail: `${restartingTools.length} tool${restartingTools.length === 1 ? '' : 's'} restarting — mining resumes at the backend-scheduled time. No earnings accrue until then.`,
-        tone: 'info' as const,
       };
     }
     if (isMiningLive && activeTools.length > 0) {
-      return { label: 'Mining active', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.`, tone: 'live' as const };
+      return { label: 'Mining active', detail: `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating and accruing on schedule.` };
     }
     if (isMiningLive) {
-      return { label: 'Mining idle', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.', tone: 'attn' as const };
+      return { label: 'Mining idle', detail: 'No tool is currently mining — sessions are complete, restarting, or awaiting a restart.' };
     }
-    return { label: view.label.trim(), detail: view.detail, tone: campaignTone(campaignStatus) };
+    return { label: view.label.trim(), detail: view.detail };
   })();
 
   const checkpointEarned = typeof state.checkpoint?.earnedMinor === 'number' ? state.checkpoint.earnedMinor : 0;

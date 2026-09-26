@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pse';
+import { PSELogo } from '../../components/psemine/PSEBrand';
 import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
 import { gbp, gbpHour } from '../../components/psemine/pse';
 import { mapAuthError } from '../../utils/errors';
@@ -33,7 +34,7 @@ const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: st
 }) => (
   <main>
     <aside aria-label="PSEmine campaign information">
-      <Link to="/mine" aria-label="PSEmine home">PSEmine</Link>
+      <Link to="/mine" aria-label="PSEmine home"><PSELogo size={32} withWordmark /></Link>
       <p>{quote}</p>
       <ul>
         {points.map(p => <li key={p}>{p}</li>)}
@@ -243,9 +244,6 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
         {isSignup && password.length > 0 && (
           <div aria-live="polite">
             <p>Password strength: {strength.label}</p>
-            <progress value={Math.max(8, strength.score)} max={100} aria-label="Password strength">
-              {Math.max(8, strength.score)}%
-            </progress>
           </div>
         )}
 
@@ -414,7 +412,7 @@ const PSEmineAccessGate: React.FC = () => {
 
   return (
     <main>
-      <Link to="/mine" aria-label="PSEmine home">PSEmine</Link>
+      <Link to="/mine" aria-label="PSEmine home"><PSELogo size={32} withWordmark /></Link>
       <section aria-labelledby="access-gate-heading">
         <h1 id="access-gate-heading">PSEmine isn’t enabled for this account</h1>
         <p>Signed in as {currentUser?.email}</p>

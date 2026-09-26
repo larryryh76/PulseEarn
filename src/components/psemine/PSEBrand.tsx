@@ -16,8 +16,7 @@ export function PSELogo({ size = 32, withWordmark = false }: { size?: number; wi
       </svg>
       {withWordmark && (
         <span>
-          <span>PSEmine</span>
-          <span>90-day campaign</span>
+          {' '}PSEmine<br />90-day campaign
         </span>
       )}
     </span>

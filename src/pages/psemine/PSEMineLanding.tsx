@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { campaignStatusView, usePseDocumentTitle } from '../../components/psemine/pse';
+import { PSELogo } from '../../components/psemine/PSEBrand';
 
 export const PSEMineLanding: React.FC = () => {
   const { campaign, loading: campaignLoading } = usePSEMine();
@@ -21,9 +22,10 @@ export const PSEMineLanding: React.FC = () => {
   return (
     <>
       <header>
-        <h1>PSEmine</h1>
+        <PSELogo size={32} withWordmark />
       </header>
       <main>
+        <h1>PSEmine campaign</h1>
         <p>Campaign: {campaign?.name ?? 'PSEmine'}</p>
         <p>Campaign status: {campaignStatus}</p>
         <nav aria-label="PSEmine account">

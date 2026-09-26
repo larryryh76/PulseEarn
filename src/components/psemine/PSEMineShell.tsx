@@ -1,23 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
-import {
-  PSELogo, campaignStatusView, gbpHour,
-  toDateSafe, usePseDocumentTitle, useCampaignClock,
-} from './pse';
+import { PSELogo, campaignStatusView, toDateSafe, usePseDocumentTitle } from './pse';
 import { NotificationBell } from './NotificationBell';
 
-/**
- * Console sections (authenticated, enrolled). The authenticated application
- * NEVER links back to the public landing: the logo and every nav item resolve
- * inside the app. Leaving the product happens only through explicit sign-out.
- *
- * The Guide is deliberately NOT here: it is a secondary reference (field
- * manual) and is reached from the account menu and from contextual links, so
- * the primary navigation carries destinations only — never product state and
- * never documentation.
- */
 const CONSOLE_NAV = [
   { to: '/mine/dashboard', label: 'Overview' },
   { to: '/mine/tools', label: 'Tools' },
@@ -26,9 +12,8 @@ const CONSOLE_NAV = [
   { to: '/mine/referrals', label: 'Referrals' },
 ];
 
-/** PSEmine owns the document title on every one of its routes. */
 const ROUTE_TITLES: Array<[RegExp, string]> = [
-  [/^\/mine\/dashboard/, 'Mining console'],
+  [/^\/mine\/dashboard/, 'Overview'],
   [/^\/mine\/tools/, 'Mining tools'],
   [/^\/mine\/wallet/, 'Wallet & payouts'],
   [/^\/mine\/referrals/, 'Referrals'],
@@ -40,11 +25,11 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/mine\/signup/, 'Create account'],
   [/^\/mine\/forgot-password/, 'Reset password'],
   [/^\/mine\/verify-email/, 'Verify email'],
-  [/^\/mine/, '90-day mining campaign'],
+  [/^\/mine/, 'PSEmine'],
 ];
 
 function titleForPath(pathname: string): string {
-  return ROUTE_TITLES.find(([re]) => re.test(pathname))?.[1] ?? '90-day mining campaign';
+  return ROUTE_TITLES.find(([re]) => re.test(pathname))?.[1] ?? 'PSEmine';
 }
 
 export const PSEMineShell: React.FC = () => {
@@ -53,23 +38,16 @@ export const PSEMineShell: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
-
-  const isAuthed = Boolean(currentUser);
-  const inConsole = isAuthed && hasPSEmineAccess;
-  const isLanding = location.pathname === '/mine' || location.pathname === '/mine/';
-  /* The public marketing surface owns its own masthead and footer. */
-  const chrome = !isLanding || inConsole;
+  const inConsole = Boolean(currentUser) && hasPSEmineAccess;
 
   usePseDocumentTitle(titleForPath(location.pathname));
-
   useEffect(() => { setMenuOpen(false); setAccountOpen(false); }, [location.pathname]);
-
   useEffect(() => {
     if (!accountOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
+    const onDoc = (event: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAccountOpen(false); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountOpen(false); };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -78,95 +56,56 @@ export const PSEMineShell: React.FC = () => {
     };
   }, [accountOpen]);
 
-  if (!chrome) return <Outlet />;
-
   return (
-    <>
-      <header>
-        <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home">
-          <PSELogo size={26} withWordmark />
+    <div className="pm-product pm-console">
+      <header className="pm-shell-header">
+        <Link className="pm-shell-brand" to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home">
+          <PSELogo size={27} withWordmark />
         </Link>
-
         {inConsole && (
           <nav aria-label="PSEmine console">
-            {CONSOLE_NAV.map(item => (
-              <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
-            ))}
+            {CONSOLE_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? 'active' : ''}>{item.label}</NavLink>)}
           </nav>
         )}
-
-        <div>
+        <div className="pm-header-actions">
           {inConsole ? (
             <>
               <NotificationBell />
               <AccountMenu open={accountOpen} setOpen={setAccountOpen} ref={accountRef} />
             </>
-          ) : isAuthed ? (
-            <button type="button" onClick={() => void logout()}>
-              Sign out
-            </button>
+          ) : currentUser ? (
+            <button type="button" onClick={() => void logout()}>Sign out</button>
           ) : (
-            <>
-              <Link to="/mine/login">Sign in</Link>
-              <Link to="/mine/signup">Create account</Link>
-            </>
+            <><Link to="/mine/login">Sign in</Link><Link className="pm-button pm-button-primary" to="/mine/signup">Create account</Link></>
           )}
-          <button
-            type="button"
-            onClick={() => setMenuOpen(v => !v)}
-            aria-expanded={menuOpen}
-            aria-controls="mobile-menu"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          >
-            {menuOpen ? 'Close menu' : 'Open menu'}
+          <button className="pm-mobile-toggle" type="button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-controls="psemine-mobile-menu" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}>
+            {menuOpen ? 'Close' : 'Menu'}
           </button>
         </div>
-
         {menuOpen && (
-          <nav id="mobile-menu" aria-label="PSEmine mobile">
+          <nav className="pm-mobile-nav" id="psemine-mobile-menu" aria-label="PSEmine mobile">
             {inConsole ? (
               <>
-                {[...CONSOLE_NAV, { to: '/mine/me', label: 'Account' }, { to: '/mine/guide', label: 'Guide' }].map(item => (
-                  <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
-                ))}
+                {[...CONSOLE_NAV, { to: '/mine/me', label: 'Account' }, { to: '/mine/guide', label: 'Guide' }].map(item => <NavLink key={item.to} to={item.to}>{item.label}</NavLink>)}
                 <Link to="/help">Support</Link>
-                <button type="button" onClick={() => void logout()}>
-                  Sign out
-                </button>
+                <button type="button" onClick={() => void logout()}>Sign out</button>
               </>
-            ) : isAuthed ? (
-              <Link to="/mine/dashboard">Open console</Link>
-            ) : (
-              <>
-                <Link to="/mine/login">Sign in</Link>
-                <Link to="/mine/signup">Create account</Link>
-              </>
-            )}
+            ) : currentUser ? <Link to="/mine/dashboard">Open console</Link> : <><Link to="/mine/login">Sign in</Link><Link to="/mine/signup">Create account</Link></>}
           </nav>
         )}
       </header>
-
-      <CampaignStatus inConsole={inConsole} />
-
-      <main>
-        <Outlet />
-      </main>
-
-      <footer>
-        <PSELogo size={22} withWordmark />
-        <nav aria-label="Footer">
-          <Link to="/terms">Terms</Link>
-          <Link to="/privacy">Privacy</Link>
-          <Link to="/help">Support</Link>
-        </nav>
-        <p>© {new Date().getFullYear()} PSEmine · 90-day campaign</p>
+      <ConsoleStatus inConsole={inConsole} />
+      <main className="pm-console-main"><Outlet /></main>
+      <footer className="pm-footer">
+        <Link to="/mine"><PSELogo size={21} withWordmark /></Link>
+        <nav aria-label="Footer"><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><Link to="/help">Support</Link></nav>
+        <span>© {new Date().getFullYear()} PSEmine · 90-day campaign</span>
       </footer>
-    </>
+    </div>
   );
 };
 
-/** Account dropdown (desktop). The Guide lives here, not in the primary nav. */
-const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (v: boolean) => void }>(
+const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (value: boolean) => void }>(
   ({ open, setOpen }, ref) => {
     const { userData, currentUser, logout } = usePSEMineAuth();
     const navigate = useNavigate();
@@ -176,60 +115,40 @@ const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (
           {(userData?.username || currentUser?.email || '?').slice(0, 1).toUpperCase()}
         </button>
         {open && (
-          <div role="menu">
-            <div>
-              <p>{userData?.username || 'PSEmine miner'}</p>
-              <p>{currentUser?.email}</p>
-            </div>
+          <div className="pm-account-menu" role="menu">
+            <div><p>{userData?.username || 'PSEmine miner'}</p><p>{currentUser?.email}</p></div>
             <Link to="/mine/me" role="menuitem">Account &amp; settings</Link>
             <Link to="/mine/guide" role="menuitem">Campaign guide</Link>
             <Link to="/help" role="menuitem">Support</Link>
-            <button type="button" role="menuitem"
-              onClick={async () => { await logout(); navigate('/mine/login'); }}>
-              Sign out
-            </button>
+            <button type="button" role="menuitem" onClick={async () => { await logout(); navigate('/mine/login'); }}>Sign out</button>
           </div>
         )}
       </div>
     );
-  });
+  },
+);
 AccountMenu.displayName = 'AccountMenu';
 
-/** Plain campaign facts from the backend state; no decorative rail or banner. */
-const CampaignStatus: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
+const ConsoleStatus: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
   const { state, campaignStatus, refreshing, refresh } = usePseState();
   const campaign = state?.campaign;
-  const clock = useCampaignClock(campaign, campaignStatus);
   const view = campaignStatusView(campaignStatus);
-  const capacity = state?.user?.totalCapacityGBPPerHour;
-  const hasNonActiveState = Boolean(campaignStatus && campaignStatus !== 'active');
+  const campaignName = campaign?.name || 'PSEmine campaign';
+  const startDate = toDateSafe(campaign?.startAt);
+  const endDate = toDateSafe(campaign?.endAt);
+  const dates = startDate && endDate
+    ? `${startDate.toLocaleDateString('en-GB')} — ${endDate.toLocaleDateString('en-GB')}`
+    : 'Schedule pending';
 
-  if (!inConsole && !hasNonActiveState) return null;
+  if (!inConsole) return null;
 
   return (
-    <section aria-label="Campaign status">
-      <p>{view.label}</p>
-      {hasNonActiveState && (
-        <>
-          <p>{view.headline}</p>
-          <p>{view.detail}</p>
-        </>
-      )}
-      {inConsole && (
-        <>
-          <p>Day {clock.dayNumber ?? '—'} / {clock.totalDays}</p>
-          {clock.daysLeft !== null && <p>{clock.daysLeft}d left</p>}
-          {typeof capacity === 'number' && <p>Capacity: {gbpHour(capacity)}</p>}
-          <button type="button" onClick={() => void refresh()} disabled={refreshing}>
-            {refreshing ? 'Syncing' : 'Sync'}
-          </button>
-        </>
-      )}
-    </section>
+    <div className="pm-console-status" aria-label="Current campaign status">
+      <span>{campaignName} · {view.label.trim()} · {dates}</span>
+      <button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync state'}</button>
+    </div>
   );
 };
 
-/* Kept exported for the routes that referenced the old helper. */
 export { toDateSafe };
-
 export default PSEMineShell;

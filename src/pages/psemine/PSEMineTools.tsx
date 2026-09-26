@@ -15,6 +15,7 @@ import {
   gbp, gbpHour, gbpRate, shortAddr, shortHash, nowMs, cycleStateView,
   bnbExactFromWei,
 } from '../../components/psemine/pse';
+import { PSEMineToolVisual } from '../../components/psemine/PSEMineProductVisuals';
 import toast from 'react-hot-toast';
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;
@@ -36,11 +37,11 @@ const dutyOf = (t: PSEMineToolDefinition) => (t.operating?.model === 'continuous
  */
 export const PSEMineTools: React.FC = () => {
   const { pseUser, campaign } = usePSEMine();
-  const { state, refresh, loading, error, refreshing } = usePseState();
+  const { state, campaignStatus, refresh, loading, error, refreshing } = usePseState();
   const [purchasing, setPurchasing] = useState<PSEMineToolDefinition | null>(null);
 
   const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
-  const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
+  const purchaseOpen = state?.campaign?.purchaseEnabled === true && campaignStatus === 'active';
   const ownedTools = useMemo(
     () => (state?.tools ?? []).filter(t => ['active', 'cycle_complete', 'maintenance_required', 'restarting'].includes(String(t.status))),
     [state?.tools],
@@ -83,45 +84,25 @@ export const PSEMineTools: React.FC = () => {
   );
 
   if (loading && !state) {
-    return <main><PSELoading label="Loading the marketplace" /></main>;
+    return <main className="pm-page"><PSELoading label="Loading mining tools" /></main>;
   }
   if (error && !state) {
-    return <main><PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} /></main>;
+    return <main className="pm-page"><PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} /></main>;
   }
 
   return (
-    <main>
+    <main className="pm-page">
       <header>
-        <p>Mining tools · marketplace</p>
-        <h1>Buy mining capacity</h1>
-        <p>{purchaseOpen ? 'Purchases open' : campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'unavailable'}`}</p>
-        <p>Four tool tiers with fixed GBP prices, fixed hourly capacity and fixed ownership limits. Paid in BNB — activated only after the backend verifies the transaction on-chain.</p>
-        <Link to="/mine/dashboard">Operating console</Link>
+        <p className="pm-eyebrow">Mining tools · marketplace</p>
+        <h1>Choose your tools.</h1>
+        <p>Four mining tool tiers with fixed GBP prices, hourly capacity, ownership limits and operating models. Pay in BNB using a live server quote; activation follows backend verification.</p>
+        <p className="pm-note">{purchaseOpen ? 'Purchases are open for this campaign.' : `Purchases are not open. Campaign status: ${campaignStatus || 'unavailable'}.`}</p>
+        <Link to="/mine/dashboard">Return to your console</Link>
       </header>
 
-      <section aria-labelledby="capacity-heading">
-        <h2 id="capacity-heading">Tool capacity deployed</h2>
-        <p>{gbpHour(toolCapacity)}</p>
-        <p>{headroom > 0 ? `${gbpHour(headroom)} headroom` : 'At the tool cap'}</p>
-        <p>
-          {headroom > 0
-            ? `Up to ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of tool capacity can be held across the four tiers' ownership limits. ${
-                toolCapacity === 0
-                  ? 'No tools are held yet, so nothing is accruing.'
-                  : `${gbpHour(headroom)} of that ceiling is still available.`
-              }`
-            : 'Tool capacity is at the campaign maximum. Qualified referrals can still add capacity.'}
-        </p>
-        <dl>
-          <div><dt>Tools owned</dt><dd>{totalOwned}</dd></div>
-          <div><dt>Ownership slots left</dt><dd>{tierSlotsLeft} across all tiers</dd></div>
-          <div><dt>Total capacity</dt><dd>{gbpHour(totalCapacity)}</dd></div>
-          <div><dt>Referral capacity</dt><dd>{gbpHour(referralCapacity)}</dd></div>
-          <div><dt>Qualified referrals</dt><dd>{referralQualified} of {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</dd></div>
-          <div><dt>Tool capacity limit</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</dd></div>
-          <div><dt>Maximum referral capacity</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}</dd></div>
-          <div><dt>Network</dt><dd>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}</dd></div>
-        </dl>
+      <section aria-label="Your current tool position">
+        <div className="pm-page-section-heading"><div><p className="pm-eyebrow">Your position</p><h2>Owned equipment</h2></div><Link to="/mine/dashboard">View capacity register</Link></div>
+        <p>{totalOwned} tools held · {gbpHour(toolCapacity)} tool capacity · {tierSlotsLeft} ownership slots remaining. Referral capacity is reported separately on the console.</p>
       </section>
 
       {pendingPurchase && (
@@ -158,18 +139,19 @@ export const PSEMineTools: React.FC = () => {
       )}
 
       <section aria-labelledby="tools-heading">
-        <h2 id="tools-heading">Mining tools</h2>
-        <p>Fixed price · fixed £ per hour · fixed ownership limit · fixed duty model</p>
-        <p>Four tiers · all additive</p>
+        <div className="pm-page-section-heading"><div><p className="pm-eyebrow">Tool family</p><h2 id="tools-heading">Four distinct operating profiles</h2></div><span>Price and capacity fixed in GBP</span></div>
+        <div className="pm-tool-family">
         {TOOLS.map(t => {
           const owned = counts[t.id] || 0;
           const isMax = owned >= t.maxPerUser;
           const remaining = Math.max(0, t.maxPerUser - owned);
           const continuous = dutyOf(t) === 'continuous';
           return (
-            <section key={t.id} aria-labelledby={`tool-${t.id}-heading`}>
+            <article className={`pm-tool-product pm-tool-product-${t.id}`} key={t.id} aria-labelledby={`tool-${t.id}-heading`}>
+              <PSEMineToolVisual tier={t.id} />
+              <p className="pm-eyebrow">Tier {t.tier}</p>
               <h3 id={`tool-${t.id}-heading`}>{t.name}</h3>
-              <p>Tier {t.tier}</p>
+              <p>{t.tagline}</p>
               <dl>
                 <div><dt>Price</dt><dd>{gbp(t.purchasePriceGBP)}</dd></div>
                 <div><dt>Hourly capacity</dt><dd>{gbpHour(t.hourlyRateGBP)}</dd></div>
@@ -177,6 +159,7 @@ export const PSEMineTools: React.FC = () => {
                 <div><dt>You own</dt><dd>{owned} of {t.maxPerUser}</dd></div>
                 <div><dt>Capacity at limit</dt><dd>{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</dd></div>
                 <div><dt>Duty model</dt><dd>{continuous ? 'Continuous' : 'Session · 24h'}</dd></div>
+                <div><dt>Current status</dt><dd>{owned > 0 ? 'Owned and recorded' : 'Not owned'}</dd></div>
                 <div><dt>Your contribution</dt><dd>{owned > 0 ? `+${gbpRate(owned * t.hourlyRateGBP)}` : '—'}</dd></div>
                 <div><dt>Available to you</dt><dd>{remaining} of {t.maxPerUser}</dd></div>
               </dl>
@@ -191,10 +174,11 @@ export const PSEMineTools: React.FC = () => {
               ) : (
                 <button type="button" onClick={() => setPurchasing(t)}>Purchase with BNB</button>
               )}
-            </section>
+            </article>
           );
         })}
-        <p>Prices and hourly rates are fixed in GBP; you pay the fixed GBP price in BNB at the live rate quoted when you request a purchase.</p>
+        </div>
+        <p>Prices and hourly rates are fixed in GBP. The amount paid in BNB comes from the live server quote and is not estimated on this page.</p>
       </section>
 
       <section aria-labelledby="owned-tools-heading">
@@ -661,6 +645,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   return (
     <section
+      className="pm-product pm-purchase-dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby="purchase-flow-title"
@@ -776,7 +761,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
           <dl>
             <div><dt>Tool</dt><dd>{tool.name}</dd></div>
-            <div><dt>Price</dt><dd>{gbp(tool.purchasePriceGBP)}</dd></div>
+            <div><dt>GBP price</dt><dd>{gbp(tool.purchasePriceGBP)}</dd></div>
+            <div><dt>Live BNB quote</dt><dd>{exactBnb} BNB</dd></div>
             <div><dt>Network</dt><dd>{networkName} · chain {requiredChainId}</dd></div>
             <div><dt>Payment wallet</dt><dd>{boundPayer ? shortAddr(boundPayer) : (connectedWallet ? shortAddr(connectedWallet) : '—')}</dd></div>
             <div><dt>Receiving wallet</dt><dd><CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" /></dd></div>
@@ -795,7 +781,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             </section>
           )}
 
-          <ul aria-label="Payment requirements">
+          <ul className="pm-purchase-steps" aria-label="Payment requirements">
             {[
               {
                 ok: walletLive && Boolean(connectedWallet && EVM.test(connectedWallet)),
@@ -829,8 +815,8 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
               { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
             ].map(c => (
-              <li key={c.label}>
-                {c.ok ? 'Ready: ' : c.warn ? 'Attention: ' : 'Pending: '}{c.label}
+              <li className={c.ok ? 'is-ready' : c.warn ? 'is-warning' : ''} key={c.label}>
+                <span aria-hidden="true">{c.ok ? '✓' : c.warn ? '!' : '·'}</span><span>{c.label}</span>
               </li>
             ))}
           </ul>
@@ -863,7 +849,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
             {quoteValid ? 'Back to quote' : 'Refresh quote'}
           </button>
 
-          <p>After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and confirmation depth — before the tool activates.</p>
+          <p>After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and confirmation depth — before the tool activates. A submitted or uncertain transfer is never reported as successful before verification.</p>
         </>
       )}
 

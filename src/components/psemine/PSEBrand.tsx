@@ -1,8 +1,8 @@
-const MARK_BLUE = '#2F6BFF';
-const MARK_CYAN = '#22D3EE';
-const MARK_BONE = '#EDEEEC';
-const MARK_STEEL = 'rgba(255,255,255,0.42)';
-const MARK_CUT = '#0F0F12';
+const MARK_BLUE = '#5B83F5';
+const MARK_CYAN = '#73C7D3';
+const MARK_BONE = '#E9EDF2';
+const MARK_STEEL = 'rgba(233,237,242,0.42)';
+const MARK_CUT = '#252B33';
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return (

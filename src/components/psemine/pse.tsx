@@ -391,7 +391,7 @@ export function CopyField({ value, display, label, fullWidth }: {
     >
       <span className="pse-mono truncate">{display || value}</span>
       {copied
-        ? <Check size={12} style={{ color: 'var(--pse-jade-ink)' }} className="shrink-0" />
+        ? <Check size={12} style={{ color: 'var(--pse-success-ink)' }} className="shrink-0" />
         : <CopyIcon size={12} className="shrink-0" style={{ color: 'var(--pse-text-3)' }} />}
     </button>
   );

@@ -151,7 +151,7 @@ export const PSEMineWallet: React.FC = () => {
         }
         side={
           <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Settlement available</span><span className="pse-jade">{availableStr}</span></div>
+            <div className="pse-spec-line"><span>Settlement available</span><span className="pse-cyan">{availableStr}</span></div>
             <div className="pse-spec-line"><span>Payout minimum</span><span>{gbp(PAYOUT_REQUEST_MIN_GBP)}</span></div>
             <div className="pse-spec-line">
               <span>Payout wallet</span>
@@ -229,7 +229,7 @@ export const PSEMineWallet: React.FC = () => {
         <LedgerRow
           title="Settlement-available balance"
           sub="Net of payout requests already submitted — never relabelled accrued earnings"
-          value={<span className="pse-jade">{availableStr}</span>}
+          value={<span className="pse-cyan">{availableStr}</span>}
         />
         <LedgerRow title="Payout minimum" sub="Per request, after settlement" value={gbp(PAYOUT_REQUEST_MIN_GBP)} />
         <LedgerRow title="Payout asset" sub={`${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}`} value="BNB" valueTone="var(--pse-bnb)" />
@@ -381,7 +381,7 @@ export const PSEMineWallet: React.FC = () => {
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="pse-h3">How settlement works</h2>
           <div className="flex items-center gap-4">
-            <Landmark size={13} className="pse-jade" />
+            <Landmark size={13} className="pse-cyan" />
             <Link to="/mine/activity" className="pse-meta pse-link inline-flex items-center gap-1.5">
               Ledger <ChevronRight size={12} />
             </Link>

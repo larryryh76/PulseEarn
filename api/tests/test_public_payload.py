@@ -78,6 +78,73 @@ class TestPublicCampaignProjection(unittest.TestCase):
         )
 
 
+class TestPublicToolCatalogProjection(unittest.TestCase):
+    """The legacy tool catalog is public, but only through an allow-list.
+
+    `psemine_tools` is world-readable in firestore.rules, so publishing the tier
+    catalog is legitimate. What the legacy handler published was the whole row:
+    `{**tool.to_dict(), 'id': tool.id}` included the admin deprecation internals
+    (deprecated / canonicalAlias / deprecationReason) and operational
+    timestamps, and would have published anything added to the row later.
+    """
+
+    def test_deprecation_and_operational_fields_are_dropped(self):
+        tool = {
+            "id": "starter",
+            "name": "Starter Miner",
+            "tier": "starter",
+            "priceGbp": 3.0,
+            "miningRateGbpPerHour": 0.1,
+            "maxCopiesPerUser": 5,
+            "campaignId": "active_campaign",
+            "isActive": True,
+            # private / operational
+            "deprecated": True,
+            "deprecatedAt": "2026-09-20T00:00:00+00:00",
+            "deprecationReason": "Superseded by canonical tool catalog",
+            "canonicalAlias": "builder",
+            "createdAt": "2026-09-01T00:00:00+00:00",
+            "updatedAt": "2026-09-02T00:00:00+00:00",
+            "description": "Starter mining tool - £3 GBP, £0.10/hour.",
+        }
+        view = psemine_public.public_tool_view(tool)
+        for private in ("deprecated", "deprecatedAt", "deprecationReason",
+                        "canonicalAlias", "createdAt", "updatedAt", "description"):
+            self.assertNotIn(private, view, f"{private} leaked into the public catalog")
+        self.assertEqual("starter", view["id"])
+        self.assertEqual(0.1, view["miningRateGbpPerHour"])
+
+    def test_allow_list_is_exactly_the_public_contract(self):
+        tool = {name: f"value-{name}" for name in psemine_public.PUBLIC_TOOL_FIELDS}
+        self.assertEqual(set(psemine_public.PUBLIC_TOOL_FIELDS), set(psemine_public.public_tool_view(tool)))
+
+    def test_previously_unknown_field_is_dropped(self):
+        view = psemine_public.public_tool_view({"id": "elite", "someFutureInternalKey": "x"})
+        self.assertEqual({"id": "elite"}, view)
+
+    def test_empty_document_returns_none(self):
+        self.assertIsNone(psemine_public.public_tool_view({}))
+        self.assertIsNone(psemine_public.public_tool_view(None))
+
+    def test_leak_detector_recognises_private_fields(self):
+        self.assertEqual(
+            ["canonicalAlias", "deprecated", "updatedAt"],
+            psemine_public.leaked_tool_keys(
+                {"id": "starter", "deprecated": True, "updatedAt": "x", "canonicalAlias": "builder"}
+            ),
+        )
+
+    def test_the_legacy_handler_projects_every_row(self):
+        """The handler must call the projection, not expand the document."""
+        with open(INDEX_SRC, "r", encoding="utf-8") as fh:
+            source = fh.read()
+        handler = source[source.index("def psemine_get_tools"):]
+        handler = handler[: handler.index("@app.route")]
+        self.assertIn("_public_tool_view", handler)
+        self.assertNotIn("**s.to_dict()", handler)
+        self.assertNotIn("psemine_ensure_canonical_data", handler)
+
+
 class TestAppAppliesTheProjection(unittest.TestCase):
     """The app must route the public campaign response through the projection."""
 

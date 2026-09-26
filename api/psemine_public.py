@@ -68,6 +68,39 @@ def public_campaign_view(camp):
     return {k: camp[k] for k in PUBLIC_CAMPAIGN_FIELDS if k in camp}
 
 
+# ---------------------------------------------------------------------------
+# Public tool catalog projection
+# ---------------------------------------------------------------------------
+# `psemine_tools` is deliberately world-readable in firestore.rules ("catalog is
+# intentionally public"), so a public read of the tier catalog is legitimate.
+# What was NOT legitimate is the legacy handler's `{**tool.to_dict(), 'id': ...}`:
+# it published every field of the row, including operational metadata
+# (createdAt/updatedAt), the admin deprecation internals
+# (deprecated/deprecatedAt/deprecationReason/canonicalAlias) and prose that
+# restates the economics. The projection below is the contract instead — a field
+# added to a tool document must never become public by accident.
+PUBLIC_TOOL_FIELDS = (
+    'id', 'name', 'tier', 'priceGbp', 'miningRateGbpPerHour',
+    'maxCopiesPerUser', 'campaignId', 'isActive',
+)
+
+# Never published from a tool document: operations/deprecation bookkeeping.
+PRIVATE_TOOL_FIELDS = (
+    'createdAt', 'updatedAt', 'deprecated', 'deprecatedAt',
+    'deprecationReason', 'canonicalAlias', 'description',
+)
+
+
+def public_tool_view(tool):
+    """Project a mining-tool document down to the public catalog allow-list.
+
+    Returns None for a missing/empty document so callers can skip the row.
+    """
+    if not tool:
+        return None
+    return {k: tool[k] for k in PUBLIC_TOOL_FIELDS if k in tool}
+
+
 def leaked_public_keys(camp):
     """Names in `camp` that would be unsafe to publish (diagnostics/tests).
 
@@ -76,3 +109,9 @@ def leaked_public_keys(camp):
     """
     src = camp or {}
     return sorted(k for k in src if k in PRIVATE_CAMPAIGN_FIELDS)
+
+
+def leaked_tool_keys(tool):
+    """Names in `tool` that would be unsafe to publish (diagnostics/tests)."""
+    src = tool or {}
+    return sorted(k for k in src if k in PRIVATE_TOOL_FIELDS)

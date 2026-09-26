@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:api": "python3 -m unittest discover -s api/tests -t api/tests",
     "check:isolation": "bun scripts/check-product-isolation.mjs",
     "verify:visual": "bun scripts/pse-visual-check.mjs",
     "verify:authenticated": "bun scripts/pse-authenticated-check.mjs",

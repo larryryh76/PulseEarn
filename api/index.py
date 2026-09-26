@@ -161,6 +161,14 @@ def _public_campaign_view(camp):
     return public_campaign_view(camp)
 
 
+def _public_tool_view(tool):
+    """Whitelist one mining-tool document down to its public catalog projection."""
+    if not tool:
+        return None
+    from psemine_public import public_tool_view
+    return public_tool_view(tool)
+
+
 def _request_id():
     """Per-request correlation id. Echoed on every response as X-Request-Id and
     inside every JSON error body as `requestId`, so a user-visible failure can be
@@ -254,13 +262,19 @@ def _pse_after_request(response):
     cannot start leaking a new internal field just because the campaign document
     gained one.
 
-    Coverage is every response that carries a campaign document to a caller who
-    has not been checked against the full campaign record:
+    Coverage is every response that carries a campaign or tool document to a
+    caller who has not been checked against the full record:
 
       * GET /api/mine/campaign/status — unauthenticated by design, and
-      * the legacy /api/psemine/* surface — v1 predates the entitlement gate and
-        returns raw campaign documents from several read endpoints (its
-        /dashboard and /campaigns handlers call to_dict() directly).
+      * the legacy /api/psemine/* surface — v1 predates the entitlement gate.
+
+    (Phase 3A) The legacy handlers now project their own responses
+    (psemine_public.public_campaign_view / public_tool_view). The hook applies
+    the same allow-lists anyway, because central enforcement is what makes the
+    public surface structurally un-leakable: a field added to a document cannot
+    reach a caller merely because one handler stopped projecting. The `tools`
+    list is covered here for the first time — it was previously the one
+    raw-document response with no projection at any layer.
 
     Enrolled users still receive the complete document from the entitlement-
     gated GET /api/mine/state, which is deliberately not covered here.
@@ -314,6 +328,12 @@ def _pse_after_request(response):
                     body['campaigns'] = [
                         _public_campaign_view(c) if isinstance(c, dict) else c
                         for c in body['campaigns']
+                    ]
+                    changed = True
+                if isinstance(body.get('tools'), list):
+                    body['tools'] = [
+                        _public_tool_view(t) if isinstance(t, dict) else t
+                        for t in body['tools']
                     ]
                     changed = True
                 if changed:
@@ -6571,53 +6591,30 @@ def psemine_ensure_canonical_data(db):
                 'updatedAt': now_dt.isoformat(),
             })
 
-        # 2. Canonical Mining Tools (deterministic doc IDs: starter, builder, advanced, elite)
-        canonical_tools = {
-            'starter': {
-                'id': 'starter',
-                'name': 'Starter Miner',
-                'tier': 'starter',
-                'priceGbp': 3.0,
-                'miningRateGbpPerHour': 0.10,
-                'maxCopiesPerUser': 5,
+        # 2. Canonical Mining Tools (deterministic doc IDs: starter, builder,
+        # advanced, elite). (Phase 3A) The seed is DERIVED from the canonical
+        # economy instead of being a hand-maintained second copy of the price,
+        # hourly rate and ownership cap: the constants in psemine_core are what
+        # actually price a purchase and accrue earnings, so the seeded rows can
+        # no longer drift from them.
+        import psemine_core as _pse_core
+        canonical_tools = {}
+        for _tool_id, _spec in _pse_core.LOCKED_PSEMINE_TOOLS.items():
+            _price_gbp = _pse_core.gbp_minor_to_major(_spec['price_minor_units'])
+            _rate_gbp = _pse_core.gbp_minor_to_major(_spec['hourly_rate_minor'])
+            canonical_tools[_tool_id] = {
+                'id': _tool_id,
+                'name': _spec['name'],
+                'tier': _tool_id,
+                'priceGbp': _price_gbp,
+                'miningRateGbpPerHour': _rate_gbp,
+                'maxCopiesPerUser': _spec['max_per_user'],
                 'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
                 'isActive': True,
-                'description': 'Starter mining tool - £3 GBP, £0.10/hour, maximum 5 copies per user.',
-            },
-            'builder': {
-                'id': 'builder',
-                'name': 'Builder Miner',
-                'tier': 'builder',
-                'priceGbp': 10.0,
-                'miningRateGbpPerHour': 0.50,
-                'maxCopiesPerUser': 3,
-                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
-                'isActive': True,
-                'description': 'Builder mining tool - £10 GBP, £0.50/hour, maximum 3 copies per user.',
-            },
-            'advanced': {
-                'id': 'advanced',
-                'name': 'Advanced Miner',
-                'tier': 'advanced',
-                'priceGbp': 50.0,
-                'miningRateGbpPerHour': 1.20,
-                'maxCopiesPerUser': 3,
-                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
-                'isActive': True,
-                'description': 'Advanced mining tool - £50 GBP, £1.20/hour, maximum 3 copies per user.',
-            },
-            'elite': {
-                'id': 'elite',
-                'name': 'Elite',
-                'tier': 'elite',
-                'priceGbp': 200.0,
-                'miningRateGbpPerHour': 2.50,
-                'maxCopiesPerUser': 2,
-                'campaignId': PSEMINE_CAMPAIGN_DOC_ID,
-                'isActive': True,
-                'description': 'Elite mining tool - £200 GBP, £2.50/hour, maximum 2 copies per user.',
-            },
-        }
+                'description': (f"{_spec['name']} - £{_price_gbp:.2f} GBP, "
+                                f"£{_rate_gbp:.2f}/hour, maximum "
+                                f"{_spec['max_per_user']} copies per user."),
+            }
 
         for tool_id, tool_data in canonical_tools.items():
             t_ref = db.collection('psemine_tools').document(tool_id)
@@ -6822,7 +6819,6 @@ def recalculate_psemine_user_mining_state(db, user_id):
         .get()
 
     active_tools = [s.to_dict() for s in ownership_snaps]
-    base_rate = sum(safe_float(t.get('miningRateGbpPerHour')) for t in active_tools)
 
     # 2. Fetch qualified referrals
     referral_snaps = db.collection('psemine_referrals') \
@@ -6830,9 +6826,25 @@ def recalculate_psemine_user_mining_state(db, user_id):
         .where('status', '==', 'qualified') \
         .get()
 
-    qualified_count = min(5, len(referral_snaps))
-    referral_bonus = round(qualified_count * 0.30, 2)
-    total_rate = round(min(12.10, base_rate + referral_bonus), 2)
+    # (Phase 3A) CANONICAL ECONOMY ONLY. This read-model used to re-derive the
+    # locked rates (£0.10/£0.50/£1.20/£2.50), the £0.30 referral bonus and the
+    # £12.10 ceiling inline — a second implementation of money rules. Capacity
+    # now comes from psemine_core, the same functions the canonical ledger
+    # accrues with, so a rate change has exactly one home. Legacy tool ids
+    # (growth/pro) are mapped by the core instead of being priced as zero, and
+    # the referral cap is not re-implemented.
+    import psemine_core as _pse_core
+    _tool_counts = {}
+    for _t in active_tools:
+        _tid = _t.get('toolId')
+        if _tid:
+            _tool_counts[_tid] = _tool_counts.get(_tid, 0) + 1
+    base_rate = _pse_core.gbp_minor_to_major(
+        _pse_core.compute_tool_capacity_minor(_tool_counts))
+    referral_bonus = _pse_core.gbp_minor_to_major(
+        _pse_core.compute_referral_capacity_minor(len(referral_snaps)))
+    total_rate = _pse_core.gbp_minor_to_major(
+        _pse_core.compute_total_capacity_minor(_tool_counts, len(referral_snaps)))
 
     # 3. Campaign end date
     camp_snap = db.collection('psemine_campaigns').document(PSEMINE_CAMPAIGN_DOC_ID).get()
@@ -6915,21 +6927,50 @@ def psemine_setup():
 @app.route('/api/psemine/campaigns', methods=['GET'])
 @require_db
 def psemine_get_campaigns():
-    """Public / Authenticated read of canonical PSEmine campaigns."""
+    """Public read of the canonical PSEmine campaign — PROJECTED, READ-ONLY.
+
+    (Phase 3A) Two defects are closed here and in its /tools sibling:
+
+      1. NO WRITE SIDE EFFECT. The handler used to call
+         psemine_ensure_canonical_data(db), so an ANONYMOUS GET could create
+         campaign and tool documents. Canonical data is now created only by the
+         admin-gated POST /api/psemine/setup — a read never initializes state.
+      2. NO RAW DOCUMENT. `{**snap.to_dict(), 'id': snap.id}` published every
+         field the document happened to carry. The response is now an explicit
+         allow-list projection (api/psemine_public.py), and the app-level
+         response hook projects it again as defence in depth.
+
+    Anonymous visitors needing campaign terms use GET /api/mine/campaign/status
+    — the canonical public contract.
+    """
     db = get_db()
-    psemine_ensure_canonical_data(db)
     snaps = db.collection('psemine_campaigns').get()
-    campaigns = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    campaigns = []
+    for s in snaps:
+        view = _public_campaign_view(s.to_dict() or {})
+        if view:
+            view.setdefault('id', s.id)
+            campaigns.append(view)
     return jsonify({"success": True, "campaigns": campaigns})
 
 @app.route('/api/psemine/tools', methods=['GET'])
 @require_db
 def psemine_get_tools():
-    """Public / Authenticated read of canonical PSEmine mining tools."""
+    """Public read of the canonical mining-tool catalog — PROJECTED, READ-ONLY.
+
+    (Phase 3A) Same two fixes as psemine_get_campaigns: a read never initializes
+    canonical data, and the catalog is projected down to PUBLIC_TOOL_FIELDS so
+    deprecation bookkeeping (deprecated/canonicalAlias/…) and operational
+    timestamps stay server-side instead of being published by `**to_dict()`.
+    """
     db = get_db()
-    psemine_ensure_canonical_data(db)
     snaps = db.collection('psemine_tools').get()
-    tools = [{**s.to_dict(), 'id': s.id} for s in snaps]
+    tools = []
+    for s in snaps:
+        view = _public_tool_view(s.to_dict() or {})
+        if view:
+            view.setdefault('id', s.id)
+            tools.append(view)
     return jsonify({"success": True, "tools": tools})
 
 @app.route('/api/psemine/orders/create', methods=['POST'])
@@ -6939,7 +6980,10 @@ def psemine_create_order():
     """Create locked BNB purchase quote for a PSEmine mining tool."""
     try:
         db = get_db()
-        psemine_ensure_canonical_data(db)
+        # (Phase 3A) This handler no longer bootstraps canonical data: creation
+        # belongs to the admin-gated POST /api/psemine/setup. The quote prices
+        # itself from the canonical constants below, so it neither needs nor may
+        # cause a seed write.
         uid = request.user['uid']
         data = request.json or {}
         tool_id = (data.get('toolId') or '').strip().lower()
@@ -6965,10 +7009,18 @@ def psemine_create_order():
                 "message": "A valid 42-character EVM payment wallet address is required."
             }), 400
 
-        tool_doc = db.collection('psemine_tools').document(tool_id).get()
-        if not tool_doc.exists:
+        # (Phase 3A) ECONOMICS COME FROM THE CANONICAL CONSTANTS, never from
+        # the Firestore row: price and the ownership limit are locked rules
+        # (psemine_core.LOCKED_PSEMINE_TOOLS, projected here as
+        # LOCKED_PSEMINE_TOOLS_CONFIG). The row is read only for the mutable
+        # operational flag the admin surface owns (`isActive`, cleared by
+        # admin_deprecate_tool), so a missing row means "not deprecated" — the
+        # same assumption the canonical /api/mine/tools/quote path makes.
+        tool_cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(tool_id)
+        if not tool_cfg:
             return jsonify({"success": False, "error": "TOOL_NOT_FOUND", "message": "Mining tool not found."}), 404
 
+        tool_doc = db.collection('psemine_tools').document(tool_id).get()
         tool = tool_doc.to_dict() or {}
         if not tool.get('isActive', True):
             return jsonify({"success": False, "error": "TOOL_INACTIVE", "message": "This mining tool is currently unavailable."}), 400
@@ -6980,12 +7032,12 @@ def psemine_create_order():
             .where('status', '==', 'active') \
             .get()
 
-        max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
+        max_copies = tool_cfg['max_per_user']
         if len(owned_snaps) >= max_copies:
             return jsonify({
                 "success": False,
                 "error": "MAX_COPIES_REACHED",
-                "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool.get('name')} tool."
+                "message": f"You have reached the maximum allowed limit of {max_copies} copies for the {tool_cfg['name']} tool."
             }), 409
 
         try:
@@ -7000,7 +7052,7 @@ def psemine_create_order():
                 "message": "Live BNB exchange rate service is temporarily unavailable. Please try again in a few moments."
             }), 503
 
-        gbp_price = float(tool['priceGbp'])
+        gbp_price = float(tool_cfg['price_gbp'])
         bnb_amount = gbp_price / bnb_gbp_price
         wei_amount = int(Decimal(str(bnb_amount)) * Decimal('1000000000000000000'))
 
@@ -7012,7 +7064,7 @@ def psemine_create_order():
             'id': order_ref.id,
             'userId': uid,
             'toolId': tool_id,
-            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
+            'campaignId': tool.get('campaignId') or PSEMINE_CAMPAIGN_DOC_ID,
             'priceGbp': gbp_price,
             'bnbGbpPrice': bnb_gbp_price,
             'quoteBnbPerGbp': round(1.0 / bnb_gbp_price, 8),
@@ -7037,8 +7089,8 @@ def psemine_create_order():
             'id': act_ref.id,
             'userId': uid,
             'type': 'ORDER_CREATED',
-            'title': f"Order Quoted for {tool.get('name')} Tool",
-            'description': f"Created quote for {tool.get('name')} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for 15 minutes.",
+            'title': f"Order Quoted for {tool_cfg['name']} Tool",
+            'description': f"Created quote for {tool_cfg['name']} tool (£{gbp_price:.2f} GBP = {bnb_amount:.6f} BNB). Valid for {PSEMINE_QUOTE_TTL_MINUTES} minutes.",
             'metadata': {'orderId': order_ref.id, 'toolId': tool_id, 'payableWeiAmount': str(wei_amount)},
             'createdAt': firestore.SERVER_TIMESTAMP,
         })
@@ -7153,6 +7205,7 @@ def psemine_verify_payment():
     # Fetch Tool Details
     tool_doc = db.collection('psemine_tools').document(order['toolId']).get()
     tool = tool_doc.to_dict() if tool_doc.exists else {}
+    import psemine_core as _pse_core
 
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
@@ -7179,7 +7232,13 @@ def psemine_verify_payment():
             .where('toolId', '==', order['toolId']) \
             .where('status', '==', 'active')
         owned_count = len(owned_query.get(transaction=txn))
-        max_copies = safe_int(tool.get('maxCopiesPerUser'), 1)
+        # (Phase 3A) For a canonical tool the ownership cap is a locked economic
+        # rule, so it is read from the canonical constants rather than from the
+        # tool document (a stale or missing row could otherwise widen how many
+        # copies an account may hold). A non-canonical legacy row keeps behaving
+        # exactly as before, which is what the fallback preserves.
+        _cfg = LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId'])
+        max_copies = _cfg['max_per_user'] if _cfg else safe_int(tool.get('maxCopiesPerUser'), 1)
         if owned_count >= max_copies:
             raise Exception("MAX_COPIES_REACHED")
 
@@ -7211,8 +7270,20 @@ def psemine_verify_payment():
             'paymentId': pay_doc_id,
             'txHash': tx_hash,
             'purchasePriceGbp': order['priceGbp'],
-            'miningRateGbpPerHour': tool.get('miningRateGbpPerHour', 0.10),
-            'campaignId': tool.get('campaignId', PSEMINE_CAMPAIGN_DOC_ID),
+            # (Phase 3A) The locked hourly rate comes from the canonical
+            # economics, never from the tool document: the old inline default
+            # (0.10) was a second, silently-diverging statement of the Starter
+            # rate, and a stored rate could disagree with the ledger's. A
+            # non-canonical legacy row keeps its stored value, defaulted from
+            # the canonical Starter rate so no rate literal lives here.
+            'miningRateGbpPerHour': (
+                _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS[order['toolId']]['hourly_rate_minor'])
+                if order['toolId'] in _pse_core.LOCKED_PSEMINE_TOOLS
+                else safe_float(tool.get('miningRateGbpPerHour'), _pse_core.gbp_minor_to_major(
+                    _pse_core.LOCKED_PSEMINE_TOOLS['starter']['hourly_rate_minor']))
+            ),
+            'campaignId': tool.get('campaignId') or PSEMINE_CAMPAIGN_DOC_ID,
             'status': 'active',
             'acquiredAt': now_iso,
             # (B1/B2) canonical balance anchor + cycle fields so v1-created
@@ -7247,7 +7318,9 @@ def psemine_verify_payment():
     session_data = recalculate_psemine_user_mining_state(db, uid)
 
     # 5. Record Activity & Notification for Buyer
-    tool_name = tool.get('name', 'Mining')
+    tool_name = (tool.get('name')
+                 or (LOCKED_PSEMINE_TOOLS_CONFIG.get(order['toolId']) or {}).get('name')
+                 or 'Mining')
     act_ref = db.collection('psemine_activities').document()
     act_ref.set({
         'id': act_ref.id,
@@ -7300,9 +7373,14 @@ def psemine_verify_payment():
 @verify_token
 @require_db
 def psemine_dashboard_data():
-    """Retrieve real backend-authoritative dashboard data for current user."""
+    """Retrieve real backend-authoritative dashboard data for current user.
+
+    Entitlement-gated by the central request hook (legacy v1 write parity).
+    (Phase 3A) A READ never initializes canonical data — the old
+    psemine_ensure_canonical_data(db) call meant that merely loading the
+    dashboard could create campaign and tool documents.
+    """
     db = get_db()
-    psemine_ensure_canonical_data(db)
     uid = request.user['uid']
 
     # 1. Active Campaign
@@ -7322,6 +7400,7 @@ def psemine_dashboard_data():
     # balances and payouts from this endpoint); only the accrual checkpoint
     # is suppressed — earning is closed, reading is not.
     import psemine_engine as _pse_engine
+    import psemine_core as _pse_core
     _camp, _eff, _ = _pse_engine.campaign_lifecycle_state(db)
     _campaign_terminal = _eff in ('settling', 'ended', 'payout', 'closed', 'archived')
     if not _campaign_terminal:
@@ -7330,14 +7409,20 @@ def psemine_dashboard_data():
     _counts = _u.get('toolOwnershipCounts') or {}
     _qual = int(_u.get('qualifiedReferralsCount') or 0)
     _accrued_minor = int(_u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(_u)
-    _tool_rate = round(0.10 * int(_counts.get('starter', 0) or 0) + 0.50 * int(_counts.get('builder', 0) or 0) + 1.20 * int(_counts.get('advanced', 0) or 0) + 2.50 * int(_counts.get('elite', 0) or 0), 2)
+    # (Phase 3A) Capacity comes from the canonical economy. This handler used to
+    # re-derive £0.10/£0.50/£1.20/£2.50, the £0.30 referral bonus and the
+    # 5-referral cap inline — a second implementation of money rules that
+    # agreed with psemine_core only by hand.
+    _tool_minor = _pse_core.compute_tool_capacity_minor(_counts)
+    _ref_minor = _pse_core.compute_referral_capacity_minor(_qual)
+    _total_minor = _pse_core.compute_total_capacity_minor(_counts, _qual)
     session = {
         'campaignId': 'active_campaign',
         'state': 'active' if (_u.get('status') == 'active') else 'inactive',
         'activeToolsCount': sum(int(v or 0) for v in _counts.values()),
-        'baseMiningRateGbpPerHour': _tool_rate,
-        'referralBonusGbpPerHour': round(min(5, _qual) * 0.30, 2),
-        'totalMiningRateGbpPerHour': round(_tool_rate + min(5, _qual) * 0.30, 2),
+        'baseMiningRateGbpPerHour': _pse_core.gbp_minor_to_major(_tool_minor),
+        'referralBonusGbpPerHour': _pse_core.gbp_minor_to_major(_ref_minor),
+        'totalMiningRateGbpPerHour': _pse_core.gbp_minor_to_major(_total_minor),
         'accumulatedOutputGbp': round(_accrued_minor / 100.0, 4),
     }
 
@@ -7369,12 +7454,13 @@ def psemine_dashboard_data():
 
     return jsonify({
         "success": True,
-        "campaign": campaign,
+        "campaign": _public_campaign_view(campaign),
         "ownedTools": owned_tools,
         "session": session,
         "referrals": {
-            "qualifiedCount": min(5, qualified_count),
-            "bonusRateGbpPerHour": round(min(5, qualified_count) * 0.30, 2),
+            "qualifiedCount": min(_pse_core.MAX_QUALIFIED_REFERRALS, qualified_count),
+            "bonusRateGbpPerHour": _pse_core.gbp_minor_to_major(
+                _pse_core.compute_referral_capacity_minor(qualified_count)),
         },
         "recentActivity": recent_activity,
         "notifications": notifications,
@@ -7393,20 +7479,24 @@ def psemine_sync_session():
     if _eff in ('settling', 'ended', 'payout', 'closed', 'archived'):
         return jsonify({"success": False, "error": "CAMPAIGN_ENDED", "message": "Mining accrual is closed."}), 409
 
-    import psemine_engine as _pse_engine
     result = _pse_engine.accrual_checkpoint(db, uid, source='legacy_sync')
     user_doc = db.collection('psemine_users').document(uid).get()
     u = user_doc.to_dict() or {}
     counts = u.get('toolOwnershipCounts') or {}
     qual = int(u.get('qualifiedReferralsCount') or 0)
     accrued_minor = int(u.get('accruedMinor') or 0) + _pse_engine._legacy_balance_minor(u)
+    # (Phase 3A) Canonical economy: capacity is never re-derived here.
+    import psemine_core as _pse_core
     session = {
         'campaignId': 'active_campaign',
         'state': 'active' if (u.get('status') == 'active') else 'inactive',
         'activeToolsCount': sum(int(v or 0) for v in counts.values()),
-        'baseMiningRateGbpPerHour': round(sum(0.10 * int(counts.get('starter', 0) or 0) + 0.50 * int(counts.get('builder', 0) or 0) + 1.20 * int(counts.get('advanced', 0) or 0) + 2.50 * int(counts.get('elite', 0) or 0) for _ in [0]), 2),
-        'referralBonusGbpPerHour': round(min(5, qual) * 0.30, 2),
-        'totalMiningRateGbpPerHour': round(sum(0.10 * int(counts.get('starter', 0) or 0) + 0.50 * int(counts.get('builder', 0) or 0) + 1.20 * int(counts.get('advanced', 0) or 0) + 2.50 * int(counts.get('elite', 0) or 0) for _ in [0]) + min(5, qual) * 0.30, 2),
+        'baseMiningRateGbpPerHour': _pse_core.gbp_minor_to_major(
+            _pse_core.compute_tool_capacity_minor(counts)),
+        'referralBonusGbpPerHour': _pse_core.gbp_minor_to_major(
+            _pse_core.compute_referral_capacity_minor(qual)),
+        'totalMiningRateGbpPerHour': _pse_core.gbp_minor_to_major(
+            _pse_core.compute_total_capacity_minor(counts, qual)),
         'accumulatedOutputGbp': round(accrued_minor / 100.0, 4),
         'lastCalculatedAt': __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),
     }
@@ -7778,12 +7868,32 @@ def admin_psemine_review_withdrawal(withdrawal_id):
 
 
 # --- PSEMINE SUITE EXTENSIONS ---
-LOCKED_PSEMINE_TOOLS_CONFIG = {
-    "starter": {"name": "Starter Miner", "price_gbp": 3.0, "hourly_rate": 0.10, "max_per_user": 5, "version": 1},
-    "builder": {"name": "Builder Miner", "price_gbp": 10.0, "hourly_rate": 0.50, "max_per_user": 3, "version": 1},
-    "advanced": {"name": "Advanced Miner", "price_gbp": 50.0, "hourly_rate": 1.20, "max_per_user": 3, "version": 1},
-    "elite": {"name": "Elite Miner", "price_gbp": 200.0, "hourly_rate": 2.50, "max_per_user": 2, "version": 1},
-}
+def _build_locked_tools_config():
+    r"""Purchase-side view of the LOCKED tool economics, derived from psemine_core.
+
+    (Phase 3A) This dict was a hand-maintained second copy of the price, hourly
+    rate, ownership limit and version stamp. It is now a projection of
+    psemine_core.LOCKED_PSEMINE_TOOLS — the constants the canonical ledger
+    accrues with — so a rate change lands in exactly one place. The integer
+    minor-unit fields are carried through unchanged: money is never re-derived
+    through a float (the old code did `int(round(hourly_rate * 100))`).
+    r"""
+    import psemine_core as _pse_core
+    config = {}
+    for tool_id, spec in _pse_core.LOCKED_PSEMINE_TOOLS.items():
+        config[tool_id] = {
+            "name": spec["name"],
+            "price_gbp": _pse_core.gbp_minor_to_major(spec["price_minor_units"]),
+            "hourly_rate": _pse_core.gbp_minor_to_major(spec["hourly_rate_minor"]),
+            "hourly_rate_minor": int(spec["hourly_rate_minor"]),
+            "price_minor_units": int(spec["price_minor_units"]),
+            "max_per_user": int(spec["max_per_user"]),
+            "version": int(spec["version"]),
+        }
+    return config
+
+
+LOCKED_PSEMINE_TOOLS_CONFIG = _build_locked_tools_config()
 
 def get_current_bnb_gbp_price():
     """Return the bounded live or cached BNB price in GBP using fetch_psemine_bnb_gbp_quote."""
@@ -8166,17 +8276,18 @@ def verify_psemine_tool_purchase():
             counts = dict(u_dict.get('toolOwnershipCounts') or {})
             counts[tool_id] = counts.get(tool_id, 0) + 1
 
-            # Recalculate tool capacities
-            tool_cap = round(
-                counts.get('starter', 0) * 0.10 +
-                counts.get('builder', 0) * 0.50 +
-                counts.get('advanced', 0) * 1.20 +
-                counts.get('elite', 0) * 2.50,
-                2
-            )
+            # (Phase 3A) Capacity is CANONICAL ECONOMY (psemine_core). This
+            # transaction used to re-derive the locked rates, the referral bonus
+            # and the 5-referral cap inline — a second implementation of money
+            # rules that no test could keep in step with the core.
+            import psemine_core as _pse_core
             qual_refs = u_dict.get('qualifiedReferralsCount', 0)
-            ref_cap = round(min(5, qual_refs) * 0.30, 2)
-            total_cap = round(tool_cap + ref_cap, 2)
+            tool_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_tool_capacity_minor(counts))
+            ref_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_referral_capacity_minor(qual_refs))
+            total_cap = _pse_core.gbp_minor_to_major(
+                _pse_core.compute_total_capacity_minor(counts, qual_refs))
 
             # Settle accrued earnings up to current server timestamp
             prev_total_cap = float(u_dict.get('totalCapacityGBPPerHour', 0.0))
@@ -8225,8 +8336,8 @@ def verify_psemine_tool_purchase():
             txn.set(own_ref, _pse_engine.hydrate_ownership_for_activation(
                 ownership_id, uid, tool_id,
                 {'name': tool_cfg['name'], 'version': tool_cfg.get('version', 1),
-                 'hourly_rate_minor': int(round(tool_cfg['hourly_rate'] * 100)),
-                 'price_minor_units': int(round(tool_cfg['price_gbp'] * 100))},
+                 'hourly_rate_minor': int(tool_cfg['hourly_rate_minor']),
+                 'price_minor_units': int(tool_cfg['price_minor_units'])},
                 purchase_id, now_dt
             ))
 

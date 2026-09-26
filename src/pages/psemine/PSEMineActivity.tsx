@@ -279,7 +279,7 @@ export const PSEMineActivity: React.FC = () => {
                       </>
                     }
                     value={hasAmount ? gbp(Math.abs(amount)) : undefined}
-                    valueTone={hasAmount && amount > 0 ? 'var(--pse-jade-ink)' : undefined}
+                    valueTone={hasAmount && amount > 0 ? 'var(--pse-success-ink)' : undefined}
                   />
                 );
               })}

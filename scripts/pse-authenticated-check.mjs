@@ -21,6 +21,17 @@
  * Optionally PSE_TEST_BASE_URL=https://… to point at a deployment instead of the
  * local build (the local build must exist: `bunx vite build`).
  *
+ * Optionally PSE_API_PROXY=https://… to forward the local harness's /api/* calls
+ * to a real deployment while still rendering the LOCAL build. Without it the
+ * harness answers /api/* with 503, so the console renders its unavailable
+ * states; with it the local build is exercised against live backend data.
+ *
+ * Optionally PSE_ENROLL=1 to click the console's own self-serve
+ * "Enable PSEmine for this account" control when the account is not enrolled,
+ * so the console pages can be measured instead of the gate. The backend grants
+ * access and audits it; enrollment creates a zeroed mining account and charges
+ * nothing. Off by default — the harness never changes product state unasked.
+ *
  * NOTE ON ACCOUNT SAFETY: the harness only signs in and reads pages. It never
  * purchases, withdraws or mutates economic state.
  *
@@ -35,11 +46,13 @@
  * — that is a product state, and the report says so rather than claiming a pass.
  */
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
 const DIST = path.join(process.cwd(), 'dist');
+const API_PROXY = process.env.PSE_API_PROXY; // e.g. https://www.pulseearn.online
 const OUT = process.env.PSE_OUT || '/tmp/pse-auth';
 const EMAIL = process.env.PSE_TEST_EMAIL;
 const PASSWORD = process.env.PSE_TEST_PASSWORD;
@@ -116,11 +129,48 @@ const MIME = {
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
 };
 
+/**
+ * Forward /api/* to a real deployment when PSE_API_PROXY is set. Only the local
+ * harness needs this: it exists so the LOCAL build can be rendered with live
+ * backend data instead of the 503 "no backend in this sandbox" answer.
+ */
+function proxyApi(req, res, url) {
+  const target = new URL(url.pathname + url.search, API_PROXY);
+  // `accept-encoding` is deliberately dropped: node's http client does not
+  // decompress, so forwarding it would pass compressed bytes through without a
+  // content-encoding the browser can act on — the JSON would then fail to parse
+  // and every console page would wrongly render "the response was incomplete".
+  const { 'accept-encoding': _drop, host: _host, ...forward } = req.headers;
+  const upstream = (target.protocol === 'https:' ? https : http).request({
+    protocol: target.protocol,
+    hostname: target.hostname,
+    port: target.port || undefined,
+    path: target.pathname + target.search,
+    method: req.method,
+    headers: { ...forward, host: target.host },
+  }, up => {
+    res.writeHead(up.statusCode || 502, {
+      'Content-Type': up.headers['content-type'] || 'application/json',
+      ...(up.headers['content-length'] ? { 'Content-Length': up.headers['content-length'] } : {}),
+      ...(up.headers['content-encoding'] ? { 'Content-Encoding': up.headers['content-encoding'] } : {}),
+      ...(up.headers['x-request-id'] ? { 'x-request-id': up.headers['x-request-id'] } : {}),
+      ...(up.headers['x-correlation-id'] ? { 'x-correlation-id': up.headers['x-correlation-id'] } : {}),
+    });
+    up.pipe(res);
+  });
+  upstream.on('error', () => {
+    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'PROXY_ERROR', requestId: 'auth-harness-proxy' }));
+  });
+  req.pipe(upstream);
+}
+
 function startServer() {
   return new Promise(resolve => {
     const server = http.createServer((req, res) => {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname.startsWith('/api/')) {
+        if (API_PROXY) { proxyApi(req, res, url); return; }
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'SERVICE_UNAVAILABLE', requestId: 'auth-harness' }));
         return;
@@ -170,6 +220,20 @@ const MEASURE = () => {
     const bordered = parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none';
     if (bordered && bg !== 'rgba(0, 0, 0, 0)' && r.width > 160 && r.height > 60) cardLike++;
   }
+  const bodyText = (document.body.innerText || '').replace(/\s+/g, ' ').trim();
+
+  // Composition law, measured from the rendered DOM: top-level bordered
+  // containers only (ledgers/plates). A sub-plate INSIDE a ledger is not a
+  // second wall, so nested boxes are counted separately instead of being
+  // folded into one misleading number.
+  const BOXES = '.pse-ledger, .pse-plate';
+  const boxes = Array.from(document.querySelectorAll(BOXES)).filter(vis);
+  const topBoxes = boxes.filter(el => !el.parentElement || !el.parentElement.closest(BOXES));
+  // The canonical rails are told apart by what they contain: the campaign rail
+  // carries the duty cycle, the capacity rail carries the lane register.
+  const rails = Array.from(document.querySelectorAll('.pse-rail')).filter(vis);
+  const campaignRails = rails.filter(r => r.querySelector('.pse-duty'));
+  const capacityRails = rails.filter(r => r.querySelector('.pse-reg'));
   return {
     docHeight: document.documentElement.scrollHeight,
     scrollWidth: document.documentElement.scrollWidth,
@@ -178,7 +242,17 @@ const MEASURE = () => {
     headings: headings.slice(0, 12),
     cardLike, surfaces: surfaces.size,
     smallTargetsUnder44: smallTargets.slice(0, 10),
-    textChars: (document.body.innerText || '').length,
+    textChars: bodyText.length,
+    // The first 700 characters as rendered — what a reviewer would read first.
+    // Reports stay readable without opening a screenshot, and a gated/errored
+    // page is visible as such instead of being averaged into a number.
+    textHead: bodyText.slice(0, 700),
+    topLedgers: topBoxes.length,
+    nestedLedgers: boxes.length - topBoxes.length,
+    campaignRails: campaignRails.length,
+    capacityRails: capacityRails.length,
+    campaignRailText: campaignRails[0] ? campaignRails[0].innerText.replace(/\s+/g, ' ').trim().slice(0, 300) : '',
+    capacityRailText: capacityRails[0] ? capacityRails[0].innerText.replace(/\s+/g, ' ').trim().slice(0, 300) : '',
   };
 };
 
@@ -233,6 +307,39 @@ async function main() {
   const signedInAs = await authPage.evaluate(() => document.body.innerText.slice(0, 120));
   console.log(`Signed in. Landing text: ${signedInAs.replace(/\s+/g, ' ').slice(0, 80)}`);
 
+  // ── Opt-in enrollment (PSE_ENROLL=1) ────────────────────────────────────────
+  // A fresh account is enrolled in nothing. PSEmine access is explicit, and the
+  // console itself offers "Enable PSEmine for this account": the backend grants
+  // access and records an audit entry (zeroed balances, no purchases, no
+  // charges). Off by default — the harness must never change product state
+  // unless the reviewer asked for it. Without enrollment the console renders
+  // the gate, and the report says so instead of claiming a pass.
+  const enrollment = { attempted: false, gateFound: false, clicked: false, cleared: false, reason: '' };
+  if (process.env.PSE_ENROLL === '1') {
+    enrollment.attempted = true;
+    try {
+      await authPage.goto(`${base}/mine/dashboard`, { waitUntil: 'load', timeout: 25_000 });
+      await authPage.waitForTimeout(1500);
+      const gate = authPage.getByRole('button', { name: /enable psemine for this account/i }).first();
+      if (await gate.count()) {
+        enrollment.gateFound = true;
+        await gate.click();
+        enrollment.clicked = true;
+        try {
+          await gate.waitFor({ state: 'detached', timeout: 20_000 });
+          enrollment.cleared = true;
+        } catch {
+          enrollment.reason = 'gate still present 20s after enabling';
+        }
+      } else {
+        enrollment.reason = 'no enrollment gate rendered (already enrolled, or a different state)';
+      }
+    } catch (e) {
+      enrollment.reason = String(e).slice(0, 200);
+    }
+    console.log(`Enrollment: gate ${enrollment.gateFound ? 'found' : 'not found'} · clicked ${enrollment.clicked} · cleared ${enrollment.cleared}${enrollment.reason ? ` (${enrollment.reason})` : ''}`);
+  }
+
   // Per-iteration capture, attached ONCE to the persistent page and reset at the
   // top of every route/width pass (listeners cannot be re-registered per pass
   // without duplicating every entry).
@@ -261,10 +368,21 @@ async function main() {
       resetCapture();
       await authPage.setViewportSize({ width, height: 900 });
 
-      let measured = null, landedOn = '', title = '';
+      let measured = null, landedOn = '', title = '', settled = false;
       try {
         await authPage.goto(`${base}${route.path}`, { waitUntil: 'load', timeout: 25_000 });
-        await authPage.waitForTimeout(1200);
+        // Wait for the page's own loading skeleton to resolve before measuring.
+        // A fixed 1.2s wait measured "LOADING …" on the API-backed console
+        // pages, which would report a skeleton as if it were the product.
+        try {
+          await authPage.waitForFunction(
+            () => !/\bLOADING\b/.test(document.body.innerText),
+            null,
+            { timeout: 25_000, polling: 250 },
+          );
+          settled = true;
+        } catch { /* reported as settled:false, never assumed */ }
+        await authPage.waitForTimeout(700);
         landedOn = await authPage.evaluate(() => location.pathname);
         title = await authPage.title();
         measured = await authPage.evaluate(MEASURE);
@@ -274,7 +392,7 @@ async function main() {
       }
 
       results.push({
-        route: route.path, id: route.id, width, landedOn, title,
+        route: route.path, id: route.id, width, landedOn, title, settled,
         reachedConsole: landedOn === route.path,
         ...(measured || {}),
         horizontalOverflow: measured ? measured.scrollWidth > measured.clientWidth + 1 : null,
@@ -319,8 +437,11 @@ async function main() {
   if (server) server.close();
   fs.writeFileSync(
     path.join(OUT, 'authenticated-report.json'),
-    JSON.stringify({ routes: results, logout }, null, 2),
+    JSON.stringify({ enrollment, routes: results, logout }, null, 2),
   );
+  if (enrollment.attempted) {
+    console.log(`\nEnrollment: gate ${enrollment.gateFound ? 'found' : 'NOT FOUND'} · clicked ${enrollment.clicked} · cleared ${enrollment.cleared}${enrollment.reason ? ` (${enrollment.reason})` : ''}`);
+  }
   console.log(`\nLogout: control ${logout.controlFound ? 'found' : 'NOT FOUND'} · session ended: ${logout.signedOut}${logout.reason ? ` (${logout.reason})` : ''}`);
 
   // ── Report ────────────────────────────────────────────────────────────────

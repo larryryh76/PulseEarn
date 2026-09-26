@@ -28,6 +28,39 @@ const FAQS = [
   { q: 'Does PSEmine use my PulseEarn points?', a: 'No. PSEmine and PulseEarn share one sign-in identity and nothing else. PSEmine works in GBP campaign earnings and BNB payouts; PulseEarn points, tasks and rewards never apply here.' },
 ];
 
+const SecurityBody: React.FC = () => {
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+  return (
+    <>
+      <p className="pse-copy-s">
+        Balances live in an append-only ledger with deterministic entries. Purchases require on-chain verification with
+        replay protection. Referral qualification has exactly one auditable path, and product access is an explicit,
+        backend-enforced entitlement. The browser displays state — it can never create, claim or alter value.
+      </p>
+      <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
+        <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success-ink)' }} />
+        <div className="min-w-0 flex-1">
+          <p className="pse-label-b">Purchase, settlement and wallet are separate concerns</p>
+          <p className="pse-meta mt-1">Purchasing pays a quote-bound, chain-asserted BNB transaction that the backend verifies before a tool activates; settlement finalises the GBP ledger at day 90 and never moves funds itself; payouts move BNB to the wallet you configured before the lock. A connected wallet (signing) never changes the payout wallet (receiving) — that binding is server-stored and locks at settlement.</p>
+        </div>
+      </div>
+      <button type="button" onClick={() => setShowAdvanced(v => !v)} className="pse-btn pse-btn-3 pse-btn-sm mt-3">
+        {showAdvanced ? 'Hide advanced security details' : 'Show advanced security details'}
+      </button>
+      {showAdvanced && (
+        <div className="pse-sunken mt-3 p-3.5 pse-stack-tight">
+          <p className="pse-np">Advanced</p>
+          <p className="pse-meta"><span className="pse-label-b">Quote binding</span> — payer wallet is bound server-side before signing; a later request with a different wallet is rejected as WALLET_MISMATCH until the quote window lapses.</p>
+          <p className="pse-meta"><span className="pse-label-b">Chain assertion</span> — wallet and quote chainId must match before signing; an unreadable chain fails closed, never pays on the wrong network.</p>
+          <p className="pse-meta"><span className="pse-label-b">One-send-attempt</span> — the signing layer allows exactly one broadcast; uncertain submission never retries automatically.</p>
+          <p className="pse-meta"><span className="pse-label-b">Payout wallet lock</span> — changes lock at settlement (backend enforces cut-off); payout requests require verified email and minimum £10 and are reviewed before processing.</p>
+          <p className="pse-meta"><span className="pse-label-b">Audit</span> — every purchase intent, verification failure, referral qualification and settlement sweep is retained as an auditable record; recovery cases are listed for manual review.</p>
+        </div>
+      )}
+    </>
+  );
+};
+
 type Section = { id: string; icon: React.ComponentType<{ size?: number | string; style?: React.CSSProperties; className?: string }>; title: string; summary: string; body: React.ReactNode };
 
 const SECTIONS: Section[] = [
@@ -108,7 +141,7 @@ const SECTIONS: Section[] = [
                   {t.operating?.model === 'continuous' ? 'continuous duty' : 'session duty · manual restart'}
                 </p>
               </div>
-              <span className="pse-row-v pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</span>
+              <span className="pse-row-v pse-n pse-cyan">{gbpHour(t.hourlyRateGBP)}</span>
             </div>
           ))}
           <div className="pse-spec-line" style={{ paddingTop: 12, paddingBottom: 4 }}>
@@ -151,7 +184,7 @@ const SECTIONS: Section[] = [
           ))}
         </div>
         <p className="pse-copy-s mt-3.5 flex items-start gap-2">
-          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+          <Wrench size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success-ink)' }} />
           Restarting is always free and always will be. There is no paid restart and no health-percentage system —
           the backend-reported state itself is the operational truth.
         </p>
@@ -214,12 +247,13 @@ const SECTIONS: Section[] = [
           the tool activates. The app never marks a purchase confirmed on its own, and no other activation path exists.
         </p>
         <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-jade-ink)' }} />
+          <ShieldCheck size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-success-ink)' }} />
           <p className="pse-meta">
             Payments and settlements happen only on BNB Smart Chain (chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}).
             Underpayments and mismatches are detected and recorded for manual review.
           </p>
         </div>
+        <p className="pse-meta mt-3">Wallet distinction: the connected wallet signs the payment you approve in the wallet app; the payout wallet is a separate, server-stored address that receives settlement. Connecting a wallet never changes where settlement is paid — that address is set explicitly in Wallet and locks at settlement.</p>
       </>
     ),
   },
@@ -249,10 +283,22 @@ const SECTIONS: Section[] = [
           open (minimum £10), and each request is reviewed before being processed to your configured payout wallet on BNB
           Smart Chain.
         </p>
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {[
+            ['Purchase', 'Spend BNB once per tool — quote-bound, verified on-chain, then the tool mines'],
+            ['Settlement', 'Ledger finalised at day 90 — accrual stops, final GBP balances computed'],
+            ['Payout', 'Request reviewed payout in BNB to your locked payout wallet (min £10)'],
+          ].map(([k,v]) => (
+            <div key={k} className="pse-sunken p-3.5">
+              <p className="pse-np">{k}</p>
+              <p className="pse-meta mt-1">{v}</p>
+            </div>
+          ))}
+        </div>
         <div className="pse-sunken mt-4 flex items-start gap-2.5 p-3.5">
           <Clock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--pse-amber)' }} />
           <p className="pse-meta">
-            Payout wallet changes lock at settlement. Set your payout wallet early and verify it carefully.
+            Payout wallet changes lock at settlement. Set your payout wallet early and verify it carefully — the connected signing wallet never becomes the payout destination.
           </p>
         </div>
       </>
@@ -261,11 +307,7 @@ const SECTIONS: Section[] = [
   {
     id: 'security', icon: ShieldCheck, title: 'Security model', summary: 'Server-authoritative by design',
     body: (
-      <p className="pse-copy-s">
-        Balances live in an append-only ledger with deterministic entries. Purchases require on-chain verification with
-        replay protection. Referral qualification has exactly one auditable path, and product access is an explicit,
-        backend-enforced entitlement. The browser displays state — it can never create, claim or alter value.
-      </p>
+      <SecurityBody />
     ),
   },
 ];
@@ -278,7 +320,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   const [completing, setCompleting] = useState(false);
   const [doneSections, setDoneSections] = useState<Set<string>>(new Set());
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(onboarding ? [SECTIONS[0]?.id ?? 'what'] : SECTIONS.map(s => s.id)),
+    () => new Set([SECTIONS[0]?.id ?? 'what']),
   );
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0]?.id ?? 'what');
@@ -367,7 +409,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
 
       {onboarding && (
         <div className="pse-sunken pse-pad flex flex-wrap items-center gap-3">
-          <Coins size={14} className="pse-jade shrink-0" />
+          <Coins size={14} className="pse-cyan shrink-0" />
           <p className="pse-meta flex-1 min-w-[200px]">This walkthrough appears once. You can return any time from the footer or the account menu.</p>
           <span className="pse-n pse-dim-3 text-[12px]">{doneSections.size}/{SECTIONS.length} read</span>
         </div>
@@ -413,7 +455,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 40,
                       background: 'none', border: 0, borderLeft: '2px solid',
-                      borderLeftColor: active ? 'var(--pse-jade-ink)' : 'var(--pse-line)',
+                      borderLeftColor: active ? 'var(--pse-success-ink)' : 'var(--pse-line)',
                       paddingLeft: 12, cursor: 'pointer', font: 'inherit', textAlign: 'left',
                       fontSize: 13.5, fontWeight: active ? 600 : 500,
                       color: active ? 'var(--pse-bone)' : done ? 'var(--pse-text-2)' : 'var(--pse-text-3)',
@@ -424,9 +466,10 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 );
               })}
             </nav>
-            <Link to={onboarding ? '/mine/dashboard' : '/mine/tools'} className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full">
-              {onboarding ? 'Open the console' : 'Open the tool marketplace'}
-            </Link>
+            <div className="flex flex-col gap-2">
+              <Link to="/mine/dashboard" className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full">Open the console</Link>
+              <Link to="/mine/tools" className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full">Open the tool marketplace</Link>
+            </div>
           </div>
         </aside>
 
@@ -437,7 +480,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
         <div>
           {/* One bordered surface for the whole guide: chapters are ruled into it
               and separated by hairlines, never lifted into their own cards. */}
-          <Ledger title="The campaign, chapter by chapter" meta="Nine chapters · the console always shows the live state">
+          <Ledger title="The campaign, chapter by chapter" meta="Ten chapters · the console always shows the live state">
           {SECTIONS.map((s, idx) => {
             const Icon = s.icon;
             const open = openSections.has(s.id);
@@ -449,7 +492,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                 <div className="flex items-start gap-3.5 p-5">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                     style={{ background: 'var(--pse-sunken)', border: '1px solid var(--pse-line)' }}>
-                    <Icon size={17} style={{ color: 'var(--pse-jade-ink)' }} />
+                    <Icon size={17} style={{ color: 'var(--pse-success-ink)' }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -474,7 +517,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                             className="pse-btn pse-btn-3 pse-btn-sm"
                             aria-pressed={doneSections.has(s.id)}>
                             {doneSections.has(s.id)
-                              ? <><Check size={12} className="pse-jade" /> Read</>
+                              ? <><Check size={12} className="pse-cyan" /> Read</>
                               : 'Mark read & next'}
                           </button>
                         )}
@@ -519,7 +562,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
           {/* Onboarding CTA */}
           {onboarding && (
             <div className="pse-rule pse-note" style={{ marginTop: 18, paddingTop: 22, textAlign: 'center', alignItems: 'center' }}>
-              <CheckCircle2 size={22} style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-jade-ink)' : 'var(--pse-text-4)' }} />
+              <CheckCircle2 size={22} style={{ color: doneSections.size === SECTIONS.length ? 'var(--pse-success-ink)' : 'var(--pse-text-4)' }} />
               <p className="pse-h3" style={{ marginTop: 12 }}>Ready to open your console?</p>
               <p className="pse-meta">
                 {TOOLS[0] && `Tools start at ${gbp(TOOLS[0].purchasePriceGBP)} with ${gbpHour(TOOLS[0].hourlyRateGBP)} of capacity.`}

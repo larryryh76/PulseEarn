@@ -1,13 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Check, X, Wallet, ShieldCheck, Loader2, Clock, ChevronRight, ExternalLink,
-  Layers, Info, Smartphone, RefreshCcw,
+  Check, X, Wallet, ShieldCheck, Loader2, ChevronRight, ExternalLink,
+  Layers, RefreshCcw, Smartphone, Info,
 } from 'lucide-react';
-
-/* The receipt counts down the SERVER-issued quote window (mm:ss); the wall-clock
- * binding this module keeps for the timing display is held live here. */
-export const pseToolsSessionClock = () => _unusedClock;
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
@@ -25,8 +21,8 @@ import {
   bnbExactFromWei,
 } from '../../components/psemine/pse';
 import { ModulePlate, ModuleMark } from '../../components/psemine/PSEBrand';
-import { cn } from '../../utils';
 import toast from 'react-hot-toast';
+import { cn } from '../../utils';
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;
 
@@ -144,7 +140,7 @@ export const PSEMineTools: React.FC = () => {
           <div className="pse-stack-tight">
             <div className="pse-spec-line"><span>Tools owned</span><span>{totalOwned}</span></div>
             <div className="pse-spec-line"><span>Ownership slots left</span><span>{tierSlotsLeft} across all tiers</span></div>
-            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-jade">{gbpHour(totalCapacity)}</span></div>
+            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-cyan">{gbpHour(totalCapacity)}</span></div>
             <div className="pse-spec-line">
               <span>Network</span>
               <span>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}</span>
@@ -243,7 +239,7 @@ export const PSEMineTools: React.FC = () => {
                     </div>
                     <div className="pse-spec-line" style={{ marginTop: 6 }}>
                       <span>Your contribution</span>
-                      <span className={owned > 0 ? 'pse-jade' : undefined}>{owned > 0 ? `+${gbpRate(owned * t.hourlyRateGBP)}` : '—'}</span>
+                      <span className={owned > 0 ? 'pse-cyan' : undefined}>{owned > 0 ? `+${gbpRate(owned * t.hourlyRateGBP)}` : '—'}</span>
                     </div>
                     <div className="pse-spec-line" style={{ marginTop: 6 }}>
                       <span>Available to you</span>
@@ -813,7 +809,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               <span
                 key={s.id}
                 className="pse-np"
-                style={{ color: i < stepIndex ? 'var(--pse-jade-ink)' : i === stepIndex ? 'var(--pse-bone)' : 'var(--pse-text-4)' }}
+                style={{ color: i < stepIndex ? 'var(--pse-success-ink)' : i === stepIndex ? 'var(--pse-bone)' : 'var(--pse-text-4)' }}
               >
                 {String(i + 1).padStart(2, '0')} {s.label}
               </span>
@@ -874,7 +870,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {!showingRecovery && step === 'quote' && (
             quoteLoading || !quote ? (
               <div className="flex flex-col items-center gap-3 py-12">
-                <Loader2 size={22} className="animate-spin pse-jade" />
+                <Loader2 size={22} className="animate-spin pse-cyan" />
                 <p className="pse-meta">Requesting a live BNB quote from the server…</p>
               </div>
             ) : (
@@ -1094,7 +1090,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               </button>
 
               <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                <ShieldCheck size={15} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                <ShieldCheck size={15} className="shrink-0 pse-cyan" style={{ marginTop: 2 }} />
                 <p className="pse-meta">
                   After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount
                   and confirmation depth — before the tool activates.
@@ -1106,7 +1102,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
           {/* ── Step: verifying ── */}
           {!showingRecovery && step === 'verifying' && (
             <div className="pse-stack-tight" style={{ alignItems: 'center', paddingBlock: 32 }}>
-              <Loader2 size={24} className="animate-spin pse-jade" />
+              <Loader2 size={24} className="animate-spin pse-cyan" />
               <p className="pse-h3">Verifying on BNB Smart Chain</p>
               <p className="pse-meta" style={{ textAlign: 'center', maxWidth: 340 }}>
                 Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
@@ -1163,7 +1159,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               )}
               {result.ok && (
                 <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                  <Info size={14} className="shrink-0 pse-jade" style={{ marginTop: 2 }} />
+                  <Info size={14} className="shrink-0 pse-cyan" style={{ marginTop: 2 }} />
                   <p className="pse-meta">
                     {continuous
                       ? 'This tool mines continuously while the campaign is active — there is no manual session restart.'
@@ -1264,8 +1260,5 @@ const WalletConnectStep: React.FC = () => {
     </div>
   );
 };
-
-const _unusedClock = Clock;
-
 
 export default PSEMineTools;

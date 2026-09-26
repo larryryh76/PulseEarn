@@ -5,6 +5,7 @@
  * Usage: bun scripts/pse-probe.mjs /mine/login /mine/signup
  */
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -14,9 +15,39 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const routes = process.argv.slice(2);
 if (!routes.length) { console.error('usage: bun scripts/pse-probe.mjs <route...>'); process.exit(1); }
 
+/**
+ * Optional PSE_API_PROXY=https://… forwards /api/* to a real deployment so a
+ * signed-out probe can see the public campaign projection instead of the
+ * harness's 503 (which makes the landing render its neutral pre-launch state).
+ * `accept-encoding` is dropped: node's http client does not decompress.
+ */
+const API_PROXY = process.env.PSE_API_PROXY;
+function proxyApi(req, res, url) {
+  const target = new URL(url.pathname + url.search, API_PROXY);
+  const { 'accept-encoding': _drop, host: _host, ...forward } = req.headers;
+  const upstream = (target.protocol === 'https:' ? https : http).request({
+    protocol: target.protocol, hostname: target.hostname, port: target.port || undefined,
+    path: target.pathname + target.search, method: req.method,
+    headers: { ...forward, host: target.host },
+  }, up => {
+    res.writeHead(up.statusCode || 502, {
+      'Content-Type': up.headers['content-type'] || 'application/json',
+      ...(up.headers['content-length'] ? { 'Content-Length': up.headers['content-length'] } : {}),
+      ...(up.headers['content-encoding'] ? { 'Content-Encoding': up.headers['content-encoding'] } : {}),
+    });
+    up.pipe(res);
+  });
+  upstream.on('error', () => {
+    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'PROXY_ERROR', requestId: 'probe-proxy' }));
+  });
+  req.pipe(upstream);
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.startsWith('/api/')) {
+    if (API_PROXY) { proxyApi(req, res, url); return; }
     res.writeHead(503, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: false, error: 'SERVICE_UNAVAILABLE', requestId: 'probe' }));
     return;

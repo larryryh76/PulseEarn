@@ -110,7 +110,7 @@ const Chapter: React.FC<{ no: string; title: string; lead?: string; right?: Reac
 
 export const PSEMineLanding: React.FC = () => {
   const { campaign } = usePSEMine();
-  const { currentUser } = usePSEMineAuth();
+  const { currentUser, loading: authLoading } = usePSEMineAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [stuck, setStuck] = useState(false);
@@ -153,8 +153,16 @@ export const PSEMineLanding: React.FC = () => {
             </nav>
 
             <div className="pse-mast-actions">
-              <Link to="/mine/login" className="pse-btn pse-btn-3 pse-btn-sm hidden sm:inline-flex">Sign in</Link>
-              <Link to={primaryHref} className="pse-btn pse-btn-sm">{primaryLabel}</Link>
+              {authLoading ? (
+                <span className="pse-btn pse-btn-3 pse-btn-sm" aria-busy="true" style={{ pointerEvents: 'none', opacity: 0.6 }}>
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+                </span>
+              ) : (
+                <>
+                  <Link to="/mine/login" className="pse-btn pse-btn-3 pse-btn-sm hidden sm:inline-flex">Sign in</Link>
+                  <Link to={primaryHref} className="pse-btn pse-btn-sm">{primaryLabel}</Link>
+                </>
+              )}
               <button
                 type="button"
                 className="pse-burger"
@@ -203,7 +211,7 @@ export const PSEMineLanding: React.FC = () => {
                 <h1 className="pse-brief-title" style={{ fontSize: 'clamp(30px, 5vw, 52px)', marginTop: 18 }}>
                   Buy mining capacity.<br />
                   Hold it for {durationDays} days.<br />
-                  <span className="pse-jade">Settle in GBP.</span>
+                  <span className="pse-cyan">Settle in GBP.</span>
                 </h1>
 
                 <p className="pse-copy pse-measure" style={{ marginTop: 16 }}>
@@ -214,9 +222,15 @@ export const PSEMineLanding: React.FC = () => {
                 </p>
 
                 <div className="flex flex-col gap-2.5 sm:flex-row" style={{ marginTop: 22 }}>
-                  <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
-                    {currentUser ? 'Open your console' : 'Start mining'} <ArrowRight size={15} />
-                  </Link>
+                  {authLoading ? (
+                    <span className="pse-btn pse-btn-lg justify-center" aria-busy="true" style={{ pointerEvents: 'none', opacity: 0.7 }}>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" /> Checking session…
+                    </span>
+                  ) : (
+                    <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
+                      {currentUser ? 'Open your console' : 'Start mining'} <ArrowRight size={15} />
+                    </Link>
+                  )}
                   <a href="#tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">See the tools</a>
                 </div>
               </div>
@@ -265,7 +279,7 @@ export const PSEMineLanding: React.FC = () => {
                         <ModuleMark tier={t.tier as 1 | 2 | 3 | 4} size={150} active className="pse-mod-art" />
                         <p className="pse-np">Tier {t.tier}</p>
                         <p className="pse-label-b">{t.name}</p>
-                        <p className="pse-n pse-jade">{gbpHour(t.hourlyRateGBP)}</p>
+                        <p className="pse-n pse-cyan">{gbpHour(t.hourlyRateGBP)}</p>
                         <p className="pse-meta">
                           {t.operating.model === 'continuous' ? 'Continuous duty' : 'Session duty'} · max {t.maxPerUser}
                         </p>
@@ -355,17 +369,9 @@ export const PSEMineLanding: React.FC = () => {
             lead="Tool capacity plus qualified referral capacity. The register below is the same instrument the console shows you, drawn here with every lane available."
           >
             <div className="pse-grid-2">
-              <div className="pse-ledger pse-pad">
-                <CapacityRail
-                  toolCapacity={0}
-                  referralCapacity={0}
-                  counts={{ starter: 0, builder: 0, advanced: 0, elite: 0 }}
-                  referralCount={0}
-                  label="Capacity register"
-                  meta="Nothing held — every lane available"
-                />
-              </div>
               <div className="pse-stack" style={{ marginTop: 4 }}>
+                <p className="pse-np">The single capacity register — as it appears in the specimen above</p>
+                <p className="pse-meta pse-measure">The specimen's register is the same instrument the console shows you: tool lanes (Starter/Builder/Advanced/Elite at their ownership limits) plus referral lanes, summed to £/hour. No second register is drawn — the arithmetic is always the same.</p>
                 {[
                   ['Tools add capacity, per tool', `Owned tools are summed at their fixed hourly rate: ${TOOLS.map(t => `${t.name} ${gbpHour(t.hourlyRateGBP)}`).join(' · ')}.`],
                   ['Ownership limits are the cap', `The four tiers' per-account limits sum to ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of tool capacity — the ceiling on the register.`],
@@ -394,9 +400,8 @@ export const PSEMineLanding: React.FC = () => {
             lead="The campaign position is derived from backend campaign state — never from a browser clock. The same rail appears in the console, on every route."
           >
             <div className="pse-stack">
-              <div className="pse-ledger pse-pad">
-                <DutyRail campaign={campaign} density="default" />
-              </div>
+              <p className="pse-np">The single campaign rail — as it appears in the specimen above</p>
+              <p className="pse-meta pse-measure">The specimen's rail is the canonical 90-day visualisation: Scheduled → Active/Mining → Mining Ends → Settlement → Payout → Closed → Archived, positioned from backend campaign state. No second rail is drawn — every route shares the same one.</p>
               <DutyModels />
               <div className="pse-ledger">
                 <div className="pse-ledger-legend" data-cols={2}>
@@ -418,7 +423,7 @@ export const PSEMineLanding: React.FC = () => {
                           ][i]}
                         </p>
                       </div>
-                      <span className="pse-row-v pse-np" style={{ alignSelf: 'center', color: p.state === 'current' ? 'var(--pse-jade-ink)' : undefined }}>
+                      <span className="pse-row-v pse-np" style={{ alignSelf: 'center', color: p.state === 'current' ? 'var(--pse-success-ink)' : undefined }}>
                         {p.state === 'done' ? 'Complete' : p.state === 'current' ? 'In progress' : 'Scheduled'}
                       </span>
                     </div>
@@ -534,9 +539,15 @@ export const PSEMineLanding: React.FC = () => {
                     : 'Purchases are currently closed for this campaign. The guide explains the campaign while you wait.'}
                 </p>
                 <div className="flex flex-col gap-2.5 sm:flex-row" style={{ marginTop: 20 }}>
-                  <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
-                    {currentUser ? 'Open your console' : 'Create an account'} <ArrowRight size={15} />
-                  </Link>
+                  {authLoading ? (
+                    <span className="pse-btn pse-btn-lg justify-center" aria-busy="true" style={{ pointerEvents: 'none', opacity: 0.7 }}>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" /> Checking session…
+                    </span>
+                  ) : (
+                    <Link to={primaryHref} className="pse-btn pse-btn-lg justify-center">
+                      {currentUser ? 'Open your console' : 'Create an account'} <ArrowRight size={15} />
+                    </Link>
+                  )}
                   <a href="#tools" className="pse-btn pse-btn-2 pse-btn-lg justify-center">The tools</a>
                 </div>
               </div>

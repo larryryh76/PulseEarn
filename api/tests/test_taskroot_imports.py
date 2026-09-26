@@ -87,9 +87,20 @@ class TestBootstrapShape(unittest.TestCase):
         If a future edit adds another bare sibling import, update this census:
         it documents the full blast radius of the package-mode defect.
         """
+        # Phase 3A recensus (the numbers moved for two reasons, both reviewable):
+        #   * psemine_core 4 -> 11: every PSEmine capacity producer now imports
+        #     the canonical core at its call site instead of restating the rates
+        #     (recalculate_psemine_user_mining_state, the legacy dashboard,
+        #     /sessions/sync, the v1 quote, the v1 activation, the canonical
+        #     activation transaction, the canonical-data seed, and the derived
+        #     LOCKED_PSEMINE_TOOLS_CONFIG builder);
+        #   * psemine_engine 26 -> 25: psemine_sync_session carried a duplicate
+        #     `import psemine_engine as _pse_engine` in the same function body;
+        #   * psemine_public 1 -> 2: the public tool projection is imported by
+        #     the app's _public_tool_view, beside public_campaign_view.
         per_file = {
-            "index.py": {"psemine_engine": 26, "psemine_core": 4,
-                         "psemine_public": 1, "services.provider_cache": 6},
+            "index.py": {"psemine_engine": 25, "psemine_core": 11,
+                         "psemine_public": 2, "services.provider_cache": 6},
             "psemine_engine.py": {"psemine_engine": 0, "psemine_core": 1,
                                   "psemine_public": 0},
         }

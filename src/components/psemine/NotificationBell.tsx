@@ -50,7 +50,7 @@ export const NotificationBell: React.FC<{ variant?: 'desktop' | 'mobile' }> = ({
       {unreadNotifications > 0 && (
         <span
           className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm px-1 pse-n"
-          style={{ background: 'var(--pse-jade)', color: '#0b0b0c', fontSize: 9, fontWeight: 700 }}
+          style={{ background: 'var(--pse-success)', color: '#0b0b0c', fontSize: 9, fontWeight: 700 }}
         >
           {unreadNotifications > 9 ? '9+' : unreadNotifications}
         </span>

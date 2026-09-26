@@ -201,7 +201,7 @@ export const PSEMineDashboard: React.FC = () => {
         }
         side={
           <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Settlement-available</span><span className="pse-jade">{availableStr}</span></div>
+            <div className="pse-spec-line"><span>Settlement-available</span><span className="pse-cyan">{availableStr}</span></div>
             <div className="pse-spec-line"><span>Operating tools</span><span>{activeTools.length} / {tools.length}</span></div>
             <div className="pse-spec-line">
               <span>Qualified referrals</span>
@@ -334,7 +334,7 @@ export const PSEMineDashboard: React.FC = () => {
               </>
             }
           >
-            <LedgerRow title="Settlement-available" sub="Backend-reported figure only" value={availableStr} valueTone="var(--pse-jade-ink)" />
+            <LedgerRow title="Settlement-available" sub="Backend-reported figure only" value={availableStr} valueTone="var(--pse-success-ink)" />
             <LedgerRow
               title="Payout wallet"
               sub={user.payoutWallet ? 'Receives settlement' : 'Required before settlement'}
@@ -349,7 +349,7 @@ export const PSEMineDashboard: React.FC = () => {
               title="Qualified referral lanes"
               sub={`Each lane adds ${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} from qualification forward · capped at ${gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}`}
               value={`${referralQualified} / ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} · +${gbpHour(referralCapacity)}`}
-              valueTone={referralCapacity > 0 ? 'var(--pse-jade-ink)' : undefined}
+              valueTone={referralCapacity > 0 ? 'var(--pse-success-ink)' : undefined}
               children={
                 <span className="pse-ticks" style={{ marginTop: 8 }} role="img" aria-label={`${referralQualified} of ${PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} referral lanes qualified`}>
                   {Array.from({ length: PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS }, (_, i) => (
@@ -469,7 +469,7 @@ function ActivityPreview() {
             value={displayAmount !== null && displayAmount !== 0
               ? `${credited ? '+' : ''}${gbp(Math.abs(displayAmount))}`
               : '—'}
-            valueTone={credited ? 'var(--pse-jade-ink)' : undefined}
+            valueTone={credited ? 'var(--pse-success-ink)' : undefined}
           />
         );
       })}

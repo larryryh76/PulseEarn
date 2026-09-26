@@ -1,57 +1,77 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PSEmine — DUTY & LEDGER
+   PSEmine — DUTY & LEDGER (Phase 2 — Premium Financial Campaign)
    THE single authoritative PSEmine style layer.
 
-   Approved art direction (Duty & Ledger). Two bespoke materials carry the
-   product: the TOOL as a machined module with a nameplate, and the ACCOUNT as
-   a ruled ledger. Time is drawn as a duty rail; capacity as an additive
-   register. There is exactly one campaign rail and one capacity register in
-   the system, at three densities.
+   Research principles applied: Stripe narrative clarity, Wise financial
+   hierarchy, Mercury restraint, Coinbase/Trust Wallet/Phantom security
+   clarity, Binance/Bybit aligned financial information, Linear/Vercel
+   operational state communication, Notion/Raycast product-specific
+   demonstrations — transferred, never copied.
 
-   Non-negotiables encoded here:
-   • Composition law: VERDICT (unframed) → RAILS → LEDGERS → NOTES.
-   • Bordered containers are LEDGERS only. Max 4 per desktop screen, 3 on
-     mobile, never nested.
-   • Colour is a key, not a mood: jade = value/live capacity, bone = control
-     and primary type, BNB yellow = chain identity only, amber = attention,
-     red = failure. Blue/cyan/purple are RETIRED.
-   • Money: tabular figures, fixed 2dp, aligned, units live in column heads.
-   • No glow, no glass, no ambient gradients, no cyberpunk lighting.
-   • Warm graphite surfaces; hairline separation, not shadow elevation.
+   Visual story: TOOLS → CAPACITY → TIME → CAMPAIGN EARNINGS → SETTLEMENT → BNB PAYOUT
 
-   The retired v2/v3 style layers and their token aliases are GONE: this file
-   is the single source of PSEmine design truth, and no PSEmine surface can
-   render a colour, radius or surface this file does not define.
+   Palette (strict):
+   • Canvas: deep neutral graphite
+   • Surfaces: slightly lifted graphite
+   • Borders: quiet hairline gray
+   • Primary interaction: electric blue
+   • Capacity / data: soft cyan
+   • Secondary depth: restrained purple
+   • Success: semantic green
+   • Warning: amber · Error: red
+   • BNB yellow ONLY for payment / network context
+   Blue, cyan and purple are accents — never decorative glow, never
+   excessive gradients, never glassmorphism, never cyberpunk.
+
+   Composition law: VERDICT (unframed) → RAILS → LEDGERS → NOTES.
+   Bordered containers are LEDGERS only. Max 4 per desktop screen, 3 on
+   mobile, never nested.
+   Money: tabular figures, fixed 2dp, aligned, units in column heads.
+   Typography: Inter for headings/body/nav/buttons; JetBrains Mono ONLY
+   for wallet addresses / hashes / IDs / refs / timestamps / audit metadata.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Scope + tokens ───────────────────────────────────────────────────────── */
 .pse-scope {
-  /* Surfaces — warm graphite, no navy cast */
-  --pse-canvas: #0b0b0c;
-  --pse-plane: #101012;
-  --pse-plate: #16161a;
-  --pse-sunken: #08080a;
-  --pse-line: rgba(255, 255, 255, 0.065);
-  --pse-line-2: rgba(255, 255, 255, 0.12);
-  --pse-inline: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  /* Surfaces — deep neutral graphite, no navy, no warm cast */
+  --pse-canvas: #0F0F12;
+  --pse-plane: #181A1E;
+  --pse-plate: #1E2026;
+  --pse-sunken: #0B0C0E;
+  --pse-line: rgba(255, 255, 255, 0.072);
+  --pse-line-2: rgba(255, 255, 255, 0.135);
+  --pse-inline: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 
   /* Ink */
-  --pse-bone: #edeEec;
-  --pse-text: #f4f5f3;
-  --pse-text-2: #9c9fa3;
-  --pse-text-3: #6c7075;
-  --pse-text-4: #4a4d51;
+  --pse-bone: #EDEEEC;
+  --pse-text: #F2F3F1;
+  --pse-text-2: #9CA0A6;
+  --pse-text-3: #6D7177;
+  --pse-text-4: #4A4E53;
 
-  /* Colour keys */
-  --pse-jade-ink: #4fd1a5;
-  --pse-jade: #17a97a;
-  --pse-jade-wash: rgba(23, 169, 122, 0.1);
-  --pse-live: #19e0a0;
-  --pse-bnb: #f0b90b;
-  --pse-amber: #e0a03a;
-  --pse-amber-wash: rgba(224, 160, 58, 0.1);
-  --pse-red: #e5484d;
-  --pse-red-wash: rgba(229, 72, 77, 0.1);
+  /* Accent keys — strict mapping */
+  --pse-blue: #2F6BFF;
+  --pse-blue-ink: #5A8BFF;
+  --pse-blue-wash: rgba(47, 107, 255, 0.10);
+  --pse-blue-2: #1A4DFF;
+  --pse-cyan: #22D3EE;
+  --pse-cyan-ink: #4DD4E5;
+  --pse-cyan-wash: rgba(34, 211, 238, 0.10);
+  --pse-purple: #7A5CFA;
+  --pse-purple-ink: #9B85FF;
+  --pse-purple-wash: rgba(122, 92, 250, 0.09);
+  --pse-success: #17A97A;
+  --pse-success-ink: #4FD1A5;
+  --pse-success-wash: rgba(23, 169, 122, 0.10);
+  /* Note: the retired `--pse-jade*` / `--pse-live` aliases were removed in
+     Phase 3A. They were names that lied — `.pse-jade` rendered cyan while
+     `--pse-jade-ink` rendered the success green — so every call site now names
+     the token it actually renders (`--pse-success*`, `--pse-cyan-ink`). */
+  --pse-bnb: #F0B90B;
+  --pse-amber: #E0A03A;
+  --pse-amber-wash: rgba(224, 160, 58, 0.10);
+  --pse-red: #E5484D;
+  --pse-red-wash: rgba(229, 72, 77, 0.10);
 
   /* Geometry */
   --pse-r-1: 6px;
@@ -60,11 +80,9 @@
   --pse-measure: 1180px;
   --pse-measure-wide: 1240px;
   --pse-gutter: 20px;
-  /* Width of a ledger row's leading column (a tool module), fixed so the column
-     heads in the legend can be inset by exactly the same amount. */
   --pse-lead-w: 54px;
-  --pse-shadow-sheet: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --pse-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6);
+  --pse-shadow-sheet: 0 16px 40px rgba(0, 0, 0, 0.50);
+  --pse-shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.60);
   --pse-fig-a: clamp(34px, 6.4vw, 44px);
 
   color-scheme: dark;
@@ -79,11 +97,11 @@
 @media (min-width: 641px) { .pse-scope { --pse-gutter: 28px; } }
 @media (min-width: 1024px) { .pse-scope { --pse-gutter: 40px; --pse-fig-a: 44px; } }
 
-.pse-scope a { color: var(--pse-jade-ink); text-decoration: none; }
+.pse-scope a { color: var(--pse-blue-ink); text-decoration: none; }
 .pse-scope a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .pse-scope p, .pse-scope li, .pse-scope dd { overflow-wrap: break-word; }
-.pse-scope :focus-visible { outline: 2px solid var(--pse-jade-ink); outline-offset: 2px; border-radius: 4px; }
-.pse-scope ::selection { background: var(--pse-jade-wash); color: var(--pse-text); }
+.pse-scope :focus-visible { outline: 2px solid var(--pse-blue-ink); outline-offset: 2px; border-radius: 4px; }
+.pse-scope ::selection { background: var(--pse-blue-wash); color: var(--pse-text); }
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
 .pse-shell { min-height: 100vh; display: flex; flex-direction: column; }
@@ -124,19 +142,20 @@
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.88em; letter-spacing: -0.01em;
 }
-/* Tabular numerals — every figure that sits in a column or beside another one. */
 .pse-n { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .pse-fig-a { font-size: var(--pse-fig-a); font-weight: 600; letter-spacing: -0.022em; line-height: 1; }
 .pse-fig-b { font-size: 24px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.1; }
 .pse-fig-c { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .pse-fig-d { font-size: 14px; font-weight: 600; }
-.pse-jade { color: var(--pse-jade-ink); }
+.pse-cyan { color: var(--pse-cyan-ink); }
+.pse-blue { color: var(--pse-blue-ink); }
+.pse-purple { color: var(--pse-purple-ink); }
 .pse-bone { color: var(--pse-bone); }
 .pse-amber { color: var(--pse-amber); }
 .pse-red { color: var(--pse-red); }
 .pse-dim { color: var(--pse-text-2); }
 .pse-dim-3 { color: var(--pse-text-3); }
-.pse-link { color: var(--pse-jade-ink); }
+.pse-link { color: var(--pse-blue-ink); }
 
 /* ── Materials + rules ────────────────────────────────────────────────────── */
 .pse-plane { background: var(--pse-plane); border: 1px solid var(--pse-line); border-radius: var(--pse-r-2); }
@@ -171,13 +190,13 @@
   padding: 4px 8px; white-space: nowrap;
 }
 .pse-stamp-glyph { font-size: 9px; line-height: 1; }
-.pse-stamp[data-tone="live"] { color: var(--pse-jade-ink); border-color: rgba(79, 209, 165, 0.32); }
+.pse-stamp[data-tone="live"] { color: var(--pse-cyan-ink); border-color: rgba(34, 211, 238, 0.32); }
 .pse-stamp[data-tone="attn"] { color: var(--pse-amber); border-color: rgba(224, 160, 58, 0.34); }
 .pse-stamp[data-tone="fail"] { color: var(--pse-red); border-color: rgba(229, 72, 77, 0.36); }
-.pse-stamp[data-tone="info"] { color: var(--pse-bone); border-color: var(--pse-line-2); }
+.pse-stamp[data-tone="info"] { color: var(--pse-blue-ink); border-color: rgba(47, 107, 255, 0.28); }
 .pse-stamp[data-tone="idle"] { color: var(--pse-text-3); }
 .pse-live-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--pse-live);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--pse-cyan-ink);
   flex: 0 0 auto; animation: pse-duty 2.4s ease-in-out infinite;
 }
 @keyframes pse-duty { 0%, 100% { opacity: 1; } 50% { opacity: 0.42; } }
@@ -187,22 +206,25 @@
 .pse-rail-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 .pse-rail-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 10px 0 0; padding: 0; list-style: none; }
 .pse-rail-key li { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--pse-text-3); }
-.pse-k-jade { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-jade); flex: 0 0 auto; }
+.pse-k-jade { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-cyan); flex: 0 0 auto; }
 .pse-k-ghost { width: 14px; height: 6px; border-radius: 2px; border: 1px solid var(--pse-line-2); flex: 0 0 auto; }
 .pse-k-steel { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-text-4); flex: 0 0 auto; }
+.pse-k-blue { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-blue); flex: 0 0 auto; }
+.pse-k-purple { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-purple); flex: 0 0 auto; }
+.pse-k-cyan { width: 14px; height: 6px; border-radius: 2px; background: var(--pse-cyan); flex: 0 0 auto; }
 
 /* ── DUTY RAIL — the 90-day campaign band (ONE canonical campaign visual) ─── */
 .pse-duty { position: relative; margin-top: 14px; }
 .pse-duty-blocks { display: flex; gap: 5px; }
 .pse-duty-dec { flex: 1 1 0; min-width: 0; display: flex; gap: 1px; }
-.pse-duty-tick { flex: 1 1 0; min-width: 0; height: 16px; border-radius: 1px; background: rgba(255, 255, 255, 0.075); }
-.pse-duty-tick[data-state="elapsed"] { background: var(--pse-jade); }
-.pse-duty-tick[data-state="position"] { background: var(--pse-live); }
+.pse-duty-tick { flex: 1 1 0; min-width: 0; height: 16px; border-radius: 1px; background: rgba(255, 255, 255, 0.070); }
+.pse-duty-tick[data-state="elapsed"] { background: var(--pse-blue); }
+.pse-duty-tick[data-state="position"] { background: var(--pse-cyan-ink); }
 .pse-duty-sm .pse-duty-tick { height: 10px; }
 .pse-duty-now {
   position: absolute; top: -20px; transform: translateX(-50%);
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--pse-jade-ink);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--pse-cyan-ink);
   white-space: nowrap;
 }
 .pse-duty-phases { display: flex; gap: 5px; margin-top: 8px; }
@@ -210,17 +232,13 @@
   flex: 1 1 0; min-width: 0;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--pse-text-4); padding-top: 7px; border-top: 2px solid rgba(255, 255, 255, 0.075);
+  color: var(--pse-text-4); padding-top: 7px; border-top: 2px solid rgba(255, 255, 255, 0.072);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pse-duty-phase[data-state="done"] { color: var(--pse-text-3); border-top-color: rgba(23, 169, 122, 0.55); }
-.pse-duty-phase[data-state="current"] { color: var(--pse-jade-ink); border-top-color: var(--pse-live); }
+.pse-duty-phase[data-state="done"] { color: var(--pse-text-3); border-top-color: rgba(47, 107, 255, 0.55); }
+.pse-duty-phase[data-state="current"] { color: var(--pse-cyan-ink); border-top-color: var(--pse-cyan-ink); }
 .pse-duty-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 12px; font-size: 12px; color: var(--pse-text-3); }
 .pse-duty-facts b { font-weight: 600; color: var(--pse-text); }
-/* Phones: five mono-caps phase labels cannot carry a 0.12em track in a 390px
-   ledger body — measured, "Settlement" overran its cell by 12px and truncated
-   to an ellipsis, so a campaign phase was unreadable on the smallest screens.
-   The band keeps its geometry and drops its tracking instead. */
 @media (max-width: 640px) {
   .pse-duty-phases { gap: 4px; }
   .pse-duty-phase { font-size: clamp(7.5px, 2.2vw, 9.5px); letter-spacing: 0.06em; }
@@ -235,7 +253,7 @@
   font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--pse-text-3);
 }
 .pse-reg-track { height: 10px; border-radius: 2px; background: var(--pse-sunken); overflow: hidden; box-shadow: inset 0 0 0 1px var(--pse-line); }
-.pse-reg-fill { display: block; height: 100%; background: var(--pse-jade); }
+.pse-reg-fill { display: block; height: 100%; background: var(--pse-cyan); }
 .pse-reg-lane[data-ghost="true"] .pse-reg-track {
   background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 3px, rgba(255, 255, 255, 0.012) 3px 7px);
 }
@@ -255,7 +273,7 @@
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--pse-text-4);
   padding-top: 6px; border-top: 1px solid var(--pse-line-2); flex: 1 1 0;
 }
-.pse-scale-mark[data-hit="true"] { color: var(--pse-jade-ink); border-top-color: rgba(79, 209, 165, 0.4); }
+.pse-scale-mark[data-hit="true"] { color: var(--pse-cyan-ink); border-top-color: rgba(34, 211, 238, 0.40); }
 @media (max-width: 640px) {
   .pse-reg-lane { grid-template-columns: 84px minmax(0, 1fr) 66px; gap: 8px; }
 }
@@ -280,24 +298,18 @@
 .pse-row-v { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; color: var(--pse-text); }
 .pse-row-v-2 { color: var(--pse-text-2); font-weight: 500; }
 .pse-row-sign { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700; color: var(--pse-text-4); letter-spacing: 0.06em; }
-.pse-row-sign[data-sign="credit"] { color: var(--pse-jade-ink); }
+.pse-row-sign[data-sign="credit"] { color: var(--pse-cyan-ink); }
 .pse-ledger-foot { padding: 12px 16px; border-top: 1px solid var(--pse-line); background: var(--pse-sunken); }
 .pse-day {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   padding: 0 2px 8px;
 }
-/* A row that carries a leading object (a tool module) needs its own first
-   column — without one the figure would wrap under the module instead of
-   sitting in the money column. The legend is inset by the same width so its
-   column heads stay over the columns they name. */
 .pse-row:has(> .shrink-0),
 .pse-row:has(> .pse-row-lead) { grid-template-columns: var(--pse-lead-w) minmax(0, 1fr) auto; }
 .pse-ledger:has(.pse-row > .shrink-0) .pse-ledger-legend,
 .pse-ledger:has(.pse-row > .pse-row-lead) .pse-ledger-legend {
   padding-left: calc(16px + var(--pse-lead-w) + 14px);
 }
-
-/* Mobile ledger rows: value gets its own right-aligned line, never squeezed. */
 @media (max-width: 640px) {
   .pse-row { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
   .pse-row[data-cols="3"] { grid-template-columns: 18px minmax(0, 1fr); }
@@ -311,13 +323,13 @@
 }
 .pse-empty-state { display: flex; flex-direction: column; gap: 8px; padding: 22px 16px; align-items: flex-start; }
 
-/* Attention strip — exception-first, ruled not carded */
+/* Attention strip */
 .pse-attn { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 16px; border-left: 2px solid var(--pse-amber); background: var(--pse-amber-wash); }
 .pse-attn[data-tone="fail"] { border-left-color: var(--pse-red); background: var(--pse-red-wash); }
-.pse-attn[data-tone="info"] { border-left-color: var(--pse-line-2); background: rgba(255, 255, 255, 0.02); }
+.pse-attn[data-tone="info"] { border-left-color: var(--pse-blue); background: var(--pse-blue-wash); }
 .pse-attn-body { min-width: 0; flex: 1 1 240px; }
 
-/* Notes — unframed editorial */
+/* Notes */
 .pse-note { display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
 .pse-clause { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; }
 .pse-clause-no {
@@ -325,19 +337,14 @@
   letter-spacing: 0.12em; color: var(--pse-text-4); padding-top: 4px;
 }
 
-/* ── PROGRESS TRACK — there is exactly ONE in the product ───────────────────
- * Used where a bounded completion figure is genuinely the subject (password
- * strength, guide reading progress, quote validity). Campaign time is the duty
- * rail and capacity is the register — neither of those is a progress bar, and a
- * rail must never be replaced by one.
- * ─────────────────────────────────────────────────────────────────────────── */
+/* ── PROGRESS TRACK ─────────────────────────────────────────────────────── */
 .pse-progress {
   width: 100%; height: 4px; border-radius: 2px; overflow: hidden;
   background: var(--pse-sunken); box-shadow: inset 0 0 0 1px var(--pse-line);
 }
-.pse-progress-fill { display: block; height: 100%; border-radius: 2px; background: var(--pse-jade); }
+.pse-progress-fill { display: block; height: 100%; border-radius: 2px; background: var(--pse-blue); }
 
-/* ── SKELETON — a loading surface ruled like everything else ──────────────── */
+/* ── SKELETON ───────────────────────────────────────────────────────────── */
 .pse-skeleton {
   border: 1px solid var(--pse-line); border-radius: var(--pse-r-2);
   background: linear-gradient(90deg, var(--pse-plane) 0%, var(--pse-plate) 50%, var(--pse-plane) 100%);
@@ -352,26 +359,31 @@
 .pse-mod-art { width: 100%; height: auto; display: block; }
 .pse-mod-name { display: flex; flex-direction: column; gap: 4px; }
 .pse-mod-tier { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.pse-mod-rate { font-size: 17px; font-weight: 600; color: var(--pse-jade-ink); }
+.pse-mod-rate { font-size: 17px; font-weight: 600; color: var(--pse-cyan-ink); }
 .pse-mod[data-state="limit"] .pse-mod-plate { opacity: 0.55; }
 .pse-mod[data-state="idle"] .pse-mod-plate { opacity: 0.8; }
 .pse-mod[data-state="limit"] .pse-mod-rate, .pse-mod[data-state="idle"] .pse-mod-rate { color: var(--pse-text-3); }
 .pse-ticks { display: flex; gap: 4px; }
 .pse-tick { width: 16px; height: 6px; border-radius: 1px; background: rgba(255, 255, 255, 0.09); }
-.pse-tick[data-on="true"] { background: var(--pse-jade); }
+.pse-tick[data-on="true"] { background: var(--pse-cyan); }
 .pse-dutyseg { display: flex; gap: 3px; align-items: center; }
 .pse-dutyseg span { height: 6px; flex: 1 1 0; border-radius: 1px; background: rgba(255, 255, 255, 0.09); }
-.pse-dutyseg span[data-on="true"] { background: var(--pse-jade); }
+.pse-dutyseg span[data-on="true"] { background: var(--pse-cyan); }
 .pse-dutyseg[data-continuous="true"] { gap: 0; }
 .pse-dutyseg[data-continuous="true"] span:first-child { border-radius: 1px 0 0 1px; }
 .pse-dutyseg[data-continuous="true"] span:last-child { border-radius: 0 1px 1px 0; }
 .pse-dutyseg[data-stopped="true"] span[data-on="true"] { background: var(--pse-amber); }
+/* Tier-accented duty rails: Builder = blue, Advanced = purple, Elite = cyan→blue crest */
+.pse-dutyseg[data-tier="1"] span[data-on="true"] { background: var(--pse-cyan); }
+.pse-dutyseg[data-tier="2"] span[data-on="true"] { background: var(--pse-blue); }
+.pse-dutyseg[data-tier="3"] span[data-on="true"] { background: var(--pse-purple); }
+.pse-dutyseg[data-tier="4"] span[data-on="true"] { background: var(--pse-cyan); }
 
 /* ── Controls ─────────────────────────────────────────────────────────────── */
 .pse-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border-radius: var(--pse-r-1); border: 1px solid transparent;
-  background: var(--pse-bone); color: #0b0b0c;
+  background: var(--pse-bone); color: #0F0F12;
   font: inherit; font-size: 13.5px; font-weight: 600; padding: 10px 16px; min-height: 40px;
   cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
@@ -383,6 +395,8 @@
 .pse-btn-3:hover:not(:disabled) { color: var(--pse-text); background: rgba(255, 255, 255, 0.05); }
 .pse-btn-danger { background: transparent; border-color: rgba(229, 72, 77, 0.45); color: var(--pse-red); }
 .pse-btn-danger:hover:not(:disabled) { background: var(--pse-red-wash); }
+.pse-btn-blue { background: var(--pse-blue); border-color: var(--pse-blue); color: #fff; }
+.pse-btn-blue:hover:not(:disabled) { background: var(--pse-blue-ink); border-color: var(--pse-blue-ink); }
 .pse-btn-sm { font-size: 12.5px; padding: 7px 12px; min-height: 34px; }
 .pse-btn-lg { font-size: 14.5px; padding: 13px 20px; min-height: 46px; }
 .pse-btn-full { width: 100%; }
@@ -391,7 +405,7 @@
   color: var(--pse-text); font: inherit; font-size: 14px; padding: 11px 13px; min-height: 44px; outline: none;
 }
 .pse-input::placeholder { color: var(--pse-text-4); }
-.pse-input:focus { border-color: var(--pse-jade-ink); box-shadow: 0 0 0 3px var(--pse-jade-wash); }
+.pse-input:focus { border-color: var(--pse-blue-ink); box-shadow: 0 0 0 3px var(--pse-blue-wash); }
 .pse-field { display: block; }
 .pse-field-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .pse-seg { display: inline-flex; border: 1px solid var(--pse-line-2); border-radius: var(--pse-r-1); overflow: hidden; background: var(--pse-sunken); }
@@ -411,7 +425,7 @@
 .pse-copy:hover { border-color: var(--pse-line-2); color: var(--pse-text); }
 .pse-copy-full { width: 100%; justify-content: space-between; }
 
-/* ── RECEIPT — the purchase is a financial document, not a checkout card ──── */
+/* ── RECEIPT ──────────────────────────────────────────────────────────────── */
 .pse-scrim { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
 @media (min-width: 641px) { .pse-scrim { align-items: center; } }
 .pse-scrim-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.72); }
@@ -432,7 +446,7 @@
 .pse-receipt-clause { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; padding: 9px 0; }
 .pse-receipt-clause + .pse-receipt-clause { border-top: 1px solid var(--pse-line); }
 .pse-receipt-clause-no { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--pse-text-4); padding-top: 3px; }
-.pse-receipt-clause[data-state="done"] .pse-receipt-clause-no { color: var(--pse-jade-ink); }
+.pse-receipt-clause[data-state="done"] .pse-receipt-clause-no { color: var(--pse-cyan-ink); }
 .pse-receipt-clause[data-state="current"] .pse-receipt-clause-no { color: var(--pse-bone); }
 .pse-receipt-total { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; padding: 14px 0 0; border-top: 1px solid var(--pse-line-2); }
 .pse-toast-note { font-size: 12px; color: var(--pse-text-3); }
@@ -459,7 +473,7 @@
   border-bottom: 2px solid transparent;
 }
 .pse-nav a:hover { color: var(--pse-text-2); text-decoration: none; }
-.pse-nav a[aria-current="page"] { color: var(--pse-bone); border-bottom-color: var(--pse-jade-ink); }
+.pse-nav a[aria-current="page"] { color: var(--pse-bone); border-bottom-color: var(--pse-blue-ink); }
 .pse-bar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 @media (min-width: 900px) { .pse-nav { display: flex; } .pse-bar-actions { margin-left: 0; } .pse-burger { display: none; } }
 .pse-burger { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--pse-r-1); background: transparent; border: 1px solid var(--pse-line-2); color: var(--pse-text-2); cursor: pointer; }
@@ -497,7 +511,7 @@
   flex: 1 1 0; min-width: 0; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   border-top: 2px solid transparent; color: var(--pse-text-4);
 }
-.pse-tabbar a[aria-current="page"] { color: var(--pse-jade-ink); border-top-color: var(--pse-jade-ink); }
+.pse-tabbar a[aria-current="page"] { color: var(--pse-cyan-ink); border-top-color: var(--pse-cyan-ink); }
 .pse-tabbar-label {
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9.5px; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -519,8 +533,9 @@
 @media (min-width: 1024px) { .pse-brief-head { grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr); align-items: end; } }
 .pse-brief-title { font-size: clamp(22px, 3vw, 32px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
 .pse-specs { display: grid; gap: 1px; background: var(--pse-line); border: 1px solid var(--pse-line); border-radius: var(--pse-r-2); overflow: hidden; }
-@media (min-width: 640px) { .pse-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .pse-specs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 640px) { .pse-specs { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+@media (min-width: 768px) { .pse-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pse-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pse-spec-col { background: var(--pse-plane); padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .pse-spec-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; }
 .pse-spec-line span:first-child { color: var(--pse-text-3); }
@@ -549,14 +564,14 @@
 /* ── Sticky helpers on phones ─────────────────────────────────────────────── */
 .pse-sticky-action { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(180deg, transparent, var(--pse-canvas) 40%); }
 
-/* ── Touch floors (coarse pointers and phone widths) ──────────────────────── */
+/* ── Touch floors ─────────────────────────────────────────────────────────── */
 @media (pointer: coarse), (max-width: 640px) {
   .pse-scope a, .pse-scope button, .pse-scope .pse-copy, .pse-scope input { min-height: 44px; }
   .pse-scope .pse-btn-sm { min-height: 44px; }
   .pse-scope .pse-seg button { min-height: 44px; }
 }
 
-/* ── Motion: four named motions, all reducible ────────────────────────────── */
+/* ── Motion ───────────────────────────────────────────────────────────────── */
 .pse-rise { animation: pse-rise 0.32s ease-out both; }
 @keyframes pse-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .pse-fade { animation: pse-fade 0.3s ease-out both; }
@@ -565,4 +580,3 @@
   .pse-rise, .pse-fade, .pse-live-dot, .pse-skeleton { animation: none; }
   .pse-scope * { transition-duration: 0.01ms !important; }
 }
-

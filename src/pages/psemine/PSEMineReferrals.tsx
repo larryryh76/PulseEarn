@@ -128,8 +128,8 @@ export const PSEMineReferrals: React.FC = () => {
           <div className="pse-stack-tight">
             <div className="pse-spec-line"><span>Bonus per referral</span><span>{gbpHour(BONUS)}</span></div>
             <div className="pse-spec-line"><span>In progress</span><span>{inProgress} of {referrals.length} invites</span></div>
-            <div className="pse-spec-line"><span>Tool capacity</span><span className="pse-jade">{gbpHour(toolCapacity)}</span></div>
-            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-jade">{gbpHour(totalCapacity)}</span></div>
+            <div className="pse-spec-line"><span>Tool capacity</span><span className="pse-cyan">{gbpHour(toolCapacity)}</span></div>
+            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-cyan">{gbpHour(totalCapacity)}</span></div>
           </div>
         }
       />

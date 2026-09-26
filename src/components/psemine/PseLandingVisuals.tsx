@@ -168,7 +168,7 @@ export const MoneyPath: React.FC = () => (
         <div key={step.n} className="pse-path-node">
           <p className="pse-np">{step.n}</p>
           <p className="pse-label-b">{step.title}</p>
-          <span className={step.key === 'BNB' ? 'pse-chain' : 'pse-np pse-jade'}>
+          <span className={step.key === 'BNB' ? 'pse-chain' : 'pse-np pse-cyan'}>
             {step.key === 'BNB' && <span className="pse-chain-mark" aria-hidden="true" />}
             {step.key}
           </span>
@@ -197,7 +197,7 @@ export const ReferralLanes: React.FC<{ qualified?: number }> = ({ qualified = 0 
     <div className="pse-stack-tight">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="pse-np">Qualified lanes {on}/{max}</p>
-        <p className="pse-n pse-fig-c pse-jade">+{gbpHour(on * bonus)}</p>
+        <p className="pse-n pse-fig-c pse-cyan">+{gbpHour(on * bonus)}</p>
       </div>
       <div className="pse-duty-blocks" role="img" aria-label={`${on} of ${max} referral lanes qualified`}>
         {Array.from({ length: max }, (_, i) => (
@@ -254,7 +254,7 @@ export const ReferralClauses: React.FC = () => (
             {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} lanes × {gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)}
           </p>
         </div>
-        <span className="pse-row-v pse-n pse-jade" style={{ alignSelf: 'center' }}>
+        <span className="pse-row-v pse-n pse-cyan" style={{ alignSelf: 'center' }}>
           +{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}
         </span>
       </div>

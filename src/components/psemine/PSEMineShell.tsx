@@ -249,7 +249,7 @@ const CampaignBand: React.FC = () => {
             {typeof capacity === 'number' && (
               <span className="pse-band-fact">
                 <span className="pse-np">Capacity</span>
-                <b className="pse-n pse-jade">{gbpHour(capacity)}</b>
+                <b className="pse-n pse-cyan">{gbpHour(capacity)}</b>
               </span>
             )}
             <button type="button" onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-3 pse-btn-sm">

@@ -1,11 +1,6 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// PSEmine — DUTY & LEDGER — the single authoritative PSEmine style layer,
-// loaded after the global stylesheet. It owns the product's palette, type
-// ramp, surfaces, instruments and controls, and the retired v2/v3 layers are
-// gone, so no PSEmine surface can render a token this file does not define.
-import './styles/psemine.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'

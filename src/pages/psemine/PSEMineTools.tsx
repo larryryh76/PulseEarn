@@ -1,9 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Check, X, Wallet, ShieldCheck, Loader2, ChevronRight, ExternalLink,
-  Layers, RefreshCcw, Smartphone, Info,
-} from 'lucide-react';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
@@ -15,14 +11,11 @@ import {
 import { type PsePendingPurchase } from '../../engines/psemine/pseMineApi';
 import { PSEMineToolDefinition, PSEMineQuote, PSEMINE_CONSTANTS, LOCKED_PSEMINE_TOOLS } from '../../types/psemine';
 import {
-  Stamp, StatementHeader, Verdict, CapacityRail, Ledger, LedgerRow,
-  Attn, Clause, CopyField, PSEEmpty, PSELoading, PSEError,
+  CopyField, PSELoading, PSEError,
   gbp, gbpHour, gbpRate, shortAddr, shortHash, nowMs, cycleStateView,
   bnbExactFromWei,
 } from '../../components/psemine/pse';
-import { ModulePlate, ModuleMark } from '../../components/psemine/PSEBrand';
 import toast from 'react-hot-toast';
-import { cn } from '../../utils';
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;
 
@@ -33,20 +26,8 @@ const dutyOf = (t: PSEMineToolDefinition) => (t.operating?.model === 'continuous
 /**
  * The mining tool marketplace.
  *
- * Composition law (Duty & Ledger): VERDICT → RAILS → LEDGERS → NOTES.
- *
- *   VERDICT  the buyer's position: tool capacity deployed, and the headroom left
- *            against the campaign cap — on the canvas, not inside a panel.
- *   RAIL     the canonical capacity register (shared with every other surface).
- *   LEDGERS  the catalogue, the operator's own equipment, the purchase
- *            mechanics and the campaign limits.
- *
- * The catalogue is a PRODUCT spec matrix, not four feature cards: every tier is
- * drawn as its module with a nameplate, its price, its hourly capacity, the
- * capacity it holds at its ownership limit, its duty model and its real
- * ownership limit — the same rows in the same order for all four, so tiers are
- * compared by scanning. Nothing in this store is a task, an offer, a survey or a
- * provider opportunity: it sells mining tools.
+ * The marketplace presents tool tiers, capacity facts, operating tools and
+ * purchase mechanics as plain semantic content.
  *
  * The purchase flow's behaviour is unchanged: quote → bind payer → chain
  * assertion → sign → submit → on-chain verification → activation. The UI never
@@ -102,242 +83,171 @@ export const PSEMineTools: React.FC = () => {
   );
 
   if (loading && !state) {
-    return <div className="pse-gut pt-6"><PSELoading label="Loading the marketplace" /></div>;
+    return <main><PSELoading label="Loading the marketplace" /></main>;
   }
   if (error && !state) {
-    return <div className="pse-gut py-8"><PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} /></div>;
+    return <main><PSEError error={error} onRetry={() => void refresh()} retrying={refreshing} /></main>;
   }
 
   return (
-    <div className="pse-gut pse-stack" style={{ paddingTop: 22 }}>
-      <StatementHeader
-        routeKey="Mining tools · marketplace"
-        title="Buy mining capacity"
-        objective="Four tool tiers with fixed GBP prices, fixed hourly capacity and fixed ownership limits. Paid in BNB — activated only after the backend verifies the transaction on-chain."
-        status={
-          <Stamp tone={purchaseOpen ? 'live' : 'idle'} pulse={purchaseOpen} glyph="●">
-            {purchaseOpen ? 'Purchases open' : campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'unavailable'}`}
-          </Stamp>
-        }
-        actions={<Link to="/mine/dashboard" className="pse-btn pse-btn-2 pse-btn-sm">Operating console</Link>}
-      />
+    <main>
+      <header>
+        <p>Mining tools · marketplace</p>
+        <h1>Buy mining capacity</h1>
+        <p>{purchaseOpen ? 'Purchases open' : campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'unavailable'}`}</p>
+        <p>Four tool tiers with fixed GBP prices, fixed hourly capacity and fixed ownership limits. Paid in BNB — activated only after the backend verifies the transaction on-chain.</p>
+        <Link to="/mine/dashboard">Operating console</Link>
+      </header>
 
-      {/* ══ VERDICT — position, on the canvas ══ */}
-      <Verdict
-        label="Tool capacity deployed"
-        value={gbpHour(toolCapacity)}
-        status={<Stamp tone={headroom > 0 ? 'info' : 'attn'} glyph="▮">{headroom > 0 ? `${gbpHour(headroom)} headroom` : 'At the tool cap'}</Stamp>}
-        note={
-          headroom > 0
+      <section aria-labelledby="capacity-heading">
+        <h2 id="capacity-heading">Tool capacity deployed</h2>
+        <p>{gbpHour(toolCapacity)}</p>
+        <p>{headroom > 0 ? `${gbpHour(headroom)} headroom` : 'At the tool cap'}</p>
+        <p>
+          {headroom > 0
             ? `Up to ${gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} of tool capacity can be held across the four tiers' ownership limits. ${
                 toolCapacity === 0
                   ? 'No tools are held yet, so nothing is accruing.'
                   : `${gbpHour(headroom)} of that ceiling is still available.`
               }`
-            : 'Tool capacity is at the campaign maximum. Qualified referrals can still add capacity.'
-        }
-        side={
-          <div className="pse-stack-tight">
-            <div className="pse-spec-line"><span>Tools owned</span><span>{totalOwned}</span></div>
-            <div className="pse-spec-line"><span>Ownership slots left</span><span>{tierSlotsLeft} across all tiers</span></div>
-            <div className="pse-spec-line"><span>Total capacity</span><span className="pse-cyan">{gbpHour(totalCapacity)}</span></div>
-            <div className="pse-spec-line">
-              <span>Network</span>
-              <span>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}</span>
-            </div>
-          </div>
-        }
-      />
+            : 'Tool capacity is at the campaign maximum. Qualified referrals can still add capacity.'}
+        </p>
+        <dl>
+          <div><dt>Tools owned</dt><dd>{totalOwned}</dd></div>
+          <div><dt>Ownership slots left</dt><dd>{tierSlotsLeft} across all tiers</dd></div>
+          <div><dt>Total capacity</dt><dd>{gbpHour(totalCapacity)}</dd></div>
+          <div><dt>Referral capacity</dt><dd>{gbpHour(referralCapacity)}</dd></div>
+          <div><dt>Qualified referrals</dt><dd>{referralQualified} of {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}</dd></div>
+          <div><dt>Tool capacity limit</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}</dd></div>
+          <div><dt>Maximum referral capacity</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}</dd></div>
+          <div><dt>Network</dt><dd>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}</dd></div>
+        </dl>
+      </section>
 
-      {/* ══ RAIL — canonical capacity register ══ */}
-      <CapacityRail
-        toolCapacity={toolCapacity}
-        referralCapacity={referralCapacity}
-        counts={counts}
-        referralCount={referralQualified}
-        label="Mining capacity"
-        meta="Tool lanes are what this page changes · referrals add capacity too"
-      />
-
-      {/* ══ NOTES — an open purchase is never silently replaced ══ */}
       {pendingPurchase && (
-        <Attn
-          tone="attn"
-          title={pendingInFlight ? 'Payment in flight' : pendingQuoteLive ? 'Purchase in flight' : 'Purchase record open'}
-          body={
-            <>
-              {pendingPurchase.toolName || pendingPurchase.toolId || 'Mining tool'} ·{' '}
-              {pendingInFlight
-                ? 'A transaction was submitted for this purchase and the backend is verifying it. Nothing further is needed from you.'
-                : pendingQuoteLive
-                  ? 'Open the tool below to resume this purchase with its original quote and payment wallet.'
-                  : 'This record’s quote window has lapsed, so it can no longer be paid. Requesting a fresh quote keeps the stored record as audit history and never rewrites it.'}
-              {' '}Recovered from the backend — no second purchase record is created.
-            </>
-          }
-          action={
-            <button
-              onClick={() => {
-                const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
-                if (def) setPurchasing(def);
-              }}
-              className="pse-btn pse-btn-sm"
-            >
-              {pendingInFlight ? 'View payment status' : pendingQuoteLive ? 'Resume purchase' : 'Start fresh quote'}
-            </button>
-          }
-        />
+        <aside>
+          <h2>{pendingInFlight ? 'Payment in flight' : pendingQuoteLive ? 'Purchase in flight' : 'Purchase record open'}</h2>
+          <p>
+            {pendingPurchase.toolName || pendingPurchase.toolId || 'Mining tool'} ·{' '}
+            {pendingInFlight
+              ? 'A transaction was submitted for this purchase and the backend is verifying it. Nothing further is needed from you.'
+              : pendingQuoteLive
+                ? 'Open the tool below to resume this purchase with its original quote and payment wallet.'
+                : 'This record’s quote window has lapsed, so it can no longer be paid. Requesting a fresh quote keeps the stored record as audit history and never rewrites it.'}
+            {' '}Recovered from the backend — no second purchase record is created.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const def = TOOLS.find(t => t.id === pendingPurchase.toolId);
+              if (def) setPurchasing(def);
+            }}
+          >
+            {pendingInFlight ? 'View payment status' : pendingQuoteLive ? 'Resume purchase' : 'Start fresh quote'}
+          </button>
+        </aside>
       )}
 
       {campaign && campaign.status !== 'active' && (
-        <Attn
-          tone="attn"
-          title={campaign.status === 'scheduled' ? 'Tool purchases have not opened yet' : `Purchases are closed — the campaign is ${campaign.status}`}
-          body={campaign.status === 'scheduled'
+        <aside>
+          <h2>{campaign.status === 'scheduled' ? 'Tool purchases have not opened yet' : `Purchases are closed — the campaign is ${campaign.status}`}</h2>
+          <p>{campaign.status === 'scheduled'
             ? 'The campaign has not started. Tool economics are fixed and shown in full below.'
-            : 'Existing tools continue to follow their operating model until the campaign settles.'}
-        />
+            : 'Existing tools continue to follow their operating model until the campaign settles.'}</p>
+        </aside>
       )}
 
-      {/* ══ LEDGER — the catalogue (spec matrix) ══ */}
-      <section className="pse-stack-tight">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div>
-            <h2 className="pse-h3">Mining tools</h2>
-            <p className="pse-meta mt-1">Fixed price · fixed £ per hour · fixed ownership limit · fixed duty model</p>
-          </div>
-          <p className="pse-np">Four tiers · all additive</p>
-        </div>
-
-        <div className="pse-specs">
-          {TOOLS.map(t => {
-            const owned = counts[t.id] || 0;
-            const isMax = owned >= t.maxPerUser;
-            const remaining = Math.max(0, t.maxPerUser - owned);
-            const continuous = dutyOf(t) === 'continuous';
-            return (
-              <div key={t.id} className="pse-spec-col">
-                <ModulePlate
-                  tier={t.tier as 1 | 2 | 3 | 4}
-                  name={t.name}
-                  rateGBPPerHour={t.hourlyRateGBP}
-                  priceGBP={t.purchasePriceGBP}
-                  maxPerUser={t.maxPerUser}
-                  owned={owned}
-                  duty={dutyOf(t)}
-                  artSize={170}
-                  state={isMax ? 'limit' : owned > 0 ? 'owned' : 'available'}
-                >
-                  <div className="pse-rule" style={{ marginTop: 4, paddingTop: 10 }}>
-                    <div className="pse-spec-line">
-                      <span>Capacity at limit</span>
-                      <span>{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</span>
-                    </div>
-                    <div className="pse-spec-line" style={{ marginTop: 6 }}>
-                      <span>Duty model</span>
-                      <span>{continuous ? 'Continuous' : 'Session · 24h'}</span>
-                    </div>
-                    <div className="pse-spec-line" style={{ marginTop: 6 }}>
-                      <span>Your contribution</span>
-                      <span className={owned > 0 ? 'pse-cyan' : undefined}>{owned > 0 ? `+${gbpRate(owned * t.hourlyRateGBP)}` : '—'}</span>
-                    </div>
-                    <div className="pse-spec-line" style={{ marginTop: 6 }}>
-                      <span>Available to you</span>
-                      <span>{remaining} of {t.maxPerUser}</span>
-                    </div>
-                  </div>
-
-                  {!t.enabled ? (
-                    <button disabled className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full" style={{ marginTop: 10 }}>Unavailable</button>
-                  ) : isMax ? (
-                    <button disabled className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full" style={{ marginTop: 10 }}>
-                      <Check size={13} /> Maximum owned
-                    </button>
-                  ) : !purchaseOpen ? (
-                    <button disabled className="pse-btn pse-btn-2 pse-btn-sm pse-btn-full" style={{ marginTop: 10 }}>
-                      {campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'inactive'}`}
-                    </button>
-                  ) : (
-                    <button onClick={() => setPurchasing(t)} className="pse-btn pse-btn-sm pse-btn-full" style={{ marginTop: 10 }}>
-                      Purchase with BNB <ChevronRight size={13} />
-                    </button>
-                  )}
-                </ModulePlate>
-              </div>
-            );
-          })}
-        </div>
-
-        <p className="pse-meta pse-measure">
-          Tier is carried by the module's construction and its nameplate — bay count, vent bank, service rail,
-          crest — never by being drawn larger. Prices and hourly rates are fixed in GBP; you pay the fixed GBP
-          price in BNB at the live rate quoted when you request a purchase.
-        </p>
+      <section aria-labelledby="tools-heading">
+        <h2 id="tools-heading">Mining tools</h2>
+        <p>Fixed price · fixed £ per hour · fixed ownership limit · fixed duty model</p>
+        <p>Four tiers · all additive</p>
+        {TOOLS.map(t => {
+          const owned = counts[t.id] || 0;
+          const isMax = owned >= t.maxPerUser;
+          const remaining = Math.max(0, t.maxPerUser - owned);
+          const continuous = dutyOf(t) === 'continuous';
+          return (
+            <section key={t.id} aria-labelledby={`tool-${t.id}-heading`}>
+              <h3 id={`tool-${t.id}-heading`}>{t.name}</h3>
+              <p>Tier {t.tier}</p>
+              <dl>
+                <div><dt>Price</dt><dd>{gbp(t.purchasePriceGBP)}</dd></div>
+                <div><dt>Hourly capacity</dt><dd>{gbpHour(t.hourlyRateGBP)}</dd></div>
+                <div><dt>Ownership limit</dt><dd>{t.maxPerUser}</dd></div>
+                <div><dt>You own</dt><dd>{owned} of {t.maxPerUser}</dd></div>
+                <div><dt>Capacity at limit</dt><dd>{gbpHour(t.hourlyRateGBP * t.maxPerUser)}</dd></div>
+                <div><dt>Duty model</dt><dd>{continuous ? 'Continuous' : 'Session · 24h'}</dd></div>
+                <div><dt>Your contribution</dt><dd>{owned > 0 ? `+${gbpRate(owned * t.hourlyRateGBP)}` : '—'}</dd></div>
+                <div><dt>Available to you</dt><dd>{remaining} of {t.maxPerUser}</dd></div>
+              </dl>
+              {!t.enabled ? (
+                <button type="button" disabled>Unavailable</button>
+              ) : isMax ? (
+                <button type="button" disabled>Maximum owned</button>
+              ) : !purchaseOpen ? (
+                <button type="button" disabled>
+                  {campaign?.status === 'active' ? 'Purchases closed' : `Campaign ${campaign?.status || 'inactive'}`}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setPurchasing(t)}>Purchase with BNB</button>
+              )}
+            </section>
+          );
+        })}
+        <p>Prices and hourly rates are fixed in GBP; you pay the fixed GBP price in BNB at the live rate quoted when you request a purchase.</p>
       </section>
 
-      {/* ══ LEDGER — the operator's own equipment ══ */}
-      <Ledger
-        title="Your operating tools"
-        meta={ownedTools.length === 0
+      <section aria-labelledby="owned-tools-heading">
+        <h2 id="owned-tools-heading">Your operating tools</h2>
+        <p>{ownedTools.length === 0
           ? 'No tools operating yet'
-          : 'Session state and restart timing are derived by the backend, per tool'}
-        legend={['Tool', '£ / hour']}
-        action={<Link to="/mine/dashboard" className="pse-meta pse-link">Operating console</Link>}
-      >
+          : 'Session state and restart timing are derived by the backend, per tool'}</p>
         {ownedTools.length === 0 ? (
-          <PSEEmpty
-            icon={Layers}
-            title="No tools operating yet"
-            body="Once a purchase is verified on BNB Smart Chain, the tool appears here with its live operating state."
-          />
+          <p aria-label="No tools operating yet">Once a purchase is verified on BNB Smart Chain, the tool appears here with its live operating state.</p>
         ) : (
-          ownedTools.map(t => {
-            const cycle = cycleStateView(t.cycleState || t.status);
-            const meta = LOCKED_PSEMINE_TOOLS[t.toolId as keyof typeof LOCKED_PSEMINE_TOOLS] || null;
-            const continuous = (t.operatingModel || meta?.operating?.model) === 'continuous';
-            const rate = typeof t.hourlyRateGBP === 'number' ? t.hourlyRateGBP : (meta?.hourlyRateGBP ?? 0);
-            return (
-              <LedgerRow
-                key={t.id}
-                leading={<ModuleMark tier={(meta?.tier ?? 1) as 1 | 2 | 3 | 4} size={54} active={t.cycleState === 'active'} stopped={t.cycleState === 'cycle_complete' || t.cycleState === 'maintenance_required'} />}
-                title={
-                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    {t.toolName || meta?.name || 'Mining tool'}
-                    <Stamp tone={t.cycleState === 'active' ? 'live' : t.cycleState === 'restarting' ? 'info' : 'attn'} glyph="·">{cycle.label}</Stamp>
-                    {continuous && <span className="pse-np pse-np-2">Continuous</span>}
-                  </span>
-                }
-                sub={cycle.description}
-                value={gbpHour(rate)}
-              />
-            );
-          })
+          <ul>
+            {ownedTools.map(t => {
+              const cycle = cycleStateView(t.cycleState || t.status);
+              const meta = LOCKED_PSEMINE_TOOLS[t.toolId as keyof typeof LOCKED_PSEMINE_TOOLS] || null;
+              const continuous = (t.operatingModel || meta?.operating?.model) === 'continuous';
+              const rate = typeof t.hourlyRateGBP === 'number' ? t.hourlyRateGBP : (meta?.hourlyRateGBP ?? 0);
+              return (
+                <li key={t.id}>
+                  <h3>{t.toolName || meta?.name || 'Mining tool'}</h3>
+                  <p>Status: {cycle.label}{continuous ? ' · Continuous' : ''}</p>
+                  <p>{cycle.description}</p>
+                  <p>{gbpHour(rate)}</p>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </Ledger>
+      </section>
 
-      {/* ══ LEDGERS — mechanics beside the campaign limits ══ */}
-      <div className="pse-split">
-        <div className="pse-ledger pse-pad pse-stack">
-          <div>
-            <h2 className="pse-h3">How a purchase works</h2>
-            <p className="pse-meta mt-1">Five ordered steps — nothing activates before verification</p>
-          </div>
-          <Clause no="01" title="Quote" body="The backend converts the fixed GBP price to an exact BNB amount at the live rate and binds it to your account for a short window." />
-          <Clause no="02" title="Payment" body={`You send exactly that amount to the campaign receiving wallet on ${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} (chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}).`} />
-          <Clause no="03" title="On-chain verification" body="The backend checks sender, recipient, amount and confirmation depth against the quote. The app never self-confirms." />
-          <Clause no="04" title="Activation" body="A verified purchase activates the tool and adds its hourly capacity to your account." />
-          <Clause no="05" title="Operation" body="Starter, Builder and Advanced run finite mining sessions — when a session ends, mining stops until you restart it, and the backend needs a short restart period before mining resumes. Elite runs continuously while the campaign is active." />
-        </div>
+      <section aria-labelledby="purchase-process-heading">
+        <h2 id="purchase-process-heading">How a purchase works</h2>
+        <p>Five ordered steps — nothing activates before verification</p>
+        <ol>
+          <li><h3>Quote</h3><p>The backend converts the fixed GBP price to an exact BNB amount at the live rate and binds it to your account for a short window.</p></li>
+          <li><h3>Payment</h3><p>You send exactly that amount to the campaign receiving wallet on {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} (chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}).</p></li>
+          <li><h3>On-chain verification</h3><p>The backend checks sender, recipient, amount and confirmation depth against the quote. The app never self-confirms.</p></li>
+          <li><h3>Activation</h3><p>A verified purchase activates the tool and adds its hourly capacity to your account.</p></li>
+          <li><h3>Operation</h3><p>Starter, Builder and Advanced run finite mining sessions — when a session ends, mining stops until you restart it, and the backend needs a short restart period before mining resumes. Elite runs continuously while the campaign is active.</p></li>
+        </ol>
+      </section>
 
-        <Ledger title="Campaign limits" meta="Fixed for the campaign" legend={['Limit', 'Value']}>
-          <LedgerRow title="Tool capacity cap" sub="Across all four ownership limits" value={gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} />
-          <LedgerRow title="Session tools" sub="Session ends → restart → restart period → mining resumes" value="Manual restart" />
-          <LedgerRow title="Elite Miner" sub="No manual session restart while the campaign runs" value="Continuous" />
-          <LedgerRow title="Payment asset" sub={`${PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain ${PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID}`} value="BNB" valueTone="var(--pse-bnb)" />
-          <LedgerRow title="Accounting currency" sub="Accrual is denominated in GBP" value="GBP (£)" />
-          <LedgerRow title="Maximum total capacity" sub="Tools plus qualified referrals" value={gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} />
-        </Ledger>
-      </div>
+      <section aria-labelledby="campaign-limits-heading">
+        <h2 id="campaign-limits-heading">Campaign limits</h2>
+        <p>Fixed for the campaign</p>
+        <dl>
+          <div><dt>Tool capacity cap</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} — across all four ownership limits</dd></div>
+          <div><dt>Session tools</dt><dd>Manual restart · session ends, restart period, then mining resumes</dd></div>
+          <div><dt>Elite Miner</dt><dd>Continuous · no manual session restart while the campaign runs</dd></div>
+          <div><dt>Payment asset</dt><dd>{PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME} · chain {PSEMINE_CONSTANTS.DEFAULT_BSC_CHAIN_ID} · BNB</dd></div>
+          <div><dt>Accounting currency</dt><dd>GBP (£) · accrual is denominated in GBP</dd></div>
+          <div><dt>Maximum total capacity</dt><dd>{gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)} · tools plus qualified referrals</dd></div>
+        </dl>
+      </section>
 
       {purchasing && (
         <PurchaseFlow
@@ -346,23 +256,14 @@ export const PSEMineTools: React.FC = () => {
           onClose={() => { setPurchasing(null); void refresh(); }}
         />
       )}
-    </div>
+    </main>
   );
 };
 
-/* ═══════════════════════════ THE RECEIPT ═════════════════════════════════
- * The purchase is presented as a financial document, not a checkout card:
- * Tool → fixed GBP price → live BNB quote → receiving address → quote expiry →
- * BNB Smart Chain → verification state. Success is never shown before the
- * backend verifies the transaction on-chain.
- *
- * Every displayed amount comes from ONE value: bnbExactFromWei(quote.bnbAmountWei),
- * so the receipt lines, the payment summary and the pay button cannot disagree.
- *
- * Refresh recovery: an in-flight purchase is detected from the backend state
- * projection and RESUMED (original quote + payer binding) instead of creating a
- * second intent. The one-send-attempt protection in pseWallet is untouched.
- * ════════════════════════════════════════════════════════════════════════ */
+/* Purchase flow. Displayed BNB values are derived from the exact server quote;
+ * refresh recovery resumes an existing purchase rather than creating a second
+ * intent, and the one-send-attempt protection remains in pseWallet.
+ */
 type FlowStep = 'connect' | 'quote' | 'pay' | 'verifying' | 'result';
 
 /** Human wording for the submission state machine (see pseWallet.ts). */
@@ -381,13 +282,6 @@ type ResumeState =
   | { kind: 'submitted'; purchase: PsePendingPurchase }
   | { kind: 'expired'; purchase: PsePendingPurchase };
 
-const STEP_ORDER: Array<{ id: FlowStep; label: string }> = [
-  { id: 'quote', label: 'Quote' },
-  { id: 'pay', label: 'Pay in BNB' },
-  { id: 'verifying', label: 'Verify' },
-  { id: 'result', label: 'Activate' },
-];
-
 const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingPurchase | null; onClose: () => void }> = ({ tool, pending, onClose }) => {
   const {
     connectedWallet, walletChainId, walletTransport, pseUser,
@@ -396,8 +290,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   } = usePSEMine();
   const { refresh } = usePseState();
 
-  // Start on the wallet step when no wallet is connected yet; the receipt opens
-  // the connection flow immediately instead of a dead quote screen.
+  // Start on the wallet step when no wallet is connected yet.
   const [step, setStep] = useState<FlowStep>(() => (connectedWallet ? 'quote' : 'connect'));
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -764,500 +657,330 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
-  /* Meter denominator comes from the SERVER-issued quote window
-   * (createdAt → expiresAt); the fallback only applies when the backend quote
-   * omits createdAt. */
-  const quoteDurationSec = (() => {
-    if (!quote) return 900;
-    const exp = new Date(quote.expiresAt).getTime();
-    const created = quote.createdAt ? new Date(quote.createdAt as unknown as string).getTime() : NaN;
-    if (Number.isFinite(exp) && Number.isFinite(created) && exp > created) return Math.round((exp - created) / 1000);
-    return 900;
-  })();
-  const meterPct = Math.min(100, Math.max(0, (secondsLeft / quoteDurationSec) * 100));
-  const stepIndex = STEP_ORDER.findIndex(s => s.id === step);
   const continuous = dutyOf(tool) === 'continuous';
 
   return (
-    <div className="pse-scrim" role="dialog" aria-modal="true" aria-label={`Purchase ${tool.name}`}>
-      <div className="pse-scrim-bg" onClick={step === 'verifying' ? undefined : onClose} />
-      <div className="pse-scope pse-receipt">
-        {/* ── Receipt head: what is being bought, and where the flow stands ── */}
-        <div className="pse-receipt-head">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="pse-np">Purchase receipt</p>
-              <p className="pse-h3 mt-1">
-                {tool.name} · <span className="pse-n pse-bone">{gbp(tool.purchasePriceGBP)}</span>
-              </p>
-              <p className="pse-meta mt-1">
-                {continuous ? 'Continuous duty' : 'Session duty · 24h'} · adds {gbpHour(tool.hourlyRateGBP)} of capacity
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              disabled={step === 'verifying' && !showingRecovery}
-              className="pse-btn pse-btn-3 pse-btn-sm"
-              aria-label="Close"
-            >
-              <X size={15} />
-            </button>
-          </div>
+    <section
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="purchase-flow-title"
+      onClick={event => {
+        if (event.target === event.currentTarget && step !== 'verifying') onClose();
+      }}
+    >
+      <header>
+        <p>Purchase</p>
+        <h2 id="purchase-flow-title">{tool.name} · {gbp(tool.purchasePriceGBP)}</h2>
+        <p>{continuous ? 'Continuous duty' : 'Session duty · 24h'} · adds {gbpHour(tool.hourlyRateGBP)} of capacity</p>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={step === 'verifying' && !showingRecovery}
+          aria-label="Close purchase"
+        >
+          Close
+        </button>
+      </header>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1" style={{ marginTop: 12 }}>
-            {STEP_ORDER.map((s, i) => (
-              <span
-                key={s.id}
-                className="pse-np"
-                style={{ color: i < stepIndex ? 'var(--pse-success-ink)' : i === stepIndex ? 'var(--pse-bone)' : 'var(--pse-text-4)' }}
+      {showingRecovery && resume?.kind === 'submitted' && (
+        <section aria-labelledby="recovered-purchase-heading">
+          <h3 id="recovered-purchase-heading">{resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}</h3>
+          <p>
+            {tool.name} — a transaction was submitted for this purchase and the backend is verifying it on
+            BNB Smart Chain.
+          </p>
+          <p>This state was recovered from the backend after your refresh, so no new purchase was created.</p>
+          {resume.purchase.transactionHash && (
+            <p>
+              <a
+                href={`https://bscscan.com/tx/${resume.purchase.transactionHash}`}
+                target="_blank"
+                rel="noreferrer"
               >
-                {String(i + 1).padStart(2, '0')} {s.label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="pse-receipt-body">
-          {/* ── Recovered purchase: a transaction was already submitted ── */}
-          {showingRecovery && resume?.kind === 'submitted' && (
-            <>
-              <div className="pse-stack-tight">
-                <p className="pse-np pse-amber">
-                  {resume.purchase.status === 'confirming' ? 'Confirming payment' : 'Transaction submitted'}
-                </p>
-                <p className="pse-label-b">
-                  {tool.name} — a transaction was submitted for this purchase and the backend is verifying it on
-                  BNB Smart Chain.
-                </p>
-                <p className="pse-meta">
-                  This state was recovered from the backend after your refresh, so no new purchase was created.
-                </p>
-                {resume.purchase.transactionHash && (
-                  <a
-                    href={`https://bscscan.com/tx/${resume.purchase.transactionHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="pse-meta pse-link inline-flex items-center gap-1.5"
-                  >
-                    <ExternalLink size={12} /> View {shortHash(resume.purchase.transactionHash)} on BscScan
-                  </a>
-                )}
-              </div>
-              <div className="pse-sunken pse-pad">
-                <p className="pse-meta">
-                  The backend needs a few block confirmations before the tool activates. Do not send the payment
-                  again — the same transaction hash is reused for every verification check.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2.5 sm:flex-row">
-                <button
-                  onClick={() => void recheckRecovered()}
-                  disabled={rechecking || !resume.purchase.transactionHash}
-                  className="pse-btn pse-btn-full"
-                >
-                  {rechecking ? <Loader2 size={15} className="animate-spin" /> : <RefreshCcw size={15} />}
-                  {rechecking ? 'Checking…' : 'Check verification again'}
-                </button>
-                <button onClick={onClose} className="pse-btn pse-btn-2 pse-btn-full">Close</button>
-              </div>
-            </>
+                View {shortHash(resume.purchase.transactionHash)} on BscScan
+              </a>
+            </p>
           )}
+          <p>The backend needs a few block confirmations before the tool activates. Do not send the payment again — the same transaction hash is reused for every verification check.</p>
+          <button
+            type="button"
+            onClick={() => void recheckRecovered()}
+            disabled={rechecking || !resume.purchase.transactionHash}
+          >
+            {rechecking ? 'Checking…' : 'Check verification again'}
+          </button>
+          <button type="button" onClick={onClose}>Close</button>
+        </section>
+      )}
 
-          {/* ── Step: connect ── */}
-          {!showingRecovery && step === 'connect' && <WalletConnectStep />}
+      {!showingRecovery && step === 'connect' && <WalletConnectStep />}
 
-          {/* ── Step: quote ── */}
-          {!showingRecovery && step === 'quote' && (
-            quoteLoading || !quote ? (
-              <div className="flex flex-col items-center gap-3 py-12">
-                <Loader2 size={22} className="animate-spin pse-cyan" />
-                <p className="pse-meta">Requesting a live BNB quote from the server…</p>
-              </div>
+      {!showingRecovery && step === 'quote' && (
+        quoteLoading || !quote ? (
+          <p role="status" aria-live="polite">Requesting a live BNB quote from the server…</p>
+        ) : (
+          <>
+            {resume?.kind === 'expired' && (
+              <aside>
+                <h3>Your previous quote expired</h3>
+                <p>BNB pricing has changed, so the earlier purchase could not be completed. A fresh quote is prepared below; the earlier record is kept for audit and was not rewritten.</p>
+              </aside>
+            )}
+
+            <dl>
+              <div><dt>Tool</dt><dd>{tool.name}</dd></div>
+              <div><dt>Fixed price</dt><dd>{gbp(quote.gbpPrice)}</dd></div>
+              <div><dt>Live rate</dt><dd>{quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'}</dd></div>
+              <div><dt>You pay, exactly</dt><dd>{exactBnb} BNB</dd></div>
+              <div><dt>Network</dt><dd>{networkName} · {requiredChainId}</dd></div>
+              <div><dt>Receiving wallet</dt><dd><CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" /></dd></div>
+              <div><dt>Quote window</dt><dd>{mm}:{ss}</dd></div>
+              <div><dt>Quote id</dt><dd>{shortHash(quote.quoteId, 8)}</dd></div>
+            </dl>
+
+            <p>
+              The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
+              {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
+            </p>
+            <p>
+              Adds {gbpHour(tool.hourlyRateGBP)} of capacity. You will own {owned} of {tool.maxPerUser} after this purchase.{' '}
+              {continuous
+                ? 'Elite mines continuously — no manual session restarts.'
+                : 'This tier mines in sessions: when a session ends, mining stops until you restart the tool.'}
+            </p>
+
+            {owned >= tool.maxPerUser ? (
+              <p role="status">Maximum ownership for this tool reached.</p>
+            ) : !walletLive ? (
+              <button type="button" onClick={() => setStep('connect')}>
+                {connectedWallet ? 'Reconnect your wallet to continue' : 'Connect a wallet to continue'}
+              </button>
+            ) : !quoteValid ? (
+              <button type="button" onClick={refreshQuoteNow}>Refresh quote</button>
             ) : (
-              <>
-                {resume?.kind === 'expired' && (
-                  <Attn
-                    tone="attn"
-                    title="Your previous quote expired"
-                    body="BNB pricing has changed, so the earlier purchase could not be completed. A fresh quote is prepared below; the earlier record is kept for audit and was not rewritten."
-                  />
-                )}
+              <button type="button" onClick={() => setStep('pay')}>Continue to payment</button>
+            )}
+            {connectedWallet && <p>Paying from {shortAddr(connectedWallet)}</p>}
+          </>
+        )
+      )}
 
-                <div className="pse-receipt-lines">
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Tool</span>
-                    <span className="pse-label-b">{tool.name}</span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Fixed price</span>
-                    <span className="pse-n pse-fig-d pse-bone">{gbp(quote.gbpPrice)}</span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Live rate</span>
-                    <span className="pse-n pse-label-b">
-                      {quote.exchangeRateBNBGBP > 0 ? `1 BNB = £${Number(quote.exchangeRateBNBGBP).toFixed(2)}` : '—'}
-                    </span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">You pay, exactly</span>
-                    <span className="pse-mono pse-bone">{exactBnb} BNB</span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Network</span>
-                    <span className="pse-chain"><span className="pse-chain-mark" aria-hidden="true" />{networkName} · {requiredChainId}</span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Receiving wallet</span>
-                    <CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" />
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Quote window</span>
-                    <span className="pse-mono pse-n" style={{ color: secondsLeft < 120 ? 'var(--pse-amber)' : undefined }}>{mm}:{ss}</span>
-                  </div>
-                  <div className="pse-receipt-line">
-                    <span className="pse-label">Quote id</span>
-                    <span className="pse-mono pse-dim-3">{shortHash(quote.quoteId, 8)}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="pse-progress" role="progressbar" aria-label="Quote validity" aria-valuenow={Math.round(meterPct)} aria-valuemin={0} aria-valuemax={100}>
-                    <span className="pse-progress-fill" style={{ width: `${meterPct}%` }} />
-                  </div>
-                  <p className="pse-meta" style={{ marginTop: 8 }}>
-                    The quoted BNB amount is fixed for this window so the GBP price you pay never drifts.
-                    {secondsLeft === 0 && ' This quote has expired — refresh it before paying.'}
-                  </p>
-                </div>
-
-                <div className="pse-sunken pse-pad">
-                  <p className="pse-meta">
-                    Adds <span className="pse-n pse-bone">{gbpHour(tool.hourlyRateGBP)}</span> of capacity. You will own{' '}
-                    {owned} of {tool.maxPerUser} after this purchase.{' '}
-                    {continuous
-                      ? 'Elite mines continuously — no manual session restarts.'
-                      : 'This tier mines in sessions: when a session ends, mining stops until you restart the tool.'}
-                  </p>
-                </div>
-
-                {owned >= tool.maxPerUser ? (
-                  <p className="pse-label pse-amber">Maximum ownership for this tool reached.</p>
-                ) : !walletLive ? (
-                  <button onClick={() => setStep('connect')} className="pse-btn pse-btn-full">
-                    <Wallet size={15} /> {connectedWallet ? 'Reconnect your wallet to continue' : 'Connect a wallet to continue'}
-                  </button>
-                ) : !quoteValid ? (
-                  <button onClick={refreshQuoteNow} className="pse-btn pse-btn-full">
-                    <RefreshCcw size={15} /> Refresh quote
-                  </button>
-                ) : (
-                  <button onClick={() => setStep('pay')} className="pse-btn pse-btn-full">
-                    Continue to payment <ChevronRight size={15} />
-                  </button>
-                )}
-                {connectedWallet && (
-                  <p className="pse-meta" style={{ textAlign: 'center' }}>
-                    Paying from <span className="pse-mono">{shortAddr(connectedWallet)}</span>
-                  </p>
-                )}
-              </>
-            )
+      {!showingRecovery && step === 'pay' && quote && (
+        <>
+          {resume?.kind === 'live' && (
+            <aside>
+              <h3>Resuming your pending purchase</h3>
+              <p>The original quote and payment wallet are unchanged, and no second purchase was created.</p>
+            </aside>
           )}
 
-          {/* ── Step: pay ── */}
-          {!showingRecovery && step === 'pay' && quote && (
-            <>
-              {resume?.kind === 'live' && (
-                <Attn
-                  tone="info"
-                  title="Resuming your pending purchase"
-                  body="The original quote and payment wallet are unchanged, and no second purchase was created."
-                />
-              )}
+          <dl>
+            <div><dt>Tool</dt><dd>{tool.name}</dd></div>
+            <div><dt>Price</dt><dd>{gbp(tool.purchasePriceGBP)}</dd></div>
+            <div><dt>Network</dt><dd>{networkName} · chain {requiredChainId}</dd></div>
+            <div><dt>Payment wallet</dt><dd>{boundPayer ? shortAddr(boundPayer) : (connectedWallet ? shortAddr(connectedWallet) : '—')}</dd></div>
+            <div><dt>Receiving wallet</dt><dd><CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" /></dd></div>
+            <div><dt>Quote expires</dt><dd>{mm}:{ss}</dd></div>
+          </dl>
 
-              <div className="pse-receipt-lines">
-                <div className="pse-receipt-line"><span className="pse-label">Tool</span><span className="pse-label-b">{tool.name}</span></div>
-                <div className="pse-receipt-line"><span className="pse-label">Price</span><span className="pse-n pse-label-b">{gbp(tool.purchasePriceGBP)}</span></div>
-                <div className="pse-receipt-line"><span className="pse-label">Network</span><span className="pse-label-b">{networkName} · chain {requiredChainId}</span></div>
-                <div className="pse-receipt-line">
-                  <span className="pse-label">Payment wallet</span>
-                  <span className="pse-mono">{boundPayer ? shortAddr(boundPayer) : (connectedWallet ? shortAddr(connectedWallet) : '—')}</span>
-                </div>
-                <div className="pse-receipt-line">
-                  <span className="pse-label">Receiving wallet</span>
-                  <CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" />
-                </div>
-                <div className="pse-receipt-line"><span className="pse-label">Quote expires</span><span className="pse-mono pse-n">{mm}:{ss}</span></div>
-              </div>
+          <p>You pay exactly {exactBnb} BNB</p>
+          <CopyField value={exactBnb} display="Copy amount" label="BNB amount" />
+          <p>Send the exact amount — underpayments are detected and will not activate a tool.</p>
 
-              <div className="pse-receipt-total">
-                <div>
-                  <p className="pse-np">You pay exactly</p>
-                  <p className="pse-fig-b pse-mono pse-bone" style={{ marginTop: 6 }}>{exactBnb} BNB</p>
-                </div>
-                <CopyField value={exactBnb} display="Copy amount" label="BNB amount" />
-              </div>
-              <p className="pse-meta pse-amber">
-                Send the exact amount — underpayments are detected and will not activate a tool.
-              </p>
-
-              {boundPayer && (
-                <div>
-                  <p className="pse-np">Bound payer</p>
-                  <CopyField value={boundPayer} display={boundPayer} label="payer wallet" fullWidth />
-                  <p className="pse-meta" style={{ marginTop: 8 }}>
-                    Only this wallet can complete this purchase — the backend compares the on-chain sender against it.
-                  </p>
-                </div>
-              )}
-
-              {/* Pre-payment clauses — exactly what the pay button requires */}
-              <div>
-                {[
-                  {
-                    ok: walletLive && Boolean(connectedWallet && EVM.test(connectedWallet)),
-                    warn: Boolean(connectedWallet) && !walletLive,
-                    label: !connectedWallet
-                      ? 'Connect a wallet'
-                      : walletLive
-                        ? `Wallet connected — ${shortAddr(connectedWallet)}`
-                        : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`,
-                  },
-                  {
-                    ok: payerAligned,
-                    warn: walletChanged,
-                    label: walletChanged
-                      ? `Wallet changed — this purchase is locked to ${shortAddr(boundPayer)}`
-                      : boundPayer
-                        ? `Payer binding verified — only ${shortAddr(boundPayer)} can complete this purchase`
-                        : 'Payer is bound to this wallet before anything is signed',
-                  },
-                  {
-                    ok: onRequiredChain && walletLive,
-                    warn: wrongChain || (walletLive && chainUnknown),
-                    label: !walletLive
-                      ? `Network verified once the wallet is reconnected — must be ${networkName} (chain ${requiredChainId})`
-                      : onRequiredChain
-                        ? `${networkName} (chain ${requiredChainId})`
-                        : chainUnknown
-                          ? `Network unreadable — reconnect or switch to ${networkName} (chain ${requiredChainId})`
-                          : `Wrong network — wallet is on chain ${walletChainId}`,
-                  },
-                  { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
-                  { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
-                ].map((c, i) => (
-                  <div key={c.label} className="pse-receipt-clause" data-state={c.ok ? 'done' : c.warn ? 'current' : 'pending'}>
-                    <span className="pse-receipt-clause-no">{String(i + 1).padStart(2, '0')}</span>
-                    <p className={c.ok ? 'pse-meta' : 'pse-label'} style={!c.ok && c.warn ? { color: 'var(--pse-amber)' } : undefined}>
-                      {c.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {walletChanged && (
-                <Attn
-                  tone="fail"
-                  title="Wallet changed"
-                  body={`This purchase is locked to ${shortAddr(boundPayer)}. Reconnect that wallet to pay — the connected wallet will not replace the payer. To pay with a different wallet, wait for the quote window to lapse and start a new purchase.`}
-                />
-              )}
-
-              {connectedWallet && wrongChain && (
-                <Attn
-                  tone="attn"
-                  title="Wrong network"
-                  body={`This payment must be sent on ${networkName} (chain ${requiredChainId}) — your wallet is on chain ${walletChainId}, and a transaction signed elsewhere can never be verified.`}
-                  action={<button onClick={() => void switchChain()} className="pse-btn pse-btn-2 pse-btn-sm">Switch to BNB Smart Chain</button>}
-                />
-              )}
-
-              <button
-                onClick={() => void payNow()}
-                disabled={payBlocked}
-                className={cn('pse-btn pse-btn-full pse-btn-lg', payBlocked && 'pse-btn-2')}
-              >
-                <Wallet size={15} /> Open wallet &amp; pay {exactBnb} BNB
-              </button>
-              {payBlocked && <p className="pse-meta pse-amber" style={{ textAlign: 'center' }}>{blockedReason}</p>}
-              {!walletLive && (
-                <button onClick={() => setStep('connect')} className="pse-btn pse-btn-2 pse-btn-full">
-                  <Wallet size={15} /> {connectedWallet ? 'Reconnect this wallet' : 'Connect a wallet'}
-                </button>
-              )}
-              <button onClick={() => (quoteValid ? setStep('quote') : refreshQuoteNow())} className="pse-btn pse-btn-3 pse-btn-full">
-                {quoteValid ? 'Back to quote' : 'Refresh quote'}
-              </button>
-
-              <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                <ShieldCheck size={15} className="shrink-0 pse-cyan" style={{ marginTop: 2 }} />
-                <p className="pse-meta">
-                  After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount
-                  and confirmation depth — before the tool activates.
-                </p>
-              </div>
-            </>
+          {boundPayer && (
+            <section aria-labelledby="bound-payer-heading">
+              <h3 id="bound-payer-heading">Bound payer</h3>
+              <CopyField value={boundPayer} display={boundPayer} label="payer wallet" fullWidth />
+              <p>Only this wallet can complete this purchase — the backend compares the on-chain sender against it.</p>
+            </section>
           )}
 
-          {/* ── Step: verifying ── */}
-          {!showingRecovery && step === 'verifying' && (
-            <div className="pse-stack-tight" style={{ alignItems: 'center', paddingBlock: 32 }}>
-              <Loader2 size={24} className="animate-spin pse-cyan" />
-              <p className="pse-h3">Verifying on BNB Smart Chain</p>
-              <p className="pse-meta" style={{ textAlign: 'center', maxWidth: 340 }}>
-                Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.
-              </p>
-              <div className="pse-receipt-clause" data-state="current" style={{ width: '100%', maxWidth: 380 }}>
-                <span className="pse-receipt-clause-no">·</span>
-                <p className="pse-mono pse-meta">{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
-              </div>
-            </div>
+          <ul aria-label="Payment requirements">
+            {[
+              {
+                ok: walletLive && Boolean(connectedWallet && EVM.test(connectedWallet)),
+                warn: Boolean(connectedWallet) && !walletLive,
+                label: !connectedWallet
+                  ? 'Connect a wallet'
+                  : walletLive
+                    ? `Wallet connected — ${shortAddr(connectedWallet)}`
+                    : `Not connected in this browser — ${shortAddr(connectedWallet)} is only the remembered payer; reconnect it to sign`,
+              },
+              {
+                ok: payerAligned,
+                warn: walletChanged,
+                label: walletChanged
+                  ? `Wallet changed — this purchase is locked to ${shortAddr(boundPayer)}`
+                  : boundPayer
+                    ? `Payer binding verified — only ${shortAddr(boundPayer)} can complete this purchase`
+                    : 'Payer is bound to this wallet before anything is signed',
+              },
+              {
+                ok: onRequiredChain && walletLive,
+                warn: wrongChain || (walletLive && chainUnknown),
+                label: !walletLive
+                  ? `Network verified once the wallet is reconnected — must be ${networkName} (chain ${requiredChainId})`
+                  : onRequiredChain
+                    ? `${networkName} (chain ${requiredChainId})`
+                    : chainUnknown
+                      ? `Network unreadable — reconnect or switch to ${networkName} (chain ${requiredChainId})`
+                      : `Wrong network — wallet is on chain ${walletChainId}`,
+              },
+              { ok: quoteValid, warn: !quoteValid, label: quoteValid ? `Quote valid — expires in ${mm}:${ss}` : 'Quote expired — refresh before paying' },
+              { ok: ownershipOk, warn: !ownershipOk, label: ownershipOk ? `Ownership available — ${owned} / ${tool.maxPerUser} owned` : `Ownership limit reached (${tool.maxPerUser})` },
+            ].map(c => (
+              <li key={c.label}>
+                {c.ok ? 'Ready: ' : c.warn ? 'Attention: ' : 'Pending: '}{c.label}
+              </li>
+            ))}
+          </ul>
+
+          {walletChanged && (
+            <aside>
+              <h3>Wallet changed</h3>
+              <p>This purchase is locked to {shortAddr(boundPayer)}. Reconnect that wallet to pay — the connected wallet will not replace the payer. To pay with a different wallet, wait for the quote window to lapse and start a new purchase.</p>
+            </aside>
           )}
 
-          {/* ── Step: result ── */}
-          {!showingRecovery && step === 'result' && result && (
-            <>
-              <div className="pse-stack-tight">
-                <Stamp
-                  tone={result.ok ? 'live' : result.recheckable ? 'info' : result.uncertain ? 'attn' : 'fail'}
-                  glyph={result.ok ? '✓' : result.recheckable ? '◷' : '▲'}
-                >
-                  {result.ok
-                    ? 'Tool activated'
-                    : result.recheckable
-                      ? 'Confirming payment'
-                      : result.uncertain
-                        ? 'Submission uncertain'
-                        : 'Verification incomplete'}
-                </Stamp>
-                <p className="pse-label-b">{result.message}</p>
-                {result.hash && (
-                  <a
-                    href={`https://bscscan.com/tx/${result.hash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="pse-meta pse-link inline-flex items-center gap-1.5"
-                  >
-                    <ExternalLink size={12} /> View {shortHash(result.hash)} on BscScan
-                  </a>
-                )}
-              </div>
-
-              {result.uncertain && (
-                <Attn
-                  tone="fail"
-                  title="Nothing was sent twice"
-                  body="Check your wallet's activity (or the address on BscScan) for a pending transfer. If one exists, do not send again — keep its hash and the wallet that sent it; support reconciles it from the on-chain record. If none exists, start a new purchase below."
-                />
-              )}
-              {!result.ok && !result.recheckable && !result.uncertain && (
-                <Attn
-                  tone="attn"
-                  title="No tool was activated"
-                  body="Nothing was lost: unverified payments are recorded as recovery evidence for manual review — that record exists so an administrator can reconcile it, and it is not an automatic activation."
-                />
-              )}
-              {result.ok && (
-                <div className="pse-sunken pse-pad flex items-start gap-2.5">
-                  <Info size={14} className="shrink-0 pse-cyan" style={{ marginTop: 2 }} />
-                  <p className="pse-meta">
-                    {continuous
-                      ? 'This tool mines continuously while the campaign is active — there is no manual session restart.'
-                      : 'This tool now runs in mining sessions. When a session completes, mining stops until you restart it; each restart needs a short backend period before mining resumes.'}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2.5 sm:flex-row">
-                <button onClick={onClose} className="pse-btn pse-btn-full">{result.ok ? 'Go to console' : 'Close'}</button>
-                {!result.ok && result.recheckable && result.hash && (
-                  <button
-                    onClick={() => void recheckVerification(result.hash as string)}
-                    disabled={rechecking}
-                    className="pse-btn pse-btn-2 pse-btn-full"
-                  >
-                    {rechecking ? <Loader2 size={15} className="animate-spin" /> : <RefreshCcw size={15} />}
-                    {rechecking ? 'Checking…' : 'Check verification again'}
-                  </button>
-                )}
-                {!result.ok && !result.recheckable && (
-                  <button onClick={restartPurchase} className="pse-btn pse-btn-2 pse-btn-full">
-                    {result.uncertain ? 'Start a new purchase' : 'Try again with a new quote'}
-                  </button>
-                )}
-              </div>
-            </>
+          {connectedWallet && wrongChain && (
+            <aside>
+              <h3>Wrong network</h3>
+              <p>This payment must be sent on {networkName} (chain {requiredChainId}) — your wallet is on chain {walletChainId}, and a transaction signed elsewhere can never be verified.</p>
+              <button type="button" onClick={() => void switchChain()}>Switch to BNB Smart Chain</button>
+            </aside>
           )}
-        </div>
-      </div>
-    </div>
+
+          <button type="button" onClick={() => void payNow()} disabled={payBlocked}>
+            Open wallet &amp; pay {exactBnb} BNB
+          </button>
+          {payBlocked && <p role="alert">{blockedReason}</p>}
+          {!walletLive && (
+            <button type="button" onClick={() => setStep('connect')}>
+              {connectedWallet ? 'Reconnect this wallet' : 'Connect a wallet'}
+            </button>
+          )}
+          <button type="button" onClick={() => (quoteValid ? setStep('quote') : refreshQuoteNow())}>
+            {quoteValid ? 'Back to quote' : 'Refresh quote'}
+          </button>
+
+          <p>After you send, the backend verifies your transaction on-chain — sender, recipient, exact amount and confirmation depth — before the tool activates.</p>
+        </>
+      )}
+
+      {!showingRecovery && step === 'verifying' && (
+        <section aria-labelledby="verification-heading" aria-live="polite">
+          <h3 id="verification-heading">Verifying on BNB Smart Chain</h3>
+          <p>Confirming sender, recipient, amount and network confirmations. Don&apos;t close this window.</p>
+          <p>{submissionState} · {SUBMISSION_LABEL[submissionState]}</p>
+        </section>
+      )}
+
+      {!showingRecovery && step === 'result' && result && (
+        <section aria-labelledby="purchase-result-heading">
+          <h3 id="purchase-result-heading">
+            {result.ok
+              ? 'Tool activated'
+              : result.recheckable
+                ? 'Confirming payment'
+                : result.uncertain
+                  ? 'Submission uncertain'
+                  : 'Verification incomplete'}
+          </h3>
+          <p>{result.message}</p>
+          {result.hash && (
+            <p>
+              <a href={`https://bscscan.com/tx/${result.hash}`} target="_blank" rel="noreferrer">
+                View {shortHash(result.hash)} on BscScan
+              </a>
+            </p>
+          )}
+
+          {result.uncertain && (
+            <aside>
+              <h4>Nothing was sent twice</h4>
+              <p>Check your wallet's activity (or the address on BscScan) for a pending transfer. If one exists, do not send again — keep its hash and the wallet that sent it; support reconciles it from the on-chain record. If none exists, start a new purchase below.</p>
+            </aside>
+          )}
+          {!result.ok && !result.recheckable && !result.uncertain && (
+            <aside>
+              <h4>No tool was activated</h4>
+              <p>Nothing was lost: unverified payments are recorded as recovery evidence for manual review — that record exists so an administrator can reconcile it, and it is not an automatic activation.</p>
+            </aside>
+          )}
+          {result.ok && (
+            <p>
+              {continuous
+                ? 'This tool mines continuously while the campaign is active — there is no manual session restart.'
+                : 'This tool now runs in mining sessions. When a session completes, mining stops until you restart it; each restart needs a short backend period before mining resumes.'}
+            </p>
+          )}
+
+          <button type="button" onClick={onClose}>{result.ok ? 'Go to console' : 'Close'}</button>
+          {!result.ok && result.recheckable && result.hash && (
+            <button
+              type="button"
+              onClick={() => void recheckVerification(result.hash as string)}
+              disabled={rechecking}
+            >
+              {rechecking ? 'Checking…' : 'Check verification again'}
+            </button>
+          )}
+          {!result.ok && !result.recheckable && (
+            <button type="button" onClick={restartPurchase}>
+              {result.uncertain ? 'Start a new purchase' : 'Try again with a new quote'}
+            </button>
+          )}
+        </section>
+      )}
+    </section>
   );
 };
 
 
-/* ── Wallet connection step (inside the receipt) ───────────────────────── */
+/* ── Wallet connection step ────────────────────────────────────────────── */
 const WalletConnectStep: React.FC = () => {
   const {
     injectedWallets, walletConnectAvailable, connectWallet,
     connectWalletConnectTransport, isConnectingWallet,
   } = usePSEMine();
   return (
-    <div className="pse-stack-tight">
-      <div className="pse-sunken pse-pad">
-        <p className="pse-label-b">Connect a wallet</p>
-        <p className="pse-meta" style={{ marginTop: 6 }}>
-          A wallet is required to sign the payment. PSEmine never requests automatic transfers — every payment must
-          be approved in your wallet.
-        </p>
-      </div>
+    <section aria-labelledby="connect-wallet-heading">
+      <h3 id="connect-wallet-heading">Connect a wallet</h3>
+      <p>
+        A wallet is required to sign the payment. PSEmine never requests automatic transfers — every payment must
+        be approved in your wallet.
+      </p>
 
       {injectedWallets.map(w => (
         <button
+          type="button"
           key={w.id}
           onClick={() => void connectWallet(w.id)}
           disabled={isConnectingWallet}
-          className="pse-btn pse-btn-2 pse-btn-full"
-          style={{ justifyContent: 'space-between' }}
         >
-          <span className="flex items-center gap-2.5">
-            {w.icon
-              ? <img src={w.icon} alt="" width={20} height={20} style={{ borderRadius: 4 }} />
-              : <Wallet size={16} />}
-            <span className="pse-label-b">{w.name}</span>
-          </span>
-          <ChevronRight size={14} />
+          {w.name}
         </button>
       ))}
 
       {walletConnectAvailable && (
         <button
+          type="button"
           onClick={() => void connectWalletConnectTransport()}
           disabled={isConnectingWallet}
-          className="pse-btn pse-btn-2 pse-btn-full"
-          style={{ justifyContent: 'space-between' }}
         >
-          <span className="flex items-center gap-2.5">
-            <Smartphone size={16} />
-            <span className="pse-label-b">WalletConnect — mobile &amp; extension wallets</span>
-          </span>
-          <ChevronRight size={14} />
+          WalletConnect — mobile &amp; extension wallets
         </button>
       )}
 
-      {isConnectingWallet && (
-        <p className="pse-meta flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin" /> Waiting for the wallet…
-        </p>
-      )}
+      {isConnectingWallet && <p role="status" aria-live="polite">Waiting for the wallet…</p>}
 
       {!walletConnectAvailable && injectedWallets.length === 0 && (
-        <Attn
-          tone="attn"
-          title="No wallet detected"
-          body="Open PSEmine in your wallet's browser (Trust, MetaMask), install an extension, or configure WalletConnect for this deployment."
-        />
+        <aside>
+          <h4>No wallet detected</h4>
+          <p>Open PSEmine in your wallet's browser (Trust, MetaMask), install an extension, or configure WalletConnect for this deployment.</p>
+        </aside>
       )}
-    </div>
+    </section>
   );
 };
 

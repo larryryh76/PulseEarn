@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
-  type StampTone,
   gbp, gbpHour, shortAddr, shortHash, fmtDateTime, payoutStatusView, CopyField,
   campaignStatusView,
 } from '../../components/psemine/pse';
 import { PSEMINE_CONSTANTS } from '../../types/psemine';
+import { requestPayout } from '../../engines/psemine/pseMineApi';
 import toast from 'react-hot-toast';
 
 const EVM = /^0x[0-9a-fA-F]{40}$/;

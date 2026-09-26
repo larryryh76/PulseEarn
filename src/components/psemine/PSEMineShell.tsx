@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Pickaxe, History, User, Layers, Wallet, Menu, X } from 'lucide-react';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
 import {
-  PSELogo, campaignStatusView, campaignTone, Stamp, DutyRail, gbpHour,
+  PSELogo, campaignStatusView, gbpHour,
   toDateSafe, usePseDocumentTitle, useCampaignClock,
 } from './pse';
 import { NotificationBell } from './NotificationBell';
@@ -25,15 +24,6 @@ const CONSOLE_NAV = [
   { to: '/mine/wallet', label: 'Wallet' },
   { to: '/mine/activity', label: 'Activity' },
   { to: '/mine/referrals', label: 'Referrals' },
-];
-
-/** Bottom bar on mobile: the four daily surfaces + account. */
-const MOBILE_NAV = [
-  { to: '/mine/dashboard', label: 'Overview', icon: Pickaxe },
-  { to: '/mine/tools', label: 'Tools', icon: Layers },
-  { to: '/mine/wallet', label: 'Wallet', icon: Wallet },
-  { to: '/mine/activity', label: 'Activity', icon: History },
-  { to: '/mine/me', label: 'Account', icon: User },
 ];
 
 /** PSEmine owns the document title on every one of its routes. */
@@ -67,8 +57,7 @@ export const PSEMineShell: React.FC = () => {
   const isAuthed = Boolean(currentUser);
   const inConsole = isAuthed && hasPSEmineAccess;
   const isLanding = location.pathname === '/mine' || location.pathname === '/mine/';
-  /* The public marketing surface owns its own masthead and footer; the product
-     bar is the console's chrome and must not leak into it. */
+  /* The public marketing surface owns its own masthead and footer. */
   const chrome = !isLanding || inConsole;
 
   usePseDocumentTitle(titleForPath(location.pathname));
@@ -92,173 +81,87 @@ export const PSEMineShell: React.FC = () => {
   if (!chrome) return <Outlet />;
 
   return (
-    <div className="pse-scope pse-shell">
-      {/* ── Product bar: destinations only ── */}
-      <header className="pse-bar">
-        <div className="pse-gut mx-auto flex w-full max-w-[1180px]">
-          <div className="pse-bar-row w-full">
-            <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home" className="pse-mark">
-              <PSELogo size={26} withWordmark />
-            </Link>
+    <>
+      <header>
+        <Link to={inConsole ? '/mine/dashboard' : '/mine'} aria-label="PSEmine home">
+          <PSELogo size={26} withWordmark />
+        </Link>
 
-            {inConsole && (
-              <nav className="pse-nav" aria-label="PSEmine console">
-                {CONSOLE_NAV.map(item => (
-                  <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
-                ))}
-              </nav>
-            )}
+        {inConsole && (
+          <nav aria-label="PSEmine console">
+            {CONSOLE_NAV.map(item => (
+              <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
+            ))}
+          </nav>
+        )}
 
-            <div className="pse-bar-actions">
-              {inConsole ? (
-                <>
-                  <div className="hidden md:block"><NotificationBell /></div>
-                  <AccountMenu open={accountOpen} setOpen={setAccountOpen} ref={accountRef} />
-                </>
-              ) : isAuthed ? (
-                <button type="button" onClick={() => void logout()} className="pse-btn pse-btn-3 pse-btn-sm">
-                  Sign out
-                </button>
-              ) : (
-                <>
-                  <Link to="/mine/login" className="pse-btn pse-btn-3 pse-btn-sm">Sign in</Link>
-                  <Link to="/mine/signup" className="pse-btn pse-btn-sm">Create account</Link>
-                </>
-              )}
-              <button
-                type="button"
-                className="pse-burger"
-                onClick={() => setMenuOpen(v => !v)}
-                aria-expanded={menuOpen}
-                aria-controls="pse-mobile-menu"
-                aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-              >
-                {menuOpen
-                  ? <X size={16} aria-hidden="true" />
-                  : <Menu size={16} aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
+        <div>
+          {inConsole ? (
+            <>
+              <NotificationBell />
+              <AccountMenu open={accountOpen} setOpen={setAccountOpen} ref={accountRef} />
+            </>
+          ) : isAuthed ? (
+            <button type="button" onClick={() => void logout()}>
+              Sign out
+            </button>
+          ) : (
+            <>
+              <Link to="/mine/login">Sign in</Link>
+              <Link to="/mine/signup">Create account</Link>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(v => !v)}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {menuOpen ? 'Close menu' : 'Open menu'}
+          </button>
         </div>
 
         {menuOpen && (
-          <div id="pse-mobile-menu" className="pse-sheet">
-            <nav className="mx-auto w-full max-w-[1180px]" aria-label="PSEmine mobile">
-              {inConsole ? (
-                <>
-                  {[...CONSOLE_NAV, { to: '/mine/me', label: 'Account' }, { to: '/mine/guide', label: 'Guide' }].map(item => (
-                    <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
-                  ))}
-                  <Link to="/help">Support</Link>
-                  <button type="button" onClick={() => void logout()} className="pse-red" style={{ background: 'none', border: 0, textAlign: 'left', minHeight: 46, padding: '0 var(--pse-gutter)', font: 'inherit', fontSize: 14, cursor: 'pointer' }}>
-                    Sign out
-                  </button>
-                </>
-              ) : isAuthed ? (
-                <Link to="/mine/dashboard">Open console</Link>
-              ) : (
-                <>
-                  <Link to="/mine/login">Sign in</Link>
-                  <Link to="/mine/signup">Create account</Link>
-                </>
-              )}
-            </nav>
-          </div>
+          <nav id="mobile-menu" aria-label="PSEmine mobile">
+            {inConsole ? (
+              <>
+                {[...CONSOLE_NAV, { to: '/mine/me', label: 'Account' }, { to: '/mine/guide', label: 'Guide' }].map(item => (
+                  <NavLink key={item.to} to={item.to}>{item.label}</NavLink>
+                ))}
+                <Link to="/help">Support</Link>
+                <button type="button" onClick={() => void logout()}>
+                  Sign out
+                </button>
+              </>
+            ) : isAuthed ? (
+              <Link to="/mine/dashboard">Open console</Link>
+            ) : (
+              <>
+                <Link to="/mine/login">Sign in</Link>
+                <Link to="/mine/signup">Create account</Link>
+              </>
+            )}
+          </nav>
         )}
       </header>
 
-      {/* ── Campaign band: THE one place campaign state and position live ──
-          State stamp, the canonical 90-day duty rail, the day count and the
-          capacity figure. No page draws a second campaign countdown. */}
-      {inConsole && <CampaignBand />}
+      <CampaignStatus inConsole={inConsole} />
 
-      <CampaignStateBanner />
-
-      <main className={`mx-auto w-full max-w-[1180px] flex-1 ${inConsole ? 'pse-canvas-bottom pse-work' : ''}`}>
+      <main>
         <Outlet />
       </main>
 
-      {/* ── Mobile primary navigation ── */}
-      {inConsole && (
-        <nav className="pse-tabbar" aria-label="Primary mobile">
-          <div className="pse-tabbar-row">
-            {MOBILE_NAV.map(item => {
-              const Icon = item.icon;
-              return (
-                <NavLink key={item.to} to={item.to}>
-                  <Icon size={17} aria-hidden="true" />
-                  <span className="pse-tabbar-label">{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </div>
+      <footer>
+        <PSELogo size={22} withWordmark />
+        <nav aria-label="Footer">
+          <Link to="/terms">Terms</Link>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/help">Support</Link>
         </nav>
-      )}
-
-      {!inConsole && (
-        <footer className="pse-foot">
-          <div className="pse-gut mx-auto flex w-full max-w-[1180px] flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <PSELogo size={22} withWordmark />
-            <nav className="flex flex-wrap items-center gap-x-5" aria-label="Footer">
-              <Link to="/terms" className="pse-meta">Terms</Link>
-              <Link to="/privacy" className="pse-meta">Privacy</Link>
-              <Link to="/help" className="pse-meta">Support</Link>
-            </nav>
-            <p className="pse-np">© {new Date().getFullYear()} PSEmine · 90-day campaign</p>
-          </div>
-        </footer>
-      )}
-    </div>
-  );
-};
-
-/**
- * CampaignBand — one operational line under the product bar.
- * Server-authoritative: the rail, day number, remaining days and capacity all
- * come from the backend state payload and the shared campaign clock.
- */
-const CampaignBand: React.FC = () => {
-  const { state, campaignStatus, refreshing, refresh } = usePseState();
-  const campaign = state?.campaign;
-  const clock = useCampaignClock(campaign, campaignStatus);
-  const view = campaignStatusView(campaignStatus);
-  const capacity = state?.user?.totalCapacityGBPPerHour;
-
-  return (
-    <div className="pse-band">
-      <div className="pse-gut mx-auto flex w-full max-w-[1180px]">
-        <div className="pse-band-row w-full">
-          <Stamp tone={campaignTone(campaignStatus)} pulse={view.live} glyph="●">{view.label.trim()}</Stamp>
-
-          <div className="pse-band-duty">
-            <DutyRail campaign={campaign} status={campaignStatus} density="compact" />
-          </div>
-
-          <span className="pse-band-fact">
-            <span className="pse-np">Day</span>
-            <b className="pse-n pse-bone">
-              {clock.dayNumber ?? '—'}
-            </b>
-            <span className="pse-np-2">/ {clock.totalDays}</span>
-          </span>
-          {clock.daysLeft !== null && (
-            <span className="pse-band-fact pse-dim-3">{clock.daysLeft}d left</span>
-          )}
-
-          <span className="flex items-center gap-4" style={{ marginLeft: 'auto' }}>
-            {typeof capacity === 'number' && (
-              <span className="pse-band-fact">
-                <span className="pse-np">Capacity</span>
-                <b className="pse-n pse-cyan">{gbpHour(capacity)}</b>
-              </span>
-            )}
-            <button type="button" onClick={() => void refresh()} disabled={refreshing} className="pse-btn pse-btn-3 pse-btn-sm">
-              <span className="pse-np pse-np-bone">{refreshing ? 'Syncing' : 'Sync'}</span>
-            </button>
-          </span>
-        </div>
-      </div>
-    </div>
+        <p>© {new Date().getFullYear()} PSEmine · 90-day campaign</p>
+      </footer>
+    </>
   );
 };
 
@@ -268,23 +171,20 @@ const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (
     const { userData, currentUser, logout } = usePSEMineAuth();
     const navigate = useNavigate();
     return (
-      <div ref={ref} className="relative">
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu"
-          className="pse-btn pse-btn-3 pse-btn-sm" aria-label="Account menu">
-          <span className="pse-np pse-np-bone">
-            {(userData?.username || currentUser?.email || '?').slice(0, 1).toUpperCase()}
-          </span>
+      <div ref={ref}>
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu">
+          {(userData?.username || currentUser?.email || '?').slice(0, 1).toUpperCase()}
         </button>
         {open && (
-          <div role="menu" className="pse-menu">
-            <div className="pse-rule-row" style={{ padding: '12px 14px', borderBottom: '1px solid var(--pse-line)' }}>
-              <p className="pse-label-b truncate">{userData?.username || 'PSEmine miner'}</p>
-              <p className="pse-meta truncate">{currentUser?.email}</p>
+          <div role="menu">
+            <div>
+              <p>{userData?.username || 'PSEmine miner'}</p>
+              <p>{currentUser?.email}</p>
             </div>
             <Link to="/mine/me" role="menuitem">Account &amp; settings</Link>
             <Link to="/mine/guide" role="menuitem">Campaign guide</Link>
             <Link to="/help" role="menuitem">Support</Link>
-            <button type="button" role="menuitem" className="pse-red"
+            <button type="button" role="menuitem"
               onClick={async () => { await logout(); navigate('/mine/login'); }}>
               Sign out
             </button>
@@ -295,26 +195,37 @@ const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (
   });
 AccountMenu.displayName = 'AccountMenu';
 
-/**
- * Campaign-state banner for every non-active backend state (scheduled, paused,
- * settling, payout, closed, archived). Wording is the shared campaign view, so
- * the band and the banner can never disagree.
- */
-const CampaignStateBanner: React.FC = () => {
-  const { campaignStatus } = usePseState();
-  if (!campaignStatus) return null;
-  if (campaignStatus === 'active') return null;
+/** Plain campaign facts from the backend state; no decorative rail or banner. */
+const CampaignStatus: React.FC<{ inConsole: boolean }> = ({ inConsole }) => {
+  const { state, campaignStatus, refreshing, refresh } = usePseState();
+  const campaign = state?.campaign;
+  const clock = useCampaignClock(campaign, campaignStatus);
   const view = campaignStatusView(campaignStatus);
+  const capacity = state?.user?.totalCapacityGBPPerHour;
+  const hasNonActiveState = Boolean(campaignStatus && campaignStatus !== 'active');
+
+  if (!inConsole && !hasNonActiveState) return null;
+
   return (
-    <div className="pse-gut mx-auto w-full max-w-[1180px] pt-4">
-      <div className="pse-attn" data-tone={campaignStatus === 'paused' ? 'attn' : 'info'}>
-        <div className="pse-attn-body">
-          <p className="pse-label-b">{view.headline}</p>
-          <p className="pse-meta mt-1">{view.detail}</p>
-        </div>
-        <span className="pse-np">Backend state</span>
-      </div>
-    </div>
+    <section aria-label="Campaign status">
+      <p>{view.label}</p>
+      {hasNonActiveState && (
+        <>
+          <p>{view.headline}</p>
+          <p>{view.detail}</p>
+        </>
+      )}
+      {inConsole && (
+        <>
+          <p>Day {clock.dayNumber ?? '—'} / {clock.totalDays}</p>
+          {clock.daysLeft !== null && <p>{clock.daysLeft}d left</p>}
+          {typeof capacity === 'number' && <p>Capacity: {gbpHour(capacity)}</p>}
+          <button type="button" onClick={() => void refresh()} disabled={refreshing}>
+            {refreshing ? 'Syncing' : 'Sync'}
+          </button>
+        </>
+      )}
+    </section>
   );
 };
 

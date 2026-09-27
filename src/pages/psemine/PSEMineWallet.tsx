@@ -179,8 +179,9 @@ function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, 
       event.preventDefault();
       const value = parseFloat(amount);
       if (!Number.isFinite(value) || value < PAYOUT_REQUEST_MIN_GBP) { toast.error('Minimum payout request is £10.00.'); return; }
+      if (value > availableGBP) { toast.error(`Maximum payout request is ${gbp(availableGBP)}.`); return; }
       setBusy(true);
-      try { await onSubmit(value); } finally { setBusy(false); setAmount(''); }
+      try { if (await onSubmit(value)) setAmount(''); } finally { setBusy(false); }
     }}>
       <p>Request up to {gbp(availableGBP)} to {shortAddr(payoutWallet)}.</p>
       <label htmlFor="payout-request-amount">Payout amount in GBP

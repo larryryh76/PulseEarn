@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePSEMine } from '../../contexts/PSEMineContext';
 import { usePseState } from '../../components/psemine/PseStateProvider';
@@ -282,6 +282,20 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
   // Refresh recovery: the existing in-flight purchase for THIS tool, if any.
   const [resume, setResume] = useState<ResumeState | null>(null);
   const [rechecking, setRechecking] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    dialogRef.current?.focus();
+    return () => {
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Keep keyboard handling available when a step removes the focused control.
+    if (document.activeElement === document.body) dialogRef.current?.focus();
+  }, [step]);
 
   /** Forget the local binding (expired quote, wallet disconnect, restart). */
   const resetBinding = useCallback(() => { setBoundPayer(null); setPurchaseId(null); }, []);
@@ -639,10 +653,34 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
 
   return (
     <section
+      ref={dialogRef}
+      tabIndex={-1}
       className="pm-product pm-purchase-dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby="purchase-flow-title"
+      onKeyDown={event => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          if (step !== 'verifying') onClose();
+        } else if (event.key === 'Tab') {
+          const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+            'a[href], button, input, select, textarea, [tabindex]',
+          )).filter(element => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0);
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (!first) {
+            event.preventDefault();
+            event.currentTarget.focus();
+          } else if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === event.currentTarget)) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      }}
       onClick={event => {
         if (event.target === event.currentTarget && step !== 'verifying') onClose();
       }}

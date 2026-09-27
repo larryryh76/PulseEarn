@@ -142,14 +142,12 @@ const AdminPSEMine: React.FC = () => {
       });
       return;
     }
-    setResolving(withdrawalId + action);
-    try {
-      await submitWithdrawalReview(withdrawalId, action, txHash);
-    } finally { setResolving(null); }
+    await submitWithdrawalReview(withdrawalId, action, txHash);
   };
 
   const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
     if (!canAdminister) return;
+    setResolving(withdrawalId + action);
     try {
       const token = await currentUser?.getIdToken();
       const res = await fetch(`/api/admin/psemine/withdrawals/${encodeURIComponent(withdrawalId)}/review`, {
@@ -164,6 +162,8 @@ const AdminPSEMine: React.FC = () => {
       } else {
         toast.error(data.error || data.message || `Payout ${action.toLowerCase()} failed.`);
       }
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : `Payout ${action.toLowerCase()} failed.`);
     } finally { setResolving(null); }
   };
 

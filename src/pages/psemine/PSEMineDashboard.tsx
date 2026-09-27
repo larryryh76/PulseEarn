@@ -81,7 +81,8 @@ export const PSEMineDashboard: React.FC = () => {
   const walletLocked = ['settling', 'payout', 'closed', 'archived'].includes(campaignStatus || '');
   const counts = pseUser?.toolOwnershipCounts;
   const qualified = user.qualifiedReferralsCount ?? 0;
-  const nextAction = needsMaintenance.length > 0
+  const canRestart = miningLive && needsMaintenance.length > 0;
+  const nextAction = canRestart
     ? 'Restart a completed session'
     : tools.length === 0
       ? purchaseOpen ? 'Choose a mining tool' : 'Check tool availability'
@@ -90,7 +91,7 @@ export const PSEMineDashboard: React.FC = () => {
         : campaignStatus === 'active'
           ? 'Review your operating tools'
           : 'Review campaign status and settlement';
-  const nextActionHref = needsMaintenance.length > 0 || (campaignStatus === 'active' && tools.length > 0)
+  const nextActionHref = canRestart || (campaignStatus === 'active' && tools.length > 0)
     ? '/mine/dashboard#equipment'
     : tools.length === 0
       ? '/mine/tools'

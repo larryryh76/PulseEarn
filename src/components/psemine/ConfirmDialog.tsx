@@ -23,7 +23,15 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (open && dialogRef.current && !dialogRef.current.open) dialogRef.current.showModal();
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    const previousFocus = document.activeElement;
+    setTyped('');
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      dialog.close();
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
   }, [open]);
 
   if (!open) return null;
@@ -40,7 +48,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         if (!busy) onCancel();
       }}
       onClick={event => {
-        if (event.target === event.currentTarget && !busy) onCancel();
+        if (event.target !== event.currentTarget || busy) return;
+        const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) onCancel();
       }}
     >
       <header>

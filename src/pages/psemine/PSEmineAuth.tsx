@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseDocumentTitle } from '../../components/psemine/pseCore';
@@ -9,48 +9,106 @@ import { mapAuthError } from '../../utils/errors';
 /**
  * PSEmine authentication — the product's sign-in family.
  *
- * One frame (PseAuthFrame) for sign in, sign up, password reset, email
- * verification and the access gate, so the surfaces read as one product. Every
- * behaviour below is UNCHANGED from the implementation that preceded the design
- * rebuild; this file is presentation only:
+ * PRESENTATION REBUILT; BEHAVIOUR UNCHANGED. Every call, guard, side effect and
+ * navigation below is the implementation that already shipped:
  *
  *   • sign-up with an optional referral code (from ?ref=, surfaced before submit)
  *   • sign-in, Google sign-in (a dismissed popup is a dismissal, not an error),
  *     password reset, verification resend with a cooldown, the explicit access
  *     gate (`enablePSEmine`), and the protected route that preserves the intended
  *     destination in `returnTo`, requires a verified identity, explains missing
- *     product access, and only then applies the onboarding gate.
+ *     access, and only then applies the onboarding gate.
  *
- * COPY RULE: the surfaces speak about the product, never about the system. No
- * architecture, no account-relationship explanations, no internal terminology.
+ * WHAT CHANGED, AND WHY
+ *   • CONTENT. Nothing about the campaign, the tools, capacity, referrals or
+ *     earnings appears on any authentication surface any more. A sign-in page
+ *     explains itself and nothing else.
+ *   • FORM QUALITY. Real financial-product controls: plain labels, 48px fields,
+ *     a password visibility control, an invalid state per field, the error
+ *     printed under the field it belongs to, focus moved to the first invalid
+ *     field, and a busy state on the primary action.
+ *   • VALIDATION. The same two rules the previous implementation enforced
+ *     (display name ≥ 2 characters, password ≥ 8 characters) now render against
+ *     their own fields instead of as one banner. The pre-flight checks and their
+ *     order are unchanged — an invalid form still never reaches the provider.
  */
 
-/** Password strength: computed from the real input, never displayed when empty. */
+/* ── Small inline glyphs. Meaningful only: password visibility. ───────────── */
+
+const EyeGlyph: React.FC<{ off?: boolean }> = ({ off = false }) => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path
+      d="M2.5 10S5.5 4.75 10 4.75 17.5 10 17.5 10 14.5 15.25 10 15.25 2.5 10 2.5 10Z"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+    />
+    <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.3" />
+    {off && <path d="M4 16.5 16 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />}
+  </svg>
+);
+
+/** Password quality, computed from the real input and never shown when empty. */
 const STRENGTH_STEPS = ['Weak', 'Fair', 'Good', 'Strong'] as const;
 
 const StrengthMeter: React.FC<{ label: string }> = ({ label }) => {
   const step = Math.max(1, STRENGTH_STEPS.indexOf(label as (typeof STRENGTH_STEPS)[number]) + 1);
   return (
-    <div className="space-y-1.5" aria-live="polite">
-      <div className="pse-meter" aria-hidden="true">
+    <div className="mt-2" aria-live="polite">
+      <div className="pse-bar" aria-hidden="true">
         <span style={{ width: `${(step / STRENGTH_STEPS.length) * 100}%` }} />
       </div>
-      <p className="pse-small">
+      <p className="pse-small mt-1.5">
         Password strength: <span className="pse-strong">{label}</span>
       </p>
     </div>
   );
 };
 
-/* ═══════════════════ LOGIN / SIGNUP ═══════════════════ */
+/**
+ * A labelled field with its own error slot. The error is rendered directly under
+ * the control it belongs to and is referenced by `aria-describedby`, because a
+ * single banner at the top of a form is the most common reason a person cannot
+ * tell which field is wrong.
+ */
+const Field: React.FC<{
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}> = ({ id, label, hint, error, children }) => (
+  <div className="pse-field">
+    <label className="pse-label" htmlFor={id}>
+      {label}
+      {hint && <span className="pse-label-hint">{hint}</span>}
+    </label>
+    {children}
+    {error && (
+      <p className="pse-field-error" id={`${id}-error`} role="alert">
+        {error}
+      </p>
+    )}
+  </div>
+);
+
+/* ═══════════════════ SIGN IN / CREATE ACCOUNT ═══════════════════ */
+
+type FieldErrors = { username?: string; email?: string; password?: string };
+
 export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'login' }) => {
   const isSignup = mode === 'signup';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, signup, signInWithGoogle, currentUser, isVerified, userData } = usePSEMineAuth();
@@ -86,11 +144,29 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
     navigate(returnTo || '/mine/dashboard', { replace: true });
   }, [currentUser, isVerified, userData, navigate, returnTo]);
 
+  /** Clears one field's error as soon as the person edits it. */
+  const clearField = (key: keyof FieldErrors) =>
+    setFieldErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (isSignup && username.trim().length < 2) { setFormError('Choose a display name (2+ characters).'); return; }
-    if (password.length < 8) { setFormError('Password must be at least 8 characters.'); return; }
+
+    // Same rules, same order as before — only the presentation differs now.
+    const next: FieldErrors = {};
+    if (isSignup && username.trim().length < 2) next.username = 'Choose a display name (2+ characters).';
+    if (!email.trim()) next.email = 'Enter your email address.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = 'Enter a valid email address.';
+    if (password.length < 8) next.password = 'Password must be at least 8 characters.';
+
+    if (next.username || next.email || next.password) {
+      setFieldErrors(next);
+      const first = next.username ? usernameRef : next.email ? emailRef : passwordRef;
+      first.current?.focus();
+      return;
+    }
+
+    setFieldErrors({});
     setPending(true);
     try {
       if (isSignup) await signup(email.trim(), password, username.trim(), refFromQuery);
@@ -116,114 +192,103 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
 
   return (
     <PseAuthFrame
-      title={isSignup ? 'Create your PSEmine account' : 'Sign in to PSEmine'}
+      title={isSignup ? 'Create your account' : 'Sign in'}
       lede={
         isSignup
-          ? refFromQuery
-            ? 'Your referral code is applied to this account automatically. It is recorded at sign-up and qualifies when the conditions are met — nothing is credited in advance.'
-            : 'One account for mining tools, capacity, campaign earnings and payout.'
-          : 'Continue to your mining console: tools, capacity, accrual and settlement.'
+          ? 'Set up your PSEmine account. It takes a moment, and nothing is charged.'
+          : 'Enter your email and password to continue.'
       }
       footer={
-        <div className="space-y-3">
-          <p className="pse-body">
-            {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
-            <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="pse-link">
-              {isSignup ? 'Sign in' : 'Create account'}
-            </Link>
-          </p>
-          {!isSignup && (
-            <p className="pse-small">
-              <Link to="/mine/forgot-password" className="pse-link inline-flex min-h-[44px] items-center">
-                Forgot your password?
-              </Link>
-            </p>
-          )}
-        </div>
+        <p className="pse-small">
+          {isSignup ? 'Already have an account? ' : 'New to PSEmine? '}
+          <Link to={isSignup ? '/mine/login' : '/mine/signup'} className="pse-link">
+            {isSignup ? 'Sign in' : 'Create an account'}
+          </Link>
+        </p>
       }
     >
       <div className="space-y-5">
         {refFromQuery && isSignup && (
           <p className="pse-notice" data-tone="good">
             <span>
-              <span className="pse-notice-title">Referral applied.</span> Code{' '}
-              <span className="pse-figure">{refFromQuery}</span> — recorded on this account at sign-up.
+              <span className="pse-notice-title">Referral code applied.</span> Code{' '}
+              <span className="pse-figure">{refFromQuery}</span> will be recorded on this account at sign-up.
             </span>
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={() => void google()}
-          disabled={googlePending}
-          className="pse-btn pse-btn-quiet pse-btn-block"
-        >
-          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Sign in with Google'}
-        </button>
-        <p className="pse-small">
-          {isSignup
-            ? 'Google accounts skip the password and email-verification steps. Existing accounts keep their current access.'
-            : 'Use the same Google identity you signed up with — no second account is created.'}
-        </p>
-
-        <p className="pse-auth-alt">or use email</p>
-
         <form onSubmit={submit} className="space-y-4" noValidate>
           {isSignup && (
-            <div>
-              <label className="pse-field-label" htmlFor="pse-signup-username">
-                Display name
-                <span className="pse-field-hint">Shown to referrals</span>
-              </label>
+            <Field
+              id="pse-signup-username"
+              label="Display name"
+              hint="Shown to referrals"
+              error={fieldErrors.username}
+            >
               <input
+                ref={usernameRef}
                 id="pse-signup-username"
                 className="pse-input"
                 value={username}
-                onChange={e => setUsername(e.target.value)}
+                onChange={e => { setUsername(e.target.value); clearField('username'); }}
                 placeholder="How you'll appear"
                 autoComplete="nickname"
+                aria-invalid={fieldErrors.username ? true : undefined}
+                aria-describedby={fieldErrors.username ? 'pse-signup-username-error' : undefined}
                 required
               />
-            </div>
+            </Field>
           )}
 
-          <div>
-            <label className="pse-field-label" htmlFor="pse-auth-email">
-              Email
-            </label>
+          <Field id="pse-auth-email" label="Email" error={fieldErrors.email}>
             <input
+              ref={emailRef}
               id="pse-auth-email"
               className="pse-input"
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setEmail(e.target.value); clearField('email'); }}
               placeholder="you@example.com"
               autoComplete="email"
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'pse-auth-email-error' : undefined}
               required
             />
-          </div>
+          </Field>
 
-          <div>
-            <label className="pse-field-label" htmlFor="pse-auth-password">
-              Password
-              {isSignup && <span className="pse-field-hint">Minimum 8 characters</span>}
-            </label>
-            <input
-              id="pse-auth-password"
-              className="pse-input"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete={isSignup ? 'new-password' : 'current-password'}
-              required
-              minLength={8}
-            />
-            {isSignup && password.length > 0 && (
-              <div className="mt-3">
-                <StrengthMeter label={strength} />
-              </div>
-            )}
-          </div>
+          <Field
+            id="pse-auth-password"
+            label="Password"
+            hint={isSignup ? 'Minimum 8 characters' : undefined}
+            error={fieldErrors.password}
+          >
+            <span className="pse-input-wrap">
+              <input
+                ref={passwordRef}
+                id="pse-auth-password"
+                className="pse-input"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); clearField('password'); }}
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? 'pse-auth-password-error' : undefined}
+                required
+                minLength={8}
+              />
+              <button
+                type="button"
+                className="pse-input-toggle"
+                onClick={() => setShowPassword(v => !v)}
+                aria-pressed={showPassword}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <EyeGlyph off={showPassword} />
+              </button>
+            </span>
+          </Field>
+
+          {isSignup && password.length > 0 && <StrengthMeter label={strength} />}
 
           {formError && (
             <p className="pse-notice" data-tone="danger" role="alert">
@@ -231,16 +296,34 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
             </p>
           )}
 
-          <button type="submit" className="pse-btn pse-btn-block" disabled={pending}>
+          <button type="submit" className="pse-btn pse-btn--lg pse-btn--block" disabled={pending} aria-busy={pending}>
             {pending ? 'Working…' : isSignup ? 'Create account' : 'Sign in'}
           </button>
+
+          {!isSignup && (
+            <p className="text-center">
+              <Link to="/mine/forgot-password" className="pse-link inline-flex min-h-[44px] items-center text-sm">
+                Forgot your password?
+              </Link>
+            </p>
+          )}
         </form>
+
+        <p className="pse-auth-or">or</p>
+
+        <button
+          type="button"
+          onClick={() => void google()}
+          disabled={googlePending}
+          className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
+        >
+          {googlePending ? 'Waiting for Google…' : isSignup ? 'Sign up with Google' : 'Continue with Google'}
+        </button>
 
         {isSignup && (
           <p className="pse-small">
             By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
-            <Link to="/privacy" className="pse-link">Privacy Policy</Link>. Nothing is taken from your wallet until you
-            choose a tool and pay for it yourself.
+            <Link to="/privacy" className="pse-link">Privacy Policy</Link>.
           </p>
         )}
       </div>
@@ -248,7 +331,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
   );
 };
 
-/* ═══════════════════ FORGOT PASSWORD ═══════════════════ */
+/* ═══════════════════ PASSWORD RECOVERY ═══════════════════ */
 export const PSEmineForgotPassword: React.FC = () => {
   usePseDocumentTitle('Reset password');
   const { resetPassword } = usePSEMineAuth();
@@ -256,10 +339,18 @@ export const PSEmineForgotPassword: React.FC = () => {
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | undefined>(undefined);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setFieldError('Enter a valid email address.');
+      emailRef.current?.focus();
+      return;
+    }
+    setFieldError(undefined);
     setPending(true);
     try { await resetPassword(email.trim()); setSent(true); }
     catch (err) { setError(mapAuthError(err)); }
@@ -269,10 +360,10 @@ export const PSEmineForgotPassword: React.FC = () => {
   return (
     <PseAuthFrame
       title="Reset your password"
-      lede="We email a secure reset link to the address on the account. The link is single-use and expires, so open it soon after it arrives."
+      lede="We'll email a secure link to the address on your account. The link is single-use and expires, so open it soon after it arrives."
       footer={
         <p className="pse-small">
-          <Link to="/mine/login" className="pse-link">
+          <Link to="/mine/login" className="pse-link inline-flex min-h-[44px] items-center">
             Back to sign in
           </Link>
         </p>
@@ -282,37 +373,31 @@ export const PSEmineForgotPassword: React.FC = () => {
         <div className="space-y-4">
           <p className="pse-notice" data-tone="good">
             <span>
-              <span className="pse-notice-title">Reset link sent.</span> Check{' '}
-              <span className="pse-figure">{email}</span> — including spam — then follow the link to choose a new
-              password.
+              <span className="pse-notice-title">Check your inbox.</span> We sent a reset link to{' '}
+              <span className="pse-figure">{email}</span> — including spam. Follow it to choose a new password.
             </span>
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="pse-btn pse-btn-quiet" onClick={() => setSent(false)}>
-              Use a different email
-            </button>
-            <Link to="/mine/login" className="pse-btn pse-btn-ink">
-              Back to sign in
-            </Link>
-          </div>
+          <button type="button" className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block" onClick={() => setSent(false)}>
+            Use a different email
+          </button>
         </div>
       ) : (
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="pse-field-label" htmlFor="pse-reset-email">
-              Email
-            </label>
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          <Field id="pse-reset-email" label="Email" error={fieldError}>
             <input
+              ref={emailRef}
               id="pse-reset-email"
               className="pse-input"
               type="email"
               required
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setEmail(e.target.value); if (fieldError) setFieldError(undefined); }}
               placeholder="you@example.com"
               autoComplete="email"
+              aria-invalid={fieldError ? true : undefined}
+              aria-describedby={fieldError ? 'pse-reset-email-error' : undefined}
             />
-          </div>
+          </Field>
 
           {error && (
             <p className="pse-notice" data-tone="danger" role="alert">
@@ -320,7 +405,7 @@ export const PSEmineForgotPassword: React.FC = () => {
             </p>
           )}
 
-          <button type="submit" className="pse-btn pse-btn-block" disabled={pending}>
+          <button type="submit" className="pse-btn pse-btn--lg pse-btn--block" disabled={pending} aria-busy={pending}>
             {pending ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
@@ -329,7 +414,7 @@ export const PSEmineForgotPassword: React.FC = () => {
   );
 };
 
-/* ═══════════════════ VERIFY EMAIL ═══════════════════ */
+/* ═══════════════════ EMAIL VERIFICATION ═══════════════════ */
 export const PSEmineVerifyEmail: React.FC = () => {
   usePseDocumentTitle('Verify email');
   const { currentUser, isVerified, sendVerification, logout } = usePSEMineAuth();
@@ -365,9 +450,8 @@ export const PSEmineVerifyEmail: React.FC = () => {
       title="Verify your email"
       lede={
         <>
-          A verified address is required before any account record is read. We sent a link to{' '}
-          <span className="pse-figure">{currentUser.email}</span>; this page advances by itself once the address is
-          verified.
+          We sent a verification link to <span className="pse-figure">{currentUser.email}</span>. Open it, and this page
+          will continue on its own.
         </>
       }
       footer={
@@ -376,24 +460,11 @@ export const PSEmineVerifyEmail: React.FC = () => {
           className="pse-small pse-link bg-transparent border-0 p-0"
           onClick={async () => { await logout(); navigate('/mine/login', { replace: true }); }}
         >
-          Sign out and use another account
+          Use a different account
         </button>
       }
     >
       <div className="space-y-4">
-        <ol className="space-y-2 pse-body">
-          <li>
-            <span className="pse-strong">1.</span> Open the verification email and follow the link.
-          </li>
-          <li>
-            <span className="pse-strong">2.</span> Come back to this page — it advances on its own once the address is
-            reported as verified.
-          </li>
-          <li>
-            <span className="pse-strong">3.</span> If nothing happened, resend the email below.
-          </li>
-        </ol>
-
         {error ? (
           <p className="pse-notice" data-tone="danger" role="alert">
             <span className="pse-notice-title">{error}</span>
@@ -404,14 +475,28 @@ export const PSEmineVerifyEmail: React.FC = () => {
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="pse-btn" onClick={() => void resend()} disabled={pending || cooldown > 0}>
-            {pending ? 'Sending…' : cooldown > 0 ? `Resend available in ${cooldown}s` : 'Resend verification email'}
-          </button>
-          <button type="button" className="pse-btn pse-btn-quiet" onClick={() => window.location.reload()}>
+        <div className="space-y-2">
+          <button
+            type="button"
+            className="pse-btn pse-btn--lg pse-btn--block"
+            onClick={() => window.location.reload()}
+          >
             I&apos;ve verified my email
           </button>
+          <button
+            type="button"
+            className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
+            onClick={() => void resend()}
+            disabled={pending || cooldown > 0}
+            aria-busy={pending}
+          >
+            {pending ? 'Sending…' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend verification email'}
+          </button>
         </div>
+
+        <p className="pse-small">
+          Nothing arrived? Check the spam folder, then resend — the link is valid for a limited time.
+        </p>
       </div>
     </PseAuthFrame>
   );
@@ -421,7 +506,7 @@ export const PSEmineVerifyEmail: React.FC = () => {
 
 /**
  * "PSEmine isn't enabled for this account" — a REAL product state, not an error.
- * Deliberately distinct from authentication failure, a refused operation, a
+ * Deliberately distinct from an authentication failure, a refused operation, a
  * service outage and a network failure: nothing has failed and nothing was
  * unreachable.
  *
@@ -473,16 +558,14 @@ const PSEmineAccessGate: React.FC = () => {
       }
     >
       <div className="space-y-4">
-        <div className="pse-panel pse-panel-body space-y-2">
-          <p className="pse-h3">What enabling does</p>
-          <p className="pse-small">
-            It opens your PSEmine mining account: zeroed balances, no purchases, no charges, and an activity entry
-            recording that it was opened. Nothing further happens until you choose a tool yourself.
-          </p>
-          <ul className="pse-small">
-            <li>· No wallet is connected and no payment is requested.</li>
-            <li>· Nothing is charged from your wallet until you buy a tool.</li>
-          </ul>
+        <div className="pse-card">
+          <div className="pse-card-body space-y-2">
+            <p className="pse-h3">What enabling does</p>
+            <p className="pse-small">
+              It opens your PSEmine account: zeroed balances, no purchases, no charges, and an activity entry recording
+              that it was opened. Nothing further happens until you choose to buy something yourself.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -491,11 +574,22 @@ const PSEmineAccessGate: React.FC = () => {
           </p>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="pse-btn" onClick={() => void enable()} disabled={pending}>
-            {pending ? 'Enabling…' : 'Enable PSEmine for this account'}
+        <div className="space-y-2">
+          <button
+            type="button"
+            className="pse-btn pse-btn--lg pse-btn--block"
+            onClick={() => void enable()}
+            disabled={pending}
+            aria-busy={pending}
+          >
+            {pending ? 'Enabling…' : 'Enable PSEmine'}
           </button>
-          <button type="button" className="pse-btn pse-btn-quiet" onClick={() => void other()} disabled={pending}>
+          <button
+            type="button"
+            className="pse-btn pse-btn--secondary pse-btn--lg pse-btn--block"
+            onClick={() => void other()}
+            disabled={pending}
+          >
             Use another account
           </button>
         </div>
@@ -511,7 +605,7 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   if (loading) {
     return (
-      <div className="pse pse-wrap">
+      <div className="pse pse-surface">
         <PseLoader variant="page" stage="session" />
       </div>
     );

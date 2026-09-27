@@ -7,23 +7,20 @@ import { PseLoader } from '../../components/psemine/PseLoader';
 /**
  * /mine entry gate.
  *
- * Resolves the destination before rendering either the public brief or the
- * console: while the session is restoring it shows a loading line, a signed-out
- * visitor gets the public page, and a signed-in account is pushed through the
- * protected route into the console. Routing logic only — no presentation.
+ * Resolves the destination before rendering either the public page or the
+ * console: while the session is restoring it shows the product loader (the real
+ * `session` state), a signed-out visitor gets the public page, and a signed-in
+ * account is pushed through the protected route into the console.
+ *
+ * Routing logic only — no presentation.
  */
 export const PSEMineEntry: React.FC = () => {
   const { currentUser, loading } = usePSEMineAuth();
 
-  // The real stage: the session Firebase already holds is being restored. The
-  // loader states that, and escalates if it takes too long, rather than showing a
-  // spinner that could hang forever.
   if (loading) {
     return (
-      <div className="pse pse-surface min-h-screen">
-        <div className="pse-wrap">
-          <PseLoader variant="page" stage="session" />
-        </div>
+      <div className="pse pse-surface pse-center-screen">
+        <PseLoader variant="page" stage="session" />
       </div>
     );
   }

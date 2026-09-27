@@ -1,213 +1,111 @@
 /**
  * The PSEmine authentication frame.
  *
- * ONE shell for every PSEmine authentication surface — sign in, sign up, password
- * reset, email verification and the access gate — so a person moving from
- * "create account" to "verify email" to "enable PSEmine" stays inside one product
- * rather than meeting three unrelated forms.
+ * ONE shell for every PSEmine authentication surface — sign in, create account,
+ * password reset, email verification, access gate — so a person moving from
+ * "create account" to "verify email" stays inside one product rather than
+ * meeting three unrelated forms.
  *
- * COMPOSITION (desktop): a briefing column that states what PSEmine is and the
- * real terms of the campaign, then the working column carrying the task. Below
- * 1024px the briefing collapses to a compact masthead above the form and the same
- * terms below it, so a phone gets the identity and the terms without a wall of
- * text before the first input.
+ * COMPOSITION — one column, one axis.
  *
- * COPY RULE — the interface speaks about the product, never about the system.
- * Removed here: every sentence explaining how the product is architected, which
- * account is shared with what, how access is resolved, or which internal product
- * a visitor is "inside". A person does not need the implementation to sign in.
+ *   slim bar:  [ PSEmine ]                              About PSEmine
+ *   ─────────────────────────────────────────────────────────────────
+ *              (vertically centred)
+ *                     Sign in
+ *                     one line of supporting copy
+ *                     [ field ]
+ *                     [ field ]
+ *                     [ primary action ]
+ *                     secondary action
+ *                     ────────  or  ────────
+ *                     alternate provider
+ *                     cross-link to the sibling surface
+ *   ─────────────────────────────────────────────────────────────────
+ *                     security reassurance
  *
- * Every fact is REAL: campaign status, duration and the purchase/mining/referral
- * flags come from the server's public campaign contract
- * (`GET /api/mine/campaign/status`); prices, rates and ceilings come from the
- * locked economics in src/types/psemine.ts (the frontend mirror of
- * api/psemine_core.py). When the campaign cannot be read, the frame says so and
- * offers a retry — it never prints a default status as though it were live.
+ * There is deliberately NO secondary visual panel. A panel wide enough to be
+ * worth its space would have to carry product marketing to fill it — and a
+ * sign-in page must contain only authentication.
+ * Everything previously printed beside the form (campaign status and duration,
+ * purchase window, the tool tier range, the capacity and referral ceilings) has
+ * been REMOVED and now lives on the landing page, where it belongs.
+ *
+ * AUTHENTICATION CONTENT CONTRACT (enforced here)
+ *   allowed ·  identity, welcome copy, fields, password control, primary and
+ *              secondary actions, cross-navigation, loading/error/success state,
+ *              one concise security reassurance
+ *   banned  ·  wallet balance, mining capacity, tool marketplace, campaign
+ *              statistics, referral information, earnings, platform metrics,
+ *              internal architecture, access/entitlement explanations
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS } from '../../types/psemine';
-import { campaignStatusView, gbp, gbpHour } from './pseCore';
 import { PSEmineLogo } from './PSEBrand';
-import { usePublicCampaign } from './psePublicCampaign';
 
-const TOOLS = Object.values(LOCKED_PSEMINE_TOOLS).sort((a, b) => a.displayOrder - b.displayOrder);
-const PRICE_FROM = Math.min(...TOOLS.map(t => t.purchasePriceGBP));
-const PRICE_TO = Math.max(...TOOLS.map(t => t.purchasePriceGBP));
-
-/**
- * The campaign's real terms. Rendered twice (briefing column and, compact, under
- * the form on small screens) from one component, so the two can never disagree.
- */
-export const PseAuthFacts: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { campaign, loading, refreshing, error, refresh } = usePublicCampaign();
-  const status = campaignStatusView(campaign?.status);
-  const duration = campaign?.durationDays ?? PSEMINE_CONSTANTS.CAMPAIGN_DURATION_DAYS;
-  const purchaseOpen =
-    campaign?.purchaseEnabled === true && campaign?.status !== 'closed' && campaign?.status !== 'archived';
-
-  /** One row. `value` is a node so a row can carry a retry control. */
-  const Row: React.FC<{ term: string; value: React.ReactNode }> = ({ term, value }) => (
-    <div className="pse-auth-fact">
-      <dt className="pse-auth-fact-key">{term}</dt>
-      <dd className="pse-auth-fact-val">{value}</dd>
-    </div>
-  );
-
-  return (
-    <dl className={`pse-auth-facts ${className}`}>
-      <Row
-        term="Campaign"
-        value={
-          loading ? (
-            <span>Reading…</span>
-          ) : error ? (
-            <span className="inline-flex flex-wrap items-center justify-end gap-2">
-              Not available
-              <button
-                type="button"
-                onClick={() => void refresh()}
-                disabled={refreshing}
-                className="pse-btn pse-btn-quiet pse-btn-sm"
-              >
-                {refreshing ? 'Retrying…' : 'Retry'}
-              </button>
-            </span>
-          ) : (
-            <span>
-              {status.label} · {duration} days
-            </span>
-          )
-        }
-      />
-      <Row
-        term="Purchase window"
-        value={
-          loading ? (
-            <span>Reading…</span>
-          ) : error ? (
-            <span>Not available</span>
-          ) : (
-            <span>{purchaseOpen ? 'Open while active' : 'Closed'}</span>
-          )
-        }
-      />
-      <Row
-        term="Mining tools"
-        value={
-          <span>
-            {TOOLS.length} tiers · {gbp(PRICE_FROM)}–{gbp(PRICE_TO)}
-          </span>
-        }
-      />
-      <Row term="Capacity ceiling" value={<span>{gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}</span>} />
-      <Row
-        term="Referral capacity"
-        value={
-          <span>
-            {gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} × {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS}
-          </span>
-        }
-      />
-      <Row
-        term="Payment · payout"
-        value={
-          <span className="pse-asset">
-            <span className="pse-asset-dot" aria-hidden="true" />
-            {PSEMINE_CONSTANTS.PAYMENT_NETWORK_NAME}
-          </span>
-        }
-      />
-    </dl>
-  );
-};
+/** A small lock. Meaningful, not decorative — it marks the reassurance line. */
+const LockGlyph: React.FC = () => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <rect x="2.5" y="6" width="9" height="6.5" rx="1.75" stroke="currentColor" strokeWidth="1.2" />
+    <path d="M5 6V4.25a2 2 0 1 1 4 0V6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+);
 
 export const PseAuthFrame: React.FC<{
-  /** The task this surface performs. Rendered as the working column's heading. */
+  /** The task this surface performs. */
   title: string;
-  /** One truthful sentence about what this surface is for. */
+  /** One truthful line about what this surface is for. */
   lede: React.ReactNode;
   children: React.ReactNode;
   /** Cross-links to the sibling surfaces, under the form. */
   footer?: React.ReactNode;
   /**
-   * `page` — a standalone full-page surface with the campaign briefing beside it
-   * (sign in, sign up, reset, verify).
-   * `embedded` — the same design language inside the console shell, which
-   * already provides chrome (the access gate renders inside the shell).
+   * `page` — a standalone full-page surface with its own bar (sign in, create
+   * account, reset, verify).
+   * `embedded` — the same language inside the console shell, which already
+   * provides chrome (the access gate renders inside it).
    */
   variant?: 'page' | 'embedded';
 }> = ({ title, lede, children, footer, variant = 'page' }) => {
   const isPage = variant === 'page';
+
   return (
     <div className={isPage ? 'pse pse-surface pse-auth' : 'pse pse-surface'}>
-      {/* ── Briefing column (≥1024px, standalone pages only) ──────────────── */}
       {isPage && (
-        <section className="pse-auth-brief" aria-label="About PSEmine">
-          <div className="pse-auth-brief-inner">
-            <Link to="/mine" className="inline-flex w-fit min-h-[44px] items-center">
-              <PSEmineLogo size={34} withSub />
+        <header className="pse-auth-bar">
+          <div className="pse-wrap pse-auth-bar-inner">
+            <Link to="/mine" aria-label="PSEmine home" className="inline-flex min-h-[44px] items-center">
+              <PSEmineLogo size={24} decorative />
             </Link>
-
-            <div className="space-y-4">
-              <p className="pse-micro">The instrument</p>
-              <h2 className="pse-h2">Mining capacity, held for the length of the campaign and settled in GBP.</h2>
-              <p className="pse-lead">
-                PSEmine sells mining tools for BNB. Each tool adds a fixed capacity per hour in GBP. That capacity
-                accrues campaign earnings while the campaign runs, and settled earnings are paid out in BNB to the
-                payout wallet on your account.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <p className="pse-micro">Campaign terms</p>
-              <PseAuthFacts />
-            </div>
+            <Link to="/mine" className="pse-mast-link">
+              About PSEmine
+            </Link>
           </div>
-
-          <div className="pse-auth-brief-inner">
-            <p className="pse-small pse-links">
-              <Link to="/mine" className="pse-link">What PSEmine is</Link>
-              <Link to="/mine/guide" className="pse-link">Campaign guide</Link>
-              <Link to="/terms" className="pse-link">Terms</Link>
-              <Link to="/privacy" className="pse-link">Privacy</Link>
-            </p>
-          </div>
-        </section>
+        </header>
       )}
 
-      {/* ── Working column ────────────────────────────────────────────────── */}
-      <section className={isPage ? 'pse-auth-panel' : 'pse-auth-panel min-h-[70vh]'}>
-        <div className="pse-auth-panel-inner">
-          {/* Compact masthead: on small screens it carries the identity the
-              briefing column shows on desktop; embedded surfaces already have
-              the shell's chrome. */}
-          {isPage && (
-            <div className="flex items-center justify-between gap-4 lg:hidden">
-              <Link to="/mine" className="inline-flex min-h-[44px] items-center">
-                <PSEmineLogo size={30} withSub />
-              </Link>
-              <Link to="/mine" className="pse-small pse-link inline-flex min-h-[44px] items-center">
-                About PSEmine
-              </Link>
-            </div>
-          )}
-
-          <header className="space-y-2">
-            <h1 className="pse-h2">{title}</h1>
-            <p className="pse-body">{lede}</p>
+      <main className={isPage ? 'pse-auth-main' : 'pse-wrap py-14'}>
+        <div className="pse-auth-col mx-auto w-full">
+          <header>
+            <h1 className="pse-auth-title">{title}</h1>
+            <p className="pse-auth-sub">{lede}</p>
           </header>
 
-          {children}
+          <div className="mt-7">{children}</div>
 
-          {footer && <div className="pt-1">{footer}</div>}
+          {footer && <div className="mt-5">{footer}</div>}
 
-          <div className={`space-y-3 pt-2 ${isPage ? 'lg:hidden' : ''}`}>
-            <p className="pse-micro">Campaign terms</p>
-            <PseAuthFacts />
-          </div>
+          {isPage && (
+            <div className="pse-auth-foot">
+              <p className="pse-reassure">
+                <LockGlyph />
+                <span>
+                  PSEmine never asks for your private key or seed phrase, and never holds your funds.
+                </span>
+              </p>
+            </div>
+          )}
         </div>
-      </section>
+      </main>
     </div>
   );
 };

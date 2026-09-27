@@ -164,6 +164,21 @@ const Notifications: React.FC = () => {
         meta={
           <span>
             {unreadNotifications} unread ·{' '}
+            {unreadNotifications > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    // Bulk mark-read, preserved from the purged notification bell.
+                    notifications.forEach(n => { if (!n.read) void markNotificationRead(n.id); });
+                  }}
+                >
+                  Mark all read
+                </button>
+                {' · '}
+              </>
+            )}
             <button type="button" className="underline" onClick={() => void refreshFeed('notifications')}>
               Refresh
             </button>

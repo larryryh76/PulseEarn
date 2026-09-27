@@ -228,10 +228,13 @@ export const PSEMineWallet: React.FC = () => {
           <PseTable head={['Requested', 'Status', 'Amount', 'Destination', 'Transaction']}>
             {withdrawals.map(w => {
               const view = payoutStatusView(w.status);
+              // The backend has reported both spellings across versions; tolerate
+              // either rather than showing a blank amount (merged from remote).
               const amount = typeof w.amountGBP === 'number' ? w.amountGBP
-                : typeof w.amountMinor === 'number' ? w.amountMinor / 100
-                  : typeof w.requestedAmountGBP === 'number' ? w.requestedAmountGBP : null;
-              const dest = w.destinationWallet || w.payoutWallet;
+                : typeof w.amountGbp === 'number' ? w.amountGbp
+                  : typeof w.amountMinor === 'number' ? w.amountMinor / 100
+                    : typeof w.requestedAmountGBP === 'number' ? w.requestedAmountGBP : null;
+              const dest = w.destinationWallet || w.payoutWallet || w.payoutAddress;
               const tx = w.payoutTxHash || w.transactionHash;
               return (
                 <PseRow key={w.id}>
@@ -309,8 +312,13 @@ function PayoutRequestSection({ blocked, pending, availableMinor, payoutWallet, 
               e.preventDefault();
               const v = parseFloat(amount);
               if (!Number.isFinite(v) || v < PAYOUT_REQUEST_MIN_GBP) { toast.error('Minimum payout request is £10.00.'); return; }
+              // The backend rejects an over-request; fail here first so the user is
+              // told before a round trip (merged from remote).
+              if (v > availableGBP) { toast.error(`Maximum payout request is ${gbp(availableGBP)}.`); return; }
               setBusy(true);
-              try { await onSubmit(v); } finally { setBusy(false); setAmount(''); }
+              // Keep the typed amount when the request did not succeed, so a
+              // rejected request never silently clears what the user entered.
+              try { if (await onSubmit(v)) setAmount(''); } finally { setBusy(false); }
             }}
             className="flex flex-wrap items-end gap-2"
           >

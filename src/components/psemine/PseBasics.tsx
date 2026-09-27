@@ -203,6 +203,19 @@ export const PseConfirm: React.FC<{
 }> = ({ open, title, consequence, affected, confirmLabel = 'Confirm', danger, busy, requireText, onConfirm, onCancel }) => {
   const [typed, setTyped] = React.useState('');
   React.useEffect(() => { if (!open) setTyped(''); }, [open]);
+  // Escape must dismiss the dialog (unless it is mid-action) and the operator's
+  // focus must return where it was — the dismissal behaviour the previous dialog
+  // carried is preserved here (merged from remote).
+  React.useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busy) onCancel(); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, [open, busy, onCancel]);
   if (!open) return null;
   const typedOk = !requireText || typed.trim().toLowerCase() === requireText.trim().toLowerCase();
   return (

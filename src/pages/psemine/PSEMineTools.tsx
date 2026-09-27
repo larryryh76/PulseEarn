@@ -68,10 +68,10 @@ export const PSEMineTools: React.FC = () => {
 
   const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
   const purchaseOpen = campaign?.purchaseEnabled !== false && campaign?.status === 'active';
-  const ownedTools = useMemo(
-    () => (state?.tools ?? []).filter(t => ['active', 'cycle_complete', 'maintenance_required', 'restarting'].includes(String(t.status))),
-    [state?.tools],
-  );
+  // Every ownership the backend reports is listed: filtering to "operating"
+  // statuses hid settling/ended tools and under-reported equipment (merged from
+  // remote, which found the same defect).
+  const ownedTools = useMemo(() => state?.tools ?? [], [state?.tools]);
 
   const toolCapacity = state?.user?.toolCapacityGBPPerHour ?? pseUser?.toolCapacityGBPPerHour ?? 0;
   const totalCapacity = state?.user?.totalCapacityGBPPerHour ?? pseUser?.totalCapacityGBPPerHour ?? 0;
@@ -204,7 +204,7 @@ export const PSEMineTools: React.FC = () => {
         </p>
       </PseSection>
 
-      <PseSection title="Your equipment" meta={`${ownedTools.length} operating record${ownedTools.length === 1 ? '' : 's'}`}>
+      <PseSection title="Your equipment" meta={`${ownedTools.length} ownership record${ownedTools.length === 1 ? '' : 's'}`}>
         {ownedTools.length === 0 ? (
           <PseEmptyNote>No tools are owned on this account yet.</PseEmptyNote>
         ) : (

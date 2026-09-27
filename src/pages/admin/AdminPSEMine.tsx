@@ -161,15 +161,15 @@ export const AdminPSEMine: React.FC = () => {
       });
       return;
     }
-    setResolving(withdrawalId + action);
-    try {
-      await submitWithdrawalReview(withdrawalId, action, txHash);
-    } finally { setResolving(null); }
+    // Busy state is owned by submitWithdrawalReview so the confirmed REJECT path
+    // shows it too (merged from remote).
+    await submitWithdrawalReview(withdrawalId, action, txHash);
   };
 
   /** Shared reviewer call — contract unchanged: {action:'APPROVE', txHash} or
    *  {action:'REJECT'}; success only on backend confirmation. */
   const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
+    setResolving(withdrawalId + action);
     try {
       const token = await currentUser?.getIdToken();
       const res = await fetch(`/api/admin/psemine/withdrawals/${encodeURIComponent(withdrawalId)}/review`, {
@@ -184,6 +184,10 @@ export const AdminPSEMine: React.FC = () => {
       } else {
         toast.error(data.error || data.message || `Payout ${action.toLowerCase()} failed.`);
       }
+    } catch (error) {
+      // A network/parse failure must surface as a failed review, not silence.
+      // (merged from remote)
+      toast.error(error instanceof Error && error.message ? error.message : `Payout ${action.toLowerCase()} failed.`);
     } finally {
       setResolving(null);
     }

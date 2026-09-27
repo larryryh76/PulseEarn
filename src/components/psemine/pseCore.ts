@@ -39,6 +39,7 @@ export const CAMPAIGN_STATUS_MAP: Record<string, { label: string; detail: string
   scheduled: { label: 'Scheduled', detail: 'Mining begins when the campaign goes live.', live: false },
   active: { label: 'Active', detail: 'Tools are operating and accruing on schedule.', live: true },
   paused: { label: 'Paused', detail: 'Accrual is paused network-wide. It resumes when the campaign resumes.', live: false },
+  ended: { label: 'Mining ended', detail: 'Accrual has stopped. The campaign has not yet reported settlement completion.', live: false },
   settling: { label: 'Settling', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
   payout: { label: 'Payout', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
   closed: { label: 'Closed', detail: 'The campaign has finished. Balances were settled.', live: false },

@@ -149,7 +149,7 @@ export const PSEMineDashboard: React.FC = () => {
 
       <PseSection title="Earnings and capacity">
         <dl className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-          {[
+          {([
             ['Accrued (campaign)', gbp(user.accruedGBP)],
             ['Settlement-available', availableStr],
             ['Checkpoint accrued', gbp(checkpointEarned / 100)],
@@ -157,8 +157,12 @@ export const PSEMineDashboard: React.FC = () => {
             ['Referral capacity', gbpHour(referralCapacity)],
             ['Total capacity', gbpHour(totalCapacity)],
             ['Qualified referrals', `${referralQualified}`],
-            ['Payout wallet', user.payoutWallet || 'Not set'],
-          ].map(([k, v]) => (
+            // A missing payout wallet blocks settlement, so the prompt goes to the
+            // page that can fix it instead of a dead end (merged from remote).
+            ['Payout wallet', user.payoutWallet
+              ? user.payoutWallet
+              : <Link to="/mine/wallet" className="underline">Set your payout wallet</Link>],
+          ] as Array<[string, React.ReactNode]>).map(([k, v]) => (
             <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">
               <dt className="text-sm text-text-secondary">{k}</dt>
               <dd className="text-sm text-text-primary">{v}</dd>
@@ -172,6 +176,12 @@ export const PSEMineDashboard: React.FC = () => {
       </PseSection>
 
       <PseSection title="Your tools" meta={`${tools.length} owned`}>
+        {!isMiningLive && needsMaintenance.length > 0 && (
+          <PseNotice tone="attention">
+            {needsMaintenance.length} tool{needsMaintenance.length === 1 ? '' : 's'} finished a mining session, but
+            mining is not live ({view.label.toLowerCase()}) — restarts are closed until the campaign is active again.
+          </PseNotice>
+        )}
         {tools.length === 0 ? (
           <PseEmptyNote>
             No tools yet. {purchaseOpen ? <>Browse the <Link to="/mine/tools" className="underline">tool catalogue</Link> to begin.</> : 'Purchases are closed for the current campaign status.'}
@@ -186,9 +196,14 @@ export const PSEMineDashboard: React.FC = () => {
               const remaining = running && !continuous ? remainingFrom(tool.cycleEndsAt, nowMs()) : null;
               const restarting = tool.cycleState === 'restarting';
               const restartEta = restarting ? remainingFrom(tool.restartResumesAt, nowMs()) : null;
-              const canMaintain = tool.maintenanceRequired === true
+              // Restart is only offered while mining is actually live: a restart
+              // prompt during a paused/settled campaign is a dead end (merged
+              // from remote).
+              const canMaintain = isMiningLive && (
+                tool.maintenanceRequired === true
                 || tool.cycleState === 'cycle_complete'
-                || tool.cycleState === 'maintenance_required';
+                || tool.cycleState === 'maintenance_required'
+              );
               return (
                 <PseRow key={tool.id}>
                   <PseCell>{toolName(tool)}</PseCell>

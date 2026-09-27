@@ -138,8 +138,8 @@ export async function fetchPseState(): Promise<PseState> {
 /* ── Payout history ──────────────────────────────────────────────────── */
 
 export interface PseWithdrawal {
-  id: string; status?: string; amountGBP?: number; amountMinor?: number; requestedAmountGBP?: number;
-  destinationWallet?: string; payoutWallet?: string; payoutTxHash?: string | null; transactionHash?: string | null;
+  id: string; status?: string; amountGBP?: number; amountGbp?: number; amountMinor?: number; requestedAmountGBP?: number;
+  destinationWallet?: string; payoutWallet?: string; payoutAddress?: string; payoutTxHash?: string | null; transactionHash?: string | null;
   createdAt?: string; updatedAt?: string; processedAt?: string | null; reviewNotes?: string | null;
 }
 export async function fetchMyWithdrawals(): Promise<PseWithdrawal[]> {

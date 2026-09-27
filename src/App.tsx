@@ -144,6 +144,7 @@ const AppLayout: React.FC = () => {
   );
 };
 
+/** Mounts application routes, shared services, and the providers for each product. */
 function App() {
   return (
     <BrowserRouter>
@@ -251,8 +252,8 @@ function App() {
 
         <Route path="/admin" element={<OpsRoute><Navigate to="/admin/overview" replace /></OpsRoute>} />
         <Route path="/admin/overview" element={<OpsRoute><OpsLayout><AdminOverview /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/mine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
-        <Route path="/admin/psemine" element={<OpsRoute><OpsLayout><AdminPSEMine /></OpsLayout></OpsRoute>} />
+        <Route path="/admin/mine" element={<OpsRoute><OpsLayout><PSEMineProvider><AdminPSEMine /></PSEMineProvider></OpsLayout></OpsRoute>} />
+        <Route path="/admin/psemine" element={<OpsRoute><Navigate to="/admin/mine" replace /></OpsRoute>} />
                <Route path="/admin/marketplace" element={<OpsRoute><OpsLayout><AdminMarketplace /></OpsLayout></OpsRoute>} />
         <Route path="/admin/validation" element={<OpsRoute><OpsLayout><AdminValidation /></OpsLayout></OpsRoute>} />
         <Route path="/admin/ledger" element={<OpsRoute><OpsLayout><AdminLedger /></OpsLayout></OpsRoute>} />

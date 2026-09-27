@@ -2,6 +2,7 @@ export type PSEMineCampaignStatus =
   | 'scheduled'
   | 'active'
   | 'paused'
+  | 'ended'
   | 'settling'
   | 'payout'
   | 'closed'

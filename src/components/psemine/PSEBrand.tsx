@@ -1,105 +1,121 @@
 /**
- * PSEmine brand identity.
+ * PSEmine brand identity — the recovered mark.
  *
- * One mark, one wordmark, one monochrome treatment — no competing identities.
+ * RECOVERED, NOT INVENTED. This is the faceted PSE emblem that was live across
+ * the shell, the console, the public page and the authentication family
+ * immediately before the first design purge (commit 38d7a5f,
+ * `src/components/psemine/PSEBrand.tsx`, re-exported by `pse.tsx`). The geometry
+ * below is that emblem's geometry, unchanged: five facets cut on one diagonal —
+ * a blue blade, a light upper facet, a steel side facet, a dark inner notch and
+ * a cyan crest. The identity is the facet arrangement, so it is preserved
+ * exactly rather than redrawn.
  *
- * The mark is a refinement of the faceted PSE emblem that preceded the design
- * purge. The old emblem tried to spell three letters in five overlapping facets
- * and stopped resolving below ~28px. What was worth keeping is its best idea:
- * a machined plate seen in elevation, cut on a 45° shear. That idea is kept and
- * the letterforms are dropped.
+ * What changed is technical, not visual:
  *
- *   The ore plate — a rounded plate with a chamfered top-right corner holding
- *   three ascending capacity bars, each cut on the same 45° shear as the
- *   corner. One angle, used four times.
+ *   1. COLOUR IS A TOKEN, NOT A HEX. The original hard-coded a dark-mode
+ *      palette (bone #EDEEEC, cut #0F0F12), which disappeared on a light
+ *      surface. Each facet now reads a `--pse-brand-*` token that src/styles/
+ *      psemine.css resolves per theme, so the same drawing works on paper and on
+ *      ink without a second mark.
+ *   2. ONE ACCESSIBLE TREATMENT. `decorative` now emits `aria-hidden` instead of
+ *      an empty `role="img"` label; `tone="mono"` renders the whole emblem in
+ *      one colour with the facets separated by opacity, so it survives print,
+ *      engraving and disabled states.
+ *   3. IT COMPOSES. The mark is one SVG on a 48×48 grid with a 0.75 stroke at
+ *      scale, so hero, auth, navigation, mobile and favicon all use the same
+ *      drawing at different sizes — never a competing second mark.
  *
- * What it reads as, in order of importance: a measured quantity rising inside a
- * bounded vessel. Capacity, controlled growth, a gauge — the product's actual
- * model (tools → capacity → campaign earnings). It stays legible as a single
- * 16px glyph because it is three shapes and one outline, with a 1.8px plate
- * stroke at every size.
- *
- * What it deliberately is not: a pickaxe, a coin, a banknote, a lightning bolt,
- * an arrow, an AI sparkle, a shield, a claim about returns. No gradient, no glow
- * and no shadow — the mark is flat, so it survives being printed, favicon-scaled
- * and rendered in monochrome.
- *
- * Colours come from the PSEmine tokens in src/styles/psemine.css (never raw
- * hex here): the plate is `currentColor`, the capacity bars are `--pse-accent`.
+ * The wordmark is set in the product's own type roles (see DESIGN_SYSTEM.md):
+ * the name in the interface family, the descriptor in the figure family, because
+ * it describes terms rather than decoration.
  */
 import React from 'react';
 
-/** Geometry on a 32×32 grid. `animated` maps the bars to the loader's pulse. */
-const PLATE_PATH =
-  'M3 26.5V5.5A2.5 2.5 0 0 1 5.5 3h14L29 12.5v14a2.5 2.5 0 0 1-2.5 2.5h-21A2.5 2.5 0 0 1 3 26.5Z';
-
 /**
- * The three capacity bars: rising heights, tops sheared at 45°. Shared with the
- * loader so the animated mark and the static mark can never drift apart.
+ * The emblem's facets on a 48×48 grid, in draw order. Exported so the favicon
+ * asset and the in-app mark can be generated from one definition instead of two
+ * that drift apart.
  */
-export const PSE_MARK_BARS: readonly string[] = [
-  'M9.5 26.4V20.6l3-3v8.8Z',
-  'M14.5 26.4V16l3-3v13.4Z',
-  'M19.5 26.4V11l3-3v18.4Z',
+export const PSE_MARK_FACETS: ReadonlyArray<{ d: string; token: string; opacity?: number }> = [
+  /* Blade — the primary facet, and the one that carries the mark's direction. */
+  { d: 'M8 8L20 4V34L8 42V8Z', token: '--pse-brand-blade' },
+  /* Upper facet — the light plane that gives the emblem its machined read. */
+  { d: 'M22 4L38 12L42 16L22 24V4Z', token: '--pse-brand-top' },
+  /* Side facet — the receding plane, always the quietest of the three solids. */
+  { d: 'M22 24L42 16L36 30L22 34V24Z', token: '--pse-brand-side' },
+  /* Inner notch — cut back to the surface colour, so it reads as a void. */
+  { d: 'M22 10L32 15L22 20V10Z', token: '--pse-brand-cut' },
+  /* Crest — the capacity facet. The only facet that ever carries state. */
+  { d: 'M22 37L32 32L36 35L22 44V37Z', token: '--pse-brand-crest' },
 ];
 
 export type PseMarkTone = 'brand' | 'mono';
 
 /**
- * The glyph on its own. Use for favicons, avatars, dense chrome and anywhere the
- * wordmark would wrap. `tone="mono"` renders the whole mark in one colour for
- * single-colour contexts (print, engraving, disabled states).
+ * The emblem on its own: favicons, dense chrome, avatars and anywhere the
+ * wordmark would wrap.
+ *
+ * `live` pulses the crest facet — the one facet that represents capacity — so
+ * the mark can indicate a running campaign. It is state indication, not
+ * decoration, and it is disabled under `prefers-reduced-motion`.
  */
 export const PSEmineMark: React.FC<{
   size?: number;
   tone?: PseMarkTone;
-  /** Pulses the capacity bars in sequence. Indeterminate state indication only. */
-  animated?: boolean;
+  /** Marks a running campaign by pulsing the capacity facet. */
+  live?: boolean;
+  /** Accessible name. Ignored when `decorative`. */
   title?: string;
+  /** The surrounding control already names the product. */
+  decorative?: boolean;
   className?: string;
-}> = ({ size = 32, tone = 'brand', animated = false, title = 'PSEmine', className }) => {
-  const barFill = tone === 'mono' ? 'currentColor' : 'var(--pse-accent, #0b6e7f)';
+}> = ({ size = 32, tone = 'brand', live = false, title = 'PSEmine', decorative = false, className }) => {
+  const labelled = !decorative && Boolean(title);
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 48 48"
       fill="none"
       className={`pse-mark-glyph ${className || ''}`}
-      role="img"
-      aria-label={title}
+      role={labelled ? 'img' : undefined}
+      aria-label={labelled ? title : undefined}
+      aria-hidden={labelled ? undefined : true}
+      focusable="false"
     >
-      <path d={PLATE_PATH} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      {PSE_MARK_BARS.map((d, i) => (
-        <path
-          key={d}
-          d={d}
-          fill={barFill}
-          className={animated ? `pse-loader-cap ${i > 0 ? `pse-loader-cap-${i + 1}` : ''}` : undefined}
-        />
-      ))}
+      {PSE_MARK_FACETS.map((facet, i) => {
+        const isCrest = i === PSE_MARK_FACETS.length - 1;
+        return (
+          <path
+            key={facet.d}
+            d={facet.d}
+            fill={tone === 'mono' ? 'currentColor' : `var(${facet.token})`}
+            opacity={tone === 'mono' ? (isCrest ? 0.55 : i === 2 ? 0.38 : i === 3 ? 1 : 0.8) : facet.opacity}
+            className={isCrest && live && tone === 'brand' ? 'pse-mark-crest-live' : undefined}
+          />
+        );
+      })}
     </svg>
   );
 };
 
 /**
- * Mark + wordmark. Renders as a `<span>`; wrap it in a `Link` where it needs to
- * navigate, so the component stays usable inside buttons and headings too.
+ * Mark plus wordmark. Renders as a `<span>`, so wrap it in a `Link` where it
+ * needs to navigate and it still works inside buttons and headings.
  *
- * The sub-line is a product descriptor, not a claim: PSEmine is a campaign
- * product, and its own campaign length comes from the locked economics, so the
- * descriptor never states a number here.
+ * The descriptor is a product statement, never a figure or a claim — which is
+ * why it does not repeat the campaign length here.
  */
 export const PSEmineLogo: React.FC<{
   size?: number;
   tone?: PseMarkTone;
   withSub?: boolean;
-  /** Hidden from AT when the surrounding control already names the product. */
+  live?: boolean;
   decorative?: boolean;
   className?: string;
-}> = ({ size = 30, tone = 'brand', withSub = false, decorative = false, className }) => (
+}> = ({ size = 30, tone = 'brand', withSub = false, live = false, decorative = false, className }) => (
   <span className={`pse-mark ${className || ''}`}>
-    <PSEmineMark size={size} tone={tone} title={decorative ? '' : 'PSEmine'} />
+    <PSEmineMark size={size} tone={tone} live={live} decorative={decorative} />
     <span className="pse-wordmark">
       <span className="pse-wordmark-name">PSEmine</span>
       {withSub && <span className="pse-wordmark-sub">Campaign mining</span>}

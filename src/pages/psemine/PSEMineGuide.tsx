@@ -46,8 +46,8 @@ const RULES: Array<{ title: string; body: string }> = [
     body: `Accrual runs while the campaign is active and stops when it ends. Balances settle after the campaign, then payout requests open for settled amounts (minimum ${gbp(10)}), paid in BNB to the payout wallet configured on your account, after review. Accrued earnings are not withdrawable before settlement finalises them.`,
   },
   {
-    title: 'Separate products',
-    body: 'PSEmine and PulseEarn share one sign-in identity and nothing else. PSEmine keeps its own tools, GBP accounting, ledger, activity and payouts; product access is explicit and PSEmine data is never read for an account that is not enrolled.',
+    title: 'Your account',
+    body: 'Your PSEmine account holds its own tools, GBP accounting, activity and payouts. Signing in is the only step shared with anything else; everything you buy, accrue and withdraw belongs to PSEmine and is recorded against your account.',
   },
 ];
 

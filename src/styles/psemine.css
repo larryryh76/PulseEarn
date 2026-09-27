@@ -1,133 +1,131 @@
 /* ============================================================================
-   PSEmine — product visual layer (Phase 1: brand · loader · auth · landing)
-   ============================================================================
+ * PSEmine — the product's own visual layer.
+ *
+ * SCOPE: every rule here is nested under `.pse`, which the PSEmine shell and the
+ * PSEmine surfaces apply. Nothing in this file reaches the rest of the
+ * application: the app theme lives in src/index.css and stays untouched, so
+ * PulseEarn is unaffected by anything below.
+ *
+ * DIRECTION — "the instrument". PSEmine sells a bounded, dated earning
+ * instrument, so it is presented the way a serious instrument is documented:
+ * ruled, numbered, tabular and dated. Structure comes from hairline rules and a
+ * measured column, not from floating cards. Emphasis comes from scale, weight and
+ * alignment, not from colour or effects. There is one accent, and it is reserved
+ * for interaction and live state; there is one capacity colour, and it is
+ * reserved for capacity data. Nothing glows, nothing is glass, nothing is a
+ * gradient.
+ *
+ * TWO TYPE ROLES, never mixed:
+ *   • interface + language  → Inter (--pse-font)
+ *   • data + labels + codes → JetBrains Mono with tabular figures (--pse-mono)
+ * Every number a user reads — rates, prices, dates, day counts, addresses,
+ * hashes, clause indexes — is set in the figure family, so figures line up
+ * column-wise the way they do in a document of record.
+ *
+ * WHY IT IS SPECIFIC: the emblems, the crest facet, the capacity bar and the
+ * six-station rail all draw the actual mechanism (tools → capacity → time →
+ * campaign earnings → settlement → payout). There is no invented art, no
+ * mascot, no stock imagery, no chart that is not a real quantity.
+ * ========================================================================== */
 
-   WHAT THIS FILE IS
-   -----------------
-   PSEmine's own design system. It is a *product* layer, not a second app theme:
-   every rule here is scoped to `.pse` (the PSEmine surfaces), and nothing in it
-   redefines the app-wide tokens in src/index.css. PulseEarn is unaffected.
-
-   The previous PSEmine design was purged deliberately
-   (`refactor(psemine): purge legacy design implementation`). This is a rebuild
-   from scratch, one system at a time; Phase 1 owns the brand, the loader, the
-   authentication family and the public landing page only. The authenticated
-   console regions are still the minimal functional presentation.
-
-   DESIGN DIRECTION — "Capacity Ledger"
-   ------------------------------------
-   PSEmine sells measured capacity (GBP/hour) inside a dated campaign, settles in
-   GBP and pays out in BNB. The interface therefore behaves like a financial
-   instrument: ink-dominant neutrals, hairline rules instead of card stacks,
-   figures always set in mono with tabular numerals, one restrained accent that
-   marks *capacity and live state* only, and status carried by words plus colour
-   rather than colour alone.
-
-   Not: gradients, glow, glass, crypto-casino neon, decorative grids, oversized
-   type, fake machinery, fake metrics.
-
-   Palette rationale:
-     • `--pse-accent` (quarry teal) is the product's own accent. It is distinct
-       from the PulseEarn indigo (#5E6AD2) and does not collide with the app's
-       semantic status colours (success #10B981 is a full green, ~24° away).
-     • `--pse-bnb` marks the BNB payment asset and is used only as an asset
-       marker — never as a surface, never as a fill.
-     • Status colours are inherited from the app tokens, never re-invented here.
-
-   Rules for components built on this layer:
-     • no raw hex in components — use these custom properties,
-     • text ≥ 12px, body 16px, interactive targets ≥ 44px,
-     • never encode state by colour alone — pair it with a word,
-     • honour prefers-reduced-motion.
-   ========================================================================= */
-
+/* ── Tokens ─────────────────────────────────────────────────────────────────
+ * PSEmine's palette is its own. It is deliberately NOT the parent application's
+ * indigo theme: paper and ink carry the surface, the recovered brand blue carries
+ * interaction, and the recovered crest colour carries capacity.
+ * ------------------------------------------------------------------------- */
 .pse {
-  /* ── Neutral foundation: paper, panels, rules, ink ───────────────────── */
-  --pse-paper: #f2f3f4;
-  --pse-panel: #fbfbfc;
-  --pse-panel-alt: #e9ebee;
-  --pse-sunken: #e4e7ea;
+  /* Surfaces — paper in light, ink in dark. No third background. */
+  --pse-paper: #ffffff;
+  --pse-paper-2: #f6f6f3;
+  --pse-paper-3: #eceae3;
+  --pse-well: rgba(18, 22, 29, 0.035);
 
-  --pse-ink: #0b0e12;
-  --pse-ink-soft: #333c45;
-  --pse-mute: #5b646e;
-  /* Faint is the lightest tone that still clears AA (4.5:1) on the light panel
-     when used as text — it is never used for body copy, only for micro labels and
-     placeholders, and it is measured by scripts/pse-a11y-check.mjs. */
-  --pse-faint: #666f79;
+  /* Text — three steps only. */
+  --pse-ink: #12161d;
+  --pse-ink-2: #4c5462;
+  /* Label ink is darkened until it clears WCAG AA (4.5:1) on BOTH the page and
+     the band — 4.75:1 on --pse-paper-2 and 5.15:1 on --pse-paper at 11px. */
+  --pse-ink-3: #666e7b;
 
-  --pse-rule: rgba(11, 14, 18, 0.13);
-  --pse-rule-strong: rgba(11, 14, 18, 0.26);
-  --pse-hairline: rgba(11, 14, 18, 0.07);
+  /* Rules — the entire structural system. */
+  --pse-rule: rgba(18, 22, 29, 0.15);
+  --pse-rule-2: rgba(18, 22, 29, 0.075);
+  --pse-rule-strong: rgba(18, 22, 29, 0.3);
+  --pse-invert: #12161d;
+  --pse-on-invert: #ffffff;
 
-  /* ── Brand accent: capacity + live state ─────────────────────────────── */
-  --pse-accent: #0b6e7f;
-  --pse-accent-bright: #0a5d6c;
-  --pse-accent-ink: #ffffff;
-  --pse-accent-wash: rgba(11, 110, 127, 0.09);
-  --pse-accent-edge: rgba(11, 110, 127, 0.32);
+  /* Semantic — interaction and state. Never decorative. */
+  --pse-accent: #1e4fd8;
+  --pse-accent-quiet: rgba(30, 79, 216, 0.09);
+  --pse-on-accent: #ffffff;
+  --pse-capacity: #0e7c94;
+  --pse-good: #146c43;
+  --pse-warn: #8a5200;
+  --pse-danger: #b3261e;
 
-  /* ── Asset marker: BNB only ──────────────────────────────────────────── */
-  --pse-bnb: #9a7300;
+  /* Brand facets — the recovered emblem, resolved per theme. */
+  --pse-brand-blade: #2f6bff;
+  --pse-brand-top: #12161d;
+  --pse-brand-side: rgba(18, 22, 29, 0.36);
+  --pse-brand-cut: #ffffff;
+  --pse-brand-crest: #0e7c94;
 
-  /* ── Depth: one honest elevation, no glass ───────────────────────────── */
-  --pse-shadow: 0 1px 2px rgba(11, 14, 18, 0.05), 0 24px 48px -32px rgba(11, 14, 18, 0.4);
-  --pse-shadow-flat: 0 1px 2px rgba(11, 14, 18, 0.05);
+  --pse-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --pse-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* ── Rhythm ──────────────────────────────────────────────────────────── */
-  --pse-radius: 12px;
-  --pse-radius-sm: 8px;
-  --pse-radius-lg: 18px;
-  --pse-gutter: 18px;
-  --pse-measure: 1180px;
-
-  /* ── Type ────────────────────────────────────────────────────────────── */
-  --pse-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --pse-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
-
-  /* ── Motion ──────────────────────────────────────────────────────────── */
-  --pse-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --pse-fast: 140ms;
-  --pse-settle: 220ms;
+  /* The measure. One column width for the whole product. */
+  --pse-measure: 1160px;
+  --pse-gutter: 20px;
+  --pse-rule-weight: 1px;
 
   color: var(--pse-ink);
   font-family: var(--pse-font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.dark .pse {
-  --pse-paper: #0a0c0f;
-  --pse-panel: #12161a;
-  --pse-panel-alt: #171c21;
-  --pse-sunken: #0e1215;
-
-  --pse-ink: #f1f3f4;
-  --pse-ink-soft: #c9d0d6;
-  --pse-mute: #97a1ab;
-  --pse-faint: #78828c;
-
-  --pse-rule: rgba(255, 255, 255, 0.14);
-  --pse-rule-strong: rgba(255, 255, 255, 0.28);
-  --pse-hairline: rgba(255, 255, 255, 0.07);
-
-  --pse-accent: #38c2d2;
-  --pse-accent-bright: #5ad3e0;
-  --pse-accent-ink: #04222a;
-  --pse-accent-wash: rgba(56, 194, 210, 0.13);
-  --pse-accent-edge: rgba(56, 194, 210, 0.36);
-
-  --pse-bnb: #e8c14a;
-
-  --pse-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 28px 56px -34px rgba(0, 0, 0, 0.9);
-  --pse-shadow-flat: 0 1px 2px rgba(0, 0, 0, 0.45);
+@media (min-width: 768px) {
+  .pse { --pse-gutter: 32px; }
 }
 
-/* ── Surface + layout ────────────────────────────────────────────────────── */
+.dark .pse,
+.pse[data-theme='dark'] {
+  --pse-paper: #0b0d11;
+  --pse-paper-2: #101319;
+  --pse-paper-3: #161a21;
+  --pse-well: rgba(255, 255, 255, 0.035);
 
+  --pse-ink: #f2f3f5;
+  --pse-ink-2: #a6aeba;
+  --pse-ink-3: #79818e;
+
+  --pse-rule: rgba(255, 255, 255, 0.16);
+  --pse-rule-2: rgba(255, 255, 255, 0.075);
+  --pse-rule-strong: rgba(255, 255, 255, 0.32);
+  --pse-invert: #f2f3f5;
+  --pse-on-invert: #0b0d11;
+
+  --pse-accent: #5a8bff;
+  --pse-accent-quiet: rgba(90, 139, 255, 0.14);
+  --pse-on-accent: #08122b;
+  --pse-capacity: #38c6dc;
+  --pse-good: #4cc38a;
+  --pse-warn: #e0a03a;
+  --pse-danger: #f2685c;
+
+  --pse-brand-blade: #3d74ff;
+  --pse-brand-top: #edecec;
+  --pse-brand-side: rgba(255, 255, 255, 0.36);
+  --pse-brand-cut: #0b0d11;
+  --pse-brand-crest: #22d3ee;
+}
+
+/* ── Surface + measure ──────────────────────────────────────────────────── */
 .pse-surface {
   background: var(--pse-paper);
   color: var(--pse-ink);
-  font-family: var(--pse-font);
-  -webkit-font-smoothing: antialiased;
 }
 
 .pse-wrap {
@@ -137,674 +135,1175 @@
   padding-inline: var(--pse-gutter);
 }
 
-@media (min-width: 768px) {
-  .pse {
-    --pse-gutter: 32px;
-  }
-}
-
-@media (min-width: 1200px) {
-  .pse {
-    --pse-gutter: 40px;
-  }
-}
-
+/* A section is a clause of the document: separated by a full-measure rule and
+   given room to breathe. It is never a card. */
 .pse-section {
-  padding-block: 44px;
-  border-top: 1px solid var(--pse-rule);
+  padding-block: clamp(3rem, 6vw, 5.5rem);
+  border-top: var(--pse-rule-weight) solid var(--pse-rule);
 }
 
-@media (min-width: 768px) {
-  .pse-section {
-    padding-block: 80px;
-  }
+.pse-section:first-of-type { border-top: 0; }
+
+.pse-rule {
+  height: var(--pse-rule-weight);
+  background: var(--pse-rule);
+  border: 0;
+  margin: 0;
 }
 
-@media (min-width: 1200px) {
-  .pse-section {
-    padding-block: 104px;
-  }
-}
-
-.pse-section:first-child {
-  border-top: 0;
-}
-
-/* ── Typography ──────────────────────────────────────────────────────────── */
-
-.pse-display {
-  font-size: clamp(2.05rem, 7vw, 3.85rem);
-  line-height: 1.02;
-  font-weight: 700;
-  letter-spacing: -0.035em;
+/* ── Type roles ─────────────────────────────────────────────────────────────
+ * Numbers and labels use the figure family with tabular figures; language uses
+ * the interface family. Nothing mixes the two in one string.
+ * ------------------------------------------------------------------------- */
+.pse-display,
+.pse-h2,
+.pse-h3 {
+  font-family: var(--pse-font);
   color: var(--pse-ink);
   text-wrap: balance;
+}
+
+.pse-display {
+  font-size: clamp(2.05rem, 1.35rem + 2.5vw, 3.3rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.024em;
 }
 
 .pse-h2 {
-  font-size: clamp(1.4rem, 3.4vw, 2.1rem);
-  line-height: 1.12;
-  font-weight: 650;
-  letter-spacing: -0.026em;
-  color: var(--pse-ink);
-  text-wrap: balance;
+  font-size: clamp(1.4rem, 1.15rem + 1vw, 1.95rem);
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.018em;
 }
 
 .pse-h3 {
-  font-size: 1.0625rem;
-  line-height: 1.3;
-  font-weight: 650;
-  letter-spacing: -0.014em;
-  color: var(--pse-ink);
+  font-size: 1.0313rem;
+  font-weight: 600;
+  line-height: 1.32;
+  letter-spacing: -0.008em;
 }
 
 .pse-lead {
-  font-size: 1.0625rem;
-  line-height: 1.62;
-  font-weight: 450;
-  color: var(--pse-ink-soft);
+  font-size: clamp(1rem, 0.96rem + 0.22vw, 1.125rem);
+  line-height: 1.6;
+  color: var(--pse-ink-2);
   text-wrap: pretty;
 }
 
-@media (min-width: 768px) {
-  .pse-lead {
-    font-size: 1.125rem;
-  }
-}
-
 .pse-body {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--pse-ink-soft);
+  font-size: 0.9375rem;
+  line-height: 1.68;
+  color: var(--pse-ink-2);
   text-wrap: pretty;
 }
 
 .pse-small {
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--pse-mute);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
 }
 
+/* The label role: a clause number, a column head, a term. Always mono, always
+   uppercase, always tracked — it is the document's voice for names of things. */
 .pse-micro {
+  font-family: var(--pse-mono);
   font-size: 0.6875rem;
-  line-height: 1.3;
-  font-weight: 650;
-  letter-spacing: 0.18em;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--pse-mute);
+  color: var(--pse-ink-3);
 }
 
+.pse-strong { color: var(--pse-ink); font-weight: 600; }
+
+/* Every figure. Tabular so columns of numbers line up. */
 .pse-figure {
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
   letter-spacing: -0.01em;
   color: var(--pse-ink);
 }
 
-.pse-figure-lg {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(1.75rem, 5vw, 2.6rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: var(--pse-ink);
+.pse-link {
+  color: var(--pse-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
 }
 
-.pse-strong {
-  color: var(--pse-ink);
-  font-weight: 600;
+.pse-link:hover { text-decoration-thickness: 2px; }
+
+.pse-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  color: var(--pse-ink-3);
 }
 
-/* ── Rules, headings, kickers ───────────────────────────────────────────── */
-
-.pse-rule {
-  border-top: 1px solid var(--pse-rule);
-}
-
+/* ── Clause kicker ──────────────────────────────────────────────────────────
+ * The index, the name, then a rule running to the measure's edge. This single
+ * device is what makes the page read as a document rather than a landing page.
+ * ------------------------------------------------------------------------- */
 .pse-kicker {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--pse-rule);
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .pse-kicker-index {
   font-family: var(--pse-mono);
-  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--pse-accent);
-  letter-spacing: 0.14em;
 }
 
 .pse-kicker-text {
+  font-family: var(--pse-mono);
   font-size: 0.6875rem;
-  font-weight: 650;
-  letter-spacing: 0.18em;
+  font-weight: 500;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--pse-ink);
+  color: var(--pse-ink-3);
+  white-space: nowrap;
 }
 
-.pse-links a,
-.pse-link {
-  color: var(--pse-ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--pse-rule-strong);
-  padding-bottom: 1px;
-  transition: border-color var(--pse-fast) var(--pse-ease), color var(--pse-fast) var(--pse-ease);
+.pse-kicker::after {
+  content: '';
+  flex: 1 1 auto;
+  height: var(--pse-rule-weight);
+  background: var(--pse-rule);
 }
 
-.pse-links a:hover,
-.pse-link:hover {
-  color: var(--pse-accent);
-  border-bottom-color: var(--pse-accent);
-}
-
-/* ── Panels: a ruled sheet, not a floating card ─────────────────────────── */
-
+/* ── Sheets: a ruled plate, not a floating card ─────────────────────────── */
 .pse-panel {
-  background: var(--pse-panel);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius);
-  box-shadow: var(--pse-shadow-flat);
-}
-
-.pse-panel-raised {
-  background: var(--pse-panel);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius-lg);
-  box-shadow: var(--pse-shadow);
+  border: var(--pse-rule-weight) solid var(--pse-rule);
+  border-radius: 3px;
+  background: var(--pse-paper);
 }
 
 .pse-panel-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px 16px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--pse-rule);
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: var(--pse-rule-weight) solid var(--pse-rule);
 }
 
-.pse-panel-body {
-  padding: 16px;
-}
-
-@media (min-width: 768px) {
-  .pse-panel-head,
-  .pse-panel-body {
-    padding-inline: 20px;
-  }
-}
+.pse-panel-body { padding: 1rem; }
 
 .pse-well {
-  background: var(--pse-sunken);
-  border: 1px solid var(--pse-hairline);
-  border-radius: var(--pse-radius-sm);
+  background: var(--pse-well);
+  border: var(--pse-rule-weight) solid var(--pse-rule-2);
+  border-radius: 3px;
 }
 
-/* ── Key/value ledger rows ──────────────────────────────────────────────── */
-
+/* ── Spec rows: term left, figure right, hairline between ───────────────── */
 .pse-kv {
-  display: flex;
+  display: grid;
+  /* Both columns get real space and both are allowed to wrap. An `auto` figure
+     column would take its full width and squeeze the term into a sliver at
+     390px, which clips the term instead of wrapping it. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   align-items: baseline;
-  justify-content: space-between;
-  /* Wraps rather than clipping: a single-word key ("Ownership limit") cannot
-     shrink further, so the value drops to its own right-aligned line instead of
-     being cut off in a narrow grid cell. */
-  flex-wrap: wrap;
-  gap: 2px 16px;
-  padding-block: 10px;
-  border-bottom: 1px solid var(--pse-hairline);
+  gap: 0.35rem 1.25rem;
+  padding-block: 0.6rem;
+  border-top: var(--pse-rule-weight) solid var(--pse-rule-2);
 }
 
-.pse-kv:last-child {
-  border-bottom: 0;
-}
+.pse-kv:first-child { border-top: 0; padding-top: 0; }
+.pse-kv:last-child { padding-bottom: 0; }
 
 .pse-kv-key {
   font-size: 0.8125rem;
-  color: var(--pse-mute);
-  min-width: 0;
+  line-height: 1.5;
+  color: var(--pse-ink-2);
 }
 
 .pse-kv-val {
   font-family: var(--pse-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--pse-ink);
+  line-height: 1.5;
   text-align: right;
   overflow-wrap: anywhere;
+  color: var(--pse-ink);
 }
 
-/* ── Status tag: word first, colour second ──────────────────────────────── */
-
+/* ── Status tag: the word carries the meaning, the colour only agrees ───── */
 .pse-tag {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 9px;
-  border: 1px solid var(--pse-rule);
-  border-radius: 999px;
-  background: var(--pse-panel);
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border: var(--pse-rule-weight) solid var(--pse-rule);
+  border-radius: 2px;
+  font-family: var(--pse-mono);
   font-size: 0.6875rem;
-  font-weight: 650;
-  letter-spacing: 0.12em;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--pse-ink-soft);
+  color: var(--pse-ink-2);
   white-space: nowrap;
 }
 
 .pse-tag-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--pse-faint);
+  width: 5px;
+  height: 5px;
   flex: none;
+  background: currentColor;
 }
 
-.pse-tag[data-tone="live"] {
-  border-color: var(--pse-accent-edge);
-  background: var(--pse-accent-wash);
-  color: var(--pse-accent);
-}
+.pse-tag[data-tone='live'] { color: var(--pse-accent); border-color: var(--pse-accent); }
+.pse-tag[data-tone='good'] { color: var(--pse-good); border-color: color-mix(in srgb, var(--pse-good) 45%, transparent); }
+.pse-tag[data-tone='hold'] { color: var(--pse-warn); border-color: color-mix(in srgb, var(--pse-warn) 45%, transparent); }
+.pse-tag[data-tone='danger'] { color: var(--pse-danger); border-color: color-mix(in srgb, var(--pse-danger) 45%, transparent); }
+.pse-tag[data-tone='idle'] { color: var(--pse-ink-3); }
 
-.pse-tag[data-tone="live"] .pse-tag-dot {
+/* ── Controls ───────────────────────────────────────────────────────────── */
+.pse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  padding: 0.625rem 1.15rem;
+  border: var(--pse-rule-weight) solid var(--pse-accent);
+  border-radius: 2px;
   background: var(--pse-accent);
+  color: var(--pse-on-accent);
+  font-family: var(--pse-font);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease;
 }
 
-.pse-tag[data-tone="hold"] {
-  border-color: rgba(245, 158, 11, 0.4);
-  color: var(--pse-warning-ink, #8a5a00);
+.pse-btn:hover { background: color-mix(in srgb, var(--pse-accent) 84%, var(--pse-ink)); }
+
+.pse-btn:disabled,
+.pse-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.dark .pse-tag[data-tone="hold"] {
-  color: #f0b34a;
+.pse-btn-quiet {
+  background: transparent;
+  color: var(--pse-ink);
+  border-color: var(--pse-rule-strong);
 }
 
-.pse-tag[data-tone="hold"] .pse-tag-dot {
-  background: #e0a03a;
+.pse-btn-quiet:hover { background: var(--pse-well); border-color: var(--pse-ink-3); }
+
+.pse-btn-ink {
+  background: var(--pse-invert);
+  border-color: var(--pse-invert);
+  color: var(--pse-on-invert);
 }
 
-.pse-tag[data-tone="idle"] .pse-tag-dot {
-  background: var(--pse-faint);
+.pse-btn-ink:hover { background: color-mix(in srgb, var(--pse-invert) 86%, var(--pse-paper)); }
+
+.pse-btn-sm {
+  /* Smaller type and padding, never a smaller target: 44px is the floor. */
+  min-height: 44px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
 }
 
+.pse-btn-block { width: 100%; }
+
+/* Field controls. A ruled input, on the document's own grid. */
+.pse-input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.6rem 0.75rem;
+  border: var(--pse-rule-weight) solid var(--pse-rule-strong);
+  border-radius: 2px;
+  background: var(--pse-paper);
+  color: var(--pse-ink);
+  font-family: var(--pse-font);
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.pse-input::placeholder { color: var(--pse-ink-3); }
+
+.pse-input:hover { border-color: var(--pse-ink-3); }
+
+.pse-input:focus {
+  border-color: var(--pse-accent);
+  outline: 2px solid var(--pse-accent);
+  outline-offset: 1px;
+}
+
+.pse-input:disabled { background: var(--pse-well); opacity: 0.7; }
+
+.pse-field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-2);
+}
+
+.pse-field-hint {
+  font-family: var(--pse-font);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--pse-ink-3);
+}
+
+/* Capacity meter: a real proportion of a real maximum. Never decorative. */
+.pse-meter {
+  position: relative;
+  height: 3px;
+  background: var(--pse-rule-2);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.pse-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--pse-capacity);
+  transition: width 220ms ease;
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+.pse-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border-left: 2px solid var(--pse-rule-strong);
+  background: var(--pse-well);
+  border-radius: 0 2px 2px 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--pse-ink-2);
+}
+
+.pse-notice-title { color: var(--pse-ink); font-weight: 600; }
+
+.pse-notice[data-tone='good'] { border-left-color: var(--pse-good); }
+.pse-notice[data-tone='good'] .pse-notice-title { color: var(--pse-good); }
+.pse-notice[data-tone='danger'] { border-left-color: var(--pse-danger); }
+.pse-notice[data-tone='danger'] .pse-notice-title { color: var(--pse-danger); }
+.pse-notice[data-tone='hold'] { border-left-color: var(--pse-warn); }
+.pse-notice[data-tone='hold'] .pse-notice-title { color: var(--pse-warn); }
+
+/* ── Asset marker (BNB · chain) ─────────────────────────────────────────── */
 .pse-asset {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.4rem;
   font-family: var(--pse-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
   color: var(--pse-ink);
 }
 
 .pse-asset-dot {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
-  background: var(--pse-bnb);
   flex: none;
+  background: var(--pse-capacity);
+  transform: rotate(45deg);
 }
 
-/* ── Controls ───────────────────────────────────────────────────────────── */
-
-.pse-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  min-height: 46px;
-  padding: 0 18px;
-  border: 1px solid transparent;
-  border-radius: var(--pse-radius-sm);
-  background: var(--pse-accent);
-  color: var(--pse-accent-ink);
-  font-family: var(--pse-font);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--pse-fast) var(--pse-ease), border-color var(--pse-fast) var(--pse-ease),
-    color var(--pse-fast) var(--pse-ease), transform var(--pse-fast) var(--pse-ease);
-}
-
-.pse-btn:hover {
-  background: var(--pse-accent-bright);
-}
-
-.pse-btn:active {
-  transform: translateY(1px);
-}
-
-.pse-btn[disabled],
-.pse-btn[aria-disabled="true"] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.pse-btn-ink {
-  background: var(--pse-ink);
-  color: var(--pse-paper);
-}
-
-.pse-btn-ink:hover {
-  background: var(--pse-ink-soft);
-}
-
-.dark .pse-btn-ink:hover {
-  background: #ffffff;
-  color: #0a0c0f;
-}
-
-.pse-btn-quiet {
-  background: transparent;
-  border-color: var(--pse-rule-strong);
-  color: var(--pse-ink);
-}
-
-.pse-btn-quiet:hover {
-  background: var(--pse-panel-alt);
-  border-color: var(--pse-ink);
-}
-
-.pse-btn-block {
-  width: 100%;
-}
-
-.pse-btn-sm {
-  /* Never below the 44px touch floor, even for compact chrome. */
-  min-height: 44px;
-  padding: 0 15px;
-  font-size: 0.8125rem;
-}
-
-.pse-input {
-  width: 100%;
-  min-height: 48px;
-  padding: 11px 14px;
-  background: var(--pse-panel);
-  border: 1px solid var(--pse-rule-strong);
-  border-radius: var(--pse-radius-sm);
-  color: var(--pse-ink);
-  font-family: var(--pse-font);
-  font-size: 1rem;
-  transition: border-color var(--pse-fast) var(--pse-ease), box-shadow var(--pse-fast) var(--pse-ease);
-}
-
-.pse-input::placeholder {
-  color: var(--pse-faint);
-}
-
-.pse-input:hover {
-  border-color: var(--pse-ink-soft);
-}
-
-.pse-input:focus {
-  outline: none;
-  border-color: var(--pse-accent);
-  box-shadow: 0 0 0 3px var(--pse-accent-wash);
-}
-
-.pse-input:disabled {
-  background: var(--pse-sunken);
-  color: var(--pse-mute);
-}
-
-.pse-field-label {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--pse-ink-soft);
-}
-
-.pse-field-hint {
-  font-weight: 450;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--pse-mute);
-}
-
-.pse-field-help {
-  margin-top: 6px;
-  font-size: 0.8125rem;
-  color: var(--pse-mute);
-}
-
-/* ── Notices ────────────────────────────────────────────────────────────── */
-
-.pse-notice {
-  display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--pse-rule);
-  border-left: 3px solid var(--pse-ink-soft);
-  border-radius: var(--pse-radius-sm);
-  background: var(--pse-panel);
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--pse-ink-soft);
-}
-
-.pse-notice[data-tone="danger"] {
-  border-left-color: #dc2626;
-  color: var(--pse-ink);
-}
-
-.pse-notice[data-tone="attention"] {
-  border-left-color: #e0a03a;
-}
-
-.pse-notice[data-tone="good"] {
-  border-left-color: #0e9f6e;
-}
-
-.pse-notice-title {
-  font-weight: 650;
-  color: var(--pse-ink);
-}
-
-/* ── Focus visibility (never removed) ───────────────────────────────────── */
-
-.pse :focus-visible {
+/* ── Focus visibility — never removed ──────────────────────────────────── */
+.pse a:focus-visible,
+.pse button:focus-visible,
+.pse input:focus-visible,
+.pse [tabindex]:focus-visible {
   outline: 2px solid var(--pse-accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 /* ============================================================================
-   Brand mark
-   ========================================================================== */
-
+ * BRAND
+ * The recovered emblem plus its wordmark. The crest facet is the only part that
+ * ever animates, and only to state a running campaign.
+ * ========================================================================== */
 .pse-mark {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: var(--pse-ink);
-  text-decoration: none;
-  flex: none;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
-.pse-mark-glyph {
-  display: block;
-  flex: none;
-}
+.pse-mark-glyph { flex: none; display: block; }
 
 .pse-wordmark {
   display: flex;
   flex-direction: column;
-  gap: 1px;
   min-width: 0;
+  line-height: 1.15;
 }
 
 .pse-wordmark-name {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.028em;
-  color: currentColor;
-  line-height: 1.1;
+  font-family: var(--pse-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--pse-ink);
 }
 
 .pse-wordmark-sub {
   font-family: var(--pse-mono);
-  font-size: 0.5625rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--pse-mute);
-  line-height: 1.2;
+  color: var(--pse-ink-3);
 }
 
-/* ============================================================================
-   Loader
-   ========================================================================== */
+@keyframes pse-crest-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 
+.pse-mark-crest-live { animation: pse-crest-live 2.4s ease-in-out infinite; }
+
+/* ============================================================================
+ * LOADER
+ * Honest by construction: an indeterminate rule (the duration genuinely is not
+ * known), the real stage the application is in, and a real way out when it takes
+ * too long. There is no percentage, no scan, no invented activity.
+ * ========================================================================== */
 .pse-loader {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding-block: 40px;
+  gap: 1.15rem;
+  max-width: 30rem;
+  margin-inline: auto;
+  padding-block: clamp(2rem, 6vw, 4rem);
   text-align: center;
-}
-
-.pse-loader-inline {
-  align-items: flex-start;
-  text-align: left;
-  gap: 12px;
-  padding-block: 18px;
-}
-
-.pse-loader-track {
-  position: relative;
-  width: 190px;
-  height: 2px;
-  background: var(--pse-rule);
-  overflow: hidden;
-  border-radius: 999px;
-}
-
-.pse-loader-bar {
-  position: absolute;
-  inset-block: 0;
-  width: 42%;
-  border-radius: 999px;
-  background: var(--pse-accent);
-  animation: pse-sweep 1.5s var(--pse-ease) infinite;
-}
-
-@keyframes pse-sweep {
-  0% {
-    transform: translateX(-105%);
-  }
-  100% {
-    transform: translateX(240%);
-  }
-}
-
-/* The mark's capacity bars light in sequence while a real stage is resolving —
-   a state indicator, never fabricated progress. */
-.pse-loader-cap {
-  animation: pse-cap 1.6s ease-in-out infinite;
-  transform-origin: bottom center;
-}
-
-.pse-loader-cap-2 {
-  animation-delay: 0.22s;
-}
-
-.pse-loader-cap-3 {
-  animation-delay: 0.44s;
-}
-
-@keyframes pse-cap {
-  0%,
-  100% {
-    opacity: 0.28;
-  }
-  45% {
-    opacity: 1;
-  }
 }
 
 .pse-loader-label {
   font-family: var(--pse-mono);
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--pse-ink-soft);
+  color: var(--pse-ink);
 }
 
 .pse-loader-note {
+  max-width: 26rem;
   font-size: 0.8125rem;
-  color: var(--pse-mute);
-  max-width: 34ch;
+  line-height: 1.6;
+  color: var(--pse-ink-2);
 }
 
-.pse-loader-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  padding-top: 2px;
+@keyframes pse-sweep {
+  0% { transform: translateX(-105%); }
+  100% { transform: translateX(345%); }
 }
 
-.pse-loader-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--pse-mono);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--pse-mute);
+.pse-loader-track {
+  position: relative;
+  width: min(100%, 18rem);
+  height: 2px;
+  overflow: hidden;
+  background: var(--pse-rule);
 }
 
-.pse-loader-step[data-state="done"] {
-  color: var(--pse-ink-soft);
+.pse-loader-bar {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 30%;
+  background: var(--pse-accent);
+  animation: pse-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
-.pse-loader-step[data-state="current"] {
-  color: var(--pse-accent);
-}
+/* Inline variant: one line of state plus the same indeterminate rule. */
+.pse-loader-inline { display: block; text-align: left; }
 
-.pse-loader-step-mark {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: currentColor;
-  flex: none;
-}
-
-/* Indeterminate bar for in-panel loading (no layout change, no spinner). */
 .pse-inline-bar {
   position: relative;
+  width: 100%;
   height: 2px;
-  background: var(--pse-rule);
   overflow: hidden;
-  border-radius: 999px;
+  background: var(--pse-rule);
 }
 
 .pse-inline-bar > span {
   position: absolute;
   inset-block: 0;
-  width: 36%;
+  left: 0;
+  width: 30%;
   background: var(--pse-accent);
-  animation: pse-sweep 1.4s var(--pse-ease) infinite;
+  animation: pse-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
+/* The real lifecycle, when the caller knows it. Done / current / pending. */
+.pse-loader-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-loader-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-loader-step[data-state='done'] { color: var(--pse-ink-2); }
+.pse-loader-step[data-state='current'] { color: var(--pse-accent); }
+
+.pse-loader-step-mark {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border: var(--pse-rule-weight) solid currentColor;
+}
+
+.pse-loader-step[data-state='done'] .pse-loader-step-mark { background: currentColor; }
+.pse-loader-step[data-state='current'] .pse-loader-step-mark { background: currentColor; }
+
+/* ============================================================================
+ * AUTHENTICATION FAMILY
+ * One frame for sign in, sign up, reset, verification and the access gate: a
+ * briefing column stating the real terms, and a working column carrying the
+ * task. Below 1024px the briefing moves under the form.
+ * ========================================================================== */
+.pse-auth { min-height: 100vh; }
+
+@media (min-width: 1024px) {
+  .pse-auth {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+.pse-auth-brief {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2.5rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem) var(--pse-gutter);
+  background: var(--pse-paper-2);
+}
+
+@media (min-width: 1024px) {
+  .pse-auth-brief {
+    padding: clamp(2.5rem, 4vw, 3.75rem) clamp(2rem, 5vw, 4rem);
+    border-right: var(--pse-rule-weight) solid var(--pse-rule);
+  }
+}
+
+.pse-auth-brief-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 34rem;
+}
+
+.pse-auth-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(1.75rem, 5vw, 4rem) var(--pse-gutter);
+  background: var(--pse-paper);
+}
+
+.pse-auth-panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+}
+
+/* The terms of the instrument, as a spec list. */
+.pse-auth-facts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.pse-auth-fact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  padding-block: 0.5rem;
+  border-top: var(--pse-rule-weight) solid var(--pse-rule-2);
+}
+
+.pse-auth-fact:first-child { border-top: 0; padding-top: 0; }
+
+.pse-auth-fact-key {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-auth-fact-val {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+  color: var(--pse-ink);
+}
+
+/* The divider between the identity providers and the email form. */
+.pse-auth-alt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-auth-alt::before,
+.pse-auth-alt::after {
+  content: '';
+  flex: 1 1 auto;
+  height: var(--pse-rule-weight);
+  background: var(--pse-rule);
+}
+
+/* ============================================================================
+ * MECHANISM — the six-station instrument
+ * A drawn schematic of what the backend actually does, in order. It carries no
+ * figure and no progress, because it knows nothing about a particular visitor.
+ * ========================================================================== */
+.pse-stage-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pse-stage;
+}
+
+@media (min-width: 640px) {
+  .pse-stage-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .pse-stage-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+  .pse-stage-list { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+.pse-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.35rem 0.75rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  border-top: 2px solid var(--pse-rule-strong);
+  border-left: var(--pse-rule-weight) solid var(--pse-rule-2);
+}
+
+/* The station's own rule: the marker that turns a grid into a sequence. */
+.pse-stage::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 22px;
+  height: 2px;
+  background: var(--pse-accent);
+}
+
+.pse-stage-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--pse-ink);
+}
+
+.pse-stage-index {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--pse-ink-3);
+  align-self: center;
+}
+
+.pse-stage-name {
+  grid-column: 1 / -1;
+  font-family: var(--pse-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink);
+}
+
+.pse-stage-note {
+  grid-column: 1 / -1;
+  font-size: 0.8125rem;
+  line-height: 1.58;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+/* ============================================================================
+ * TOOL PRICE LIST
+ * Four tiers read as one ruled table with column rules — the shape a price list
+ * has in a document, not four floating cards.
+ * ========================================================================== */
+.pse-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 2px solid var(--pse-rule-strong);
+}
+
+@media (min-width: 900px) {
+  .pse-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.pse-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.5rem 0;
+  border-bottom: var(--pse-rule-weight) solid var(--pse-rule-2);
+}
+
+@media (min-width: 900px) {
+  .pse-tool {
+    padding: 1.5rem clamp(1rem, 1.6vw, 1.5rem);
+    border-bottom: 0;
+    border-left: var(--pse-rule-weight) solid var(--pse-rule-2);
+  }
+  .pse-tool:first-child { border-left: 0; padding-left: 0; }
+  .pse-tool:last-child { padding-right: 0; }
+}
+
+.pse-tool-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pse-tool-rate {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--pse-ink);
+}
+
+.pse-tool-rate-unit {
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--pse-ink-3);
+}
+
+/* ============================================================================
+ * CAPACITY — the model, and the referral ladder that feeds it
+ * ========================================================================== */
+.pse-capacity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .pse-capacity {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 3rem;
+  }
+  .pse-capacity > * + * {
+    padding-left: 3rem;
+    border-left: var(--pse-rule-weight) solid var(--pse-rule);
+  }
+}
+
+.pse-ladder {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pse-ladder-step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding-block: 0.7rem;
+  border-top: var(--pse-rule-weight) solid var(--pse-rule-2);
+}
+
+.pse-ladder-step:first-child { border-top: 0; padding-top: 0; }
+.pse-ladder-step:last-child { padding-bottom: 0; }
+
+.pse-ladder-num {
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.7;
+  color: var(--pse-accent);
+}
+
+.pse-ladder-name {
+  font-family: var(--pse-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--pse-ink);
+}
+
+.pse-ladder-note {
+  font-size: 0.8125rem;
+  line-height: 1.58;
+  color: var(--pse-ink-2);
+  text-wrap: pretty;
+}
+
+/* ── Campaign lifecycle rail ────────────────────────────────────────────── */
+.pse-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .pse-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+.pse-rail-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.1rem 0 1.25rem;
+  border-top: 2px solid var(--pse-rule-2);
+}
+
+@media (min-width: 768px) {
+  .pse-rail-step { padding: 1.1rem 1rem 1.25rem 0; }
+}
+
+.pse-rail-step[data-state='done'] { border-top-color: var(--pse-rule-strong); }
+.pse-rail-step[data-state='current'] { border-top-color: var(--pse-accent); }
+
+.pse-rail-state {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-rail-step[data-state='done'] .pse-rail-state { color: var(--pse-ink-2); }
+.pse-rail-step[data-state='current'] .pse-rail-state { color: var(--pse-accent); }
+
+/* ── Explanatory split ─────────────────────────────────────────────────── */
+.pse-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .pse-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 3.25rem;
+  }
+  .pse-split > * + * {
+    padding-left: 3.25rem;
+    border-left: var(--pse-rule-weight) solid var(--pse-rule);
+  }
+}
+
+/* ── FAQ ────────────────────────────────────────────────────────────────── */
+.pse-faq { border-top: 2px solid var(--pse-rule-strong); }
+
+.pse-faq-item { border-bottom: var(--pse-rule-weight) solid var(--pse-rule); }
+
+.pse-faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  width: 100%;
+  min-height: 56px;
+  padding: 1rem 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-family: var(--pse-font);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  line-height: 1.45;
+  color: var(--pse-ink);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.pse-faq-q:hover { color: var(--pse-accent); }
+
+/* The sign is drawn, not a glyph: two rules, one of which is removed when open. */
+.pse-faq-sign {
+  position: relative;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.pse-faq-sign::before,
+.pse-faq-sign::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 1.5px;
+  background: currentColor;
+}
+
+.pse-faq-sign::after { transform: rotate(90deg); transition: transform 160ms ease; }
+.pse-faq-q[aria-expanded='true'] .pse-faq-sign::after { transform: rotate(0deg); }
+
+.pse-faq-a {
+  padding: 0 0 1.35rem;
+  max-width: 68ch;
+}
+
+/* ── Closing band ───────────────────────────────────────────────────────── */
+.pse-close-band {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: clamp(1.75rem, 4vw, 3rem);
+  background: var(--pse-paper-2);
+  border: var(--pse-rule-weight) solid var(--pse-rule);
+  border-top: 3px solid var(--pse-invert);
+  border-radius: 3px;
+}
+
+@media (min-width: 900px) {
+  .pse-close-band {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+/* ============================================================================
+ * MASTHEAD + FOOTER
+ * ========================================================================== */
+.pse-mast {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--pse-paper);
+  border-bottom: var(--pse-rule-weight) solid var(--pse-rule);
+}
+
+.pse-mast-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  padding-block: 0.7rem;
+}
+
+.pse-mast-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.1rem 0.4rem;
+  /* Offsets the first link's own padding so the nav still aligns with the mark. */
+  margin-inline: -0.5rem;
+}
+
+.pse-mast-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Short labels (Tools, FAQ) must still clear the 44px target, not just 44px tall. */
+  min-height: 44px;
+  min-width: 44px;
+  padding-inline: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 450;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.pse-mast-link:hover { color: var(--pse-ink); text-decoration: underline; text-underline-offset: 0.25em; }
+
+.pse-mast-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.pse-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.75rem;
+  padding-block: clamp(2.5rem, 6vw, 5rem);
+}
+
+@media (min-width: 1024px) {
+  .pse-hero {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 4rem;
+    align-items: start;
+  }
+}
+
+.pse-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pse-hero-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  border-top: 2px solid var(--pse-rule-strong);
+}
+
+@media (min-width: 560px) {
+  .pse-hero-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.pse-hero-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.9rem 0;
+  border-bottom: var(--pse-rule-weight) solid var(--pse-rule-2);
+}
+
+@media (min-width: 560px) {
+  .pse-hero-fact { padding-right: 1.25rem; }
+  .pse-hero-fact:nth-child(odd) { border-right: var(--pse-rule-weight) solid var(--pse-rule-2); }
+  .pse-hero-fact:nth-child(even) { padding-left: 1.25rem; }
+}
+
+.pse-hero-fact dt {
+  font-family: var(--pse-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--pse-ink-3);
+}
+
+.pse-hero-fact dd {
+  margin: 0;
+  font-family: var(--pse-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9375rem;
+  color: var(--pse-ink);
+}
+
+.pse-foot {
+  padding-block: clamp(2.5rem, 4vw, 3.5rem);
+  border-top: var(--pse-rule-weight) solid var(--pse-rule);
+  background: var(--pse-paper-2);
+}
+
+.pse-foot-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .pse-foot-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 3rem;
+  }
+}
+
+.pse-foot-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.15rem 1.5rem;
+  align-content: start;
+}
+
+.pse-foot-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.875rem;
+  color: var(--pse-ink-2);
+  text-decoration: none;
+}
+
+.pse-foot-link:hover { color: var(--pse-ink); text-decoration: underline; text-underline-offset: 0.25em; }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+ * The indeterminate sweep and the live crest are the only motion in the
+ * product's public surfaces. Both stop here; the loader keeps a static bar so it
+ * still reads as "working, duration unknown".
+ * ------------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .pse *,
   .pse *::before,
@@ -813,652 +1312,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-}
 
-/* ============================================================================
-   Auth family
-   ========================================================================== */
-
-.pse-auth {
-  display: grid;
-  min-height: 100vh;
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 1024px) {
-  .pse-auth {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  .pse-loader-bar,
+  .pse-inline-bar > span {
+    animation: none;
+    transform: none;
+    width: 34%;
   }
-}
 
-.pse-auth-brief {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .pse-auth-brief {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 40px;
-    padding: 48px var(--pse-gutter);
-    background: var(--pse-panel-alt);
-    border-right: 1px solid var(--pse-rule);
-  }
-}
-
-.pse-auth-brief-inner {
-  width: 100%;
-  max-width: 560px;
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.pse-auth-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 22px var(--pse-gutter) 40px;
-  background: var(--pse-paper);
-}
-
-@media (min-width: 1024px) {
-  .pse-auth-panel {
-    justify-content: center;
-    padding-block: 48px;
-    background: var(--pse-panel);
-  }
-}
-
-.pse-auth-panel-inner {
-  width: 100%;
-  max-width: 420px;
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.pse-auth-facts {
-  display: grid;
-  gap: 1px;
-  background: var(--pse-rule);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius);
-  overflow: hidden;
-}
-
-.pse-auth-fact {
-  background: var(--pse-panel);
-  padding: 14px 16px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 2px 18px;
-}
-
-.pse-auth-fact-key {
-  font-size: 0.8125rem;
-  color: var(--pse-mute);
-}
-
-.pse-auth-fact-val {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-  text-align: right;
-}
-
-.pse-auth-alt {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--pse-mute);
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.pse-auth-alt::before,
-.pse-auth-alt::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--pse-rule);
-}
-
-/* ============================================================================
-   Landing: masthead, hero, mechanism instrument, tables, ladder, FAQ
-   ========================================================================== */
-
-.pse-mast {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: color-mix(in srgb, var(--pse-paper) 88%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--pse-rule);
-}
-
-.pse-mast-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 66px;
-}
-
-.pse-mast-nav {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  margin-inline-start: 6px;
-}
-
-@media (min-width: 900px) {
-  .pse-mast-nav {
-    display: flex;
-  }
-}
-
-.pse-mast-link {
-  /* Padding, not font size: masthead links clear the 44×44 touch floor in both
-     directions, so a short label ("FAQ") is as easy to hit as a long one.
-     Horizontal padding is kept at half the column gap so the bar still reads as
-     a spaced row of links rather than a row of blocks. */
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 10px;
-  font-size: 0.875rem;
-  color: var(--pse-ink-soft);
-  text-decoration: none;
-  transition: color var(--pse-fast) var(--pse-ease);
-}
-
-.pse-mast-link:hover {
-  color: var(--pse-accent);
-}
-
-.pse-mast-actions {
-  margin-inline-start: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.pse-hero {
-  display: grid;
-  gap: 36px;
-  padding-block: 34px 12px;
-}
-
-@media (min-width: 1024px) {
-  .pse-hero {
-    grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 56px;
-    padding-block: 72px 24px;
-  }
-}
-
-.pse-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.pse-hero-facts {
-  display: grid;
-  gap: 0;
-  border-top: 1px solid var(--pse-rule);
-  margin-top: 34px;
-}
-
-.pse-hero-fact {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 2px 16px;
-  padding-block: 12px;
-  border-bottom: 1px solid var(--pse-hairline);
-}
-
-.pse-hero-fact dt {
-  font-size: 0.8125rem;
-  color: var(--pse-mute);
-}
-
-.pse-hero-fact dd {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-/* Mechanism instrument */
-.pse-mech {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.pse-stage-list {
-  display: grid;
-  gap: 1px;
-  background: var(--pse-rule);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius);
-  overflow: hidden;
-}
-
-@media (min-width: 768px) {
-  .pse-stage-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1200px) {
-  .pse-stage-list {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-.pse-stage {
-  background: var(--pse-panel);
-  padding: 14px 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-height: 148px;
-}
-
-/* Station rail: a hairline with day-tick marks, and a node at the station. */
-.pse-stage-rail {
-  position: relative;
-  display: block;
-  height: 13px;
-  margin-bottom: 12px;
-  border-top: 1px solid var(--pse-rule);
-  background-image: repeating-linear-gradient(to right, var(--pse-rule) 0 1px, transparent 1px 11px);
-  background-repeat: repeat-x;
-  background-position: 0 100%;
-  background-size: auto 7px;
-}
-
-.pse-stage-node {
-  position: absolute;
-  left: 0;
-  top: -4.5px;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--pse-paper);
-  border: 2px solid var(--pse-accent);
-}
-
-.pse-stage-glyph {
-  display: block;
-  color: var(--pse-ink);
-  margin-bottom: 3px;
-}
-
-.pse-stage-index {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: var(--pse-accent);
-}
-
-.pse-stage-name {
-  font-size: 0.9375rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  color: var(--pse-ink);
-}
-
-.pse-stage-note {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--pse-mute);
-}
-
-/* Tool grid */
-.pse-tools {
-  display: grid;
-  gap: 1px;
-  background: var(--pse-rule);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius);
-  overflow: hidden;
-}
-
-@media (min-width: 700px) {
-  .pse-tools {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1100px) {
-  .pse-tools {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.pse-tool {
-  background: var(--pse-panel);
-  padding: 18px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.pse-tool-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pse-tool-rate {
-  font-family: var(--pse-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: var(--pse-ink);
-  line-height: 1;
-}
-
-.pse-tool-rate-unit {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--pse-mute);
-  letter-spacing: 0;
-}
-
-.pse-meter {
-  height: 3px;
-  background: var(--pse-hairline);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.pse-meter > span {
-  display: block;
-  height: 100%;
-  background: var(--pse-accent);
-  border-radius: 999px;
-}
-
-/* Capacity ledger */
-.pse-capacity {
-  display: grid;
-  gap: 24px;
-}
-
-@media (min-width: 1024px) {
-  .pse-capacity {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 48px;
-    align-items: start;
-  }
-}
-
-.pse-ladder {
-  display: grid;
-  gap: 0;
-  counter-reset: ladder;
-}
-
-.pse-ladder-step {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 12px;
-  padding-block: 13px;
-  border-bottom: 1px solid var(--pse-hairline);
-}
-
-.pse-ladder-step:last-child {
-  border-bottom: 0;
-}
-
-.pse-ladder-num {
-  font-family: var(--pse-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--pse-accent);
-  padding-top: 2px;
-}
-
-.pse-ladder-name {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--pse-ink);
-}
-
-.pse-ladder-note {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--pse-mute);
-  margin-top: 2px;
-}
-
-/* Lifecycle rail */
-.pse-rail {
-  display: grid;
-  gap: 1px;
-  background: var(--pse-rule);
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius);
-  overflow: hidden;
-}
-
-@media (min-width: 640px) {
-  .pse-rail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1100px) {
-  .pse-rail {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-.pse-rail-step {
-  background: var(--pse-panel);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-left: 3px solid transparent;
-}
-
-.pse-rail-step[data-state="current"] {
-  border-left-color: var(--pse-accent);
-  background: var(--pse-accent-wash);
-}
-
-.pse-rail-step[data-state="done"] {
-  border-left-color: var(--pse-rule-strong);
-}
-
-.pse-rail-state {
-  font-family: var(--pse-mono);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--pse-mute);
-}
-
-/* The current phase is marked by the accent bar and wash AND by the word; the
-   label itself stays ink so it clears AA on the tinted surface in both themes. */
-.pse-rail-step[data-state="current"] .pse-rail-state {
-  color: var(--pse-ink);
-}
-
-/* Secondary copy inside the highlighted step sits on the accent wash, which
-   lightens the surface under it; muted grey no longer clears AA there. */
-.pse-rail-step[data-state="current"] .pse-small,
-.pse-rail-step[data-state="current"] .pse-stage-note {
-  color: var(--pse-ink-soft);
-}
-
-/* Two-column explanatory split */
-.pse-split {
-  display: grid;
-  gap: 28px;
-}
-
-@media (min-width: 1024px) {
-  .pse-split {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 48px;
-  }
-}
-
-.pse-split-wide {
-  display: grid;
-  gap: 28px;
-}
-
-@media (min-width: 1024px) {
-  .pse-split-wide {
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: 56px;
-    align-items: start;
-  }
-}
-
-/* FAQ */
-.pse-faq {
-  border-top: 1px solid var(--pse-rule);
-}
-
-.pse-faq-item {
-  border-bottom: 1px solid var(--pse-rule);
-}
-
-.pse-faq-q {
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 18px 0;
-  min-height: 56px;
-  background: none;
-  border: 0;
-  text-align: left;
-  font-family: var(--pse-font);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  color: var(--pse-ink);
-  cursor: pointer;
-}
-
-.pse-faq-q:hover {
-  color: var(--pse-accent);
-}
-
-.pse-faq-sign {
-  flex: none;
-  position: relative;
-  width: 14px;
-  height: 14px;
-  margin-top: 5px;
-}
-
-.pse-faq-sign::before,
-.pse-faq-sign::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  width: 14px;
-  border-top: 1.5px solid currentColor;
-}
-
-.pse-faq-sign::after {
-  transform: rotate(90deg);
-  transition: transform var(--pse-settle) var(--pse-ease);
-}
-
-.pse-faq-q[aria-expanded="true"] .pse-faq-sign::after {
-  transform: rotate(0deg);
-}
-
-.pse-faq-a {
-  padding-bottom: 20px;
-  max-width: 68ch;
-  display: grid;
-  gap: 10px;
-}
-
-/* Closing band */
-.pse-close-band {
-  display: grid;
-  gap: 24px;
-  padding: 28px 22px;
-  border: 1px solid var(--pse-rule);
-  border-radius: var(--pse-radius-lg);
-  background: var(--pse-panel);
-}
-
-@media (min-width: 900px) {
-  .pse-close-band {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    padding: 34px 30px;
-  }
-}
-
-.pse-foot {
-  padding-block: 30px 48px;
-  border-top: 1px solid var(--pse-rule);
-}
-
-.pse-foot-grid {
-  display: grid;
-  gap: 20px;
-}
-
-@media (min-width: 768px) {
-  .pse-foot-grid {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-}
-
-.pse-foot-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 6px;
-}
-
-.pse-foot-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding-inline: 8px;
-  font-size: 0.8125rem;
-  color: var(--pse-mute);
-  text-decoration: none;
-}
-
-.pse-foot-link:hover {
-  color: var(--pse-accent);
+  .pse-mark-crest-live { animation: none; opacity: 1; }
 }

@@ -1,174 +1,218 @@
-# PSEmine design system
+> **Scope:** PSEmine only. This is the design authority for the product's public and
+> authentication surfaces (`/mine`, `/mine/login`, `/mine/signup`,
+> `/mine/forgot-password`, `/mine/verify-email`), its loading states and its brand
+> mark. It is not an authority over PulseEarn, and it does not restate the synced
+> skill library — `.agents/` remains the source material.
 
-**Scope: PSEmine only.** This file records the decisions taken for the PSEmine
-product. It is not a general design guide, it does not restate the repository
-design skills (`.agents/skills/open-design`, `.agents/skills/ui-ux-pro-max`),
-and it is not a second authority — where this file and a repository skill
-disagree, the skill wins and this file is wrong.
+# PSEmine Design System
 
-**Status.** Phase 1 of the PSEmine interface rebuild (brand, loader,
-authentication family, public landing page). The authenticated console is still
-the minimal functional presentation in `src/components/psemine/PseBasics.tsx`
-and gets its own phase; nothing here prescribes the console's layout yet.
+## 1. Direction
 
-Implementation: `src/styles/psemine.css` (the whole visual layer), tokens scoped
-to `.pse`. `src/index.css` remains the application theme and is never overridden
-from here.
+**The instrument.** PSEmine sells a bounded, dated earning instrument, so it is
+presented the way a serious instrument is documented: ruled, numbered, tabular and
+dated.
 
----
+The consequence of that sentence is the whole system. A document earns its
+credibility from typography, alignment and restraint, not from ornament, so:
 
-## 1. Direction — "Capacity Ledger"
+- structure comes from hairline rules and one measured column, never from floating cards;
+- emphasis comes from scale, weight and alignment, never from colour or effect;
+- there are exactly two colours with a job, and everything else is paper and ink;
+- every figure is set in a tabular figure family, so columns of numbers line up.
 
-PSEmine sells measured capacity (GBP/hour) inside a dated campaign, settles in
-GBP, and pays out in BNB. The interface therefore behaves like a financial
-instrument: ink-dominant neutrals, hairline rules instead of card stacks, every
-figure in mono with tabular numerals, and **one** accent that marks capacity and
-live state.
+Anything decorative was removed rather than styled.
 
-Premium comes from hierarchy, spacing, restraint and product specificity — not
-from decoration.
+### Why the previous direction failed
+
+Phase 1 was an ink-and-hairline ledger with a teal accent and an invented "ore
+plate" mark. Its restraint was right; its identity was not. It had discarded the
+product's own existing emblem, and its palette carried no relationship to that
+emblem, so the product looked like a generic documentation site wearing a
+placeholder logo. This rebuild restores the real mark and derives the palette from
+it.
 
 ## 2. Brand
 
-| Element | Rule |
-|---|---|
-| Mark | "Ore plate": a rounded plate with a 45° chamfered top-right corner holding three ascending capacity bars, each cut on the same 45° shear as the corner. One angle, used four times. |
-| Why | Reads as a measured quantity rising inside a bounded vessel — capacity, controlled growth. Legible at 16px because it is three shapes and one outline. |
-| Colours | Plate = `currentColor`; bars = `var(--pse-accent)`. `tone="mono"` renders everything in `currentColor`. |
-| Wordmark | `PSEmine`, tight negative tracking; optional sub-line `Campaign mining` in mono small caps. Never a number (the campaign length is data, not brand). |
-| Favicon | `public/psemine-mark.svg` — solid plate + accent bars, because a hairline outline disappears at 16px. Swapped in on PSEmine routes by `usePseDocumentTitle` and restored on unmount. |
-| Prohibited | Pickaxes, coins, banknotes, lightning bolts, arrows, AI sparkles, shields, gradients, glow, shadows, and any promise of return. |
+The mark is **recovered, not invented**: the faceted PSE emblem that was live
+across the shell, console, public page and authentication family before the first
+design purge (`38d7a5f:src/components/psemine/PSEBrand.tsx`). Its geometry is
+unchanged — five facets cut on one diagonal: an electric-blue blade, a light upper
+facet notched by an inner cut, a steel side facet, and a cyan crest.
 
-Components: `PSEmineMark`, `PSEmineLogo`, `PSE_MARK_BARS` in
-`src/components/psemine/PSEBrand.tsx`.
+Only its implementation changed:
 
-## 3. Colour
+| Was | Is |
+| --- | --- |
+| Hard-coded dark palette (`#EDEEEC`, `#0F0F12`) that vanished on light surfaces | `--pse-brand-*` tokens resolved per theme |
+| `role="img"` with an empty label when decorative | `aria-hidden`, no role |
+| One treatment | `tone="brand"` for colour, `tone="mono"` for single-colour contexts |
 
-Every value lives in `.pse` (light) and `.dark .pse` (dark) in
-`src/styles/psemine.css`. Components use the custom properties — **no raw hex in
-JSX**.
+- **One mark, no competing identities.** Hero, auth, navigation, mobile and favicon
+  all use the same drawing at different sizes.
+- **The crest facet is the only part that ever animates** (`live`), and it animates
+  only to state a running campaign. It is disabled under reduced motion.
+- `public/psemine-mark.svg` is the favicon treatment: the same facets on a solid ink
+  plate, because a transparent emblem loses its light upper facet against light
+  browser chrome. It swaps in on PSEmine routes via `pseCore.ts`.
+- **Wordmark:** "PSEmine" in the interface family; any descriptor in the figure
+  family at label scale.
 
-| Token | Light | Dark | Used for |
-|---|---|---|---|
-| `--pse-paper` | `#f2f3f4` | `#0a0c0f` | page surface |
-| `--pse-panel` | `#fbfbfc` | `#12161a` | panels, inputs, cells |
-| `--pse-panel-alt` | `#e9ebee` | `#171c21` | the auth briefing column |
-| `--pse-sunken` | `#e4e7ea` | `#0e1215` | inline wells |
-| `--pse-ink` | `#0b0e12` | `#f1f3f4` | primary text, ink buttons |
-| `--pse-ink-soft` | `#333c45` | `#c9d0d6` | body copy |
-| `--pse-mute` | `#5b646e` | `#97a1ab` | secondary copy, labels |
-| `--pse-faint` | `#666f79` | `#78828c` | micro labels and placeholders only, never body copy |
-| `--pse-rule` / `--pse-rule-strong` | ink at 13% / 26% | white at 14% / 28% | hairlines, dividers, control borders |
-| `--pse-accent` | `#0b6e7f` | `#38c2d2` | capacity, live state, primary action |
-| `--pse-accent-bright` | `#0a5d6c` | `#5ad3e0` | hover/emphasis tone (further from the surface in both themes) |
-| `--pse-accent-wash` / `--pse-accent-edge` | accent at 9% / 32% | accent at 13% / 36% | tinted current-state surfaces |
-| `--pse-bnb` | `#9a7300` | `#e8c14a` | the BNB asset marker only |
+## 3. Typography
+
+Two roles, never mixed in one string:
+
+| Role | Family | Used for |
+| --- | --- | --- |
+| Interface and language | **Inter** | headings, prose, buttons, labels of prose fields |
+| Data and names of things | **JetBrains Mono** | every rate, price, date, day count, address, hash, clause index, column head, term label, status tag |
+
+Both are already loaded by `index.html`; this adds no font request.
+
+- **Figures always carry `font-variant-numeric: tabular-nums`.** Rates, prices,
+  day counts, addresses and hashes must align column-wise.
+- Labels are mono, uppercase, `0.13em` tracked, tertiary ink. This is the
+  document's voice for naming a thing, and it is what makes a spec row read as a
+  spec row.
+- Scale: display `clamp(2.05rem, 1.35rem + 2.5vw, 3.3rem)` · h2
+  `clamp(1.4rem, 1.15rem + 1vw, 1.95rem)` · h3 `1.0313rem` · lead
+  `clamp(1rem, .96rem + .22vw, 1.125rem)` · body `.9375rem` · small `.8125rem` ·
+  label `.6875rem`.
+- Tracking is negative on display sizes (`-0.024em` at display, `-0.008em` at h3)
+  and positive on labels. Headings use `text-wrap: balance`; prose uses `pretty`.
+
+## 4. Colour
+
+Paper and ink carry the surface; two colours have jobs and no others exist.
+
+| Token | Job | Light | Dark |
+| --- | --- | --- | --- |
+| `--pse-paper` / `--pse-paper-2` / `--pse-paper-3` | page, band, well | `#ffffff` / `#f6f6f3` / `#eceae3` | `#0b0d11` / `#101319` / `#161a21` |
+| `--pse-ink` / `--pse-ink-2` / `--pse-ink-3` | primary, secondary, label ink | `#12161d` / `#4c5462` / `#7b8492` | `#f2f3f5` / `#a6aeba` / `#79818e` |
+| `--pse-rule` / `--pse-rule-2` / `--pse-rule-strong` | structure | `rgba(18,22,29,.15 / .075 / .3)` | `rgba(255,255,255,.16 / .075 / .32)` |
+| `--pse-accent` | **interaction and live state only** | `#1e4fd8` | `#5a8bff` |
+| `--pse-capacity` | **capacity data only** | `#0e7c94` | `#38c6dc` |
+| `--pse-good` / `--pse-warn` / `--pse-danger` | reported outcomes | `#146c43` / `#8a5200` / `#b3261e` | `#4cc38a` / `#e0a03a` / `#f2685c` |
+| `--pse-brand-blade / -top / -side / -cut / -crest` | the emblem | per theme | per theme |
 
 Rules:
 
-- **Accent discipline.** The accent means capacity, live state, or the primary
-  action. It is not a decoration and never fills a large surface. Its wash is for
-  the current step of a sequence, not for emphasis.
-- **Semantic status colours are the app's** (`success`/`danger`/`warning` in
-  `src/index.css`). PSEmine does not redefine them; where a state has an honest
-  word ("Unavailable", "Current"), the word carries it.
-- **`--pse-bnb` is a marker, never a surface**: a 7px dot inside a text label.
-- **Contrast floor: 4.5:1** for all text, enforced by
-  `scripts/pse-a11y-check.mjs` in both themes. `--pse-faint` is the lightest tone
-  allowed as text, and only for micro labels/placeholders.
+- **Accent is never decoration.** It marks the current clause index, the current
+  lifecycle phase, a live status, a focus ring, and the primary button. Nothing else.
+- **Capacity colour is never interaction.** It marks capacity bars, meters and the
+  BNB asset diamond.
+- **Colour never carries meaning alone.** Every status states its word first; the
+  colour only agrees.
+- Light and dark are both first-class. No surface assumes dark.
 
-## 4. Typography
+## 5. Space and layout
 
-- Families: `Inter` (text) and `JetBrains Mono` (figures), both already loaded by
-  `index.html`. No new webfonts.
-- Roles: `.pse-display` (hero), `.pse-h2` (section), `.pse-h3` (card/step),
-  `.pse-lead`, `.pse-body` (16px — the body floor), `.pse-small` (14px copy),
-  `.pse-micro` (11px uppercase tracked label).
-- **Numbers are mono and tabular** (`.pse-figure`, `.pse-figure-lg`): every rate,
-  price, cap, day count and address. Tabular numerals so a column of figures
-  aligns.
-- Display and section headings use `text-wrap: balance`; body copy uses
-  `text-wrap: pretty`.
-- Nothing below 12px. Upper-case tracking is for labels, never for sentences.
-
-## 5. Spacing and layout
-
-- 4px base; `--pse-gutter` 18 → 32 → 40px, `--pse-measure` 1180px content width.
-- Rhythm: page sections use `.pse-section` (44 → 80 → 104px, `border-top`
-  hairline). Panels use `.pse-panel` + `.pse-panel-head`/`.pse-panel-body`.
-- **Rules before boxes.** Prefer a hairline and a label to a bordered card.
-  Grids join cells with 1px gaps (`.pse-stage-list`, `.pse-tools`, `.pse-rail`)
-  so a group reads as one instrument, not as four unrelated cards.
-- Key/value rows (`.pse-kv`) wrap onto two right-aligned lines rather than
-  clipping a label — a single-word key can never shrink further.
+- Measure: `--pse-measure: 1160px`, gutter `20px` (mobile) / `32px` (≥768px).
+- Section rhythm: `padding-block: clamp(3rem, 6vw, 5.5rem)` with a full-measure
+  `border-top` rule between sections and no rule above the first.
+- Spacing is a small set of multiples of 4px. There are no one-off paddings.
+- **Multi-column blocks are separated by rules, not gaps.** `pse-tools`,
+  `pse-split` and `pse-capacity` all divide with `border-left`, and drop the rule
+  when they collapse to one column.
+- Borders are `1px`, plus `2px` for a section's or a rail step's top edge. There is
+  no second border weight.
+- Radii are `2–3px`. Nothing is a pill.
 
 ## 6. Components
 
-| Component | Class / export | Rule |
-|---|---|---|
-| Button | `.pse-btn` (+ `-ink`, `-quiet`, `-sm`, `-block`) | ≥44×44px always, including compact chrome. `-ink` for the highest-emphasis action on a light surface. |
-| Input | `.pse-input` + `.pse-field-label` (+ `.pse-field-hint`) | Visible label above the control, hint inline with the label, error adjacent to the action that triggers it. |
-| Notice | `.pse-notice[data-tone]` | `danger` = blocked, `attention` = degraded, `good` = a real success. Never a status colour without text. |
-| Tag | `.pse-tag[data-tone]` | Word first, dot second. `live` = operating, `hold` = paused/unavailable, `idle` = planned/off. |
-| Loader | `PseLoader` (`page`/`section`/`inline`) | Indeterminate. States the real stage from a fixed set (`session`, `identity`, `access`, `campaign`, `data`). Says "slow" at 8s and offers Retry/Reload at 25s. Never fabricates progress. |
-| Failure | `PseLoadFailure` | Retry offered only when `error.retryable`. |
-| Unavailable | `PseUnavailable` | The service did not answer; distinct from a refused action. |
-| Instrument | `PseFlowRail`, `PseFlowGlyph` | The six-stage mechanism drawing. Schematic only: no live figure, no progress, no "you are here". |
-| FAQ | `.pse-faq` + button/`aria-expanded`/`aria-controls` | Real disclosure, keyboard operable, first item open. |
+| Component | Rule |
+| --- | --- |
+| Clause (`pse-section` + `pse-kicker`) | Numbered, rule above, rule running to the measure's edge. The index uses the accent. |
+| Sheet (`pse-panel`) | `1px` border, `3px` radius, flat. Never a shadow. |
+| Spec row (`pse-kv`, `pse-auth-fact`) | Term left, tabular figure right, hairline between. No leader dots. |
+| Status tag (`pse-tag`) | Mono, uppercase, hairline border, 5px square dot. Word first. |
+| Button (`pse-btn`) | `46px` minimum height, `2px` radius, Inter 500. `-quiet` is the secondary. `-ink` is reserved for an inverted action. |
+| Field (`pse-input`) | `46px` minimum height, ruled, accent border on focus. |
+| Meter (`pse-meter`) | `3px`, capacity colour. Only ever a real proportion of a real maximum. |
+| Price list (`pse-tools`) | Four tiers as one ruled table with column rules — not four cards. |
+| Instrument (`pse-stage-list`) | Six stations, each with a drawn glyph, index, name and one factual sentence. Carries no figure. |
+| Lifecycle rail (`pse-rail`) | Five phases; the current one is marked by accent edge **and** the word "Current". |
+| FAQ (`pse-faq`) | Ruled rows, drawn plus/minus, `aria-expanded` + `aria-controls`. |
+| Loader (`pse-loader`) | Indeterminate rule, real stage, real escalation. See §8. |
 
-## 7. Interaction and motion
+## 7. Responsive
 
-- Timings: 140ms (`--pse-fast`) for hover/press, 220ms (`--pse-settle`) for
-  disclosure. Easing `--pse-ease`.
-- Focus is never removed: `.pse :focus-visible` draws a 2px accent outline with
-  2px offset.
-- `prefers-reduced-motion: reduce` disables all PSEmine animation.
-- Motion only ever indicates state (the loader's bar sweep and the mark's bar
-  pulse). Nothing moves for decoration.
+Verified at **390×844, 430×932, 768×1024, 1440×900**.
 
-## 8. Responsive rules
+| Breakpoint | Behaviour |
+| --- | --- |
+| `≥560px` | Hero facts become two columns with an internal rule |
+| `≥640px` | Instrument becomes 2 columns |
+| `≥768px` | Lifecycle rail becomes 5 columns; footer becomes 2 columns |
+| `≥900px` | Price list becomes 4 ruled columns |
+| `≥1024px` | Auth splits into briefing + working column; instrument 3 columns; capacity and split blocks divide with a rule |
+| `≥1280px` | Instrument becomes 6 columns |
 
-Breakpoints: 640 / 768 / 900 / 1024 / 1100 / 1200px.
+Mobile is designed, not compressed: the auth briefing moves *below* the form so the
+first input is reachable without scrolling past terms; the price list becomes a
+stacked ruled list; the lifecycle rail becomes a vertical sequence.
 
-- **Mobile is composed, not shrunk.** Single column below 768px; the auth
-  briefing column collapses into a compact masthead plus the same facts below the
-  form; the mechanism becomes six stacked stations; the lifecycle rail becomes
-  one column (2 columns from 640px, 5 from 1100px).
-- **No horizontal scrolling, ever.** Long values wrap (`overflow-wrap: anywhere`)
-  instead of widening the page; tabular data becomes wrapped key/value rows
-  rather than a scrolling table.
-- Verified at **390×844, 430×932, 768×1024, 1440×900** by
-  `scripts/pse-visual-check.mjs --viewports …` (overflow, paint, page errors,
-  cross-product calls, title ownership) and `scripts/pse-a11y-check.mjs`
-  (contrast, touch targets, clipping) in both themes.
+Touch targets are `≥44px` everywhere, including masthead links, footer links and
+inline "forgot password".
 
-## 9. Data honesty (PSEmine-specific, non-negotiable)
+## 8. Loading, empty and failure
 
-- Every figure comes from the **locked economics** (`src/types/psemine.ts`,
-  mirroring `api/psemine_core.py`) or from a **server response**. Nothing is
-  invented, rounded up, or projected.
-- No APY, no projected earnings, no user counts, no testimonials, no fake
-  countdown, no fake scarcity, no fake diagnostics.
-- Campaign status, day, remaining time and the purchase window come from
-  `GET /api/mine/campaign/status` (`usePublicCampaign`). If it cannot be read,
-  the surface **says so** and offers a retry — it never prints a default status
-  as if it were live.
-- The console reads the campaign document only for an enrolled, signed-in
-  account; public surfaces never read it directly.
+One loader for the whole product.
 
-## 10. Prohibited patterns
+- **Indeterminate by construction.** No percentage, no filling bar, no "scanning",
+  no invented mining activity, no fake diagnostics. The sweep says only "working,
+  duration unknown".
+- **The stage is real** (`session | identity | access | campaign | data`) and is
+  passed in by the surface that knows it; the loader never guesses.
+- **Escalation is honest.** At 8s it says it is slow. At 25s it stops implying a
+  fast answer and offers a real retry or reload. Nobody is left with an unexplained
+  spinner.
+- **A retry exists only when there is something to retry** (`error.retryable`).
+- **No skeleton screens**: a skeleton would promise a layout that has not been
+  defined.
+- A failure states which kind it is — refused, unavailable, or empty — and never
+  substitutes a plausible-looking value.
 
-Gradients (especially on text), glow, glassmorphism, neon/crypto-casino
-styling, decorative grids or scanlines, giant cards, oversized type, stock
-imagery, 3D objects, emoji as icons, animated percentages, invented metrics,
-colour-only status, raw hex in JSX, removing focus rings, sub-12px text, tap
-targets under 44px, and any layout that can scroll horizontally.
+## 9. Motion
 
-## 11. Known divergences to resolve later
+- Only three things move: a `140ms` colour/border transition on controls, the
+  loader's indeterminate sweep, and the crest's live pulse.
+- No scroll reveal, no parallax, no counting numbers, no entrance choreography.
+- `prefers-reduced-motion: reduce` removes all of it and leaves the loader a static
+  partial bar, which still reads as "working".
 
-- `src/types/psemine.ts` mirrors `QUOTE_EXPIRATION_MINUTES: 10` while the
-  backend's authoritative `QUOTE_TTL_MINUTES = 15`. The rebuild therefore states
-  only that a quote is time-limited, and never prints a quote lifetime. The
-  mirror should be reconciled with the backend in a later phase.
-- PSEmine's activity, notification, wallet, tools, referral and admin screens are
-  still the pre-Phase-1 minimal presentation.
+## 10. Content rules
+
+- **Only product language.** The interface never explains architecture, accounts,
+  access resolution, routing, entitlements or how parts of the system relate. That
+  belongs in developer documentation.
+  - Removed in this rebuild: *"Separate product from PulseEarn — the sign-in
+    identity is shared, the product access is not."*, *"PSEmine and PulseEarn share
+    one sign-in identity and nothing else…"*, *"Product access: PSEmine / Not
+    enrolled in PSEmine"*.
+- **Only real figures.** Prices, rates, ownership limits, capacity ceilings and the
+  capacity total come from the locked economics or the live campaign record.
+- **No fabricated social proof**: no user counts, testimonials, earnings, payout
+  history, blockchain activity or countdown urgency.
+- **No financial promises**: no projection, no APY, no guaranteed return, no
+  "profit". Capacity is a rate; settled earnings are what the service recorded.
+- **Say what happened, then what to do.** Failures name their kind and their next
+  step. Empty states state the fact and never invent a row.
+
+## 11. Prohibited
+
+Generic dark SaaS chrome · generic crypto dashboard · cyberpunk or terminal
+aesthetics · glassmorphism · gradients · glow · drop shadows on public surfaces ·
+decorative grids · fake charts · fake metrics · oversized typography · template
+hero layouts · floating card stacks · pills · emoji as icons · colour as the sole
+carrier of meaning · animation without meaning · invented logos · architecture copy
+in the UI.
+
+## 12. Known divergences (recorded, not fixed here)
+
+- `src/types/psemine.ts` mirrors `QUOTE_EXPIRATION_MINUTES: 10` while the backend
+  holds `QUOTE_TTL_MINUTES = 15`. The UI deliberately never prints a quote
+  lifetime, so this cannot surface to a user. Pre-existing.
+- `.agents/skills/ui-ux-pro-max/SKILL.md` references `references/quick-reference.md`
+  and `references/pro-rules.md`, which the sync does not currently pull; only
+  `SKILL.md` and `src/` are present. The searchable data in `src/data/*.csv` and
+  `src/scripts/search.py` — the skill's actual database — is present and was used.

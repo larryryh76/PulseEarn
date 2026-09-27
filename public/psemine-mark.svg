@@ -1,12 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="PSEmine">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="PSEmine">
   <!--
-    PSEmine compact mark — the ore plate with its three sheared capacity bars.
-    Drawn for favicon scale: a solid plate keeps the silhouette readable at 16px
-    where a hairline outline would disappear. Structure is ink, capacity is the
-    accent, and the mark stays recognisable without any glow or gradient.
+    PSEmine compact mark — the recovered faceted emblem, drawn for favicon scale.
+
+    Same five facets, same geometry as the in-app mark (src/components/psemine/
+    PSEBrand.tsx): an electric-blue blade, a light upper facet notched by the
+    inner cut, a steel side facet and the cyan capacity crest.
+
+    The plate is solid ink so the mark keeps its contrast on any browser chrome,
+    which a transparent emblem cannot do — the upper facet is bone in the dark
+    theme and would disappear on a light toolbar. Flat fills only: no gradient,
+    no glow, no shadow, so it survives at 16px.
   -->
-  <path d="M3 26.5V5.5A2.5 2.5 0 0 1 5.5 3h14L29 12.5v14a2.5 2.5 0 0 1-2.5 2.5h-21A2.5 2.5 0 0 1 3 26.5Z" fill="#0B0E12"/>
-  <path d="M9.5 26.4V20.6l3-3v8.8Z" fill="#38C2D2"/>
-  <path d="M14.5 26.4V16l3-3v13.4Z" fill="#38C2D2"/>
-  <path d="M19.5 26.4V11l3-3v18.4Z" fill="#38C2D2"/>
+  <rect width="48" height="48" rx="9" fill="#0F1116"/>
+  <!-- Blade — primary facet -->
+  <path d="M8 8L20 4V34L8 42V8Z" fill="#3D74FF"/>
+  <!-- Upper facet -->
+  <path d="M22 4L38 12L42 16L22 24V4Z" fill="#EDECEC"/>
+  <!-- Side facet -->
+  <path d="M22 24L42 16L36 30L22 34V24Z" fill="#EDECEC" fill-opacity="0.36"/>
+  <!-- Inner cut — back to the plate, so it reads as a void -->
+  <path d="M22 10L32 15L22 20V10Z" fill="#0F1116"/>
+  <!-- Crest — capacity facet -->
+  <path d="M22 37L32 32L36 35L22 44V37Z" fill="#22D3EE"/>
 </svg>

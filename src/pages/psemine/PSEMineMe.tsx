@@ -86,7 +86,7 @@ export const PSEMineMe: React.FC = () => {
             ['Email verified', currentUser?.emailVerified ? 'Yes' : 'No'],
             ['Display name', userData?.username || '—'],
             ['Referral code', userData?.referralCode || '—'],
-            ['Product access', userData?.productAccess?.psemine ? 'PSEmine' : 'Not enrolled in PSEmine'],
+            ['PSEmine account', userData?.productAccess?.psemine ? 'Enabled' : 'Not enabled'],
             ['Onboarding', userData?.onboardingCompleted === false ? 'Not completed' : 'Completed'],
           ].map(([k, v]) => (
             <div key={k} className="flex items-baseline justify-between gap-4 border-b border-border py-1.5">

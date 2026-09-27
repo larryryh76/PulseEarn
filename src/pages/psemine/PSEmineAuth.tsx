@@ -9,18 +9,20 @@ import { mapAuthError } from '../../utils/errors';
 /**
  * PSEmine authentication — the product's sign-in family.
  *
- * One shell (PseAuthFrame) for sign in, sign up, password reset, email
- * verification and the entitlement gate, so the five surfaces read as one
- * product. Every behaviour below is UNCHANGED from the implementation that
- * preceded the design purge; this file is presentation only:
+ * One frame (PseAuthFrame) for sign in, sign up, password reset, email
+ * verification and the access gate, so the surfaces read as one product. Every
+ * behaviour below is UNCHANGED from the implementation that preceded the design
+ * rebuild; this file is presentation only:
  *
  *   • sign-up with an optional referral code (from ?ref=, surfaced before submit)
- *   • sign-in, Google sign-in (with the popup-dismissal case treated as a
- *     dismissal rather than an error), password reset, verification resend with
- *     a cooldown, the explicit entitlement gate (`enablePSEmine`), and the
- *     protected route that preserves the intended destination in `returnTo`,
- *     requires a verified identity, explains missing product access, and only
- *     then applies the onboarding gate.
+ *   • sign-in, Google sign-in (a dismissed popup is a dismissal, not an error),
+ *     password reset, verification resend with a cooldown, the explicit access
+ *     gate (`enablePSEmine`), and the protected route that preserves the intended
+ *     destination in `returnTo`, requires a verified identity, explains missing
+ *     product access, and only then applies the onboarding gate.
+ *
+ * COPY RULE: the surfaces speak about the product, never about the system. No
+ * architecture, no account-relationship explanations, no internal terminology.
  */
 
 /** Password strength: computed from the real input, never displayed when empty. */
@@ -70,14 +72,14 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
     return score <= 25 ? 'Weak' : score <= 50 ? 'Fair' : score <= 75 ? 'Good' : 'Strong';
   }, [password]);
 
-  // Session restore: route completed sessions to their next step. Entitlement is
-  // NOT judged here — the protected route owns that decision so a non-enrolled
-  // account gets an explanation, not a silent redirect.
+  // Session restore: route completed sessions to their next step. Access is NOT
+  // judged here — the protected route owns that decision so an account without
+  // PSEmine access gets an explanation, not a silent redirect.
   useEffect(() => {
     if (!currentUser) return;
     if (!isVerified) { navigate('/mine/verify-email', { replace: true }); return; }
-    const entitlemented = userData?.productAccess?.psemine === true;
-    if (entitlemented && userData?.onboardingCompleted === false) {
+    const entitled = userData?.productAccess?.psemine === true;
+    if (entitled && userData?.onboardingCompleted === false) {
       navigate('/mine/guide/onboarding', { replace: true });
       return;
     }
@@ -217,7 +219,7 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
               minLength={8}
             />
             {isSignup && password.length > 0 && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <StrengthMeter label={strength} />
               </div>
             )}
@@ -237,8 +239,8 @@ export const PSEmineAuth: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'l
         {isSignup && (
           <p className="pse-small">
             By creating an account you agree to the <Link to="/terms" className="pse-link">Terms</Link> and{' '}
-            <Link to="/privacy" className="pse-link">Privacy Policy</Link>. PSEmine is a separate product from
-            PulseEarn: the account is shared, the product access is not.
+            <Link to="/privacy" className="pse-link">Privacy Policy</Link>. Nothing is taken from your wallet until you
+            choose a tool and pay for it yourself.
           </p>
         )}
       </div>
@@ -280,8 +282,9 @@ export const PSEmineForgotPassword: React.FC = () => {
         <div className="space-y-4">
           <p className="pse-notice" data-tone="good">
             <span>
-              <span className="pse-notice-title">Reset link sent.</span> Check <span className="pse-figure">{email}</span>{' '}
-              — including spam — then follow the link to choose a new password.
+              <span className="pse-notice-title">Reset link sent.</span> Check{' '}
+              <span className="pse-figure">{email}</span> — including spam — then follow the link to choose a new
+              password.
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
@@ -362,7 +365,7 @@ export const PSEmineVerifyEmail: React.FC = () => {
       title="Verify your email"
       lede={
         <>
-          PSEmine requires a verified identity before it reads any account record. We sent a link to{' '}
+          A verified address is required before any account record is read. We sent a link to{' '}
           <span className="pse-figure">{currentUser.email}</span>; this page advances by itself once the address is
           verified.
         </>
@@ -383,8 +386,8 @@ export const PSEmineVerifyEmail: React.FC = () => {
             <span className="pse-strong">1.</span> Open the verification email and follow the link.
           </li>
           <li>
-            <span className="pse-strong">2.</span> Come back to this page — it advances on its own once Firebase reports
-            the address as verified.
+            <span className="pse-strong">2.</span> Come back to this page — it advances on its own once the address is
+            reported as verified.
           </li>
           <li>
             <span className="pse-strong">3.</span> If nothing happened, resend the email below.
@@ -414,16 +417,19 @@ export const PSEmineVerifyEmail: React.FC = () => {
   );
 };
 
-/* ═══════════════════ ENTITLEMENT GATE ═══════════════════ */
+/* ═══════════════════ ACCESS GATE ═══════════════════ */
 
 /**
  * "PSEmine isn't enabled for this account" — a REAL product state, not an error.
- * It is deliberately distinct from authentication failure, backend failure,
- * network failure and a temporary outage: nothing has failed and nothing was
- * unreachable. Product access is explicit.
+ * Deliberately distinct from authentication failure, a refused operation, a
+ * service outage and a network failure: nothing has failed and nothing was
+ * unreachable.
+ *
+ * The copy states the state and the single next action. It does not explain how
+ * accounts or access are arranged internally.
  */
 const PSEmineAccessGate: React.FC = () => {
-  const { userData, currentUser, enablePSEmine, logout } = usePSEMineAuth();
+  const { currentUser, enablePSEmine, logout } = usePSEMineAuth();
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -450,11 +456,8 @@ const PSEmineAccessGate: React.FC = () => {
       title="PSEmine isn't enabled for this account"
       lede={
         <>
-          Signed in as <span className="pse-figure">{currentUser?.email}</span>. PulseEarn and PSEmine share one sign-in
-          identity but are separate products, and product access is explicit.
-          {userData?.productAccess?.pulseearn
-            ? ' This account is enrolled in PulseEarn only.'
-            : ' No product is currently enrolled on this account.'}
+          Signed in as <span className="pse-figure">{currentUser?.email}</span>. PSEmine is not switched on for this
+          account yet, and it stays off until you turn it on here.
         </>
       }
       footer={
@@ -471,15 +474,14 @@ const PSEmineAccessGate: React.FC = () => {
     >
       <div className="space-y-4">
         <div className="pse-panel pse-panel-body space-y-2">
-          <p className="pse-h3">Enabling PSEmine for this account</p>
+          <p className="pse-h3">What enabling does</p>
           <p className="pse-small">
-            Enabling creates your PSEmine mining account on this identity: zeroed balances, no purchases, no charges,
-            and an audit entry recording that access was granted. The backend grants access — the app cannot grant it by
-            itself.
+            It opens your PSEmine mining account: zeroed balances, no purchases, no charges, and an activity entry
+            recording that it was opened. Nothing further happens until you choose a tool yourself.
           </p>
           <ul className="pse-small">
-            <li>· Your existing PulseEarn account and rewards are not affected.</li>
-            <li>· No wallet is connected, and no payment is requested, until you start a purchase yourself.</li>
+            <li>· No wallet is connected and no payment is requested.</li>
+            <li>· Nothing is charged from your wallet until you buy a tool.</li>
           </ul>
         </div>
 
@@ -524,8 +526,8 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   // 2. Identity exists but is unverified → verification step.
   if (!isVerified) return <Navigate to="/mine/verify-email" replace />;
 
-  // 3. Signed in, verified, NOT enrolled → explain entitlement (never a 500).
-  //    This check runs before onboarding so a PulseEarn-only account is never
+  // 3. Signed in, verified, no PSEmine access → state it and offer the one action.
+  //    This check runs before onboarding so an account without access is never
   //    pushed through PSEmine onboarding.
   if (!hasPSEmineAccess) return <PSEmineAccessGate />;
 

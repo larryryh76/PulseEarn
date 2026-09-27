@@ -1,52 +1,56 @@
 /**
- * PSEmine loading, retry and unavailability states.
+ * PSEmine loading, failure and unavailability — the product's single loader.
  *
- * ONE loading primitive for the product. Previously each surface improvised its
- * own ("Restoring session", "Checking session…", a bare spinner, nothing at all
- * while a guard resolved), which meant a user could not tell a slow session
- * restore from a hung page.
+ * REBUILT. The previous loader animated the brand mark's facets in sequence and
+ * paired that motion with stage copy. The motion was the problem: it implied an
+ * activity the product was not performing. What is left here is only what is
+ * true.
  *
- * HONESTY RULES — these are the point of this component:
- *   • No fabricated progress. No percentage, no "scanning", no fake diagnostics,
- *     no invented mining activity. The bar is indeterminate by construction.
- *   • The label states the REAL stage the application is actually in, passed in
- *     by the surface that knows it (auth hydration, identity, product access,
- *     campaign state, a data feed). Nothing is guessed here.
- *   • No infinite spinner. After `slowAfterMs` the loader says it is slow; after
- *     `stalledAfterMs` it stops pretending and offers a real retry or reload.
- *   • A retry only appears when there is something to retry.
+ * WHAT IS TRUE, AND THEREFORE WHAT IS SHOWN
+ * -----------------------------------------
+ *   • The duration of a restore or a read is genuinely unknown, so the indicator
+ *     is INDETERMINATE by construction. There is no percentage, no bar that
+ *     fills, no "scanning", no invented mining activity, no fake diagnostics.
+ *   • The stage label is the REAL stage the application is in, passed in by the
+ *     surface that knows it. This component never guesses one.
+ *   • When a caller knows the real lifecycle (hydrate → identity → access →
+ *     campaign → data) it can pass `steps`, and the step list is drawn from that
+ *     caller's own state — not from a timer.
+ *   • After 8s the loader says it is slow, because that is useful information.
+ *     After 25s it stops pretending a fast answer is coming and offers a real
+ *     retry or reload, so nobody is left with an unexplained spinner.
+ *   • A retry appears only when there is something to retry.
  *
- * VISUAL: the brand mark with its capacity bars pulsing in sequence, plus an
- * indeterminate rule. Deliberately no skeleton screens here — a skeleton would
- * promise a layout that the console (rebuilt in a later phase) has not defined.
+ * `PseLoadFailure` additionally refuses to offer a retry for a permanent refusal:
+ * offering one would waste the operator's time and hide the real message.
  */
 import React from 'react';
 import type { PseErrorInfo } from '../../engines/psemine/pseErrors';
 import { PSEmineMark } from './PSEBrand';
 
 /**
- * Real application stages. Each one is a state the app genuinely passes through,
- * in this order, and each is knowable from the providers it reads.
+ * The real stages the application passes through, in order. Each is knowable
+ * from the providers the surfaces read.
  */
 export type PseLoadStage = 'session' | 'identity' | 'access' | 'campaign' | 'data';
 
 const STAGE_LABEL: Record<PseLoadStage, string> = {
   session: 'Restoring your session',
   identity: 'Confirming your identity',
-  access: 'Checking PSEmine access',
-  campaign: 'Reading campaign state',
-  data: 'Loading PSEmine data',
+  access: 'Checking your access',
+  campaign: 'Reading the campaign',
+  data: 'Loading your records',
 };
 
 const STAGE_NOTE: Record<PseLoadStage, string> = {
-  session: 'PSEmine is re-establishing the sign-in you already have.',
+  session: 'Re-establishing the sign-in already held on this device.',
   identity: 'Sign-in is confirmed; the account record is being read.',
-  access: 'Confirming whether this account is enrolled in PSEmine.',
+  access: 'Confirming what this account is enrolled in.',
   campaign: 'Reading the campaign record and its current position.',
   data: 'Reading your PSEmine records.',
 };
 
-/** True after `ms` — used to escalate a slow loader without faking progress. */
+/** True after `ms`, while `active`. Used to escalate honestly — never to fake progress. */
 function useElapsed(ms: number, active: boolean): boolean {
   const [elapsed, setElapsed] = React.useState(false);
   React.useEffect(() => {
@@ -60,6 +64,7 @@ function useElapsed(ms: number, active: boolean): boolean {
   return elapsed;
 }
 
+/** A real step in a real lifecycle, supplied by the caller that owns that state. */
 export interface PseLoadStep {
   id: string;
   label: string;
@@ -67,18 +72,18 @@ export interface PseLoadStep {
 }
 
 export const PseLoader: React.FC<{
-  /** The real stage. Drives the wording; never invented by this component. */
+  /** The real stage. Drives the wording; never invented here. */
   stage?: PseLoadStage;
   /** Explicit label, when the caller knows something more specific and true. */
   label?: string;
-  /** Real, caller-known progress through the lifecycle. */
+  /** The real lifecycle, when the caller knows it. */
   steps?: PseLoadStep[];
-  /** Where the loader sits: page, section or a single line of text. */
+  /** Where the loader sits: a whole page, a section, or one line of text. */
   variant?: 'page' | 'section' | 'inline';
   /** Re-runs the real operation behind this state. */
   onRetry?: () => void;
   retrying?: boolean;
-  /** Announces the state to assistive tech (off for decorative re-loads). */
+  /** Announces the state to assistive tech (off for background re-reads). */
   live?: boolean;
   className?: string;
 }> = ({
@@ -97,13 +102,20 @@ export const PseLoader: React.FC<{
 
   if (variant === 'inline') {
     return (
-      <div className={`space-y-2 ${className}`}>
-        <p className="pse-small" role="status" aria-live="polite">
-          {text}…
+      <div className={`pse-loader-inline ${className}`}>
+        <p className="pse-loader-label" role={live ? 'status' : undefined} aria-live={live ? 'polite' : undefined}>
+          {text}
         </p>
-        <div className="pse-inline-bar" aria-hidden="true">
+        <div className="pse-inline-bar mt-2" aria-hidden="true">
           <span />
         </div>
+        <p className="pse-small mt-2">
+          {stalled
+            ? 'No answer yet. Retry, or reload the page.'
+            : slow
+              ? 'Still reading. A slow connection is the usual reason.'
+              : STAGE_NOTE[stage]}
+        </p>
       </div>
     );
   }
@@ -112,20 +124,23 @@ export const PseLoader: React.FC<{
 
   return (
     <div
-      className={`pse-loader ${isPage ? 'min-h-[52vh] justify-center' : ''} ${className}`}
+      className={`pse-loader ${isPage ? 'min-h-[46vh] justify-center' : ''} ${className}`}
       role={live ? 'status' : undefined}
       aria-live={live ? 'polite' : undefined}
       aria-busy="true"
     >
-      <PSEmineMark size={isPage ? 44 : 32} animated />
+      {/* A static mark: identity only. It is never animated into implying work. */}
+      <PSEmineMark size={isPage ? 34 : 26} decorative />
 
       <div className="space-y-1.5">
         <p className="pse-loader-label">{text}</p>
-        <p className="pse-loader-note mx-auto">{stalled
-          ? 'This has taken much longer than it should. Nothing has failed yet — retry, or reload the page.'
-          : slow
-            ? 'Still working. A slow connection is the usual reason.'
-            : STAGE_NOTE[stage]}</p>
+        <p className="pse-loader-note">
+          {stalled
+            ? 'This has taken much longer than it should. Nothing has failed yet — retry, or reload the page.'
+            : slow
+              ? 'Still working. A slow connection is the usual reason.'
+              : STAGE_NOTE[stage]}
+        </p>
       </div>
 
       <div className="pse-loader-track" aria-hidden="true">
@@ -133,7 +148,7 @@ export const PseLoader: React.FC<{
       </div>
 
       {steps && steps.length > 0 && (
-        <ol className="pse-loader-steps justify-center">
+        <ol className="pse-loader-steps">
           {steps.map(step => (
             <li key={step.id} className="pse-loader-step" data-state={step.state}>
               <span className="pse-loader-step-mark" aria-hidden="true" />
@@ -150,7 +165,11 @@ export const PseLoader: React.FC<{
               {retrying ? 'Retrying…' : 'Retry'}
             </button>
           )}
-          <button type="button" className="pse-btn pse-btn-quiet pse-btn-sm" onClick={() => window.location.reload()}>
+          <button
+            type="button"
+            className="pse-btn pse-btn-quiet pse-btn-sm"
+            onClick={() => window.location.reload()}
+          >
             Reload page
           </button>
         </div>
@@ -161,8 +180,7 @@ export const PseLoader: React.FC<{
 
 /**
  * Failure with a truthful next step. `error.retryable` decides whether a retry is
- * offered at all — offering a retry for a permanent refusal wastes the operator's
- * time and hides the real message.
+ * offered at all.
  */
 export const PseLoadFailure: React.FC<{
   error: PseErrorInfo;
@@ -172,7 +190,7 @@ export const PseLoadFailure: React.FC<{
 }> = ({ error, onRetry, retrying, className = '' }) => (
   <div className={`pse-panel pse-panel-body space-y-3 ${className}`} role="alert">
     <div className="flex flex-wrap items-center gap-2">
-      <span className="pse-tag" data-tone="hold">
+      <span className="pse-tag" data-tone={error.retryable ? 'hold' : 'danger'}>
         <span className="pse-tag-dot" aria-hidden="true" />
         {error.retryable ? 'Temporarily unavailable' : 'Blocked'}
       </span>
@@ -180,7 +198,12 @@ export const PseLoadFailure: React.FC<{
     </div>
     <p className="pse-h3">{error.title}</p>
     <p className="pse-small">{error.message}</p>
-    {error.code && <p className="pse-micro">Reference · {error.code}{error.status ? ` · ${error.status}` : ''}</p>}
+    {error.code && (
+      <p className="pse-micro">
+        Reference · {error.code}
+        {error.status ? ` · ${error.status}` : ''}
+      </p>
+    )}
     {error.retryable && onRetry && (
       <button type="button" className="pse-btn pse-btn-quiet pse-btn-sm" onClick={onRetry} disabled={retrying}>
         {retrying ? 'Retrying…' : 'Try again'}
@@ -190,25 +213,25 @@ export const PseLoadFailure: React.FC<{
 );
 
 /**
- * The backend itself is not answering. Distinct from a refused operation: nothing
+ * The service itself is not answering. Distinct from a refused operation: nothing
  * was rejected, and the honest statement is that PSEmine cannot read its records
- * right now. Retryable by nature.
+ * right now.
  */
 export const PseUnavailable: React.FC<{
   what?: string;
   onRetry?: () => void;
   retrying?: boolean;
   className?: string;
-}> = ({ what = 'PSEmine data', onRetry, retrying, className = '' }) => (
+}> = ({ what = 'the campaign record', onRetry, retrying, className = '' }) => (
   <div className={`pse-panel pse-panel-body space-y-3 ${className}`} role="status">
     <span className="pse-tag" data-tone="hold">
       <span className="pse-tag-dot" aria-hidden="true" />
-      Unavailable
+      Not readable
     </span>
     <p className="pse-h3">Could not read {what}</p>
     <p className="pse-small">
-      The PSEmine service did not answer. Nothing has changed on the campaign or on your account — the figures are
-      simply not available in this view until it responds.
+      The service did not answer. Nothing has changed on the campaign or on your account — the figures are simply not
+      available in this view until it responds, and this page will not substitute a guess for them.
     </p>
     {onRetry && (
       <button type="button" className="pse-btn pse-btn-quiet pse-btn-sm" onClick={onRetry} disabled={retrying}>
@@ -218,10 +241,7 @@ export const PseUnavailable: React.FC<{
   </div>
 );
 
-/**
- * Empty state for a real, empty collection. It never fills the gap with a
- * plausible-looking record.
- */
+/** Empty state for a real, empty collection. It never fills the gap with a record. */
 export const PseEmptyState: React.FC<{ title: string; children?: React.ReactNode; className?: string }> = ({
   title,
   children,

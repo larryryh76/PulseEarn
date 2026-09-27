@@ -91,11 +91,13 @@ export const PSEMineDashboard: React.FC = () => {
         : campaignStatus === 'active'
           ? 'Review your operating tools'
           : 'Review campaign status and settlement';
-  const nextActionHref = canRestart || (campaignStatus === 'active' && tools.length > 0)
-    ? '/mine/dashboard#equipment'
-    : tools.length === 0
-      ? '/mine/tools'
-      : '/mine/wallet';
+  const nextActionHref = nextAction === 'Set your payout wallet before settlement'
+    ? '/mine/wallet'
+    : canRestart || (campaignStatus === 'active' && tools.length > 0)
+      ? '/mine/dashboard#equipment'
+      : tools.length === 0
+        ? '/mine/tools'
+        : '/mine/wallet';
   const recentActivities = activities.slice(0, 5);
   const latestPurchase = purchases[0] ?? null;
 

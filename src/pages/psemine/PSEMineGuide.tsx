@@ -74,15 +74,15 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    id: 'lifecycle', title: 'Campaign lifecycle', summary: 'Four phases from start to payout',
+    id: 'lifecycle', title: 'Campaign lifecycle', summary: 'Backend-reported states from scheduling through archive',
     body: (
       <>
-        <p>The campaign moves through four phases. The current phase is always shown in the console strip and on the dashboard — never inferred from dates in your browser.</p>
+        <p>The campaign moves through backend-owned states: scheduled, active or paused, mining ended, settling, payout processing, closed and archived. The dashboard marks the current state from the backend — it is never inferred from browser dates.</p>
         <ol>
-          <li><strong>Day 0 — Start</strong><p>The campaign opens. Purchases become available and tools begin their first operating cycle.</p></li>
-          <li><strong>Days 1–90 — Operations</strong><p>Session tools mine in finite sessions and stop when a session completes until you restart them; Elite mines continuously. Restarts are free and take a short backend period, during which nothing accrues. Capacity adds to your hourly rate as you buy tools and qualify referrals.</p></li>
-          <li><strong>Day 90 — Settlement</strong><p>Accrual stops. Final balances are calculated from the append-only mining ledger.</p></li>
-          <li><strong>After day 90 — Payout</strong><p>Payout requests open (minimum £10), are reviewed, then processed to your configured payout wallet.</p></li>
+          <li><strong>Scheduled</strong><p>The campaign has not begun; purchase and mining availability remain backend-controlled.</p></li>
+          <li><strong>Active or paused</strong><p>Tools operate according to their backend cycle state. Paused campaigns do not accrue.</p></li>
+          <li><strong>Mining ended and settling</strong><p>Accrual stops and final balances are calculated from the append-only mining ledger.</p></li>
+          <li><strong>Payout, closed and archived</strong><p>Eligible requests are reviewed and processed to the configured payout wallet; records remain available after closure.</p></li>
         </ol>
       </>
     ),
@@ -134,27 +134,7 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <p>Your hourly capacity is the sum of your tools plus your qualified referrals — nothing else. The backend calculates every figure; the app only displays what the server reports.</p>
-        <section aria-label="Capacity at every limit">
-          <h3>Capacity at every limit</h3>
-          <p>Every tier at its ownership limit plus five qualified referrals</p>
-          <dl>
-            {TOOLS.map(tool => {
-              const owned = tool.maxPerUser;
-              return (
-                <div key={tool.id}>
-                  <dt>{tool.name.replace(' Miner', '')}</dt>
-                  <dd>{owned} of {tool.maxPerUser} owned; {gbpHour(owned * tool.hourlyRateGBP)} held.</dd>
-                </div>
-              );
-            })}
-            <div>
-              <dt>Referrals</dt>
-              <dd>{PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} of {PSEMINE_CONSTANTS.MAX_QUALIFIED_REFERRALS} qualified; {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} held.</dd>
-            </div>
-          </dl>
-          <p>Tools: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)}. Referrals: {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}. Total: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR + PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)}.</p>
-          <p>Maximums: {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} from tools, plus {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from referrals; theoretical ceiling {gbpHour(PSEMINE_CONSTANTS.MAX_THEORETICAL_CAPACITY_GBP_PER_HOUR)}.</p>
-        </section>
+        <p>Maximum locked campaign capacity is {gbpHour(PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR)} from tools plus {gbpHour(PSEMINE_CONSTANTS.MAX_REFERRAL_CAPACITY_GBP_PER_HOUR)} from qualified referrals. Your live figures appear in the dashboard’s one capacity register.</p>
         <p>Accrual depends on live mining: a session tool earns only while its session is active, and a restarting tool earns nothing until the backend marks the next session active. Elite earns continuously.</p>
       </>
     ),
@@ -293,7 +273,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
   const alreadyOnboarded = userData?.onboardingCompleted !== false;
 
   return (
-    <main>
+    <main className="pm-page">
       <header>
         <p>{onboarding ? 'Welcome to PSEmine' : 'Guide · campaign'}</p>
         <h1>{onboarding ? 'Your 90-day campaign, explained' : 'How PSEmine works'}</h1>
@@ -308,29 +288,11 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
         </section>
       )}
 
-      <nav aria-label="Guide sections">
-        <h2>Guide sections</h2>
-        <ul>
-          {SECTIONS.map(s => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => jumpToSection(s.id)}
-                aria-current={activeSection === s.id ? 'page' : undefined}
-              >
-                {s.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <progress value={progress} max={100} aria-label="Guide progress">{progress}%</progress>
-        <p>{doneSections.size}/{SECTIONS.length} sections read ({progress}%)</p>
-      </nav>
-
-      <aside aria-label="Guide contents">
+      <div className="pm-guide-layout">
+      <aside className="pm-guide-nav" aria-label="Guide contents">
         <h2>Contents</h2>
         <progress value={progress} max={100} aria-label="Guide progress">{progress}%</progress>
-        <p>{doneSections.size}/{SECTIONS.length} sections read ({progress}%)</p>
+        <p>{doneSections.size}/{SECTIONS.length} chapters marked read ({progress}%)</p>
         <nav aria-label="Guide contents">
           <ol>
             {SECTIONS.map((s, i) => {
@@ -350,7 +312,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
         <p><Link to="/mine/tools">Open the tool marketplace</Link></p>
       </aside>
 
-      <div>
+      <div className="pm-guide-content">
         <section aria-labelledby="campaign-chapters-heading">
           <h2 id="campaign-chapters-heading">The campaign, chapter by chapter</h2>
           <p>{SECTIONS.length} chapters · the console always shows the live state</p>
@@ -370,11 +332,9 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
                     </button>
                   </h2>
                   <p>{s.summary}</p>
-                  {onboarding && (
-                    <button type="button" onClick={() => markRead(s.id, true)} aria-pressed={doneSections.has(s.id)}>
-                      {doneSections.has(s.id) ? 'Read' : 'Mark read & next'}
-                    </button>
-                  )}
+                  <button type="button" onClick={() => markRead(s.id, onboarding)} aria-pressed={doneSections.has(s.id)}>
+                    {doneSections.has(s.id) ? 'Marked read' : onboarding ? 'Mark read & next' : 'Mark chapter read'}
+                  </button>
                   <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open} aria-label={open ? `Collapse ${s.title}` : `Expand ${s.title}`}>
                     {open ? 'Collapse section' : 'Expand section'}
                   </button>
@@ -426,6 +386,7 @@ export const PSEMineGuide: React.FC<{ onboarding?: boolean }> = ({ onboarding = 
             <p><Link to="/mine/dashboard">Go to console</Link></p>
           </section>
         )}
+      </div>
       </div>
     </main>
   );

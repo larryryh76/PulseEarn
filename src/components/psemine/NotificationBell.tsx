@@ -33,11 +33,11 @@ export const NotificationBell: React.FC<{ variant?: 'desktop' | 'mobile' }> = ({
         aria-expanded={open}
         aria-controls={panelId}
       >
-        Notifications{unreadNotifications > 0 ? ` (${unreadNotifications} unread)` : ''}
+        <span className="pm-notification-label">Notifications{unreadNotifications > 0 ? ` (${unreadNotifications} unread)` : ''}</span>
       </button>
 
       {open && (
-        <section id={panelId} role="region" aria-label="Notifications">
+        <section className="pm-notification-panel" id={panelId} role="region" aria-label="Notifications">
           <header>
             <h2>Notifications</h2>
             {unreadNotifications > 0 && (

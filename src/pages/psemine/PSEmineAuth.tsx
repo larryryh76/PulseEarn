@@ -32,19 +32,21 @@ const CampaignLedgerStrip: React.FC = () => {
 const AuthShell: React.FC<{ children: React.ReactNode; quote: string; points: string[]; showLedger?: boolean }> = ({
   children, quote, points, showLedger,
 }) => (
-  <main>
-    <aside aria-label="PSEmine campaign information">
-      <Link to="/mine" aria-label="PSEmine home"><PSELogo size={32} withWordmark /></Link>
-      <p>{quote}</p>
-      <ul>
-        {points.map(p => <li key={p}>{p}</li>)}
-      </ul>
-      {showLedger && <CampaignLedgerStrip />}
-      <p>90-day campaign · GBP accounting · BNB Smart Chain settlement</p>
-    </aside>
-    <section aria-label="Account access">
-      {children}
-    </section>
+  <main className="pm-product pm-auth-shell">
+    <header className="pm-auth-brand"><Link to="/mine" aria-label="PSEmine home"><PSELogo size={32} withWordmark /></Link></header>
+    <div className="pm-auth-layout">
+      <aside aria-label="PSEmine campaign information">
+        <p>{quote}</p>
+        <ul>
+          {points.map(p => <li key={p}>{p}</li>)}
+        </ul>
+        {showLedger && <CampaignLedgerStrip />}
+        <p>90-day campaign · GBP accounting · BNB Smart Chain settlement</p>
+      </aside>
+      <section aria-label="Account access">
+        {children}
+      </section>
+    </div>
   </main>
 );
 
@@ -411,7 +413,7 @@ const PSEmineAccessGate: React.FC = () => {
   };
 
   return (
-    <main>
+    <main className="pm-product pm-page">
       <Link to="/mine" aria-label="PSEmine home"><PSELogo size={32} withWordmark /></Link>
       <section aria-labelledby="access-gate-heading">
         <h1 id="access-gate-heading">PSEmine isn’t enabled for this account</h1>
@@ -450,7 +452,7 @@ export const PSEmineProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   const location = useLocation();
 
   if (loading) {
-    return <main><p role="status" aria-live="polite">Restoring secure session</p></main>;
+    return <main className="pm-product pm-auth-loading" aria-busy="true"><PSELogo size={36} withWordmark /><p role="status" aria-live="polite">Restoring your secure PSEmine session…</p></main>;
   }
 
   if (!currentUser) {

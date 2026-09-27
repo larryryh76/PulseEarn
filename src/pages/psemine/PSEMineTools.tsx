@@ -42,16 +42,9 @@ export const PSEMineTools: React.FC = () => {
 
   const counts = pseUser?.toolOwnershipCounts || { starter: 0, builder: 0, advanced: 0, elite: 0 };
   const purchaseOpen = state?.campaign?.purchaseEnabled === true && campaignStatus === 'active';
-  const ownedTools = useMemo(
-    () => (state?.tools ?? []).filter(t => ['active', 'cycle_complete', 'maintenance_required', 'restarting'].includes(String(t.status))),
-    [state?.tools],
-  );
+  const ownedTools = useMemo(() => state?.tools ?? [], [state?.tools]);
 
   const toolCapacity = state?.user?.toolCapacityGBPPerHour ?? pseUser?.toolCapacityGBPPerHour ?? 0;
-  const totalCapacity = state?.user?.totalCapacityGBPPerHour ?? pseUser?.totalCapacityGBPPerHour ?? 0;
-  const referralCapacity = state?.user?.referralCapacityGBPPerHour ?? pseUser?.referralCapacityGBPPerHour ?? 0;
-  const referralQualified = state?.user?.qualifiedReferralsCount ?? pseUser?.qualifiedReferralsCount ?? 0;
-  const headroom = Math.max(0, PSEMINE_CONSTANTS.MAX_TOOL_CAPACITY_GBP_PER_HOUR - toolCapacity);
   const totalOwned = TOOLS.reduce((a, t) => a + (counts[t.id] || 0), 0);
   const tierSlotsLeft = TOOLS.reduce((acc, t) => acc + Math.max(0, t.maxPerUser - (counts[t.id] || 0)), 0);
 
@@ -720,7 +713,7 @@ const PurchaseFlow: React.FC<{ tool: PSEMineToolDefinition; pending: PsePendingP
               <div><dt>Network</dt><dd>{networkName} · {requiredChainId}</dd></div>
               <div><dt>Receiving wallet</dt><dd><CopyField value={quote.receiverWallet} display={shortAddr(quote.receiverWallet)} label="receiving wallet" /></dd></div>
               <div><dt>Quote window</dt><dd>{mm}:{ss}</dd></div>
-              <div><dt>Quote id</dt><dd>{shortHash(quote.quoteId, 8)}</dd></div>
+              <div><dt>Quote id</dt><dd className="pm-mono">{shortHash(quote.quoteId, 8)}</dd></div>
             </dl>
 
             <p>

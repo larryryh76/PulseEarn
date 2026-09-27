@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePseState, useAvailableGBP } from '../../components/psemine/PseStateProvider';
 import {
@@ -76,17 +77,23 @@ export const PSEMineDashboard: React.FC = () => {
             ? `${activeTools.length} tool${activeTools.length === 1 ? '' : 's'} operating. Accrual is recorded by the backend.`
             : 'No tool is currently operating.';
   const purchaseOpen = state.campaign?.purchaseEnabled === true && campaignStatus === 'active';
+  const walletLocked = ['settling', 'payout', 'closed', 'archived'].includes(campaignStatus || '');
   const counts = pseUser?.toolOwnershipCounts;
   const qualified = user.qualifiedReferralsCount ?? 0;
   const nextAction = needsMaintenance.length > 0
     ? 'Restart a completed session'
-    : tools.length === 0 && purchaseOpen
-      ? 'Choose a mining tool'
-      : !user.payoutWallet
+    : tools.length === 0
+      ? purchaseOpen ? 'Choose a mining tool' : 'Check tool availability'
+      : !user.payoutWallet && !walletLocked
         ? 'Set your payout wallet before settlement'
         : campaignStatus === 'active'
           ? 'Review your operating tools'
           : 'Review campaign status and settlement';
+  const nextActionHref = needsMaintenance.length > 0 || (campaignStatus === 'active' && tools.length > 0)
+    ? '/mine/dashboard#equipment'
+    : tools.length === 0
+      ? '/mine/tools'
+      : '/mine/wallet';
   const recentActivities = activities.slice(0, 5);
   const latestPurchase = purchases[0] ?? null;
 
@@ -101,7 +108,7 @@ export const PSEMineDashboard: React.FC = () => {
             <div className="pm-value">{gbp(user.accruedGBP)}</div>
             <p>{miningPosition} Accrued earnings remain separate from the settlement-available balance.</p>
             <div className="pm-inline-actions">
-              <Link className="pm-button pm-button-primary" to={needsMaintenance.length > 0 ? '/mine/dashboard#equipment' : '/mine/tools'}>{nextAction}</Link>
+              <Link className="pm-button pm-button-primary" to={nextActionHref}>{nextAction}</Link>
               <button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? 'Syncing…' : 'Sync account'}</button>
             </div>
           </div>
@@ -122,7 +129,7 @@ export const PSEMineDashboard: React.FC = () => {
 
       <section aria-labelledby="capacity-heading">
         <div className="pm-page-section-heading"><div><p className="pm-eyebrow">Capacity</p><h2 id="capacity-heading">One reported capacity register</h2></div><Link to="/mine/referrals">Referral lanes</Link></div>
-        <PSEMineCapacityRegister counts={counts} toolCapacity={toolCapacity} referralCapacity={referralCapacity} totalCapacity={totalCapacity} />
+        <PSEMineCapacityRegister counts={counts} qualifiedReferrals={qualified} toolCapacity={toolCapacity} referralCapacity={referralCapacity} totalCapacity={totalCapacity} />
       </section>
 
       <section id="equipment" aria-labelledby="equipment-heading">
@@ -173,7 +180,7 @@ function ToolRow({ tool, miningLive, serverNowMs, onMaintain, maintaining }: {
   tool: PseStateTool; miningLive: boolean; serverNowMs: number; onMaintain: (id: string) => void; maintaining: boolean;
 }) {
   const definition = toolDef(tool);
-  const tier = (tool.toolId || 'starter') as keyof typeof LOCKED_PSEMINE_TOOLS;
+  const tier = toolDef(tool)?.id ?? 'starter';
   const cycle = cycleStateView(tool.cycleState || tool.status);
   const continuous = (tool.operatingModel || definition?.operating?.model) === 'continuous';
   const running = tool.cycleState === 'active' && miningLive;

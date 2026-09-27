@@ -1,54 +1,56 @@
-import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEMineToolDefinition, type PSEToolTierId } from '../../types/psemine';
+import { LOCKED_PSEMINE_TOOLS, PSEMINE_CONSTANTS, type PSEToolTierId } from '../../types/psemine';
 import { gbpHour } from './pse';
 
 const TIERS: PSEToolTierId[] = ['starter', 'builder', 'advanced', 'elite'];
 
 export function PSEMineToolVisual({ tier, size = 'standard' }: { tier: PSEToolTierId; size?: 'compact' | 'standard' }) {
   const labels: Record<PSEToolTierId, string> = {
-    starter: 'Single-bay tool module',
-    builder: 'Two-bay tool module with central spine and service rail',
-    advanced: 'Three-bay tool array with layered rails',
-    elite: 'Flagship multi-chamber tool module with crest and nameplate',
+    starter: 'Starter single-bay module',
+    builder: 'Builder stacked two-bay module with central spine and service rail',
+    advanced: 'Advanced three-bay array with layered rails and vents',
+    elite: 'Elite multi-chamber module with crest and nameplate',
   };
   const accent = tier === 'starter' ? '#73C7D3' : tier === 'elite' ? '#9885D8' : '#5B83F5';
-  const bays = tier === 'starter' ? [15] : tier === 'builder' ? [8, 22] : tier === 'advanced' ? [5, 15, 25] : [7, 17, 27];
 
   return (
     <svg className={`pm-tool-visual pm-tool-visual-${tier} pm-tool-visual-${size}`} viewBox="0 0 144 42" role="img" aria-label={labels[tier]}>
-      {tier === 'elite' && <path d="M61 4 72 1 83 4 80 9H64Z" fill={accent} />}
-      <rect x="2" y="9" width="140" height="29" rx="5" fill="#20252C" stroke="#3A424D" />
-      {tier !== 'starter' && <path d="M12 6H132" stroke={tier === 'advanced' ? '#9885D8' : accent} strokeWidth="1.5" />}
-      {tier === 'elite' && <path d="M20 5H124M27 3H117" stroke="#9885D8" strokeWidth="1" opacity=".7" />}
-      {bays.map((y, index) => {
-        const width = tier === 'starter' ? 32 : tier === 'builder' ? 47 : tier === 'advanced' ? 34 : 39;
-        const x = tier === 'starter' ? 19 : tier === 'builder' ? 25 : tier === 'advanced' ? 16 + index * 42 : 13 + index * 39;
-        const height = tier === 'starter' ? 17 : tier === 'builder' ? 9 : tier === 'advanced' ? 14 : 20;
-        return (
-          <g key={`${x}-${y}`}>
-            <rect x={x} y={y} width={width} height={height} rx="2" fill="#2C333C" stroke={accent} strokeOpacity=".75" />
-            <path d={`M${x + 5} ${y + 4}H${x + width - 5}`} stroke={accent} strokeWidth="1.5" />
-            <circle cx={x + width - 5} cy={y + height - 4} r="1.4" fill={accent} />
-          </g>
-        );
-      })}
-      {tier === 'builder' && <path d="M72 7V38M11 35H133" stroke={accent} strokeWidth="1.5" />}
-      {tier === 'advanced' && <path d="M9 35H135M14 7H130" stroke="#9885D8" strokeWidth="1" />}
-      {tier === 'elite' && <>
-        <rect x="58" y="14" width="28" height="12" rx="2" fill="#252B33" stroke={accent} />
-        <path d="M63 18H81M67 22H77" stroke={accent} strokeWidth="1" />
-      </>}
-      {tier === 'starter' && <path d="M13 18H17M13 23H17M13 28H17" stroke={accent} strokeWidth="1.4" />}
-      <path d="M8 39H136" stroke="#59616B" strokeWidth="1" />
-      <circle cx="11" cy="38" r="2" fill={accent} />
-      <circle cx="133" cy="38" r="2" fill={accent} />
+      {tier === 'starter' && <g>
+        <rect x="43" y="7" width="58" height="31" rx="4" fill="#20252C" stroke={accent} />
+        <rect x="50" y="13" width="44" height="19" rx="2" fill="#2C333C" stroke="#52606B" />
+        <path d="M57 18H87M57 23H87M57 28H78" stroke={accent} strokeWidth="1.4" />
+        <circle cx="88" cy="28" r="2" fill={accent} />
+        <path d="M39 39H105" stroke="#59616B" />
+      </g>}
+      {tier === 'builder' && <g>
+        <path d="M27 7H117V35H27Z" fill="#20252C" stroke={accent} />
+        <rect x="37" y="10" width="70" height="10" rx="2" fill="#2C333C" stroke={accent} />
+        <rect x="37" y="23" width="70" height="9" rx="2" fill="#2C333C" stroke={accent} />
+        <path d="M72 7V35M18 38H126M22 35V40M122 35V40" stroke={accent} strokeWidth="1.5" />
+        <path d="M43 15H62M81 15H101M43 27H62M81 27H101" stroke="#9BA7B4" strokeWidth="1" />
+      </g>}
+      {tier === 'advanced' && <g>
+        <path d="M13 10H131V34H13Z" fill="#20252C" stroke="#515B68" />
+        {[24, 60, 96].map(x => <g key={x}>
+          <rect x={x} y="13" width="26" height="18" rx="2" fill="#2C333C" stroke={accent} />
+          <path d={`M${x + 5} 18H${x + 21}M${x + 5} 22H${x + 18}M${x + 5} 26H${x + 21}`} stroke={accent} strokeWidth="1" />
+          <circle cx={x + 22} cy="28" r="1" fill="#9885D8" />
+        </g>)}
+        <path d="M8 7H136M8 37H136M15 5V9M129 5V9M17 34V39M127 34V39" stroke="#9885D8" strokeWidth="1.2" />
+      </g>}
+      {tier === 'elite' && <g>
+        <path d="M21 11 29 7H115L123 11V35H21Z" fill="#20252C" stroke={accent} strokeWidth="1.4" />
+        <path d="M58 7 72 1 86 7 82 12H62Z" fill={accent} />
+        <rect x="34" y="14" width="30" height="8" rx="1.5" fill="#2C333C" stroke={accent} />
+        <rect x="80" y="14" width="30" height="8" rx="1.5" fill="#2C333C" stroke={accent} />
+        <rect x="42" y="25" width="60" height="7" rx="1.5" fill="#2C333C" stroke={accent} />
+        <path d="M48 18H57M86 18H104M53 28H91M16 38H128M25 35V40M119 35V40" stroke={accent} strokeWidth="1.3" />
+        <path d="M67 14H77V22H67Z" fill="#252B33" stroke="#B8A6F1" />
+      </g>}
     </svg>
   );
 }
 
-export function PSEMineToolFamily({ onSelect, actionLabel = 'Explore tool' }: {
-  onSelect?: (tool: PSEMineToolDefinition) => void;
-  actionLabel?: string;
-}) {
+export function PSEMineToolFamily() {
   return (
     <div className="pm-tool-family">
       {TIERS.map(tier => {
@@ -65,7 +67,6 @@ export function PSEMineToolFamily({ onSelect, actionLabel = 'Explore tool' }: {
               <div><dt>Limit</dt><dd>{tool.maxPerUser} per account</dd></div>
               <div><dt>Operating model</dt><dd>{tool.operating.model === 'continuous' ? 'Continuous' : '24-hour sessions'}</dd></div>
             </dl>
-            {onSelect && <button type="button" className="pm-button pm-button-secondary" onClick={() => onSelect(tool)}>{actionLabel}</button>}
           </article>
         );
       })}
@@ -73,8 +74,9 @@ export function PSEMineToolFamily({ onSelect, actionLabel = 'Explore tool' }: {
   );
 }
 
-export function PSEMineCapacityRegister({ counts, toolCapacity, referralCapacity, totalCapacity }: {
+export function PSEMineCapacityRegister({ counts, qualifiedReferrals, toolCapacity, referralCapacity, totalCapacity }: {
   counts?: Partial<Record<PSEToolTierId, number>> | null;
+  qualifiedReferrals?: number | null;
   toolCapacity?: number | null;
   referralCapacity?: number | null;
   totalCapacity?: number | null;
@@ -82,22 +84,22 @@ export function PSEMineCapacityRegister({ counts, toolCapacity, referralCapacity
   const tiers = TIERS.map(tier => {
     const tool = LOCKED_PSEMINE_TOOLS[tier];
     const count = counts?.[tier];
-    return { name: tool.name.replace(' Miner', ''), count, amount: count === undefined ? null : count * tool.hourlyRateGBP };
+    return { name: tool.name.replace(' Miner', ''), count, amount: gbpHour(tool.hourlyRateGBP) };
   });
   const rows = [
     ...tiers.map(t => ({ label: t.name, detail: t.count === undefined ? 'Ownership unavailable' : `${t.count} owned`, amount: t.amount })),
-    { label: 'Referrals', detail: 'Qualified lanes', amount: referralCapacity ?? null },
-    { label: 'Tools total', detail: 'Reported capacity', amount: toolCapacity ?? null },
-    { label: 'Referral total', detail: 'Reported capacity', amount: referralCapacity ?? null },
-    { label: 'Overall total', detail: 'Reported capacity', amount: totalCapacity ?? null },
+    { label: 'Referrals', detail: qualifiedReferrals == null ? 'Qualification unavailable' : `${qualifiedReferrals} qualified`, amount: `+${gbpHour(PSEMINE_CONSTANTS.REFERRAL_BONUS_GBP_PER_HOUR)} each` },
+    { label: 'Tools total', detail: 'Backend-reported capacity', amount: toolCapacity == null ? null : gbpHour(toolCapacity) },
+    { label: 'Referral total', detail: 'Backend-reported capacity', amount: referralCapacity == null ? null : gbpHour(referralCapacity) },
+    { label: 'Overall total', detail: 'Backend-reported capacity', amount: totalCapacity == null ? null : gbpHour(totalCapacity) },
   ];
 
   return (
     <div className="pm-capacity-register" aria-label="Capacity register">
-      <div className="pm-capacity-head"><span>Capacity source</span><span>Position</span><span>Per hour</span></div>
+      <div className="pm-capacity-head"><span>Capacity source</span><span>Position</span><span>Rate / hour</span></div>
       {rows.map(row => (
         <div className={`pm-capacity-row${row.label.includes('total') || row.label === 'Overall total' ? ' pm-capacity-total' : ''}`} key={row.label}>
-          <span>{row.label}</span><span>{row.detail}</span><strong>{row.amount === null ? '—' : gbpHour(row.amount)}</strong>
+          <span>{row.label}</span><span>{row.detail}</span><strong>{row.amount === null ? '—' : row.amount}</strong>
         </div>
       ))}
       <div className="pm-capacity-mobile" aria-label="Capacity summary">

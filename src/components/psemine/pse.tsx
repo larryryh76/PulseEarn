@@ -26,6 +26,7 @@ export const CAMPAIGN_STATUS_MAP: Record<string, {
   scheduled: { label: 'Scheduled', headline: 'Campaign hasn\u2019t started yet', detail: 'Mining begins when the campaign goes live.', live: false },
   active:    { label: 'Active', headline: 'Mining available', detail: 'Tools are operating and accruing on schedule.', live: true },
   paused:    { label: 'Paused', headline: 'Mining temporarily paused', detail: 'Accrual is paused network-wide. It resumes automatically when the campaign resumes.', live: false },
+  ended:     { label: 'Mining ended', headline: 'Mining has ended', detail: 'Accrual has stopped. The campaign has not yet reported settlement completion.', live: false },
   settling:  { label: 'Settling', headline: 'Mining ended — final earnings being calculated', detail: 'Accrual has stopped. Final balances are being calculated for settlement.', live: false },
   payout:    { label: 'Payout', headline: 'Payout processing', detail: 'Settled balances are being disbursed to configured payout wallets.', live: false },
   closed:    { label: 'Closed', headline: 'Campaign finished', detail: 'The campaign has finished. Balances were settled.', live: false },
@@ -33,7 +34,8 @@ export const CAMPAIGN_STATUS_MAP: Record<string, {
 };
 
 export function campaignStatusView(status?: string | null) {
-  return CAMPAIGN_STATUS_MAP[status || ''] || CAMPAIGN_STATUS_MAP.scheduled;
+  if (!status) return { label: 'Unavailable', headline: 'Campaign state unavailable', detail: 'The backend has not reported a campaign state.', live: false };
+  return CAMPAIGN_STATUS_MAP[status] || { label: 'State unavailable', headline: 'Campaign state unavailable', detail: 'The backend reported a state this interface does not recognize.', live: false };
 }
 
 /* ── Tool operating cycle (backend derive_cycle state machine) ──────── */
@@ -54,7 +56,7 @@ export const CYCLE_STATE_MAP: Record<string, {
 };
 
 export function cycleStateView(state?: string | null) {
-  return CYCLE_STATE_MAP[state || ''] || CYCLE_STATE_MAP.inactive;
+  return CYCLE_STATE_MAP[state || ''] || { label: 'State unavailable', description: 'The backend has not reported an operating state.', live: false };
 }
 
 /* ── Operating model labels (session vs continuous) ───────────────────
@@ -82,7 +84,7 @@ export const PURCHASE_STATUS_MAP: Record<string, { label: string; terminal: bool
 };
 
 export function purchaseStatusView(status?: string | null) {
-  return PURCHASE_STATUS_MAP[status || ''] || PURCHASE_STATUS_MAP.created;
+  return PURCHASE_STATUS_MAP[status || ''] || { label: 'Status unavailable', terminal: false };
 }
 
 /* ── Referral stage ─────────────────────────────────────────────────── */
@@ -96,7 +98,7 @@ export const REFERRAL_STAGE_MAP: Record<string, { label: string; step: number; h
 };
 
 export function referralStageView(stage?: string | null) {
-  return REFERRAL_STAGE_MAP[stage || ''] || REFERRAL_STAGE_MAP.registered;
+  return REFERRAL_STAGE_MAP[stage || ''] || { label: 'Stage unavailable', step: 0, help: 'The backend has not reported a referral stage.' };
 }
 
 export const REFERRAL_STAGES = [
@@ -119,7 +121,7 @@ export const PAYOUT_STATUS_MAP: Record<string, { label: string }> = {
 };
 
 export function payoutStatusView(status?: string | null) {
-  return PAYOUT_STATUS_MAP[status || ''] || PAYOUT_STATUS_MAP.pending;
+  return PAYOUT_STATUS_MAP[status || ''] || { label: 'Status unavailable' };
 }
 
 /* ── Formatters ─────────────────────────────────────────────────────── */
@@ -265,7 +267,7 @@ export function CopyField({ value, display, label, fullWidth: _fullWidth }: {
       onClick={async () => { if (await copyText(value)) { setCopied(true); setTimeout(() => setCopied(false), 1600); } }}
       aria-label={label ? `Copy ${label}` : 'Copy to clipboard'}
     >
-      <span>{display || value}</span>
+      <span className="pm-mono">{display || value}</span>
       <span>{copied ? 'Copied' : 'Copy'}</span>
     </button>
   );

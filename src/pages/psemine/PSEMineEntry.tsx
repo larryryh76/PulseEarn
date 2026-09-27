@@ -2,11 +2,13 @@ import { Navigate } from 'react-router-dom';
 import { PSEmineProtectedRoute } from './PSEmineAuth';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { PSEMineLanding } from './PSEMineLanding';
+import { PSELogo } from '../../components/psemine/PSEBrand';
 
 function EntryLoadingStatus() {
   return (
-    <main aria-busy="true">
-      <p role="status" aria-live="polite">Restoring PSEmine session…</p>
+    <main className="pm-product pm-auth-loading" aria-busy="true">
+      <PSELogo size={36} withWordmark />
+      <p role="status" aria-live="polite">Restoring your PSEmine session…</p>
     </main>
   );
 }

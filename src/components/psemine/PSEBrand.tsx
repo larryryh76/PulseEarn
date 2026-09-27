@@ -6,7 +6,7 @@ const MARK_CUT = '#252B33';
 
 export function PSELogo({ size = 32, withWordmark = false }: { size?: number; withWordmark?: boolean }) {
   return (
-    <span>
+    <span className="pm-brand-logo">
       <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="PSEmine emblem">
         <path d="M8 8L20 4V34L8 42V8Z" fill={MARK_BLUE} />
         <path d="M22 4L38 12L42 16L22 24V4Z" fill={MARK_BONE} />
@@ -16,7 +16,7 @@ export function PSELogo({ size = 32, withWordmark = false }: { size?: number; wi
       </svg>
       {withWordmark && (
         <span>
-          {' '}PSEmine<br />90-day campaign
+          {' '}PSEmine<span className="pm-brand-tagline">90-day campaign</span>
         </span>
       )}
     </span>

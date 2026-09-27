@@ -69,7 +69,7 @@ export const PSEMineLanding: React.FC = () => {
             <p className="pm-eyebrow">Tools built for the campaign</p>
             <h2 id="pm-tools-heading">Choose a tool. Know its terms before you buy.</h2>
             <p>Each tier has a fixed GBP price, an hourly capacity contribution, an ownership limit and a clear operating model. Payment is made in BNB at a live, server-issued quote; a tool is activated only after on-chain verification.</p>
-            <PSEMineToolFamily actionLabel="View purchase steps" />
+            <PSEMineToolFamily />
             <p><Link to="/mine/tools">See all four tools and purchase requirements</Link></p>
           </section>
 

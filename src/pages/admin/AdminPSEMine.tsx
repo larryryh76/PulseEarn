@@ -11,7 +11,8 @@ import { ConfirmDialog } from '../../components/psemine/ConfirmDialog';
 const AdminPSEMine: React.FC = () => {
   usePseDocumentTitle('Operations');
 
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
+  const canAdminister = userData?.role === 'admin' || userData?.isRoot === true;
   const { campaign, refreshData: refreshCampaign } = usePSEMine();
 
   const [loading, setLoading] = useState(true);
@@ -67,7 +68,7 @@ const AdminPSEMine: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   const campaignAction = async (action: 'pause' | 'resume' | 'settle' | 'shutdown') => {
-    if (!currentUser) return;
+    if (!currentUser || !canAdminister) return;
     const messages: Record<string, { title: string; detail: string; requireText?: string }> = {
       pause: { title: 'Pause the campaign?', detail: 'Accrual stops network-wide until resume. Tools and balances are untouched. This is recorded in the audit log.' },
       resume: { title: 'Resume the campaign?', detail: 'Operating tools resume accruing from the resume time. No retroactive accrual. This is recorded in the audit log.' },
@@ -107,6 +108,7 @@ const AdminPSEMine: React.FC = () => {
   };
 
   const resolveRecovery = async (recoveryId: string, action: 'mark_reviewed' | 'attach_to_purchase' | 'reject', notes: string, purchaseId?: string) => {
+    if (!canAdminister) return;
     setResolving(recoveryId + action);
     try {
       const token = await currentUser?.getIdToken();
@@ -126,6 +128,7 @@ const AdminPSEMine: React.FC = () => {
   };
 
   const reviewWithdrawal = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
+    if (!canAdminister) return;
     if (action === 'APPROVE' && !txHash) { toast.error('A transaction hash is required to approve a payout.'); return; }
     if (action === 'REJECT') {
       setConfirm({
@@ -145,6 +148,7 @@ const AdminPSEMine: React.FC = () => {
   };
 
   const submitWithdrawalReview = async (withdrawalId: string, action: 'APPROVE' | 'REJECT', txHash?: string) => {
+    if (!canAdminister) return;
     try {
       const token = await currentUser?.getIdToken();
       const res = await fetch(`/api/admin/psemine/withdrawals/${encodeURIComponent(withdrawalId)}/review`, {
@@ -162,7 +166,7 @@ const AdminPSEMine: React.FC = () => {
     } finally { setResolving(null); }
   };
 
-  if (loading) return <main><p role="status">Loading PSEmine operations</p></main>;
+  if (loading) return <main className="pm-product pm-page"><p role="status">Loading PSEmine operations</p></main>;
 
   const camp = (campaign?.status || (typeof stats.campaignStatus === 'string' ? stats.campaignStatus : '')) || '';
   const campaignView = camp ? campaignStatusView(camp) : null;
@@ -170,12 +174,12 @@ const AdminPSEMine: React.FC = () => {
   const toolCount = num('toolsSold');
 
   return (
-    <main>
+    <main className="pm-product pm-page pm-admin">
       <header>
-        <p>Operations · PSEmine</p>
+        <p className="pm-eyebrow">Operations · PSEmine</p>
         <h1>PSEmine operations</h1>
         <p>Live campaign state and the two exception queues that require a human decision. Every figure here is read from the canonical PSEmine backend — nothing on this screen is computed in the browser.</p>
-        <p>Super admin</p>
+        <p>{canAdminister ? 'Administrator controls' : 'Read-only operations access'}</p>
         {loadedAt && <p>Data as of {fmtDateTime(loadedAt)}</p>}
         <button type="button" onClick={() => void load(true)} disabled={refreshing}>
           {refreshing ? 'Refreshing…' : 'Refresh'}
@@ -211,6 +215,20 @@ const AdminPSEMine: React.FC = () => {
         </dl>
       </section>
 
+      <section aria-labelledby="operations-metrics-title">
+        <p className="pm-eyebrow">System state</p>
+        <h2 id="operations-metrics-title">Campaign operations</h2>
+        <dl>
+          <div><dt>Qualified referrals</dt><dd>{num('qualifiedReferrals')}</dd></div>
+          <div><dt>Tools sold</dt><dd>{toolCount}</dd></div>
+          <div><dt>Recorded tool payments</dt><dd>{Number(num('totalBNBCollected')).toFixed(6)} BNB</dd></div>
+          <div><dt>Accrued liability</dt><dd>{gbp(num('totalAccruedMinor') / 100)}</dd></div>
+          <div><dt>Ledger debits</dt><dd>{gbp(num('totalDebitedMinor') / 100)}</dd></div>
+          <div><dt>Open recovery cases</dt><dd>{num('openRecoveryCases')}</dd></div>
+        </dl>
+        <p>Payments, referral qualification, accrued liability and recovery counts are reported by the canonical operations endpoint. Audit evidence is retained server-side.</p>
+      </section>
+
       <section aria-labelledby="campaign-duty-title">
         <h2 id="campaign-duty-title">Campaign duty</h2>
         <p>{campaign
@@ -226,18 +244,18 @@ const AdminPSEMine: React.FC = () => {
         <p>psemine_campaigns/active_campaign · consequential actions are confirmed, then recorded in the audit trail</p>
         <div>
           {campaign?.status === 'paused' ? (
-            <button type="button" onClick={() => void campaignAction('resume')} disabled={actionBusy !== null}>
+            <button type="button" onClick={() => void campaignAction('resume')} disabled={!canAdminister || actionBusy !== null}>
               {actionBusy === 'resume' ? 'Working…' : 'Resume'}
             </button>
           ) : (
-            <button type="button" onClick={() => void campaignAction('pause')} disabled={actionBusy !== null || campaign?.status !== 'active'}>
+            <button type="button" onClick={() => void campaignAction('pause')} disabled={!canAdminister || actionBusy !== null || campaign?.status !== 'active'}>
               {actionBusy === 'pause' ? 'Working…' : 'Pause'}
             </button>
           )}
-          <button type="button" onClick={() => void campaignAction('settle')} disabled={actionBusy !== null}>
+          <button type="button" onClick={() => void campaignAction('settle')} disabled={!canAdminister || actionBusy !== null}>
             {actionBusy === 'settle' ? 'Working…' : 'Begin settlement'}
           </button>
-          <button type="button" onClick={() => void campaignAction('shutdown')} disabled={actionBusy !== null}>
+          <button type="button" onClick={() => void campaignAction('shutdown')} disabled={!canAdminister || actionBusy !== null}>
             {actionBusy === 'shutdown' ? 'Working…' : 'Shutdown & archive'}
           </button>
         </div>
@@ -279,7 +297,7 @@ const AdminPSEMine: React.FC = () => {
                       confirmLabel: 'Re-verify & attempt purchase',
                       run: async () => { await resolveRecovery(id, 'attach_to_purchase', 'Resolved from operations console — re-verified purchase linkage.'); },
                     })}
-                    disabled={resolving !== null}
+                    disabled={!canAdminister || resolving !== null}
                   >Complete purchase</button>
                   <button
                     type="button"
@@ -291,7 +309,7 @@ const AdminPSEMine: React.FC = () => {
                       danger: true,
                       run: async () => { await resolveRecovery(id, 'reject', 'Dismissed after review.'); },
                     })}
-                    disabled={resolving !== null}
+                    disabled={!canAdminister || resolving !== null}
                   >Dismiss</button>
                 </li>
               );
@@ -312,8 +330,9 @@ const AdminPSEMine: React.FC = () => {
               const status = String(w.status || 'pending');
               const view = payoutStatusView(status);
               const amountMinor = typeof w.amountMinor === 'number' ? w.amountMinor
-                : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100) : null;
-              const dest = (w.destinationWallet || w.payoutWallet) as string | undefined;
+                : typeof w.amountGBP === 'number' ? Math.round(w.amountGBP * 100)
+                  : typeof w.amountGbp === 'number' ? Math.round(w.amountGbp * 100) : null;
+              const dest = (w.destinationWallet || w.payoutWallet || w.payoutAddress) as string | undefined;
               const busy = resolving === id + 'APPROVE' || resolving === id + 'REJECT';
               const reviewable = status === 'pending' || status === 'under_review';
               return (
@@ -327,8 +346,8 @@ const AdminPSEMine: React.FC = () => {
                   <p>Amount: {amountMinor !== null ? gbp(amountMinor / 100) : '—'}</p>
                   {reviewable && (
                     <div>
-                      <ApprovePayoutButton busy={busy} onApprove={(hash) => void reviewWithdrawal(id, 'APPROVE', hash)} />
-                      <button type="button" onClick={() => { void reviewWithdrawal(id, 'REJECT'); }} disabled={busy}>Reject</button>
+                      <ApprovePayoutButton busy={busy || !canAdminister} onApprove={(hash) => void reviewWithdrawal(id, 'APPROVE', hash)} />
+                      <button type="button" onClick={() => { void reviewWithdrawal(id, 'REJECT'); }} disabled={busy || !canAdminister}>Reject</button>
                     </div>
                   )}
                 </li>

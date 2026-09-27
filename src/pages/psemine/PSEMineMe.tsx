@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import {
-  PSELoading, gbpHour, fmtDateTime, shortAddr, campaignStatusView,
+  PSELoading, fmtDateTime, shortAddr, campaignStatusView,
 } from '../../components/psemine/pse';
 import { updatePassword as firebaseUpdatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -31,7 +31,7 @@ const SpecRow: React.FC<{ k: string; v: React.ReactNode; hint?: React.ReactNode 
 const Section: React.FC<{ id: string; title: string; meta?: string; action?: React.ReactNode; children: React.ReactNode }> = ({
   id, title, meta, action, children,
 }) => (
-  <section id={`account-section-${id}`}>
+  <section className="pm-account-section" id={`account-section-${id}`}>
     <header>
       <h2>{title}</h2>
       {meta && <p>{meta}</p>}
@@ -60,7 +60,6 @@ export const PSEMineMe: React.FC = () => {
   const campaignView = campaignStatusView(campaignStatus);
   const payoutWallet = state?.user?.payoutWallet ?? null;
   const connectedWallet = state?.user?.connectedWallet ?? null;
-  const capacity = state?.user?.totalCapacityGBPPerHour ?? 0;
   const isPasswordAccount = (currentUser?.providerData || []).some(p => p.providerId === 'password');
   const lastNotification = notifications.reduce<typeof notifications[number] | null>((acc, n) => {
     if (!acc) return n;
@@ -101,7 +100,7 @@ export const PSEMineMe: React.FC = () => {
   };
 
   return (
-    <main>
+    <main className="pm-page">
       <header>
         <p>Account · identity</p>
         <h1>Account</h1>
@@ -111,15 +110,10 @@ export const PSEMineMe: React.FC = () => {
 
       {loading && !state && <PSELoading label="Loading account details" />}
 
-      <section aria-labelledby="account-capacity-heading">
-        <h2 id="account-capacity-heading">Account capacity</h2>
-        <p>{gbpHour(capacity)}</p>
-        <p role="status">{currentUser?.emailVerified ? 'Verified' : 'Verification pending'}</p>
-        <p>
-          {currentUser?.emailVerified
-            ? 'One Firebase identity is shared across PulseEarn and PSEmine; product access is separate and explicit — this account is enrolled in PSEmine.'
-            : 'Email verification is required before the console enables purchases and payouts.'}
-        </p>
+      <section className="pm-account-section" aria-labelledby="account-status-heading">
+        <h2 id="account-status-heading">Account status</h2>
+        <p role="status">Email {currentUser?.emailVerified ? 'verified' : 'verification pending'} · PSEmine access enabled</p>
+        <p>One Firebase identity is shared across PulseEarn and PSEmine, while access, campaign records and accounting remain product-specific.</p>
         <dl>
           <div><dt>Campaign</dt><dd>{campaignView.label.trim()}</dd></div>
           <div><dt>Operating tools</dt><dd>{String((state?.tools ?? []).length)}</dd></div>
@@ -130,7 +124,7 @@ export const PSEMineMe: React.FC = () => {
 
       <nav aria-label="Account sections">
         <h2>Sections</h2>
-        <ul>
+        <ul className="pm-account-sections">
           {SECTIONS.map(s => (
             <li key={s.id}>
               <button
@@ -284,7 +278,6 @@ export const PSEMineMe: React.FC = () => {
 
       <Section id="campaign" title="Campaign information" meta="Read-only — derived from backend state">
         <SpecRow k="Campaign status" v={campaignView.label.trim()} />
-        <SpecRow k="Your capacity" v={gbpHour(capacity)} hint="Tools plus qualified referrals" />
         <SpecRow
           k="Operating tools"
           v={String((state?.tools ?? []).length)}

@@ -1,3 +1,4 @@
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { usePSEMineAuth } from '../../contexts/usePSEMineAuth';
 import { usePseState } from './PseStateProvider';
@@ -95,7 +96,7 @@ export const PSEMineShell: React.FC = () => {
         )}
       </header>
       <ConsoleStatus inConsole={inConsole} />
-      <main className="pm-console-main"><Outlet /></main>
+      <div className="pm-console-main"><Outlet /></div>
       <footer className="pm-footer">
         <Link to="/mine"><PSELogo size={21} withWordmark /></Link>
         <nav aria-label="Footer"><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><Link to="/help">Support</Link></nav>
@@ -105,7 +106,7 @@ export const PSEMineShell: React.FC = () => {
   );
 };
 
-const AccountMenu = React.forwardRef<HTMLDivElement, { open: boolean; setOpen: (value: boolean) => void }>(
+const AccountMenu = forwardRef<HTMLDivElement, { open: boolean; setOpen: (value: boolean) => void }>(
   ({ open, setOpen }, ref) => {
     const { userData, currentUser, logout } = usePSEMineAuth();
     const navigate = useNavigate();

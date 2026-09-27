@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePseState } from '../../components/psemine/PseStateProvider';
 import { usePSEMine } from '../../contexts/PSEMineContext';
@@ -69,7 +70,7 @@ export const PSEMineReferrals: React.FC = () => {
         {link ? <>
           <p>The backend attributes signups made through this link. Self-referrals, duplicates and circular references are rejected.</p>
           <p><CopyField value={link} display={link} label="referral link" fullWidth /></p>
-          <p>Code: <CopyField value={code} display={code} label="referral code" /></p>
+          <p>Code: <CopyField value={code || ''} display={code || ''} label="referral code" /></p>
           <button type="button" onClick={() => void share()}>Share invite link</button>
         </> : <div className="pm-empty"><p>No referral code has been returned for this account. An invite link is not available yet.</p></div>}
       </section>

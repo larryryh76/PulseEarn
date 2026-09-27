@@ -1,0 +1,35 @@
+# Sync configuration for BetaHuhn/repo-file-sync-action.
+# Read by .github/workflows/sync-skills.yml via the CONFIG_PATH input.
+#
+# HOW TO READ THIS FILE
+# --------------------
+# The action copies files that are already on the runner disk into the repository
+# named by the top-level key, then pushes a branch and opens a pull request there.
+# The workflow checks the three upstream repositories out into .sync-src/<name>/,
+# so:
+#   * the top-level key  = OUR repository (the PR is opened here, never on upstream)
+#   * `source`           = path inside the .sync-src/ checkout
+#   * `dest`             = the path we want it to live at in this repository
+#
+# Adding another synced skill:
+#   1. add an `actions/checkout` step for the upstream repo in sync-skills.yml
+#   2. add the expected path to its "Verify upstream sources exist" step
+#   3. add a mapping below
+
+larryryh76/PulseEarn@main:
+  # --- nextlevelbuilder/ui-ux-pro-max-skill ---
+  - source: .sync-src/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/SKILL.md
+    dest: .agents/skills/ui-ux-pro-max/SKILL.md
+
+  # Whole directory: the *contents* of src/ui-ux-pro-max/ land in src/.
+  - source: .sync-src/ui-ux-pro-max-skill/src/ui-ux-pro-max/
+    dest: .agents/skills/ui-ux-pro-max/src/
+
+  # --- feimacode/open-design-agent-kit ---
+  - source: .sync-src/open-design-agent-kit/packages/claude-plugin/skills/open-design/SKILL.md
+    dest: .agents/skills/open-design/SKILL.md
+
+  # --- nexu-io/open-design ---
+  # Whole directory: the *contents* of design-systems/ land in design-systems/.
+  - source: .sync-src/open-design/design-systems/
+    dest: .agents/skills/open-design/design-systems/

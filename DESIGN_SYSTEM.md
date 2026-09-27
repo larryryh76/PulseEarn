@@ -2,7 +2,7 @@
 
 **Scope: PSEmine only.** This file records the decisions taken for the PSEmine
 product. It is not a general design guide, it does not restate the repository
-design skills (`. agents/skills/open-design`, `. agents/skills/ui-ux-pro-max`),
+design skills (`.agents/skills/open-design`, `.agents/skills/ui-ux-pro-max`),
 and it is not a second authority — where this file and a repository skill
 disagree, the skill wins and this file is wrong.
 
